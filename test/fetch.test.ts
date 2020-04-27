@@ -6,9 +6,10 @@ describe('fetch', () => {
 
   beforeAll(() => {
     interceptor = new RequestInterceptor()
-
     interceptor.on('request', (req) => {
-      if (req.url === 'http://api.github.com/') {
+      if (
+        ['https://api.github.com/', 'http://api.github.com/'].includes(req.url)
+      ) {
         return {
           status: 201,
           headers: {
@@ -24,11 +25,35 @@ describe('fetch', () => {
     interceptor.restore()
   })
 
-  describe('given I perform a request', () => {
+  describe('given I perform an HTTP request', () => {
     let res: Response
 
     beforeAll(async () => {
       res = await fetch('http://api.github.com')
+    })
+
+    it('should return mocked status code', () => {
+      expect(res.status).toEqual(201)
+    })
+
+    it('should return mocked body', async () => {
+      const body = await res.json()
+
+      expect(body).toEqual({
+        mocked: true,
+      })
+    })
+
+    it('should return mocked headers', () => {
+      expect(res.headers.get('content-type')).toEqual('application/hal+json')
+    })
+  })
+
+  describe('given I perform an HTTPS request', () => {
+    let res: Response
+
+    beforeAll(async () => {
+      res = await fetch('https://api.github.com')
     })
 
     it('should return mocked status code', () => {

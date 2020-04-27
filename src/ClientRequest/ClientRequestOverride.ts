@@ -1,59 +1,34 @@
 import { Socket } from 'net'
-import { IncomingMessage, ClientRequest, RequestOptions } from 'http'
-import {
-  RequestHandler,
-  InterceptedRequest,
-  HttpRequestCallback,
-} from '../glossary'
-import { createInterceptedRequest } from '../utils/createInterceptedRequest'
+import http, { IncomingMessage, ClientRequest, RequestOptions } from 'http'
+import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
+import { inherits } from 'util'
 
-export class ClientRequestOverride extends ClientRequest {
-  interceptedRequest: InterceptedRequest
-  response: IncomingMessage
-  handler: RequestHandler
+export function ClientRequestOverride(this: ClientRequest, ...args: any[]) {
+  const [url, options, callback] = normalizeHttpRequestParams(...args)
 
-  constructor(
-    handler: RequestHandler,
-    url: URL,
-    options: RequestOptions,
-    callback?: HttpRequestCallback
-  ) {
-    super(options, callback)
+  http.OutgoingMessage.call(this)
 
-    this.interceptedRequest = createInterceptedRequest(url, options, this)
-    this.handler = handler
+  const socket = new Socket()
+  const response = new IncomingMessage(socket)
+  this.socket = this.connection = socket
 
-    const socket = new Socket()
-    this.response = new IncomingMessage(socket)
+  if (options.headers?.expect === '100-continue') {
+    this.emit('continue')
   }
 
-  async end() {
-    const mockedResponse = this.handler(this.interceptedRequest)
+  if (callback) {
+    this.once('response', callback)
+  }
 
-    if (mockedResponse) {
-      const { headers = {} } = mockedResponse
-
-      this.response.statusCode = mockedResponse.status
-      this.response.headers = headers
-      this.response.rawHeaders = Object.entries(headers).reduce<string[]>(
-        (acc, [name, value]) => {
-          return acc.concat([name, value])
-        },
-        []
-      )
-
-      if (mockedResponse.body) {
-        this.response.push(Buffer.from(mockedResponse.body))
-      }
-    }
-
-    // Mark request as finished
+  this.end = () => {
     this.finished = true
     this.emit('finish')
-    this.emit('response', this.response)
+    this.emit('response', response)
 
     // End the response
-    this.response.push(null)
-    this.response.complete = true
+    response.push(null)
+    response.complete = true
   }
 }
+
+inherits(ClientRequestOverride, http.ClientRequest)
