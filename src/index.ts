@@ -1,7 +1,6 @@
 import http from 'http'
 import https from 'https'
-import { RequestHandler, InterceptionEvent } from './glossary'
-import { createXMLHttpRequestOverride } from './XMLHttpRequest/XMLHttpRequestOverride'
+import { RequestHandler } from './glossary'
 import { overrideHttpModule } from './ClientRequest/overrideHttpModule'
 
 const httpRequestCopy = http.request
@@ -16,9 +15,6 @@ export class RequestInterceptor {
     this.handlers = []
 
     overrideHttpModule(this.handleRequest)
-
-    // @ts-ignore
-    window.XMLHttpRequest = createXMLHttpRequestOverride(this.handleRequest)
   }
 
   /**
