@@ -151,7 +151,7 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
         method: this.method,
       }
 
-      this.mockedResponse = handler(req)
+      this.mockedResponse = handler(req, this)
     }
 
     send(data?: string) {

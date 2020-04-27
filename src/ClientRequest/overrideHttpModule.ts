@@ -23,7 +23,7 @@ export const overrideHttpModule = (requestHandler: RequestHandler) => {
       // @ts-ignore
       (res: IncomingMessage) => {
         const formattedRequest = createInterceptedRequest(url, options, req)
-        const mockedResponse = requestHandler(formattedRequest)
+        const mockedResponse = requestHandler(formattedRequest, res)
 
         if (mockedResponse) {
           const { headers = {} } = mockedResponse

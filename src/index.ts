@@ -30,9 +30,9 @@ export class RequestInterceptor {
     this.handlers.push(handler)
   }
 
-  private handleRequest: RequestHandler = (req) => {
+  private handleRequest: RequestHandler = (req, ref) => {
     for (let handler of this.handlers) {
-      const res = handler(req)
+      const res = handler(req, ref)
 
       if (res) {
         return res
