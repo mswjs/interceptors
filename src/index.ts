@@ -1,7 +1,7 @@
 import http from 'http'
 import { RequestHandler, InterceptionEvent } from './glossary'
-import { ClientRequestOverride } from './ClientRequest/ClientRequestOverride'
 import { createXMLHttpRequestOverride } from './XMLHttpRequest/XMLHttpRequestOverride'
+import { overrideHttpModule } from './ClientRequest/overrideHttpModule'
 
 const httpRequestCopy = http.request
 const XMLHttpRequestCopy = XMLHttpRequest
@@ -12,14 +12,15 @@ export class RequestInterceptor {
   constructor() {
     this.handlers = []
 
-    http.request = (...args: any[]): any => {
-      return new ClientRequestOverride(args[0], this.handleRequest)
-    }
+    overrideHttpModule(this.handleRequest)
 
     // @ts-ignore
     window.XMLHttpRequest = createXMLHttpRequestOverride(this.handleRequest)
   }
 
+  /**
+   * Removes all the stubs and restores original instances.
+   */
   public restore() {
     http.request = httpRequestCopy
     window.XMLHttpRequest = XMLHttpRequestCopy

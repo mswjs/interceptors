@@ -1,9 +1,9 @@
 import { Socket } from 'net'
-import { IncomingMessage, ClientRequest } from 'http'
+import { IncomingMessage, ClientRequest, RequestOptions } from 'http'
 import {
   RequestHandler,
   InterceptedRequest,
-  ClientRequestInput,
+  HttpRequestCallback,
 } from '../glossary'
 import { createInterceptedRequest } from '../utils/createInterceptedRequest'
 
@@ -12,10 +12,15 @@ export class ClientRequestOverride extends ClientRequest {
   response: IncomingMessage
   handler: RequestHandler
 
-  constructor(input: ClientRequestInput, handler: RequestHandler) {
-    super(input)
+  constructor(
+    handler: RequestHandler,
+    url: URL,
+    options: RequestOptions,
+    callback?: HttpRequestCallback
+  ) {
+    super(options, callback)
 
-    this.interceptedRequest = createInterceptedRequest(input, this)
+    this.interceptedRequest = createInterceptedRequest(url, options, this)
     this.handler = handler
 
     const socket = new Socket()

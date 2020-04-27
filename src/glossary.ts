@@ -1,8 +1,8 @@
-import { ClientRequestArgs } from 'http'
+import { IncomingMessage } from 'http'
 
 export type InterceptionEvent = 'request'
 
-export type ClientRequestInput = string | URL | ClientRequestArgs
+export type HttpRequestCallback = (res: IncomingMessage) => void
 
 export interface InterceptedRequest {
   url: string
