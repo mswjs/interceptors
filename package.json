@@ -3,7 +3,7 @@
   "description": "Low-level HTTP/HTTPS/XHR request interception library for NodeJS",
   "version": "0.1.2",
   "main": "lib/index.js",
-  "typings": "lib/types/index.d.ts",
+  "typings": "lib/index.d.ts",
   "author": "Artem Zakharchenko",
   "license": "MIT",
   "scripts": {
@@ -11,6 +11,10 @@
     "build": "tsc --build",
     "prepublishOnly": "yarn test && yarn build"
   },
+  "files": [
+    "lib",
+    "README.md"
+  ],
   "devDependencies": {
     "@types/jest": "^25.2.1",
     "@types/node": "^13.13.2",
