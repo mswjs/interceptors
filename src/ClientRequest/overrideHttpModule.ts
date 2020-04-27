@@ -1,12 +1,15 @@
 import http, { IncomingMessage } from 'http'
 import https from 'https'
 import { RequestHandler } from '../glossary'
-import { create } from './ClientRequestOverride'
+import { createClientRequestOverrideClass } from './ClientRequestOverride'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
 import { inherits } from 'util'
 
 export const overrideHttpModule = (requestHandler: RequestHandler) => {
-  const ClientRequestOverride = create(requestHandler)
+  // Generating the class so that the request handling is performed
+  // as a part of that class. Performing it in a callback method results
+  // into race conditions between response set and response already written.
+  const ClientRequestOverride = createClientRequestOverrideClass(requestHandler)
 
   inherits(ClientRequestOverride, http.ClientRequest)
 

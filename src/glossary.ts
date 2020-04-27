@@ -19,6 +19,6 @@ export type RequestHandler = (
 export interface MockedResponse {
   status: number
   statusText: string
-  headers: Record<string, string>
+  headers: Record<string, string | string[]>
   body: string
 }

@@ -5,7 +5,7 @@ import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
 import { RequestHandler } from '../glossary'
 import { createInterceptedRequest } from '../utils/createInterceptedRequest'
 
-export function create(handler: RequestHandler) {
+export function createClientRequestOverrideClass(handler: RequestHandler) {
   function ClientRequestOverride(this: ClientRequest, ...args: any[]) {
     const [url, options, callback] = normalizeHttpRequestParams(...args)
 
@@ -32,7 +32,7 @@ export function create(handler: RequestHandler) {
 
         response.statusCode = mockedResponse.status
         response.headers = Object.entries(headers).reduce<
-          Record<string, string>
+          Record<string, string | string[]>
         >((acc, [name, value]) => {
           acc[name.toLowerCase()] = value
           return acc
@@ -40,7 +40,7 @@ export function create(handler: RequestHandler) {
 
         response.rawHeaders = Object.entries(headers).reduce<string[]>(
           (acc, [name, value]) => {
-            return acc.concat([name.toLowerCase(), value])
+            return acc.concat(name.toLowerCase()).concat(value)
           },
           []
         )
