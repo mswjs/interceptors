@@ -9,10 +9,12 @@ export interface InterceptedRequest {
   method: string
 }
 
+export type ReturnedResponse = Partial<MockedResponse> | void
+
 export type RequestHandler = (
   req: InterceptedRequest,
   ref: IncomingMessage | XMLHttpRequest
-) => Partial<MockedResponse> | undefined
+) => ReturnedResponse | Promise<ReturnedResponse>
 
 export interface MockedResponse {
   status: number

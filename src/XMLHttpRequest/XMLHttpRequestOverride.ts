@@ -9,7 +9,6 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
   return class XMLHttpRequestOverride implements XMLHttpRequest {
     requestHeaders: Record<string, string> = {}
     responseHeaders: Record<string, string> = {}
-    mockedResponse: Partial<MockedResponse> | undefined
     _events: any[] = []
 
     public readonly UNSENT = 0
@@ -125,7 +124,7 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
       this.responseXML = null as any
     }
 
-    open(
+    async open(
       method: string,
       url: string,
       async?: boolean,
@@ -145,32 +144,32 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
         this.user = user || ''
         this.password = password || ''
       }
-
-      const req = {
-        url: this.url,
-        method: this.method,
-      }
-
-      this.mockedResponse = handler(req, this)
     }
 
     send(data?: string) {
       this.readyState = this.LOADING
       this.data = data || ''
 
-      if (this.mockedResponse) {
-        this.status = this.mockedResponse.status || 200
-        this.statusText = this.mockedResponse.statusText || ''
-        this.responseHeaders = this.mockedResponse.headers || {}
-        this.response = this.mockedResponse.body || ''
-      } else {
-        /**
-         * @todo Perform an actual XHR
-         */
+      const req = {
+        url: this.url,
+        method: this.method,
       }
 
-      this.trigger('loadstart')
-      this.trigger('load')
+      Promise.resolve(handler(req, this)).then((mockedResponse) => {
+        if (mockedResponse) {
+          this.status = mockedResponse.status || 200
+          this.statusText = mockedResponse.statusText || ''
+          this.responseHeaders = mockedResponse.headers || {}
+          this.response = mockedResponse.body || ''
+        } else {
+          /**
+           * @todo Perform an actual XHR
+           */
+        }
+
+        this.trigger('loadstart')
+        this.trigger('load')
+      })
     }
 
     abort() {

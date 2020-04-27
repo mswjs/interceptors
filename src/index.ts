@@ -48,9 +48,9 @@ export class RequestInterceptor {
     this.handlers.push(handler)
   }
 
-  private handleRequest: RequestHandler = (req, ref) => {
+  private handleRequest: RequestHandler = async (req, ref) => {
     for (let handler of this.handlers) {
-      const res = handler(req, ref)
+      const res = await handler(req, ref)
 
       if (res) {
         return res

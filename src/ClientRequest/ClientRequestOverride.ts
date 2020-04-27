@@ -2,33 +2,74 @@ import { Socket } from 'net'
 import { inherits } from 'util'
 import http, { IncomingMessage, ClientRequest } from 'http'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
+import { RequestHandler } from '../glossary'
+import { createInterceptedRequest } from '../utils/createInterceptedRequest'
 
-export function ClientRequestOverride(this: ClientRequest, ...args: any[]) {
-  const [url, options, callback] = normalizeHttpRequestParams(...args)
+export function create(handler: RequestHandler) {
+  function ClientRequestOverride(this: ClientRequest, ...args: any[]) {
+    const [url, options, callback] = normalizeHttpRequestParams(...args)
 
-  http.OutgoingMessage.call(this)
+    http.OutgoingMessage.call(this)
 
-  const socket = new Socket()
-  const response = new IncomingMessage(socket)
-  this.socket = this.connection = socket
+    const socket = new Socket()
+    const response = new IncomingMessage(socket)
+    this.socket = this.connection = socket
 
-  if (options.headers?.expect === '100-continue') {
-    this.emit('continue')
+    if (options.headers?.expect === '100-continue') {
+      this.emit('continue')
+    }
+
+    if (callback) {
+      this.once('response', callback)
+    }
+
+    this.end = async (cb?: () => void) => {
+      const formattedRequest = createInterceptedRequest(url, options, this)
+      const mockedResponse = await handler(formattedRequest, response)
+
+      if (mockedResponse && !response.complete) {
+        const { headers = {} } = mockedResponse
+
+        response.statusCode = mockedResponse.status
+        response.headers = Object.entries(headers).reduce<
+          Record<string, string>
+        >((acc, [name, value]) => {
+          acc[name.toLowerCase()] = value
+          return acc
+        }, {})
+
+        response.rawHeaders = Object.entries(headers).reduce<string[]>(
+          (acc, [name, value]) => {
+            return acc.concat([name.toLowerCase(), value])
+          },
+          []
+        )
+
+        if (mockedResponse.body) {
+          response.push(Buffer.from(mockedResponse.body))
+        }
+      } else {
+        /**
+         * @todo Perform actual request
+         */
+      }
+
+      this.finished = true
+      this.emit('finish')
+
+      // Delegate the ending of response to the request handler
+      // to support async logic
+      this.emit('response', response)
+      response.push(null)
+      response.complete = true
+
+      if (cb) {
+        cb()
+      }
+    }
   }
 
-  if (callback) {
-    this.once('response', callback)
-  }
+  inherits(ClientRequestOverride, http.ClientRequest)
 
-  this.end = () => {
-    this.finished = true
-    this.emit('finish')
-    this.emit('response', response)
-
-    // End the response
-    response.push(null)
-    response.complete = true
-  }
+  return ClientRequestOverride
 }
-
-inherits(ClientRequestOverride, http.ClientRequest)
