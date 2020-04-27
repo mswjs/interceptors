@@ -1,10 +1,13 @@
 import http from 'http'
+import https from 'https'
 import { RequestHandler, InterceptionEvent } from './glossary'
 import { createXMLHttpRequestOverride } from './XMLHttpRequest/XMLHttpRequestOverride'
 import { overrideHttpModule } from './ClientRequest/overrideHttpModule'
 
 const httpRequestCopy = http.request
-const XMLHttpRequestCopy = XMLHttpRequest
+const httpGetCopy = http.get
+const httpsRequestCopy = https.request
+const httpsGetCopy = https.get
 
 export class RequestInterceptor {
   private handlers: RequestHandler[]
@@ -23,7 +26,10 @@ export class RequestInterceptor {
    */
   public restore() {
     http.request = httpRequestCopy
-    window.XMLHttpRequest = XMLHttpRequestCopy
+    http.get = httpGetCopy
+
+    https.request = httpsRequestCopy
+    https.get = httpsGetCopy
   }
 
   public on(event: InterceptionEvent, handler: RequestHandler) {

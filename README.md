@@ -6,7 +6,6 @@ Low-level HTTP/HTTPS request interception library for NodeJS.
 
 - `http.request()`/`https.request()`
 - `http.get()`/`https.get()`
-- `XMLRequest`
 - `fetch()`
 - Any third-party implementations that utilize the above (i.e. `node-fetch`, `axios`, etc.)
 
@@ -22,7 +21,6 @@ This library replaces the following native functions with their compatible augme
 
 - `http.request`/`https.request`
 - `http.get`/`https.get`
-- `XMLHttpRequest`
 
 Upon replacing, it provides an interface to listen to outgoing requests regardless of their origin.
 

@@ -1,3 +1,6 @@
+/**
+ * @jest-enviroment node
+ */
 import fetch, { Response } from 'node-fetch'
 import { RequestInterceptor } from '../src'
 
@@ -70,6 +73,27 @@ describe('fetch', () => {
 
     it('should return mocked headers', () => {
       expect(res.headers.get('content-type')).toEqual('application/hal+json')
+    })
+  })
+
+  describe('given I cleaned up', () => {
+    beforeAll(() => {
+      interceptor.restore()
+    })
+
+    describe('and perform a request', () => {
+      let res: Response
+
+      beforeAll(async () => {
+        res = await fetch('http://api.github.com')
+      })
+
+      it('should return an original response', async () => {
+        const body = await res.json()
+
+        expect(res.status).toEqual(200)
+        expect(body).toHaveProperty('gists_url')
+      })
     })
   })
 })

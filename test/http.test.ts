@@ -1,3 +1,6 @@
+/**
+ * @jest-enviroment node
+ */
 import http, { IncomingMessage } from 'http'
 import { RequestInterceptor } from '../src'
 
@@ -76,6 +79,39 @@ describe('http', () => {
 
     it('should return mocked body', () => {
       expect(resBody).toEqual(JSON.stringify({ mocked: true }))
+    })
+  })
+
+  describe('given I cleaned up', () => {
+    beforeAll(() => {
+      interceptor.restore()
+    })
+
+    describe('and I perform an HTTP request', () => {
+      let error: Error
+      let res: IncomingMessage
+
+      beforeAll((done) => {
+        const req = http.get('http://test.msw.io', (res) => {
+          res.setEncoding('utf8')
+          res.on('end', done)
+        })
+
+        req.on('error', (err) => {
+          error = err
+          done()
+        })
+        req.on('response', (original) => (res = original))
+        req.end()
+      })
+
+      it('should return error', () => {
+        expect(error).toBeTruthy
+      })
+
+      it('should not return any response', () => {
+        expect(res).toBeUndefined()
+      })
     })
   })
 })
