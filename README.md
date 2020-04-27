@@ -24,9 +24,12 @@ This library replaces the following native functions with their compatible augme
 
 Upon replacing, it provides an interface to listen to outgoing requests regardless of their origin.
 
+- Performs all requests as-is, unless a mocked response is returned in the interceptor.
+
 ## What this library doesn't do
 
 - Does not provide any request matching logic.
+- Does not decide how to handle a request.
 - Does not run in a browser environment.
 
 ## Getting started
@@ -44,12 +47,12 @@ import { RequestInterceptor } from 'node-request-interceptor'
 
 const interceptor = new RequestInterceptor()
 
-interceptor.on('request', (req) => {
+interceptor.use((req) => {
   // Execute arbitrary logic whenever any request happens.
   // `req` contains information about the intercepted request,
   // regardless of its origins (http/https/xhr).
   if (req.url === 'https://non-existing.url') {
-    // Return an abstract mocked response that is later coerced
+    // (Optional) Return an abstract mocked response that is later coerced
     // into a proper response instance depending on the request origin.
     return {
       status: 301,

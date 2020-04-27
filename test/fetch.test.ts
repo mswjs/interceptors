@@ -9,7 +9,7 @@ describe('fetch', () => {
 
   beforeAll(() => {
     interceptor = new RequestInterceptor()
-    interceptor.on('request', (req) => {
+    interceptor.use((req) => {
       if (
         ['https://api.github.com/', 'http://api.github.com/'].includes(req.url)
       ) {

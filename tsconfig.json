@@ -5,7 +5,11 @@
     "target": "es6",
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "typeRoots": ["node_modules/@types"]
+    "typeRoots": ["node_modules/@types"],
+    "outDir": "lib",
+    "declaration": true,
+    "declarationDir": "lib/types"
   },
-  "exclude": ["node_modules"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "test/**/*"]
 }

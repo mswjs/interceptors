@@ -9,7 +9,7 @@ describe('https', () => {
 
   beforeAll(() => {
     interceptor = new RequestInterceptor()
-    interceptor.on('request', (req) => {
+    interceptor.use((req) => {
       if (['https://test.msw.io/'].includes(req.url)) {
         return {
           status: 301,

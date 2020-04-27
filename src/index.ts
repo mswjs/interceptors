@@ -32,7 +32,10 @@ export class RequestInterceptor {
     https.get = httpsGetCopy
   }
 
-  public on(event: InterceptionEvent, handler: RequestHandler) {
+  /**
+   * Applies given request interception middleware to any outgoing request.
+   */
+  public use(handler: RequestHandler) {
     this.handlers.push(handler)
   }
 

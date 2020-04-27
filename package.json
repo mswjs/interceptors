@@ -2,11 +2,14 @@
   "name": "node-request-interceptor",
   "description": "Low-level HTTP/HTTPS request interception library for NodeJS",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "lib/index.js",
+  "typings": "lib/types",
   "author": "Artem Zakharchenko",
   "license": "MIT",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "build": "tsc --build",
+    "prepublishOnly": "yarn test && yarn build"
   },
   "devDependencies": {
     "@types/jest": "^25.2.1",
@@ -16,6 +19,5 @@
     "node-fetch": "^2.6.0",
     "ts-jest": "^25.4.0",
     "typescript": "^3.8.3"
-  },
-  "dependencies": {}
+  }
 }
