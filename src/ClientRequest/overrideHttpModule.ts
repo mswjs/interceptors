@@ -29,10 +29,16 @@ export const overrideHttpModule = (requestHandler: RequestHandler) => {
           const { headers = {} } = mockedResponse
 
           res.statusCode = mockedResponse.status
-          res.headers = headers
+          res.headers = Object.entries(headers).reduce<Record<string, string>>(
+            (acc, [name, value]) => {
+              acc[name.toLowerCase()] = value
+              return acc
+            },
+            {}
+          )
           res.rawHeaders = Object.entries(headers).reduce<string[]>(
             (acc, [name, value]) => {
-              return acc.concat([name, value])
+              return acc.concat([name.toLowerCase(), value])
             },
             []
           )
@@ -51,6 +57,15 @@ export const overrideHttpModule = (requestHandler: RequestHandler) => {
     return req
   }
 
+  const handleGet = (...args: any[]) => {
+    const req = httpRequest(...args)
+    req.end()
+    return req
+  }
+
   http.request = httpRequest
+  http.get = handleGet
+
   https.request = httpRequest
+  https.get = handleGet
 }

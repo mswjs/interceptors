@@ -25,7 +25,7 @@ describe('fetch', () => {
     interceptor.restore()
   })
 
-  describe('given I perform an HTTP request', () => {
+  describe('given I perform an HTTP request using fetch', () => {
     let res: Response
 
     beforeAll(async () => {
@@ -49,7 +49,7 @@ describe('fetch', () => {
     })
   })
 
-  describe('given I perform an HTTPS request', () => {
+  describe('given I perform an HTTPS request using fetch', () => {
     let res: Response
 
     beforeAll(async () => {

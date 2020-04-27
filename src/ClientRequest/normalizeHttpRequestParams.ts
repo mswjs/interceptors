@@ -24,7 +24,7 @@ export function normalizeHttpRequestParams(
       `${options.protocol}//${options.hostname}`
     )
     callback = args[1]
-  } else if (args[1].hasOwnProperty('method')) {
+  } else if (args[1]?.hasOwnProperty('method')) {
     url = resolveUrl(args[0])
     options = args[1]
     callback = args[2]

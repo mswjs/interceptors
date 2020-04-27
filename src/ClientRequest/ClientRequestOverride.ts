@@ -1,7 +1,7 @@
 import { Socket } from 'net'
-import http, { IncomingMessage, ClientRequest, RequestOptions } from 'http'
-import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
 import { inherits } from 'util'
+import http, { IncomingMessage, ClientRequest } from 'http'
+import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
 
 export function ClientRequestOverride(this: ClientRequest, ...args: any[]) {
   const [url, options, callback] = normalizeHttpRequestParams(...args)
