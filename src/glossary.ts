@@ -9,4 +9,13 @@ export interface InterceptedRequest {
   method: string
 }
 
-export type RequestHandler = (req: InterceptedRequest) => void
+export type RequestHandler = (
+  req: InterceptedRequest
+) => Partial<MockedResponse> | undefined
+
+export interface MockedResponse {
+  status: number
+  statusText: string
+  headers: Record<string, string>
+  body: string
+}

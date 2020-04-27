@@ -6,7 +6,7 @@
   "author": "Artem Zakharchenko",
   "license": "MIT",
   "scripts": {
-    "jest": "jest"
+    "test": "jest"
   },
   "devDependencies": {
     "@types/jest": "^25.2.1",
@@ -16,5 +16,6 @@
     "node-fetch": "^2.6.0",
     "ts-jest": "^25.4.0",
     "typescript": "^3.8.3"
-  }
+  },
+  "dependencies": {}
 }

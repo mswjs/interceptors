@@ -1,11 +1,11 @@
 import { Socket } from 'net'
-import { IncomingMessage, ClientRequestArgs, ClientRequest } from 'http'
+import { IncomingMessage, ClientRequest } from 'http'
 import {
   RequestHandler,
   InterceptedRequest,
   ClientRequestInput,
-} from './glossary'
-import { createInterceptedRequest } from './utils/createInterceptedRequest'
+} from '../glossary'
+import { createInterceptedRequest } from '../utils/createInterceptedRequest'
 
 export class ClientRequestOverride extends ClientRequest {
   interceptedRequest: InterceptedRequest
@@ -23,8 +23,24 @@ export class ClientRequestOverride extends ClientRequest {
   }
 
   async end() {
-    // dispatch handler
-    this.handler(this.interceptedRequest)
+    const mockedResponse = this.handler(this.interceptedRequest)
+
+    if (mockedResponse) {
+      const { headers = {} } = mockedResponse
+
+      this.response.statusCode = mockedResponse.status
+      this.response.headers = headers
+      this.response.rawHeaders = Object.entries(headers).reduce<string[]>(
+        (acc, [name, value]) => {
+          return acc.concat([name, value])
+        },
+        []
+      )
+
+      if (mockedResponse.body) {
+        this.response.push(Buffer.from(mockedResponse.body))
+      }
+    }
 
     // Mark request as finished
     this.finished = true
