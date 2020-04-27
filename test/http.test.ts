@@ -31,7 +31,7 @@ describe('http', () => {
     let resBody: string = ''
 
     beforeAll((done) => {
-      const req = http.request('http://test.msw.io', (res) => {
+      const req = http.request('http://test.msw.io?foo=bar', (res) => {
         res.setEncoding('utf8')
         res.on('data', (chunk) => (resBody += chunk))
         res.on('end', done)

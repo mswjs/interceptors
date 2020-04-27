@@ -31,7 +31,8 @@ export function normalizeHttpRequestParams(
   } else {
     url = resolveUrl(args[0])
 
-    // At this point reconstruct `RequestOptions` from the URL
+    // At this point `ClientRequest` has been constructed only using URL.
+    // Coerce URL into a `RequestOptions` instance.
     options = {
       method: 'GET',
       protocol: url.protocol,
@@ -40,6 +41,7 @@ export function normalizeHttpRequestParams(
       port: url.port,
       path: url.pathname,
     }
+
     callback = args[1]
   }
 

@@ -1,8 +1,7 @@
-import http, { IncomingMessage } from 'http'
+import http from 'http'
 import https from 'https'
 import { RequestHandler } from '../glossary'
 import { createClientRequestOverrideClass } from './ClientRequestOverride'
-import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
 import { inherits } from 'util'
 
 export const overrideHttpModule = (requestHandler: RequestHandler) => {
@@ -19,8 +18,8 @@ export const overrideHttpModule = (requestHandler: RequestHandler) => {
   http.ClientRequest = ClientRequestOverride
 
   const httpRequest = (...args: any[]) => {
-    const [url, options, callback] = normalizeHttpRequestParams(...args)
-    return new http.ClientRequest(options, callback)
+    // @ts-ignore
+    return new http.ClientRequest(...args)
   }
 
   const handleGet = (...args: any[]) => {

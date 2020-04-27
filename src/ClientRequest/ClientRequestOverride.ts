@@ -2,8 +2,7 @@ import { Socket } from 'net'
 import { inherits } from 'util'
 import http, { IncomingMessage, ClientRequest } from 'http'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
-import { RequestHandler } from '../glossary'
-import { createInterceptedRequest } from '../utils/createInterceptedRequest'
+import { RequestHandler, InterceptedRequest } from '../glossary'
 
 export function createClientRequestOverrideClass(handler: RequestHandler) {
   function ClientRequestOverride(this: ClientRequest, ...args: any[]) {
@@ -23,8 +22,22 @@ export function createClientRequestOverrideClass(handler: RequestHandler) {
       this.once('response', callback)
     }
 
+    const urlWithoutQuery = `${url.origin}${url.pathname}`
+
     this.end = async (cb?: () => void) => {
-      const formattedRequest = createInterceptedRequest(url, options, this)
+      // Construct the intercepted request instance.
+      // This request is what's exposed to the request middleware.
+      const formattedRequest: InterceptedRequest = {
+        url: urlWithoutQuery,
+        method: options.method || 'GET',
+        headers: (options.headers as Record<string, string | string[]>) || {},
+        /**
+         * @todo Get HTTP request body
+         */
+        body: undefined,
+        query: url.searchParams,
+      }
+
       const mockedResponse = await handler(formattedRequest, response)
 
       if (mockedResponse && !response.complete) {

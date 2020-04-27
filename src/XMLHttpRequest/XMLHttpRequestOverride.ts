@@ -2,7 +2,7 @@
  * XMLHttpRequest override class.
  * Inspired by https://github.com/marvinhagemeister/xhr-mocklet
  */
-import { RequestHandler, MockedResponse } from '../glossary'
+import { RequestHandler, InterceptedRequest } from '../glossary'
 import { createEvent } from './createEvent'
 import { flattenHeadersObject } from '../utils/flattenHeadersObject'
 
@@ -18,11 +18,14 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
     public readonly LOADING = 3
     public readonly DONE = 4
 
+    /* Custom public properties */
+    public method: string = 'GET'
+    public url: string = ''
+
+    /* XHR public properties */
     public withCredentials = false
     public status: number = 200
     public statusText: string = ''
-    public method: string = 'GEET'
-    public url: string = ''
     public user: string = ''
     public password: string = ''
     public data: string = ''
@@ -151,9 +154,16 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
       this.readyState = this.LOADING
       this.data = data || ''
 
-      const req = {
+      const url = new URL(this.url)
+      const req: InterceptedRequest = {
         url: this.url,
         method: this.method,
+        query: url.searchParams,
+        body: this.data,
+        /**
+         * @todo Parse headers to string[] values
+         */
+        headers: this.requestHeaders,
       }
 
       Promise.resolve(handler(req, this)).then((mockedResponse) => {
