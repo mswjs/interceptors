@@ -4,6 +4,7 @@
  */
 import { RequestHandler, MockedResponse } from '../glossary'
 import { createEvent } from './createEvent'
+import { flattenHeadersObject } from '../utils/flattenHeadersObject'
 
 export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
   return class XMLHttpRequestOverride implements XMLHttpRequest {
@@ -159,7 +160,9 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
         if (mockedResponse) {
           this.status = mockedResponse.status || 200
           this.statusText = mockedResponse.statusText || ''
-          this.responseHeaders = mockedResponse.headers || {}
+          this.responseHeaders = mockedResponse.headers
+            ? flattenHeadersObject(mockedResponse.headers)
+            : {}
           this.response = mockedResponse.body || ''
         } else {
           /**
