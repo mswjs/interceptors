@@ -16,13 +16,20 @@ While there are a lot of network communication mocking libraries, they tend to u
 
 This library allows you to execute arbitrary logic whenever an HTTP/HTTPS request happens. Through that logic you can set up logging or mocking, depending on your requirements.
 
-## How does this work?
+## What this library does
 
-This library operates by replacing the following native functions with their compatible augmented implementations:
+This library replaces the following native functions with their compatible augmented implementations:
 
 - `http.request`/`https.request`
 - `http.get`/`https.get`
 - `XMLHttpRequest`
+
+Upon replacing, it provides an interface to listen to outgoing requests regardless of their origin.
+
+## What this library doesn't do
+
+- Does not provide any request matching logic.
+- Does not run in a browser environment.
 
 ## Getting started
 
@@ -63,6 +70,8 @@ interceptor.restore()
 ```
 
 ## Special mention
+
+The following libraries were used as inspiration to write this low-level API:
 
 - [`nock`](https://github.com/nock/nock)
 - [`mock-xmlhttprequest`](https://github.com/berniegp/mock-xmlhttprequest)
