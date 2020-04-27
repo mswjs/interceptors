@@ -11,7 +11,7 @@ export interface InterceptedRequest {
 
 export type RequestHandler = (
   req: InterceptedRequest,
-  ref: IncomingMessage
+  ref: IncomingMessage | XMLHttpRequest
 ) => Partial<MockedResponse> | undefined
 
 export interface MockedResponse {

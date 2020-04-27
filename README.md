@@ -1,12 +1,15 @@
+![https://www.npmjs.com/package/node-request-interceptor](https://img.shields.io/npm/v/node-request-interceptor.svg)
+
 # `node-request-interceptor`
 
-Low-level HTTP/HTTPS request interception library for NodeJS.
+Low-level HTTP/HTTPS/XHR request interception library for NodeJS.
 
 **Supports interception of requests performed using:**
 
 - `http.request()`/`https.request()`
 - `http.get()`/`https.get()`
 - `fetch()`
+- `XMLHttpRequest`
 - Any third-party implementations that utilize the above (i.e. `node-fetch`, `axios`, etc.)
 
 ## Motivation
@@ -15,12 +18,17 @@ While there are a lot of network communication mocking libraries, they tend to u
 
 This library allows you to execute arbitrary logic whenever an HTTP/HTTPS request happens. Through that logic you can set up logging or mocking, depending on your requirements.
 
+### Why XMLHttpRequest?
+
+Although NodeJS comes with no `XMLHttpRequest` implementation, this libraries still covers it for the sake of processes that run in NodeJS emulating browser-like environments (i.e. `js-dom` in Jest).
+
 ## What this library does
 
 This library replaces the following native functions with their compatible augmented implementations:
 
 - `http.request`/`https.request`
 - `http.get`/`https.get`
+- `XMLHttpRequest`
 
 Upon replacing, it provides an interface to listen to outgoing requests regardless of their origin.
 
