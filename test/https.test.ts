@@ -28,58 +28,104 @@ describe('https', () => {
   })
 
   describe('given I perform request using https.request', () => {
-    let res: IncomingMessage
-    let resBody: string = ''
+    describe('and that request is handled in the middleware', () => {
+      let res: IncomingMessage
+      let resBody: string = ''
 
-    beforeAll((done) => {
-      const req = https.request('https://test.msw.io', (res) => {
-        res.setEncoding('utf8')
-        res.on('data', (chunk) => (resBody += chunk))
-        res.on('end', done)
+      beforeAll((done) => {
+        const req = https.request('https://test.msw.io', (res) => {
+          res.setEncoding('utf8')
+          res.on('data', (chunk) => (resBody += chunk))
+          res.on('end', done)
+        })
+
+        req.on('response', (original) => (res = original))
+        req.end()
       })
 
-      req.on('response', (original) => (res = original))
-      req.end()
+      it('should return mocked status code', () => {
+        expect(res.statusCode).toEqual(301)
+      })
+
+      it('should return mocked headers', () => {
+        expect(res.headers).toHaveProperty('content-type', 'application/json')
+      })
+
+      it('should return mocked body', () => {
+        expect(resBody).toEqual(JSON.stringify({ mocked: true }))
+      })
     })
 
-    it('should return mocked status code', () => {
-      expect(res.statusCode).toEqual(301)
-    })
+    describe('and that request is not handled in the middleware', () => {
+      let res: IncomingMessage
+      let resBody: string = ''
 
-    it('should return mocked headers', () => {
-      expect(res.headers).toHaveProperty('content-type', 'application/json')
-    })
+      beforeAll((done) => {
+        const req = https.request('https://httpbin.org/get', (res) => {
+          res.setEncoding('utf8')
+          res.on('data', (chunk) => (resBody += chunk))
+          res.on('end', done)
+        })
 
-    it('should return mocked body', () => {
-      expect(resBody).toEqual(JSON.stringify({ mocked: true }))
+        req.on('response', (original) => (res = original))
+        req.end()
+      })
+
+      it('should return mocked status code', () => {
+        expect(res.statusCode).toEqual(200)
+        expect(resBody).toContain(`\"url\": \"https://httpbin.org/get\"`)
+      })
     })
   })
 
   describe('given I perform request using https.get', () => {
-    let res: IncomingMessage
-    let resBody: string = ''
+    describe('and that request is handled in the middleware', () => {
+      let res: IncomingMessage
+      let resBody: string = ''
 
-    beforeAll((done) => {
-      const req = https.get('https://test.msw.io', (res) => {
-        res.setEncoding('utf8')
-        res.on('data', (chunk) => (resBody += chunk))
-        res.on('end', done)
+      beforeAll((done) => {
+        const req = https.get('https://test.msw.io', (res) => {
+          res.setEncoding('utf8')
+          res.on('data', (chunk) => (resBody += chunk))
+          res.on('end', done)
+        })
+
+        req.on('response', (original) => (res = original))
+        req.end()
       })
 
-      req.on('response', (original) => (res = original))
-      req.end()
+      it('should return mocked status code', () => {
+        expect(res.statusCode).toEqual(301)
+      })
+
+      it('should return mocked headers', () => {
+        expect(res.headers).toHaveProperty('content-type', 'application/json')
+      })
+
+      it('should return mocked body', () => {
+        expect(resBody).toEqual(JSON.stringify({ mocked: true }))
+      })
     })
 
-    it('should return mocked status code', () => {
-      expect(res.statusCode).toEqual(301)
-    })
+    describe('and that request is not handled in the middleware', () => {
+      let res: IncomingMessage
+      let resBody: string = ''
 
-    it('should return mocked headers', () => {
-      expect(res.headers).toHaveProperty('content-type', 'application/json')
-    })
+      beforeAll((done) => {
+        const req = https.get('https://httpbin.org/get', (res) => {
+          res.setEncoding('utf8')
+          res.on('data', (chunk) => (resBody += chunk))
+          res.on('end', done)
+        })
 
-    it('should return mocked body', () => {
-      expect(resBody).toEqual(JSON.stringify({ mocked: true }))
+        req.on('response', (original) => (res = original))
+        req.end()
+      })
+
+      it('should return mocked status code', () => {
+        expect(res.statusCode).toEqual(200)
+        expect(resBody).toContain(`\"url\": \"https://httpbin.org/get\"`)
+      })
     })
   })
 

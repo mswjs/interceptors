@@ -1,56 +1,35 @@
-import http from 'http'
-import https from 'https'
-import { RequestHandler } from './glossary'
-import { overrideHttpModule } from './ClientRequest/overrideHttpModule'
-import { createXMLHttpRequestOverride } from './XMLHttpRequest/XMLHttpRequestOverride'
-
-const httpClientRequestCopy = http.ClientRequest
-const httpRequestCopy = http.request
-const httpGetCopy = http.get
-const httpsRequestCopy = https.request
-const httpsGetCopy = https.get
-const xmlHttpRequestCopy = window?.XMLHttpRequest
+import { RequestMiddleware, ModuleOverride } from './glossary'
+import { overrideHttpModule } from './http/override'
+import { overrideXhrModule } from './XMLHttpRequest/override'
 
 export class RequestInterceptor {
-  private isBrowserLikeEnvironment: boolean
-  private handlers: RequestHandler[]
+  private overrides: ReturnType<ModuleOverride>[]
+  private handlers: RequestMiddleware[]
 
   constructor() {
-    this.isBrowserLikeEnvironment = typeof window !== 'undefined'
     this.handlers = []
 
-    overrideHttpModule(this.handleRequest)
-
-    if (this.isBrowserLikeEnvironment) {
-      // @ts-ignore
-      window.XMLHttpRequest = createXMLHttpRequestOverride(this.handleRequest)
-    }
+    this.overrides = [
+      overrideHttpModule(this.applyMiddleware),
+      overrideXhrModule(this.applyMiddleware),
+    ]
   }
 
   /**
    * Removes all the stubs and restores original instances.
    */
   public restore() {
-    http.ClientRequest = httpClientRequestCopy
-    http.request = httpRequestCopy
-    http.get = httpGetCopy
-
-    https.request = httpsRequestCopy
-    https.get = httpsGetCopy
-
-    if (this.isBrowserLikeEnvironment) {
-      window.XMLHttpRequest = xmlHttpRequestCopy
-    }
+    this.overrides.forEach((restore) => restore())
   }
 
   /**
    * Applies given request interception middleware to any outgoing request.
    */
-  public use(handler: RequestHandler) {
+  public use(handler: RequestMiddleware) {
     this.handlers.push(handler)
   }
 
-  private handleRequest: RequestHandler = async (req, ref) => {
+  private applyMiddleware: RequestMiddleware = async (req, ref) => {
     for (let handler of this.handlers) {
       const res = await handler(req, ref)
 

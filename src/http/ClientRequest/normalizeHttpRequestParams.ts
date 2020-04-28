@@ -1,8 +1,14 @@
 import { RequestOptions } from 'https'
-import { HttpRequestCallback } from '../glossary'
+import { HttpRequestCallback } from '../../glossary'
+
+const debug = require('debug')('http:normalize-http-request-params')
 
 function resolveUrl(input: string | URL): URL {
   return typeof input === 'string' ? new URL(input) : input
+}
+
+interface RequestSelf {
+  uri?: URL
 }
 
 /**
@@ -11,25 +17,40 @@ function resolveUrl(input: string | URL): URL {
  */
 export function normalizeHttpRequestParams(
   ...args: any[]
-): [URL, RequestOptions, HttpRequestCallback?] {
+): [URL, RequestOptions & RequestSelf, HttpRequestCallback?] {
   let url: URL
-  let options: RequestOptions
+  let options: RequestOptions & RequestSelf
   let callback: HttpRequestCallback
+
+  debug('normalizing parameters...')
 
   // Only `RequestOptions` has the `method` property
   if (args[0].hasOwnProperty('method')) {
+    debug('firts parameter is RequestOptions')
     options = args[0]
-    url = new URL(
-      options.path || '/',
-      `${options.protocol}//${options.hostname}`
-    )
+
+    const path = options.path || '/'
+    const baseUrl = `${options.protocol}//${options.hostname}`
+
+    debug('constructing URL manually...')
+
+    url = options.uri ? new URL(options.uri.href) : new URL(path, baseUrl)
+    debug('constructed URL:', url)
+
     callback = args[1]
   } else if (args[1]?.hasOwnProperty('method')) {
+    debug('second parameter is RequestOptions')
+
     url = resolveUrl(args[0])
+    debug('resolved URL:', url)
+
     options = args[1]
     callback = args[2]
   } else {
+    debug('the first parameter is URL')
     url = resolveUrl(args[0])
+
+    debug('resolved URL:', url)
 
     // At this point `ClientRequest` has been constructed only using URL.
     // Coerce URL into a `RequestOptions` instance.

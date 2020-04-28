@@ -1,6 +1,6 @@
 import { IncomingMessage } from 'http'
 
-export type InterceptionEvent = 'request'
+export type ModuleOverride = (handler: RequestMiddleware) => () => void
 
 export type HttpRequestCallback = (res: IncomingMessage) => void
 
@@ -14,7 +14,7 @@ export interface InterceptedRequest {
 
 export type ReturnedResponse = Partial<MockedResponse> | void
 
-export type RequestHandler = (
+export type RequestMiddleware = (
   req: InterceptedRequest,
   ref: IncomingMessage | XMLHttpRequest
 ) => ReturnedResponse | Promise<ReturnedResponse>
