@@ -2,11 +2,16 @@
  * XMLHttpRequest override class.
  * Inspired by https://github.com/marvinhagemeister/xhr-mocklet
  */
-import { RequestHandler, InterceptedRequest } from '../glossary'
+import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { createEvent } from './createEvent'
-import { flattenHeadersObject } from '../utils/flattenHeadersObject'
+import { flattenHeadersObject } from '../../utils/flattenHeadersObject'
 
-export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
+const debug = require('debug')('XMLHttpRequestOverride')
+
+export const createXMLHttpRequestOverride = (
+  middleware: RequestMiddleware,
+  XMLHttpRequestPristine: typeof window.XMLHttpRequest
+) => {
   return class XMLHttpRequestOverride implements XMLHttpRequest {
     requestHeaders: Record<string, string> = {}
     responseHeaders: Record<string, string> = {}
@@ -33,7 +38,7 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
     public reponse: string = ''
     public responseText: string = ''
     public responseType: XMLHttpRequestResponseType = ''
-    public responseXML: Document
+    public responseXML: Document | null
     public responseURL: string = ''
     public response: string = ''
     public upload: XMLHttpRequestUpload = null as any
@@ -117,6 +122,7 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
     }
 
     reset() {
+      debug('reset')
       this.readyState = this.UNSENT
       this.status = 200
       this.statusText = ''
@@ -135,6 +141,8 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
       user?: string,
       password?: string
     ) {
+      debug('open')
+
       this.reset()
       this.readyState = this.OPENED
 
@@ -151,6 +159,8 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
     }
 
     send(data?: string) {
+      debug('send')
+
       this.readyState = this.LOADING
       this.data = data || ''
 
@@ -166,26 +176,54 @@ export const createXMLHttpRequestOverride = (handler: RequestHandler) => {
         headers: this.requestHeaders,
       }
 
-      Promise.resolve(handler(req, this)).then((mockedResponse) => {
+      debug('awaiting mocked response...')
+      Promise.resolve(middleware(req, this)).then((mockedResponse) => {
+        // Return a mocked response, if provided in the middleware
         if (mockedResponse) {
+          debug('recieved mocked response')
           this.status = mockedResponse.status || 200
           this.statusText = mockedResponse.statusText || ''
           this.responseHeaders = mockedResponse.headers
             ? flattenHeadersObject(mockedResponse.headers)
             : {}
           this.response = mockedResponse.body || ''
-        } else {
-          /**
-           * @todo Perform an actual XHR
-           */
-        }
 
-        this.trigger('loadstart')
-        this.trigger('load')
+          this.trigger('loadstart')
+          this.trigger('load')
+        } else {
+          debug('no mocked response, performing original request...')
+
+          // Otherwise, perform an actual XHR
+          const originalRequest = new XMLHttpRequestPristine()
+
+          originalRequest.onload = () => {
+            this.status = originalRequest.status
+            this.statusText = originalRequest.statusText
+            this.responseURL = originalRequest.responseURL
+            this.responseType = originalRequest.responseType
+            this.response = originalRequest.response
+            this.responseText = originalRequest.responseText
+            this.responseXML = originalRequest.responseXML
+
+            this.trigger('loadstart')
+            this.trigger('load')
+          }
+
+          // Map callbacks to the overridden instance's callbacks
+          originalRequest.onerror = this.onerror
+          originalRequest.ontimeout = this.ontimeout
+          originalRequest.onreadystatechange = this.onreadystatechange
+
+          // Dispatch the original request
+          originalRequest.open(this.method, this.url)
+          originalRequest.send(this.data)
+        }
       })
     }
 
     abort() {
+      debug('abort')
+
       if (this.readyState > this.UNSENT && this.readyState < this.DONE) {
         this.readyState = this.UNSENT
         this.trigger('abort')
