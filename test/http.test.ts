@@ -10,7 +10,7 @@ describe('http', () => {
   beforeAll(() => {
     interceptor = new RequestInterceptor()
     interceptor.use((req) => {
-      if (['http://test.msw.io/'].includes(req.url)) {
+      if (['http://api.github.com/'].includes(req.url)) {
         return {
           status: 301,
           headers: {
@@ -31,7 +31,7 @@ describe('http', () => {
     let resBody: string = ''
 
     beforeAll((done) => {
-      const req = http.request('http://test.msw.io?foo=bar', (res) => {
+      const req = http.request('http://api.github.com?foo=bar', (res) => {
         res.setEncoding('utf8')
         res.on('data', (chunk) => (resBody += chunk))
         res.on('end', done)
@@ -59,7 +59,7 @@ describe('http', () => {
     let resBody: string = ''
 
     beforeAll((done) => {
-      const req = http.get('http://test.msw.io', (res) => {
+      const req = http.get('http://api.github.com', (res) => {
         res.setEncoding('utf8')
         res.on('data', (chunk) => (resBody += chunk))
         res.on('end', done)
@@ -82,35 +82,26 @@ describe('http', () => {
     })
   })
 
-  describe('given I cleaned up', () => {
+  describe('given I restored the original implementation', () => {
     beforeAll(() => {
       interceptor.restore()
     })
 
     describe('and I perform an HTTP request', () => {
-      let error: Error
-      let res: IncomingMessage
+      let resBody: string = ''
 
       beforeAll((done) => {
-        const req = http.get('http://test.msw.io', (res) => {
+        const req = http.get('http://httpbin.org/get', (res) => {
           res.setEncoding('utf8')
+          res.on('data', (chunk) => (resBody += chunk))
           res.on('end', done)
         })
 
-        req.on('error', (err) => {
-          error = err
-          done()
-        })
-        req.on('response', (original) => (res = original))
         req.end()
       })
 
-      it('should return error', () => {
-        expect(error).toBeTruthy
-      })
-
-      it('should not return any response', () => {
-        expect(res).toBeUndefined()
+      it('should return an original response', () => {
+        expect(resBody).toContain(`\"url\": \"http://httpbin.org/get\"`)
       })
     })
   })

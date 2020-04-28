@@ -76,7 +76,7 @@ describe('fetch', () => {
     })
   })
 
-  describe('given I cleaned up', () => {
+  describe('given I restored the original implementation', () => {
     beforeAll(() => {
       interceptor.restore()
     })
@@ -85,14 +85,14 @@ describe('fetch', () => {
       let res: Response
 
       beforeAll(async () => {
-        res = await fetch('http://api.github.com')
+        res = await fetch('http://httpbin.org/get')
       })
 
       it('should return an original response', async () => {
         const body = await res.json()
 
         expect(res.status).toEqual(200)
-        expect(body).toHaveProperty('gists_url')
+        expect(body).toHaveProperty('url', 'http://httpbin.org/get')
       })
     })
   })

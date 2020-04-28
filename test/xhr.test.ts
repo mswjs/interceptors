@@ -51,4 +51,30 @@ describe('XHR', () => {
       expect(headers).toContain('Content-Type: application/hal+json')
     })
   })
+
+  describe('given I restored the original implementation', () => {
+    beforeAll(() => {
+      interceptor.restore()
+    })
+
+    describe('and I perform an XMLHttpRequest', () => {
+      let status: number
+      let body: string
+
+      beforeAll((done) => {
+        const req = new XMLHttpRequest()
+        req.onload = () => {
+          body = req.response
+          status = req.status
+          done()
+        }
+        req.open('GET', 'https://httpbin.org/get')
+        req.send()
+      })
+
+      it('should return the original response', () => {
+        expect(body).toContain(`\"url\": \"https://httpbin.org/get\"`)
+      })
+    })
+  })
 })

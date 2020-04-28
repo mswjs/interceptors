@@ -4,6 +4,7 @@ import { RequestHandler } from './glossary'
 import { overrideHttpModule } from './ClientRequest/overrideHttpModule'
 import { createXMLHttpRequestOverride } from './XMLHttpRequest/XMLHttpRequestOverride'
 
+const httpClientRequestCopy = http.ClientRequest
 const httpRequestCopy = http.request
 const httpGetCopy = http.get
 const httpsRequestCopy = https.request
@@ -30,6 +31,7 @@ export class RequestInterceptor {
    * Removes all the stubs and restores original instances.
    */
   public restore() {
+    http.ClientRequest = httpClientRequestCopy
     http.request = httpRequestCopy
     http.get = httpGetCopy
 

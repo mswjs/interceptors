@@ -1,7 +1,8 @@
 /**
  * @jest-enviroment node
  */
-import https, { IncomingMessage } from 'http'
+import https from 'https'
+import { IncomingMessage } from 'http'
 import { RequestInterceptor } from '../src'
 
 describe('https', () => {
@@ -82,35 +83,25 @@ describe('https', () => {
     })
   })
 
-  describe('given I cleaned up', () => {
+  describe('given I restored the original implementation', () => {
     beforeAll(() => {
       interceptor.restore()
     })
 
     describe('and I perform an HTTPS request', () => {
-      let error: Error
-      let res: IncomingMessage
+      let resBody: string = ''
 
       beforeAll((done) => {
-        const req = https.get('http://test.msw.io', (res) => {
+        const req = https.get('https://httpbin.org/get', (res) => {
           res.setEncoding('utf8')
+          res.on('data', (chunk) => (resBody += chunk))
           res.on('end', done)
         })
-
-        req.on('error', (err) => {
-          error = err
-          done()
-        })
-        req.on('response', (original) => (res = original))
         req.end()
       })
 
-      it('should return error', () => {
-        expect(error).toBeTruthy
-      })
-
-      it('should not return any response', () => {
-        expect(res).toBeUndefined()
+      it('should return original response', () => {
+        expect(resBody).toContain(`\"url\": \"https://httpbin.org/get\"`)
       })
     })
   })
