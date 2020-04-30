@@ -80,6 +80,8 @@ export class Socket extends EventEmitter {
     ).toString('base64')
   }
 
+  resume() {}
+
   destroy(error: Error) {
     this.destroyed = true
     this.readable = this.writable = false

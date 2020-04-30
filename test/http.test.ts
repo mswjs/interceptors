@@ -4,8 +4,6 @@
 import http, { IncomingMessage } from 'http'
 import { RequestInterceptor } from '../src'
 
-jest.setTimeout(99999999)
-
 describe('http', () => {
   let interceptor: RequestInterceptor
 
@@ -58,7 +56,7 @@ describe('http', () => {
         })
       })
 
-      describe('and that request is not handled in the middleware', () => {
+      describe('and that request is not handled by the middleware', () => {
         let res: IncomingMessage
         let resBody: string = ''
 
@@ -81,7 +79,7 @@ describe('http', () => {
     })
 
     describe('and I perform a request using http.get', () => {
-      describe('and that request is handled in the middleware', () => {
+      describe('and that request is handled by the middleware', () => {
         let res: IncomingMessage
         let resBody: string = ''
 
@@ -109,7 +107,7 @@ describe('http', () => {
         })
       })
 
-      describe('and that request is not handled in the middleware', () => {
+      describe('and that request is not handled by the middleware', () => {
         let res: IncomingMessage
         let resBody: string = ''
 
