@@ -5,42 +5,42 @@
 
 Low-level HTTP/HTTPS/XHR request interception library for NodeJS.
 
-**Allows to intercept requests issued by:**
+**Intercepts any requests issued by:**
 
-- `http.request()`/`https.request()`
-- `http.get()`/`https.get()`
-- `fetch()`
+- `http.request`/`http.get`
+- `https.request`/`https.get`
+- `fetch`
 - `XMLHttpRequest`
-- Any third-party implementations that utilize the above (i.e. `node-fetch`, `axios`, etc.)
+- Any third-party library that utilizes the above (for example `request`, `node-fetch`, `axios`, etc.)
 
 ## Motivation
 
-While there are a lot of network communication mocking libraries, they tend to use request interception as an implementation detail, exposing you a high-level API that includes request matching, retries, and so forth.
+While there are a lot of network communication mocking libraries, they tend to use request interception as an implementation detail, exposing you a high-level API that includes request matching, timeouts, retries, and so forth.
 
 This library is a strip-to-bone implementation that provides as little abstraction as possible to execute arbitrary logic upon any request in NodeJS. It's primarily designed as an underlying component for a high-level API mocking solutions.
 
 ### Why XMLHttpRequest?
 
-Although NodeJS comes with no `XMLHttpRequest` implementation, this library still covers it for the sake of processes that run in NodeJS emulating browser-like environments (i.e. `js-dom` in Jest).
+Although NodeJS has no `XMLHttpRequest` implementation, this library covers it for the sake of processes that still run in NodeJS, but emulate a browser-like environment (i.e. `jsdom` when running tests in Jest).
 
 ## What this library does
 
 This library monkey-patches the following native functions:
 
-- `http.request`/`https.request`
-- `http.get`/`https.get`
+- `http.request`/`http.get`
+- `https.request`/`https.get`
 - `XMLHttpRequest`
 
-After patching it provides an interface to listen to outgoing requests regardless of whichever of aforementioned functions issues a request.
+Once patched, it provides an interface to execute an arbitrary logic upon any outgoing request using a request middleware function.
 
-- Pass-through by default, does not affect the network communication.
-- Supports mocking a response by returning an object from the request middleware.
+- Bypasses all requests by default, so your network channel is not affected.
+- Handles an abstract response object returned from the request middleware as an actual response for the occurred request (taking into account the difference in constructing a response for different clients).
 
 ## What this library doesn't do
 
 - Does not provide any request matching logic.
-- Does not decide how to handle a request.
-- Does not run in a browser environment (although supports `js-dom`).
+- Does not decide how to handle requests.
+- Does not run in a browser (although supports `jsdom`).
 
 ## Getting started
 
@@ -57,10 +57,9 @@ import { RequestInterceptor } from 'node-request-interceptor'
 
 const interceptor = new RequestInterceptor()
 
+// Provide a request middleware function that accepts an intercepted request
+// and may return an optional abstract response.
 interceptor.use((req) => {
-  // Execute arbitrary logic whenever any request happens.
-  // `req` contains information about the intercepted request,
-  // regardless of its origins (http/https/xhr).
   if (req.url === 'https://non-existing.url') {
     // (Optional) Return an abstract mocked response that is later coerced
     // into a proper response instance depending on the request origin.
@@ -84,5 +83,6 @@ interceptor.restore()
 
 The following libraries were used as an inspiration to write this low-level API:
 
+- [`node`](https://github.com/nodejs/node)
 - [`nock`](https://github.com/nock/nock)
 - [`mock-xmlhttprequest`](https://github.com/berniegp/mock-xmlhttprequest)
