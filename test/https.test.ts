@@ -28,7 +28,7 @@ describe('https', () => {
   })
 
   describe('given I perform request using https.request', () => {
-    describe('and that request is handled in the middleware', () => {
+    describe('and that request is handled by the middleware', () => {
       let res: IncomingMessage
       let resBody: string = ''
 
@@ -56,7 +56,7 @@ describe('https', () => {
       })
     })
 
-    describe('and that request is not handled in the middleware', () => {
+    describe('and that request is not handled by the middleware', () => {
       let res: IncomingMessage
       let resBody: string = ''
 
@@ -79,7 +79,7 @@ describe('https', () => {
   })
 
   describe('given I perform request using https.get', () => {
-    describe('and that request is handled in the middleware', () => {
+    describe('and that request is handled by the middleware', () => {
       let res: IncomingMessage
       let resBody: string = ''
 
@@ -107,7 +107,7 @@ describe('https', () => {
       })
     })
 
-    describe('and that request is not handled in the middleware', () => {
+    describe('and that request is not handled by the middleware', () => {
       let res: IncomingMessage
       let resBody: string = ''
 

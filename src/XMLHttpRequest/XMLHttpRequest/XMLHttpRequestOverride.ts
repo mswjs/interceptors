@@ -159,7 +159,7 @@ export const createXMLHttpRequestOverride = (
     }
 
     send(data?: string) {
-      debug('send')
+      debug('send %s %s', this.method, this.url)
 
       this.readyState = this.LOADING
       this.data = data || ''

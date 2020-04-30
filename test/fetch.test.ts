@@ -29,50 +29,84 @@ describe('fetch', () => {
   })
 
   describe('given I perform an HTTP request using fetch', () => {
-    let res: Response
+    describe('and that request is handled by the middleware', () => {
+      let res: Response
 
-    beforeAll(async () => {
-      res = await fetch('http://api.github.com')
-    })
+      beforeAll(async () => {
+        res = await fetch('http://api.github.com')
+      })
 
-    it('should return mocked status code', () => {
-      expect(res.status).toEqual(201)
-    })
+      it('should return mocked status code', () => {
+        expect(res.status).toEqual(201)
+      })
 
-    it('should return mocked body', async () => {
-      const body = await res.json()
+      it('should return mocked body', async () => {
+        const body = await res.json()
 
-      expect(body).toEqual({
-        mocked: true,
+        expect(body).toEqual({
+          mocked: true,
+        })
+      })
+
+      it('should return mocked headers', () => {
+        expect(res.headers.get('content-type')).toEqual('application/hal+json')
       })
     })
 
-    it('should return mocked headers', () => {
-      expect(res.headers.get('content-type')).toEqual('application/hal+json')
+    describe('and that request is not handled by the middleware', () => {
+      let res: Response
+
+      beforeAll(async () => {
+        res = await fetch('http://httpbin.org/get')
+      })
+
+      it('should return original response', async () => {
+        const body = await res.json()
+
+        expect(res.status).toEqual(200)
+        expect(body).toHaveProperty('url', 'http://httpbin.org/get')
+      })
     })
   })
 
   describe('given I perform an HTTPS request using fetch', () => {
-    let res: Response
+    describe('and that request is handled by the middleware', () => {
+      let res: Response
 
-    beforeAll(async () => {
-      res = await fetch('https://api.github.com')
-    })
+      beforeAll(async () => {
+        res = await fetch('https://api.github.com')
+      })
 
-    it('should return mocked status code', () => {
-      expect(res.status).toEqual(201)
-    })
+      it('should return mocked status code', () => {
+        expect(res.status).toEqual(201)
+      })
 
-    it('should return mocked body', async () => {
-      const body = await res.json()
+      it('should return mocked body', async () => {
+        const body = await res.json()
 
-      expect(body).toEqual({
-        mocked: true,
+        expect(body).toEqual({
+          mocked: true,
+        })
+      })
+
+      it('should return mocked headers', () => {
+        expect(res.headers.get('content-type')).toEqual('application/hal+json')
       })
     })
 
-    it('should return mocked headers', () => {
-      expect(res.headers.get('content-type')).toEqual('application/hal+json')
+    describe('and that request is not handled by the middleware', () => {
+      let res: Response
+
+      beforeAll(async () => {
+        res = await fetch('https://httpbin.org/get')
+      })
+
+      it('should return original response', async () => {
+        const body = await res.json()
+
+        expect(res.status).toEqual(200)
+        expect(body).toHaveProperty('url', 'https://httpbin.org/get')
+      })
     })
   })
 
@@ -81,18 +115,33 @@ describe('fetch', () => {
       interceptor.restore()
     })
 
-    describe('and perform a request', () => {
+    describe('and perform an HTTP request', () => {
       let res: Response
 
       beforeAll(async () => {
         res = await fetch('http://httpbin.org/get')
       })
 
-      it('should return an original response', async () => {
+      it('should return original response', async () => {
         const body = await res.json()
 
         expect(res.status).toEqual(200)
         expect(body).toHaveProperty('url', 'http://httpbin.org/get')
+      })
+    })
+
+    describe('and perform an HTTPS request', () => {
+      let res: Response
+
+      beforeAll(async () => {
+        res = await fetch('https://httpbin.org/get')
+      })
+
+      it('should return original response', async () => {
+        const body = await res.json()
+
+        expect(res.status).toEqual(200)
+        expect(body).toHaveProperty('url', 'https://httpbin.org/get')
       })
     })
   })

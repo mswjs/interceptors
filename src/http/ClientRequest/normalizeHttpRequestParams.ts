@@ -1,5 +1,6 @@
 import { RequestOptions } from 'https'
 import { HttpRequestCallback } from '../../glossary'
+import { urlToOptions } from '../../utils/urlToObject'
 
 const debug = require('debug')('http:normalize-http-request-params')
 
@@ -7,6 +8,8 @@ function resolveUrl(input: string | URL): URL {
   return typeof input === 'string' ? new URL(input) : input
 }
 
+// Request instance constructed by `ClientRequest`
+// has a `self` property that has a `uri` field.
 interface RequestSelf {
   uri?: URL
 }
@@ -35,14 +38,14 @@ export function normalizeHttpRequestParams(
     debug('constructing URL manually...')
 
     url = options.uri ? new URL(options.uri.href) : new URL(path, baseUrl)
-    debug('constructed URL:', url)
+    debug('constructed URL:', url.href)
 
     callback = args[1]
   } else if (args[1]?.hasOwnProperty('method')) {
     debug('second parameter is RequestOptions')
 
     url = resolveUrl(args[0])
-    debug('resolved URL:', url)
+    debug('resolved URL:', url.href)
 
     options = args[1]
     callback = args[2]
@@ -50,21 +53,22 @@ export function normalizeHttpRequestParams(
     debug('the first parameter is URL')
     url = resolveUrl(args[0])
 
-    debug('resolved URL:', url)
+    debug('resolved URL:', url.href)
 
     // At this point `ClientRequest` has been constructed only using URL.
     // Coerce URL into a `RequestOptions` instance.
-    options = {
-      method: 'GET',
-      protocol: url.protocol,
-      host: url.host,
-      hostname: url.hostname,
-      port: url.port,
-      path: url.pathname,
-    }
+    options = urlToOptions(url)
 
     callback = args[1]
   }
+
+  // Enforce protocol on `RequestOptions` so when `ClientRequest` compares
+  // the agent protocol and the request options protocol they match.
+  // https://github.com/nodejs/node/blob/d84f1312915fe45fe0febe888db692c74894c382/lib/_http_client.js#L142-L145
+  // This prevents `Protocol "http:" not supported. Expected "https:"` exception for `https.request` calls.
+  options.protocol = options.protocol || url.protocol
+
+  debug('resolved protocol: %s', options.protocol)
 
   return [url, options, callback]
 }

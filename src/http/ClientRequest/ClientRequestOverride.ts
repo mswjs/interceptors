@@ -1,6 +1,6 @@
 import { inherits } from 'util'
-import https from 'https'
-import http, { IncomingMessage, ClientRequest, ClientRequestArgs } from 'http'
+import { Socket as NetworkSocket } from 'net'
+import http, { IncomingMessage, ClientRequest } from 'http'
 import { Socket } from './Socket'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
@@ -8,9 +8,8 @@ import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
 const debug = require('debug')('http:client-request')
 
 export function createClientRequestOverrideClass(
-  protocol: string,
   middleware: RequestMiddleware,
-  getOriginalRequest: typeof http['request'],
+  performOriginalRequest: typeof http['request'],
   originalClientRequest: typeof ClientRequest
 ) {
   function ClientRequestOverride(
@@ -18,14 +17,19 @@ export function createClientRequestOverrideClass(
     ...args: Parameters<typeof http['request']>
   ) {
     const [url, options, callback] = normalizeHttpRequestParams(...args)
-    const usesHttps = protocol === 'https'
+    const usesHttps = url.protocol === 'https:'
+
+    debug('URL protocol:', url.protocol)
+    debug('uses HTTPS?', usesHttps)
 
     debug('intercepted %s %s', options.method, url.href)
     http.OutgoingMessage.call(this)
 
-    const socket = new Socket(options, {
+    const socket = (new Socket(options, {
       usesHttps,
-    }) as any
+    }) as any) as NetworkSocket & {
+      authorized: boolean
+    }
 
     this.socket = this.connection = socket
 
@@ -52,7 +56,6 @@ export function createClientRequestOverrideClass(
     })
 
     if (callback) {
-      debug('triggering given callback')
       this.once('response', callback)
     }
 
@@ -108,6 +111,7 @@ export function createClientRequestOverrideClass(
           }
         }
 
+        debug('(intercepted) %s %s', options.method, url.href)
         debug('response is complete, finishing request...')
 
         this.finished = true
@@ -124,31 +128,32 @@ export function createClientRequestOverrideClass(
 
       debug('no mocked response received')
 
-      /**
-       * @todo In order to perform an original request one needs to detach the patches.
-       * In particular, `http.ClientRequest`, because so that request is not intercepted,
-       * and `https.request`, because for some reason when it goes through `handleRequest`
-       * in `override` module it never resolves properly.
-       */
-
       let req: ClientRequest
+      debug('using', performOriginalRequest)
 
-      if (usesHttps) {
+      const { ClientRequest } = http
+
+      // Decide whether to use HTTPS based on the URL protocol.
+      // XHR can trigger http.request for HTTPS URL.
+      if (url.protocol === 'https:') {
         debug('performing original HTTPS %s %s', options.method, url.href)
-
         debug('reverting patches...')
-        const { ClientRequest } = http
+
         http.ClientRequest = originalClientRequest
 
-        debug('performing original request...')
-        req = getOriginalRequest(options, callback)
+        // Override the global pointer to the original client request.
+        // This way whenever a bypass call bubbles to `handleRequest`
+        // in always performs respecting this `ClientRequest` restoration.
+        originalClientRequest = null as any
 
-        debug('restoring patches...')
+        req = performOriginalRequest(options, callback)
+
+        debug('re-applying patches...')
         http.ClientRequest = ClientRequest
+        originalClientRequest = ClientRequest
       } else {
         debug('performing original HTTP %s %s', options.method, url.href)
-
-        req = getOriginalRequest(options, callback)
+        req = performOriginalRequest(options, callback)
       }
 
       req.on('finish', () => {
@@ -156,7 +161,7 @@ export function createClientRequestOverrideClass(
       })
 
       req.on('response', (response) => {
-        debug('returning original response...')
+        debug(response.statusCode, options.method, url.href)
         this.emit('response', response)
       })
 
@@ -165,11 +170,34 @@ export function createClientRequestOverrideClass(
         this.emit('error', error)
       })
 
-      req.end()
+      req.end(() => {
+        debug('request ended', options.method, url.href)
+      })
+
       return req
     }
 
     debug('returning original request...')
+
+    /**
+     * Handle aborting a request.
+     */
+    this.abort = (...args) => {
+      debug('abort')
+
+      if (this.aborted) {
+        return
+      }
+
+      this.aborted = Date.now()
+
+      const error = new Error() as NodeJS.ErrnoException
+      error.code = 'aborted'
+
+      response.emit('close', error)
+      socket.destroy()
+      this.emit('abort')
+    }
 
     return this
   }
