@@ -8,6 +8,14 @@ import { cleanUrl } from '../../utils/cleanUrl'
 
 const debug = require('debug')('http:client-request')
 
+function bodyBufferToString(buffer: Buffer) {
+  const utfEncodedBuffer = buffer.toString('utf8')
+  const bufferCopy = Buffer.from(utfEncodedBuffer)
+  const isUtf8 = bufferCopy.equals(buffer)
+
+  return isUtf8 ? utfEncodedBuffer : buffer.toString('hex')
+}
+
 export function createClientRequestOverrideClass(
   middleware: RequestMiddleware,
   performOriginalRequest: typeof http['request'],
@@ -19,8 +27,8 @@ export function createClientRequestOverrideClass(
   ) {
     const [url, options, callback] = normalizeHttpRequestParams(...args)
     const usesHttps = url.protocol === 'https:'
+    const requestBodyBuffer: any[] = []
 
-    debug('URL protocol:', url.protocol)
     debug('uses HTTPS?', usesHttps)
 
     debug('intercepted %s %s', options.method, url.href)
@@ -71,10 +79,46 @@ export function createClientRequestOverrideClass(
 
     debug('resolved clean URL:', urlWithoutQuery)
 
+    const emitError = (error: Error) => {
+      process.nextTick(() => {
+        this.emit('error', error)
+      })
+    }
+
+    this.write = (...args: any[]): boolean => {
+      let chunk = args[0]
+      const encoding = typeof args[1] === 'string' ? args[1] : null
+      const callback = typeof args[1] === 'function' ? args[1] : args[2]
+
+      if (this.aborted) {
+        emitError(new Error('Request aborted'))
+      } else {
+        if (chunk) {
+          if (!Buffer.isBuffer(chunk)) {
+            chunk = Buffer.from(chunk)
+          }
+
+          requestBodyBuffer.push(chunk)
+        }
+
+        if (typeof callback === 'function') {
+          callback()
+        }
+      }
+
+      setImmediate(() => {
+        this.emit('drain')
+      })
+
+      return false
+    }
+
     this.end = async () => {
       debug('end')
-
       debug('request headers', options.headers)
+
+      const requestBody = bodyBufferToString(Buffer.concat(requestBodyBuffer))
+      debug('request body', requestBody)
 
       // Construct the intercepted request instance.
       // This request is what's exposed to the request middleware.
@@ -82,10 +126,7 @@ export function createClientRequestOverrideClass(
         url: urlWithoutQuery,
         method: options.method || 'GET',
         headers: (options.headers as Record<string, string | string[]>) || {},
-        /**
-         * @todo Get HTTP request body
-         */
-        body: undefined,
+        body: requestBody,
         query: url.searchParams,
       }
 

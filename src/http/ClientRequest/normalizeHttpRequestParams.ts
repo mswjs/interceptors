@@ -8,8 +8,9 @@ function resolveUrl(input: string | URL): URL {
   return typeof input === 'string' ? new URL(input) : input
 }
 
-// Request instance constructed by `ClientRequest`
-// has a `self` property that has a `uri` field.
+// Request instance constructed by the `request` library
+// has a `self` property that has a `uri` field. This is
+// reproducible by performing a `XMLHttpRequest` request (jsdom).
 interface RequestSelf {
   uri?: URL
 }
