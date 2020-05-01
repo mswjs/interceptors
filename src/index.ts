@@ -4,10 +4,10 @@ import { overrideXhrModule } from './XMLHttpRequest/override'
 
 export class RequestInterceptor {
   private overrides: ReturnType<ModuleOverride>[]
-  private handlers: RequestMiddleware[]
+  private middleware: RequestMiddleware[]
 
   constructor() {
-    this.handlers = []
+    this.middleware = []
 
     this.overrides = [
       overrideHttpModule(this.applyMiddleware),
@@ -16,22 +16,22 @@ export class RequestInterceptor {
   }
 
   /**
-   * Removes all the stubs and restores original instances.
+   * Restores original HTTP/HTTPS/XHR instances.
    */
   public restore() {
     this.overrides.forEach((restore) => restore())
   }
 
   /**
-   * Applies given request interception middleware to any outgoing request.
+   * Applies given middleware to any intercepted request.
    */
-  public use(handler: RequestMiddleware) {
-    this.handlers.push(handler)
+  public use(middleware: RequestMiddleware) {
+    this.middleware.push(middleware)
   }
 
   private applyMiddleware: RequestMiddleware = async (req, ref) => {
-    for (let handler of this.handlers) {
-      const res = await handler(req, ref)
+    for (let middleware of this.middleware) {
+      const res = await middleware(req, ref)
 
       if (res) {
         return res
