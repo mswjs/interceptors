@@ -1,4 +1,3 @@
-// import { Socket as NativeSocket } from 'net'
 import { RequestOptions } from 'https'
 import { EventEmitter } from 'events'
 
@@ -81,6 +80,8 @@ export class Socket extends EventEmitter {
   }
 
   resume() {}
+  cork() {}
+  uncork() {}
 
   destroy(error: Error) {
     this.destroyed = true

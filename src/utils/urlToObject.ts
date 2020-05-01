@@ -19,6 +19,7 @@ export function urlToOptions(url: URL): RequestOptions {
     pathname: url.pathname,
     path: `${url.pathname}${url.search || ''}`,
     href: url.href,
+    method: 'GET',
   }
 
   if (url.port !== '') {
