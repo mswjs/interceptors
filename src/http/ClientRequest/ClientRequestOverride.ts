@@ -4,6 +4,7 @@ import http, { IncomingMessage, ClientRequest } from 'http'
 import { Socket } from './Socket'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
+import { cleanUrl } from '../../utils/cleanUrl'
 
 const debug = require('debug')('http:client-request')
 
@@ -24,6 +25,13 @@ export function createClientRequestOverrideClass(
 
     debug('intercepted %s %s', options.method, url.href)
     http.OutgoingMessage.call(this)
+
+    // Propagate options headers to the request instance
+    Object.entries(options.headers || {}).forEach(([name, value]) => {
+      if (value != null) {
+        this.setHeader(name, value)
+      }
+    })
 
     const socket = (new Socket(options, {
       usesHttps,
@@ -59,12 +67,14 @@ export function createClientRequestOverrideClass(
       this.once('response', callback)
     }
 
-    const urlWithoutQuery = `${url.origin}${url.pathname}`
+    const urlWithoutQuery = cleanUrl(url)
 
     debug('resolved clean URL:', urlWithoutQuery)
 
-    this.end = async (cb?: () => void) => {
+    this.end = async () => {
       debug('end')
+
+      debug('request headers', options.headers)
 
       // Construct the intercepted request instance.
       // This request is what's exposed to the request middleware.
