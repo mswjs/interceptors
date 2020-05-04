@@ -1,6 +1,6 @@
 import { RequestOptions } from 'https'
 import { HttpRequestCallback } from '../../glossary'
-import { urlToOptions } from '../../utils/urlToObject'
+import { urlToOptions } from '../../utils/urlToOptions'
 
 const debug = require('debug')('http:normalize-http-request-params')
 

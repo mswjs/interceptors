@@ -1,4 +1,4 @@
-import { RequestInterceptor } from '../src'
+import { RequestInterceptor } from '../../src'
 
 interface XhrResponse {
   status: number
@@ -34,7 +34,7 @@ describe('XHR', () => {
   beforeAll(() => {
     interceptor = new RequestInterceptor()
     interceptor.use((req) => {
-      if (['https://test.msw.io', 'http://test.msw.io'].includes(req.url)) {
+      if (['https://test.msw.io/', 'http://test.msw.io/'].includes(req.url)) {
         return {
           status: 301,
           headers: {

@@ -1,5 +1,5 @@
-import http, { ClientRequest } from 'http'
 import https from 'https'
+import http, { ClientRequest } from 'http'
 import { ModuleOverride, RequestMiddleware } from '../glossary'
 import { createClientRequestOverrideClass } from './ClientRequest/ClientRequestOverride'
 

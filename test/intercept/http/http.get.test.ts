@@ -1,15 +1,9 @@
 /**
  * @jest-environment node
  */
-import http from 'http'
 import { RequestInterceptor } from '../../../src'
 import { InterceptedRequest } from '../../../src/glossary'
-import {
-  assertIntercepted,
-  assertHeaders,
-  assertQueryParameter,
-  createRequest,
-} from '../../helpers'
+import { httpGet, prepare } from '../../helpers'
 
 describe('http.get', () => {
   let requestInterceptor: RequestInterceptor
@@ -26,41 +20,30 @@ describe('http.get', () => {
     requestInterceptor.restore()
   })
 
-  it('supports GET request', async () => {
-    await assertIntercepted(
-      pool,
-      createRequest({
-        using: http.get,
-        url: 'http://httpbin.org/get',
-      })
-    )
-  })
+  describe('given I perform a request using http.get', () => {
+    let request: InterceptedRequest | undefined
 
-  it('supports GET request with headers', async () => {
-    await assertHeaders(
-      pool,
-      createRequest({
-        using: http.get,
-        url: 'http://httpbin.org/get/headers',
-        options: {
-          headers: {
-            'x-custom-header': 'true ',
-          },
-        },
-      })
-    )
-  })
+    beforeAll(async () => {
+      request = await prepare(
+        httpGet('http://httpbin.org/get?userId=123'),
+        pool
+      )
+    })
 
-  it('supports GET request with query parameter', async () => {
-    await assertQueryParameter(
-      pool,
-      createRequest({
-        using: http.get,
-        url: 'http://httpbin.org/get/query?userId=abc',
-      }),
-      {
-        userId: 'abc',
-      }
-    )
+    it('should intercept the request', () => {
+      expect(request).toBeTruthy()
+    })
+
+    it('should access request url', () => {
+      expect(request).toHaveProperty('url', 'http://httpbin.org/get')
+    })
+
+    it('should access request method', () => {
+      expect(request).toHaveProperty('method', 'GET')
+    })
+
+    it('should access request query parameters', () => {
+      expect(request?.query.get('userId')).toEqual('123')
+    })
   })
 })
