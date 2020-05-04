@@ -1,11 +1,17 @@
-/**
- * @jest-environment node
- */
 import { RequestInterceptor } from '../../../src'
 import { InterceptedRequest } from '../../../src/glossary'
-import { httpRequest, prepare } from '../../helpers'
+import { xhr, findRequest } from '../../helpers'
 
-describe('http.request', () => {
+function prepareXHR(
+  res: ReturnType<typeof xhr>,
+  pool: InterceptedRequest[]
+): Promise<InterceptedRequest | undefined> {
+  return res.then(({ url, method }) => {
+    return findRequest(pool, method, url)
+  })
+}
+
+describe('XMLHttpRequest', () => {
   let requestInterceptor: RequestInterceptor
   const pool: InterceptedRequest[] = []
 
@@ -20,13 +26,13 @@ describe('http.request', () => {
     requestInterceptor.restore()
   })
 
-  describe('given I perform a request using http.request', () => {
+  describe('given I perform an HTTP XMLHttpRequest', () => {
     describe('GET', () => {
       let request: InterceptedRequest | undefined
 
       beforeAll(async () => {
-        request = await prepare(
-          httpRequest('http://httpbin.org/get?userId=123'),
+        request = await prepareXHR(
+          xhr('GET', 'http://httpbin.org/get?userId=123'),
           pool
         )
       })
@@ -52,12 +58,8 @@ describe('http.request', () => {
       let request: InterceptedRequest | undefined
 
       beforeAll(async () => {
-        request = await prepare(
-          httpRequest(
-            'http://httpbin.org/post?userId=123',
-            { method: 'POST' },
-            'request-body'
-          ),
+        request = await prepareXHR(
+          xhr('POST', 'http://httpbin.org/post?userId=123', 'request-body'),
           pool
         )
       })
@@ -87,12 +89,8 @@ describe('http.request', () => {
       let request: InterceptedRequest | undefined
 
       beforeAll(async () => {
-        request = await prepare(
-          httpRequest(
-            'http://httpbin.org/put?userId=123',
-            { method: 'PUT' },
-            'request-body'
-          ),
+        request = await prepareXHR(
+          xhr('PUT', 'http://httpbin.org/put?userId=123'),
           pool
         )
       })
@@ -112,20 +110,14 @@ describe('http.request', () => {
       it('should access request query parameters', () => {
         expect(request?.query.get('userId')).toEqual('123')
       })
-
-      it('should access request body', () => {
-        expect(request).toHaveProperty('body', 'request-body')
-      })
     })
 
     describe('DELETE', () => {
       let request: InterceptedRequest | undefined
 
       beforeAll(async () => {
-        request = await prepare(
-          httpRequest('http://httpbin.org/delete?userId=123', {
-            method: 'DELETE',
-          }),
+        request = await prepareXHR(
+          xhr('DELETE', 'http://httpbin.org/delete?userId=123'),
           pool
         )
       })
@@ -151,10 +143,8 @@ describe('http.request', () => {
       let request: InterceptedRequest | undefined
 
       beforeAll(async () => {
-        request = await prepare(
-          httpRequest('http://httpbin.org/patch?userId=123', {
-            method: 'PATCH',
-          }),
+        request = await prepareXHR(
+          xhr('PATCH', 'http://httpbin.org/patch?userId=123'),
           pool
         )
       })

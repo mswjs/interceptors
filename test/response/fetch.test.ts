@@ -2,7 +2,7 @@
  * @jest-enviroment node
  */
 import fetch, { Response } from 'node-fetch'
-import { RequestInterceptor } from '../src'
+import { RequestInterceptor } from '../../src'
 
 describe('fetch', () => {
   let interceptor: RequestInterceptor

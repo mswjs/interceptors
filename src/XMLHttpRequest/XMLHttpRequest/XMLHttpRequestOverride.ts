@@ -5,8 +5,9 @@
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { createEvent } from './createEvent'
 import { flattenHeadersObject } from '../../utils/flattenHeadersObject'
+import { cleanUrl } from '../../utils/cleanUrl'
 
-const debug = require('debug')('XMLHttpRequestOverride')
+const debug = require('debug')('XHR')
 
 export const createXMLHttpRequestOverride = (
   middleware: RequestMiddleware,
@@ -83,7 +84,12 @@ export const createXMLHttpRequestOverride = (
       this.responseXML = null as any
     }
 
-    trigger(event: string, options?: any) {
+    trigger<K extends keyof XMLHttpRequestEventTargetEventMap>(
+      event: K,
+      options?: any
+    ) {
+      debug('trigger', event)
+
       if (this.onreadystatechange) {
         this.onreadystatechange.call(
           this,
@@ -166,7 +172,7 @@ export const createXMLHttpRequestOverride = (
 
       const url = new URL(this.url)
       const req: InterceptedRequest = {
-        url: this.url,
+        url: cleanUrl(url),
         method: this.method,
         query: url.searchParams,
         body: this.data,
@@ -177,6 +183,7 @@ export const createXMLHttpRequestOverride = (
       }
 
       debug('awaiting mocked response...')
+
       Promise.resolve(middleware(req, this)).then((mockedResponse) => {
         // Return a mocked response, if provided in the middleware
         if (mockedResponse) {
@@ -191,12 +198,24 @@ export const createXMLHttpRequestOverride = (
           this.trigger('loadstart')
           this.trigger('load')
         } else {
-          debug('no mocked response, performing original request...')
+          debug('no mocked response')
 
           // Otherwise, perform an actual XHR
           const originalRequest = new XMLHttpRequestPristine()
 
+          // Dispatch the original request
+          debug('opening an original request %s %s', this.method, this.url)
+          originalRequest.open(
+            this.method,
+            this.url,
+            this.async,
+            this.user,
+            this.password
+          )
+
           originalRequest.onload = () => {
+            debug('original onload')
+
             this.status = originalRequest.status
             this.statusText = originalRequest.statusText
             this.responseURL = originalRequest.responseURL
@@ -209,13 +228,13 @@ export const createXMLHttpRequestOverride = (
             this.trigger('load')
           }
 
-          // Map callbacks to the overridden instance's callbacks
+          // Map callbacks to the patched instance's callbacks
+          originalRequest.onabort = this.abort
           originalRequest.onerror = this.onerror
           originalRequest.ontimeout = this.ontimeout
           originalRequest.onreadystatechange = this.onreadystatechange
 
-          // Dispatch the original request
-          originalRequest.open(this.method, this.url)
+          debug('send', this.data)
           originalRequest.send(this.data)
         }
       })
@@ -235,10 +254,13 @@ export const createXMLHttpRequestOverride = (
     }
 
     setRequestHeader(name: string, value: string) {
+      debug('set request header', name, value)
       this.requestHeaders[name] = value
     }
 
     getResponseHeader(name: string): string | null {
+      debug('get response header', name)
+
       if (this.readyState < this.HEADERS_RECEIVED) {
         return null
       }
@@ -247,6 +269,8 @@ export const createXMLHttpRequestOverride = (
     }
 
     getAllResponseHeaders(): string {
+      debug('get all response headers')
+
       if (this.readyState < this.HEADERS_RECEIVED) {
         return ''
       }

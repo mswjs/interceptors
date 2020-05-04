@@ -2,7 +2,7 @@
  * @jest-enviroment node
  */
 import http, { IncomingMessage } from 'http'
-import { RequestInterceptor } from '../src'
+import { RequestInterceptor } from '../../src'
 
 describe('http', () => {
   let interceptor: RequestInterceptor

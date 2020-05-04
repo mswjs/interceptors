@@ -3,7 +3,7 @@
  */
 import https from 'https'
 import { IncomingMessage } from 'http'
-import { RequestInterceptor } from '../src'
+import { RequestInterceptor } from '../../src'
 
 describe('https', () => {
   let interceptor: RequestInterceptor

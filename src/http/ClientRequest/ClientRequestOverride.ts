@@ -87,7 +87,6 @@ export function createClientRequestOverrideClass(
 
     this.write = (...args: any[]): boolean => {
       let chunk = args[0]
-      const encoding = typeof args[1] === 'string' ? args[1] : null
       const callback = typeof args[1] === 'function' ? args[1] : args[2]
 
       if (this.aborted) {
@@ -207,6 +206,11 @@ export function createClientRequestOverrideClass(
         req = performOriginalRequest(options, callback)
       }
 
+      // Propagate the given request body on the actual request
+      if (requestBodyBuffer.length > 0 && req.writable) {
+        req.write(Buffer.concat(requestBodyBuffer))
+      }
+
       req.on('finish', () => {
         this.emit('finish')
       })
@@ -233,7 +237,7 @@ export function createClientRequestOverrideClass(
     /**
      * Handle aborting a request.
      */
-    this.abort = (...args) => {
+    this.abort = () => {
       debug('abort')
 
       if (this.aborted) {
