@@ -25,7 +25,11 @@ describe('https.get', () => {
 
     beforeAll(async () => {
       request = await prepare(
-        httpsGet('https://httpbin.org/get?userId=123'),
+        httpsGet('https://httpbin.org/get?userId=123', {
+          headers: {
+            'x-custom-header': 'yes',
+          },
+        }),
         pool
       )
     })
@@ -44,6 +48,10 @@ describe('https.get', () => {
 
     it('should access request query parameters', () => {
       expect(request?.query.get('userId')).toEqual('123')
+    })
+
+    it('should access custom request headers', () => {
+      expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
     })
   })
 })

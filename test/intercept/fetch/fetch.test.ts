@@ -35,7 +35,11 @@ describe('fetch', () => {
 
       beforeAll(async () => {
         request = await prepareFetch(
-          fetch('http://httpbin.org/get?userId=123'),
+          fetch('http://httpbin.org/get?userId=123', {
+            headers: {
+              'x-custom-header': 'yes',
+            },
+          }),
           pool
         )
       })
@@ -55,6 +59,14 @@ describe('fetch', () => {
       it('should access request query parameters', () => {
         expect(request?.query.get('userId')).toEqual('123')
       })
+
+      it('should access default request headers', () => {
+        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+      })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', ['yes'])
+      })
     })
 
     describe('POST', () => {
@@ -64,6 +76,9 @@ describe('fetch', () => {
         request = await prepareFetch(
           fetch('http://httpbin.org/post?userId=123', {
             method: 'POST',
+            headers: {
+              'x-custom-header': 'yes',
+            },
             body: JSON.stringify({ body: true }),
           }),
           pool
@@ -86,8 +101,16 @@ describe('fetch', () => {
         expect(request?.query.get('userId')).toEqual('123')
       })
 
-      it('shoudl access request body', () => {
+      it('should access request body', () => {
         expect(request).toHaveProperty('body', JSON.stringify({ body: true }))
+      })
+
+      it('should access default request headers', () => {
+        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+      })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', ['yes'])
       })
     })
 
@@ -96,7 +119,12 @@ describe('fetch', () => {
 
       beforeAll(async () => {
         request = await prepareFetch(
-          fetch('http://httpbin.org/put?userId=123', { method: 'PUT' }),
+          fetch('http://httpbin.org/put?userId=123', {
+            method: 'PUT',
+            headers: {
+              'x-custom-header': 'yes',
+            },
+          }),
           pool
         )
       })
@@ -116,6 +144,14 @@ describe('fetch', () => {
       it('should access request query parameters', () => {
         expect(request?.query.get('userId')).toEqual('123')
       })
+
+      it('should access default request headers', () => {
+        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+      })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', ['yes'])
+      })
     })
 
     describe('DELETE', () => {
@@ -123,7 +159,12 @@ describe('fetch', () => {
 
       beforeAll(async () => {
         request = await prepareFetch(
-          fetch('http://httpbin.org/delete?userId=123', { method: 'DELETE' }),
+          fetch('http://httpbin.org/delete?userId=123', {
+            method: 'DELETE',
+            headers: {
+              'x-custom-header': 'yes',
+            },
+          }),
           pool
         )
       })
@@ -143,6 +184,14 @@ describe('fetch', () => {
       it('should access request query parameters', () => {
         expect(request?.query.get('userId')).toEqual('123')
       })
+
+      it('should access default request headers', () => {
+        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+      })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', ['yes'])
+      })
     })
   })
 
@@ -155,7 +204,11 @@ describe('fetch', () => {
 
       beforeAll(async () => {
         request = await prepareFetch(
-          fetch('https://httpbin.org/get?userId=123'),
+          fetch('https://httpbin.org/get?userId=123', {
+            headers: {
+              'x-custom-header': 'yes',
+            },
+          }),
           pool
         )
       })
@@ -175,6 +228,14 @@ describe('fetch', () => {
       it('should access request query parameters', () => {
         expect(request?.query.get('userId')).toEqual('123')
       })
+
+      it('should access default request headers', () => {
+        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+      })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', ['yes'])
+      })
     })
 
     describe('POST', () => {
@@ -184,6 +245,9 @@ describe('fetch', () => {
         request = await prepareFetch(
           fetch('https://httpbin.org/post?userId=123', {
             method: 'POST',
+            headers: {
+              'x-custom-header': 'yes',
+            },
             body: JSON.stringify({ body: true }),
           }),
           pool
@@ -206,8 +270,16 @@ describe('fetch', () => {
         expect(request?.query.get('userId')).toEqual('123')
       })
 
-      it('shoudl access request body', () => {
+      it('should access request body', () => {
         expect(request).toHaveProperty('body', JSON.stringify({ body: true }))
+      })
+
+      it('should access default request headers', () => {
+        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+      })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', ['yes'])
       })
     })
 
@@ -216,7 +288,12 @@ describe('fetch', () => {
 
       beforeAll(async () => {
         request = await prepareFetch(
-          fetch('https://httpbin.org/put?userId=123', { method: 'PUT' }),
+          fetch('https://httpbin.org/put?userId=123', {
+            method: 'PUT',
+            headers: {
+              'x-custom-header': 'yes',
+            },
+          }),
           pool
         )
       })
@@ -236,6 +313,14 @@ describe('fetch', () => {
       it('should access request query parameters', () => {
         expect(request?.query.get('userId')).toEqual('123')
       })
+
+      it('should access default request headers', () => {
+        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+      })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', ['yes'])
+      })
     })
 
     describe('DELETE', () => {
@@ -243,7 +328,12 @@ describe('fetch', () => {
 
       beforeAll(async () => {
         request = await prepareFetch(
-          fetch('https://httpbin.org/delete?userId=123', { method: 'DELETE' }),
+          fetch('https://httpbin.org/delete?userId=123', {
+            method: 'DELETE',
+            headers: {
+              'x-custom-header': 'yes',
+            },
+          }),
           pool
         )
       })
@@ -262,6 +352,14 @@ describe('fetch', () => {
 
       it('should access request query parameters', () => {
         expect(request?.query.get('userId')).toEqual('123')
+      })
+
+      it('should access default request headers', () => {
+        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+      })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', ['yes'])
       })
     })
   })
