@@ -26,7 +26,11 @@ describe('http.request', () => {
 
       beforeAll(async () => {
         request = await prepare(
-          httpRequest('http://httpbin.org/get?userId=123'),
+          httpRequest('http://httpbin.org/get?userId=123', {
+            headers: {
+              'x-custom-header': 'yes',
+            },
+          }),
           pool
         )
       })
@@ -46,6 +50,10 @@ describe('http.request', () => {
       it('should access request query parameters', () => {
         expect(request?.query.get('userId')).toEqual('123')
       })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+      })
     })
 
     describe('POST', () => {
@@ -55,7 +63,12 @@ describe('http.request', () => {
         request = await prepare(
           httpRequest(
             'http://httpbin.org/post?userId=123',
-            { method: 'POST' },
+            {
+              method: 'POST',
+              headers: {
+                'x-custom-header': 'yes',
+              },
+            },
             'request-body'
           ),
           pool
@@ -81,6 +94,10 @@ describe('http.request', () => {
       it('should access request body', () => {
         expect(request).toHaveProperty('body', 'request-body')
       })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+      })
     })
 
     describe('PUT', () => {
@@ -90,7 +107,12 @@ describe('http.request', () => {
         request = await prepare(
           httpRequest(
             'http://httpbin.org/put?userId=123',
-            { method: 'PUT' },
+            {
+              method: 'PUT',
+              headers: {
+                'x-custom-header': 'yes',
+              },
+            },
             'request-body'
           ),
           pool
@@ -116,6 +138,10 @@ describe('http.request', () => {
       it('should access request body', () => {
         expect(request).toHaveProperty('body', 'request-body')
       })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+      })
     })
 
     describe('DELETE', () => {
@@ -125,6 +151,9 @@ describe('http.request', () => {
         request = await prepare(
           httpRequest('http://httpbin.org/delete?userId=123', {
             method: 'DELETE',
+            headers: {
+              'x-custom-header': 'yes',
+            },
           }),
           pool
         )
@@ -145,6 +174,10 @@ describe('http.request', () => {
       it('should access request query parameters', () => {
         expect(request?.query.get('userId')).toEqual('123')
       })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+      })
     })
 
     describe('PATCH', () => {
@@ -154,6 +187,9 @@ describe('http.request', () => {
         request = await prepare(
           httpRequest('http://httpbin.org/patch?userId=123', {
             method: 'PATCH',
+            headers: {
+              'x-custom-header': 'yes',
+            },
           }),
           pool
         )
@@ -173,6 +209,10 @@ describe('http.request', () => {
 
       it('should access request query parameters', () => {
         expect(request?.query.get('userId')).toEqual('123')
+      })
+
+      it('should access custom request headers', () => {
+        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
       })
     })
   })

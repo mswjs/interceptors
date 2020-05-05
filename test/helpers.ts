@@ -129,18 +129,30 @@ interface PromisifiedXhrPayload {
 export async function xhr(
   method: string,
   url: string,
-  body?: string
+  options?: {
+    body?: string
+    headers?: Record<string, string | string[]>
+  }
 ): Promise<PromisifiedXhrPayload> {
   return new Promise((resolve, reject) => {
     const req = new XMLHttpRequest()
+    req.open(method, url)
 
     req.onload = function () {
       resolve({ method, url })
     }
 
+    if (options?.headers) {
+      Object.entries(options.headers).forEach(([name, value]) => {
+        req.setRequestHeader(
+          name,
+          Array.isArray(value) ? value.join('; ') : value
+        )
+      })
+    }
+
     req.onerror = reject
-    req.open(method, url)
-    req.send(body)
+    req.send(options?.body)
   })
 }
 
