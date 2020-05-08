@@ -2,9 +2,9 @@
  * XMLHttpRequest override class.
  * Inspired by https://github.com/marvinhagemeister/xhr-mocklet
  */
+import { flattenHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { createEvent } from './createEvent'
-import { flattenHeadersObject } from '../../utils/flattenHeadersObject'
 import { cleanUrl } from '../../utils/cleanUrl'
 
 const debug = require('debug')('XHR')
