@@ -25,6 +25,7 @@
     "typescript": "^3.8.3"
   },
   "dependencies": {
-    "debug": "^4.1.1"
+    "debug": "^4.1.1",
+    "headers-utils": "^1.1.2"
   }
 }
