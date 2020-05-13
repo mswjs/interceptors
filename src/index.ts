@@ -1,4 +1,9 @@
-import { RequestMiddleware, ModuleOverride } from './glossary'
+import {
+  RequestMiddleware,
+  ModuleOverride,
+  InterceptedRequest,
+  MockedResponse,
+} from './glossary'
 import { overrideHttpModule } from './http/override'
 import { overrideXhrModule } from './XMLHttpRequest/override'
 
@@ -47,3 +52,5 @@ export class RequestInterceptor {
     }
   }
 }
+
+export { InterceptedRequest, MockedResponse }
