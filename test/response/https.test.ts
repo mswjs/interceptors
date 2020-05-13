@@ -1,5 +1,5 @@
 /**
- * @jest-enviroment node
+ * @jest-environment node
  */
 import https from 'https'
 import { IncomingMessage } from 'http'
