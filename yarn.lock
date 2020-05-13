@@ -1513,10 +1513,10 @@ has-values@^1.0.0:
     is-number "^3.0.0"
     kind-of "^4.0.0"
 
-headers-utils@^1.1.2:
-  version "1.1.2"
-  resolved "https://registry.yarnpkg.com/headers-utils/-/headers-utils-1.1.2.tgz#cb5a3afe289fe6ed834c3053c5a8fa03897c3644"
-  integrity sha512-yKfNyweQd/2gqE+laNe765/gU+k8to7bzxdAjqzxeL9kT0uHMy4A5WE/8V4K/WYoPqomQ5ulSgregpn9VJ2erw==
+headers-utils@^1.1.3:
+  version "1.1.3"
+  resolved "https://registry.yarnpkg.com/headers-utils/-/headers-utils-1.1.3.tgz#1991ac7a9349cb5a74de4caec4202ae33c1c8b04"
+  integrity sha512-s8n0NWkmclKGwa2yHKLTdop+toi/BNDOkitP3KzgNMfUgaRVm8Nd3ZU/uMfEQk1VvE+fY/VF2T8A4x8ISH+F6Q==
 
 hosted-git-info@^2.1.4:
   version "2.8.8"

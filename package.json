@@ -26,6 +26,6 @@
   },
   "dependencies": {
     "debug": "^4.1.1",
-    "headers-utils": "^1.1.2"
+    "headers-utils": "^1.1.3"
   }
 }
