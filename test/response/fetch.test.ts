@@ -1,5 +1,5 @@
 /**
- * @jest-enviroment node
+ * @jest-environment node
  */
 import fetch, { Response } from 'node-fetch'
 import { RequestInterceptor } from '../../src'

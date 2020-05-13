@@ -1,5 +1,5 @@
 /**
- * @jest-enviroment node
+ * @jest-environment node
  */
 import http, { IncomingMessage } from 'http'
 import { RequestInterceptor } from '../../src'
