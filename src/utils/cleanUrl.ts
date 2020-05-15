@@ -1,6 +1,6 @@
 /**
  * Strips query parameters and hashes from the given URL.
  */
-export function cleanUrl(url: URL): string {
-  return `${url.origin}${url.pathname}`
+export function cleanUrl(url: URL, isAbsolute: boolean = true): string {
+  return [isAbsolute && url.origin, url.pathname].filter(Boolean).join('')
 }
