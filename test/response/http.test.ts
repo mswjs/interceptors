@@ -10,7 +10,7 @@ describe('http', () => {
   beforeAll(() => {
     interceptor = new RequestInterceptor()
     interceptor.use((req) => {
-      if (['http://api.github.com/'].includes(req.url)) {
+      if (['http://api.github.com'].includes(req.url.origin)) {
         return {
           status: 301,
           headers: {

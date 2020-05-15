@@ -11,7 +11,7 @@ describe('https', () => {
   beforeAll(() => {
     interceptor = new RequestInterceptor()
     interceptor.use((req) => {
-      if (['https://test.msw.io/'].includes(req.url)) {
+      if (['https://test.msw.io'].includes(req.url.origin)) {
         return {
           status: 301,
           headers: {
