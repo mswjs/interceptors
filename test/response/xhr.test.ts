@@ -34,7 +34,11 @@ describe('XHR', () => {
   beforeAll(() => {
     interceptor = new RequestInterceptor()
     interceptor.use((req) => {
-      if (['https://test.msw.io/', 'http://test.msw.io/'].includes(req.url)) {
+      if (
+        ['https://test.msw.io/', 'http://test.msw.io/', '/login'].includes(
+          req.url
+        )
+      ) {
         return {
           status: 301,
           headers: {
@@ -117,6 +121,26 @@ describe('XHR', () => {
         expect(res.status).toEqual(200)
         expect(res.body).toContain(`\"url\": \"https://httpbin.org/get\"`)
       })
+    })
+  })
+
+  describe('given I perform a request to a relative URL', () => {
+    let res: XhrResponse
+
+    beforeAll(async () => {
+      res = await performXMLHttpRequest('POST', '/login')
+    })
+
+    it('should return mocked status code', () => {
+      expect(res.status).toEqual(301)
+    })
+
+    it('should return mocked headers', () => {
+      expect(res.headers).toContain('Content-Type: application/hal+json')
+    })
+
+    it('should return mocked body', () => {
+      expect(res.body).toEqual('foo')
     })
   })
 
