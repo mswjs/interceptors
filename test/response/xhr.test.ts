@@ -34,11 +34,12 @@ describe('XHR', () => {
   beforeAll(() => {
     interceptor = new RequestInterceptor()
     interceptor.use((req) => {
-      if (
-        ['https://test.msw.io/', 'http://test.msw.io/', '/login'].includes(
-          req.url
-        )
-      ) {
+      const shouldMock =
+        ['https://test.msw.io', 'http://test.msw.io'].includes(
+          req.url.origin
+        ) || ['/login'].includes(req.url.pathname)
+
+      if (shouldMock) {
         return {
           status: 301,
           headers: {

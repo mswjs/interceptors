@@ -4,7 +4,6 @@ import http, { IncomingMessage, ClientRequest } from 'http'
 import { Socket } from './Socket'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
-import { getCleanUrl } from '../../utils/getCleanUrl'
 
 const debug = require('debug')('http:client-request')
 
@@ -75,10 +74,6 @@ export function createClientRequestOverrideClass(
       this.once('response', callback)
     }
 
-    const urlWithoutQuery = getCleanUrl(url)
-
-    debug('resolved clean URL:', urlWithoutQuery)
-
     const emitError = (error: Error) => {
       process.nextTick(() => {
         this.emit('error', error)
@@ -122,7 +117,7 @@ export function createClientRequestOverrideClass(
       // Construct the intercepted request instance.
       // This request is what's exposed to the request middleware.
       const formattedRequest: InterceptedRequest = {
-        url: urlWithoutQuery,
+        url,
         method: options.method || 'GET',
         headers: (options.headers as Record<string, string | string[]>) || {},
         body: requestBody,

@@ -5,7 +5,7 @@ export type ModuleOverride = (handler: RequestMiddleware) => () => void
 export type HttpRequestCallback = (res: IncomingMessage) => void
 
 export interface InterceptedRequest {
-  url: string
+  url: URL
   method: string
   headers?: Record<string, string | string[]>
   query: URLSearchParams

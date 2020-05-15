@@ -46,7 +46,10 @@ describe('XMLHttpRequest', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'http://httpbin.org/get')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'http://httpbin.org/get?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -82,7 +85,10 @@ describe('XMLHttpRequest', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'http://httpbin.org/post')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'http://httpbin.org/post?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -121,7 +127,10 @@ describe('XMLHttpRequest', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'http://httpbin.org/put')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'http://httpbin.org/put?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -156,7 +165,10 @@ describe('XMLHttpRequest', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'http://httpbin.org/delete')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'http://httpbin.org/delete?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -191,7 +203,10 @@ describe('XMLHttpRequest', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'http://httpbin.org/patch')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'http://httpbin.org/patch?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -228,7 +243,10 @@ describe('XMLHttpRequest', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'https://httpbin.org/get')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'https://httpbin.org/get?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -264,7 +282,10 @@ describe('XMLHttpRequest', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'https://httpbin.org/post')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'https://httpbin.org/post?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -303,7 +324,10 @@ describe('XMLHttpRequest', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'https://httpbin.org/put')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'https://httpbin.org/put?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -338,7 +362,10 @@ describe('XMLHttpRequest', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'https://httpbin.org/delete')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'https://httpbin.org/delete?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -373,7 +400,10 @@ describe('XMLHttpRequest', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'https://httpbin.org/patch')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'https://httpbin.org/patch?userId=123'
+        )
       })
 
       it('should access request method', () => {

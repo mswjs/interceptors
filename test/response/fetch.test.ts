@@ -11,7 +11,9 @@ describe('fetch', () => {
     interceptor = new RequestInterceptor()
     interceptor.use((req) => {
       if (
-        ['https://api.github.com/', 'http://api.github.com/'].includes(req.url)
+        ['https://api.github.com', 'http://api.github.com'].includes(
+          req.url.origin
+        )
       ) {
         return {
           status: 201,

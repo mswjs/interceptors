@@ -39,7 +39,10 @@ describe('http.get', () => {
     })
 
     it('should access request url', () => {
-      expect(request).toHaveProperty('url', 'http://httpbin.org/get')
+      expect(request?.url).toBeInstanceOf(URL)
+      expect(request?.url.toString()).toEqual(
+        'http://httpbin.org/get?userId=123'
+      )
     })
 
     it('should access request method', () => {

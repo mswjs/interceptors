@@ -162,10 +162,13 @@ export function findRequest(
   url: string
 ): InterceptedRequest | undefined {
   const parsedUrl = new URL(url)
-  const resolvedUrl = getCleanUrl(parsedUrl)
+  const expectedUrl = getCleanUrl(parsedUrl)
 
   return pool.find((request) => {
-    return request.method === method && request.url === resolvedUrl
+    const isMethodEqual = request.method === method
+    const isUrlEqual = getCleanUrl(request.url) === expectedUrl
+
+    return isMethodEqual && isUrlEqual
   })
 }
 
@@ -174,7 +177,5 @@ export async function prepare(
   pool: InterceptedRequest[]
 ): Promise<InterceptedRequest | undefined> {
   const { url, options } = await promise
-  const resolvedUrl = getCleanUrl(new URL(url))
-
-  return findRequest(pool, options.method, resolvedUrl)
+  return findRequest(pool, options.method, url)
 }

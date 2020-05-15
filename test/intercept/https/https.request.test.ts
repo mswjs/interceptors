@@ -40,7 +40,10 @@ describe('https.request', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'https://httpbin.org/get')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'https://httpbin.org/get?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -80,7 +83,10 @@ describe('https.request', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'https://httpbin.org/post')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'https://httpbin.org/post?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -124,7 +130,10 @@ describe('https.request', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'https://httpbin.org/put')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'https://httpbin.org/put?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -164,7 +173,10 @@ describe('https.request', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'https://httpbin.org/delete')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'https://httpbin.org/delete?userId=123'
+        )
       })
 
       it('should access request method', () => {
@@ -200,7 +212,10 @@ describe('https.request', () => {
       })
 
       it('should access request url', () => {
-        expect(request).toHaveProperty('url', 'https://httpbin.org/patch')
+        expect(request?.url).toBeInstanceOf(URL)
+        expect(request?.url.toString()).toEqual(
+          'https://httpbin.org/patch?userId=123'
+        )
       })
 
       it('should access request method', () => {
