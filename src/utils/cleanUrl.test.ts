@@ -21,4 +21,11 @@ describe('cleanUrl', () => {
       expect(cleanUrl(url)).toEqual('https://github.com/mswjs/')
     })
   })
+
+  describe('given an absolute URL ', () => {
+    it('should return a clean relative URL', () => {
+      const url = new URL('/login?query=value', 'https://github.com')
+      expect(cleanUrl(url, false)).toEqual('/login')
+    })
+  })
 })
