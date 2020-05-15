@@ -170,15 +170,30 @@ export const createXMLHttpRequestOverride = (
       this.readyState = this.LOADING
       this.data = data || ''
 
-      const url = new URL(this.url)
+      let isAbsoluteUrl = true
+      let url: URL
+
+      try {
+        url = new URL(this.url)
+      } catch (error) {
+        // When the URL construction failed, assume given a relative URL,
+        // and resolve it against the current window location.
+        // XMLHttpRequest always executes in DOM-like environment,
+        // which must emulate `window` object.
+        isAbsoluteUrl = false
+        url = new URL(this.url, window.location.href)
+      }
+
+      const cleanedUrl = cleanUrl(url, isAbsoluteUrl)
+
+      debug('is absolute url?', isAbsoluteUrl)
+      debug('cleaned url:', cleanedUrl)
+
       const req: InterceptedRequest = {
-        url: cleanUrl(url),
+        url: cleanedUrl,
         method: this.method,
         query: url.searchParams,
         body: this.data,
-        /**
-         * @todo Parse headers to string[] values
-         */
         headers: this.requestHeaders,
       }
 
