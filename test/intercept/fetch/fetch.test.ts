@@ -60,7 +60,7 @@ describe('fetch', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access default request headers', () => {
@@ -104,7 +104,7 @@ describe('fetch', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access request body', () => {
@@ -151,7 +151,7 @@ describe('fetch', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access default request headers', () => {
@@ -194,7 +194,7 @@ describe('fetch', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access default request headers', () => {
@@ -241,7 +241,7 @@ describe('fetch', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access default request headers', () => {
@@ -285,7 +285,7 @@ describe('fetch', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access request body', () => {
@@ -332,7 +332,7 @@ describe('fetch', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access default request headers', () => {
@@ -375,7 +375,7 @@ describe('fetch', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access default request headers', () => {

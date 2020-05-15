@@ -51,7 +51,7 @@ describe('https.request', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access custom request headers', () => {
@@ -94,7 +94,7 @@ describe('https.request', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access request body', () => {
@@ -141,7 +141,7 @@ describe('https.request', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access request body', () => {
@@ -184,7 +184,7 @@ describe('https.request', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access custom request headers', () => {
@@ -223,7 +223,7 @@ describe('https.request', () => {
       })
 
       it('should access request query parameters', () => {
-        expect(request?.query.get('userId')).toEqual('123')
+        expect(request?.url.searchParams.get('userId')).toEqual('123')
       })
 
       it('should access custom request headers', () => {

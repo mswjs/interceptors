@@ -121,7 +121,6 @@ export function createClientRequestOverrideClass(
         method: options.method || 'GET',
         headers: (options.headers as Record<string, string | string[]>) || {},
         body: requestBody,
-        query: url.searchParams,
       }
 
       debug('awaiting mocked response...')
