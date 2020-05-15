@@ -3,7 +3,7 @@ import http, { IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { urlToOptions } from '../src/utils/urlToOptions'
 import { InterceptedRequest } from '../src/glossary'
-import { cleanUrl } from '../src/utils/cleanUrl'
+import { getCleanUrl } from '../src/utils/getCleanUrl'
 
 interface PromisifiedResponse {
   res: IncomingMessage
@@ -162,7 +162,7 @@ export function findRequest(
   url: string
 ): InterceptedRequest | undefined {
   const parsedUrl = new URL(url)
-  const resolvedUrl = cleanUrl(parsedUrl)
+  const resolvedUrl = getCleanUrl(parsedUrl)
 
   return pool.find((request) => {
     return request.method === method && request.url === resolvedUrl
@@ -174,7 +174,7 @@ export async function prepare(
   pool: InterceptedRequest[]
 ): Promise<InterceptedRequest | undefined> {
   const { url, options } = await promise
-  const resolvedUrl = cleanUrl(new URL(url))
+  const resolvedUrl = getCleanUrl(new URL(url))
 
   return findRequest(pool, options.method, resolvedUrl)
 }

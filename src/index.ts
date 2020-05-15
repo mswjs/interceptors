@@ -1,3 +1,4 @@
+/* Typings */
 export {
   InterceptedRequest,
   MockedResponse,
@@ -5,4 +6,8 @@ export {
   ReturnedResponse,
 } from './glossary'
 
+/* Classes */
 export { RequestInterceptor } from './RequestInterceptor'
+
+/* Utils */
+export { getCleanUrl } from './utils/getCleanUrl'

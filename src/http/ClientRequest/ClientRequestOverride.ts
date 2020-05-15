@@ -4,7 +4,7 @@ import http, { IncomingMessage, ClientRequest } from 'http'
 import { Socket } from './Socket'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
-import { cleanUrl } from '../../utils/cleanUrl'
+import { getCleanUrl } from '../../utils/getCleanUrl'
 
 const debug = require('debug')('http:client-request')
 
@@ -75,7 +75,7 @@ export function createClientRequestOverrideClass(
       this.once('response', callback)
     }
 
-    const urlWithoutQuery = cleanUrl(url)
+    const urlWithoutQuery = getCleanUrl(url)
 
     debug('resolved clean URL:', urlWithoutQuery)
 

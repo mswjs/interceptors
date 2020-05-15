@@ -5,7 +5,7 @@
 import { flattenHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { createEvent } from './createEvent'
-import { cleanUrl } from '../../utils/cleanUrl'
+import { getCleanUrl } from '../../utils/getCleanUrl'
 
 const debug = require('debug')('XHR')
 
@@ -184,13 +184,13 @@ export const createXMLHttpRequestOverride = (
         url = new URL(this.url, window.location.href)
       }
 
-      const cleanedUrl = cleanUrl(url, isAbsoluteUrl)
+      const cleanUrl = getCleanUrl(url, isAbsoluteUrl)
 
       debug('is absolute url?', isAbsoluteUrl)
-      debug('cleaned url:', cleanedUrl)
+      debug('cleaned url:', cleanUrl)
 
       const req: InterceptedRequest = {
-        url: cleanedUrl,
+        url: cleanUrl,
         method: this.method,
         query: url.searchParams,
         body: this.data,
