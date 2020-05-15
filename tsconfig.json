@@ -2,7 +2,7 @@
   "compileOnSave": true,
   "compilerOptions": {
     "strict": true,
-    "target": "es6",
+    "target": "ES5",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "typeRoots": ["node_modules/@types"],
