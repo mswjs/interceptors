@@ -8,7 +8,6 @@ export interface InterceptedRequest {
   url: URL
   method: string
   headers?: Record<string, string | string[]>
-  query: URLSearchParams
   body?: string | undefined
 }
 

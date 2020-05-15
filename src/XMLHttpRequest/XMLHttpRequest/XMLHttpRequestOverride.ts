@@ -188,7 +188,6 @@ export const createXMLHttpRequestOverride = (
       const req: InterceptedRequest = {
         url,
         method: this.method,
-        query: url.searchParams,
         body: this.data,
         headers: this.requestHeaders,
       }
