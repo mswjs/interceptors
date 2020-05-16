@@ -8,7 +8,8 @@
   "license": "MIT",
   "scripts": {
     "test": "jest",
-    "build": "tsc --build",
+    "clean": "rimraf lib",
+    "build": "yarn clean && tsc --build",
     "prepublishOnly": "yarn test && yarn build"
   },
   "files": [
@@ -21,6 +22,7 @@
     "@types/node-fetch": "^2.5.7",
     "jest": "^25.4.0",
     "node-fetch": "^2.6.0",
+    "rimraf": "^3.0.2",
     "ts-jest": "^25.4.0",
     "typescript": "^3.8.3"
   },
