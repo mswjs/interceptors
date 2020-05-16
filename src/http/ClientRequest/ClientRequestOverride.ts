@@ -1,8 +1,9 @@
 import { inherits } from 'util'
 import { Socket as NetworkSocket } from 'net'
 import http, { IncomingMessage, ClientRequest } from 'http'
-import { Socket } from './Socket'
+import {} from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
+import { Socket } from './Socket'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
 
 const debug = require('debug')('http:client-request')
@@ -135,16 +136,26 @@ export function createClientRequestOverrideClass(
           response.statusCode = mockedResponse.status
 
           debug('writing response headers...')
+
+          // Converts mocked response header to actual headers.
+          // Converts header names to lowercase and merges duplicates.
           response.headers = Object.entries(headers).reduce<
-            Record<string, string | string[]>
+            http.IncomingHttpHeaders
           >((acc, [name, value]) => {
-            acc[name.toLowerCase()] = value
+            const headerName = name.toLowerCase()
+            const headerValue = acc.hasOwnProperty(headerName)
+              ? ([] as string[]).concat(acc[headerName] as string, value)
+              : value
+
+            acc[headerName] = headerValue
             return acc
           }, {})
 
+          // Converts mocked response header to raw headers.
+          // See: https://nodejs.org/api/http.html#http_message_rawheaders
           response.rawHeaders = Object.entries(headers).reduce<string[]>(
             (acc, [name, value]) => {
-              return acc.concat(name.toLowerCase()).concat(value)
+              return acc.concat(name, value)
             },
             []
           )
