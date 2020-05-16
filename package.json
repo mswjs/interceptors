@@ -16,6 +16,10 @@
     "lib",
     "README.md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mswjs/node-request-interceptor"
+  },
   "devDependencies": {
     "@types/jest": "^25.2.1",
     "@types/node": "^13.13.2",
