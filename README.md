@@ -11,7 +11,7 @@ Low-level HTTP/HTTPS/XHR request interception library for NodeJS.
 - `https.request`/`https.get`
 - `fetch`
 - `XMLHttpRequest`
-- Any third-party library that utilizes the above (for example `request`, `node-fetch`, `axios`, etc.)
+- Any third-party libraries that utilize the above (i.e. `request`, `node-fetch`, etc.)
 
 ## Motivation
 
@@ -48,39 +48,90 @@ Once patched, it provides an interface to execute an arbitrary logic upon any ou
 
 ## Getting started
 
-### Install
-
 ```bash
 npm install node-request-interceptor
 ```
 
-### Use
+## API
+
+### `RequestInterceptor`
 
 ```js
 import { RequestInterceptor } from 'node-request-interceptor'
 
 const interceptor = new RequestInterceptor()
+```
 
-// Provide a request middleware function that accepts an intercepted request
-// and may return an optional abstract response.
+### Methods
+
+#### `.use(middleware: (req: InterceptedRequest, ref: IncomingMessage | XMLHttpRequest) => MockedResponse): void`
+
+Applies a given middleware function to an intercepted request. May return a [mocked response](#mockedresponse) that is going to be used to respond to an intercepted request.
+
+##### Requests monitoring
+
+```js
 interceptor.use((req) => {
-  if (req.url === 'https://non-existing.url') {
-    // (Optional) Return an abstract mocked response that is later coerced
-    // into a proper response instance depending on the request origin.
+  // Will print to stdout any outgoing requests
+  // without affecting their responses
+  console.log('%s %s', req.method, req.url.href)
+})
+```
+
+##### Response mocking
+
+```js
+interceptor.use((req) => {
+  if (['https://google.com'].includes(req.url.origin)) {
+    // Will return a mocked response for any request
+    // that is issued from the "https://google.com" origin.
     return {
       status: 301,
       headers: {
-        'Content-Type': 'application/json',
+        'x-powered-by': 'node-request-interceptor',
       },
-      body: JSON.stringify({
-        mocked: true,
+      body: JSON.stringified({
+        message: 'Hey, I am a mocked response',
       }),
     }
   }
 })
+```
 
-// Restore replaced instances (cleanup)
+#### `.restore(): void`
+
+Restores all patched modules and stops the interception.
+
+```js
 interceptor.restore()
+```
+
+---
+
+### `InterceptedRequest`
+
+```ts
+interface InterceptedRequest {
+  url: URL
+  method: string
+  headers?: http.OutgoingHttpHeaders
+  body?: string
+}
+```
+
+---
+
+### `MockedResponse`
+
+Whenever a `MockedResponse` object is returned from the request middleware function, it's being used to constructs a relevant response for the intercepted request.
+
+```ts
+interface MockedResponse {
+  status?: number
+  statusText?: string
+  headers?: Record<string, string | string[]>
+  body?: string
+}
 ```
 
 ## Special mention
