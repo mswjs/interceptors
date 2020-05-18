@@ -2,7 +2,7 @@ import { RequestMiddleware, ModuleOverride } from './glossary'
 import { overrideHttpModule } from './http/override'
 import { overrideXhrModule } from './XMLHttpRequest/override'
 
-const debug = require('debug')('root')
+const debug = require('debug')('interceptor')
 
 export class RequestInterceptor {
   private overrides: ReturnType<ModuleOverride>[]
