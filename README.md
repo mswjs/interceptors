@@ -1,5 +1,5 @@
-![https://www.npmjs.com/package/node-request-interceptor](https://img.shields.io/npm/v/node-request-interceptor.svg)
-![https://app.circleci.com/pipelines/github/mswjs/node-request-interceptor](https://img.shields.io/circleci/project/github/mswjs/node-request-interceptor/master.svg)
+[![Latest version](https://img.shields.io/npm/v/node-request-interceptor.svg)](https://www.npmjs.com/package/node-request-interceptor)
+[![Build status](https://img.shields.io/circleci/project/github/mswjs/node-request-interceptor/master.svg)](https://app.circleci.com/pipelines/github/mswjs/node-request-interceptor)
 
 # `node-request-interceptor`
 
