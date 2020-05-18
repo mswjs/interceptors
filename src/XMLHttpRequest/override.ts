@@ -1,6 +1,8 @@
 import { ModuleOverride } from '../glossary'
 import { createXMLHttpRequestOverride } from './XMLHttpRequest/XMLHttpRequestOverride'
 
+const debug = require('debug')('XHR')
+
 const original = {
   XMLHttpRequest:
     // Although executed in node, certain processes emulate the DOM-like environment
@@ -10,6 +12,8 @@ const original = {
 
 export const overrideXhrModule: ModuleOverride = (middleware) => {
   if (original.XMLHttpRequest) {
+    debug('patching "XMLHttpRequest" module')
+
     const XMLHttpRequestOverride = createXMLHttpRequestOverride(
       middleware,
       original.XMLHttpRequest
@@ -21,6 +25,8 @@ export const overrideXhrModule: ModuleOverride = (middleware) => {
 
   return () => {
     if (original.XMLHttpRequest) {
+      debug('reverting patches...')
+
       window.XMLHttpRequest = original.XMLHttpRequest
     }
   }
