@@ -34,5 +34,16 @@
   "dependencies": {
     "debug": "^4.1.1",
     "headers-utils": "^1.1.3"
-  }
+  },
+  "keywords": [
+    "request",
+    "intercept",
+    "http",
+    "https",
+    "xmlhttprequest",
+    "xhr",
+    "fetch",
+    "low-level",
+    "mock"
+  ]
 }
