@@ -7,8 +7,6 @@ describe('axios', () => {
   beforeAll(() => {
     interceptor = new RequestInterceptor()
     interceptor.use((req) => {
-      console.log('Intercepted:', req)
-
       if (req.url.pathname === '/user') {
         return {
           status: 200,
@@ -33,6 +31,26 @@ describe('axios', () => {
 
     beforeAll(async () => {
       res = await axios.get('/user')
+    })
+
+    it('should return mocked status code', () => {
+      expect(res.status).toEqual(200)
+    })
+
+    it('should return mocked headers', () => {
+      expect(res.headers).toHaveProperty('x-header', 'yes')
+    })
+
+    it('should return mocked body', () => {
+      expect(res.data).toEqual({ mocked: true })
+    })
+  })
+
+  describe('given I perform an axios.post request', () => {
+    let res: AxiosResponse
+
+    beforeAll(async () => {
+      res = await axios.post('/user')
     })
 
     it('should return mocked status code', () => {
