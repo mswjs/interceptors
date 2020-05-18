@@ -24,6 +24,7 @@
     "@types/jest": "^25.2.1",
     "@types/node": "^13.13.2",
     "@types/node-fetch": "^2.5.7",
+    "axios": "^0.19.2",
     "jest": "^25.4.0",
     "node-fetch": "^2.6.0",
     "rimraf": "^3.0.2",
