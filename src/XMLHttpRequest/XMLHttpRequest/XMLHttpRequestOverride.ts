@@ -35,12 +35,11 @@ export const createXMLHttpRequestOverride = (
     public password: string = ''
     public data: string = ''
     public async: boolean = true
-    public reponse: string = ''
+    public response: string = ''
     public responseText: string = ''
     public responseType: XMLHttpRequestResponseType = ''
     public responseXML: Document | null
     public responseURL: string = ''
-    public response: string = ''
     public upload: XMLHttpRequestUpload = null as any
     public readyState: number = this.UNSENT
     public onreadystatechange: (
@@ -83,18 +82,21 @@ export const createXMLHttpRequestOverride = (
       this.responseXML = null as any
     }
 
-    trigger<K extends keyof XMLHttpRequestEventTargetEventMap>(
-      event: K,
-      options?: any
-    ) {
-      debug('trigger', event)
-
+    triggerReadyStateChange(options?: any) {
       if (this.onreadystatechange) {
         this.onreadystatechange.call(
           this,
           createEvent(options, this, 'readystatechange')
         )
       }
+    }
+
+    trigger<K extends keyof XMLHttpRequestEventTargetEventMap>(
+      event: K,
+      options?: any
+    ) {
+      debug('trigger', event)
+      this.triggerReadyStateChange(options)
 
       const hasEvent = this._events.find((item) => item.type === 'loadend')
       if (this.readyState === this.DONE && (this.onloadend || hasEvent)) {
@@ -128,6 +130,7 @@ export const createXMLHttpRequestOverride = (
 
     reset() {
       debug('reset')
+
       this.readyState = this.UNSENT
       this.status = 200
       this.statusText = ''
@@ -146,7 +149,7 @@ export const createXMLHttpRequestOverride = (
       user?: string,
       password?: string
     ) {
-      debug('open')
+      debug('open', { method, url, async, user, password })
 
       this.reset()
       this.readyState = this.OPENED
@@ -169,7 +172,6 @@ export const createXMLHttpRequestOverride = (
       this.readyState = this.LOADING
       this.data = data || ''
 
-      let isAbsoluteUrl = true
       let url: URL
 
       try {
@@ -178,12 +180,9 @@ export const createXMLHttpRequestOverride = (
         // When the URL construction failed, assume given a relative URL,
         // and resolve it against the current window location.
         // XMLHttpRequest always executes in DOM-like environment,
-        // which must emulate `window` object.
-        isAbsoluteUrl = false
+        // which must have the `window` object.
         url = new URL(this.url, window.location.href)
       }
-
-      debug('is absolute url?', isAbsoluteUrl)
 
       const req: InterceptedRequest = {
         url,
@@ -197,16 +196,30 @@ export const createXMLHttpRequestOverride = (
       Promise.resolve(middleware(req, this)).then((mockedResponse) => {
         // Return a mocked response, if provided in the middleware
         if (mockedResponse) {
-          debug('recieved mocked response')
+          debug('recieved mocked response', mockedResponse)
+
           this.status = mockedResponse.status || 200
           this.statusText = mockedResponse.statusText || ''
+
           this.responseHeaders = mockedResponse.headers
             ? flattenHeadersObject(mockedResponse.headers)
             : {}
+          this.readyState = this.HEADERS_RECEIVED
+          this.triggerReadyStateChange()
+
           this.response = mockedResponse.body || ''
+          this.responseText = mockedResponse.body || ''
+
+          this.trigger('progress', {
+            loaded: this.response.length,
+            total: this.response.length,
+          })
+
+          this.readyState = this.DONE
 
           this.trigger('loadstart')
           this.trigger('load')
+          this.trigger('loadend')
         } else {
           debug('no mocked response')
 
