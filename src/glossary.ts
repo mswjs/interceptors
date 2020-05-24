@@ -1,5 +1,9 @@
 import { IncomingMessage } from 'http'
 
+/**
+ * A module override function that accepts a request middleware
+ * and returns a cleanup function that restores all the patched modules.
+ */
 export type ModuleOverride = (handler: RequestMiddleware) => () => void
 
 export type HttpRequestCallback = (res: IncomingMessage) => void

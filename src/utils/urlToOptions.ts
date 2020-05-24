@@ -1,11 +1,10 @@
 import { RequestOptions } from 'http'
 
 /**
- * Utility function that converts a URL object into an ordinary
- * options object as expected by the http.request and https.request APIs.
+ * Converts a URL instance into an ordinary object expected by
+ * the `http.request`/`https.request` calls.
  *
- * Copied from Node's source code
- * https://github.com/nodejs/node/blob/908292cf1f551c614a733d858528ffb13fb3a524/lib/internal/url.js#L1257
+ * @see https://github.com/nodejs/node/blob/908292cf1f551c614a733d858528ffb13fb3a524/lib/internal/url.js#L1257
  */
 export function urlToOptions(url: URL): RequestOptions {
   const options = {

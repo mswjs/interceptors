@@ -5,15 +5,18 @@ import { createClientRequestOverrideClass } from './ClientRequest/ClientRequestO
 
 const debug = require('debug')('http:override')
 
-let originalClientRequest: typeof ClientRequest
-let patchedModules: Record<
+type PatchedModules = Record<
   string,
   {
-    module: any
+    module: typeof http | typeof https
     request: typeof http['request']
     get: typeof http['get']
   }
-> = {}
+>
+
+// Store a pointer to the original `http.ClientRequest` class
+// so it can be mutated during runtime, affecting any subsequent calls.
+let originalClientRequest: typeof ClientRequest
 
 function handleRequest(
   protocol: string,
@@ -34,13 +37,18 @@ function handleRequest(
     http.ClientRequest = ClientRequestOverride
   }
 
-  debug('constructing http.ClientRequest (origin: %s)', protocol)
+  debug('new http.ClientRequest (origin: %s)', protocol)
 
   // @ts-ignore
   return new http.ClientRequest(...args)
 }
 
+/**
+ * Overrides native `http` and `https` request issuing functions
+ * using a given request interception middleware.
+ */
 export const overrideHttpModule: ModuleOverride = (middleware) => {
+  let patchedModules: PatchedModules = {}
   const modules: ['http', 'https'] = ['http', 'https']
 
   modules.forEach((protocol) => {
@@ -51,8 +59,11 @@ export const overrideHttpModule: ModuleOverride = (middleware) => {
 
     const { request: originalRequest, get: originalGet } = module
 
+    // Wrap an original `http.request`/`https.request`
+    // so that its invocations can be debugged.
     function proxiedOriginalRequest(...args: any[]) {
       debug('%s.request original call', protocol)
+
       // @ts-ignore
       return originalRequest(...args)
     }
@@ -94,7 +105,7 @@ export const overrideHttpModule: ModuleOverride = (middleware) => {
   })
 
   return () => {
-    debug('reverting patches...')
+    debug('restoring patches...')
 
     Object.values(patchedModules).forEach(({ module, request, get }) => {
       module.request = request

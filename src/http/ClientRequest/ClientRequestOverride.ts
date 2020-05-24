@@ -29,12 +29,10 @@ export function createClientRequestOverrideClass(
     const usesHttps = url.protocol === 'https:'
     const requestBodyBuffer: any[] = []
 
-    debug('uses HTTPS?', usesHttps)
-
-    debug('intercepted %s %s', options.method, url.href)
+    debug('intercepted %s %s (%s)', options.method, url.href, url.protocol)
     http.OutgoingMessage.call(this)
 
-    // Propagate options headers to the request instance
+    // Propagate options headers to the request instance.
     Object.entries(options.headers || {}).forEach(([name, value]) => {
       if (value != null) {
         this.setHeader(name, value)
@@ -54,6 +52,7 @@ export function createClientRequestOverrideClass(
       socket.setTimeout(options.timeout)
     }
 
+    // Create a mocked response instance.
     const response = new IncomingMessage(socket)
 
     if (options.headers?.expect === '100-continue') {
@@ -115,8 +114,7 @@ export function createClientRequestOverrideClass(
       const requestBody = bodyBufferToString(Buffer.concat(requestBodyBuffer))
       debug('request body', requestBody)
 
-      // Construct the intercepted request instance.
-      // This request is what's exposed to the request middleware.
+      // Construct the intercepted request instance exposed to the request middleware.
       const formattedRequest: InterceptedRequest = {
         url,
         method: options.method || 'GET',
@@ -130,6 +128,7 @@ export function createClientRequestOverrideClass(
       if (mockedResponse) {
         debug('received mocked response:', mockedResponse)
 
+        // Prevent modifying an already finished response.
         if (!response.complete) {
           const { headers = {} } = mockedResponse
 
@@ -137,8 +136,8 @@ export function createClientRequestOverrideClass(
 
           debug('writing response headers...')
 
-          // Converts mocked response header to actual headers.
-          // Converts header names to lowercase and merges duplicates.
+          // Converts mocked response headers to actual headers
+          // (lowercases header names and merges duplicates).
           response.headers = Object.entries(headers).reduce<
             http.IncomingHttpHeaders
           >((acc, [name, value]) => {
@@ -151,8 +150,8 @@ export function createClientRequestOverrideClass(
             return acc
           }, {})
 
-          // Converts mocked response header to raw headers.
-          // See: https://nodejs.org/api/http.html#http_message_rawheaders
+          // Converts mocked response headers to raw headers.
+          // @see https://nodejs.org/api/http.html#http_message_rawheaders
           response.rawHeaders = Object.entries(headers).reduce<string[]>(
             (acc, [name, value]) => {
               return acc.concat(name, value)
@@ -166,22 +165,26 @@ export function createClientRequestOverrideClass(
           }
         }
 
-        debug('(intercepted) %s %s', options.method, url.href)
         debug('response is complete, finishing request...')
 
         this.finished = true
         this.emit('finish')
-
-        // Delegate the ending of response to the request middleware
-        // to support async logic
         this.emit('response', response)
+
+        // Pushing `null` indicates that the response body is complete
+        // and must not be modified anymore.
         response.push(null)
         response.complete = true
 
         return this
       }
 
-      debug('no mocked response received')
+      debug(
+        'performing original %s %s (%s)',
+        options.method,
+        url.href,
+        url.protocol
+      )
 
       let req: ClientRequest
       debug('using', performOriginalRequest)
@@ -191,14 +194,13 @@ export function createClientRequestOverrideClass(
       // Decide whether to use HTTPS based on the URL protocol.
       // XHR can trigger http.request for HTTPS URL.
       if (url.protocol === 'https:') {
-        debug('performing original HTTPS %s %s', options.method, url.href)
         debug('reverting patches...')
 
         http.ClientRequest = originalClientRequest
 
         // Override the global pointer to the original client request.
         // This way whenever a bypass call bubbles to `handleRequest`
-        // in always performs respecting this `ClientRequest` restoration.
+        // it always performs respecting this `ClientRequest` restoration.
         originalClientRequest = null as any
 
         req = performOriginalRequest(options, callback)
@@ -207,11 +209,10 @@ export function createClientRequestOverrideClass(
         http.ClientRequest = ClientRequest
         originalClientRequest = ClientRequest
       } else {
-        debug('performing original HTTP %s %s', options.method, url.href)
         req = performOriginalRequest(options, callback)
       }
 
-      // Propagate the given request body on the actual request
+      // Propagate the given request body on the original request.
       if (requestBodyBuffer.length > 0 && req.writable) {
         req.write(Buffer.concat(requestBodyBuffer))
       }
@@ -230,6 +231,8 @@ export function createClientRequestOverrideClass(
         this.emit('error', error)
       })
 
+      // Provide a callback when an original request is finished,
+      // so it can be debugged.
       req.end(() => {
         debug('request ended', options.method, url.href)
       })
@@ -237,15 +240,11 @@ export function createClientRequestOverrideClass(
       return req
     }
 
-    debug('returning original request...')
-
-    /**
-     * Handle aborting a request.
-     */
     this.abort = () => {
       debug('abort')
 
       if (this.aborted) {
+        debug('already aborted')
         return
       }
 
