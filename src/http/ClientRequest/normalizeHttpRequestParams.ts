@@ -65,7 +65,7 @@ export function normalizeHttpRequestParams(
 
   // Enforce protocol on `RequestOptions` so when `ClientRequest` compares
   // the agent protocol and the request options protocol they match.
-  // https://github.com/nodejs/node/blob/d84f1312915fe45fe0febe888db692c74894c382/lib/_http_client.js#L142-L145
+  // @see https://github.com/nodejs/node/blob/d84f1312915fe45fe0febe888db692c74894c382/lib/_http_client.js#L142-L145
   // This prevents `Protocol "http:" not supported. Expected "https:"` exception for `https.request` calls.
   options.protocol = options.protocol || url.protocol
 

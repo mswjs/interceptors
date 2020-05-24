@@ -1,5 +1,5 @@
 import { ModuleOverride } from '../glossary'
-import { createXMLHttpRequestOverride } from './XMLHttpRequest/XMLHttpRequestOverride'
+import { createXMLHttpRequestOverride } from './XMLHttpRequest/createXMLHttpRequestOverride'
 
 const debug = require('debug')('XHR')
 
@@ -10,6 +10,9 @@ const original = {
     typeof window === 'undefined' ? undefined : window.XMLHttpRequest,
 }
 
+/**
+ * Conditionally overrides the `XMLHttpRequest` class using a given request middleware.
+ */
 export const overrideXhrModule: ModuleOverride = (middleware) => {
   if (original.XMLHttpRequest) {
     debug('patching "XMLHttpRequest" module')
@@ -25,7 +28,7 @@ export const overrideXhrModule: ModuleOverride = (middleware) => {
 
   return () => {
     if (original.XMLHttpRequest) {
-      debug('reverting patches...')
+      debug('restoring patches...')
 
       window.XMLHttpRequest = original.XMLHttpRequest
     }

@@ -1,6 +1,6 @@
 /**
  * XMLHttpRequest override class.
- * Inspired by https://github.com/marvinhagemeister/xhr-mocklet
+ * Inspired by https://github.com/marvinhagemeister/xhr-mocklet.
  */
 import { flattenHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
@@ -15,8 +15,11 @@ export const createXMLHttpRequestOverride = (
   return class XMLHttpRequestOverride implements XMLHttpRequest {
     requestHeaders: Record<string, string> = {}
     responseHeaders: Record<string, string> = {}
+
+    // Collection of events modified by `addEventListener`/`removeEventListener` calls.
     _events: any[] = []
 
+    /* Request state */
     public readonly UNSENT = 0
     public readonly OPENED = 1
     public readonly HEADERS_RECEIVED = 2
@@ -24,29 +27,29 @@ export const createXMLHttpRequestOverride = (
     public readonly DONE = 4
 
     /* Custom public properties */
-    public method: string = 'GET'
-    public url: string = ''
+    public method: string
+    public url: string
 
     /* XHR public properties */
-    public withCredentials = false
-    public status: number = 200
-    public statusText: string = ''
-    public user: string = ''
-    public password: string = ''
-    public data: string = ''
-    public async: boolean = true
-    public response: string = ''
-    public responseText: string = ''
-    public responseType: XMLHttpRequestResponseType = ''
+    public withCredentials: boolean
+    public status: number
+    public statusText: string
+    public user: string
+    public password: string
+    public data: string
+    public async: boolean
+    public response: string
+    public responseText: string
+    public responseType: XMLHttpRequestResponseType
     public responseXML: Document | null
-    public responseURL: string = ''
-    public upload: XMLHttpRequestUpload = null as any
-    public readyState: number = this.UNSENT
+    public responseURL: string
+    public upload: XMLHttpRequestUpload
+    public readyState: number
     public onreadystatechange: (
       this: XMLHttpRequest,
       ev: Event
     ) => any = null as any
-    public timeout: number = 0
+    public timeout: number
 
     /* Events */
     public onabort: (
@@ -79,7 +82,23 @@ export const createXMLHttpRequestOverride = (
     ) => any = null as any
 
     constructor() {
-      this.responseXML = null as any
+      this.url = ''
+      this.method = 'GET'
+      this.readyState = this.UNSENT
+      this.withCredentials = false
+      this.status = 200
+      this.statusText = 'OK'
+      this.user = ''
+      this.password = ''
+      this.data = ''
+      this.async = true
+      this.response = ''
+      this.responseType = 'text'
+      this.responseText = ''
+      this.responseXML = null
+      this.responseURL = ''
+      this.upload = null as any
+      this.timeout = 0
     }
 
     triggerReadyStateChange(options?: any) {
@@ -142,7 +161,7 @@ export const createXMLHttpRequestOverride = (
       this.responseXML = null as any
     }
 
-    async open(
+    public async open(
       method: string,
       url: string,
       async?: boolean,
@@ -166,7 +185,7 @@ export const createXMLHttpRequestOverride = (
       }
     }
 
-    send(data?: string) {
+    public send(data?: string) {
       debug('send %s %s', this.method, this.url)
 
       this.readyState = this.LOADING
@@ -177,13 +196,13 @@ export const createXMLHttpRequestOverride = (
       try {
         url = new URL(this.url)
       } catch (error) {
-        // When the URL construction failed, assume given a relative URL,
-        // and resolve it against the current window location.
-        // XMLHttpRequest always executes in DOM-like environment,
-        // which must have the `window` object.
+        // Assume a relative URL, if construction of a new `URL` instance fails.
+        // Since `XMLHttpRequest` always executed in a DOM-like environment,
+        // resolve the relative request URL against the current window location.
         url = new URL(this.url, window.location.href)
       }
 
+      // Create an intercepted request instance exposed to the request intercepting middleware.
       const req: InterceptedRequest = {
         url,
         method: this.method,
@@ -194,27 +213,33 @@ export const createXMLHttpRequestOverride = (
       debug('awaiting mocked response...')
 
       Promise.resolve(middleware(req, this)).then((mockedResponse) => {
-        // Return a mocked response, if provided in the middleware
+        // Return a mocked response, if provided in the middleware.
         if (mockedResponse) {
           debug('recieved mocked response', mockedResponse)
 
           this.status = mockedResponse.status || 200
-          this.statusText = mockedResponse.statusText || ''
-
+          this.statusText = mockedResponse.statusText || 'OK'
           this.responseHeaders = mockedResponse.headers
             ? flattenHeadersObject(mockedResponse.headers)
             : {}
+
+          // Mark that response headers has been received
+          // and trigger a ready state event to reflect received headers
+          // in a custom `onreadystatechange` callback.
           this.readyState = this.HEADERS_RECEIVED
           this.triggerReadyStateChange()
 
           this.response = mockedResponse.body || ''
           this.responseText = mockedResponse.body || ''
 
+          // Trigger a progress event based on the mocked response body.
           this.trigger('progress', {
             loaded: this.response.length,
             total: this.response.length,
           })
 
+          // Explicitly mark the request as done, so its response never hangs.
+          // @see https://github.com/mswjs/node-request-interceptor/issues/13
           this.readyState = this.DONE
 
           this.trigger('loadstart')
@@ -223,10 +248,9 @@ export const createXMLHttpRequestOverride = (
         } else {
           debug('no mocked response')
 
-          // Otherwise, perform an actual XHR
+          // Perform an original request, when the request middleware returned no mocked response.
           const originalRequest = new XMLHttpRequestPristine()
 
-          // Dispatch the original request
           debug('opening an original request %s %s', this.method, this.url)
           originalRequest.open(
             this.method,
@@ -236,6 +260,8 @@ export const createXMLHttpRequestOverride = (
             this.password
           )
 
+          // Reflect a successful state of the original request
+          // on the patched instance.
           originalRequest.onload = () => {
             debug('original onload')
 
@@ -251,7 +277,7 @@ export const createXMLHttpRequestOverride = (
             this.trigger('load')
           }
 
-          // Map callbacks to the patched instance's callbacks
+          // Map callbacks given to the patched instance to the original request instance.
           originalRequest.onabort = this.abort
           originalRequest.onerror = this.onerror
           originalRequest.ontimeout = this.ontimeout
@@ -263,7 +289,7 @@ export const createXMLHttpRequestOverride = (
       })
     }
 
-    abort() {
+    public abort() {
       debug('abort')
 
       if (this.readyState > this.UNSENT && this.readyState < this.DONE) {
@@ -276,25 +302,33 @@ export const createXMLHttpRequestOverride = (
       return false
     }
 
-    setRequestHeader(name: string, value: string) {
+    public setRequestHeader(name: string, value: string) {
       debug('set request header', name, value)
       this.requestHeaders[name] = value
     }
 
-    getResponseHeader(name: string): string | null {
+    public getResponseHeader(name: string): string | null {
       debug('get response header', name)
 
       if (this.readyState < this.HEADERS_RECEIVED) {
+        debug(
+          'cannot return a header: headers not received (state: %s)',
+          this.readyState
+        )
         return null
       }
 
       return this.responseHeaders[name.toLowerCase()] || null
     }
 
-    getAllResponseHeaders(): string {
+    public getAllResponseHeaders(): string {
       debug('get all response headers')
 
       if (this.readyState < this.HEADERS_RECEIVED) {
+        debug(
+          'cannot return headers: headers not received (state: %s)',
+          this.readyState
+        )
         return ''
       }
 
@@ -303,12 +337,11 @@ export const createXMLHttpRequestOverride = (
         .join('')
     }
 
-    overrideMimeType() {}
+    public overrideMimeType() {}
 
-    addEventListener<K extends keyof XMLHttpRequestEventTargetEventMap>(
+    public addEventListener<K extends keyof XMLHttpRequestEventTargetEventMap>(
       event: K,
-      listener: (event?: XMLHttpRequestEventTargetEventMap[K]) => any,
-      useCapture?: boolean
+      listener: (event?: XMLHttpRequestEventTargetEventMap[K]) => any
     ) {
       this._events.push({
         event,
@@ -316,7 +349,7 @@ export const createXMLHttpRequestOverride = (
       })
     }
 
-    removeEventListener<K extends keyof XMLHttpRequestEventMap>(
+    public removeEventListener<K extends keyof XMLHttpRequestEventMap>(
       event: K,
       listener: (event?: XMLHttpRequestEventMap[K]) => any
     ): void {

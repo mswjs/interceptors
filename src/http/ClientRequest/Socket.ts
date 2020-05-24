@@ -79,6 +79,7 @@ export class Socket extends EventEmitter {
     ).toString('base64')
   }
 
+  // Mock methods required to write to the response body.
   resume() {}
   cork() {}
   uncork() {}

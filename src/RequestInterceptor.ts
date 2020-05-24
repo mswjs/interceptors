@@ -10,17 +10,15 @@ export class RequestInterceptor {
 
   constructor() {
     this.middleware = []
+    debug('created new RequestInterceptor')
 
-    debug('created new instance')
-
-    this.overrides = [
-      overrideHttpModule(this.applyMiddleware),
-      overrideXhrModule(this.applyMiddleware),
-    ]
+    this.overrides = [overrideHttpModule, overrideXhrModule].map((override) =>
+      override(this.applyMiddleware)
+    )
   }
 
   /**
-   * Restores original HTTP/HTTPS/XHR instances.
+   * Restores original instances of patched modules.
    */
   public restore() {
     debug('restore')
@@ -31,12 +29,12 @@ export class RequestInterceptor {
    * Applies given middleware to any intercepted request.
    */
   public use(middleware: RequestMiddleware) {
-    debug('use')
+    debug('use', middleware)
     this.middleware.push(middleware)
   }
 
   private applyMiddleware: RequestMiddleware = async (req, ref) => {
-    debug('applyMiddleware', req)
+    debug('apply middleware', req)
 
     for (let middleware of this.middleware) {
       const res = await middleware(req, ref)
