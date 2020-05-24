@@ -26,7 +26,27 @@ describe('axios', () => {
     interceptor.restore()
   })
 
-  describe('given I perform an axios.get request', () => {
+  describe('given I performed a request using "axios"', () => {
+    let res: AxiosResponse
+
+    beforeAll(async () => {
+      res = await axios('/user')
+    })
+
+    it('should return mocked status code', () => {
+      expect(res.status).toEqual(200)
+    })
+
+    it('should return mocked headers', () => {
+      expect(res.headers).toHaveProperty('x-header', 'yes')
+    })
+
+    it('should return mocked body', () => {
+      expect(res.data).toEqual({ mocked: true })
+    })
+  })
+
+  describe('given I performed a request using "axios.get"', () => {
     let res: AxiosResponse
 
     beforeAll(async () => {
@@ -46,7 +66,7 @@ describe('axios', () => {
     })
   })
 
-  describe('given I perform an axios.post request', () => {
+  describe('given I performed a request using "axios.post"', () => {
     let res: AxiosResponse
 
     beforeAll(async () => {
