@@ -64,7 +64,7 @@ describe('fetch', () => {
       })
 
       it('should access default request headers', () => {
-        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+        expect(request?.headers).toHaveProperty('accept', ['*/*'])
       })
 
       it('should access custom request headers', () => {
@@ -112,7 +112,7 @@ describe('fetch', () => {
       })
 
       it('should access default request headers', () => {
-        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+        expect(request?.headers).toHaveProperty('accept', ['*/*'])
       })
 
       it('should access custom request headers', () => {
@@ -155,7 +155,7 @@ describe('fetch', () => {
       })
 
       it('should access default request headers', () => {
-        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+        expect(request?.headers).toHaveProperty('accept', ['*/*'])
       })
 
       it('should access custom request headers', () => {
@@ -198,7 +198,7 @@ describe('fetch', () => {
       })
 
       it('should access default request headers', () => {
-        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+        expect(request?.headers).toHaveProperty('accept', ['*/*'])
       })
 
       it('should access custom request headers', () => {
@@ -245,7 +245,7 @@ describe('fetch', () => {
       })
 
       it('should access default request headers', () => {
-        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+        expect(request?.headers).toHaveProperty('accept', ['*/*'])
       })
 
       it('should access custom request headers', () => {
@@ -293,7 +293,7 @@ describe('fetch', () => {
       })
 
       it('should access default request headers', () => {
-        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+        expect(request?.headers).toHaveProperty('accept', ['*/*'])
       })
 
       it('should access custom request headers', () => {
@@ -336,7 +336,7 @@ describe('fetch', () => {
       })
 
       it('should access default request headers', () => {
-        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+        expect(request?.headers).toHaveProperty('accept', ['*/*'])
       })
 
       it('should access custom request headers', () => {
@@ -379,7 +379,7 @@ describe('fetch', () => {
       })
 
       it('should access default request headers', () => {
-        expect(request?.headers).toHaveProperty('Accept', ['*/*'])
+        expect(request?.headers).toHaveProperty('accept', ['*/*'])
       })
 
       it('should access custom request headers', () => {
