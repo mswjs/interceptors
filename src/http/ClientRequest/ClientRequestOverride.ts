@@ -1,7 +1,7 @@
 import { inherits } from 'util'
 import { Socket as NetworkSocket } from 'net'
 import http, { IncomingMessage, ClientRequest } from 'http'
-import {} from 'headers-utils'
+import { HeadersObject, reduceHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { Socket } from './Socket'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
@@ -114,11 +114,24 @@ export function createClientRequestOverrideClass(
       const requestBody = bodyBufferToString(Buffer.concat(requestBodyBuffer))
       debug('request body', requestBody)
 
+      const requestHeaders = options.headers
+        ? reduceHeadersObject<HeadersObject>(
+            options.headers as HeadersObject,
+            (headers, name, value) => {
+              headers[name.toLowerCase()] = value
+              return headers
+            },
+            {}
+          )
+        : {}
+
+      debug('request headers', requestHeaders)
+
       // Construct the intercepted request instance exposed to the request middleware.
       const formattedRequest: InterceptedRequest = {
         url,
         method: options.method || 'GET',
-        headers: (options.headers as Record<string, string | string[]>) || {},
+        headers: requestHeaders,
         body: requestBody,
       }
 
