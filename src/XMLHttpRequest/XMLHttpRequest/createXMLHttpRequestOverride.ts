@@ -2,7 +2,11 @@
  * XMLHttpRequest override class.
  * Inspired by https://github.com/marvinhagemeister/xhr-mocklet.
  */
-import { flattenHeadersObject } from 'headers-utils'
+import {
+  flattenHeadersObject,
+  reduceHeadersObject,
+  HeadersObject,
+} from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { createEvent } from './createEvent'
 
@@ -202,12 +206,22 @@ export const createXMLHttpRequestOverride = (
         url = new URL(this.url, window.location.href)
       }
 
+      const requestHeaders = reduceHeadersObject<HeadersObject>(
+        this.requestHeaders,
+        (headers, name, value) => {
+          headers[name.toLowerCase()] = value
+          return headers
+        },
+        {}
+      )
+      debug('request headers', requestHeaders)
+
       // Create an intercepted request instance exposed to the request intercepting middleware.
       const req: InterceptedRequest = {
         url,
         method: this.method,
         body: this.data,
-        headers: this.requestHeaders,
+        headers: requestHeaders,
       }
 
       debug('awaiting mocked response...')
