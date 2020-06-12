@@ -73,6 +73,35 @@ export class Socket extends EventEmitter {
     }
   }
 
+  /**
+   * Enable/disable the use of Nagle's algorithm.
+   * Nagle's algorithm delays data before it is sent via the network.
+   */
+  setNoDelay(noDelay: boolean = true): Socket {
+    if (noDelay) {
+      this.totalDelayMs = 0
+    }
+
+    return this
+  }
+
+  /**
+   * Enable/disable keep-alive functionality, and optionally set the initial delay before
+   * the first keepalive probe is sent on an idle socket.
+   */
+  setKeepAlive(): Socket {
+    return this
+  }
+
+  setTimeout(timeout: number, callback?: () => void): Socket {
+    setTimeout(() => {
+      callback?.()
+      this.emit('timeout')
+    }, timeout)
+
+    return this
+  }
+
   getPeerCertificate() {
     return Buffer.from(
       (Math.random() * 10000 + Date.now()).toString()
@@ -80,6 +109,7 @@ export class Socket extends EventEmitter {
   }
 
   // Mock methods required to write to the response body.
+  pause() {}
   resume() {}
   cork() {}
   uncork() {}
