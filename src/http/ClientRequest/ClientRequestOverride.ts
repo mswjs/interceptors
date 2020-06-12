@@ -25,6 +25,8 @@ export function createClientRequestOverrideClass(
     this: ClientRequest,
     ...args: Parameters<typeof http['request']>
   ) {
+    debug('created with arguments', args)
+
     const [url, options, callback] = normalizeHttpRequestParams(...args)
     const usesHttps = url.protocol === 'https:'
     const requestBodyBuffer: any[] = []
