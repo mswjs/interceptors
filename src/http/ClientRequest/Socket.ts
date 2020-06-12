@@ -109,8 +109,14 @@ export class Socket extends EventEmitter {
   }
 
   // Mock methods required to write to the response body.
-  pause() {}
-  resume() {}
+  pause(): Socket {
+    return this
+  }
+
+  resume(): Socket {
+    return this
+  }
+
   cork() {}
   uncork() {}
 
