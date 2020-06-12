@@ -4,9 +4,8 @@ import { urlToOptions } from '../../utils/urlToOptions'
 
 const debug = require('debug')('http:normalize-http-request-params')
 
-function resolveUrl(input: string | URL): URL {
-  return typeof input === 'string' ? new URL(input) : input
-}
+const DEFAULT_PATH = '/'
+const DEFAULT_PROTOCOL = 'http:'
 
 // Request instance constructed by the `request` library
 // has a `self` property that has a `uri` field. This is
@@ -15,61 +14,91 @@ interface RequestSelf {
   uri?: URL
 }
 
+type HttpRequestArgs =
+  | [string | URL, HttpRequestCallback?]
+  | [string | URL, RequestOptions, HttpRequestCallback?]
+  | [RequestOptions, HttpRequestCallback?]
+
+function resolveRequestOptions(
+  args: HttpRequestArgs,
+  url: URL
+): RequestOptions {
+  // Calling `fetch` provides only URL to ClientRequest,
+  // without RequestOptions or callback.
+  if (['function', 'undefined'].includes(typeof args[1])) {
+    return urlToOptions(url)
+  }
+
+  return args[1] as RequestOptions
+}
+
+function resolveCallback(
+  args: HttpRequestArgs
+): HttpRequestCallback | undefined {
+  return typeof args[1] === 'function' ? args[1] : args[2]
+}
+
 /**
  * Normalizes parameters given to a `http.request` call
  * so it always has a `URL` and `RequestOptions`.
  */
 export function normalizeHttpRequestParams(
-  ...args: any[]
+  ...args: HttpRequestArgs
 ): [URL, RequestOptions & RequestSelf, HttpRequestCallback?] {
   let url: URL
   let options: RequestOptions & RequestSelf
-  let callback: HttpRequestCallback
+  let callback: HttpRequestCallback | undefined
 
-  debug('normalizing parameters...')
+  if (typeof args[0] === 'string') {
+    debug('given a location string:', args[0])
 
-  // Only `RequestOptions` has the `method` property
-  if (args[0].hasOwnProperty('method')) {
-    debug('firts parameter is RequestOptions')
+    url = new URL(args[0])
+    debug('created a URL:', url)
+
+    options = resolveRequestOptions(args, url)
+    debug('created request options:', options)
+
+    callback = resolveCallback(args)
+  } else if ('origin' in args[0]) {
+    url = args[0]
+    debug('given a URL:', url)
+
+    options = resolveRequestOptions(args, url)
+    debug('created request options', options)
+
+    callback = resolveCallback(args)
+  } else if ('method' in args[0]) {
     options = args[0]
+    debug('given request options:', options)
 
-    const path = options.path || '/'
-    const baseUrl = `${options.protocol}//${options.hostname}`
+    const path = options.path || DEFAULT_PATH
 
-    debug('constructing URL manually...')
+    if (!options.protocol) {
+      // Assume HTTPS if using an SSL certificate.
+      options.protocol = options.cert ? 'https:' : DEFAULT_PROTOCOL
+    }
+
+    const baseUrl = `${options.protocol}//${options.hostname || options.host}`
+    debug('created base URL:', baseUrl)
 
     url = options.uri ? new URL(options.uri.href) : new URL(path, baseUrl)
-    debug('constructed URL:', url.href)
+    debug('created URL:', url)
 
-    callback = args[1]
-  } else if (args[1]?.hasOwnProperty('method')) {
-    debug('second parameter is RequestOptions')
-
-    url = resolveUrl(args[0])
-    debug('resolved URL:', url.href)
-
-    options = args[1]
-    callback = args[2]
+    callback = resolveCallback(args)
   } else {
-    debug('the first parameter is URL')
-    url = resolveUrl(args[0])
-
-    debug('resolved URL:', url.href)
-
-    // At this point `ClientRequest` has been constructed only using URL.
-    // Coerce URL into a `RequestOptions` instance.
-    options = urlToOptions(url)
-
-    callback = args[1]
+    throw new Error(
+      `Failed to construct ClientRequest with these parameters: ${args}`
+    )
   }
 
   // Enforce protocol on `RequestOptions` so when `ClientRequest` compares
-  // the agent protocol and the request options protocol they match.
+  // the agent protocol to the request options protocol they match.
   // @see https://github.com/nodejs/node/blob/d84f1312915fe45fe0febe888db692c74894c382/lib/_http_client.js#L142-L145
   // This prevents `Protocol "http:" not supported. Expected "https:"` exception for `https.request` calls.
   options.protocol = options.protocol || url.protocol
 
-  debug('resolved protocol: %s', options.protocol)
+  debug('resolved URL:', url)
+  debug('resolved options:', options)
 
   return [url, options, callback]
 }
