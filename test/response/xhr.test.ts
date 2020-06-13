@@ -10,12 +10,12 @@ function performXMLHttpRequest(
   method: string,
   url: string
 ): Promise<XhrResponse> {
-  let status: number
-  let headers: string
-  let body: string
-
   return new Promise((resolve, reject) => {
     const req = new XMLHttpRequest()
+    let status: number
+    let headers: string
+    let body: string
+
     req.onload = () => {
       body = req.response
       headers = req.getAllResponseHeaders()
@@ -28,147 +28,73 @@ function performXMLHttpRequest(
   })
 }
 
-describe('XHR', () => {
-  let interceptor: RequestInterceptor
+let interceptor: RequestInterceptor
 
-  beforeAll(() => {
-    interceptor = new RequestInterceptor()
-    interceptor.use((req) => {
-      const shouldMock =
-        ['https://test.msw.io', 'http://test.msw.io'].includes(
-          req.url.origin
-        ) || ['/login'].includes(req.url.pathname)
+beforeAll(() => {
+  interceptor = new RequestInterceptor()
+  interceptor.use((req) => {
+    const shouldMock =
+      ['https://test.msw.io', 'http://test.msw.io'].includes(req.url.origin) ||
+      ['/login'].includes(req.url.pathname)
 
-      if (shouldMock) {
-        return {
-          status: 301,
-          headers: {
-            'Content-Type': 'application/hal+json',
-          },
-          body: 'foo',
-        }
+    if (shouldMock) {
+      return {
+        status: 301,
+        headers: {
+          'Content-Type': 'application/hal+json',
+        },
+        body: 'foo',
       }
-    })
+    }
   })
+})
 
-  afterAll(() => {
-    interceptor.restore()
-  })
+afterAll(() => {
+  interceptor.restore()
+})
 
-  describe('given I perform an HTTP request using XMLHttpRequest', () => {
-    describe('and that request is handled by the middleware', () => {
-      let res: XhrResponse
+test('responds to an HTTP request handled in the middleware', async () => {
+  const res = await performXMLHttpRequest('GET', 'http://test.msw.io')
 
-      beforeAll(async () => {
-        res = await performXMLHttpRequest('GET', 'http://test.msw.io')
-      })
+  expect(res.status).toEqual(301)
+  expect(res.headers).toContain('Content-Type: application/hal+json')
+  expect(res.body).toEqual('foo')
+})
 
-      it('should return a mocked status code', () => {
-        expect(res.status).toEqual(301)
-      })
+test('bypasses an HTTP request not handled in the middleware', async () => {
+  const res = await performXMLHttpRequest('GET', 'http://httpbin.org/get')
 
-      it('should return mocked headers', () => {
-        expect(res.headers).toContain('Content-Type: application/hal+json')
-      })
+  expect(res.status).toEqual(200)
+  expect(res.body).toContain(`\"url\": \"http://httpbin.org/get\"`)
+})
 
-      it('should return mocked body', () => {
-        expect(res.body).toEqual('foo')
-      })
-    })
+test('responds to an HTTPS request handled in the middleware', async () => {
+  const res = await performXMLHttpRequest('GET', 'https://test.msw.io')
 
-    describe('and that request is not handled by the middleware', () => {
-      let res: XhrResponse
+  expect(res.status).toEqual(301)
+  expect(res.headers).toContain('Content-Type: application/hal+json')
+  expect(res.body).toEqual('foo')
+})
 
-      beforeAll(async () => {
-        res = await performXMLHttpRequest('GET', 'http://httpbin.org/get')
-      })
+test('bypasses an HTTPS request not handled in the middleware', async () => {
+  const res = await performXMLHttpRequest('GET', 'https://httpbin.org/get')
 
-      it('should return original response', () => {
-        expect(res.status).toEqual(200)
-        expect(res.body).toContain(`\"url\": \"http://httpbin.org/get\"`)
-      })
-    })
-  })
+  expect(res.status).toEqual(200)
+  expect(res.body).toContain(`\"url\": \"https://httpbin.org/get\"`)
+})
 
-  describe('given I perform an HTTPS request using XMLHttpRequest', () => {
-    describe('and that request is handled by the middleware', () => {
-      let res: XhrResponse
+test('responds to an HTTP request to a relative URL that is handled in the middleware', async () => {
+  const res = await performXMLHttpRequest('POST', '/login')
 
-      beforeAll(async () => {
-        res = await performXMLHttpRequest('GET', 'https://test.msw.io')
-      })
+  expect(res.status).toEqual(301)
+  expect(res.headers).toContain('Content-Type: application/hal+json')
+  expect(res.body).toEqual('foo')
+})
 
-      it('should return mocked status code', () => {
-        expect(res.status).toEqual(301)
-      })
+test('bypasses any request when the interceptor is restored', async () => {
+  interceptor.restore()
+  const res = await performXMLHttpRequest('GET', 'https://httpbin.org/get')
 
-      it('should return mocked headers', () => {
-        expect(res.headers).toContain('Content-Type: application/hal+json')
-      })
-
-      it('should return mocked body', () => {
-        expect(res.body).toEqual('foo')
-      })
-    })
-
-    describe('and that request is not handled by the middleware', () => {
-      let res: XhrResponse
-
-      beforeAll(async () => {
-        res = await performXMLHttpRequest('GET', 'https://httpbin.org/get')
-      })
-
-      it('should return original response', () => {
-        expect(res.status).toEqual(200)
-        expect(res.body).toContain(`\"url\": \"https://httpbin.org/get\"`)
-      })
-    })
-  })
-
-  describe('given I perform a request to a relative URL', () => {
-    let res: XhrResponse
-
-    beforeAll(async () => {
-      res = await performXMLHttpRequest('POST', '/login')
-    })
-
-    it('should return mocked status code', () => {
-      expect(res.status).toEqual(301)
-    })
-
-    it('should return mocked headers', () => {
-      expect(res.headers).toContain('Content-Type: application/hal+json')
-    })
-
-    it('should return mocked body', () => {
-      expect(res.body).toEqual('foo')
-    })
-  })
-
-  describe('given I restored the original implementation', () => {
-    beforeAll(() => {
-      interceptor.restore()
-    })
-
-    describe('and I perform an XMLHttpRequest', () => {
-      let status: number
-      let body: string
-
-      beforeAll((done) => {
-        const req = new XMLHttpRequest()
-        req.onload = () => {
-          body = req.response
-          status = req.status
-          done()
-        }
-        req.open('GET', 'https://httpbin.org/get')
-        req.send()
-      })
-
-      it('should return the original response', () => {
-        expect(status).toEqual(200)
-        expect(body).toContain(`\"url\": \"https://httpbin.org/get\"`)
-      })
-    })
-  })
+  expect(res.status).toEqual(200)
+  expect(res.body).toContain(`\"url\": \"https://httpbin.org/get\"`)
 })

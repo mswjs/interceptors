@@ -4,147 +4,78 @@
 import fetch, { Response } from 'node-fetch'
 import { RequestInterceptor } from '../../src'
 
-describe('fetch', () => {
-  let interceptor: RequestInterceptor
+let interceptor: RequestInterceptor
 
-  beforeAll(() => {
-    interceptor = new RequestInterceptor()
-    interceptor.use((req) => {
-      if (
-        ['https://api.github.com', 'http://api.github.com'].includes(
-          req.url.origin
-        )
-      ) {
-        return {
-          status: 201,
-          headers: {
-            'Content-Type': 'application/hal+json',
-          },
-          body: JSON.stringify({ mocked: true }),
-        }
+beforeAll(() => {
+  interceptor = new RequestInterceptor()
+  interceptor.use((req) => {
+    if (
+      ['https://api.github.com', 'http://api.github.com'].includes(
+        req.url.origin
+      )
+    ) {
+      return {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/hal+json',
+        },
+        body: JSON.stringify({ mocked: true }),
       }
-    })
+    }
   })
+})
 
-  afterAll(() => {
-    interceptor.restore()
+afterAll(() => {
+  interceptor.restore()
+})
+
+test('responds to an HTTP request that is handled in the middleware', async () => {
+  const res = await fetch('http://api.github.com')
+  const body = await res.json()
+
+  expect(res.status).toEqual(201)
+  expect(body).toEqual({
+    mocked: true,
   })
+  expect(res.headers.get('content-type')).toEqual('application/hal+json')
+})
 
-  describe('given I perform an HTTP request using fetch', () => {
-    describe('and that request is handled by the middleware', () => {
-      let res: Response
+test('bypasses an HTTP request not handled in the middleware', async () => {
+  const res = await fetch('http://httpbin.org/get')
+  const body = await res.json()
 
-      beforeAll(async () => {
-        res = await fetch('http://api.github.com')
-      })
+  expect(res.status).toEqual(200)
+  expect(body).toHaveProperty('url', 'http://httpbin.org/get')
+})
 
-      it('should return mocked status code', () => {
-        expect(res.status).toEqual(201)
-      })
+test('responds to an HTTPS request that is handled in the middleware', async () => {
+  const res = await fetch('https://api.github.com')
+  const body = await res.json()
 
-      it('should return mocked body', async () => {
-        const body = await res.json()
-
-        expect(body).toEqual({
-          mocked: true,
-        })
-      })
-
-      it('should return mocked headers', () => {
-        expect(res.headers.get('content-type')).toEqual('application/hal+json')
-      })
-    })
-
-    describe('and that request is not handled by the middleware', () => {
-      let res: Response
-
-      beforeAll(async () => {
-        res = await fetch('http://httpbin.org/get')
-      })
-
-      it('should return original response', async () => {
-        const body = await res.json()
-
-        expect(res.status).toEqual(200)
-        expect(body).toHaveProperty('url', 'http://httpbin.org/get')
-      })
-    })
+  expect(res.status).toEqual(201)
+  expect(body).toEqual({
+    mocked: true,
   })
+  expect(res.headers.get('content-type')).toEqual('application/hal+json')
+})
 
-  describe('given I perform an HTTPS request using fetch', () => {
-    describe('and that request is handled by the middleware', () => {
-      let res: Response
+test('bypasses an HTTPS request not handled in the middleware', async () => {
+  const res = await fetch('https://httpbin.org/get')
+  const body = await res.json()
 
-      beforeAll(async () => {
-        res = await fetch('https://api.github.com')
-      })
+  expect(res.status).toEqual(200)
+  expect(body).toHaveProperty('url', 'https://httpbin.org/get')
+})
 
-      it('should return mocked status code', () => {
-        expect(res.status).toEqual(201)
-      })
+test('bypasses any request when the interceptor is restored', async () => {
+  interceptor.restore()
+  const httpRes = await fetch('http://httpbin.org/get')
+  const httpBody = await httpRes.json()
+  expect(httpRes.status).toEqual(200)
+  expect(httpBody).toHaveProperty('url', 'http://httpbin.org/get')
 
-      it('should return mocked body', async () => {
-        const body = await res.json()
-
-        expect(body).toEqual({
-          mocked: true,
-        })
-      })
-
-      it('should return mocked headers', () => {
-        expect(res.headers.get('content-type')).toEqual('application/hal+json')
-      })
-    })
-
-    describe('and that request is not handled by the middleware', () => {
-      let res: Response
-
-      beforeAll(async () => {
-        res = await fetch('https://httpbin.org/get')
-      })
-
-      it('should return original response', async () => {
-        const body = await res.json()
-
-        expect(res.status).toEqual(200)
-        expect(body).toHaveProperty('url', 'https://httpbin.org/get')
-      })
-    })
-  })
-
-  describe('given I restored the original implementation', () => {
-    beforeAll(() => {
-      interceptor.restore()
-    })
-
-    describe('and perform an HTTP request', () => {
-      let res: Response
-
-      beforeAll(async () => {
-        res = await fetch('http://httpbin.org/get')
-      })
-
-      it('should return original response', async () => {
-        const body = await res.json()
-
-        expect(res.status).toEqual(200)
-        expect(body).toHaveProperty('url', 'http://httpbin.org/get')
-      })
-    })
-
-    describe('and perform an HTTPS request', () => {
-      let res: Response
-
-      beforeAll(async () => {
-        res = await fetch('https://httpbin.org/get')
-      })
-
-      it('should return original response', async () => {
-        const body = await res.json()
-
-        expect(res.status).toEqual(200)
-        expect(body).toHaveProperty('url', 'https://httpbin.org/get')
-      })
-    })
-  })
+  const httpsRes = await fetch('https://httpbin.org/get')
+  const httpsBody = await httpsRes.json()
+  expect(httpsRes.status).toEqual(200)
+  expect(httpsBody).toHaveProperty('url', 'https://httpbin.org/get')
 })
