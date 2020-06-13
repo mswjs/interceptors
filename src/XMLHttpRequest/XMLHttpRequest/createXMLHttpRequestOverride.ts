@@ -287,6 +287,13 @@ export const createXMLHttpRequestOverride = (
             this.responseText = originalRequest.responseText
             this.responseXML = originalRequest.responseXML
 
+            debug(
+              'received original response status:',
+              this.status,
+              this.statusText
+            )
+            debug('received original response body:', this.response)
+
             this.trigger('loadstart')
             this.trigger('load')
           }
