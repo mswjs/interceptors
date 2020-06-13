@@ -5,56 +5,39 @@ import { RequestInterceptor } from '../../../src'
 import { InterceptedRequest } from '../../../src/glossary'
 import { prepare, httpsGet } from '../../helpers'
 
-describe('https.get', () => {
-  let requestInterceptor: RequestInterceptor
-  const pool: InterceptedRequest[] = []
+let requestInterceptor: RequestInterceptor
+let pool: InterceptedRequest[] = []
 
-  beforeAll(() => {
-    requestInterceptor = new RequestInterceptor()
-    requestInterceptor.use((req) => {
-      pool.push(req)
-    })
+beforeAll(() => {
+  requestInterceptor = new RequestInterceptor()
+  requestInterceptor.use((req) => {
+    pool.push(req)
   })
+})
 
-  afterAll(() => {
-    requestInterceptor.restore()
-  })
+afterEach(() => {
+  pool = []
+})
 
-  describe('given I perform a request using http.get', () => {
-    let request: InterceptedRequest | undefined
+afterAll(() => {
+  requestInterceptor.restore()
+})
 
-    beforeAll(async () => {
-      request = await prepare(
-        httpsGet('https://httpbin.org/get?userId=123', {
-          headers: {
-            'x-custom-header': 'yes',
-          },
-        }),
-        pool
-      )
-    })
+test('intercepts an HTTPS GET request', async () => {
+  const request = await prepare(
+    httpsGet('https://httpbin.org/get?userId=123', {
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
 
-    it('should intercept the request', () => {
-      expect(request).toBeTruthy()
-    })
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual('https://httpbin.org/get?userId=123')
+  expect(request).toHaveProperty('method', 'GET')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
 
-    it('should access request url', () => {
-      expect(request?.url).toBeInstanceOf(URL)
-      expect(request?.url.toString()).toEqual(
-        'https://httpbin.org/get?userId=123'
-      )
-    })
-
-    it('should access request method', () => {
-      expect(request).toHaveProperty('method', 'GET')
-    })
-
-    it('should access request query parameters', () => {
-      expect(request?.url.searchParams.get('userId')).toEqual('123')
-    })
-
-    it('should access custom request headers', () => {
-      expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-    })
-  })
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
 })
