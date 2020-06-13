@@ -1,88 +1,50 @@
 import axios, { AxiosResponse } from 'axios'
 import { RequestInterceptor } from '../../src'
 
-describe('axios', () => {
-  let interceptor: RequestInterceptor
+let interceptor: RequestInterceptor
 
-  beforeAll(() => {
-    interceptor = new RequestInterceptor()
-    interceptor.use((req) => {
-      if (req.url.pathname === '/user') {
-        return {
-          status: 200,
-          headers: {
-            'content-type': 'application/json',
-            'x-header': 'yes',
-          },
-          body: JSON.stringify({
-            mocked: true,
-          }),
-        }
+beforeAll(() => {
+  interceptor = new RequestInterceptor()
+  interceptor.use((req) => {
+    if (req.url.pathname === '/user') {
+      return {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'x-header': 'yes',
+        },
+        body: JSON.stringify({
+          mocked: true,
+        }),
       }
-    })
+    }
   })
+})
 
-  afterAll(() => {
-    interceptor.restore()
-  })
+afterAll(() => {
+  interceptor.restore()
+})
 
-  describe('given I performed a request using "axios"', () => {
-    let res: AxiosResponse
+test('responds with a mocked response to an "axios()" request', async () => {
+  const res = await axios('/user')
 
-    beforeAll(async () => {
-      res = await axios('/user')
-    })
+  expect(res.status).toEqual(200)
+  expect(res.headers).toHaveProperty('x-header', 'yes')
+  expect(res.data).toEqual({ mocked: true })
+})
 
-    it('should return mocked status code', () => {
-      expect(res.status).toEqual(200)
-    })
+test('responds with a mocked response to an "axios.get()" request', async () => {
+  const res = await axios.get('/user')
 
-    it('should return mocked headers', () => {
-      expect(res.headers).toHaveProperty('x-header', 'yes')
-    })
+  expect(res.status).toEqual(200)
+  expect(res.headers).toHaveProperty('x-header', 'yes')
+  expect(res.data).toEqual({ mocked: true })
+})
 
-    it('should return mocked body', () => {
-      expect(res.data).toEqual({ mocked: true })
-    })
-  })
+test('responds with a mocked response to an "axios.post()" request', async () => {
+  const res = await axios.post('/user')
 
-  describe('given I performed a request using "axios.get"', () => {
-    let res: AxiosResponse
-
-    beforeAll(async () => {
-      res = await axios.get('/user')
-    })
-
-    it('should return mocked status code', () => {
-      expect(res.status).toEqual(200)
-    })
-
-    it('should return mocked headers', () => {
-      expect(res.headers).toHaveProperty('x-header', 'yes')
-    })
-
-    it('should return mocked body', () => {
-      expect(res.data).toEqual({ mocked: true })
-    })
-  })
-
-  describe('given I performed a request using "axios.post"', () => {
-    let res: AxiosResponse
-
-    beforeAll(async () => {
-      res = await axios.post('/user')
-    })
-
-    it('should return mocked status code', () => {
-      expect(res.status).toEqual(200)
-    })
-
-    it('should return mocked headers', () => {
-      expect(res.headers).toHaveProperty('x-header', 'yes')
-    })
-
-    it('should return mocked body', () => {
-      expect(res.data).toEqual({ mocked: true })
-    })
-  })
+  expect(res.status).toEqual(200)
+  expect(res.headers).toHaveProperty('x-header', 'yes')
+  expect(res.data).toEqual({ mocked: true })
 })
