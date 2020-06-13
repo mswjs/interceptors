@@ -1,12 +1,13 @@
 import https from 'https'
 import http, { IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
-import { urlToOptions } from '../src/utils/urlToOptions'
+import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { InterceptedRequest } from '../src/glossary'
 import { getCleanUrl } from '../src/utils/getCleanUrl'
 
 interface PromisifiedResponse {
   res: IncomingMessage
+  resBody: string
   url: string
   options: RequestOptions
 }
@@ -15,15 +16,22 @@ export function httpGet(
   url: string,
   options?: RequestOptions
 ): Promise<PromisifiedResponse> {
+  let resBody = ''
   const parsedUrl = new URL(url)
-  const resolvedOptions = Object.assign({}, urlToOptions(parsedUrl), options)
+  const resolvedOptions = Object.assign(
+    {},
+    getRequestOptionsByUrl(parsedUrl),
+    options
+  )
 
   return new Promise((resolve, reject) => {
     http.get(resolvedOptions, (res) => {
       res.setEncoding('utf8')
-      res.on('data', () => null)
+      res.on('data', (chunk) => (resBody += chunk))
       res.on('error', reject)
-      res.on('end', () => resolve({ res, url, options: resolvedOptions }))
+      res.on('end', () =>
+        resolve({ res, resBody, url, options: resolvedOptions })
+      )
     })
   })
 }
@@ -32,15 +40,22 @@ export function httpsGet(
   url: string,
   options?: RequestOptions
 ): Promise<PromisifiedResponse> {
+  let resBody = ''
   const parsedUrl = new URL(url)
-  const resolvedOptions = Object.assign({}, urlToOptions(parsedUrl), options)
+  const resolvedOptions = Object.assign(
+    {},
+    getRequestOptionsByUrl(parsedUrl),
+    options
+  )
 
   return new Promise((resolve, reject) => {
     https.get(resolvedOptions, (res) => {
       res.setEncoding('utf8')
-      res.on('data', () => null)
+      res.on('data', (chunk) => (resBody += chunk))
       res.on('error', reject)
-      res.on('end', () => resolve({ res, url, options: resolvedOptions }))
+      res.on('end', () =>
+        resolve({ res, resBody, url, options: resolvedOptions })
+      )
     })
   })
 }
@@ -50,15 +65,22 @@ export function httpRequest(
   options?: RequestOptions,
   body?: string
 ): Promise<PromisifiedResponse> {
+  let resBody = ''
   const parsedUrl = new URL(url)
-  const resolvedOptions = Object.assign({}, urlToOptions(parsedUrl), options)
+  const resolvedOptions = Object.assign(
+    {},
+    getRequestOptionsByUrl(parsedUrl),
+    options
+  )
 
   return new Promise((resolve, reject) => {
     const req = http.request(resolvedOptions, (res) => {
       res.setEncoding('utf8')
-      res.on('data', () => null)
+      res.on('data', (chunk) => (resBody += chunk))
       res.on('error', reject)
-      res.on('end', () => resolve({ res, url, options: resolvedOptions }))
+      res.on('end', () =>
+        resolve({ res, resBody, url, options: resolvedOptions })
+      )
     })
 
     if (body) {
@@ -74,15 +96,22 @@ export function httpsRequest(
   options?: RequestOptions,
   body?: string
 ): Promise<PromisifiedResponse> {
+  let resBody = ''
   const parsedUrl = new URL(url)
-  const resolvedOptions = Object.assign({}, urlToOptions(parsedUrl), options)
+  const resolvedOptions = Object.assign(
+    {},
+    getRequestOptionsByUrl(parsedUrl),
+    options
+  )
 
   return new Promise((resolve, reject) => {
     const req = https.request(resolvedOptions, (res) => {
       res.setEncoding('utf8')
-      res.on('data', () => null)
+      res.on('data', (chunk) => (resBody += chunk))
       res.on('error', reject)
-      res.on('end', () => resolve({ res, url, options: resolvedOptions }))
+      res.on('end', () =>
+        resolve({ res, resBody, url, options: resolvedOptions })
+      )
     })
 
     if (body) {

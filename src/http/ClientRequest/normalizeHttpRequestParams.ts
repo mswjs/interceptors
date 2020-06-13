@@ -1,6 +1,6 @@
 import { RequestOptions } from 'https'
 import { HttpRequestCallback } from '../../glossary'
-import { urlToOptions } from '../../utils/urlToOptions'
+import { getRequestOptionsByUrl } from '../../utils/getRequestOptionsByUrl'
 
 const debug = require('debug')('http:normalize-http-request-params')
 
@@ -26,7 +26,7 @@ function resolveRequestOptions(
   // Calling `fetch` provides only URL to ClientRequest,
   // without RequestOptions or callback.
   if (['function', 'undefined'].includes(typeof args[1])) {
-    return urlToOptions(url)
+    return getRequestOptionsByUrl(url)
   }
 
   return args[1] as RequestOptions
