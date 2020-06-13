@@ -11,412 +11,210 @@ function prepareXHR(
   })
 }
 
-describe('XMLHttpRequest', () => {
-  let requestInterceptor: RequestInterceptor
-  const pool: InterceptedRequest[] = []
+let requestInterceptor: RequestInterceptor
+let pool: InterceptedRequest[] = []
 
-  beforeAll(() => {
-    requestInterceptor = new RequestInterceptor()
-    requestInterceptor.use((req) => {
-      pool.push(req)
-    })
+beforeAll(() => {
+  requestInterceptor = new RequestInterceptor()
+  requestInterceptor.use((req) => {
+    pool.push(req)
   })
-
-  afterAll(() => {
-    requestInterceptor.restore()
-  })
-
-  describe('given I perform an HTTP XMLHttpRequest', () => {
-    describe('GET', () => {
-      let request: InterceptedRequest | undefined
-
-      beforeAll(async () => {
-        request = await prepareXHR(
-          xhr('GET', 'http://httpbin.org/get?userId=123', {
-            headers: {
-              'x-custom-header': 'yes',
-            },
-          }),
-          pool
-        )
-      })
-
-      it('should intercept the request', () => {
-        expect(request).toBeTruthy()
-      })
-
-      it('should access request url', () => {
-        expect(request?.url).toBeInstanceOf(URL)
-        expect(request?.url.toString()).toEqual(
-          'http://httpbin.org/get?userId=123'
-        )
-      })
-
-      it('should access request method', () => {
-        expect(request).toHaveProperty('method', 'GET')
-      })
-
-      it('should access request query parameters', () => {
-        expect(request?.url.searchParams.get('userId')).toEqual('123')
-      })
-
-      it('should access custom request headers', () => {
-        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-      })
-    })
-
-    describe('POST', () => {
-      let request: InterceptedRequest | undefined
-
-      beforeAll(async () => {
-        request = await prepareXHR(
-          xhr('POST', 'http://httpbin.org/post?userId=123', {
-            body: 'request-body',
-            headers: {
-              'x-custom-header': 'yes',
-            },
-          }),
-          pool
-        )
-      })
-
-      it('should intercept the request', () => {
-        expect(request).toBeTruthy()
-      })
-
-      it('should access request url', () => {
-        expect(request?.url).toBeInstanceOf(URL)
-        expect(request?.url.toString()).toEqual(
-          'http://httpbin.org/post?userId=123'
-        )
-      })
-
-      it('should access request method', () => {
-        expect(request).toHaveProperty('method', 'POST')
-      })
-
-      it('should access request query parameters', () => {
-        expect(request?.url.searchParams.get('userId')).toEqual('123')
-      })
-
-      it('should access request body', () => {
-        expect(request).toHaveProperty('body', 'request-body')
-      })
-
-      it('should access custom request headers', () => {
-        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-      })
-    })
-
-    describe('PUT', () => {
-      let request: InterceptedRequest | undefined
-
-      beforeAll(async () => {
-        request = await prepareXHR(
-          xhr('PUT', 'http://httpbin.org/put?userId=123', {
-            headers: {
-              'x-custom-header': 'yes',
-            },
-          }),
-          pool
-        )
-      })
-
-      it('should intercept the request', () => {
-        expect(request).toBeTruthy()
-      })
-
-      it('should access request url', () => {
-        expect(request?.url).toBeInstanceOf(URL)
-        expect(request?.url.toString()).toEqual(
-          'http://httpbin.org/put?userId=123'
-        )
-      })
-
-      it('should access request method', () => {
-        expect(request).toHaveProperty('method', 'PUT')
-      })
-
-      it('should access request query parameters', () => {
-        expect(request?.url.searchParams.get('userId')).toEqual('123')
-      })
-
-      it('should access custom request headers', () => {
-        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-      })
-    })
-
-    describe('DELETE', () => {
-      let request: InterceptedRequest | undefined
-
-      beforeAll(async () => {
-        request = await prepareXHR(
-          xhr('DELETE', 'http://httpbin.org/delete?userId=123', {
-            headers: {
-              'x-custom-header': 'yes',
-            },
-          }),
-          pool
-        )
-      })
-
-      it('should intercept the request', () => {
-        expect(request).toBeTruthy()
-      })
-
-      it('should access request url', () => {
-        expect(request?.url).toBeInstanceOf(URL)
-        expect(request?.url.toString()).toEqual(
-          'http://httpbin.org/delete?userId=123'
-        )
-      })
-
-      it('should access request method', () => {
-        expect(request).toHaveProperty('method', 'DELETE')
-      })
-
-      it('should access request query parameters', () => {
-        expect(request?.url.searchParams.get('userId')).toEqual('123')
-      })
-
-      it('should access custom request headers', () => {
-        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-      })
-    })
-
-    describe('PATCH', () => {
-      let request: InterceptedRequest | undefined
-
-      beforeAll(async () => {
-        request = await prepareXHR(
-          xhr('PATCH', 'http://httpbin.org/patch?userId=123', {
-            headers: {
-              'x-custom-header': 'yes',
-            },
-          }),
-          pool
-        )
-      })
-
-      it('should intercept the request', () => {
-        expect(request).toBeTruthy()
-      })
-
-      it('should access request url', () => {
-        expect(request?.url).toBeInstanceOf(URL)
-        expect(request?.url.toString()).toEqual(
-          'http://httpbin.org/patch?userId=123'
-        )
-      })
-
-      it('should access request method', () => {
-        expect(request).toHaveProperty('method', 'PATCH')
-      })
-
-      it('should access request query parameters', () => {
-        expect(request?.url.searchParams.get('userId')).toEqual('123')
-      })
-
-      it('should access custom request headers', () => {
-        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-      })
-    })
-  })
-
-  describe('given I perform an HTTPS XMLHttpRequest', () => {
-    describe('GET', () => {
-      let request: InterceptedRequest | undefined
-
-      beforeAll(async () => {
-        request = await prepareXHR(
-          xhr('GET', 'https://httpbin.org/get?userId=123', {
-            headers: {
-              'x-custom-header': 'yes',
-            },
-          }),
-          pool
-        )
-      })
-
-      it('should intercept the request', () => {
-        expect(request).toBeTruthy()
-      })
-
-      it('should access request url', () => {
-        expect(request?.url).toBeInstanceOf(URL)
-        expect(request?.url.toString()).toEqual(
-          'https://httpbin.org/get?userId=123'
-        )
-      })
-
-      it('should access request method', () => {
-        expect(request).toHaveProperty('method', 'GET')
-      })
-
-      it('should access request query parameters', () => {
-        expect(request?.url.searchParams.get('userId')).toEqual('123')
-      })
-
-      it('should access custom request headers', () => {
-        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-      })
-    })
-
-    describe('POST', () => {
-      let request: InterceptedRequest | undefined
-
-      beforeAll(async () => {
-        request = await prepareXHR(
-          xhr('POST', 'https://httpbin.org/post?userId=123', {
-            body: 'request-body',
-            headers: {
-              'x-custom-header': 'yes',
-            },
-          }),
-          pool
-        )
-      })
-
-      it('should intercept the request', () => {
-        expect(request).toBeTruthy()
-      })
-
-      it('should access request url', () => {
-        expect(request?.url).toBeInstanceOf(URL)
-        expect(request?.url.toString()).toEqual(
-          'https://httpbin.org/post?userId=123'
-        )
-      })
-
-      it('should access request method', () => {
-        expect(request).toHaveProperty('method', 'POST')
-      })
-
-      it('should access request query parameters', () => {
-        expect(request?.url.searchParams.get('userId')).toEqual('123')
-      })
-
-      it('should access request body', () => {
-        expect(request).toHaveProperty('body', 'request-body')
-      })
-
-      it('should access custom request headers', () => {
-        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-      })
-    })
-
-    describe('PUT', () => {
-      let request: InterceptedRequest | undefined
-
-      beforeAll(async () => {
-        request = await prepareXHR(
-          xhr('PUT', 'https://httpbin.org/put?userId=123', {
-            headers: {
-              'x-custom-header': 'yes',
-            },
-          }),
-          pool
-        )
-      })
-
-      it('should intercept the request', () => {
-        expect(request).toBeTruthy()
-      })
-
-      it('should access request url', () => {
-        expect(request?.url).toBeInstanceOf(URL)
-        expect(request?.url.toString()).toEqual(
-          'https://httpbin.org/put?userId=123'
-        )
-      })
-
-      it('should access request method', () => {
-        expect(request).toHaveProperty('method', 'PUT')
-      })
-
-      it('should access request query parameters', () => {
-        expect(request?.url.searchParams.get('userId')).toEqual('123')
-      })
-
-      it('should access custom request headers', () => {
-        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-      })
-    })
-
-    describe('DELETE', () => {
-      let request: InterceptedRequest | undefined
-
-      beforeAll(async () => {
-        request = await prepareXHR(
-          xhr('DELETE', 'https://httpbin.org/delete?userId=123', {
-            headers: {
-              'x-custom-header': 'yes',
-            },
-          }),
-          pool
-        )
-      })
-
-      it('should intercept the request', () => {
-        expect(request).toBeTruthy()
-      })
-
-      it('should access request url', () => {
-        expect(request?.url).toBeInstanceOf(URL)
-        expect(request?.url.toString()).toEqual(
-          'https://httpbin.org/delete?userId=123'
-        )
-      })
-
-      it('should access request method', () => {
-        expect(request).toHaveProperty('method', 'DELETE')
-      })
-
-      it('should access request query parameters', () => {
-        expect(request?.url.searchParams.get('userId')).toEqual('123')
-      })
-
-      it('should access custom request headers', () => {
-        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-      })
-    })
-
-    describe('PATCH', () => {
-      let request: InterceptedRequest | undefined
-
-      beforeAll(async () => {
-        request = await prepareXHR(
-          xhr('PATCH', 'https://httpbin.org/patch?userId=123', {
-            headers: {
-              'x-custom-header': 'yes',
-            },
-          }),
-          pool
-        )
-      })
-
-      it('should intercept the request', () => {
-        expect(request).toBeTruthy()
-      })
-
-      it('should access request url', () => {
-        expect(request?.url).toBeInstanceOf(URL)
-        expect(request?.url.toString()).toEqual(
-          'https://httpbin.org/patch?userId=123'
-        )
-      })
-
-      it('should access request method', () => {
-        expect(request).toHaveProperty('method', 'PATCH')
-      })
-
-      it('should access request query parameters', () => {
-        expect(request?.url.searchParams.get('userId')).toEqual('123')
-      })
-
-      it('should access custom request headers', () => {
-        expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
-      })
-    })
-  })
+})
+
+afterEach(() => {
+  pool = []
+})
+
+afterAll(() => {
+  requestInterceptor.restore()
+})
+
+test('intercepts an HTTP GET request', async () => {
+  const request = await prepareXHR(
+    xhr('GET', 'http://httpbin.org/get?userId=123', {
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
+
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual('http://httpbin.org/get?userId=123')
+  expect(request).toHaveProperty('method', 'GET')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an HTTP POST request', async () => {
+  const request = await prepareXHR(
+    xhr('POST', 'http://httpbin.org/post?userId=123', {
+      body: 'request-body',
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
+
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual('http://httpbin.org/post?userId=123')
+  expect(request).toHaveProperty('method', 'POST')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
+  expect(request).toHaveProperty('body', 'request-body')
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an HTTP PUT request', async () => {
+  const request = await prepareXHR(
+    xhr('PUT', 'http://httpbin.org/put?userId=123', {
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
+
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual('http://httpbin.org/put?userId=123')
+  expect(request).toHaveProperty('method', 'PUT')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an HTTP DELETE request', async () => {
+  const request = await prepareXHR(
+    xhr('DELETE', 'http://httpbin.org/delete?userId=123', {
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
+
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual(
+    'http://httpbin.org/delete?userId=123'
+  )
+  expect(request).toHaveProperty('method', 'DELETE')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an HTTP PATCH request', async () => {
+  const request = await prepareXHR(
+    xhr('PATCH', 'http://httpbin.org/patch?userId=123', {
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
+
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual('http://httpbin.org/patch?userId=123')
+  expect(request).toHaveProperty('method', 'PATCH')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an HTTP GET request', async () => {
+  const request = await prepareXHR(
+    xhr('GET', 'https://httpbin.org/get?userId=123', {
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
+
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual('https://httpbin.org/get?userId=123')
+  expect(request).toHaveProperty('method', 'GET')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an HTTPS POST request', async () => {
+  const request = await prepareXHR(
+    xhr('POST', 'https://httpbin.org/post?userId=123', {
+      body: 'request-body',
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
+
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual('https://httpbin.org/post?userId=123')
+  expect(request).toHaveProperty('method', 'POST')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
+  expect(request).toHaveProperty('body', 'request-body')
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an HTTPS PUT request', async () => {
+  const request = await prepareXHR(
+    xhr('PUT', 'https://httpbin.org/put?userId=123', {
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
+
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual('https://httpbin.org/put?userId=123')
+  expect(request).toHaveProperty('method', 'PUT')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an HTTPS DELETE request', async () => {
+  const request = await prepareXHR(
+    xhr('DELETE', 'https://httpbin.org/delete?userId=123', {
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
+
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual(
+    'https://httpbin.org/delete?userId=123'
+  )
+  expect(request).toHaveProperty('method', 'DELETE')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an HTTP PATCH request', async () => {
+  const request = await prepareXHR(
+    xhr('PATCH', 'https://httpbin.org/patch?userId=123', {
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    }),
+    pool
+  )
+
+  expect(request).toBeTruthy()
+  expect(request?.url).toBeInstanceOf(URL)
+  expect(request?.url.toString()).toEqual(
+    'https://httpbin.org/patch?userId=123'
+  )
+  expect(request).toHaveProperty('method', 'PATCH')
+  expect(request?.url.searchParams.get('userId')).toEqual('123')
+  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
 })
