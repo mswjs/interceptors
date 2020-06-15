@@ -138,7 +138,9 @@ test('handles [PartialRequestOptions, callback] input', () => {
   )
 
   // URL must be derived from request options
-  expect(url.toJSON()).toEqual(new URL('http://127.0.0.1/resource').toJSON())
+  expect(url.toJSON()).toEqual(
+    new URL('http://127.0.0.1:50176/resource').toJSON()
+  )
 
   // Request options must be preserved
   expect(options).toEqual(initialOptions)
