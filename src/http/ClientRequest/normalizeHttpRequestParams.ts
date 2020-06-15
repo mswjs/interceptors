@@ -1,18 +1,11 @@
 import { RequestOptions } from 'https'
-import { HttpRequestCallback } from '../../glossary'
+import { HttpRequestCallback, RequestSelf } from '../../glossary'
 import { getRequestOptionsByUrl } from '../../utils/getRequestOptionsByUrl'
 
 const debug = require('debug')('http:normalize-http-request-params')
 
 const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
-
-// Request instance constructed by the `request` library
-// has a `self` property that has a `uri` field. This is
-// reproducible by performing a `XMLHttpRequest` request (jsdom).
-interface RequestSelf {
-  uri?: URL
-}
 
 type HttpRequestArgs =
   | [string | URL, HttpRequestCallback?]

@@ -1,5 +1,12 @@
 import { IncomingMessage } from 'http'
 
+// Request instance constructed by the `request` library
+// has a `self` property that has a `uri` field. This is
+// reproducible by performing a `XMLHttpRequest` request (jsdom).
+export interface RequestSelf {
+  uri?: URL
+}
+
 /**
  * A module override function that accepts a request middleware
  * and returns a cleanup function that restores all the patched modules.
