@@ -1,11 +1,9 @@
 import { RequestOptions } from 'https'
 import { HttpRequestCallback, RequestSelf } from '../../glossary'
 import { getRequestOptionsByUrl } from '../../utils/getRequestOptionsByUrl'
+import { getUrlByRequestOptions } from '../../utils/getUrlByRequestOptions'
 
 const debug = require('debug')('http:normalize-http-request-params')
-
-const DEFAULT_PATH = '/'
-const DEFAULT_PROTOCOL = 'http:'
 
 type HttpRequestArgs =
   | [string | URL, HttpRequestCallback?]
@@ -64,18 +62,8 @@ export function normalizeHttpRequestParams(
     options = args[0]
     debug('given request options:', options)
 
-    const path = options.path || DEFAULT_PATH
-
-    if (!options.protocol) {
-      // Assume HTTPS if using an SSL certificate.
-      options.protocol = options.cert ? 'https:' : DEFAULT_PROTOCOL
-    }
-
-    const baseUrl = `${options.protocol}//${options.hostname || options.host}`
-    debug('created base URL:', baseUrl)
-
-    url = options.uri ? new URL(options.uri.href) : new URL(path, baseUrl)
-    debug('created URL:', url)
+    url = getUrlByRequestOptions(options)
+    debug('created a URL:', url)
 
     callback = resolveCallback(args)
   } else {
