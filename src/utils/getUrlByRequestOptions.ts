@@ -29,6 +29,17 @@ export function getUrlByRequestOptions(
   debug('using base URL:', baseUrl)
 
   const url = options.uri ? new URL(options.uri.href) : new URL(path, baseUrl)
+
+  if (!!options.port) {
+    url.port = options.port.toString()
+  }
+
+  if (!!options.auth) {
+    const [username, password] = options.auth.split(':')
+    url.username = username
+    url.password = password
+  }
+
   debug('created URL:', url)
 
   return url
