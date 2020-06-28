@@ -231,13 +231,13 @@ export function createClientRequestOverrideClass(
         // it always performs respecting this `ClientRequest` restoration.
         originalClientRequest = null as any
 
-        req = performOriginalRequest(options, callback)
+        req = performOriginalRequest(options)
 
         debug('re-applying patches...')
         http.ClientRequest = ClientRequest
         originalClientRequest = ClientRequest
       } else {
-        req = performOriginalRequest(options, callback)
+        req = performOriginalRequest(options)
       }
 
       // Propagate the given request body on the original request.
