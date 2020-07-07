@@ -1,6 +1,7 @@
 import { inherits } from 'util'
 import { Socket as NetworkSocket } from 'net'
 import http, { IncomingMessage, ClientRequest } from 'http'
+import { until } from '@open-draft/until'
 import { HeadersObject, reduceHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { Socket } from './Socket'
@@ -138,7 +139,19 @@ export function createClientRequestOverrideClass(
       }
 
       debug('awaiting mocked response...')
-      const mockedResponse = await middleware(formattedRequest, response)
+
+      const [middlewareException, mockedResponse] = await until(async () =>
+        middleware(formattedRequest, response)
+      )
+
+      // When the request middleware throws an exception, error the request.
+      // This cancels the request and is similar to a network error.
+      if (middlewareException) {
+        debug('middleware function threw an exception!')
+        this.emit('error', middlewareException)
+
+        return this
+      }
 
       if (mockedResponse) {
         debug('received mocked response:', mockedResponse)
