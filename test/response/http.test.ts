@@ -18,6 +18,10 @@ beforeAll(() => {
         body: JSON.stringify({ mocked: true }),
       }
     }
+
+    if (req.url.href === 'http://error.me/') {
+      throw new Error('Custom exception message')
+    }
   })
 })
 
@@ -53,6 +57,11 @@ test('bypasses an HTTP request issued by "http.get" not handled in the middlewar
 
   expect(res.statusCode).toBe(200)
   expect(resBody).toContain(`\"url\": \"http://httpbin.org/get\"`)
+})
+
+test('produces a request error when the middleware throws an exception', async () => {
+  const getResponse = () => httpGet('http://error.me')
+  await expect(getResponse()).rejects.toThrow('Custom exception message')
 })
 
 test('bypasses any request when the interceptor is restored', async () => {

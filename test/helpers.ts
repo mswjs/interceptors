@@ -25,7 +25,7 @@ export function httpGet(
   )
 
   return new Promise((resolve, reject) => {
-    http.get(resolvedOptions, (res) => {
+    const req = http.get(resolvedOptions, (res) => {
       res.setEncoding('utf8')
       res.on('data', (chunk) => (resBody += chunk))
       res.on('error', reject)
@@ -33,6 +33,8 @@ export function httpGet(
         resolve({ res, resBody, url, options: resolvedOptions })
       )
     })
+
+    req.on('error', reject)
   })
 }
 
@@ -49,7 +51,7 @@ export function httpsGet(
   )
 
   return new Promise((resolve, reject) => {
-    https.get(resolvedOptions, (res) => {
+    const req = https.get(resolvedOptions, (res) => {
       res.setEncoding('utf8')
       res.on('data', (chunk) => (resBody += chunk))
       res.on('error', reject)
@@ -57,6 +59,8 @@ export function httpsGet(
         resolve({ res, resBody, url, options: resolvedOptions })
       )
     })
+
+    req.on('error', reject)
   })
 }
 
