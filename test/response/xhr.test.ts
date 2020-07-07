@@ -46,6 +46,10 @@ beforeAll(() => {
         body: 'foo',
       }
     }
+
+    if (req.url.href === 'https://error.me/') {
+      throw new Error('Custom exception message')
+    }
   })
 })
 
@@ -89,6 +93,15 @@ test('responds to an HTTP request to a relative URL that is handled in the middl
   expect(res.status).toEqual(301)
   expect(res.headers).toContain('Content-Type: application/hal+json')
   expect(res.body).toEqual('foo')
+})
+
+test('produces a request error when the middleware throws an exception', async () => {
+  const getResponse = async () => {
+    return performXMLHttpRequest('GET', 'https://error.me')
+  }
+
+  // No way to assert the rejection error, because XMLHttpRequest doesn't propagate it.
+  await expect(getResponse()).rejects.toBeTruthy()
 })
 
 test('bypasses any request when the interceptor is restored', async () => {

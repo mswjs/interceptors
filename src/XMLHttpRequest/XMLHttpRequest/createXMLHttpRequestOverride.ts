@@ -2,6 +2,7 @@
  * XMLHttpRequest override class.
  * Inspired by https://github.com/marvinhagemeister/xhr-mocklet.
  */
+import { until } from '@open-draft/until'
 import {
   flattenHeadersObject,
   reduceHeadersObject,
@@ -226,88 +227,102 @@ export const createXMLHttpRequestOverride = (
 
       debug('awaiting mocked response...')
 
-      Promise.resolve(middleware(req, this)).then((mockedResponse) => {
-        // Return a mocked response, if provided in the middleware.
-        if (mockedResponse) {
-          debug('recieved mocked response', mockedResponse)
+      Promise.resolve(until(async () => middleware(req, this))).then(
+        ([middlewareException, mockedResponse]) => {
+          // When the request middleware throws an exception, error the request.
+          // This cancels the request and is similar to a network error.
+          if (middlewareException) {
+            debug('middleware function threw an exception!')
 
-          this.status = mockedResponse.status || 200
-          this.statusText = mockedResponse.statusText || 'OK'
-          this.responseHeaders = mockedResponse.headers
-            ? flattenHeadersObject(mockedResponse.headers)
-            : {}
+            this.abort()
+            // No way to propagate the actual error message.
+            this.trigger('error')
 
-          // Mark that response headers has been received
-          // and trigger a ready state event to reflect received headers
-          // in a custom `onreadystatechange` callback.
-          this.readyState = this.HEADERS_RECEIVED
-          this.triggerReadyStateChange()
+            return
+          }
 
-          this.response = mockedResponse.body || ''
-          this.responseText = mockedResponse.body || ''
+          // Return a mocked response, if provided in the middleware.
+          if (mockedResponse) {
+            debug('recieved mocked response', mockedResponse)
 
-          // Trigger a progress event based on the mocked response body.
-          this.trigger('progress', {
-            loaded: this.response.length,
-            total: this.response.length,
-          })
+            this.status = mockedResponse.status || 200
+            this.statusText = mockedResponse.statusText || 'OK'
+            this.responseHeaders = mockedResponse.headers
+              ? flattenHeadersObject(mockedResponse.headers)
+              : {}
 
-          // Explicitly mark the request as done, so its response never hangs.
-          // @see https://github.com/mswjs/node-request-interceptor/issues/13
-          this.readyState = this.DONE
+            // Mark that response headers has been received
+            // and trigger a ready state event to reflect received headers
+            // in a custom `onreadystatechange` callback.
+            this.readyState = this.HEADERS_RECEIVED
+            this.triggerReadyStateChange()
 
-          this.trigger('loadstart')
-          this.trigger('load')
-          this.trigger('loadend')
-        } else {
-          debug('no mocked response')
+            this.response = mockedResponse.body || ''
+            this.responseText = mockedResponse.body || ''
 
-          // Perform an original request, when the request middleware returned no mocked response.
-          const originalRequest = new XMLHttpRequestPristine()
+            // Trigger a progress event based on the mocked response body.
+            this.trigger('progress', {
+              loaded: this.response.length,
+              total: this.response.length,
+            })
 
-          debug('opening an original request %s %s', this.method, this.url)
-          originalRequest.open(
-            this.method,
-            this.url,
-            this.async,
-            this.user,
-            this.password
-          )
-
-          // Reflect a successful state of the original request
-          // on the patched instance.
-          originalRequest.onload = () => {
-            debug('original onload')
-
-            this.status = originalRequest.status
-            this.statusText = originalRequest.statusText
-            this.responseURL = originalRequest.responseURL
-            this.responseType = originalRequest.responseType
-            this.response = originalRequest.response
-            this.responseText = originalRequest.responseText
-            this.responseXML = originalRequest.responseXML
-
-            debug(
-              'received original response status:',
-              this.status,
-              this.statusText
-            )
-            debug('received original response body:', this.response)
+            // Explicitly mark the request as done, so its response never hangs.
+            // @see https://github.com/mswjs/node-request-interceptor/issues/13
+            this.readyState = this.DONE
 
             this.trigger('loadstart')
             this.trigger('load')
+            this.trigger('loadend')
+          } else {
+            debug('no mocked response')
+
+            // Perform an original request, when the request middleware returned no mocked response.
+            const originalRequest = new XMLHttpRequestPristine()
+
+            debug('opening an original request %s %s', this.method, this.url)
+            originalRequest.open(
+              this.method,
+              this.url,
+              this.async,
+              this.user,
+              this.password
+            )
+
+            // Reflect a successful state of the original request
+            // on the patched instance.
+            originalRequest.onload = () => {
+              debug('original onload')
+
+              this.status = originalRequest.status
+              this.statusText = originalRequest.statusText
+              this.responseURL = originalRequest.responseURL
+              this.responseType = originalRequest.responseType
+              this.response = originalRequest.response
+              this.responseText = originalRequest.responseText
+              this.responseXML = originalRequest.responseXML
+
+              debug(
+                'received original response status:',
+                this.status,
+                this.statusText
+              )
+              debug('received original response body:', this.response)
+
+              this.trigger('loadstart')
+              this.trigger('load')
+            }
+
+            // Map callbacks given to the patched instance to the original request instance.
+            originalRequest.onabort = this.abort
+            originalRequest.onerror = this.onerror
+            originalRequest.ontimeout = this.ontimeout
+            originalRequest.onreadystatechange = this.onreadystatechange
+
+            debug('send', this.data)
+            originalRequest.send(this.data)
           }
-
-          // Map callbacks given to the patched instance to the original request instance.
-          originalRequest.onabort = this.abort
-          originalRequest.onerror = this.onerror
-          originalRequest.ontimeout = this.ontimeout
-          originalRequest.onreadystatechange = this.onreadystatechange
-
-          debug('send', this.data)
-          originalRequest.send(this.data)
         }
-      })
+      )
     }
 
     public abort() {
