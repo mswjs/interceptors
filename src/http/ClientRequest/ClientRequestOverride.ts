@@ -7,7 +7,7 @@ import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { Socket } from './Socket'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
 
-const debug = require('debug')('http:client-request')
+const createDebug = require('debug')
 
 function bodyBufferToString(buffer: Buffer) {
   const utfEncodedBuffer = buffer.toString('utf8')
@@ -26,11 +26,11 @@ export function createClientRequestOverrideClass(
     this: ClientRequest,
     ...args: Parameters<typeof http['request']>
   ) {
-    debug('created with arguments', args)
-
     const [url, options, callback] = normalizeHttpRequestParams(...args)
     const usesHttps = url.protocol === 'https:'
     const requestBodyBuffer: any[] = []
+
+    const debug = createDebug(`http ${options.method} ${url.href}`)
 
     debug('intercepted %s %s (%s)', options.method, url.href, url.protocol)
     http.OutgoingMessage.call(this)

@@ -3,7 +3,7 @@ import http, { ClientRequest } from 'http'
 import { ModuleOverride, RequestMiddleware } from '../glossary'
 import { createClientRequestOverrideClass } from './ClientRequest/ClientRequestOverride'
 
-const debug = require('debug')('http:override')
+const debug = require('debug')('http override')
 
 type PatchedModules = Record<
   string,
@@ -31,7 +31,7 @@ function handleRequest(
       originalClientRequest
     )
 
-    debug('patching native http.ClientRequest')
+    debug('patching native http.ClientRequest...')
 
     // @ts-ignore
     http.ClientRequest = ClientRequestOverride
@@ -68,7 +68,7 @@ export const overrideHttpModule: ModuleOverride = (middleware) => {
       return originalRequest(...args)
     }
 
-    debug('patching "%s" module', protocol)
+    debug('patching "%s" module...', protocol)
 
     // @ts-ignore
     module.request = function requestOverride(...args: any[]) {
