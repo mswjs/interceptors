@@ -15,7 +15,7 @@ const original = {
  */
 export const overrideXhrModule: ModuleOverride = (middleware) => {
   if (original.XMLHttpRequest) {
-    debug('patching "XMLHttpRequest" module')
+    debug('patching "XMLHttpRequest" module...')
 
     const XMLHttpRequestOverride = createXMLHttpRequestOverride(
       middleware,

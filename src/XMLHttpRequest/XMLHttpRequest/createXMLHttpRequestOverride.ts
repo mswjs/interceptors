@@ -11,12 +11,14 @@ import {
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
 import { createEvent } from './createEvent'
 
-const debug = require('debug')('XHR')
+const createDebug = require('debug')
 
 export const createXMLHttpRequestOverride = (
   middleware: RequestMiddleware,
   XMLHttpRequestPristine: typeof window.XMLHttpRequest
 ) => {
+  let debug: any
+
   return class XMLHttpRequestOverride implements XMLHttpRequest {
     requestHeaders: Record<string, string> = {}
     responseHeaders: Record<string, string> = {}
@@ -173,6 +175,7 @@ export const createXMLHttpRequestOverride = (
       user?: string,
       password?: string
     ) {
+      debug = createDebug(`XHR ${method} ${url}`)
       debug('open', { method, url, async, user, password })
 
       this.reset()

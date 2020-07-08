@@ -1,7 +1,7 @@
 import { RequestOptions } from 'https'
 import { RequestSelf } from '../glossary'
 
-const debug = require('debug')('http:get-url-by-request-options')
+const debug = require('debug')('utils getUrlByRequestOptions')
 
 const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
@@ -14,7 +14,7 @@ export function getUrlByRequestOptions(
 ): URL {
   const path = options.path || DEFAULT_PATH
 
-  debug('creating URL from options:', debug)
+  debug('creating URL from options:', options)
 
   if (!options.protocol) {
     debug('given no protocol, resolving...')

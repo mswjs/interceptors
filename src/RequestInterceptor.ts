@@ -2,7 +2,7 @@ import { RequestMiddleware, ModuleOverride } from './glossary'
 import { overrideHttpModule } from './http/override'
 import { overrideXhrModule } from './XMLHttpRequest/override'
 
-const debug = require('debug')('interceptor')
+const debug = require('debug')('RequestInterceptor')
 
 export class RequestInterceptor {
   private overrides: ReturnType<ModuleOverride>[]
@@ -34,7 +34,7 @@ export class RequestInterceptor {
   }
 
   private applyMiddleware: RequestMiddleware = async (req, ref) => {
-    debug('apply middleware', req)
+    debug('applying middleware...', req)
 
     for (let middleware of this.middleware) {
       const res = await middleware(req, ref)

@@ -3,7 +3,7 @@ import { HttpRequestCallback, RequestSelf } from '../../glossary'
 import { getRequestOptionsByUrl } from '../../utils/getRequestOptionsByUrl'
 import { getUrlByRequestOptions } from '../../utils/getUrlByRequestOptions'
 
-const debug = require('debug')('http:normalize-http-request-params')
+const debug = require('debug')('http normalizeHttpRequestParams')
 
 type HttpRequestArgs =
   | [string | URL, HttpRequestCallback?]
