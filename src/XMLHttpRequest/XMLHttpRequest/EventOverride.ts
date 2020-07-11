@@ -15,6 +15,10 @@ export class EventOverride implements Event {
   public cancelable: boolean = true
   public defaultPrevented: boolean = false
   public bubbles: boolean = true
+  public lengthComputable: boolean = true
+  public loaded: number = 0
+  public total: number = 0
+
   cancelBubble: boolean = false
   returnValue: boolean = true
 

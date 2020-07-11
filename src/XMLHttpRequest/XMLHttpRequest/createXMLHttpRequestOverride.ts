@@ -13,9 +13,14 @@ import { createEvent } from './createEvent'
 
 const createDebug = require('debug')
 
+type XMLHttpRequestEventHandler = (
+  this: XMLHttpRequest,
+  event: ProgressEvent<any>
+) => void
+
 interface XMLHttpRequestEvent<EventMap extends any> {
   name: keyof EventMap
-  listener: Function
+  listener: XMLHttpRequestEventHandler
 }
 
 export const createXMLHttpRequestOverride = (
@@ -134,26 +139,17 @@ export const createXMLHttpRequestOverride = (
       )
 
       if (this.readyState === this.DONE && (this.onloadend || loadendEvent)) {
-        let listener
-
-        if (this.onloadend) {
-          listener = this.onloadend
-        } else if (typeof loadendEvent !== 'undefined') {
-          listener = loadendEvent.listener
-        }
-
-        if (typeof listener !== 'undefined') {
-          listener.call(this, createEvent(options, this, 'loadend'))
-        }
+        const listener = this.onloadend || loadendEvent?.listener
+        listener?.call(this, createEvent(options, this, 'loadend'))
       }
 
-      if ((this as any)['on' + eventName]) {
-        ;(this as any)['on' + eventName].call(
-          this,
-          createEvent(options, this, eventName)
-        )
-      }
+      // Call the direct callback, if present.
+      const directCallback = (this as any)[
+        `on${eventName}`
+      ] as XMLHttpRequestEventHandler
+      directCallback?.call(this, createEvent(options, this, eventName))
 
+      // Check in the list of events attached via `addEventListener`.
       for (const event of this._events) {
         if (event.name === eventName) {
           event.listener.call(this, createEvent(options, this, eventName))
@@ -385,11 +381,9 @@ export const createXMLHttpRequestOverride = (
         .join('')
     }
 
-    public overrideMimeType() {}
-
     public addEventListener<K extends keyof XMLHttpRequestEventTargetEventMap>(
       name: K,
-      listener: (event?: XMLHttpRequestEventTargetEventMap[K]) => any
+      listener: (event?: XMLHttpRequestEventTargetEventMap[K]) => void
     ) {
       debug('addEventListener', name, listener)
       this._events.push({
@@ -400,12 +394,14 @@ export const createXMLHttpRequestOverride = (
 
     public removeEventListener<K extends keyof XMLHttpRequestEventMap>(
       name: K,
-      listener: (event?: XMLHttpRequestEventMap[K]) => any
+      listener: (event?: XMLHttpRequestEventMap[K]) => void
     ): void {
       debug('removeEventListener', name, listener)
       this._events = this._events.filter((storedEvent) => {
         return storedEvent.name !== name && storedEvent.listener !== listener
       })
     }
+
+    public overrideMimeType() {}
   }
 }
