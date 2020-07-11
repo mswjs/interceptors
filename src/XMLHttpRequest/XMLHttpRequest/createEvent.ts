@@ -1,6 +1,6 @@
 import { EventOverride } from './EventOverride'
 
-export const createEvent = (options: any, target: any, type: string) => {
+export function createEvent(options: any, target: any, type: string) {
   const progressEvents = [
     'error',
     'progress',

@@ -13,18 +13,23 @@ import { createEvent } from './createEvent'
 
 const createDebug = require('debug')
 
+interface XMLHttpRequestEvent<EventMap extends any> {
+  name: keyof EventMap
+  listener: Function
+}
+
 export const createXMLHttpRequestOverride = (
   middleware: RequestMiddleware,
   XMLHttpRequestPristine: typeof window.XMLHttpRequest
 ) => {
-  let debug: any
+  let debug = createDebug('XHR')
 
   return class XMLHttpRequestOverride implements XMLHttpRequest {
     requestHeaders: Record<string, string> = {}
     responseHeaders: Record<string, string> = {}
 
     // Collection of events modified by `addEventListener`/`removeEventListener` calls.
-    _events: any[] = []
+    _events: XMLHttpRequestEvent<XMLHttpRequestEventTargetEventMap>[] = []
 
     /* Request state */
     public readonly UNSENT = 0
@@ -118,19 +123,23 @@ export const createXMLHttpRequestOverride = (
     }
 
     trigger<K extends keyof XMLHttpRequestEventTargetEventMap>(
-      event: K,
+      eventName: K,
       options?: any
     ) {
-      debug('trigger', event)
+      debug('trigger', eventName)
       this.triggerReadyStateChange(options)
 
-      const hasEvent = this._events.find((item) => item.type === 'loadend')
-      if (this.readyState === this.DONE && (this.onloadend || hasEvent)) {
+      const loadendEvent = this._events.find(
+        (event) => event.name === 'loadend'
+      )
+
+      if (this.readyState === this.DONE && (this.onloadend || loadendEvent)) {
         let listener
+
         if (this.onloadend) {
           listener = this.onloadend
-        } else if (typeof hasEvent !== 'undefined') {
-          listener = hasEvent.listener
+        } else if (typeof loadendEvent !== 'undefined') {
+          listener = loadendEvent.listener
         }
 
         if (typeof listener !== 'undefined') {
@@ -138,16 +147,16 @@ export const createXMLHttpRequestOverride = (
         }
       }
 
-      if ((this as any)['on' + event]) {
-        ;(this as any)['on' + event].call(
+      if ((this as any)['on' + eventName]) {
+        ;(this as any)['on' + eventName].call(
           this,
-          createEvent(options, this, event)
+          createEvent(options, this, eventName)
         )
       }
 
       for (const event of this._events) {
-        if (event.type === event) {
-          event.listener.call(this, createEvent(options, this, event))
+        if (event.name === eventName) {
+          event.listener.call(this, createEvent(options, this, eventName))
         }
       }
 
@@ -379,21 +388,23 @@ export const createXMLHttpRequestOverride = (
     public overrideMimeType() {}
 
     public addEventListener<K extends keyof XMLHttpRequestEventTargetEventMap>(
-      event: K,
+      name: K,
       listener: (event?: XMLHttpRequestEventTargetEventMap[K]) => any
     ) {
+      debug('addEventListener', name, listener)
       this._events.push({
-        event,
+        name,
         listener,
       })
     }
 
     public removeEventListener<K extends keyof XMLHttpRequestEventMap>(
-      event: K,
+      name: K,
       listener: (event?: XMLHttpRequestEventMap[K]) => any
     ): void {
+      debug('removeEventListener', name, listener)
       this._events = this._events.filter((storedEvent) => {
-        return storedEvent.event !== event && storedEvent.listener !== listener
+        return storedEvent.name !== name && storedEvent.listener !== listener
       })
     }
   }
