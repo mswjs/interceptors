@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import fetch, { Response } from 'node-fetch'
+import fetch from 'node-fetch'
 import { RequestInterceptor } from '../../src'
 
 let interceptor: RequestInterceptor
