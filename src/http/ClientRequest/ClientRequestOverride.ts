@@ -4,8 +4,10 @@ import http, { IncomingMessage, ClientRequest } from 'http'
 import { until } from '@open-draft/until'
 import { HeadersObject, reduceHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
+import { DEFAULT_PATH } from '../../utils/getUrlByRequestOptions'
 import { Socket } from './Socket'
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
+import { normalizeHttpRequestEndParams } from './normalizeHttpRequestEndParams'
 
 const createDebug = require('debug')
 
@@ -31,6 +33,10 @@ export function createClientRequestOverrideClass(
     const requestBodyBuffer: any[] = []
 
     const debug = createDebug(`http ${options.method} ${url.href}`)
+
+    // Inherit ClientRequest properties from RequestOptions.
+    this.method = options.method || 'GET'
+    this.path = options.path || DEFAULT_PATH
 
     debug('intercepted %s %s (%s)', options.method, url.href, url.protocol)
     http.OutgoingMessage.call(this)
@@ -87,15 +93,14 @@ export function createClientRequestOverrideClass(
       let chunk = args[0]
       const callback = typeof args[1] === 'function' ? args[1] : args[2]
 
+      debug('write', args)
+
       if (this.aborted) {
+        debug('cannot write: request aborted')
         emitError(new Error('Request aborted'))
       } else {
         if (chunk) {
-          if (!Buffer.isBuffer(chunk)) {
-            chunk = Buffer.from(chunk)
-          }
-
-          requestBodyBuffer.push(chunk)
+          pushChunkToBodyBuffer(chunk)
         }
 
         if (typeof callback === 'function') {
@@ -110,9 +115,24 @@ export function createClientRequestOverrideClass(
       return false
     }
 
-    this.end = async () => {
-      debug('end')
+    const pushChunkToBodyBuffer = (chunk: string | Buffer) => {
+      if (!Buffer.isBuffer(chunk)) {
+        chunk = Buffer.from(chunk)
+      }
+
+      debug('pushing chunk to request body', chunk)
+      requestBodyBuffer.push(chunk)
+    }
+
+    this.end = async (...args: any) => {
+      const [chunk, encoding, callback] = normalizeHttpRequestEndParams(...args)
+
+      debug('end', { chunk, encoding, callback })
       debug('request headers', options.headers)
+
+      if (chunk) {
+        pushChunkToBodyBuffer(chunk)
+      }
 
       const requestBody = bodyBufferToString(Buffer.concat(requestBodyBuffer))
       debug('request body', requestBody)
@@ -207,12 +227,16 @@ export function createClientRequestOverrideClass(
         return this
       }
 
+      debug('no mocked response received')
+
       debug(
         'performing original %s %s (%s)',
         options.method,
         url.href,
         url.protocol
       )
+      debug('original request options', options)
+      debug('original request body', requestBody)
 
       let req: ClientRequest
       debug('using', performOriginalRequest)
@@ -261,9 +285,15 @@ export function createClientRequestOverrideClass(
 
       // Provide a callback when an original request is finished,
       // so it can be debugged.
-      req.end(() => {
-        debug('request ended', options.method, url.href)
-      })
+      req.end(
+        ...[
+          requestBody,
+          encoding as any,
+          () => {
+            debug('request ended', this.method, url.href)
+          },
+        ].filter(Boolean)
+      )
 
       return req
     }

@@ -40,6 +40,8 @@ export function normalizeHttpRequestParams(
   let options: RequestOptions & RequestSelf
   let callback: HttpRequestCallback | undefined
 
+  debug('arguments', args)
+
   if (typeof args[0] === 'string') {
     debug('given a location string:', args[0])
 
