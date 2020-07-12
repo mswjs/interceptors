@@ -3,7 +3,7 @@ import { RequestSelf } from '../glossary'
 
 const debug = require('debug')('utils getUrlByRequestOptions')
 
-const DEFAULT_PATH = '/'
+export const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
 
 /**
