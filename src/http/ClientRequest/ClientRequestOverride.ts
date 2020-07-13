@@ -1,6 +1,6 @@
 import { inherits } from 'util'
 import { Socket as NetworkSocket } from 'net'
-import http, { IncomingMessage, ClientRequest } from 'http'
+import http, { IncomingMessage, ClientRequest, request } from 'http'
 import { until } from '@open-draft/until'
 import { HeadersObject, reduceHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
@@ -30,7 +30,7 @@ export function createClientRequestOverrideClass(
   ) {
     const [url, options, callback] = normalizeHttpRequestParams(...args)
     const usesHttps = url.protocol === 'https:'
-    const requestBodyBuffer: any[] = []
+    let requestBodyBuffer: Buffer[] = []
 
     const debug = createDebug(`http ${options.method} ${url.href}`)
 
@@ -100,7 +100,7 @@ export function createClientRequestOverrideClass(
         emitError(new Error('Request aborted'))
       } else {
         if (chunk) {
-          pushChunkToBodyBuffer(chunk)
+          requestBodyBuffer = concatChunkToBuffer(chunk, requestBodyBuffer)
         }
 
         if (typeof callback === 'function') {
@@ -115,13 +115,13 @@ export function createClientRequestOverrideClass(
       return false
     }
 
-    const pushChunkToBodyBuffer = (chunk: string | Buffer) => {
+    const concatChunkToBuffer = (chunk: string | Buffer, buffer: Buffer[]) => {
       if (!Buffer.isBuffer(chunk)) {
         chunk = Buffer.from(chunk)
       }
 
-      debug('pushing chunk to request body', chunk)
-      requestBodyBuffer.push(chunk)
+      debug('concat chunk to request body', chunk)
+      return buffer.concat(chunk)
     }
 
     this.end = async (...args: any) => {
@@ -130,12 +130,24 @@ export function createClientRequestOverrideClass(
       debug('end', { chunk, encoding, callback })
       debug('request headers', options.headers)
 
-      if (chunk) {
-        pushChunkToBodyBuffer(chunk)
-      }
+      const writtenRequestBody = bodyBufferToString(
+        Buffer.concat(requestBodyBuffer)
+      )
+      debug('request written body', writtenRequestBody)
 
-      const requestBody = bodyBufferToString(Buffer.concat(requestBodyBuffer))
-      debug('request body', requestBody)
+      // Resolve the entire request body, including:
+      // - buffer written via `req.write()`
+      // - chunk provided to `req.end(chunk)`
+      // So that the request middleware has access to the resolved body.
+      const resolvedRequestBody = bodyBufferToString(
+        Buffer.concat(
+          chunk
+            ? concatChunkToBuffer(chunk, requestBodyBuffer)
+            : requestBodyBuffer
+        )
+      )
+
+      debug('request resolved body', resolvedRequestBody)
 
       const requestHeaders = options.headers
         ? reduceHeadersObject<HeadersObject>(
@@ -155,7 +167,7 @@ export function createClientRequestOverrideClass(
         url,
         method: options.method || 'GET',
         headers: requestHeaders,
-        body: requestBody,
+        body: resolvedRequestBody,
       }
 
       debug('awaiting mocked response...')
@@ -236,7 +248,7 @@ export function createClientRequestOverrideClass(
         url.protocol
       )
       debug('original request options', options)
-      debug('original request body', requestBody)
+      debug('original request body (written)', writtenRequestBody)
 
       let req: ClientRequest
       debug('using', performOriginalRequest)
@@ -264,7 +276,8 @@ export function createClientRequestOverrideClass(
         req = performOriginalRequest(options)
       }
 
-      // Propagate the given request body on the original request.
+      // Propagate a request body buffer written via `req.write()`
+      // to the original request.
       if (requestBodyBuffer.length > 0 && req.writable) {
         req.write(Buffer.concat(requestBodyBuffer))
       }
@@ -287,10 +300,11 @@ export function createClientRequestOverrideClass(
       // so it can be debugged.
       req.end(
         ...[
-          requestBody,
+          chunk,
           encoding as any,
           () => {
             debug('request ended', this.method, url.href)
+            callback?.()
           },
         ].filter(Boolean)
       )
