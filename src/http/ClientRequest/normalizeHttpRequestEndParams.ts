@@ -1,8 +1,8 @@
 const debug = require('debug')('http normalizeHttpRequestEndParams')
 
-type HttpRequestEndChunk = string | Buffer | null
-type HttpRequestEndEncoding = string | null
-type HttpRequestEndCallback = () => void | undefined
+type HttpRequestEndChunk = string | Buffer
+type HttpRequestEndEncoding = string
+type HttpRequestEndCallback = () => void
 
 type HttpRequestEndArgs =
   | []
@@ -11,9 +11,9 @@ type HttpRequestEndArgs =
   | [HttpRequestEndChunk, HttpRequestEndEncoding, HttpRequestEndCallback?]
 
 type NormalizedHttpRequestEndParams = [
-  HttpRequestEndChunk,
-  HttpRequestEndEncoding | undefined,
-  HttpRequestEndCallback | undefined
+  HttpRequestEndChunk | null,
+  HttpRequestEndEncoding | null,
+  HttpRequestEndCallback | null
 ]
 
 /**
@@ -27,7 +27,7 @@ export function normalizeHttpRequestEndParams(
   debug('arguments', args)
   const normalizedArgs = new Array(3)
     .fill(null)
-    .map((_, index) => args[index] || null)
+    .map((value, index) => args[index] || value)
 
   normalizedArgs.sort((a, b) => {
     if (typeof a === 'function') {

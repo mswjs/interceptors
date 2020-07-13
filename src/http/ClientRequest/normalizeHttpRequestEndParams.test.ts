@@ -1,28 +1,17 @@
 import { normalizeHttpRequestEndParams } from './normalizeHttpRequestEndParams'
 
 test('supports [cb]', () => {
-  const cb = () => null
-  const args = [cb]
-  expect(normalizeHttpRequestEndParams(...(args as any))).toEqual([
-    null,
-    null,
-    cb,
-  ])
+  const cb = () => undefined
+  expect(normalizeHttpRequestEndParams(cb)).toEqual([null, null, cb])
 })
 
 test('supports [chunk]', () => {
-  const args = ['chunk']
-  expect(normalizeHttpRequestEndParams(...(args as any))).toEqual([
-    'chunk',
-    null,
-    null,
-  ])
+  expect(normalizeHttpRequestEndParams('chunk')).toEqual(['chunk', null, null])
 })
 
 test('supports [chunk, cb]', () => {
-  const cb = () => null
-  const args = ['chunk', cb]
-  expect(normalizeHttpRequestEndParams(...(args as any))).toEqual([
+  const cb = () => undefined
+  expect(normalizeHttpRequestEndParams('chunk', cb)).toEqual([
     'chunk',
     null,
     cb,
@@ -30,8 +19,7 @@ test('supports [chunk, cb]', () => {
 })
 
 test('supports [chunk, encoding]', () => {
-  const args = ['chunk', 'utf8']
-  expect(normalizeHttpRequestEndParams(...(args as any))).toEqual([
+  expect(normalizeHttpRequestEndParams('chunk', 'utf8')).toEqual([
     'chunk',
     'utf8',
     null,
@@ -39,9 +27,8 @@ test('supports [chunk, encoding]', () => {
 })
 
 test('supports [chunk, encoding, cb]', () => {
-  const cb = () => null
-  const args = ['chunk', 'utf8', cb]
-  expect(normalizeHttpRequestEndParams(...(args as any))).toEqual([
+  const cb = () => undefined
+  expect(normalizeHttpRequestEndParams('chunk', 'utf8', cb)).toEqual([
     'chunk',
     'utf8',
     cb,
