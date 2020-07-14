@@ -1,56 +1,20 @@
 import { inherits } from 'util'
 import { Socket as NetworkSocket } from 'net'
-import http, {
-  IncomingMessage,
-  ClientRequest,
-  request,
-  OutgoingHttpHeaders,
-} from 'http'
+import http, { IncomingMessage, ClientRequest } from 'http'
 import { until } from '@open-draft/until'
 import { HeadersObject, reduceHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
-import { DEFAULT_PATH } from '../../utils/getUrlByRequestOptions'
 import { Socket } from './Socket'
-import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
-import { normalizeHttpRequestEndParams } from './normalizeHttpRequestEndParams'
+
+/* Utils */
+import { DEFAULT_PATH } from '../../utils/getUrlByRequestOptions'
+import { bodyBufferToString } from './utils/bodyBufferToString'
+import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
+import { inheritRequestHeaders } from './utils/inheritRequestHeaders'
+import { normalizeHttpRequestParams } from './utils/normalizeHttpRequestParams'
+import { normalizeHttpRequestEndParams } from './utils/normalizeHttpRequestEndParams'
 
 const createDebug = require('debug')
-
-function bodyBufferToString(buffer: Buffer): string {
-  const utfEncodedBuffer = buffer.toString('utf8')
-  const bufferCopy = Buffer.from(utfEncodedBuffer)
-  const isUtf8 = bufferCopy.equals(buffer)
-
-  return isUtf8 ? utfEncodedBuffer : buffer.toString('hex')
-}
-
-function concatChunkToBuffer(
-  chunk: string | Buffer,
-  buffer: Buffer[]
-): Buffer[] {
-  if (!Buffer.isBuffer(chunk)) {
-    chunk = Buffer.from(chunk)
-  }
-
-  return buffer.concat(chunk)
-}
-
-function inheritHeaders(
-  req: ClientRequest,
-  headers: OutgoingHttpHeaders | undefined
-): void {
-  // Cannot write request headers once already written,
-  // or when no headers are given.
-  if (req.headersSent || !headers) {
-    return
-  }
-
-  Object.entries(headers).forEach(([name, value]) => {
-    if (value != null) {
-      req.setHeader(name, value)
-    }
-  })
-}
 
 export function createClientRequestOverrideClass(
   middleware: RequestMiddleware,
@@ -75,7 +39,7 @@ export function createClientRequestOverrideClass(
     http.OutgoingMessage.call(this)
 
     // Propagate options headers to the request instance.
-    inheritHeaders(this, options.headers)
+    inheritRequestHeaders(this, options.headers)
 
     const socket = (new Socket(options, {
       usesHttps,
@@ -309,7 +273,7 @@ export function createClientRequestOverrideClass(
 
       // Propagate headers set after `ClientRequest` is constructed
       // onto the original request instance.
-      inheritHeaders(req, outHeaders)
+      inheritRequestHeaders(req, outHeaders)
 
       // Propagate a request body buffer written via `req.write()`
       // to the original request.
