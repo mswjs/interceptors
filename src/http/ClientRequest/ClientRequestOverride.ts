@@ -1,6 +1,11 @@
 import { inherits } from 'util'
 import { Socket as NetworkSocket } from 'net'
-import http, { IncomingMessage, ClientRequest, request } from 'http'
+import http, {
+  IncomingMessage,
+  ClientRequest,
+  request,
+  OutgoingHttpHeaders,
+} from 'http'
 import { until } from '@open-draft/until'
 import { HeadersObject, reduceHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
@@ -11,12 +16,40 @@ import { normalizeHttpRequestEndParams } from './normalizeHttpRequestEndParams'
 
 const createDebug = require('debug')
 
-function bodyBufferToString(buffer: Buffer) {
+function bodyBufferToString(buffer: Buffer): string {
   const utfEncodedBuffer = buffer.toString('utf8')
   const bufferCopy = Buffer.from(utfEncodedBuffer)
   const isUtf8 = bufferCopy.equals(buffer)
 
   return isUtf8 ? utfEncodedBuffer : buffer.toString('hex')
+}
+
+function concatChunkToBuffer(
+  chunk: string | Buffer,
+  buffer: Buffer[]
+): Buffer[] {
+  if (!Buffer.isBuffer(chunk)) {
+    chunk = Buffer.from(chunk)
+  }
+
+  return buffer.concat(chunk)
+}
+
+function inheritHeaders(
+  req: ClientRequest,
+  headers: OutgoingHttpHeaders | undefined
+): void {
+  // Cannot write request headers once already written,
+  // or when no headers are given.
+  if (req.headersSent || !headers) {
+    return
+  }
+
+  Object.entries(headers).forEach(([name, value]) => {
+    if (value != null) {
+      req.setHeader(name, value)
+    }
+  })
 }
 
 export function createClientRequestOverrideClass(
@@ -42,11 +75,7 @@ export function createClientRequestOverrideClass(
     http.OutgoingMessage.call(this)
 
     // Propagate options headers to the request instance.
-    Object.entries(options.headers || {}).forEach(([name, value]) => {
-      if (value != null) {
-        this.setHeader(name, value)
-      }
-    })
+    inheritHeaders(this, options.headers)
 
     const socket = (new Socket(options, {
       usesHttps,
@@ -89,17 +118,17 @@ export function createClientRequestOverrideClass(
       })
     }
 
-    this.write = (...args: any[]): boolean => {
-      let chunk = args[0]
-      const callback = typeof args[1] === 'function' ? args[1] : args[2]
+    this.write = (chunk: string | Buffer, ...args: any[]): boolean => {
+      debug('write', chunk, args)
 
-      debug('write', args)
+      const callback = typeof args[1] === 'function' ? args[1] : args[2]
 
       if (this.aborted) {
         debug('cannot write: request aborted')
         emitError(new Error('Request aborted'))
       } else {
         if (chunk) {
+          debug('request write: concat chunk to buffer', chunk)
           requestBodyBuffer = concatChunkToBuffer(chunk, requestBodyBuffer)
         }
 
@@ -113,15 +142,6 @@ export function createClientRequestOverrideClass(
       })
 
       return false
-    }
-
-    const concatChunkToBuffer = (chunk: string | Buffer, buffer: Buffer[]) => {
-      if (!Buffer.isBuffer(chunk)) {
-        chunk = Buffer.from(chunk)
-      }
-
-      debug('concat chunk to request body', chunk)
-      return buffer.concat(chunk)
     }
 
     this.end = async (...args: any) => {
@@ -149,9 +169,16 @@ export function createClientRequestOverrideClass(
 
       debug('request resolved body', resolvedRequestBody)
 
-      const requestHeaders = options.headers
+      const outHeaders = this.getHeaders()
+      const resolvedRequestHeaders = Object.assign(
+        {},
+        outHeaders,
+        options.headers
+      )
+
+      const requestHeaders = resolvedRequestHeaders
         ? reduceHeadersObject<HeadersObject>(
-            options.headers as HeadersObject,
+            resolvedRequestHeaders as HeadersObject,
             (headers, name, value) => {
               headers[name.toLowerCase()] = value
               return headers
@@ -227,6 +254,9 @@ export function createClientRequestOverrideClass(
 
         debug('response is complete, finishing request...')
 
+        // Invoke the "req.end()" callback.
+        callback?.()
+
         this.finished = true
         this.emit('finish')
         this.emit('response', response)
@@ -249,6 +279,7 @@ export function createClientRequestOverrideClass(
       )
       debug('original request options', options)
       debug('original request body (written)', writtenRequestBody)
+      debug('original request body (end)', chunk)
 
       let req: ClientRequest
       debug('using', performOriginalRequest)
@@ -275,6 +306,10 @@ export function createClientRequestOverrideClass(
       } else {
         req = performOriginalRequest(options)
       }
+
+      // Propagate headers set after `ClientRequest` is constructed
+      // onto the original request instance.
+      inheritHeaders(req, outHeaders)
 
       // Propagate a request body buffer written via `req.write()`
       // to the original request.
