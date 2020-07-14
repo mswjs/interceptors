@@ -1,7 +1,7 @@
 import { RequestOptions } from 'https'
-import { HttpRequestCallback, RequestSelf } from '../../glossary'
-import { getRequestOptionsByUrl } from '../../utils/getRequestOptionsByUrl'
-import { getUrlByRequestOptions } from '../../utils/getUrlByRequestOptions'
+import { HttpRequestCallback, RequestSelf } from '../../../glossary'
+import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
+import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions'
 
 const debug = require('debug')('http normalizeHttpRequestParams')
 
