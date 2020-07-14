@@ -30,10 +30,17 @@ export function normalizeHttpRequestEndParams(
     .map((value, index) => args[index] || value)
 
   normalizedArgs.sort((a, b) => {
+    // If first element is a function, move it rightwards.
     if (typeof a === 'function') {
       return 1
     }
 
+    // If second element is a function, move the first leftwards.
+    if (typeof b === 'function') {
+      return -1
+    }
+
+    // If both elements are strings, preserve their original index.
     if (typeof a === 'string' && typeof b === 'string') {
       return normalizedArgs.indexOf(a) - normalizedArgs.indexOf(b)
     }
