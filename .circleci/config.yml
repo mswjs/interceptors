@@ -1,17 +1,30 @@
 version: 2.1
-orbs:
-  node: circleci/node@1.1.6
+
 jobs:
   build-and-test:
-    executor:
-      name: node/default
+    working_directory: ~/release
+    docker:
+      - image: cimg/node:12.18.0
+        environment:
+          TERM: xterm
     steps:
       - checkout
-      - node/with-cache:
-          steps:
-            - run: yarn install
-            - run: yarn test
-            - run: yarn build
+      - run:
+          name: Checking environment
+          command: |
+            node --version
+            npm --version
+            yarn --version
+      - run:
+          name: Installing dependencies
+          command: yarn install
+      - run:
+          name: Testing the library
+          command: yarn test
+      - run:
+          name: Building the library
+          command: yarn build
+
 workflows:
   build-and-test:
     jobs:
