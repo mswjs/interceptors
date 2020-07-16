@@ -11,7 +11,8 @@ beforeAll(() => {
   interceptor.use((req) => {
     if (['https://test.mswjs.io'].includes(req.url.origin)) {
       return {
-        status: 301,
+        status: 400,
+        statusText: 'Bad Request',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -32,7 +33,8 @@ afterAll(() => {
 test('responds to an HTTPS request issued by "https.request" and handled in the middleware', async () => {
   const { res, resBody } = await httpsRequest('https://test.mswjs.io')
 
-  expect(res.statusCode).toEqual(301)
+  expect(res.statusCode).toEqual(400)
+  expect(res.statusMessage).toEqual('Bad Request')
   expect(res.headers).toHaveProperty('content-type', 'application/json')
   expect(resBody).toEqual(JSON.stringify({ mocked: true }))
 })
@@ -47,7 +49,8 @@ test('bypasses an HTTPS request issued by "https.request" not handled in the mid
 test('responds to an HTTPS request issued by "https.get" and handled in the middleware', async () => {
   const { res, resBody } = await httpsGet('https://test.mswjs.io')
 
-  expect(res.statusCode).toEqual(301)
+  expect(res.statusCode).toEqual(400)
+  expect(res.statusMessage).toEqual('Bad Request')
   expect(res.headers).toHaveProperty('content-type', 'application/json')
   expect(resBody).toEqual(JSON.stringify({ mocked: true }))
 })
