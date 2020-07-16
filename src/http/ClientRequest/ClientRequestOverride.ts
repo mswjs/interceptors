@@ -184,6 +184,7 @@ export function createClientRequestOverrideClass(
           const { headers = {} } = mockedResponse
 
           response.statusCode = mockedResponse.status
+          response.statusMessage = mockedResponse.statusText
 
           debug('writing response headers...')
 
