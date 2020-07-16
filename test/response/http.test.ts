@@ -12,6 +12,7 @@ beforeAll(() => {
     if (['http://httpbin.org/'].includes(req.url.href)) {
       return {
         status: 301,
+        statusText: 'Moved Permanently',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -33,6 +34,7 @@ test('responds to an HTTP request issued by "http.request" and handled in the mi
   const { res, resBody } = await httpRequest('http://httpbin.org')
 
   expect(res.statusCode).toBe(301)
+  expect(res.statusMessage).toEqual('Moved Permanently')
   expect(res.headers).toHaveProperty('content-type', 'application/json')
   expect(resBody).toEqual(JSON.stringify({ mocked: true }))
 })
@@ -48,6 +50,7 @@ test('responds to an HTTP request issued by "http.get" and handled in the  middl
   const { res, resBody } = await httpRequest('http://httpbin.org')
 
   expect(res.statusCode).toBe(301)
+  expect(res.statusMessage).toEqual('Moved Permanently')
   expect(res.headers).toHaveProperty('content-type', 'application/json')
   expect(resBody).toEqual(JSON.stringify({ mocked: true }))
 })
