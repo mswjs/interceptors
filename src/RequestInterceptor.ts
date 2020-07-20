@@ -1,6 +1,5 @@
 import { RequestMiddleware, ModuleOverride } from './glossary'
-import { overrideHttpModule } from './http/override'
-import { overrideXhrModule } from './XMLHttpRequest/override'
+import { overrideModules } from './overrideModules'
 
 const debug = require('debug')('RequestInterceptor')
 
@@ -12,7 +11,7 @@ export class RequestInterceptor {
     this.middleware = []
     debug('created new RequestInterceptor')
 
-    this.overrides = [overrideHttpModule, overrideXhrModule].map((override) =>
+    this.overrides = overrideModules.map((override) =>
       override(this.applyMiddleware)
     )
   }
