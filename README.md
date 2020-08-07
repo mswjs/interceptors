@@ -90,7 +90,7 @@ interceptor.use((req) => {
       headers: {
         'x-powered-by': 'node-request-interceptor',
       },
-      body: JSON.stringified({
+      body: JSON.stringify({
         message: 'Hey, I am a mocked response',
       }),
     }
