@@ -19,8 +19,8 @@ export function getUrlByRequestOptions(
   if (!options.protocol) {
     debug('given no protocol, resolving...')
 
-    // Assume HTTPS if using an SSL certificate.
-    options.protocol = options.cert ? 'https:' : DEFAULT_PROTOCOL
+    // Assume HTTPS if cert is set.
+    options.protocol = options.cert ? 'https:' : (options.uri?.protocol || DEFAULT_PROTOCOL)
 
     debug('resolved protocol to:', options.protocol)
   }
