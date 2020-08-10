@@ -248,7 +248,7 @@ export const createXMLHttpRequestOverride = (
 
           // Return a mocked response, if provided in the middleware.
           if (mockedResponse) {
-            debug('recieved mocked response', mockedResponse)
+            debug('received mocked response', mockedResponse)
 
             this.status = mockedResponse.status || 200
             this.statusText = mockedResponse.statusText || 'OK'

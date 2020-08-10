@@ -123,7 +123,7 @@ test('intercepts an HTTP PATCH request', async () => {
   expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
 })
 
-test('intercepts an HTTP GET request', async () => {
+test('intercepts an HTTPS GET request', async () => {
   const request = await prepareXHR(
     xhr('GET', 'https://httpbin.org/get?userId=123', {
       headers: {
@@ -199,7 +199,8 @@ test('intercepts an HTTPS DELETE request', async () => {
   expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
 })
 
-test('intercepts an HTTP PATCH request', async () => {
+test('intercepts an HTTPS PATCH request', async () => {
+
   const request = await prepareXHR(
     xhr('PATCH', 'https://httpbin.org/patch?userId=123', {
       headers: {
