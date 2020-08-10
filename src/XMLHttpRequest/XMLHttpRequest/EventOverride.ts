@@ -24,11 +24,11 @@ export class EventOverride implements Event {
 
   constructor(
     type: string,
-    overrides?: { target: EventTarget; currentTarget: EventTarget }
+    options?: { target: EventTarget; currentTarget: EventTarget }
   ) {
     this.type = type
-    this.target = overrides?.target || null
-    this.currentTarget = overrides?.currentTarget || null
+    this.target = options?.target || null
+    this.currentTarget = options?.currentTarget || null
     this.timeStamp = Date.now()
   }
 
