@@ -51,10 +51,10 @@ export const createXMLHttpRequestOverride = (
     public withCredentials: boolean
     public status: number
     public statusText: string
-    public user: string
-    public password: string
+    public user?: string
+    public password?: string
     public data: string
-    public async: boolean
+    public async?: boolean
     public response: string
     public responseText: string
     public responseType: XMLHttpRequestResponseType
@@ -105,10 +105,7 @@ export const createXMLHttpRequestOverride = (
       this.withCredentials = false
       this.status = 200
       this.statusText = 'OK'
-      this.user = ''
-      this.password = ''
       this.data = ''
-      this.async = true
       this.response = ''
       this.responseType = 'text'
       this.responseText = ''
@@ -176,7 +173,7 @@ export const createXMLHttpRequestOverride = (
     public async open(
       method: string,
       url: string,
-      async?: boolean,
+      async: boolean = true,
       user?: string,
       password?: string
     ) {
@@ -192,9 +189,9 @@ export const createXMLHttpRequestOverride = (
       } else {
         this.url = url
         this.method = method
-        this.async = !!async
-        this.user = user || ''
-        this.password = password || ''
+        this.async = async
+        this.user = user
+        this.password = password
       }
     }
 
@@ -291,7 +288,7 @@ export const createXMLHttpRequestOverride = (
             originalRequest.open(
               this.method,
               this.url,
-              this.async,
+              this.async ?? true,
               this.user,
               this.password
             )
