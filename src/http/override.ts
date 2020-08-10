@@ -49,13 +49,10 @@ function handleRequest(
  */
 export const overrideHttpModule: ModuleOverride = (middleware) => {
   let patchedModules: PatchedModules = {}
-  const modules: ['http', 'https'] = ['http', 'https']
+  const modules = ['http', 'https']
 
   modules.forEach((protocol) => {
-    const module = ({
-      http: require('http'),
-      https: require('https'),
-    } as Record<string, typeof http | typeof https>)[protocol]
+    const module = protocol === 'https' ? https : http
 
     const { request: originalRequest, get: originalGet } = module
 
