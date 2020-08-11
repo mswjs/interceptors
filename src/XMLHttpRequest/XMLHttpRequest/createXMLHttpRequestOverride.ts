@@ -326,6 +326,10 @@ export const createXMLHttpRequestOverride = (
             originalRequest.ontimeout = this.ontimeout
             originalRequest.onreadystatechange = this.onreadystatechange
 
+            if (this.async) {
+              originalRequest.timeout = this.timeout
+            }
+
             debug('send', this.data)
             originalRequest.send(this.data)
           }
