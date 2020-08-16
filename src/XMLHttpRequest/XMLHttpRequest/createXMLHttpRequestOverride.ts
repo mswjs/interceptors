@@ -320,11 +320,10 @@ export const createXMLHttpRequestOverride = (
               this.trigger('load')
             }
 
-            // Map callbacks given to the patched instance to the original request instance.
-            originalRequest.onabort = this.abort
-            originalRequest.onerror = this.onerror
-            originalRequest.ontimeout = this.ontimeout
-            originalRequest.onreadystatechange = this.onreadystatechange
+            // Assign callbacks and event listeners from the intercepted XHR instance
+            // to the original XHR instance.
+            this.propagateCallbacks(originalRequest)
+            this.propagateListeners(originalRequest)
 
             if (this.async) {
               originalRequest.timeout = this.timeout
@@ -407,5 +406,25 @@ export const createXMLHttpRequestOverride = (
     }
 
     public overrideMimeType() {}
+
+    /**
+     * Propagates captured XHR instance callbacks to the given XHR instance.
+     * @note that `onload` listener is explicitly omitted.
+     */
+    propagateCallbacks(req: XMLHttpRequest) {
+      req.onabort = this.abort
+      req.onerror = this.onerror
+      req.ontimeout = this.ontimeout
+      req.onloadstart = this.onloadstart
+      req.onloadend = this.onloadend
+      req.onprogress = this.onprogress
+      req.onreadystatechange = this.onreadystatechange
+    }
+
+    propagateListeners(req: XMLHttpRequest) {
+      this._events.forEach(({ name, listener }) => {
+        req.addEventListener(name, listener)
+      })
+    }
   }
 }
