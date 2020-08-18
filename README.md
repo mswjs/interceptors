@@ -7,11 +7,11 @@ Low-level HTTP/HTTPS/XHR request interception library for NodeJS.
 
 **Intercepts any requests issued by:**
 
-- `http.request`/`http.get`
-- `https.request`/`https.get`
+- `http.get`/`http.request`
+- `https.get`/`https.request`
 - `fetch`
 - `XMLHttpRequest`
-- Any third-party libraries that utilize the above (i.e. `request`, `node-fetch`, etc.)
+- Any third-party libraries that utilize the modules above (i.e. `request`, `node-fetch`, etc.)
 
 ## Motivation
 
@@ -29,10 +29,10 @@ Although NodeJS has no `XMLHttpRequest` implementation, this library covers it f
 
 ## What this library does
 
-This library monkey-patches the following native functions:
+This library monkey-patches the following native modules:
 
-- `http.request`/`http.get`
-- `https.request`/`https.get`
+- `http.get`/`http.request`
+- `https.get`/`https.request`
 - `XMLHttpRequest`
 
 Once patched, it provides an interface to execute an arbitrary logic upon any outgoing request using a request middleware function.
@@ -42,9 +42,9 @@ Once patched, it provides an interface to execute an arbitrary logic upon any ou
 
 ## What this library doesn't do
 
-- Does not provide any request matching logic.
-- Does not decide how to handle requests.
-- Does not run in a browser (although supports `jsdom`).
+- Does **not** provide any request matching logic.
+- Does **not** decide how to handle requests.
+- Does **not** run in a browser (although supports `jsdom`).
 
 ## Getting started
 
@@ -54,19 +54,44 @@ npm install node-request-interceptor
 
 ## API
 
-### `RequestInterceptor`
+### `RequestInterceptor(interceptors: Interceptor[])`
 
 ```js
 import { RequestInterceptor } from 'node-request-interceptor'
+import withDefaultInterceptors from 'node-request-interceptor/presets/default'
 
-const interceptor = new RequestInterceptor()
+const interceptor = new RequestInterceptor(withDefaultInterceptors)
 ```
+
+> Using the `/presets/default` interceptors preset is the recommended way to ensure all requests get intercepted, regardless of their origin.
+
+### Interceptors
+
+This library utilizes a concept of an _interceptor_–a module that performs necessary patching, handles a mocked response, and restores patched instances.
+
+**The list of interceptors:**
+
+- `/interceptors/ClientRequest`
+- `/interceptors/XMLHttpRequest`
+
+To use one, or multiple interceptors, import and provide them to the `RequestInterceptor` constructor.
+
+```js
+import { RequestInterceptors } from 'node-request-interceptor'
+import { interceptXMLHttpRequest } from 'node-request-interceptor/interceptors/XMLHttpRequest'
+
+// This `interceptor` instance would handle only XMLHttpRequest,
+// ignoring requests issued via `http`/`https` modules.
+const interceptor = new RequestInterceptors([interceptXMLHttpRequest])
+```
+
+> Interceptors are crucial in leveraging environment-specific module overrides. Certain environments (i.e. React Native) do not have access to native NodeJS modules (like `http`). Importing such modules raises an exception, and must be avoided.
 
 ### Methods
 
 #### `.use(middleware: (req: InterceptedRequest, ref: IncomingMessage | XMLHttpRequest) => MockedResponse): void`
 
-Applies a given middleware function to an intercepted request. May return a [mocked response](#mockedresponse) that is going to be used to respond to an intercepted request.
+Applies a given middleware function to an intercepted request. May return a [`MockedResponse`](#MockedResponse) object that is going to be used to respond to an intercepted request.
 
 ##### Requests monitoring
 
@@ -79,6 +104,8 @@ interceptor.use((req) => {
 ```
 
 ##### Response mocking
+
+When a request middleware returns a [`MockedResponse`](#MockedResponse) object, it will be returned as the response to the intercepted request. This library automatically creates a proper response instance according to the request issuing module (`http`/`XMLHttpRequest`).
 
 ```js
 interceptor.use((req) => {
@@ -100,7 +127,7 @@ interceptor.use((req) => {
 
 #### `.restore(): void`
 
-Restores all patched modules and stops the interception.
+Restores all patched modules and stops the interception of any future requests.
 
 ```js
 interceptor.restore()
