@@ -1,5 +1,5 @@
-import { ModuleOverride } from '../../glossary'
-import { createXMLHttpRequestOverride } from './createXMLHttpRequestOverride'
+import { Interceptor } from '../../glossary'
+import { createXMLHttpRequestOverride } from './XMLHttpRequestOverride'
 
 const debug = require('debug')('XHR')
 
@@ -11,9 +11,9 @@ const original = {
 }
 
 /**
- * Conditionally overrides the `XMLHttpRequest` class using a given request middleware.
+ * Intercepts requests issued via `XMLHttpRequest`.
  */
-export const overrideXhrModule: ModuleOverride = (middleware) => {
+export const interceptXMLHttpRequest: Interceptor = (middleware) => {
   if (original.XMLHttpRequest) {
     debug('patching "XMLHttpRequest" module...')
 
