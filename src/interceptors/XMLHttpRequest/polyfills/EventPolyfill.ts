@@ -1,4 +1,4 @@
-export class EventOverride implements Event {
+export class EventPolyfill implements Event {
   readonly AT_TARGET: number = 0
   readonly BUBBLING_PHASE: number = 0
   readonly CAPTURING_PHASE: number = 0

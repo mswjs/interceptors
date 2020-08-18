@@ -1,7 +1,7 @@
 import https from 'https'
 import http, { ClientRequest } from 'http'
-import { ModuleOverride, RequestMiddleware } from '../glossary'
-import { createClientRequestOverrideClass } from './ClientRequest/ClientRequestOverride'
+import { ModuleOverride, RequestMiddleware } from '../../glossary'
+import { createClientRequestOverrideClass } from './ClientRequestOverride'
 
 const debug = require('debug')('http override')
 

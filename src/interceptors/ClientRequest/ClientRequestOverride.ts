@@ -4,7 +4,7 @@ import http, { IncomingMessage, ClientRequest } from 'http'
 import { until } from '@open-draft/until'
 import { HeadersObject, reduceHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
-import { Socket } from './Socket'
+import { Socket } from './polyfills/Socket'
 
 /* Utils */
 import { DEFAULT_PATH } from '../../utils/getUrlByRequestOptions'

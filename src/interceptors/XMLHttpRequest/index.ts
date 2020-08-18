@@ -1,5 +1,5 @@
-import { ModuleOverride } from '../glossary'
-import { createXMLHttpRequestOverride } from './XMLHttpRequest/createXMLHttpRequestOverride'
+import { ModuleOverride } from '../../glossary'
+import { createXMLHttpRequestOverride } from './createXMLHttpRequestOverride'
 
 const debug = require('debug')('XHR')
 

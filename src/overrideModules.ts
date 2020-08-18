@@ -1,4 +1,4 @@
-import { overrideHttpModule } from './http/override'
-import { overrideXhrModule } from './XMLHttpRequest/override'
+import { overrideHttpModule } from './interceptors/ClientRequest'
+import { overrideXhrModule } from './interceptors/XMLHttpRequest'
 
 export const overrideModules = [overrideHttpModule, overrideXhrModule]
