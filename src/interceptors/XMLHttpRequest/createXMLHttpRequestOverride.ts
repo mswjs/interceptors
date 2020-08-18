@@ -9,7 +9,7 @@ import {
   HeadersObject,
 } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
-import { createEvent } from './createEvent'
+import { createEvent } from './helpers/createEvent'
 
 const createDebug = require('debug')
 

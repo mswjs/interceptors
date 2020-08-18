@@ -1,3 +1,9 @@
+/* Classes */
+export { RequestInterceptor } from './RequestInterceptor'
+
+/* Utils */
+export { getCleanUrl } from './utils/getCleanUrl'
+
 /* Typings */
 export {
   InterceptedRequest,
@@ -5,9 +11,3 @@ export {
   RequestMiddleware,
   ReturnedResponse,
 } from './glossary'
-
-/* Classes */
-export { RequestInterceptor } from './RequestInterceptor'
-
-/* Utils */
-export { getCleanUrl } from './utils/getCleanUrl'

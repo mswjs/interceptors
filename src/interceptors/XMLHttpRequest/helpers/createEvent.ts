@@ -1,5 +1,5 @@
-import { EventOverride } from './EventOverride'
-import { ProgressEventPolyfill } from './ProgressEventPolyfill'
+import { EventPolyfill } from '../polyfills/EventPolyfill'
+import { ProgressEventPolyfill } from '../polyfills/ProgressEventPolyfill'
 
 const SUPPORTS_PROGRESS_EVENT = typeof ProgressEvent !== 'undefined'
 
@@ -28,7 +28,7 @@ export function createEvent(options: any, target: any, type: string) {
         loaded: options?.loaded || 0,
         total: options?.total || 0,
       })
-    : new EventOverride(type, {
+    : new EventPolyfill(type, {
         target,
         currentTarget: target,
       })

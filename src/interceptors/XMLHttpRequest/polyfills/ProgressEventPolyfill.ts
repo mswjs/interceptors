@@ -1,6 +1,6 @@
-import { EventOverride } from './EventOverride'
+import { EventPolyfill } from './EventPolyfill'
 
-export class ProgressEventPolyfill extends EventOverride {
+export class ProgressEventPolyfill extends EventPolyfill {
   readonly lengthComputable: boolean
   readonly composed: boolean
   readonly loaded: number

@@ -1,3 +1,3 @@
-import { overrideXhrModule } from './XMLHttpRequest/override'
+import { overrideXhrModule } from './interceptors/XMLHttpRequest'
 
 export const overrideModules = [overrideXhrModule]
