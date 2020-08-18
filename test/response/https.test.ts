@@ -3,11 +3,12 @@
  */
 import { RequestInterceptor } from '../../src'
 import { httpsGet, httpsRequest } from '../helpers'
+import withDefaultInterceptors from '../../src/presets/default'
 
 let interceptor: RequestInterceptor
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor()
+  interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     if (['https://test.mswjs.io'].includes(req.url.origin)) {
       return {

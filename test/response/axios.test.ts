@@ -1,10 +1,11 @@
 import axios from 'axios'
 import { RequestInterceptor } from '../../src'
+import withDefaultInterceptors from '../../src/presets/default'
 
 let interceptor: RequestInterceptor
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor()
+  interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     if (req.url.pathname === '/user') {
       return {

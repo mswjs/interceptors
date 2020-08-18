@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { RequestInterceptor } from '../../../src'
+import withDefaultInterceptors from '../../../src/presets/default'
 import { InterceptedRequest } from '../../../src/glossary'
 import { prepare, httpsRequest } from '../../helpers'
 
@@ -9,7 +10,7 @@ let requestInterceptor: RequestInterceptor
 let pool: InterceptedRequest[] = []
 
 beforeAll(() => {
-  requestInterceptor = new RequestInterceptor()
+  requestInterceptor = new RequestInterceptor(withDefaultInterceptors)
   requestInterceptor.use((req) => {
     pool.push(req)
   })

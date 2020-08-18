@@ -1,4 +1,5 @@
 import { RequestInterceptor } from '../../src'
+import withDefaultInterceptors from '../../src/presets/default'
 
 interface XhrResponse {
   status: number
@@ -31,7 +32,7 @@ function performXMLHttpRequest(
 let interceptor: RequestInterceptor
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor()
+  interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     const shouldMock =
       ['https://test.msw.io', 'http://test.msw.io'].includes(req.url.origin) ||

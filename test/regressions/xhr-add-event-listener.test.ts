@@ -2,10 +2,12 @@
  * @see https://github.com/mswjs/msw/issues/273
  */
 import { RequestInterceptor } from '../../src'
+import withDefaultInterceptors from '../../src/presets/default'
 
-const interceptor = new RequestInterceptor()
+let interceptor: RequestInterceptor
 
 beforeAll(() => {
+  interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     if (req.url.href === 'https://test.mswjs.io/user') {
       return {
