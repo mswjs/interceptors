@@ -4,12 +4,13 @@
  */
 import https from 'https'
 import { RequestInterceptor, InterceptedRequest } from '../../src'
+import withDefaultInterceptors from '../../src/presets/default'
 
 let interceptor: RequestInterceptor
 let pool: InterceptedRequest[] = []
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor()
+  interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     // All requests in this test are bypassed.
     pool.push(req)

@@ -3,11 +3,12 @@
  */
 import fetch from 'node-fetch'
 import { RequestInterceptor } from '../../src'
+import withDefaultInterceptors from '../../src/presets/default'
 
 let interceptor: RequestInterceptor
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor()
+  interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     if (
       ['https://api.github.com', 'http://api.github.com'].includes(

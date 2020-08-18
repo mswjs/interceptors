@@ -2,10 +2,12 @@
  * @see https://github.com/mswjs/node-request-interceptor/issues/7
  */
 import { RequestInterceptor } from '../../src'
+import withDefaultInterceptors from '../../src/presets/default'
 
-const interceptor = new RequestInterceptor()
+let interceptor: RequestInterceptor
 
 beforeAll(() => {
+  interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use(() => {
     // Explicitly empty request middleware so that all requests
     // are bypassed (performed as-is).

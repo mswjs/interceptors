@@ -1,4 +1,5 @@
 import { RequestInterceptor } from '../../../src'
+import withDefaultInterceptors from '../../../src/presets/default'
 import { InterceptedRequest } from '../../../src/glossary'
 import { xhr, findRequest } from '../../helpers'
 
@@ -15,7 +16,7 @@ let requestInterceptor: RequestInterceptor
 let pool: InterceptedRequest[] = []
 
 beforeAll(() => {
-  requestInterceptor = new RequestInterceptor()
+  requestInterceptor = new RequestInterceptor(withDefaultInterceptors)
   requestInterceptor.use((req) => {
     pool.push(req)
   })
@@ -200,7 +201,6 @@ test('intercepts an HTTPS DELETE request', async () => {
 })
 
 test('intercepts an HTTPS PATCH request', async () => {
-
   const request = await prepareXHR(
     xhr('PATCH', 'https://httpbin.org/patch?userId=123', {
       headers: {

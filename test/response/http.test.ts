@@ -3,11 +3,12 @@
  */
 import { RequestInterceptor } from '../../src'
 import { httpGet, httpRequest } from '../helpers'
+import withDefaultInterceptors from '../../src/presets/default'
 
 let interceptor: RequestInterceptor
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor()
+  interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     if (['http://httpbin.org/'].includes(req.url.href)) {
       return {

@@ -4,10 +4,12 @@
 import https from 'https'
 import { IncomingMessage } from 'http'
 import { RequestInterceptor } from '../../src'
+import withDefaultInterceptors from '../../src/presets/default'
 
-const interceptor = new RequestInterceptor()
+let interceptor: RequestInterceptor
 
-beforeAll(() =>
+beforeAll(() => {
+  interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     if (req.url.href === 'https://httpbin.org/get') {
       return
@@ -18,7 +20,7 @@ beforeAll(() =>
       body: 'mocked-body',
     }
   })
-)
+})
 
 afterEach(() => {
   jest.restoreAllMocks()

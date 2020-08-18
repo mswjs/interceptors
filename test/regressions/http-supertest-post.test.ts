@@ -2,9 +2,10 @@ import express from 'express'
 import bodyParser from 'body-parser'
 import supertest from 'supertest'
 import { RequestInterceptor, InterceptedRequest } from '../../src'
+import withDefaultInterceptors from '../../src/presets/default'
 
-let pool: InterceptedRequest[] = []
 let interceptor: RequestInterceptor
+let pool: InterceptedRequest[] = []
 
 const app = express()
 app.use(bodyParser.json())
@@ -13,7 +14,7 @@ app.post('/', (req, res) => {
 })
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor()
+  interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     pool.push(req)
   })
