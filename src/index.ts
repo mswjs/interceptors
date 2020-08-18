@@ -6,8 +6,9 @@ export { getCleanUrl } from './utils/getCleanUrl'
 
 /* Typings */
 export {
+  Interceptor,
+  RequestMiddleware,
   InterceptedRequest,
   MockedResponse,
-  RequestMiddleware,
   ReturnedResponse,
 } from './glossary'

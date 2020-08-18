@@ -1,31 +1,22 @@
-import { RequestMiddleware, ModuleOverride } from './glossary'
-import { overrideModules } from './overrideModules'
+import { RequestMiddleware, Interceptor } from './glossary'
 
 const debug = require('debug')('RequestInterceptor')
 
 export class RequestInterceptor {
-  private overrides: ReturnType<ModuleOverride>[]
+  private interceptors: ReturnType<Interceptor>[]
   private middleware: RequestMiddleware[]
 
-  constructor() {
+  constructor(interceptors: Interceptor[]) {
     this.middleware = []
-    debug('created new RequestInterceptor')
+    debug('created new RequestInterceptor', { interceptors })
 
-    this.overrides = overrideModules.map((override) =>
-      override(this.applyMiddleware)
-    )
+    this.interceptors = interceptors.map((interceptor) => {
+      return interceptor(this.applyMiddleware)
+    })
   }
 
   /**
-   * Restores original instances of patched modules.
-   */
-  public restore() {
-    debug('restore')
-    this.overrides.forEach((restore) => restore())
-  }
-
-  /**
-   * Applies given middleware to any intercepted request.
+   * Applies given request middleware to any intercepted request.
    */
   public use(middleware: RequestMiddleware) {
     debug('use', middleware)
@@ -42,5 +33,13 @@ export class RequestInterceptor {
         return res
       }
     }
+  }
+
+  /**
+   * Restores original instances of patched modules.
+   */
+  public restore() {
+    debug('restore')
+    this.interceptors.forEach((restore) => restore())
   }
 }

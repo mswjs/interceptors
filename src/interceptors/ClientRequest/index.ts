@@ -1,6 +1,6 @@
 import https from 'https'
 import http, { ClientRequest } from 'http'
-import { ModuleOverride, RequestMiddleware } from '../../glossary'
+import { Interceptor, RequestMiddleware } from '../../glossary'
 import { createClientRequestOverrideClass } from './ClientRequestOverride'
 
 const debug = require('debug')('http override')
@@ -44,10 +44,9 @@ function handleRequest(
 }
 
 /**
- * Overrides native `http` and `https` request issuing functions
- * using a given request interception middleware.
+ * Intercepts requests issued by native `http` and `https` modules.
  */
-export const overrideHttpModule: ModuleOverride = (middleware) => {
+export const interceptClientRequest: Interceptor = (middleware) => {
   let patchedModules: PatchedModules = {}
   const modules = ['http', 'https']
 

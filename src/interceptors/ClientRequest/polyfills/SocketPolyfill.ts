@@ -5,7 +5,7 @@ interface SocketOptions {
   usesHttps: boolean
 }
 
-export class Socket extends EventEmitter {
+export class SocketPolyfill extends EventEmitter {
   public authorized?: boolean
   public bufferSize: number
   public writableLength: number
@@ -77,7 +77,7 @@ export class Socket extends EventEmitter {
    * Enable/disable the use of Nagle's algorithm.
    * Nagle's algorithm delays data before it is sent via the network.
    */
-  setNoDelay(noDelay: boolean = true): Socket {
+  setNoDelay(noDelay: boolean = true): SocketPolyfill {
     if (noDelay) {
       this.totalDelayMs = 0
     }
@@ -89,11 +89,11 @@ export class Socket extends EventEmitter {
    * Enable/disable keep-alive functionality, and optionally set the initial delay before
    * the first keepalive probe is sent on an idle socket.
    */
-  setKeepAlive(): Socket {
+  setKeepAlive(): SocketPolyfill {
     return this
   }
 
-  setTimeout(timeout: number, callback?: () => void): Socket {
+  setTimeout(timeout: number, callback?: () => void): SocketPolyfill {
     setTimeout(() => {
       callback?.()
       this.emit('timeout')
@@ -109,11 +109,11 @@ export class Socket extends EventEmitter {
   }
 
   // Mock methods required to write to the response body.
-  pause(): Socket {
+  pause(): SocketPolyfill {
     return this
   }
 
-  resume(): Socket {
+  resume(): SocketPolyfill {
     return this
   }
 

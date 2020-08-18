@@ -1,10 +1,10 @@
 import { inherits } from 'util'
-import { Socket as NetworkSocket } from 'net'
+import { Socket } from 'net'
 import http, { IncomingMessage, ClientRequest } from 'http'
 import { until } from '@open-draft/until'
 import { HeadersObject, reduceHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
-import { Socket } from './polyfills/Socket'
+import { SocketPolyfill } from './polyfills/SocketPolyfill'
 
 /* Utils */
 import { DEFAULT_PATH } from '../../utils/getUrlByRequestOptions'
@@ -41,9 +41,9 @@ export function createClientRequestOverrideClass(
     // Propagate options headers to the request instance.
     inheritRequestHeaders(this, options.headers)
 
-    const socket = (new Socket(options, {
+    const socket = (new SocketPolyfill(options, {
       usesHttps,
-    }) as any) as NetworkSocket & {
+    }) as any) as Socket & {
       authorized: boolean
     }
 
