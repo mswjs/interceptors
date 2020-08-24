@@ -24,18 +24,21 @@ function handleRequest(
   middleware: RequestMiddleware,
   args: any[]
 ): ClientRequest {
+  //The first time we execute this, I'll save the original ClientRequest.
+  //This because is used to restore the dafault one later
   if (!originalClientRequest) {
-    const ClientRequestOverride = createClientRequestOverrideClass(
-      middleware,
-      originalMethod,
-      originalClientRequest
-    )
-
-    debug('patching native http.ClientRequest...')
-
-    // @ts-ignore
-    http.ClientRequest = ClientRequestOverride
+    originalClientRequest = http.ClientRequest
   }
+
+  const ClientRequestOverride = createClientRequestOverrideClass(
+    middleware,
+    originalMethod,
+    originalClientRequest
+  )
+  debug('patching native http.ClientRequest...')
+  //Only http.ClientRequest is overridden because https uses http
+  //@ts-ignore
+  http.ClientRequest = ClientRequestOverride
 
   debug('new http.ClientRequest (origin: %s)', protocol)
 
@@ -103,6 +106,11 @@ export const interceptClientRequest: Interceptor = (middleware) => {
   return () => {
     debug('restoring patches...')
 
+    //restore the original ClientReqest if it was overridden
+    if (originalClientRequest) {
+      http.ClientRequest = originalClientRequest
+      originalClientRequest = null as any
+    }
     Object.values(patchedModules).forEach(({ module, request, get }) => {
       module.request = request
       module.get = get

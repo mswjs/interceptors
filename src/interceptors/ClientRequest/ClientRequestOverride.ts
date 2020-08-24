@@ -249,25 +249,18 @@ export function createClientRequestOverrideClass(
       let req: ClientRequest
       debug('using', performOriginalRequest)
 
-      const { ClientRequest } = http
-
       // Decide whether to use HTTPS based on the URL protocol.
       // XHR can trigger http.request for HTTPS URL.
       if (url.protocol === 'https:') {
         debug('reverting patches...')
+        const { ClientRequest } = http
 
         http.ClientRequest = originalClientRequest
-
-        // Override the global pointer to the original client request.
-        // This way whenever a bypass call bubbles to `handleRequest`
-        // it always performs respecting this `ClientRequest` restoration.
-        originalClientRequest = null as any
 
         req = performOriginalRequest(options)
 
         debug('re-applying patches...')
         http.ClientRequest = ClientRequest
-        originalClientRequest = ClientRequest
       } else {
         req = performOriginalRequest(options)
       }
