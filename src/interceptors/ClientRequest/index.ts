@@ -106,11 +106,6 @@ export const interceptClientRequest: Interceptor = (middleware) => {
   return () => {
     debug('restoring patches...')
 
-    //restore the original ClientReqest if it was overridden
-    if (originalClientRequest) {
-      http.ClientRequest = originalClientRequest
-      originalClientRequest = null as any
-    }
     Object.values(patchedModules).forEach(({ module, request, get }) => {
       module.request = request
       module.get = get
