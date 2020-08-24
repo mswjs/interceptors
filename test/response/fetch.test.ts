@@ -7,7 +7,7 @@ import withDefaultInterceptors from '../../src/presets/default'
 
 let interceptor: RequestInterceptor
 
-beforeAll(() => {
+beforeEach(() => {
   interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     if (
@@ -26,7 +26,7 @@ beforeAll(() => {
   })
 })
 
-afterAll(() => {
+afterEach(() => {
   interceptor.restore()
 })
 
@@ -79,4 +79,15 @@ test('bypasses any request when the interceptor is restored', async () => {
   const httpsBody = await httpsRes.json()
   expect(httpsRes.status).toEqual(200)
   expect(httpsBody).toHaveProperty('url', 'https://httpbin.org/get')
+})
+
+test('should not throw error if there are multiple interceptors', async () => {
+  const secondInterceptor = new RequestInterceptor(withDefaultInterceptors)
+  let res = await fetch('https://httpbin.org/get')
+  let body = await res.json()
+
+  expect(res.status).toEqual(200)
+  expect(body).toHaveProperty('url', 'https://httpbin.org/get')
+
+  secondInterceptor.restore()
 })
