@@ -1,5 +1,5 @@
+import http from 'http'
 import https from 'https'
-import http, { ClientRequest } from 'http'
 import { Interceptor, RequestMiddleware } from '../../glossary'
 import { createClientRequestOverrideClass } from './ClientRequestOverride'
 
@@ -8,22 +8,22 @@ const debug = require('debug')('http override')
 type PatchedModules = Record<
   string,
   {
-    module: typeof http | typeof https
-    request: typeof http['request']
-    get: typeof http['get']
+    requestModule: typeof http | typeof https
+    request: typeof http.request
+    get: typeof http.get
   }
 >
 
 // Store a pointer to the original `http.ClientRequest` class
 // so it can be mutated during runtime, affecting any subsequent calls.
-let originalClientRequest: typeof ClientRequest
+let originalClientRequest: typeof http.ClientRequest
 
 function handleRequest(
   protocol: string,
   originalMethod: any,
   middleware: RequestMiddleware,
   args: any[]
-): ClientRequest {
+): http.ClientRequest {
   //The first time we execute this, I'll save the original ClientRequest.
   //This because is used to restore the dafault one later
   if (!originalClientRequest) {
@@ -54,9 +54,9 @@ export const interceptClientRequest: Interceptor = (middleware) => {
   const modules = ['http', 'https']
 
   modules.forEach((protocol) => {
-    const module = protocol === 'https' ? https : http
+    const requestModule = protocol === 'https' ? https : http
 
-    const { request: originalRequest, get: originalGet } = module
+    const { request: originalRequest, get: originalGet } = requestModule
 
     // Wrap an original `http.request`/`https.request`
     // so that its invocations can be debugged.
@@ -70,24 +70,24 @@ export const interceptClientRequest: Interceptor = (middleware) => {
     debug('patching "%s" module...', protocol)
 
     // @ts-ignore
-    module.request = function requestOverride(...args: any[]) {
+    requestModule.request = function requestOverride(...args: any[]) {
       debug('%s.request proxy call', protocol)
 
       return handleRequest(
         protocol,
-        proxiedOriginalRequest.bind(module),
+        proxiedOriginalRequest.bind(requestModule),
         middleware,
         args
       )
     }
 
     // @ts-ignore
-    module.get = function getOverride(...args: any[]) {
+    requestModule.get = function getOverride(...args: any[]) {
       debug('%s.get call', protocol)
 
       const req = handleRequest(
         protocol,
-        originalGet.bind(module),
+        originalGet.bind(requestModule),
         middleware,
         args
       )
@@ -97,7 +97,7 @@ export const interceptClientRequest: Interceptor = (middleware) => {
     }
 
     patchedModules[protocol] = {
-      module,
+      requestModule,
       request: originalRequest,
       get: originalGet,
     }
@@ -106,9 +106,9 @@ export const interceptClientRequest: Interceptor = (middleware) => {
   return () => {
     debug('restoring patches...')
 
-    Object.values(patchedModules).forEach(({ module, request, get }) => {
-      module.request = request
-      module.get = get
+    Object.values(patchedModules).forEach(({ requestModule, request, get }) => {
+      requestModule.request = request
+      requestModule.get = get
     })
 
     patchedModules = {}
