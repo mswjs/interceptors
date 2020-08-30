@@ -1,6 +1,6 @@
 import { inherits } from 'util'
 import { Socket } from 'net'
-import http, { IncomingMessage, ClientRequest } from 'http'
+import http from 'http'
 import { until } from '@open-draft/until'
 import { HeadersObject, reduceHeadersObject } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
@@ -18,12 +18,12 @@ const createDebug = require('debug')
 
 export function createClientRequestOverrideClass(
   middleware: RequestMiddleware,
-  performOriginalRequest: typeof http['request'],
-  originalClientRequest: typeof ClientRequest
+  performOriginalRequest: typeof http.request,
+  originalClientRequest: typeof http.ClientRequest
 ) {
   function ClientRequestOverride(
-    this: ClientRequest,
-    ...args: Parameters<typeof http['request']>
+    this: http.ClientRequest,
+    ...args: Parameters<typeof http.request>
   ) {
     const [url, options, callback] = normalizeHttpRequestParams(...args)
     const usesHttps = url.protocol === 'https:'
@@ -55,7 +55,7 @@ export function createClientRequestOverrideClass(
     }
 
     // Create a mocked response instance.
-    const response = new IncomingMessage(socket)
+    const response = new http.IncomingMessage(socket)
 
     if (options.headers?.expect === '100-continue') {
       debug('encountered "100 Continue" header')
@@ -246,7 +246,7 @@ export function createClientRequestOverrideClass(
       debug('original request body (written)', writtenRequestBody)
       debug('original request body (end)', chunk)
 
-      let req: ClientRequest
+      let req: http.ClientRequest
       debug('using', performOriginalRequest)
 
       // Decide whether to use HTTPS based on the URL protocol.
@@ -255,11 +255,14 @@ export function createClientRequestOverrideClass(
         debug('reverting patches...')
         const { ClientRequest } = http
 
+        // @ts-ignore
         http.ClientRequest = originalClientRequest
 
         req = performOriginalRequest(options)
 
         debug('re-applying patches...')
+
+        // @ts-ignore
         http.ClientRequest = ClientRequest
       } else {
         req = performOriginalRequest(options)
