@@ -170,7 +170,7 @@ export function createClientRequestOverrideClass(
       // When the request middleware throws an exception, error the request.
       // This cancels the request and is similar to a network error.
       if (middlewareException) {
-        debug('middleware function threw an exception!')
+        debug('middleware function threw an exception!', middlewareException)
         this.emit('error', middlewareException)
 
         return this
