@@ -2,9 +2,15 @@
   "compileOnSave": true,
   "compilerOptions": {
     "strict": true,
+    // When set to "ES5" it results into "this" references that are
+    // thrown away by Rollup upon usage in MSW.
     "target": "ES5",
+    "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
+    // Never set `allowSyntheticDefaultImports` to false, otherwise you won't be able
+    // to override methods of external modules (i.e. http.request).
+    "allowSyntheticDefaultImports": true,
     "typeRoots": ["node_modules/@types"],
     "outDir": "lib",
     "declaration": true
