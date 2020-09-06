@@ -242,9 +242,9 @@ export const createXMLHttpRequestOverride = (
               middlewareException
             )
 
-            this.abort()
             // No way to propagate the actual error message.
             this.trigger('error')
+            this.abort()
 
             return
           }
