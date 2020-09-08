@@ -4,20 +4,33 @@
 import { RequestInterceptor } from '../../src'
 import { httpGet, httpRequest } from '../helpers'
 import withDefaultInterceptors from '../../src/presets/default'
+import { ServerAPI, createServer } from '../utils/createServer'
 
 let interceptor: RequestInterceptor
+let server: ServerAPI
 
-beforeAll(() => {
+beforeAll(async () => {
+  // Establish a local actual server.
+  server = await createServer((app) => {
+    app.get('/', (req, res) => {
+      res.status(200).send('/')
+    })
+    app.get('/get', (req, res) => {
+      res.status(200).send('/get')
+    })
+  })
+  const serverUrl = server.getHttpAddress()
+
   interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
-    if (['http://httpbin.org/'].includes(req.url.href)) {
+    if ([serverUrl].includes(req.url.href)) {
       return {
         status: 301,
         statusText: 'Moved Permanently',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'text/plain',
         },
-        body: JSON.stringify({ mocked: true }),
+        body: 'mocked',
       }
     }
 
@@ -27,40 +40,41 @@ beforeAll(() => {
   })
 })
 
-afterAll(() => {
+afterAll(async () => {
   interceptor.restore()
+  await server.close()
 })
 
 test('responds to an HTTP request issued by "http.request" and handled in the middleware', async () => {
-  const { res, resBody } = await httpRequest('http://httpbin.org')
+  const { res, resBody } = await httpRequest(server.makeHttpUrl('/'))
 
   expect(res.statusCode).toBe(301)
   expect(res.statusMessage).toEqual('Moved Permanently')
-  expect(res.headers).toHaveProperty('content-type', 'application/json')
-  expect(resBody).toEqual(JSON.stringify({ mocked: true }))
+  expect(res.headers).toHaveProperty('content-type', 'text/plain')
+  expect(resBody).toEqual('mocked')
 })
 
 test('bypasses an HTTP request issued by "http.request" not handled in the middleware', async () => {
-  const { res, resBody } = await httpRequest('http://httpbin.org/get')
+  const { res, resBody } = await httpRequest(server.makeHttpUrl('/get'))
 
   expect(res.statusCode).toBe(200)
-  expect(resBody).toContain(`\"url\": \"http://httpbin.org/get\"`)
+  expect(resBody).toEqual('/get')
 })
 
-test('responds to an HTTP request issued by "http.get" and handled in the  middleeware', async () => {
-  const { res, resBody } = await httpRequest('http://httpbin.org')
+test('responds to an HTTP request issued by "http.get" and handled in the middleeware', async () => {
+  const { res, resBody } = await httpRequest(server.makeHttpUrl('/'))
 
   expect(res.statusCode).toBe(301)
   expect(res.statusMessage).toEqual('Moved Permanently')
-  expect(res.headers).toHaveProperty('content-type', 'application/json')
-  expect(resBody).toEqual(JSON.stringify({ mocked: true }))
+  expect(res.headers).toHaveProperty('content-type', 'text/plain')
+  expect(resBody).toEqual('mocked')
 })
 
 test('bypasses an HTTP request issued by "http.get" not handled in the middleware', async () => {
-  const { res, resBody } = await httpGet('http://httpbin.org/get')
+  const { res, resBody } = await httpGet(server.makeHttpUrl('/get'))
 
   expect(res.statusCode).toBe(200)
-  expect(resBody).toContain(`\"url\": \"http://httpbin.org/get\"`)
+  expect(resBody).toEqual('/get')
 })
 
 test('produces a request error when the middleware throws an exception', async () => {
@@ -70,7 +84,8 @@ test('produces a request error when the middleware throws an exception', async (
 
 test('bypasses any request when the interceptor is restored', async () => {
   interceptor.restore()
-  const { res } = await httpGet('http://httpbin.org')
+  const { res, resBody } = await httpGet(server.makeHttpUrl('/'))
 
   expect(res.statusCode).toBe(200)
+  expect(resBody).toEqual('/')
 })
