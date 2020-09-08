@@ -22,13 +22,15 @@
     "url": "https://github.com/mswjs/node-request-interceptor"
   },
   "devDependencies": {
-    "@types/express": "^4.17.7",
+    "@types/cors": "^2.8.7",
+    "@types/express": "^4.17.8",
     "@types/jest": "^25.2.1",
     "@types/node": "^13.13.2",
     "@types/node-fetch": "^2.5.7",
     "@types/supertest": "^2.0.10",
     "axios": "^0.19.2",
     "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
     "express": "^4.17.1",
     "jest": "^25.4.0",
     "node-fetch": "^2.6.0",
