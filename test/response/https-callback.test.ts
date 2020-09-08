@@ -5,13 +5,22 @@ import https from 'https'
 import { IncomingMessage } from 'http'
 import { RequestInterceptor } from '../../src'
 import withDefaultInterceptors from '../../src/presets/default'
+import { ServerAPI, createServer, httpsAgent } from '../utils/createServer'
+import { getRequestOptionsByUrl } from '../../src/utils/getRequestOptionsByUrl'
 
 let interceptor: RequestInterceptor
+let server: ServerAPI
 
-beforeAll(() => {
+beforeAll(async () => {
+  server = await createServer((app) => {
+    app.get('/get', (req, res) => {
+      res.status(200).send('/').end()
+    })
+  })
+
   interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
-    if (req.url.href === 'https://httpbin.org/get') {
+    if ([server.makeHttpsUrl('/get')].includes(req.url.href)) {
       return
     }
 
@@ -26,8 +35,9 @@ afterEach(() => {
   jest.restoreAllMocks()
 })
 
-afterAll(() => {
+afterAll(async () => {
   interceptor.restore()
+  await server.close()
 })
 
 test('calls a custom callback once when the request is bypassed', (done) => {
@@ -37,15 +47,27 @@ test('calls a custom callback once when the request is bypassed', (done) => {
     res.on('data', (chunk) => (resBody += chunk))
     res.on('end', () => {
       // Check that the request was bypassed.
-      expect(resBody).toContain(`"url": "https://httpbin.org/get"`)
+      expect(resBody).toEqual('/')
 
       // Custom callback to `https.get` must be called once.
       expect(customCallback).toBeCalledTimes(1)
       done()
     })
+    res.on('error', done)
   })
 
-  https.get('https://httpbin.org/get', customCallback).end()
+  https
+    .get(
+      {
+        ...getRequestOptionsByUrl(new URL(server.makeHttpsUrl('/get'))),
+        agent: httpsAgent,
+      },
+      customCallback
+    )
+    .on('error', (error) => {
+      console.log('some error', error)
+    })
+    .end()
 })
 
 test('calls a custom callback once when the response is mocked', (done) => {
@@ -63,5 +85,13 @@ test('calls a custom callback once when the response is mocked', (done) => {
     })
   })
 
-  https.get('https://httpbin.org/arbitrary', customCallback).end()
+  https
+    .get(
+      {
+        ...getRequestOptionsByUrl(new URL(server.makeHttpsUrl('/arbitrary'))),
+        agent: httpsAgent,
+      },
+      customCallback
+    )
+    .end()
 })
