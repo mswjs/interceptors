@@ -16,6 +16,8 @@ export function getUrlByRequestOptions(
 
   debug('creating URL from options:', options)
 
+  options.protocol = options.protocol || (options.agent && (options.agent as RequestOptions).protocol) || undefined
+
   if (!options.protocol) {
     debug('given no protocol, resolving...')
 
