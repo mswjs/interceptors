@@ -1,5 +1,5 @@
 import { getUrlByRequestOptions } from './getUrlByRequestOptions'
-import { RequestOptions } from 'https'
+import { RequestOptions, Agent } from 'https'
 
 test('returns a URL based on the basic RequestOptions', () => {
   const options: RequestOptions = {
@@ -12,6 +12,20 @@ test('returns a URL based on the basic RequestOptions', () => {
   expect(url).toBeInstanceOf(URL)
   expect(url).toHaveProperty('port', '')
   expect(url).toHaveProperty('href', 'https://127.0.0.1/resource')
+})
+
+test('resolves protocol from agent, if one exists', () => {
+  const options: RequestOptions = {
+    host: '127.0.0.1',
+    path: '/',
+    agent: new Agent()
+  }
+  const url = getUrlByRequestOptions(options)
+
+  expect(url).toBeInstanceOf(URL)
+  expect(url).toHaveProperty('protocol', 'https:')
+  expect(url).toHaveProperty('port', '')
+  expect(url).toHaveProperty('href', 'https://127.0.0.1/')
 })
 
 test('resolves protocol to "http" given no explicit protocol and no certificate', () => {
