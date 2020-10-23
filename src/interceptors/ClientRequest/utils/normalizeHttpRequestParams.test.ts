@@ -1,3 +1,5 @@
+import { parse } from 'url';
+import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions';
 import { normalizeHttpRequestParams } from './normalizeHttpRequestParams'
 
 test('handles [string, callback] input', () => {
@@ -63,6 +65,98 @@ test('handles [URL, callback] input', () => {
 
   // Callback must be preserved
   expect(callback).toHaveProperty('name', 'cb')
+})
+
+test('handles [Absolute Legacy URL, callback] input', () => {
+  const [url, options, callback] = normalizeHttpRequestParams(
+    parse('https://cherry:durian@mswjs.io:12345/resource?apple=banana'),
+    function cb() {}
+  )
+
+  // URL must be preserved
+  expect(url.toJSON()).toEqual(new URL('https://cherry:durian@mswjs.io:12345/resource?apple=banana').toJSON())
+
+  // Request options must be derived from the URL instance
+  expect(options).toHaveProperty('method', 'GET')
+  expect(options).toHaveProperty('protocol', 'https:')
+  expect(options).toHaveProperty('hostname', 'mswjs.io')
+  expect(options).toHaveProperty('path', '/resource?apple=banana')
+  expect(options).toHaveProperty('port', 12345)
+  expect(options).toHaveProperty('auth', 'cherry:durian')
+
+  // Callback must be preserved
+  expect(callback).toHaveProperty('name', 'cb')
+})
+
+test('handles [Relative Legacy URL, RequestOptions without path set, callback] input', () => {
+  const [url, options, callback] = normalizeHttpRequestParams(
+    parse('/resource?apple=banana'),
+    {host: 'mswjs.io'},
+    function cb() {}
+  )
+
+  // Correct WHATWG URL generated
+  expect(url.toJSON()).toEqual(new URL('http://mswjs.io/resource?apple=banana').toJSON())
+
+  // No path in request options, so legacy url path is copied-in
+  expect(options).toHaveProperty('protocol', 'http:')
+  expect(options).toHaveProperty('host', 'mswjs.io')
+  expect(options).toHaveProperty('path', '/resource?apple=banana')
+
+  // Callback must be preserved
+  expect(callback).toHaveProperty('name', 'cb')
+})
+
+test('handles [Relative Legacy URL, RequestOptions with path set, callback] input', () => {
+  const [url, options, callback] = normalizeHttpRequestParams(
+    parse('/resource?apple=banana'),
+    {host: 'mswjs.io', path: '/other?cherry=durian'},
+    function cb() {}
+  )
+
+  // Correct WHATWG URL generated
+  expect(url.toJSON()).toEqual(new URL('http://mswjs.io/other?cherry=durian').toJSON())
+
+  // Path in request options, so that path is preferred
+  expect(options).toHaveProperty('protocol', 'http:')
+  expect(options).toHaveProperty('host', 'mswjs.io')
+  expect(options).toHaveProperty('path', '/other?cherry=durian')
+
+  // Callback must be preserved
+  expect(callback).toHaveProperty('name', 'cb')
+})
+
+test('handles [Relative Legacy URL, callback] input', () => {
+  const [url, options, callback] = normalizeHttpRequestParams(
+    parse('/resource?apple=banana'),
+    function cb() {}
+  )
+
+  // Correct WHATWG URL generated
+  expect(url.toJSON()).toMatch(getUrlByRequestOptions({path: '/resource?apple=banana'}).toJSON())
+
+  // Check path is in options
+  expect(options).toHaveProperty('protocol', 'http:')
+  expect(options).toHaveProperty('path', '/resource?apple=banana')
+
+  // Callback must be preserved
+  expect(callback).toHaveProperty('name', 'cb')
+})
+
+test('handles [Relative Legacy URL] input', () => {
+  const [url, options, callback] = normalizeHttpRequestParams(
+    parse('/resource?apple=banana')
+  )
+
+  // Correct WHATWG URL generated
+  expect(url.toJSON()).toMatch(getUrlByRequestOptions({path: '/resource?apple=banana'}).toJSON())
+
+  // Check path is in options
+  expect(options).toHaveProperty('protocol', 'http:')
+  expect(options).toHaveProperty('path', '/resource?apple=banana')
+
+  // Callback must be preserved
+  expect(callback).toBeUndefined()
 })
 
 test('handles [URL, RequestOptions, callback] input', () => {
