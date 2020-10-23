@@ -116,6 +116,16 @@ test('handles [RequestOptions, callback] input', () => {
   expect(callback).toHaveProperty('name', 'cb')
 })
 
+test('handles [Empty RequestOptions, callback] input', () => {
+  const [_, __, callback] = normalizeHttpRequestParams(
+    {},
+    function cb() {}
+  )
+
+  // Callback must be preserved
+  expect(callback).toHaveProperty('name', 'cb')
+})
+
 /**
  * @see https://github.com/mswjs/node-request-interceptor/issues/19
  */

@@ -7,6 +7,7 @@ const debug = require('debug')('utils getUrlByRequestOptions')
 
 export const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
+const DEFAULT_HOST = 'localhost'
 const DEFAULT_PORT = 80
 
 /**
@@ -43,7 +44,9 @@ export function getUrlByRequestOptions(
     debug('resolved protocol to:', options.protocol)
   }
 
-  const baseUrl = `${options.protocol}//${options.hostname || options.host}`
+  const baseUrl = `${options.protocol}//${
+    options.hostname || options.host || DEFAULT_HOST
+  }`
   debug('using base URL:', baseUrl)
 
   const url = options.uri ? new URL(options.uri.href) : new URL(path, baseUrl)

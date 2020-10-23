@@ -102,3 +102,11 @@ test('inherits "username" and "password"', () => {
   expect(url).toHaveProperty('protocol', 'https:')
   expect(url).toHaveProperty('href', 'https://admin:abc-123@127.0.0.1/user')
 })
+
+test('resolves hostname to localhost if none provided', () => {
+  const url = getUrlByRequestOptions({})
+
+  expect(url).toBeInstanceOf(URL)
+  expect(url).toHaveProperty('protocol', 'http:')
+  expect(url).toHaveProperty('href', 'http://localhost/')
+})
