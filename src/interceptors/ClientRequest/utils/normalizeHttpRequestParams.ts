@@ -60,7 +60,7 @@ export function normalizeHttpRequestParams(
     debug('created request options', options)
 
     callback = resolveCallback(args)
-  } else if ('method' in args[0]) {
+  } else if (Object.prototype.toString.call(args[0]) === '[object Object]') {
     options = args[0]
     debug('given request options:', options)
 
