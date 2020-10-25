@@ -2,6 +2,7 @@ import { RequestOptions } from 'https'
 import { HttpRequestCallback, RequestSelf } from '../../../glossary'
 import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
 import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions'
+import { isObject } from '../../../utils/isObject'
 
 const debug = require('debug')('http normalizeHttpRequestParams')
 
@@ -42,6 +43,8 @@ export function normalizeHttpRequestParams(
 
   debug('arguments', args)
 
+  // Convert a url string into a URL instance
+  // and derive request options from it.
   if (typeof args[0] === 'string') {
     debug('given a location string:', args[0])
 
@@ -52,7 +55,10 @@ export function normalizeHttpRequestParams(
     debug('created request options:', options)
 
     callback = resolveCallback(args)
-  } else if ('origin' in args[0]) {
+  }
+  // Handle a given URL instance as-is
+  // and derive request options from it.
+  else if ('origin' in args[0]) {
     url = args[0]
     debug('given a URL:', url)
 
@@ -60,7 +66,10 @@ export function normalizeHttpRequestParams(
     debug('created request options', options)
 
     callback = resolveCallback(args)
-  } else if (Object.prototype.toString.call(args[0]) === '[object Object]') {
+  }
+  // Handle a given request options object as-is
+  // and derive the URL instance from it.
+  else if (isObject(args[0])) {
     options = args[0]
     debug('given request options:', options)
 
