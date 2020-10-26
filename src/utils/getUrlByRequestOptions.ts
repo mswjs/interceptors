@@ -1,77 +1,97 @@
 import { Agent } from 'http'
 import { RequestOptions, Agent as HttpsAgent } from 'https'
-import { agent } from 'supertest'
 import { RequestSelf } from '../glossary'
 
 const debug = require('debug')('utils getUrlByRequestOptions')
+
+type IsomorphicRequestOptions = RequestOptions & RequestSelf
 
 export const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
 const DEFAULT_HOST = 'localhost'
 const DEFAULT_PORT = 80
 
+function getAgent(
+  options: IsomorphicRequestOptions
+): Agent | HttpsAgent | undefined {
+  return options.agent instanceof Agent ? options.agent : undefined
+}
+
+function getProtocolByRequestOptions(
+  options: IsomorphicRequestOptions
+): string {
+  if (options.protocol) {
+    return options.protocol
+  }
+
+  const agent = getAgent(options)
+  const agentProtocol = (agent as RequestOptions)?.protocol
+
+  if (agentProtocol) {
+    return agentProtocol
+  }
+
+  return options.cert ? 'https:' : options.uri?.protocol || DEFAULT_PROTOCOL
+}
+
+function getPortByRequestOptions(
+  options: IsomorphicRequestOptions
+): number | undefined {
+  const agent = getAgent(options)
+  const agentPort =
+    (agent as HttpsAgent)?.options.port ||
+    (agent as RequestOptions)?.defaultPort
+  const optionsPort = options.port
+
+  if (optionsPort || agentPort) {
+    const explicitPort = optionsPort || agentPort || DEFAULT_PORT
+    return Number(explicitPort)
+  }
+}
+
+function getHostByRequestOptions(options: IsomorphicRequestOptions): string {
+  return options.hostname || options.host || DEFAULT_HOST
+}
+
+function getAuthByRequestOptions(options: IsomorphicRequestOptions) {
+  if (options.auth) {
+    const [username, password] = options.auth.split(':')
+    return { username, password }
+  }
+}
+
 /**
  * Creates a `URL` instance from a given `RequestOptions` object.
  */
-export function getUrlByRequestOptions(
-  options: RequestOptions & RequestSelf
-): URL {
+export function getUrlByRequestOptions(options: IsomorphicRequestOptions): URL {
+  debug('request options', options)
+
+  const protocol = getProtocolByRequestOptions(options)
+  const host = getHostByRequestOptions(options)
+  const port = getPortByRequestOptions(options)
   const path = options.path || DEFAULT_PATH
-  const agentOptions =
-    options.agent instanceof Agent ? (options.agent as RequestOptions) : null
+  const auth = getAuthByRequestOptions(options)
 
-  debug('creating URL from options:', options)
+  debug('protocol', protocol)
+  debug('host', host)
+  debug('port', port)
+  debug('path', path)
 
-  // Inherit the protocol from the Agent, if present.
-  if (agentOptions) {
-    debug(
-      'inherited protocol "%s" from Agent',
-      agentOptions?.protocol,
-      agentOptions
-    )
-
-    options.protocol = agentOptions?.protocol
-  }
-
-  if (!options.protocol) {
-    debug('given no protocol, resolving...')
-
-    // Assume HTTPS if cert is set.
-    options.protocol = options.cert
-      ? 'https:'
-      : options.uri?.protocol || DEFAULT_PROTOCOL
-
-    debug('resolved protocol to:', options.protocol)
-  }
-
-  const baseUrl = `${options.protocol}//${
-    options.hostname || options.host || DEFAULT_HOST
-  }`
-  debug('using base URL:', baseUrl)
+  const baseUrl = `${protocol}//${host}`
+  debug('base URL:', baseUrl)
 
   const url = options.uri ? new URL(options.uri.href) : new URL(path, baseUrl)
 
-  if (
-    !!options.port ||
-    agentOptions?.defaultPort ||
-    (agentOptions as HttpsAgent)?.options.port
-  ) {
-    const agentPort =
-      agentOptions instanceof HttpsAgent
-        ? agentOptions.options.port
-        : agentOptions?.defaultPort
-    const urlPort = options.port || agentPort || DEFAULT_PORT
-    debug('resolved port', urlPort)
-
-    url.port = urlPort.toString()
+  if (port) {
+    debug('detected explicit port', port)
+    url.port = port.toString()
   }
 
-  if (!!options.auth) {
-    const [username, password] = options.auth.split(':')
-    url.username = username
-    url.password = password
+  if (auth) {
+    debug('resolved auth', auth)
 
-    debug('resolved auth', { username, password })
+    url.username = auth.username
+    url.password = auth.password
   }
 
   debug('created URL:', url)
