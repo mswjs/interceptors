@@ -1,5 +1,6 @@
+import { Agent as HttpAgent } from 'http'
+import { RequestOptions, Agent as HttpsAgent } from 'https'
 import { getUrlByRequestOptions } from './getUrlByRequestOptions'
-import { RequestOptions, Agent } from 'https'
 
 test('returns a URL based on the basic RequestOptions', () => {
   const options: RequestOptions = {
@@ -14,18 +15,34 @@ test('returns a URL based on the basic RequestOptions', () => {
   expect(url).toHaveProperty('href', 'https://127.0.0.1/resource')
 })
 
-test('resolves protocol from agent, if one exists', () => {
+test('inherits protocol and port from http.Agent, if set', () => {
   const options: RequestOptions = {
     host: '127.0.0.1',
     path: '/',
-    agent: new Agent()
+    agent: new HttpAgent(),
+  }
+  const url = getUrlByRequestOptions(options)
+
+  expect(url).toBeInstanceOf(URL)
+  expect(url).toHaveProperty('protocol', 'http:')
+  expect(url).toHaveProperty('port', '')
+  expect(url).toHaveProperty('href', 'http://127.0.0.1/')
+})
+
+test('inherits protocol and port from https.Agent, if set', () => {
+  const options: RequestOptions = {
+    host: '127.0.0.1',
+    path: '/',
+    agent: new HttpsAgent({
+      port: 3080,
+    }),
   }
   const url = getUrlByRequestOptions(options)
 
   expect(url).toBeInstanceOf(URL)
   expect(url).toHaveProperty('protocol', 'https:')
-  expect(url).toHaveProperty('port', '')
-  expect(url).toHaveProperty('href', 'https://127.0.0.1/')
+  expect(url).toHaveProperty('port', '3080')
+  expect(url).toHaveProperty('href', 'https://127.0.0.1:3080/')
 })
 
 test('resolves protocol to "http" given no explicit protocol and no certificate', () => {
