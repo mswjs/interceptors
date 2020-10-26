@@ -1,3 +1,4 @@
+import { Agent } from 'http'
 import { RequestOptions } from 'https'
 import { RequestSelf } from '../glossary'
 
@@ -16,13 +17,18 @@ export function getUrlByRequestOptions(
 
   debug('creating URL from options:', options)
 
-  options.protocol = options.protocol || (options.agent && (options.agent as RequestOptions).protocol) || undefined
+  // Inherit the protocol from the Agent, if present.
+  if (options.agent instanceof Agent) {
+    options.protocol = (options.agent as RequestOptions).protocol
+  }
 
   if (!options.protocol) {
     debug('given no protocol, resolving...')
 
     // Assume HTTPS if cert is set.
-    options.protocol = options.cert ? 'https:' : (options.uri?.protocol || DEFAULT_PROTOCOL)
+    options.protocol = options.cert
+      ? 'https:'
+      : options.uri?.protocol || DEFAULT_PROTOCOL
 
     debug('resolved protocol to:', options.protocol)
   }
