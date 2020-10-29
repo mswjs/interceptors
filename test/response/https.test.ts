@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { request } from 'https';
 import { RequestInterceptor } from '../../src'
 import { httpsGet, httpsRequest } from '../helpers'
 import withDefaultInterceptors from '../../src/presets/default'
@@ -59,6 +60,35 @@ test('bypasses an HTTPS request issued by "https.request" not handled in the mid
 
   expect(res.statusCode).toEqual(200)
   expect(resBody).toEqual('/get')
+})
+
+test('Correctly handles an HTTPS request issued by "https.request" from options without protocol', async () => {
+  try {
+    await new Promise((resolve, reject) => {
+      const rejectError = (error: Error) => {
+        reject(error)
+      }
+  
+      const req = request({
+        host: server.getHttpsServerHostName(),
+        port: server.getHttpsServerPort(),
+        path: '/get'
+      }, (res) => {
+        res.on('error', rejectError)
+  
+        res.on('end', () => {
+          resolve()
+        })
+      })
+  
+      req.on('error', rejectError)
+  
+      req.end()
+    })
+  } catch (error) {
+    // If we get a message about a bad certificate, then node was happy with the protocol
+    expect(error.message).toMatch(/certificate/i)
+  }
 })
 
 test('responds to an HTTPS request issued by "https.get" and handled in the middleware', async () => {

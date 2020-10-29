@@ -12,6 +12,8 @@ const SSL_CERT = fs.readFileSync(path.join(__dirname, 'server.cert'))
 type MakeUrlFunc = (path: string) => string
 
 export interface ServerAPI {
+  getHttpsServerHostName(): string
+  getHttpsServerPort(): number
   getHttpAddress(): string
   getHttpsAddress(): string
   makeHttpUrl: MakeUrlFunc
@@ -48,9 +50,20 @@ function closeServer(server: http.Server) {
 function getServerAddress(server: http.Server | https.Server): () => string {
   return () => {
     const protocol = server.hasOwnProperty('key') ? 'https:' : 'http:'
-    const { port } = server.address() as AddressInfo
 
-    return new URL(`${protocol}//localhost:${port}`).href
+    return new URL(`${protocol}//${getServerHostName()()}:${getServerPort(server)()}`).href
+  }
+}
+
+function getServerHostName(): () => string {
+  return () => {
+    return 'localhost'
+  }
+}
+
+function getServerPort(server: http.Server | https.Server): () => number {
+  return () => {
+    return (server.address() as AddressInfo).port
   }
 }
 
@@ -93,6 +106,8 @@ export async function createServer(
   )
 
   return {
+    getHttpsServerHostName: getServerHostName(),
+    getHttpsServerPort: getServerPort(httpsServer),
     getHttpAddress: getServerAddress(httpServer),
     getHttpsAddress: getServerAddress(httpsServer),
     makeHttpUrl: makeServerUrl(httpServer),
