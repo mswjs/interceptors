@@ -86,10 +86,9 @@ test('Correctly handles an HTTPS request issued by "https.request" from options 
       req.end()
     })
   } catch (error) {
+    // If we get a message about a bad certificate, then node was happy with the protocol
     expect(error.message).toMatch(/certificate/i)
   }
-
-  //If we get here then node was happy with the protocol
 })
 
 test('responds to an HTTPS request issued by "https.get" and handled in the middleware', async () => {
