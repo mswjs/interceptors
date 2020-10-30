@@ -40,6 +40,7 @@ function isRequestOptions(arg?: RequestOptions|HttpRequestCallback): boolean {
  * so it always has a `URL` and `RequestOptions`.
  */
 export function normalizeHttpRequestParams(
+  defaultProtocol: string,
   ...args: HttpRequestArgs
 ): [URL, RequestOptions & RequestSelf, HttpRequestCallback?] {
   let url: URL
@@ -87,14 +88,14 @@ export function normalizeHttpRequestParams(
       debug('given a relative legacy url:', args[0])
 
       return isRequestOptions(args[1])
-        ? normalizeHttpRequestParams({path: args[0].path, ...args[1]}, args[2])
-        : normalizeHttpRequestParams({path: args[0].path}, args[1] as HttpRequestCallback)
+        ? normalizeHttpRequestParams(defaultProtocol, {path: args[0].path, ...args[1]}, args[2])
+        : normalizeHttpRequestParams(defaultProtocol, {path: args[0].path}, args[1] as HttpRequestCallback)
     }
 
     debug('given an absolute legacy url:', args[0])
 
     //We are dealing with an absolute url, so convert to WHATWG and try again
-    return normalizeHttpRequestParams(...[new URL(args[0].href), ...args.slice(1)] as HttpRequestArgs)
+    return normalizeHttpRequestParams(defaultProtocol, ...[new URL(args[0].href), ...args.slice(1)] as HttpRequestArgs)
   }
   // Handle a given request options object as-is
   // and derive the URL instance from it.
@@ -102,7 +103,7 @@ export function normalizeHttpRequestParams(
     options = args[0]
     debug('given request options:', options)
 
-    url = getUrlByRequestOptions(options)
+    url = getUrlByRequestOptions(defaultProtocol, options)
     debug('created a URL:', url)
 
     callback = resolveCallback(args)

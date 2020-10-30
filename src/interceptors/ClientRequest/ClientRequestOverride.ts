@@ -17,6 +17,7 @@ import { normalizeHttpRequestEndParams } from './utils/normalizeHttpRequestEndPa
 const createDebug = require('debug')
 
 export function createClientRequestOverrideClass(
+  protocol: string,
   middleware: RequestMiddleware,
   performOriginalRequest: typeof http.request,
   originalClientRequest: typeof http.ClientRequest
@@ -25,7 +26,7 @@ export function createClientRequestOverrideClass(
     this: http.ClientRequest,
     ...args: Parameters<typeof http.request>
   ) {
-    const [url, options, callback] = normalizeHttpRequestParams(...args)
+    const [url, options, callback] = normalizeHttpRequestParams(protocol, ...args)
     const usesHttps = url.protocol === 'https:'
     let requestBodyBuffer: Buffer[] = []
 

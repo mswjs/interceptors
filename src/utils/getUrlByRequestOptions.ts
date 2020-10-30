@@ -7,9 +7,7 @@ const debug = require('debug')('utils getUrlByRequestOptions')
 type IsomorphicRequestOptions = RequestOptions & RequestSelf
 
 export const DEFAULT_PATH = '/'
-const DEFAULT_PROTOCOL = 'http:'
 const DEFAULT_HOST = 'localhost'
-const DEFAULT_PORT = 80
 
 function getAgent(
   options: IsomorphicRequestOptions
@@ -18,6 +16,7 @@ function getAgent(
 }
 
 function getProtocolByRequestOptions(
+  defaultProtocol: string,
   options: IsomorphicRequestOptions
 ): string {
   if (options.protocol) {
@@ -31,7 +30,7 @@ function getProtocolByRequestOptions(
     return agentProtocol
   }
 
-  return options.cert ? 'https:' : options.uri?.protocol || DEFAULT_PROTOCOL
+  return options.cert ? 'https:' : options.uri?.protocol || `${defaultProtocol}:`
 }
 
 function getPortByRequestOptions(
@@ -44,7 +43,7 @@ function getPortByRequestOptions(
   const optionsPort = options.port
 
   if (optionsPort || agentPort) {
-    const explicitPort = optionsPort || agentPort || DEFAULT_PORT
+    const explicitPort = optionsPort || agentPort
     return Number(explicitPort)
   }
 }
@@ -63,10 +62,10 @@ function getAuthByRequestOptions(options: IsomorphicRequestOptions) {
 /**
  * Creates a `URL` instance from a given `RequestOptions` object.
  */
-export function getUrlByRequestOptions(options: IsomorphicRequestOptions): URL {
+export function getUrlByRequestOptions(defaultProtocol: string, options: IsomorphicRequestOptions): URL {
   debug('request options', options)
 
-  const protocol = getProtocolByRequestOptions(options)
+  const protocol = getProtocolByRequestOptions(defaultProtocol, options)
   const host = getHostByRequestOptions(options)
   const port = getPortByRequestOptions(options)
   const path = options.path || DEFAULT_PATH

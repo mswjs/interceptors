@@ -31,6 +31,7 @@ function handleRequest(
   }
 
   const ClientRequestOverride = createClientRequestOverrideClass(
+    protocol,
     middleware,
     originalMethod,
     originalClientRequest

@@ -7,7 +7,7 @@ test('handles [string, callback] input', () => {
     url,
     options,
     callback,
-  ] = normalizeHttpRequestParams('https://mswjs.io/resource', function cb() {})
+  ] = normalizeHttpRequestParams('http', 'https://mswjs.io/resource', function cb() {})
 
   // URL string must be converted to a URL instance
   expect(url.toJSON()).toEqual(new URL('https://mswjs.io/resource').toJSON())
@@ -33,6 +33,7 @@ test('handles [string, RequestOptions, callback] input', () => {
     options,
     callback,
   ] = normalizeHttpRequestParams(
+    'http',
     'https://mswjs.io/resource',
     initialOptions,
     function cb() {}
@@ -50,6 +51,7 @@ test('handles [string, RequestOptions, callback] input', () => {
 
 test('handles [URL, callback] input', () => {
   const [url, options, callback] = normalizeHttpRequestParams(
+    'http',
     new URL('https://mswjs.io/resource'),
     function cb() {}
   )
@@ -69,6 +71,7 @@ test('handles [URL, callback] input', () => {
 
 test('handles [Absolute Legacy URL, callback] input', () => {
   const [url, options, callback] = normalizeHttpRequestParams(
+    'http',
     parse('https://cherry:durian@mswjs.io:12345/resource?apple=banana'),
     function cb() {}
   )
@@ -90,6 +93,7 @@ test('handles [Absolute Legacy URL, callback] input', () => {
 
 test('handles [Relative Legacy URL, RequestOptions without path set, callback] input', () => {
   const [url, options, callback] = normalizeHttpRequestParams(
+    'http',
     parse('/resource?apple=banana'),
     {host: 'mswjs.io'},
     function cb() {}
@@ -109,6 +113,7 @@ test('handles [Relative Legacy URL, RequestOptions without path set, callback] i
 
 test('handles [Relative Legacy URL, RequestOptions with path set, callback] input', () => {
   const [url, options, callback] = normalizeHttpRequestParams(
+    'http',
     parse('/resource?apple=banana'),
     {host: 'mswjs.io', path: '/other?cherry=durian'},
     function cb() {}
@@ -128,12 +133,13 @@ test('handles [Relative Legacy URL, RequestOptions with path set, callback] inpu
 
 test('handles [Relative Legacy URL, callback] input', () => {
   const [url, options, callback] = normalizeHttpRequestParams(
+    'http',
     parse('/resource?apple=banana'),
     function cb() {}
   )
 
   // Correct WHATWG URL generated
-  expect(url.toJSON()).toMatch(getUrlByRequestOptions({path: '/resource?apple=banana'}).toJSON())
+  expect(url.toJSON()).toMatch(getUrlByRequestOptions('http', {path: '/resource?apple=banana'}).toJSON())
 
   // Check path is in options
   expect(options).toHaveProperty('protocol', 'http:')
@@ -145,11 +151,12 @@ test('handles [Relative Legacy URL, callback] input', () => {
 
 test('handles [Relative Legacy URL] input', () => {
   const [url, options, callback] = normalizeHttpRequestParams(
+    'http',
     parse('/resource?apple=banana')
   )
 
   // Correct WHATWG URL generated
-  expect(url.toJSON()).toMatch(getUrlByRequestOptions({path: '/resource?apple=banana'}).toJSON())
+  expect(url.toJSON()).toMatch(getUrlByRequestOptions('http', {path: '/resource?apple=banana'}).toJSON())
 
   // Check path is in options
   expect(options).toHaveProperty('protocol', 'http:')
@@ -161,6 +168,7 @@ test('handles [Relative Legacy URL] input', () => {
 
 test('handles [URL, RequestOptions, callback] input', () => {
   const [url, options, callback] = normalizeHttpRequestParams(
+    'http',
     new URL('https://mswjs.io/resource'),
     {
       headers: {
@@ -196,6 +204,7 @@ test('handles [RequestOptions, callback] input', () => {
     },
   }
   const [url, options, callback] = normalizeHttpRequestParams(
+    'http',
     initialOptions,
     function cb() {}
   )
@@ -212,6 +221,7 @@ test('handles [RequestOptions, callback] input', () => {
 
 test('handles [Empty RequestOptions, callback] input', () => {
   const [_, __, callback] = normalizeHttpRequestParams(
+    'http',
     {},
     function cb() {}
   )
@@ -237,6 +247,7 @@ test('handles [PartialRequestOptions, callback] input', () => {
     agent: false,
   }
   const [url, options, callback] = normalizeHttpRequestParams(
+    'http',
     initialOptions,
     function cb() {}
   )

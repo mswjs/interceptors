@@ -63,23 +63,31 @@ test('bypasses an HTTPS request issued by "https.request" not handled in the mid
 })
 
 test('Correctly handles an HTTPS request issued by "https.request" from options without protocol', async () => {
-  await new Promise((resolve, reject) => {
-    const rejectError = (error: Error) => {
-      reject(error)
-    }
-
-    const req = request({host: server.getHttpsServerHost(), path: '/get'}, (res) => {
-      res.on('error', rejectError)
-
-      res.on('end', () => {
-        resolve()
+  try {
+    await new Promise((resolve, reject) => {
+      const rejectError = (error: Error) => {
+        reject(error)
+      }
+  
+      const req = request({
+        host: server.getHttpsServerHostName(),
+        port: server.getHttpsServerPort(),
+        path: '/get'
+      }, (res) => {
+        res.on('error', rejectError)
+  
+        res.on('end', () => {
+          resolve()
+        })
       })
+  
+      req.on('error', rejectError)
+  
+      req.end()
     })
-
-    req.on('error', rejectError)
-
-    req.end()
-  })
+  } catch (error) {
+    expect(error.message).toMatch(/certificate/i)
+  }
 
   //If we get here then node was happy with the protocol
 })
