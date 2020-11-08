@@ -1,5 +1,5 @@
 import { RequestOptions } from 'https'
-import { Url } from 'url';
+import { Url as LegacyURL } from 'url';
 import { HttpRequestCallback, RequestSelf } from '../../../glossary'
 import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
 import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions'
@@ -8,8 +8,8 @@ import { isObject } from '../../../utils/isObject'
 const debug = require('debug')('http normalizeHttpRequestParams')
 
 type HttpRequestArgs =
-  | [string | URL | Url, HttpRequestCallback?]
-  | [string | URL | Url, RequestOptions, HttpRequestCallback?]
+  | [string | URL | LegacyURL, HttpRequestCallback?]
+  | [string | URL | LegacyURL, RequestOptions, HttpRequestCallback?]
   | [RequestOptions, HttpRequestCallback?]
 
 function resolveRequestOptions(
