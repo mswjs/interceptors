@@ -18,7 +18,7 @@ function resolveRequestOptions(
 ): RequestOptions {
   // Calling `fetch` provides only URL to ClientRequest,
   // without RequestOptions or callback.
-  if (!isRequestOptions(args[1])) {
+  if (['function', 'undefined'].includes(typeof args[1])) {
     return getRequestOptionsByUrl(url)
   }
 
@@ -29,10 +29,6 @@ function resolveCallback(
   args: HttpRequestArgs
 ): HttpRequestCallback | undefined {
   return typeof args[1] === 'function' ? args[1] : args[2]
-}
-
-function isRequestOptions(arg?: RequestOptions|HttpRequestCallback): boolean {
-  return !['function', 'undefined'].includes(typeof arg);
 }
 
 /**
@@ -86,7 +82,7 @@ export function normalizeHttpRequestParams(
       */
       debug('given a relative legacy url:', args[0])
 
-      return isRequestOptions(args[1])
+      return isObject(args[1])
         ? normalizeHttpRequestParams({path: args[0].path, ...args[1]}, args[2])
         : normalizeHttpRequestParams({path: args[0].path}, args[1] as HttpRequestCallback)
     }
