@@ -90,7 +90,13 @@ export function normalizeHttpRequestParams(
     debug('given an absolute legacy url:', args[0])
 
     //We are dealing with an absolute url, so convert to WHATWG and try again
-    return normalizeHttpRequestParams(...[new URL(args[0].href), ...args.slice(1)] as HttpRequestArgs)
+    const resolvedUrl = new URL(args[0].href)
+
+    return args[1] === undefined
+      ? normalizeHttpRequestParams(resolvedUrl)
+      : typeof args[1] === 'function'
+        ? normalizeHttpRequestParams(resolvedUrl, args[1])
+        : normalizeHttpRequestParams(resolvedUrl, args[1], args[2])
   }
   // Handle a given request options object as-is
   // and derive the URL instance from it.
