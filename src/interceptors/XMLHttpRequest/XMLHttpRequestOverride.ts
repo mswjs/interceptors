@@ -269,10 +269,10 @@ export const createXMLHttpRequestOverride = (
             this.readyState = this.HEADERS_RECEIVED
             this.triggerReadyStateChange()
 
+            debug('response type', this.responseType)
             this.response = this.getResponseBody(mockedResponse.body)
             this.responseText = mockedResponse.body || ''
 
-            debug('response type', this.responseType)
             debug('assigned response body', this.response)
 
             // Trigger a progress event based on the mocked response body.
@@ -445,6 +445,12 @@ export const createXMLHttpRequestOverride = (
           return new Blob([body], {
             type: blobType,
           })
+
+        case 'arraybuffer':
+          debug('resolving response body as ArrayBuffer')
+          const buffer = Buffer.from(body)
+          const arrayBuffer = new Uint8Array(buffer)
+          return arrayBuffer
 
         default:
           return body
