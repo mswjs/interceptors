@@ -433,11 +433,12 @@ export const createXMLHttpRequestOverride = (
      */
     getResponseBody(body: string = '') {
       switch (this.responseType) {
-        case 'json':
+        case 'json': {
           debug('resolving response body as JSON')
           return parseJson(body)
+        }
 
-        case 'blob':
+        case 'blob': {
           const blobType =
             this.getResponseHeader('content-type') || 'text/plain'
           debug('resolving response body as Blob', { type: blobType })
@@ -445,12 +446,14 @@ export const createXMLHttpRequestOverride = (
           return new Blob([body], {
             type: blobType,
           })
+        }
 
-        case 'arraybuffer':
+        case 'arraybuffer': {
           debug('resolving response body as ArrayBuffer')
           const buffer = Buffer.from(body)
           const arrayBuffer = new Uint8Array(buffer)
           return arrayBuffer
+        }
 
         default:
           return body
