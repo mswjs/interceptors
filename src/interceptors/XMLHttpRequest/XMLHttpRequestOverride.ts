@@ -434,7 +434,18 @@ export const createXMLHttpRequestOverride = (
     getResponseBody(body: string = '') {
       switch (this.responseType) {
         case 'json':
+          debug('resolving response body as JSON')
           return parseJson(body)
+
+        case 'blob':
+          const blobType =
+            this.getResponseHeader('content-type') || 'text/plain'
+          debug('resolving response body as Blob', { type: blobType })
+
+          return new Blob([body], {
+            type: blobType,
+          })
+
         default:
           return body
       }
