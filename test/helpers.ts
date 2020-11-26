@@ -212,3 +212,17 @@ export async function prepare(
   const { url, options } = await promise
   return findRequest(pool, options.method, url)
 }
+
+export async function readBlob(
+  blob: Blob
+): Promise<string | ArrayBuffer | null> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.addEventListener('loadend', () => {
+      resolve(reader.result)
+    })
+    reader.addEventListener('abort', reject)
+    reader.addEventListener('error', reject)
+    reader.readAsText(blob)
+  })
+}
