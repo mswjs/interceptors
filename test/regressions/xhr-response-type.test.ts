@@ -86,3 +86,31 @@ test('responds with a Blob when "responseType" equals "blob"', (done) => {
 
   req.send()
 })
+
+test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', (done) => {
+  const req = new XMLHttpRequest()
+  req.open('GET', '/arbitrary-url')
+  req.responseType = 'arraybuffer'
+
+  const expectedArrayBuffer = new Uint8Array(
+    Buffer.from(
+      JSON.stringify({
+        firstName: 'John',
+        lastName: 'Maverick',
+      })
+    )
+  )
+
+  req.addEventListener('loadend', () => {
+    const { readyState, response } = req
+
+    if (readyState === 4) {
+      const responseBuffer: Uint8Array = response
+
+      expect(Buffer.compare(responseBuffer, expectedArrayBuffer)).toBe(0)
+      done()
+    }
+  })
+
+  req.send()
+})
