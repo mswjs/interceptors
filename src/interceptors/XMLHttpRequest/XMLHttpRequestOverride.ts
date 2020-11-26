@@ -260,6 +260,9 @@ export const createXMLHttpRequestOverride = (
               ? flattenHeadersObject(mockedResponse.headers)
               : {}
 
+            debug('assigned response status', this.status, this.statusText)
+            debug('assigned response headers', this.responseHeaders)
+
             // Mark that response headers has been received
             // and trigger a ready state event to reflect received headers
             // in a custom `onreadystatechange` callback.
@@ -268,6 +271,9 @@ export const createXMLHttpRequestOverride = (
 
             this.response = this.getResponseBody(mockedResponse.body)
             this.responseText = mockedResponse.body || ''
+
+            debug('response type', this.responseType)
+            debug('assigned response body', this.response)
 
             // Trigger a progress event based on the mocked response body.
             this.trigger('progress', {
@@ -366,7 +372,21 @@ export const createXMLHttpRequestOverride = (
         return null
       }
 
-      return this.responseHeaders[name.toLowerCase()] || null
+      const headerValue = Object.entries(this.responseHeaders).reduce<
+        string | null
+      >((_, [headerName, headerValue]) => {
+        // Ignore header name casing while still allowing to set response headers
+        // with an arbitrary casing (no normalization).
+        if ([headerName, headerName.toLowerCase()].includes(name)) {
+          return headerValue
+        }
+
+        return null
+      }, null)
+
+      debug('resolved response header', name, headerValue, this.responseHeaders)
+
+      return headerValue
     }
 
     public getAllResponseHeaders(): string {
