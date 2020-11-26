@@ -9,6 +9,7 @@ import {
   HeadersObject,
 } from 'headers-utils'
 import { RequestMiddleware, InterceptedRequest } from '../../glossary'
+import { parseJson } from '../../utils/parseJson'
 import { createEvent } from './helpers/createEvent'
 
 const createDebug = require('debug')
@@ -55,7 +56,7 @@ export const createXMLHttpRequestOverride = (
     public password?: string
     public data: string
     public async?: boolean
-    public response: string
+    public response: any
     public responseText: string
     public responseType: XMLHttpRequestResponseType
     public responseXML: Document | null
@@ -265,7 +266,7 @@ export const createXMLHttpRequestOverride = (
             this.readyState = this.HEADERS_RECEIVED
             this.triggerReadyStateChange()
 
-            this.response = mockedResponse.body || ''
+            this.response = this.getResponseBody(mockedResponse.body)
             this.responseText = mockedResponse.body || ''
 
             // Trigger a progress event based on the mocked response body.
@@ -406,6 +407,18 @@ export const createXMLHttpRequestOverride = (
     }
 
     public overrideMimeType() {}
+
+    /**
+     * Sets a proper `response` property based on the `responseType` value.
+     */
+    getResponseBody(body: string = '') {
+      switch (this.responseType) {
+        case 'json':
+          return parseJson(body)
+        default:
+          return body
+      }
+    }
 
     /**
      * Propagates captured XHR instance callbacks to the given XHR instance.
