@@ -155,8 +155,11 @@ export async function fetch(
 }
 
 interface PromisifiedXhrPayload {
+  status: number
+  statusText: string
   method: string
   url: string
+  body: any
 }
 
 export async function xhr(
@@ -171,9 +174,15 @@ export async function xhr(
     const req = new XMLHttpRequest()
     req.open(method, url)
 
-    req.onload = function () {
-      resolve({ method, url })
-    }
+    req.addEventListener('load', () => {
+      resolve({
+        method,
+        url,
+        body: req.response,
+        status: req.status,
+        statusText: req.statusText,
+      })
+    })
 
     if (options?.headers) {
       Object.entries(options.headers).forEach(([name, value]) => {
@@ -184,7 +193,9 @@ export async function xhr(
       })
     }
 
-    req.onerror = reject
+    req.addEventListener('error', reject)
+    req.addEventListener('abort', reject)
+
     req.send(options?.body)
   })
 }
