@@ -431,11 +431,15 @@ export const createXMLHttpRequestOverride = (
     /**
      * Sets a proper `response` property based on the `responseType` value.
      */
-    getResponseBody(body: string = '') {
+    getResponseBody(body: string | undefined) {
+      // Handle an improperly set "null" value of the mocked response body.
+      const textBody = body ?? ''
+      debug('coerced response body to', textBody)
+
       switch (this.responseType) {
         case 'json': {
           debug('resolving response body as JSON')
-          return parseJson(body)
+          return parseJson(textBody)
         }
 
         case 'blob': {
@@ -443,20 +447,20 @@ export const createXMLHttpRequestOverride = (
             this.getResponseHeader('content-type') || 'text/plain'
           debug('resolving response body as Blob', { type: blobType })
 
-          return new Blob([body], {
+          return new Blob([textBody], {
             type: blobType,
           })
         }
 
         case 'arraybuffer': {
           debug('resolving response body as ArrayBuffer')
-          const buffer = Buffer.from(body)
+          const buffer = Buffer.from(textBody)
           const arrayBuffer = new Uint8Array(buffer)
           return arrayBuffer
         }
 
         default:
-          return body
+          return textBody
       }
     }
 
