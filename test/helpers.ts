@@ -154,52 +154,6 @@ export async function fetch(
   }
 }
 
-interface PromisifiedXhrPayload {
-  status: number
-  statusText: string
-  method: string
-  url: string
-  body: any
-}
-
-export async function xhr(
-  method: string,
-  url: string,
-  options?: {
-    body?: string
-    headers?: Record<string, string | string[]>
-  }
-): Promise<PromisifiedXhrPayload> {
-  return new Promise((resolve, reject) => {
-    const req = new XMLHttpRequest()
-    req.open(method, url)
-
-    req.addEventListener('load', () => {
-      resolve({
-        method,
-        url,
-        body: req.response,
-        status: req.status,
-        statusText: req.statusText,
-      })
-    })
-
-    if (options?.headers) {
-      Object.entries(options.headers).forEach(([name, value]) => {
-        req.setRequestHeader(
-          name,
-          Array.isArray(value) ? value.join('; ') : value
-        )
-      })
-    }
-
-    req.addEventListener('error', reject)
-    req.addEventListener('abort', reject)
-
-    req.send(options?.body)
-  })
-}
-
 export function findRequest(
   pool: InterceptedRequest[],
   method: string = 'GET',
