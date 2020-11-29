@@ -237,3 +237,20 @@ export async function readBlob(
     reader.readAsText(blob)
   })
 }
+
+export function createXMLHttpRequest(
+  middleware: (req: XMLHttpRequest) => void
+): Promise<XMLHttpRequest> {
+  const req = new XMLHttpRequest()
+  middleware(req)
+  req.send()
+
+  return new Promise((resolve, reject) => {
+    req.addEventListener('loadend', () => {
+      resolve(req)
+    })
+
+    req.addEventListener('error', reject)
+    req.addEventListener('abort', reject)
+  })
+}
