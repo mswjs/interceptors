@@ -1,6 +1,6 @@
 import { RequestInterceptor } from '../../src'
 import withDefaultInterceptors from '../../src/presets/default'
-import { readBlob } from '../helpers'
+import { createXMLHttpRequest, readBlob } from '../helpers'
 
 let requestInterceptor: RequestInterceptor
 
@@ -23,32 +23,24 @@ afterAll(() => {
   requestInterceptor.restore()
 })
 
-test('responds with an object when "responseType" equals "json"', (done) => {
-  const req = new XMLHttpRequest()
-  req.open('GET', '/arbitrary-url')
-  req.responseType = 'json'
-
-  req.addEventListener('loadend', () => {
-    const { readyState, response } = req
-
-    if (readyState === 4) {
-      expect(typeof response).toBe('object')
-      expect(response).toEqual({
-        firstName: 'John',
-        lastName: 'Maverick',
-      })
-
-      done()
-    }
+test('responds with an object when "responseType" equals "json"', async () => {
+  const req = await createXMLHttpRequest((req) => {
+    req.open('GET', '/arbitrary-url')
+    req.responseType = 'json'
   })
 
-  req.send()
+  expect(typeof req.response).toBe('object')
+  expect(req.response).toEqual({
+    firstName: 'John',
+    lastName: 'Maverick',
+  })
 })
 
-test('responds with a Blob when "responseType" equals "blob"', (done) => {
-  const req = new XMLHttpRequest()
-  req.open('GET', '/arbitrary-url')
-  req.responseType = 'blob'
+test('responds with a Blob when "responseType" equals "blob"', async () => {
+  const req = await createXMLHttpRequest((req) => {
+    req.open('GET', '/arbitrary-url')
+    req.responseType = 'blob'
+  })
 
   const expectedBlob = new Blob(
     [
@@ -62,35 +54,26 @@ test('responds with a Blob when "responseType" equals "blob"', (done) => {
     }
   )
 
-  req.addEventListener('loadend', async () => {
-    const { readyState, response } = req
+  const responseBlob: Blob = req.response
+  const expectedBlobContents = await readBlob(responseBlob)
 
-    if (readyState === 4) {
-      const responseBlob: Blob = response
-      const expectedBlobContents = await readBlob(responseBlob)
-
-      expect(responseBlob).toBeInstanceOf(Blob)
-      // Blob type must be inferred from the response's "Content-Type".
-      expect(responseBlob).toHaveProperty('type', 'application/json')
-      expect(responseBlob).toHaveProperty('size', expectedBlob.size)
-      expect(expectedBlobContents).toEqual(
-        JSON.stringify({
-          firstName: 'John',
-          lastName: 'Maverick',
-        })
-      )
-
-      done()
-    }
-  })
-
-  req.send()
+  expect(responseBlob).toBeInstanceOf(Blob)
+  // Blob type must be inferred from the response's "Content-Type".
+  expect(responseBlob).toHaveProperty('type', 'application/json')
+  expect(responseBlob).toHaveProperty('size', expectedBlob.size)
+  expect(expectedBlobContents).toEqual(
+    JSON.stringify({
+      firstName: 'John',
+      lastName: 'Maverick',
+    })
+  )
 })
 
-test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', (done) => {
-  const req = new XMLHttpRequest()
-  req.open('GET', '/arbitrary-url')
-  req.responseType = 'arraybuffer'
+test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
+  const req = await createXMLHttpRequest((req) => {
+    req.open('GET', '/arbitrary-url')
+    req.responseType = 'arraybuffer'
+  })
 
   const expectedArrayBuffer = new Uint8Array(
     Buffer.from(
@@ -101,16 +84,7 @@ test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', (d
     )
   )
 
-  req.addEventListener('loadend', () => {
-    const { readyState, response } = req
+  const responseBuffer: Uint8Array = req.response
 
-    if (readyState === 4) {
-      const responseBuffer: Uint8Array = response
-
-      expect(Buffer.compare(responseBuffer, expectedArrayBuffer)).toBe(0)
-      done()
-    }
-  })
-
-  req.send()
+  expect(Buffer.compare(responseBuffer, expectedArrayBuffer)).toBe(0)
 })

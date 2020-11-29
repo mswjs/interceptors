@@ -1,5 +1,6 @@
 import { RequestInterceptor } from '../../src'
 import withDefaultInterceptors from '../../src/presets/default'
+import { createXMLHttpRequest } from '../helpers'
 
 let interceptor: RequestInterceptor
 
@@ -20,21 +21,11 @@ afterAll(() => {
   interceptor.restore()
 })
 
-test('supports XHR mocked response with an empty response body', () => {
-  const req = new XMLHttpRequest()
-  req.responseType = 'text'
-  req.open('GET', '/arbitrary-url')
-  req.send()
-
-  return new Promise((resolve, reject) => {
-    req.addEventListener('error', reject)
-    req.addEventListener('abort', reject)
-
-    req.addEventListener('load', () => {
-      expect(req.status).toEqual(401)
-      expect(req.response).toBe('')
-
-      resolve()
-    })
+test('supports XHR mocked response with an empty response body', async () => {
+  const req = await createXMLHttpRequest((req) => {
+    req.open('GET', '/arbitrary-url')
   })
+
+  expect(req.status).toBe(401)
+  expect(req.response).toBe('')
 })
