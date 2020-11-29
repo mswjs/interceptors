@@ -3,6 +3,7 @@
  */
 import { RequestInterceptor } from '../../src'
 import withDefaultInterceptors from '../../src/presets/default'
+import { createXMLHttpRequest } from '../helpers'
 
 let interceptor: RequestInterceptor
 
@@ -18,24 +19,26 @@ afterAll(() => {
   interceptor.restore()
 })
 
-test('handles XMLHttpRequest timeout via ontimeout callback', (done) => {
-  const req = new XMLHttpRequest()
-  req.timeout = 1
-  req.ontimeout = function () {
-    expect(this.readyState).toBe(4)
-    done()
-  }
-  req.open('GET', 'http://httpbin.org/get?userId=123', true)
-  req.send()
+test('handles XMLHttpRequest timeout via ontimeout callback', async () => {
+  expect.assertions(1)
+
+  await createXMLHttpRequest((req) => {
+    req.open('GET', 'http://httpbin.org/get?userId=123', true)
+    req.timeout = 1
+    req.addEventListener('timeout', function () {
+      expect(this.readyState).toBe(4)
+    })
+  })
 })
 
-test('handles XMLHttpRequest timeout via event listener', (done) => {
-  const req = new XMLHttpRequest()
-  req.timeout = 1
-  req.addEventListener('timeout', function () {
-    expect(this.readyState).toBe(4)
-    done()
+test('handles XMLHttpRequest timeout via event listener', async () => {
+  expect.assertions(1)
+
+  await createXMLHttpRequest((req) => {
+    req.open('GET', 'http://httpbin.org/get?userId=123', true)
+    req.timeout = 1
+    req.addEventListener('timeout', function () {
+      expect(this.readyState).toBe(4)
+    })
   })
-  req.open('GET', 'http://httpbin.org/get?userId=123', true)
-  req.send()
 })
