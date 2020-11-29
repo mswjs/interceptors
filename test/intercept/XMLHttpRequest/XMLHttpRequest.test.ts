@@ -2,16 +2,15 @@ import { RequestHandler } from 'express'
 import { RequestInterceptor } from '../../../src'
 import withDefaultInterceptors from '../../../src/presets/default'
 import { InterceptedRequest } from '../../../src/glossary'
-import { xhr, findRequest } from '../../helpers'
+import { findRequest, createXMLHttpRequest } from '../../helpers'
 import { ServerAPI, createServer } from '../../utils/createServer'
 
-function prepareXHR(
-  res: ReturnType<typeof xhr>,
+function lookupRequest(
+  req: XMLHttpRequest,
+  method: string,
   pool: InterceptedRequest[]
-): Promise<InterceptedRequest | undefined> {
-  return res.then(({ url, method }) => {
-    return findRequest(pool, method, url)
-  })
+): InterceptedRequest | undefined {
+  return findRequest(pool, method, req.responseURL)
 }
 
 let requestInterceptor: RequestInterceptor
@@ -52,221 +51,233 @@ afterAll(async () => {
 })
 
 test('intercepts an HTTP GET request', async () => {
-  const request = await prepareXHR(
-    xhr('GET', server.makeHttpUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('GET', server.makeHttpUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+  })
+  const interceptedReq = lookupRequest(req, 'GET', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'GET')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'GET')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTP POST request', async () => {
-  const request = await prepareXHR(
-    xhr('POST', server.makeHttpUrl('/user?id=123'), {
-      body: 'request-body',
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('POST', server.makeHttpUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+    req.send('request-body')
+  })
+  const interceptedReq = lookupRequest(req, 'POST', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'POST')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request).toHaveProperty('body', 'request-body')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'POST')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('body', 'request-body')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTP PUT request', async () => {
-  const request = await prepareXHR(
-    xhr('PUT', server.makeHttpUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('PUT', server.makeHttpUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+  })
+  const interceptedReq = lookupRequest(req, 'PUT', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'PUT')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'PUT')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTP DELETE request', async () => {
-  const request = await prepareXHR(
-    xhr('DELETE', server.makeHttpUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('DELETE', server.makeHttpUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+  })
+  const interceptedReq = lookupRequest(req, 'DELETE', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'DELETE')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'DELETE')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTP PATCH request', async () => {
-  const request = await prepareXHR(
-    xhr('PATCH', server.makeHttpUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('PATCH', server.makeHttpUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+  })
+  const interceptedReq = lookupRequest(req, 'PATCH', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'PATCH')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'PATCH')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTP HEAD request', async () => {
-  const request = await prepareXHR(
-    xhr('HEAD', server.makeHttpUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('HEAD', server.makeHttpUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+  })
+  const interceptedReq = lookupRequest(req, 'HEAD', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'HEAD')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'HEAD')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTPS GET request', async () => {
-  const request = await prepareXHR(
-    xhr('GET', server.makeHttpsUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('GET', server.makeHttpsUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+  })
+  const interceptedReq = lookupRequest(req, 'GET', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpsUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'GET')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpsUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'GET')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTPS POST request', async () => {
-  const request = await prepareXHR(
-    xhr('POST', server.makeHttpsUrl('/user?id=123'), {
-      body: 'request-body',
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('POST', server.makeHttpsUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+    req.send('request-body')
+  })
+  const interceptedReq = lookupRequest(req, 'POST', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpsUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'POST')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request).toHaveProperty('body', 'request-body')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpsUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'POST')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('body', 'request-body')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTPS PUT request', async () => {
-  const request = await prepareXHR(
-    xhr('PUT', server.makeHttpsUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('PUT', server.makeHttpsUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+  })
+  const interceptedReq = lookupRequest(req, 'PUT', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpsUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'PUT')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpsUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'PUT')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTPS DELETE request', async () => {
-  const request = await prepareXHR(
-    xhr('DELETE', server.makeHttpsUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('DELETE', server.makeHttpsUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+  })
+  const interceptedReq = lookupRequest(req, 'DELETE', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpsUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'DELETE')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpsUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'DELETE')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTPS PATCH request', async () => {
-  const request = await prepareXHR(
-    xhr('PATCH', server.makeHttpsUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('PATCH', server.makeHttpsUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+  })
+  const interceptedReq = lookupRequest(req, 'PATCH', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpsUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'PATCH')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpsUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'PATCH')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
 
 test('intercepts an HTTPS HEAD request', async () => {
-  const request = await prepareXHR(
-    xhr('HEAD', server.makeHttpsUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
+  const req = await createXMLHttpRequest((req) => {
+    req.open('HEAD', server.makeHttpsUrl('/user?id=123'))
+    req.setRequestHeader('x-custom-header', 'yes')
+  })
+  const interceptedReq = lookupRequest(req, 'HEAD', pool)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpsUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'HEAD')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(interceptedReq).toBeTruthy()
+  expect(interceptedReq?.url).toBeInstanceOf(URL)
+  expect(interceptedReq?.url.toString()).toEqual(
+    server.makeHttpsUrl('/user?id=123')
+  )
+  expect(interceptedReq).toHaveProperty('method', 'HEAD')
+  expect(interceptedReq?.url.searchParams.get('id')).toEqual('123')
+  expect(interceptedReq).toHaveProperty('headers', {
+    'x-custom-header': 'yes',
+  })
 })
