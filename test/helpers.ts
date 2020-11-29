@@ -243,7 +243,18 @@ export function createXMLHttpRequest(
 ): Promise<XMLHttpRequest> {
   const req = new XMLHttpRequest()
   middleware(req)
-  req.send()
+
+  if (req.readyState < 1) {
+    throw new Error(
+      'Failed to create an XMLHttpRequest. Did you forget to call `req.open()` in the middleware function?'
+    )
+  }
+
+  if (req.readyState < 2) {
+    // Send the request only if it hasn't been sent
+    // as a part of the middleware function.
+    req.send()
+  }
 
   return new Promise((resolve, reject) => {
     req.addEventListener('loadend', () => {
