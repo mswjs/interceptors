@@ -81,8 +81,8 @@ test('resolves protocol to "https" given no explicit protocol, but port is 443',
   const url = getUrlByRequestOptions(options)
 
   expect(url).toBeInstanceOf(URL)
-  expect(url).toHaveProperty('port', '443')
-  expect(url).toHaveProperty('href', 'https://127.0.0.1/resource')
+  expect(url).toHaveProperty('port', '')
+  expect(url).toHaveProperty('href', 'https://127.0.0.1:443/resource')
 })
 
 test('inherits "port" if given', () => {
