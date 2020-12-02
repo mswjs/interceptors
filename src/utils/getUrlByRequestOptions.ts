@@ -10,6 +10,7 @@ export const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
 const DEFAULT_HOST = 'localhost'
 const DEFAULT_PORT = 80
+const SSL_PORT = 443
 
 function getAgent(
   options: IsomorphicRequestOptions
@@ -31,7 +32,9 @@ function getProtocolByRequestOptions(
     return agentProtocol
   }
 
-  return options.cert ? 'https:' : options.uri?.protocol || DEFAULT_PROTOCOL
+  const isSecureRequest = options.cert || options.port === SSL_PORT
+
+  return isSecureRequest ? 'https:' : options.uri?.protocol || DEFAULT_PROTOCOL
 }
 
 function getPortByRequestOptions(
