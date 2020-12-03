@@ -275,11 +275,17 @@ export const createXMLHttpRequestOverride = (
 
             debug('assigned response body', this.response)
 
-            // Trigger a progress event based on the mocked response body.
-            this.trigger('progress', {
-              loaded: this.response.length,
-              total: this.response.length,
-            })
+            if (mockedResponse.body && this.response) {
+              // Presense of the mocked response implies a response body (not null).
+              // Presece of the coerced `this.response` implies the mocked body is valid.
+              const bodyBuffer = Buffer.from(mockedResponse.body)
+
+              // Trigger a progress event based on the mocked response body.
+              this.trigger('progress', {
+                loaded: bodyBuffer.length,
+                total: bodyBuffer.length,
+              })
+            }
 
             // Explicitly mark the request as done, so its response never hangs.
             // @see https://github.com/mswjs/node-request-interceptor/issues/13
