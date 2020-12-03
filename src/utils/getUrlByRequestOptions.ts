@@ -32,7 +32,9 @@ function getProtocolByRequestOptions(
     return agentProtocol
   }
 
-  const isSecureRequest = options.cert || options.port === SSL_PORT
+  const port = getPortByRequestOptions(options)
+
+  const isSecureRequest = options.cert || port === SSL_PORT
 
   return isSecureRequest ? 'https:' : options.uri?.protocol || DEFAULT_PROTOCOL
 }
