@@ -85,19 +85,6 @@ test('resolves protocol to "https" given no explicit protocol, but port is 443',
   expect(url).toHaveProperty('href', 'https://127.0.0.1/resource')
 })
 
-test('resolves protocol to "https" given no explicit protocol, but port is 443', () => {
-  const options: RequestOptions = {
-    host: '127.0.0.1',
-    port: 443,
-    path: '/resource',
-  }
-  const url = getUrlByRequestOptions(options)
-
-  expect(url).toBeInstanceOf(URL)
-  expect(url).toHaveProperty('port', '')
-  expect(url).toHaveProperty('href', 'https://127.0.0.1/resource')
-})
-
 test('resolves protocol to "https" given no explicit protocol, but agent port is 443', () => {
   const options: RequestOptions = {
     host: '127.0.0.1',
