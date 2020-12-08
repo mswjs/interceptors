@@ -190,9 +190,9 @@ export function createClientRequestOverrideClass(
 
           // Converts mocked response headers to actual headers
           // (lowercases header names and merges duplicates).
-          response.headers = Object.entries(headers).reduce<
-            http.IncomingHttpHeaders
-          >((acc, [name, value]) => {
+          response.headers = Object.entries(
+            headers
+          ).reduce<http.IncomingHttpHeaders>((acc, [name, value]) => {
             const headerName = name.toLowerCase()
             const headerValue = acc.hasOwnProperty(headerName)
               ? ([] as string[]).concat(acc[headerName] as string, value)
@@ -329,7 +329,7 @@ export function createClientRequestOverrideClass(
     return this
   }
 
-  inherits(ClientRequestOverride, http.ClientRequest)
+  inherits(ClientRequestOverride, originalClientRequest)
 
   return ClientRequestOverride
 }
