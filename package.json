@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "@open-draft/until": "^1.0.3",
-    "debug": "^4.1.1",
+    "debug": "^4.3.0",
     "headers-utils": "^1.2.0"
   },
   "keywords": [
