@@ -18,7 +18,10 @@ let responses: [InterceptedRequest, Partial<MockedResponse>][] = []
 beforeAll(async () => {
   server = await createServer((app) => {
     app.post('/account', (req, res) => {
-      return res.status(200).set('X-Response-Custom', 'yes').json(req.body)
+      return res
+        .status(200)
+        .set('X-Response-Custom', 'yes')
+        .send('original-response-text')
     })
   })
 
@@ -91,5 +94,5 @@ test('ClientRequest: emits the "response" event upon the original response', asy
   expect(response).toHaveProperty('status', 200)
   expect(response).toHaveProperty('statusText', 'OK')
   expect(response.headers).toHaveProperty('x-response-custom', 'yes')
-  expect(response).toHaveProperty('body', 'response-text')
+  expect(response).toHaveProperty('body', 'original-response-text')
 })
