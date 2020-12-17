@@ -17,6 +17,7 @@ import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
 import { inheritRequestHeaders } from './utils/inheritRequestHeaders'
 import { normalizeHttpRequestParams } from './utils/normalizeHttpRequestParams'
 import { normalizeHttpRequestEndParams } from './utils/normalizeHttpRequestEndParams'
+import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 
 const createDebug = require('debug')
 
@@ -289,20 +290,18 @@ export function createClientRequestOverrideClass(
         this.emit('finish')
       })
 
+      req.on('response', async (response) => {
+        context.emitter.emit('response', formattedRequest, {
+          status: response.statusCode,
+          statusText: response.statusMessage,
+          headers: response.headers,
+          body: await getIncomingMessageBody(response),
+        })
+      })
+
       req.on('response', (response) => {
         debug(response.statusCode, options.method, url.href)
         this.emit('response', response)
-
-        let responseBody = ''
-        response.on('data', (chunk) => (responseBody += chunk))
-        response.on('end', () => {
-          context.emitter.emit('response', formattedRequest, {
-            status: response.statusCode,
-            statusText: response.statusMessage,
-            headers: response.headers,
-            body: responseBody,
-          })
-        })
       })
 
       req.on('error', (error) => {
