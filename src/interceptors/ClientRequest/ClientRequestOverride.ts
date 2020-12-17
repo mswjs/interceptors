@@ -293,14 +293,15 @@ export function createClientRequestOverrideClass(
         debug(response.statusCode, options.method, url.href)
         this.emit('response', response)
 
-        context.emitter.emit('response', formattedRequest, {
-          status: response.statusCode,
-          statusText: response.statusMessage,
-          headers: response.headers,
-          /**
-           * @todo Retreive the response body.
-           */
-          body: '???',
+        let responseBody = ''
+        response.on('data', (chunk) => (responseBody += chunk))
+        response.on('end', () => {
+          context.emitter.emit('response', formattedRequest, {
+            status: response.statusCode,
+            statusText: response.statusMessage,
+            headers: response.headers,
+            body: responseBody,
+          })
         })
       })
 
