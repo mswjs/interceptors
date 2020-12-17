@@ -1,6 +1,10 @@
 import http from 'http'
 import https from 'https'
-import { Interceptor, RequestMiddleware } from '../../glossary'
+import {
+  Interceptor,
+  RequestInterceptorContext,
+  RequestMiddleware,
+} from '../../glossary'
 import { createClientRequestOverrideClass } from './ClientRequestOverride'
 
 const debug = require('debug')('http override')
@@ -22,6 +26,7 @@ function handleRequest(
   protocol: string,
   originalMethod: any,
   middleware: RequestMiddleware,
+  context: RequestInterceptorContext,
   args: any[]
 ): http.ClientRequest {
   //The first time we execute this, I'll save the original ClientRequest.
@@ -32,6 +37,7 @@ function handleRequest(
 
   const ClientRequestOverride = createClientRequestOverrideClass(
     middleware,
+    context,
     originalMethod,
     originalClientRequest
   )
@@ -49,7 +55,7 @@ function handleRequest(
 /**
  * Intercepts requests issued by native `http` and `https` modules.
  */
-export const interceptClientRequest: Interceptor = (middleware) => {
+export const interceptClientRequest: Interceptor = (middleware, context) => {
   let patchedModules: PatchedModules = {}
   const modules = ['http', 'https']
 
@@ -77,6 +83,7 @@ export const interceptClientRequest: Interceptor = (middleware) => {
         protocol,
         proxiedOriginalRequest.bind(requestModule),
         middleware,
+        context,
         args
       )
     }
@@ -89,6 +96,7 @@ export const interceptClientRequest: Interceptor = (middleware) => {
         protocol,
         originalGet.bind(requestModule),
         middleware,
+        context,
         args
       )
       req.end()

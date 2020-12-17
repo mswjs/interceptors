@@ -1,3 +1,4 @@
+import { EventEmitter } from 'events'
 import { IncomingMessage } from 'http'
 
 // Request instance constructed by the `request` library
@@ -7,11 +8,18 @@ export interface RequestSelf {
   uri?: URL
 }
 
+export interface RequestInterceptorContext {
+  emitter: EventEmitter
+}
+
 /**
  * A module override function that accepts a request middleware
  * and returns a cleanup function that restores all the patched modules.
  */
-export type Interceptor = (middleware: RequestMiddleware) => () => void
+export type Interceptor = (
+  middleware: RequestMiddleware,
+  context: RequestInterceptorContext
+) => () => void
 
 export type HttpRequestCallback = (res: IncomingMessage) => void
 
@@ -34,4 +42,8 @@ export interface MockedResponse {
   statusText: string
   headers: Record<string, string | string[]>
   body: string
+}
+
+export interface RequestInterceptorEventsMap {
+  response: (req: InterceptedRequest, res: Partial<MockedResponse>) => void
 }

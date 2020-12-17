@@ -13,12 +13,13 @@ const original = {
 /**
  * Intercepts requests issued via `XMLHttpRequest`.
  */
-export const interceptXMLHttpRequest: Interceptor = (middleware) => {
+export const interceptXMLHttpRequest: Interceptor = (middleware, context) => {
   if (original.XMLHttpRequest) {
     debug('patching "XMLHttpRequest" module...')
 
     const XMLHttpRequestOverride = createXMLHttpRequestOverride(
       middleware,
+      context,
       original.XMLHttpRequest
     )
 

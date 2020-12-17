@@ -7,8 +7,14 @@ import {
   flattenHeadersObject,
   reduceHeadersObject,
   HeadersObject,
+  headersToObject,
+  stringToHeaders,
 } from 'headers-utils'
-import { RequestMiddleware, InterceptedRequest } from '../../glossary'
+import {
+  RequestMiddleware,
+  InterceptedRequest,
+  RequestInterceptorContext,
+} from '../../glossary'
 import { parseJson } from '../../utils/parseJson'
 import { createEvent } from './helpers/createEvent'
 
@@ -24,8 +30,20 @@ interface XMLHttpRequestEvent<EventMap extends any> {
   listener: XMLHttpRequestEventHandler
 }
 
+interface XMLHttpRequestProperties {
+  beforeSend: boolean
+  send: boolean
+  timeoutStart: number
+  timeoutId: number
+  timeoutFn?: () => void
+  client: any
+  responseHeaders: Record<string, string>
+  filteredResponseHeaders: string[]
+}
+
 export const createXMLHttpRequestOverride = (
   middleware: RequestMiddleware,
+  context: RequestInterceptorContext,
   XMLHttpRequestPristine: typeof window.XMLHttpRequest
 ) => {
   let debug = createDebug('XHR')
@@ -294,6 +312,13 @@ export const createXMLHttpRequestOverride = (
             this.trigger('loadstart')
             this.trigger('load')
             this.trigger('loadend')
+
+            context.emitter.emit('response', req, {
+              status: this.status,
+              statusText: this.statusText,
+              headers: mockedResponse.headers,
+              body: mockedResponse.body,
+            })
           } else {
             debug('no mocked response received')
 
@@ -322,6 +347,15 @@ export const createXMLHttpRequestOverride = (
               this.responseText = originalRequest.responseText
               this.responseXML = originalRequest.responseXML
 
+              const originalSymbols = Object.getOwnPropertySymbols(
+                originalRequest
+              )
+              const propertiesSymbol = originalSymbols[2]
+
+              const originalRequestProperties: XMLHttpRequestProperties =
+                // @ts-ignore
+                originalRequest[propertiesSymbol]
+
               debug(
                 'received original response status:',
                 this.status,
@@ -331,6 +365,13 @@ export const createXMLHttpRequestOverride = (
 
               this.trigger('loadstart')
               this.trigger('load')
+
+              context.emitter.emit('response', req, {
+                status: originalRequest.status,
+                statusText: originalRequest.statusText,
+                headers: originalRequestProperties.responseHeaders,
+                body: originalRequest.response,
+              })
             }
 
             // Assign callbacks and event listeners from the intercepted XHR instance
