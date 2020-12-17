@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events'
+import { StrictEventEmitter } from 'strict-event-emitter'
 import {
   Interceptor,
   RequestInterceptorEventsMap,
@@ -9,11 +9,11 @@ const debug = require('debug')('RequestInterceptor')
 
 export class RequestInterceptor {
   private interceptors: ReturnType<Interceptor>[]
-  private emitter: EventEmitter
+  private emitter: StrictEventEmitter<RequestInterceptorEventsMap>
   private middleware: RequestMiddleware[]
 
   constructor(interceptors: Interceptor[]) {
-    this.emitter = new EventEmitter()
+    this.emitter = new StrictEventEmitter<RequestInterceptorEventsMap>()
     this.middleware = []
     debug('created new RequestInterceptor', { interceptors })
 
