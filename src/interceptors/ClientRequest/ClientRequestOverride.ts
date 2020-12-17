@@ -3,7 +3,11 @@ import { Socket } from 'net'
 import http from 'http'
 import { until } from '@open-draft/until'
 import { HeadersObject, reduceHeadersObject } from 'headers-utils'
-import { RequestMiddleware, InterceptedRequest } from '../../glossary'
+import {
+  RequestMiddleware,
+  InterceptedRequest,
+  RequestInterceptorContext,
+} from '../../glossary'
 import { SocketPolyfill } from './polyfills/SocketPolyfill'
 
 /* Utils */
@@ -18,6 +22,7 @@ const createDebug = require('debug')
 
 export function createClientRequestOverrideClass(
   middleware: RequestMiddleware,
+  context: RequestInterceptorContext,
   performOriginalRequest: typeof http.request,
   originalClientRequest: typeof http.ClientRequest
 ) {
@@ -231,6 +236,8 @@ export function createClientRequestOverrideClass(
         response.push(null)
         response.complete = true
 
+        context.emitter.emit('response', formattedRequest, mockedResponse)
+
         return this
       }
 
@@ -285,6 +292,16 @@ export function createClientRequestOverrideClass(
       req.on('response', (response) => {
         debug(response.statusCode, options.method, url.href)
         this.emit('response', response)
+
+        context.emitter.emit('response', formattedRequest, {
+          status: response.statusCode,
+          statusText: response.statusMessage,
+          headers: response.headers,
+          /**
+           * @todo Retreive the response body.
+           */
+          body: '???',
+        })
       })
 
       req.on('error', (error) => {

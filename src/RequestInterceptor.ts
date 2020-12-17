@@ -1,33 +1,49 @@
-import { RequestMiddleware, Interceptor } from './glossary'
+import { EventEmitter } from 'events'
+import {
+  Interceptor,
+  RequestInterceptorEventsMap,
+  RequestMiddleware,
+} from './glossary'
 
 const debug = require('debug')('RequestInterceptor')
 
 export class RequestInterceptor {
   private interceptors: ReturnType<Interceptor>[]
+  private emitter: EventEmitter
   private middleware: RequestMiddleware[]
 
   constructor(interceptors: Interceptor[]) {
+    this.emitter = new EventEmitter()
     this.middleware = []
     debug('created new RequestInterceptor', { interceptors })
 
     this.interceptors = interceptors.map((interceptor) => {
-      return interceptor(this.applyMiddleware)
+      return interceptor(this.applyMiddleware, {
+        emitter: this.emitter,
+      })
     })
   }
 
   /**
    * Applies given request middleware to any intercepted request.
    */
-  public use(middleware: RequestMiddleware) {
-    debug('use', middleware)
-    this.middleware.push(middleware)
+  public use(requestMiddleware: RequestMiddleware) {
+    debug('use', requestMiddleware)
+    this.middleware.push(requestMiddleware)
+  }
+
+  public on<K extends keyof RequestInterceptorEventsMap>(
+    eventType: K,
+    listener: RequestInterceptorEventsMap[K]
+  ) {
+    this.emitter.addListener(eventType, listener)
   }
 
   private applyMiddleware: RequestMiddleware = async (req, ref) => {
     debug('applying middleware...', req)
 
-    for (let middleware of this.middleware) {
-      const res = await middleware(req, ref)
+    for (let requestMiddleware of this.middleware) {
+      const res = await requestMiddleware(req, ref)
 
       if (res) {
         return res
@@ -40,6 +56,7 @@ export class RequestInterceptor {
    */
   public restore() {
     debug('restore')
+    this.emitter.removeAllListeners()
     this.interceptors.forEach((restore) => restore())
   }
 }
