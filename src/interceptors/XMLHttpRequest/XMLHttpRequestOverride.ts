@@ -358,6 +358,9 @@ export const createXMLHttpRequestOverride = (
               this.trigger('load')
 
               const responseHeaders = originalRequest.getAllResponseHeaders()
+              this.responseHeaders = flattenHeadersObject(
+                headersToObject(stringToHeaders(responseHeaders))
+              )
               debug('original response headers', responseHeaders)
 
               const normalizedResponseHeaders = headersToObject(
@@ -538,11 +541,9 @@ export const createXMLHttpRequestOverride = (
       req: XMLHttpRequest,
       headers: Record<string, string | string[]>
     ) {
-      Object.entries(headers).forEach(([key, value]) => {
-        req.setRequestHeader(
-          key,
-          Array.isArray(value) ? value.join(',') : value
-        )
+      const flatHeaders = flattenHeadersObject(headers)
+      Object.entries(flatHeaders).forEach(([key, value]) => {
+        req.setRequestHeader(key, value)
       })
     }
   }
