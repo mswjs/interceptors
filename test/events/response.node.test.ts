@@ -20,7 +20,7 @@ beforeAll(async () => {
     app.post('/account', (req, res) => {
       return res
         .status(200)
-        .set('X-Response-Custom', 'yes')
+        .set('x-response-type', 'original')
         .send('original-response-text')
     })
   })
@@ -31,7 +31,7 @@ beforeAll(async () => {
       return {
         status: 200,
         headers: {
-          'X-Response-Custom': 'yes',
+          'x-response-type': 'mocked',
         },
         body: 'response-text',
       }
@@ -63,7 +63,7 @@ test('ClientRequest: emits the "response" event upon the mocked response', async
   expect(request).toHaveProperty('body', '')
 
   expect(response).toHaveProperty('status', 200)
-  expect(response.headers).toHaveProperty('X-Response-Custom', 'yes')
+  expect(response.headers).toHaveProperty('x-response-type', 'mocked')
   expect(response).toHaveProperty('body', 'response-text')
 })
 
@@ -93,6 +93,6 @@ test('ClientRequest: emits the "response" event upon the original response', asy
 
   expect(response).toHaveProperty('status', 200)
   expect(response).toHaveProperty('statusText', 'OK')
-  expect(response.headers).toHaveProperty('x-response-custom', 'yes')
+  expect(response.headers).toHaveProperty('x-response-type', 'original')
   expect(response).toHaveProperty('body', 'original-response-text')
 })
