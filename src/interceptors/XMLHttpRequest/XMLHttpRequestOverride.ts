@@ -347,15 +347,6 @@ export const createXMLHttpRequestOverride = (
               this.responseText = originalRequest.responseText
               this.responseXML = originalRequest.responseXML
 
-              const originalSymbols = Object.getOwnPropertySymbols(
-                originalRequest
-              )
-              const propertiesSymbol = originalSymbols[2]
-
-              const originalRequestProperties: XMLHttpRequestProperties =
-                // @ts-ignore
-                originalRequest[propertiesSymbol]
-
               debug(
                 'received original response status:',
                 this.status,
@@ -366,10 +357,21 @@ export const createXMLHttpRequestOverride = (
               this.trigger('loadstart')
               this.trigger('load')
 
+              const responseHeaders = originalRequest.getAllResponseHeaders()
+              debug('original response headers', responseHeaders)
+
+              const normalizedResponseHeaders = headersToObject(
+                stringToHeaders(responseHeaders)
+              )
+              debug(
+                'original response headers (normalized)',
+                normalizedResponseHeaders
+              )
+
               context.emitter.emit('response', req, {
                 status: originalRequest.status,
                 statusText: originalRequest.statusText,
-                headers: originalRequestProperties.responseHeaders,
+                headers: normalizedResponseHeaders,
                 body: originalRequest.response,
               })
             }
