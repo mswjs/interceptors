@@ -31,16 +31,14 @@ afterAll(() => {
 })
 
 test('forward the request headers to the server', async () => {
-  await createXMLHttpRequest((req) => {
+  const req = await createXMLHttpRequest((req) => {
     req.open('GET', server.makeHttpUrl('/account'))
     req.setRequestHeader('x-client-header', 'yes')
     req.setRequestHeader('x-multi-values', 'value1, value2')
-    req.send()
-    req.addEventListener('loadend', function () {
-      const headers = this.getAllResponseHeaders()
-      expect(headers).toContain('x-response-type: original')
-      expect(headers).toContain('x-client-header: yes')
-      expect(headers).toContain('x-multi-values: value1, value2')
-    })
   })
+
+  const headers = req.getAllResponseHeaders()
+  expect(headers).toContain('x-response-type: original')
+  expect(headers).toContain('x-client-header: yes')
+  expect(headers).toContain('x-multi-values: value1, value2')
 })
