@@ -1,5 +1,5 @@
-import { EventEmitter } from 'events'
 import { IncomingMessage } from 'http'
+import { StrictEventEmitter } from 'strict-event-emitter'
 
 // Request instance constructed by the `request` library
 // has a `self` property that has a `uri` field. This is
@@ -9,7 +9,7 @@ export interface RequestSelf {
 }
 
 export interface RequestInterceptorContext {
-  emitter: EventEmitter
+  emitter: StrictEventEmitter<RequestInterceptorEventsMap>
 }
 
 /**
