@@ -25,9 +25,9 @@ beforeAll(async () => {
   interceptor = new RequestInterceptor([interceptXMLHttpRequest])
 })
 
-afterAll(() => {
-  server.close()
+afterAll(async () => {
   interceptor.restore()
+  await server.close()
 })
 
 test('forward the request headers to the server', async () => {
