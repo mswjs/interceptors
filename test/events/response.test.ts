@@ -20,6 +20,7 @@ beforeAll(async () => {
     app.post('/account', (req, res) => {
       return res
         .status(200)
+        .set('access-control-expose-headers', 'x-response-type')
         .set('x-response-type', 'original')
         .send('original-response-text')
     })
