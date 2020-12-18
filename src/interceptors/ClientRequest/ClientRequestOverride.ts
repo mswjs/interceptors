@@ -7,6 +7,7 @@ import {
   RequestMiddleware,
   InterceptedRequest,
   RequestInterceptorContext,
+  MockedResponse,
 } from '../../glossary'
 import { SocketPolyfill } from './polyfills/SocketPolyfill'
 
@@ -294,7 +295,7 @@ export function createClientRequestOverrideClass(
         context.emitter.emit('response', formattedRequest, {
           status: response.statusCode,
           statusText: response.statusMessage,
-          headers: response.headers,
+          headers: response.headers as MockedResponse['headers'],
           body: await getIncomingMessageBody(response),
         })
       })
