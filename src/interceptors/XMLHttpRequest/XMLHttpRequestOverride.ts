@@ -380,6 +380,7 @@ export const createXMLHttpRequestOverride = (
             // to the original XHR instance.
             this.propagateCallbacks(originalRequest)
             this.propagateListeners(originalRequest)
+            this.propagateHeaders(originalRequest, requestHeaders)
 
             if (this.async) {
               originalRequest.timeout = this.timeout
@@ -530,6 +531,18 @@ export const createXMLHttpRequestOverride = (
     propagateListeners(req: XMLHttpRequest) {
       this._events.forEach(({ name, listener }) => {
         req.addEventListener(name, listener)
+      })
+    }
+
+    propagateHeaders(
+      req: XMLHttpRequest,
+      headers: Record<string, string | string[]>
+    ) {
+      Object.entries(headers).forEach(([key, value]) => {
+        req.setRequestHeader(
+          key,
+          Array.isArray(value) ? value.join(',') : value
+        )
       })
     }
   }
