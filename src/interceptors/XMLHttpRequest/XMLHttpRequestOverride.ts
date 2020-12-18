@@ -56,6 +56,11 @@ export const createXMLHttpRequestOverride = (
     _events: XMLHttpRequestEvent<XMLHttpRequestEventTargetEventMap>[] = []
 
     /* Request state */
+    public static readonly UNSENT = 0
+    public static readonly OPENED = 1
+    public static readonly HEADERS_RECEIVED = 2
+    public static readonly LOADING = 3
+    public static readonly DONE = 4
     public readonly UNSENT = 0
     public readonly OPENED = 1
     public readonly HEADERS_RECEIVED = 2
