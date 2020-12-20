@@ -30,17 +30,6 @@ interface XMLHttpRequestEvent<EventMap extends any> {
   listener: XMLHttpRequestEventHandler
 }
 
-interface XMLHttpRequestProperties {
-  beforeSend: boolean
-  send: boolean
-  timeoutStart: number
-  timeoutId: number
-  timeoutFn?: () => void
-  client: any
-  responseHeaders: Record<string, string>
-  filteredResponseHeaders: string[]
-}
-
 export const createXMLHttpRequestOverride = (
   middleware: RequestMiddleware,
   context: RequestInterceptorContext,
