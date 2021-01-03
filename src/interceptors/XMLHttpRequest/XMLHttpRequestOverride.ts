@@ -310,7 +310,7 @@ export const createXMLHttpRequestOverride = (
             context.emitter.emit('response', req, {
               status: this.status,
               statusText: this.statusText,
-              headers: mockedResponse.headers,
+              headers: mockedResponse.headers || {},
               body: mockedResponse.body,
             })
           } else {

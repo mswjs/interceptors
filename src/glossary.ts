@@ -41,9 +41,9 @@ export interface MockedResponse {
   status: number
   statusText: string
   headers: Record<string, string | string[]>
-  body: string
+  body: string | undefined
 }
 
 export interface RequestInterceptorEventsMap {
-  response: (req: InterceptedRequest, res: Partial<MockedResponse>) => void
+  response: (req: InterceptedRequest, res: MockedResponse) => void
 }
