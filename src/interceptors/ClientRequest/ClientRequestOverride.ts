@@ -238,7 +238,12 @@ export function createClientRequestOverrideClass(
         response.push(null)
         response.complete = true
 
-        context.emitter.emit('response', formattedRequest, mockedResponse)
+        context.emitter.emit('response', formattedRequest, {
+          status: mockedResponse.status || 200,
+          statusText: mockedResponse.statusText || 'OK',
+          headers: mockedResponse.headers || {},
+          body: mockedResponse.body,
+        })
 
         return this
       }
@@ -293,8 +298,8 @@ export function createClientRequestOverrideClass(
 
       req.on('response', async (response) => {
         context.emitter.emit('response', formattedRequest, {
-          status: response.statusCode,
-          statusText: response.statusMessage,
+          status: response.statusCode || 200,
+          statusText: response.statusMessage || 'OK',
           headers: response.headers as MockedResponse['headers'],
           body: await getIncomingMessageBody(response),
         })
