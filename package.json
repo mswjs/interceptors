@@ -28,7 +28,7 @@
     "@types/node": "^13.13.2",
     "@types/node-fetch": "^2.5.7",
     "@types/supertest": "^2.0.10",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
