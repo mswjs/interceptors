@@ -39,7 +39,7 @@ test('handles [string, RequestOptions, callback] input', () => {
   expect(url.toJSON()).toEqual(new URL('https://mswjs.io/resource').toJSON())
 
   // Request options must be preserved
-  expect(options).toEqual(initialOptions)
+  expect(options).toHaveProperty('headers', initialOptions.headers)
 
   // Callback must be preserved
   expect(callback).toHaveProperty('name', 'cb')
@@ -144,9 +144,7 @@ test('handles [Relative Legacy URL, callback] input', () => {
 
   // Correct WHATWG URL generated
   expect(url.toJSON()).toMatch(
-    getUrlByRequestOptions({
-      path: '/resource?apple=banana',
-    }).toJSON()
+    getUrlByRequestOptions({ path: '/resource?apple=banana' }).toJSON()
   )
 
   // Check path is in options
@@ -165,9 +163,7 @@ test('handles [Relative Legacy URL] input', () => {
 
   // Correct WHATWG URL generated
   expect(url.toJSON()).toMatch(
-    getUrlByRequestOptions({
-      path: '/resource?apple=banana',
-    }).toJSON()
+    getUrlByRequestOptions({ path: '/resource?apple=banana' }).toJSON()
   )
 
   // Check path is in options
