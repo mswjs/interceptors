@@ -34,7 +34,7 @@ function untilServerReady<ServerType extends http.Server>(
 }
 
 function closeServer(server: http.Server) {
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     server.close((error) => {
       if (error) {
         return reject(error)
