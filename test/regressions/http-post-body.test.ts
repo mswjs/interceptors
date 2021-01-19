@@ -3,14 +3,14 @@
  * @see https://github.com/mswjs/node-request-interceptor/issues/32
  */
 import https from 'https'
+import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { RequestInterceptor, InterceptedRequest } from '../../src'
 import withDefaultInterceptors from '../../src/presets/default'
-import { ServerAPI, createServer, httpsAgent } from '../utils/createServer'
 import { getRequestOptionsByUrl } from '../../src/utils/getRequestOptionsByUrl'
 
 let interceptor: RequestInterceptor
 let pool: InterceptedRequest[] = []
-let server: ServerAPI
+let server: ServerApi
 
 beforeAll(async () => {
   server = await createServer((app) => {
@@ -40,7 +40,7 @@ test('supports original HTTPS request with a body written via "req.write()"', (d
 
   const req = https.request(
     {
-      ...getRequestOptionsByUrl(new URL(server.makeHttpsUrl('/user'))),
+      ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/user'))),
       method: 'POST',
       agent: httpsAgent,
     },
@@ -70,7 +70,7 @@ test('supports original HTTPS request with a body given to "req.end()"', (done) 
 
   const req = https.request(
     {
-      ...getRequestOptionsByUrl(new URL(server.makeHttpsUrl('/user'))),
+      ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/user'))),
       method: 'POST',
       agent: httpsAgent,
     },
@@ -95,7 +95,7 @@ test('supports original HTTPS request with a body written via both "req.write()"
 
   const req = https.request(
     {
-      ...getRequestOptionsByUrl(new URL(server.makeHttpsUrl('/user'))),
+      ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/user'))),
       method: 'POST',
       agent: httpsAgent,
     },

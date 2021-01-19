@@ -3,13 +3,13 @@
  */
 import https from 'https'
 import { IncomingMessage } from 'http'
+import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { RequestInterceptor } from '../../src'
 import withDefaultInterceptors from '../../src/presets/default'
-import { ServerAPI, createServer, httpsAgent } from '../utils/createServer'
 import { getRequestOptionsByUrl } from '../../src/utils/getRequestOptionsByUrl'
 
 let interceptor: RequestInterceptor
-let server: ServerAPI
+let server: ServerApi
 
 beforeAll(async () => {
   server = await createServer((app) => {
@@ -20,7 +20,7 @@ beforeAll(async () => {
 
   interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
-    if ([server.makeHttpsUrl('/get')].includes(req.url.href)) {
+    if ([server.https.makeUrl('/get')].includes(req.url.href)) {
       return
     }
 
@@ -59,7 +59,7 @@ test('calls a custom callback once when the request is bypassed', (done) => {
   https
     .get(
       {
-        ...getRequestOptionsByUrl(new URL(server.makeHttpsUrl('/get'))),
+        ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/get'))),
         agent: httpsAgent,
       },
       customCallback
@@ -88,7 +88,7 @@ test('calls a custom callback once when the response is mocked', (done) => {
   https
     .get(
       {
-        ...getRequestOptionsByUrl(new URL(server.makeHttpsUrl('/arbitrary'))),
+        ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/arbitrary'))),
         agent: httpsAgent,
       },
       customCallback
