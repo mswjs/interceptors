@@ -1,13 +1,13 @@
 /**
  * @jest-environment node
  */
+import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { RequestInterceptor } from '../../src'
 import { httpsGet, httpsRequest } from '../helpers'
 import withDefaultInterceptors from '../../src/presets/default'
-import { ServerAPI, createServer, httpsAgent } from '../utils/createServer'
 
 let interceptor: RequestInterceptor
-let server: ServerAPI
+let server: ServerApi
 
 beforeAll(async () => {
   server = await createServer((app) => {
@@ -21,7 +21,7 @@ beforeAll(async () => {
 
   interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
-    if ([server.getHttpsAddress()].includes(req.url.href)) {
+    if ([server.https.makeUrl()].includes(req.url.href)) {
       return {
         status: 400,
         statusText: 'Bad Request',
@@ -44,7 +44,7 @@ afterAll(async () => {
 })
 
 test('responds to an HTTPS request issued by "https.request" and handled in the middleware', async () => {
-  const { res, resBody } = await httpsRequest(server.makeHttpsUrl('/'))
+  const { res, resBody } = await httpsRequest(server.https.makeUrl('/'))
 
   expect(res.statusCode).toEqual(400)
   expect(res.statusMessage).toEqual('Bad Request')
@@ -53,7 +53,7 @@ test('responds to an HTTPS request issued by "https.request" and handled in the 
 })
 
 test('bypasses an HTTPS request issued by "https.request" not handled in the middleware', async () => {
-  const { res, resBody } = await httpsRequest(server.makeHttpsUrl('/get'), {
+  const { res, resBody } = await httpsRequest(server.https.makeUrl('/get'), {
     agent: httpsAgent,
   })
 
@@ -62,7 +62,7 @@ test('bypasses an HTTPS request issued by "https.request" not handled in the mid
 })
 
 test('responds to an HTTPS request issued by "https.get" and handled in the middleware', async () => {
-  const { res, resBody } = await httpsGet(server.makeHttpsUrl('/'))
+  const { res, resBody } = await httpsGet(server.https.makeUrl('/'))
 
   expect(res.statusCode).toEqual(400)
   expect(res.statusMessage).toEqual('Bad Request')
@@ -71,7 +71,7 @@ test('responds to an HTTPS request issued by "https.get" and handled in the midd
 })
 
 test('bypasses an HTTPS request issued by "https.get" not handled in the middleware', async () => {
-  const { res, resBody } = await httpsGet(server.makeHttpsUrl('/get'), {
+  const { res, resBody } = await httpsGet(server.https.makeUrl('/get'), {
     agent: httpsAgent,
   })
 
@@ -86,7 +86,7 @@ test('produces a request error when the middleware throws an exception', async (
 
 test('bypasses any request when the interceptor is restored', async () => {
   interceptor.restore()
-  const { res, resBody } = await httpsGet(server.makeHttpsUrl('/'), {
+  const { res, resBody } = await httpsGet(server.https.makeUrl('/'), {
     agent: httpsAgent,
   })
 

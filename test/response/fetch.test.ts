@@ -2,12 +2,12 @@
  * @jest-environment node
  */
 import fetch from 'node-fetch'
+import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { RequestInterceptor } from '../../src'
 import withDefaultInterceptors from '../../src/presets/default'
-import { ServerAPI, createServer, httpsAgent } from '../utils/createServer'
 
 let interceptor: RequestInterceptor
-let server: ServerAPI
+let server: ServerApi
 
 beforeAll(async () => {
   server = await createServer((app) => {
@@ -24,7 +24,7 @@ beforeEach(async () => {
   interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
     if (
-      [server.getHttpAddress(), server.getHttpsAddress()].includes(req.url.href)
+      [server.http.makeUrl(), server.https.makeUrl()].includes(req.url.href)
     ) {
       return {
         status: 201,
@@ -46,7 +46,7 @@ afterAll(async () => {
 })
 
 test('responds to an HTTP request that is handled in the middleware', async () => {
-  const res = await fetch(server.makeHttpUrl('/'))
+  const res = await fetch(server.http.makeUrl('/'))
   const body = await res.json()
 
   expect(res.status).toEqual(201)
@@ -57,7 +57,7 @@ test('responds to an HTTP request that is handled in the middleware', async () =
 })
 
 test('bypasses an HTTP request not handled in the middleware', async () => {
-  const res = await fetch(server.makeHttpUrl('/get'))
+  const res = await fetch(server.http.makeUrl('/get'))
   const body = await res.json()
 
   expect(res.status).toEqual(200)
@@ -65,7 +65,7 @@ test('bypasses an HTTP request not handled in the middleware', async () => {
 })
 
 test('responds to an HTTPS request that is handled in the middleware', async () => {
-  const res = await fetch(server.makeHttpsUrl('/'), { agent: httpsAgent })
+  const res = await fetch(server.https.makeUrl('/'), { agent: httpsAgent })
   const body = await res.json()
 
   expect(res.status).toEqual(201)
@@ -74,7 +74,7 @@ test('responds to an HTTPS request that is handled in the middleware', async () 
 })
 
 test('bypasses an HTTPS request not handled in the middleware', async () => {
-  const res = await fetch(server.makeHttpsUrl('/get'), { agent: httpsAgent })
+  const res = await fetch(server.https.makeUrl('/get'), { agent: httpsAgent })
   const body = await res.json()
 
   expect(res.status).toEqual(200)
@@ -83,12 +83,12 @@ test('bypasses an HTTPS request not handled in the middleware', async () => {
 
 test('bypasses any request when the interceptor is restored', async () => {
   interceptor.restore()
-  const httpRes = await fetch(server.makeHttpUrl('/'))
+  const httpRes = await fetch(server.http.makeUrl('/'))
   const httpBody = await httpRes.json()
   expect(httpRes.status).toEqual(200)
   expect(httpBody).toEqual({ route: '/' })
 
-  const httpsRes = await fetch(server.makeHttpsUrl('/'), { agent: httpsAgent })
+  const httpsRes = await fetch(server.https.makeUrl('/'), { agent: httpsAgent })
   const httpsBody = await httpsRes.json()
   expect(httpsRes.status).toEqual(200)
   expect(httpsBody).toEqual({ route: '/' })
@@ -96,7 +96,7 @@ test('bypasses any request when the interceptor is restored', async () => {
 
 test('does not throw an error if there are multiple interceptors', async () => {
   const secondInterceptor = new RequestInterceptor(withDefaultInterceptors)
-  let res = await fetch(server.makeHttpsUrl('/get'), { agent: httpsAgent })
+  let res = await fetch(server.https.makeUrl('/get'), { agent: httpsAgent })
   let body = await res.json()
 
   expect(res.status).toEqual(200)

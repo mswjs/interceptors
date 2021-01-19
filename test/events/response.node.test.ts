@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import fetch from 'node-fetch'
+import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import {
   RequestInterceptor,
   InterceptedRequest,
@@ -9,9 +10,8 @@ import {
 } from '../../src'
 import withDefaultInterceptors from '../../src/presets/default'
 import { httpsRequest } from '../helpers'
-import { createServer, httpsAgent, ServerAPI } from '../utils/createServer'
 
-let server: ServerAPI
+let server: ServerApi
 let interceptor: RequestInterceptor
 let responses: [InterceptedRequest, Partial<MockedResponse>][] = []
 
@@ -69,7 +69,7 @@ test('ClientRequest: emits the "response" event upon the mocked response', async
 
 test('ClientRequest: emits the "response" event upon the original response', async () => {
   await httpsRequest(
-    server.makeHttpsUrl('/account'),
+    server.https.makeUrl('/account'),
     {
       method: 'POST',
       headers: {
@@ -86,7 +86,7 @@ test('ClientRequest: emits the "response" event upon the original response', asy
 
   expect(request).toHaveProperty('method', 'POST')
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toBe(server.makeHttpsUrl('/account'))
+  expect(request.url.toString()).toBe(server.https.makeUrl('/account'))
   expect(request.headers).toHaveProperty('content-type', 'application/json')
   expect(request.headers).toHaveProperty('x-request-custom', 'yes')
   expect(request).toHaveProperty('body', `{"id":"abc-123"}`)

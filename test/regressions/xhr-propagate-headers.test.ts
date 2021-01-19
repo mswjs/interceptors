@@ -1,9 +1,9 @@
+import { ServerApi, createServer } from '@open-draft/test-server'
 import { RequestInterceptor } from '../../src'
 import { createXMLHttpRequest } from '../helpers'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
-import { createServer, ServerAPI } from '../utils/createServer'
 
-let server: ServerAPI
+let server: ServerApi
 let interceptor: RequestInterceptor
 
 beforeAll(async () => {
@@ -32,7 +32,7 @@ afterAll(async () => {
 
 test('forward the request headers to the server', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', server.makeHttpUrl('/account'))
+    req.open('GET', server.http.makeUrl('/account'))
     req.setRequestHeader('x-client-header', 'yes')
     req.setRequestHeader('x-multi-values', 'value1; value2')
   })

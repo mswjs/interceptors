@@ -1,15 +1,15 @@
 /**
  * @jest-environment node
  */
+import { ServerApi, createServer } from '@open-draft/test-server'
 import { RequestInterceptor } from '../../../src'
 import withDefaultInterceptors from '../../../src/presets/default'
 import { InterceptedRequest } from '../../../src/glossary'
 import { httpGet, prepare } from '../../helpers'
-import { ServerAPI, createServer } from '../../utils/createServer'
 
 let requestInterceptor: RequestInterceptor
 let pool: InterceptedRequest[] = []
-let server: ServerAPI
+let server: ServerApi
 
 beforeAll(async () => {
   server = await createServer((app) => {
@@ -35,7 +35,7 @@ afterAll(async () => {
 
 test('intercepts an http.get request', async () => {
   const request = await prepare(
-    httpGet(server.makeHttpUrl('/user?id=123'), {
+    httpGet(server.http.makeUrl('/user?id=123'), {
       headers: {
         'x-custom-header': 'yes',
       },
@@ -45,7 +45,7 @@ test('intercepts an http.get request', async () => {
 
   expect(request).toBeTruthy()
   expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.makeHttpUrl('/user?id=123'))
+  expect(request?.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
   expect(request).toHaveProperty('method', 'GET')
   expect(request?.url.searchParams.get('id')).toEqual('123')
   expect(request?.headers).toHaveProperty('x-custom-header', 'yes')

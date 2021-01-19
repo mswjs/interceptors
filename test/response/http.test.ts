@@ -1,13 +1,13 @@
 /**
  * @jest-environment node
  */
+import { ServerApi, createServer } from '@open-draft/test-server'
 import { RequestInterceptor } from '../../src'
 import { httpGet, httpRequest } from '../helpers'
 import withDefaultInterceptors from '../../src/presets/default'
-import { ServerAPI, createServer } from '../utils/createServer'
 
 let interceptor: RequestInterceptor
-let server: ServerAPI
+let server: ServerApi
 
 beforeAll(async () => {
   // Establish a local actual server.
@@ -19,7 +19,7 @@ beforeAll(async () => {
       res.status(200).send('/get')
     })
   })
-  const serverUrl = server.getHttpAddress()
+  const serverUrl = server.http.makeUrl()
 
   interceptor = new RequestInterceptor(withDefaultInterceptors)
   interceptor.use((req) => {
@@ -46,7 +46,7 @@ afterAll(async () => {
 })
 
 test('responds to an HTTP request issued by "http.request" and handled in the middleware', async () => {
-  const { res, resBody } = await httpRequest(server.makeHttpUrl('/'))
+  const { res, resBody } = await httpRequest(server.http.makeUrl('/'))
 
   expect(res.statusCode).toBe(301)
   expect(res.statusMessage).toEqual('Moved Permanently')
@@ -55,14 +55,14 @@ test('responds to an HTTP request issued by "http.request" and handled in the mi
 })
 
 test('bypasses an HTTP request issued by "http.request" not handled in the middleware', async () => {
-  const { res, resBody } = await httpRequest(server.makeHttpUrl('/get'))
+  const { res, resBody } = await httpRequest(server.http.makeUrl('/get'))
 
   expect(res.statusCode).toBe(200)
   expect(resBody).toEqual('/get')
 })
 
 test('responds to an HTTP request issued by "http.get" and handled in the middleeware', async () => {
-  const { res, resBody } = await httpRequest(server.makeHttpUrl('/'))
+  const { res, resBody } = await httpRequest(server.http.makeUrl('/'))
 
   expect(res.statusCode).toBe(301)
   expect(res.statusMessage).toEqual('Moved Permanently')
@@ -71,7 +71,7 @@ test('responds to an HTTP request issued by "http.get" and handled in the middle
 })
 
 test('bypasses an HTTP request issued by "http.get" not handled in the middleware', async () => {
-  const { res, resBody } = await httpGet(server.makeHttpUrl('/get'))
+  const { res, resBody } = await httpGet(server.http.makeUrl('/get'))
 
   expect(res.statusCode).toBe(200)
   expect(resBody).toEqual('/get')
@@ -84,7 +84,7 @@ test('produces a request error when the middleware throws an exception', async (
 
 test('bypasses any request when the interceptor is restored', async () => {
   interceptor.restore()
-  const { res, resBody } = await httpGet(server.makeHttpUrl('/'))
+  const { res, resBody } = await httpGet(server.http.makeUrl('/'))
 
   expect(res.statusCode).toBe(200)
   expect(resBody).toEqual('/')

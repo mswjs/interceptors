@@ -1,3 +1,4 @@
+import { ServerApi, createServer } from '@open-draft/test-server'
 import {
   InterceptedRequest,
   MockedResponse,
@@ -5,9 +6,8 @@ import {
 } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../helpers'
-import { createServer, ServerAPI } from '../utils/createServer'
 
-let server: ServerAPI
+let server: ServerApi
 let interceptor: RequestInterceptor
 let responses: [InterceptedRequest, Partial<MockedResponse>][] = []
 
@@ -73,7 +73,7 @@ test('XMLHttpRequest: emits the "response" event upon the mocked response', asyn
 
 test('XMLHttpRequest: emits the "response" event upon the original response', async () => {
   await createXMLHttpRequest((req) => {
-    req.open('POST', server.makeHttpsUrl('/account'))
+    req.open('POST', server.https.makeUrl('/account'))
     req.setRequestHeader('x-request-custom', 'yes')
     req.send('request-body')
   })
@@ -82,7 +82,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   const [request, response] = responses[0]
 
   expect(request).toHaveProperty('method', 'POST')
-  expect(request.url.toString()).toBe(server.makeHttpsUrl('/account'))
+  expect(request.url.toString()).toBe(server.https.makeUrl('/account'))
   expect(request.headers).toHaveProperty('x-request-custom', 'yes')
   expect(request).toHaveProperty('body', 'request-body')
 
