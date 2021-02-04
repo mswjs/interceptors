@@ -48,6 +48,7 @@ export function createClientRequestOverride(
       defaultProtocol,
       ...args
     )
+
     const usesHttps = url.protocol === 'https:'
     let requestBodyBuffer: Buffer[] = []
 
@@ -293,7 +294,7 @@ export function createClientRequestOverride(
         // @ts-ignore
         http.ClientRequest = ClientRequest
       } else {
-        request = pureMethod(options)
+        request = pureMethod(url.toString(), options)
       }
 
       // Propagate headers set after `ClientRequest` is constructed
