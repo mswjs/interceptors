@@ -58,7 +58,7 @@ npm install node-request-interceptor
 
 ```js
 import { RequestInterceptor } from 'node-request-interceptor'
-import withDefaultInterceptors from 'node-request-interceptor/presets/default'
+import withDefaultInterceptors from 'node-request-interceptor/lib/presets/default'
 
 const interceptor = new RequestInterceptor(withDefaultInterceptors)
 ```
@@ -78,7 +78,7 @@ To use one, or multiple interceptors, import and provide them to the `RequestInt
 
 ```js
 import { RequestInterceptors } from 'node-request-interceptor'
-import { interceptXMLHttpRequest } from 'node-request-interceptor/interceptors/XMLHttpRequest'
+import { interceptXMLHttpRequest } from 'node-request-interceptor/lib/interceptors/XMLHttpRequest'
 
 // This `interceptor` instance would handle only XMLHttpRequest,
 // ignoring requests issued via `http`/`https` modules.
