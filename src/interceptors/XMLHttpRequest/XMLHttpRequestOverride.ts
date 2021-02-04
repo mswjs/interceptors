@@ -422,13 +422,7 @@ export const createXMLHttpRequestOverride = (
       const headerValue = Object.entries(this.responseHeaders).reduce<
         string | null
       >((_, [headerName, headerValue]) => {
-        // Ignore header name casing while still allowing to set response headers
-        // with an arbitrary casing (no normalization).
-        if ([headerName, headerName.toLowerCase()].includes(name)) {
-          return headerValue
-        }
-
-        return null
+        return (headerName.toLowerCase() === name.toLowerCase()) ? headerValue : null
       }, null)
 
       debug('resolved response header', name, headerValue, this.responseHeaders)
