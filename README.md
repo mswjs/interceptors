@@ -60,7 +60,9 @@ npm install node-request-interceptor
 import { RequestInterceptor } from 'node-request-interceptor'
 import withDefaultInterceptors from 'node-request-interceptor/lib/presets/default'
 
-const interceptor = new RequestInterceptor(withDefaultInterceptors)
+const interceptor = new RequestInterceptor({
+  modules: withDefaultInterceptors,
+})
 ```
 
 > Using the `/presets/default` interceptors preset is the recommended way to ensure all requests get intercepted, regardless of their origin.
@@ -77,12 +79,14 @@ This library utilizes a concept of an _interceptor_–a module that performs nec
 To use one, or multiple interceptors, import and provide them to the `RequestInterceptor` constructor.
 
 ```js
-import { RequestInterceptors } from 'node-request-interceptor'
+import { RequestInterceptor } from 'node-request-interceptor'
 import { interceptXMLHttpRequest } from 'node-request-interceptor/lib/interceptors/XMLHttpRequest'
 
 // This `interceptor` instance would handle only XMLHttpRequest,
 // ignoring requests issued via `http`/`https` modules.
-const interceptor = new RequestInterceptors([interceptXMLHttpRequest])
+const interceptor = new RequestInterceptor({
+  modules: [interceptXMLHttpRequest],
+})
 ```
 
 > Interceptors are crucial in leveraging environment-specific module overrides. Certain environments (i.e. React Native) do not have access to native NodeJS modules (like `http`). Importing such modules raises an exception, and must be avoided.

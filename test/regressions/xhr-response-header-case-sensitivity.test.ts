@@ -11,16 +11,15 @@ beforeAll(async () => {
     app.get('/account', (req, res) => {
       return res
         .status(200)
-        .set(
-          'access-control-expose-headers',
-          'x-test-header'
-        )
+        .set('access-control-expose-headers', 'x-test-header')
         .set('x-test-header', req.get('x-test-header'))
         .send(null)
     })
   })
 
-  interceptor = new RequestInterceptor([interceptXMLHttpRequest])
+  interceptor = new RequestInterceptor({
+    modules: [interceptXMLHttpRequest],
+  })
 })
 
 afterAll(async () => {

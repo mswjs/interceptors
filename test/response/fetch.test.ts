@@ -21,7 +21,9 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-  interceptor = new RequestInterceptor(withDefaultInterceptors)
+  interceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   interceptor.use((req) => {
     if (
       [server.http.makeUrl(), server.https.makeUrl()].includes(req.url.href)
@@ -95,7 +97,9 @@ test('bypasses any request when the interceptor is restored', async () => {
 })
 
 test('does not throw an error if there are multiple interceptors', async () => {
-  const secondInterceptor = new RequestInterceptor(withDefaultInterceptors)
+  const secondInterceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   let res = await fetch(server.https.makeUrl('/get'), { agent: httpsAgent })
   let body = await res.json()
 

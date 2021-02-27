@@ -21,7 +21,9 @@ beforeAll(async () => {
   })
   const serverUrl = server.http.makeUrl()
 
-  interceptor = new RequestInterceptor(withDefaultInterceptors)
+  interceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   interceptor.use((req) => {
     if ([serverUrl].includes(req.url.href)) {
       return {

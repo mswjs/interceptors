@@ -7,17 +7,21 @@ import {
 
 const debug = require('debug')('RequestInterceptor')
 
+interface RequestInterceptorOptions {
+  modules: Interceptor[]
+}
+
 export class RequestInterceptor {
   private interceptors: ReturnType<Interceptor>[]
   private emitter: StrictEventEmitter<RequestInterceptorEventsMap>
   private middleware: RequestMiddleware[]
 
-  constructor(interceptors: Interceptor[]) {
+  constructor(options: RequestInterceptorOptions) {
     this.emitter = new StrictEventEmitter<RequestInterceptorEventsMap>()
     this.middleware = []
-    debug('created new RequestInterceptor', { interceptors })
+    debug('created new RequestInterceptor', options.modules)
 
-    this.interceptors = interceptors.map((interceptor) => {
+    this.interceptors = options.modules.map((interceptor) => {
       return interceptor(this.applyMiddleware, {
         emitter: this.emitter,
       })

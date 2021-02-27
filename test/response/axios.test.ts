@@ -5,7 +5,9 @@ import withDefaultInterceptors from '../../src/presets/default'
 let interceptor: RequestInterceptor
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor(withDefaultInterceptors)
+  interceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   interceptor.use((req) => {
     if (req.url.pathname === '/user') {
       return {

@@ -5,7 +5,9 @@ import { createXMLHttpRequest } from '../helpers'
 let interceptor: RequestInterceptor
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor(withDefaultInterceptors)
+  interceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   interceptor.use((req) => {
     switch (req.url.pathname) {
       case '/no-body': {

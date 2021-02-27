@@ -18,7 +18,9 @@ beforeAll(async () => {
     })
   })
 
-  interceptor = new RequestInterceptor(withDefaultInterceptors)
+  interceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   interceptor.use((req) => {
     if ([server.https.makeUrl('/get')].includes(req.url.href)) {
       return
