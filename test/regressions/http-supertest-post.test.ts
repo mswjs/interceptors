@@ -14,7 +14,9 @@ app.post('/', (req, res) => {
 })
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor(withDefaultInterceptors)
+  interceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   interceptor.use((req) => {
     pool.push(req)
   })

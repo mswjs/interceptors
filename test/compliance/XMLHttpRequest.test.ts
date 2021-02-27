@@ -4,7 +4,9 @@ import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 let interceptor: RequestInterceptor
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor([interceptXMLHttpRequest])
+  interceptor = new RequestInterceptor({
+    modules: [interceptXMLHttpRequest],
+  })
 })
 
 afterAll(() => {

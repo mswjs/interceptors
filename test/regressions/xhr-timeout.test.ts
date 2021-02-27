@@ -8,7 +8,9 @@ import { createXMLHttpRequest } from '../helpers'
 let interceptor: RequestInterceptor
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor(withDefaultInterceptors)
+  interceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   interceptor.use(() => {
     // Explicitly empty request middleware so that all requests
     // are bypassed (performed as-is).

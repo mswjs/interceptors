@@ -5,7 +5,9 @@ import { createXMLHttpRequest, readBlob } from '../helpers'
 let requestInterceptor: RequestInterceptor
 
 beforeAll(() => {
-  requestInterceptor = new RequestInterceptor(withDefaultInterceptors)
+  requestInterceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   requestInterceptor.use((req) => {
     return {
       headers: {

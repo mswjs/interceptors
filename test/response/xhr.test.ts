@@ -20,7 +20,9 @@ beforeAll(async () => {
     })
   })
 
-  interceptor = new RequestInterceptor(withDefaultInterceptors)
+  interceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   interceptor.use((req) => {
     const shouldMock =
       [server.http.makeUrl(), server.https.makeUrl()].includes(req.url.href) ||

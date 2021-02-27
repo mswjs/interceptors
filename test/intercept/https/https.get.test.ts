@@ -18,7 +18,9 @@ beforeAll(async () => {
     })
   })
 
-  requestInterceptor = new RequestInterceptor(withDefaultInterceptors)
+  requestInterceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   requestInterceptor.use((req) => {
     pool.push(req)
   })

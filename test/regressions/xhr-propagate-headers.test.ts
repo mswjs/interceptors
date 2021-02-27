@@ -22,7 +22,9 @@ beforeAll(async () => {
     })
   })
 
-  interceptor = new RequestInterceptor([interceptXMLHttpRequest])
+  interceptor = new RequestInterceptor({
+    modules: [interceptXMLHttpRequest],
+  })
 })
 
 afterAll(async () => {

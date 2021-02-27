@@ -25,7 +25,9 @@ beforeAll(async () => {
     })
   })
 
-  interceptor = new RequestInterceptor(withDefaultInterceptors)
+  interceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   interceptor.use((req) => {
     if (['https://mswjs.io/events'].includes(req.url.href)) {
       return {

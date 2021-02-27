@@ -19,7 +19,9 @@ beforeAll(async () => {
     })
   })
 
-  interceptor = new RequestInterceptor(withDefaultInterceptors)
+  interceptor = new RequestInterceptor({
+    modules: withDefaultInterceptors,
+  })
   interceptor.use((req) => {
     // All requests in this test are bypassed.
     pool.push(req)
