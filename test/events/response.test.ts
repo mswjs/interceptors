@@ -1,15 +1,29 @@
 import { ServerApi, createServer } from '@open-draft/test-server'
 import {
-  InterceptedRequest,
-  MockedResponse,
-  RequestInterceptor,
+  IsomoprhicRequest,
+  createInterceptor,
+  IsomoprhicResponse,
 } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../helpers'
 
 let server: ServerApi
-let interceptor: RequestInterceptor
-let responses: [InterceptedRequest, Partial<MockedResponse>][] = []
+let responses: [IsomoprhicRequest, IsomoprhicResponse][] = []
+
+const interceptor = createInterceptor({
+  modules: [interceptXMLHttpRequest],
+  resolver(request) {
+    if (['https://mswjs.io/events'].includes(request.url.href)) {
+      return {
+        status: 200,
+        headers: {
+          'x-response-type': 'mocked',
+        },
+        body: 'response-text',
+      }
+    }
+  },
+})
 
 beforeAll(async () => {
   // @ts-ignore
@@ -26,20 +40,7 @@ beforeAll(async () => {
     })
   })
 
-  interceptor = new RequestInterceptor({
-    modules: [interceptXMLHttpRequest],
-  })
-  interceptor.use((req) => {
-    if (['https://mswjs.io/events'].includes(req.url.href)) {
-      return {
-        status: 200,
-        headers: {
-          'x-response-type': 'mocked',
-        },
-        body: 'response-text',
-      }
-    }
-  })
+  interceptor.apply()
   interceptor.on('response', (req, res) => {
     responses.push([req, res])
   })
@@ -69,7 +70,7 @@ test('XMLHttpRequest: emits the "response" event upon the mocked response', asyn
 
   expect(response).toHaveProperty('status', 200)
   expect(response).toHaveProperty('statusText', 'OK')
-  expect(response.headers).toHaveProperty('x-response-type', 'mocked')
+  expect(response.headers.get('x-response-type')).toBe('mocked')
   expect(response).toHaveProperty('body', 'response-text')
 })
 
@@ -90,6 +91,6 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
 
   expect(response).toHaveProperty('status', 200)
   expect(response).toHaveProperty('statusText', 'OK')
-  expect(response.headers).toHaveProperty('x-response-type', 'original')
+  expect(response.headers.get('x-response-type')).toBe('original')
   expect(response).toHaveProperty('body', 'original-response-text')
 })

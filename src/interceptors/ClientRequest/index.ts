@@ -1,67 +1,65 @@
 import http from 'http'
 import https from 'https'
-import {
-  Interceptor,
-  RequestInterceptorContext,
-  RequestMiddleware,
-} from '../../glossary'
-import { createClientRequestOverrideClass } from './ClientRequestOverride'
+import { Interceptor, Observer, Resolver } from '../../createInterceptor'
+import { createClientRequestOverride } from './createClientRequestOverride'
 
 const debug = require('debug')('http override')
 
-type PatchedModules = Record<
-  string,
+type Protocol = 'http' | 'https'
+type PureModules = Map<
+  'http' | 'https',
   {
-    requestModule: typeof http | typeof https
-    request: typeof http.request
+    module: typeof http | typeof https
     get: typeof http.get
+    request: typeof http.request
   }
 >
 
 // Store a pointer to the original `http.ClientRequest` class
 // so it can be mutated during runtime, affecting any subsequent calls.
-let originalClientRequest: typeof http.ClientRequest
+let pureClientRequest: typeof http.ClientRequest
 
-function handleRequest(
-  protocol: string,
-  originalMethod: any,
-  middleware: RequestMiddleware,
-  context: RequestInterceptorContext,
-  args: any[]
+function handleClientRequest(
+  protocol: Protocol,
+  pureMethod: typeof http.get | typeof http.request,
+  args: any[],
+  observer: Observer,
+  resolver: Resolver
 ): http.ClientRequest {
-  //The first time we execute this, I'll save the original ClientRequest.
-  //This because is used to restore the dafault one later
-  if (!originalClientRequest) {
-    originalClientRequest = http.ClientRequest
+  // The first time we execute this, I'll save the original ClientRequest.
+  // This because is used to restore the dafault one later
+  if (!pureClientRequest) {
+    pureClientRequest = http.ClientRequest
   }
 
-  const ClientRequestOverride = createClientRequestOverrideClass(
-    middleware,
-    context,
-    originalMethod,
-    originalClientRequest
-  )
+  const ClientRequestOverride = createClientRequestOverride({
+    pureClientRequest,
+    pureMethod,
+    observer,
+    resolver,
+  })
+
   debug('patching native http.ClientRequest...')
-  //Only http.ClientRequest is overridden because https uses http
-  //@ts-ignore
+
+  // Only http.ClientRequest is overridden because https uses http
+  // @ts-ignore
   http.ClientRequest = ClientRequestOverride
 
   debug('new http.ClientRequest (origin: %s)', protocol)
 
-  // @ts-ignore
+  // @ts-expect-error Variable call signature.
   return new http.ClientRequest(...args)
 }
 
 /**
  * Intercepts requests issued by native `http` and `https` modules.
  */
-export const interceptClientRequest: Interceptor = (middleware, context) => {
-  let patchedModules: PatchedModules = {}
-  const modules = ['http', 'https']
+export const interceptClientRequest: Interceptor = (observer, resolver) => {
+  const pureModules: PureModules = new Map()
+  const modules: Array<Protocol> = ['http', 'https']
 
   modules.forEach((protocol) => {
     const requestModule = protocol === 'https' ? https : http
-
     const { request: originalRequest, get: originalGet } = requestModule
 
     // Wrap an original `http.request`/`https.request`
@@ -79,12 +77,12 @@ export const interceptClientRequest: Interceptor = (middleware, context) => {
     requestModule.request = function requestOverride(...args: any[]) {
       debug('%s.request proxy call', protocol)
 
-      return handleRequest(
+      return handleClientRequest(
         protocol,
         proxiedOriginalRequest.bind(requestModule),
-        middleware,
-        context,
-        args
+        args,
+        observer,
+        resolver
       )
     }
 
@@ -92,33 +90,33 @@ export const interceptClientRequest: Interceptor = (middleware, context) => {
     requestModule.get = function getOverride(...args: any[]) {
       debug('%s.get call', protocol)
 
-      const req = handleRequest(
+      const req = handleClientRequest(
         protocol,
         originalGet.bind(requestModule),
-        middleware,
-        context,
-        args
+        args,
+        observer,
+        resolver
       )
       req.end()
 
       return req
     }
 
-    patchedModules[protocol] = {
-      requestModule,
+    pureModules.set(protocol, {
+      module: requestModule,
       request: originalRequest,
       get: originalGet,
-    }
+    })
   })
 
   return () => {
-    debug('restoring patches...')
+    debug('restoring modules...')
 
-    Object.values(patchedModules).forEach(({ requestModule, request, get }) => {
-      requestModule.request = request
-      requestModule.get = get
-    })
+    for (const requestModule of pureModules.values()) {
+      requestModule.module.get = requestModule.get
+      requestModule.module.request = requestModule.request
+    }
 
-    patchedModules = {}
+    pureModules.clear()
   }
 }

@@ -1873,10 +1873,10 @@ has-values@^1.0.0:
     is-number "^3.0.0"
     kind-of "^4.0.0"
 
-headers-utils@^1.2.0:
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/headers-utils/-/headers-utils-1.2.0.tgz#5e10d1bc9d2bccf789547afca5b991a3167241e8"
-  integrity sha512-4/BMXcWrJErw7JpM87gF8MNEXcIMLzepYZjNRv/P9ctgupl2Ywa3u1PgHtNhSRq84bHH9Ndlkdy7bSi+bZ9I9A==
+headers-utils@^1.2.4:
+  version "1.2.4"
+  resolved "https://registry.yarnpkg.com/headers-utils/-/headers-utils-1.2.4.tgz#2c13d31695f81cb75328dfc89295e128cce052f5"
+  integrity sha512-z1l0UdLhNZVs33v7NtzenJ7M4w0DCk484UaDmepOi4ooNp4353erwn8yzut0MP3TFB3wJFP992Cm4pSbmSui5A==
 
 hosted-git-info@^2.1.4:
   version "2.8.8"

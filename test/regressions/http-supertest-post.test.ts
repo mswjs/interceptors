@@ -1,11 +1,18 @@
 import express from 'express'
 import bodyParser from 'body-parser'
 import supertest from 'supertest'
-import { RequestInterceptor, InterceptedRequest } from '../../src'
-import withDefaultInterceptors from '../../src/presets/default'
+import { createInterceptor } from '../../src'
+import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
+import { IsomoprhicRequest } from '../../src/createInterceptor'
 
-let interceptor: RequestInterceptor
-let pool: InterceptedRequest[] = []
+let pool: IsomoprhicRequest[] = []
+
+const interceptor = createInterceptor({
+  modules: [interceptClientRequest],
+  resolver(request) {
+    pool.push(request)
+  },
+})
 
 const app = express()
 app.use(bodyParser.json())
@@ -14,12 +21,7 @@ app.post('/', (req, res) => {
 })
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  interceptor.use((req) => {
-    pool.push(req)
-  })
+  interceptor.apply()
 })
 
 afterEach(() => {

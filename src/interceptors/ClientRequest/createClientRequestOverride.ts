@@ -2,13 +2,12 @@ import { inherits } from 'util'
 import { Socket } from 'net'
 import http from 'http'
 import { until } from '@open-draft/until'
-import { HeadersObject, reduceHeadersObject } from 'headers-utils'
 import {
-  RequestMiddleware,
-  InterceptedRequest,
-  RequestInterceptorContext,
-  MockedResponse,
-} from '../../glossary'
+  Headers,
+  HeadersObject,
+  objectToHeaders,
+  reduceHeadersObject,
+} from 'headers-utils'
 import { SocketPolyfill } from './polyfills/SocketPolyfill'
 
 /* Utils */
@@ -19,15 +18,22 @@ import { inheritRequestHeaders } from './utils/inheritRequestHeaders'
 import { normalizeHttpRequestParams } from './utils/normalizeHttpRequestParams'
 import { normalizeHttpRequestEndParams } from './utils/normalizeHttpRequestEndParams'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
+import { IsomoprhicRequest, Observer, Resolver } from '../../createInterceptor'
 
 const createDebug = require('debug')
 
-export function createClientRequestOverrideClass(
-  middleware: RequestMiddleware,
-  context: RequestInterceptorContext,
-  performOriginalRequest: typeof http.request,
-  originalClientRequest: typeof http.ClientRequest
+interface CreateClientRequestOverrideOptions {
+  pureClientRequest: typeof http.ClientRequest
+  pureMethod: typeof http.get | typeof http.request
+  observer: Observer
+  resolver: Resolver
+}
+
+export function createClientRequestOverride(
+  options: CreateClientRequestOverrideOptions
 ) {
+  const { pureClientRequest, pureMethod, observer, resolver } = options
+
   function ClientRequestOverride(
     this: http.ClientRequest,
     ...args: Parameters<typeof http.request>
@@ -161,7 +167,7 @@ export function createClientRequestOverrideClass(
       debug('request headers', requestHeaders)
 
       // Construct the intercepted request instance exposed to the request middleware.
-      const formattedRequest: InterceptedRequest = {
+      const formattedRequest: IsomoprhicRequest = {
         url,
         method: options.method || 'GET',
         headers: requestHeaders,
@@ -170,15 +176,15 @@ export function createClientRequestOverrideClass(
 
       debug('awaiting mocked response...')
 
-      const [middlewareException, mockedResponse] = await until(async () =>
-        middleware(formattedRequest, response)
+      const [resolverError, mockedResponse] = await until(async () =>
+        resolver(formattedRequest, response)
       )
 
       // When the request middleware throws an exception, error the request.
       // This cancels the request and is similar to a network error.
-      if (middlewareException) {
-        debug('middleware function threw an exception!', middlewareException)
-        this.emit('error', middlewareException)
+      if (resolverError) {
+        debug('middleware function threw an exception!', resolverError)
+        this.emit('error', resolverError)
 
         return this
       }
@@ -238,10 +244,10 @@ export function createClientRequestOverrideClass(
         response.push(null)
         response.complete = true
 
-        context.emitter.emit('response', formattedRequest, {
+        observer.emit('response', formattedRequest, {
           status: mockedResponse.status || 200,
           statusText: mockedResponse.statusText || 'OK',
-          headers: mockedResponse.headers || {},
+          headers: new Headers(mockedResponse.headers || {}),
           body: mockedResponse.body,
         })
 
@@ -260,8 +266,8 @@ export function createClientRequestOverrideClass(
       debug('original request body (written)', writtenRequestBody)
       debug('original request body (end)', chunk)
 
-      let req: http.ClientRequest
-      debug('using', performOriginalRequest)
+      let request: http.ClientRequest
+      debug('using', pureMethod)
 
       // Decide whether to use HTTPS based on the URL protocol.
       // XHR can trigger http.request for HTTPS URL.
@@ -269,55 +275,54 @@ export function createClientRequestOverrideClass(
         debug('reverting patches...')
         const { ClientRequest } = http
 
-        // @ts-ignore
-        http.ClientRequest = originalClientRequest
+        http.ClientRequest = pureClientRequest
 
-        req = performOriginalRequest(options)
+        request = pureMethod(options)
 
         debug('re-applying patches...')
 
         // @ts-ignore
         http.ClientRequest = ClientRequest
       } else {
-        req = performOriginalRequest(options)
+        request = pureMethod(options)
       }
 
       // Propagate headers set after `ClientRequest` is constructed
       // onto the original request instance.
-      inheritRequestHeaders(req, outHeaders)
+      inheritRequestHeaders(request, outHeaders)
 
       // Propagate a request body buffer written via `req.write()`
       // to the original request.
-      if (requestBodyBuffer.length > 0 && req.writable) {
-        req.write(Buffer.concat(requestBodyBuffer))
+      if (requestBodyBuffer.length > 0 && request.writable) {
+        request.write(Buffer.concat(requestBodyBuffer))
       }
 
-      req.on('finish', () => {
+      request.on('finish', () => {
         this.emit('finish')
       })
 
-      req.on('response', async (response) => {
-        context.emitter.emit('response', formattedRequest, {
+      request.on('response', async (response) => {
+        observer.emit('response', formattedRequest, {
           status: response.statusCode || 200,
           statusText: response.statusMessage || 'OK',
-          headers: response.headers as MockedResponse['headers'],
+          headers: objectToHeaders(response.headers),
           body: await getIncomingMessageBody(response),
         })
       })
 
-      req.on('response', (response) => {
+      request.on('response', (response) => {
         debug(response.statusCode, options.method, url.href)
         this.emit('response', response)
       })
 
-      req.on('error', (error) => {
+      request.on('error', (error) => {
         debug('original request error', error)
         this.emit('error', error)
       })
 
       // Provide a callback when an original request is finished,
       // so it can be debugged.
-      req.end(
+      request.end(
         ...[
           chunk,
           encoding as any,
@@ -328,7 +333,7 @@ export function createClientRequestOverrideClass(
         ].filter(Boolean)
       )
 
-      return req
+      return request
     }
 
     this.abort = () => {
@@ -352,7 +357,7 @@ export function createClientRequestOverrideClass(
     return this
   }
 
-  inherits(ClientRequestOverride, originalClientRequest)
+  inherits(ClientRequestOverride, pureClientRequest)
 
   return ClientRequestOverride
 }

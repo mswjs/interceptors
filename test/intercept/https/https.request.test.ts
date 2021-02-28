@@ -3,14 +3,20 @@
  */
 import { RequestHandler } from 'express'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { RequestInterceptor } from '../../../src'
-import withDefaultInterceptors from '../../../src/presets/default'
-import { InterceptedRequest } from '../../../src/glossary'
+import { createInterceptor } from '../../../src'
+import { IsomoprhicRequest } from '../../../src/createInterceptor'
+import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
 import { prepare, httpsRequest } from '../../helpers'
 
-let requestInterceptor: RequestInterceptor
-let pool: InterceptedRequest[] = []
+let pool: IsomoprhicRequest[] = []
 let server: ServerApi
+
+const interceptor = createInterceptor({
+  modules: [interceptClientRequest],
+  resolver(request) {
+    pool.push(request)
+  },
+})
 
 beforeAll(async () => {
   server = await createServer((app) => {
@@ -26,12 +32,7 @@ beforeAll(async () => {
     app.head('/user', handleUserRequest)
   })
 
-  requestInterceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  requestInterceptor.use((req) => {
-    pool.push(req)
-  })
+  interceptor.apply()
 })
 
 afterEach(() => {
@@ -39,7 +40,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  requestInterceptor.restore()
+  interceptor.restore()
   await server.close()
 })
 

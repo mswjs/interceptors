@@ -54,37 +54,40 @@ npm install node-request-interceptor
 
 ## API
 
-### `RequestInterceptor(interceptors: Interceptor[])`
+### `createInterceptor(options: CreateInterceptorOptions)`
 
 ```js
-import { RequestInterceptor } from 'node-request-interceptor'
-import withDefaultInterceptors from 'node-request-interceptor/lib/presets/default'
+import { createInterceptor } from 'node-request-interceptor'
+import nodeInterceptors from 'node-request-interceptor/lib/presets/node'
 
-const interceptor = new RequestInterceptor({
-  modules: withDefaultInterceptors,
+const interceptor = createInterceptor({
+  modules: nodeInterceptors,
+  resolver(request, ref) {
+    // Optionally, return a mocked response.
+  },
 })
 ```
 
-> Using the `/presets/default` interceptors preset is the recommended way to ensure all requests get intercepted, regardless of their origin.
+> Using the `/presets/node` interceptors preset is the recommended way to ensure all requests get intercepted, regardless of their origin.
 
 ### Interceptors
 
-This library utilizes a concept of an _interceptor_–a module that performs necessary patching, handles a mocked response, and restores patched instances.
+This library utilizes a concept of _interceptors_–functions that patch necessary modules, handle mocked responses, and restore patched modules.
 
-**The list of interceptors:**
+**List of interceptors:**
 
 - `/interceptors/ClientRequest`
 - `/interceptors/XMLHttpRequest`
 
-To use one, or multiple interceptors, import and provide them to the `RequestInterceptor` constructor.
+To use a single, or multiple interceptors, import and provide them to the `RequestInterceptor` constructor.
 
 ```js
-import { RequestInterceptor } from 'node-request-interceptor'
+import { createInterceptor } from 'node-request-interceptor'
 import { interceptXMLHttpRequest } from 'node-request-interceptor/lib/interceptors/XMLHttpRequest'
 
 // This `interceptor` instance would handle only XMLHttpRequest,
 // ignoring requests issued via `http`/`https` modules.
-const interceptor = new RequestInterceptor({
+const interceptor = new createInterceptor({
   modules: [interceptXMLHttpRequest],
 })
 ```
@@ -93,39 +96,24 @@ const interceptor = new RequestInterceptor({
 
 ### Methods
 
-#### `.use(middleware: (req: InterceptedRequest, ref: IncomingMessage | XMLHttpRequest) => MockedResponse): void`
+#### `.apply(): void`
 
-Applies a given middleware function to an intercepted request. May return a [`MockedResponse`](#MockedResponse) object that is going to be used to respond to an intercepted request.
-
-##### Requests monitoring
+Applies module patches and enabled interception of the requests.
 
 ```js
-interceptor.use((req) => {
-  // Will print to stdout any outgoing requests
-  // without affecting their responses
-  console.log('%s %s', req.method, req.url.href)
-})
+interceptor.apply()
 ```
 
-##### Response mocking
+#### `.on(event, listener): boolean`
 
-When a request middleware returns a [`MockedResponse`](#MockedResponse) object, it will be returned as the response to the intercepted request. This library automatically creates a proper response instance according to the request issuing module (`http`/`XMLHttpRequest`).
+Adds an event listener to one of the following supported events:
+
+- `request`, whenever a new request happens.
+- `response`, whenever a request library responds to a request.
 
 ```js
-interceptor.use((req) => {
-  if (['https://google.com'].includes(req.url.origin)) {
-    // Will return a mocked response for any request
-    // that is issued from the "https://google.com" origin.
-    return {
-      status: 301,
-      headers: {
-        'x-powered-by': 'node-request-interceptor',
-      },
-      body: JSON.stringify({
-        message: 'Hey, I am a mocked response',
-      }),
-    }
-  }
+interceptor.on('request', (request) => {
+  console.log('[%s] %s', request.method, request.url.toString())
 })
 ```
 
@@ -135,34 +123,6 @@ Restores all patched modules and stops the interception of any future requests.
 
 ```js
 interceptor.restore()
-```
-
----
-
-### `InterceptedRequest`
-
-```ts
-interface InterceptedRequest {
-  url: URL
-  method: string
-  headers?: http.OutgoingHttpHeaders
-  body?: string
-}
-```
-
----
-
-### `MockedResponse`
-
-Whenever a `MockedResponse` object is returned from the request middleware function, it's being used to constructs a relevant response for the intercepted request.
-
-```ts
-interface MockedResponse {
-  status?: number
-  statusText?: string
-  headers?: Record<string, string | string[]>
-  body?: string
-}
 ```
 
 ## Special mention

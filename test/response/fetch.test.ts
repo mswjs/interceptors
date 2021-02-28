@@ -3,11 +3,27 @@
  */
 import fetch from 'node-fetch'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { RequestInterceptor } from '../../src'
-import withDefaultInterceptors from '../../src/presets/default'
+import { createInterceptor } from '../../src'
+import nodeInterceptors from '../../src/presets/node'
 
-let interceptor: RequestInterceptor
 let server: ServerApi
+
+const interceptor = createInterceptor({
+  modules: nodeInterceptors,
+  resolver(request) {
+    if (
+      [server.http.makeUrl(), server.https.makeUrl()].includes(request.url.href)
+    ) {
+      return {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/hal+json',
+        },
+        body: JSON.stringify({ mocked: true }),
+      }
+    }
+  },
+})
 
 beforeAll(async () => {
   server = await createServer((app) => {
@@ -20,23 +36,8 @@ beforeAll(async () => {
   })
 })
 
-beforeEach(async () => {
-  interceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  interceptor.use((req) => {
-    if (
-      [server.http.makeUrl(), server.https.makeUrl()].includes(req.url.href)
-    ) {
-      return {
-        status: 201,
-        headers: {
-          'Content-Type': 'application/hal+json',
-        },
-        body: JSON.stringify({ mocked: true }),
-      }
-    }
-  })
+beforeEach(() => {
+  interceptor.apply()
 })
 
 afterEach(async () => {
@@ -97,9 +98,12 @@ test('bypasses any request when the interceptor is restored', async () => {
 })
 
 test('does not throw an error if there are multiple interceptors', async () => {
-  const secondInterceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
+  const secondInterceptor = createInterceptor({
+    modules: nodeInterceptors,
+    resolver() {},
   })
+  secondInterceptor.apply()
+
   let res = await fetch(server.https.makeUrl('/get'), { agent: httpsAgent })
   let body = await res.json()
 

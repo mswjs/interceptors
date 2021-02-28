@@ -1,9 +1,9 @@
 import { RequestOptions } from 'https'
 import { Url as LegacyURL } from 'url'
-import { HttpRequestCallback, RequestSelf } from '../../../glossary'
 import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
 import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions'
 import { isObject } from '../../../utils/isObject'
+import { HttpRequestCallback, RequestSelf } from '../ClientRequest.glossary'
 
 const debug = require('debug')('http normalizeHttpRequestParams')
 

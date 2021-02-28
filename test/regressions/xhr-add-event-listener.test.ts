@@ -1,20 +1,17 @@
 /**
  * @see https://github.com/mswjs/msw/issues/273
  */
-import { RequestInterceptor } from '../../src'
-import withDefaultInterceptors from '../../src/presets/default'
+import { createInterceptor } from '../../src'
+import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../helpers'
 
-let interceptor: RequestInterceptor
-
-beforeAll(() => {
-  interceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  interceptor.use((req) => {
-    if (req.url.href === 'https://test.mswjs.io/user') {
+const interceptor = createInterceptor({
+  modules: [interceptXMLHttpRequest],
+  resolver(request) {
+    if (request.url.href === 'https://test.mswjs.io/user') {
       return {
         status: 200,
+        statusText: 'OK',
         headers: {
           'content-type': 'application/json',
           'x-header': 'yes',
@@ -24,7 +21,11 @@ beforeAll(() => {
         }),
       }
     }
-  })
+  },
+})
+
+beforeAll(() => {
+  interceptor.apply()
 })
 
 afterAll(() => {

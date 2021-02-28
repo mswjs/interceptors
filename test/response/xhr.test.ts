@@ -1,10 +1,34 @@
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { RequestInterceptor } from '../../src'
-import withDefaultInterceptors from '../../src/presets/default'
+import { createInterceptor } from '../../src'
+import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../helpers'
 
-let interceptor: RequestInterceptor
 let server: ServerApi
+
+const interceptor = createInterceptor({
+  modules: [interceptXMLHttpRequest],
+  resolver(request) {
+    const shouldMock =
+      [server.http.makeUrl(), server.https.makeUrl()].includes(
+        request.url.href
+      ) || ['/login'].includes(request.url.pathname)
+
+    if (shouldMock) {
+      return {
+        status: 301,
+        statusText: 'Moved Permantently',
+        headers: {
+          'Content-Type': 'application/hal+json',
+        },
+        body: 'foo',
+      }
+    }
+
+    if (request.url.href === 'https://error.me/') {
+      throw new Error('Custom exception message')
+    }
+  },
+})
 
 beforeAll(async () => {
   // @ts-ignore
@@ -20,28 +44,7 @@ beforeAll(async () => {
     })
   })
 
-  interceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  interceptor.use((req) => {
-    const shouldMock =
-      [server.http.makeUrl(), server.https.makeUrl()].includes(req.url.href) ||
-      ['/login'].includes(req.url.pathname)
-
-    if (shouldMock) {
-      return {
-        status: 301,
-        headers: {
-          'Content-Type': 'application/hal+json',
-        },
-        body: 'foo',
-      }
-    }
-
-    if (req.url.href === 'https://error.me/') {
-      throw new Error('Custom exception message')
-    }
-  })
+  interceptor.apply()
 })
 
 afterAll(async () => {

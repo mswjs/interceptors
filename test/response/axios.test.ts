@@ -1,15 +1,11 @@
 import axios from 'axios'
-import { RequestInterceptor } from '../../src'
-import withDefaultInterceptors from '../../src/presets/default'
+import { createInterceptor } from '../../src'
+import nodeInterceptors from '../../src/presets/node'
 
-let interceptor: RequestInterceptor
-
-beforeAll(() => {
-  interceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  interceptor.use((req) => {
-    if (req.url.pathname === '/user') {
+const interceptor = createInterceptor({
+  modules: nodeInterceptors,
+  resolver(request) {
+    if (request.url.pathname === '/user') {
       return {
         status: 200,
         headers: {
@@ -21,7 +17,11 @@ beforeAll(() => {
         }),
       }
     }
-  })
+  },
+})
+
+beforeAll(() => {
+  interceptor.apply()
 })
 
 afterAll(() => {
