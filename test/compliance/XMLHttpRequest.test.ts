@@ -1,12 +1,13 @@
-import { RequestInterceptor } from '../../src'
+import { createInterceptor } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 
-let interceptor: RequestInterceptor
+const interceptor = createInterceptor({
+  modules: [interceptXMLHttpRequest],
+  resolver() {},
+})
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor({
-    modules: [interceptXMLHttpRequest],
-  })
+  interceptor.apply()
 })
 
 afterAll(() => {

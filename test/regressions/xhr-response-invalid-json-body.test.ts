@@ -1,15 +1,11 @@
-import { RequestInterceptor } from '../../src'
-import withDefaultInterceptors from '../../src/presets/default'
+import { createInterceptor } from '../../src'
+import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../helpers'
 
-let interceptor: RequestInterceptor
-
-beforeAll(() => {
-  interceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  interceptor.use((req) => {
-    switch (req.url.pathname) {
+const interceptor = createInterceptor({
+  modules: [interceptXMLHttpRequest],
+  resolver(request) {
+    switch (request.url.pathname) {
       case '/no-body': {
         return {
           status: 204,
@@ -25,7 +21,11 @@ beforeAll(() => {
         }
       }
     }
-  })
+  },
+})
+
+beforeAll(() => {
+  interceptor.apply()
 })
 
 afterAll(() => {

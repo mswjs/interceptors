@@ -2,30 +2,17 @@
  * @jest-environment node
  */
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { RequestInterceptor } from '../../src'
+import { createInterceptor } from '../../src'
 import { httpGet, httpRequest } from '../helpers'
-import withDefaultInterceptors from '../../src/presets/default'
+import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 
-let interceptor: RequestInterceptor
 let server: ServerApi
 
-beforeAll(async () => {
-  // Establish a local actual server.
-  server = await createServer((app) => {
-    app.get('/', (req, res) => {
-      res.status(200).send('/')
-    })
-    app.get('/get', (req, res) => {
-      res.status(200).send('/get')
-    })
-  })
-  const serverUrl = server.http.makeUrl()
-
-  interceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  interceptor.use((req) => {
-    if ([serverUrl].includes(req.url.href)) {
+const interceptor = createInterceptor({
+  modules: [interceptClientRequest],
+  resolver(request) {
+    const serverUrl = server.http.makeUrl()
+    if ([serverUrl].includes(request.url.href)) {
       return {
         status: 301,
         statusText: 'Moved Permanently',
@@ -36,10 +23,23 @@ beforeAll(async () => {
       }
     }
 
-    if (req.url.href === 'http://error.me/') {
+    if (request.url.href === 'http://error.me/') {
       throw new Error('Custom exception message')
     }
+  },
+})
+
+beforeAll(async () => {
+  server = await createServer((app) => {
+    app.get('/', (req, res) => {
+      res.status(200).send('/')
+    })
+    app.get('/get', (req, res) => {
+      res.status(200).send('/get')
+    })
   })
+
+  interceptor.apply()
 })
 
 afterAll(async () => {

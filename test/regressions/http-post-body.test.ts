@@ -4,13 +4,21 @@
  */
 import https from 'https'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { RequestInterceptor, InterceptedRequest } from '../../src'
-import withDefaultInterceptors from '../../src/presets/default'
+import { createInterceptor } from '../../src'
+import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 import { getRequestOptionsByUrl } from '../../src/utils/getRequestOptionsByUrl'
+import { IsomoprhicRequest } from '../../src/createInterceptor'
 
-let interceptor: RequestInterceptor
-let pool: InterceptedRequest[] = []
+let pool: IsomoprhicRequest[] = []
 let server: ServerApi
+
+const interceptor = createInterceptor({
+  modules: [interceptClientRequest],
+  resolver(request) {
+    // All requests in this test are bypassed.
+    pool.push(request)
+  },
+})
 
 beforeAll(async () => {
   server = await createServer((app) => {
@@ -19,13 +27,7 @@ beforeAll(async () => {
     })
   })
 
-  interceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  interceptor.use((req) => {
-    // All requests in this test are bypassed.
-    pool.push(req)
-  })
+  interceptor.apply()
 })
 
 afterEach(() => {

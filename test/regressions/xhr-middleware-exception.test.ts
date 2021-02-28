@@ -3,18 +3,18 @@
  */
 import fetch from 'node-fetch'
 import axios from 'axios'
-import { RequestInterceptor } from '../../src'
-import withDefaultInterceptors from '../../src/presets/default'
+import { createInterceptor } from '../../src'
+import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 
-let interceptor: RequestInterceptor
+const interceptor = createInterceptor({
+  modules: [interceptXMLHttpRequest],
+  resolver() {
+    throw new Error('Custom error message')
+  },
+})
 
 beforeAll(() => {
-  interceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  interceptor.use(() => {
-    throw new Error('Custom error message')
-  })
+  interceptor.apply()
 })
 
 afterAll(() => {

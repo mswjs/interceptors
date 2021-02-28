@@ -1,10 +1,14 @@
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { RequestInterceptor } from '../../src'
+import { createInterceptor } from '../../src'
 import { createXMLHttpRequest } from '../helpers'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 
 let server: ServerApi
-let interceptor: RequestInterceptor
+
+const interceptor = createInterceptor({
+  modules: [interceptXMLHttpRequest],
+  resolver() {},
+})
 
 beforeAll(async () => {
   server = await createServer((app) => {
@@ -17,9 +21,7 @@ beforeAll(async () => {
     })
   })
 
-  interceptor = new RequestInterceptor({
-    modules: [interceptXMLHttpRequest],
-  })
+  interceptor.apply()
 })
 
 afterAll(async () => {

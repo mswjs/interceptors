@@ -1,14 +1,10 @@
-import { RequestInterceptor } from '../../src'
-import withDefaultInterceptors from '../../src/presets/default'
+import { createInterceptor } from '../../src'
+import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest, readBlob } from '../helpers'
 
-let requestInterceptor: RequestInterceptor
-
-beforeAll(() => {
-  requestInterceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  requestInterceptor.use((req) => {
+const interceptor = createInterceptor({
+  modules: [interceptXMLHttpRequest],
+  resolver() {
     return {
       headers: {
         'Content-Type': 'application/json',
@@ -18,11 +14,15 @@ beforeAll(() => {
         lastName: 'Maverick',
       }),
     }
-  })
+  },
+})
+
+beforeAll(() => {
+  interceptor.apply()
 })
 
 afterAll(() => {
-  requestInterceptor.restore()
+  interceptor.restore()
 })
 
 test('responds with an object when "responseType" equals "json"', async () => {

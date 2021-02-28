@@ -1,21 +1,27 @@
 import { RequestHandler } from 'express'
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { RequestInterceptor } from '../../../src'
-import withDefaultInterceptors from '../../../src/presets/default'
-import { InterceptedRequest } from '../../../src/glossary'
+import { createInterceptor } from '../../../src'
+import { interceptXMLHttpRequest } from '../../../src/interceptors/XMLHttpRequest'
 import { findRequest, createXMLHttpRequest } from '../../helpers'
+import { IsomoprhicRequest } from '../../../src/createInterceptor'
 
 function lookupRequest(
   req: XMLHttpRequest,
   method: string,
-  pool: InterceptedRequest[]
-): InterceptedRequest | undefined {
+  pool: IsomoprhicRequest[]
+): IsomoprhicRequest | undefined {
   return findRequest(pool, method, req.responseURL)
 }
 
-let requestInterceptor: RequestInterceptor
-let pool: InterceptedRequest[] = []
+let pool: IsomoprhicRequest[] = []
 let server: ServerApi
+
+const inteerceptor = createInterceptor({
+  modules: [interceptXMLHttpRequest],
+  resolver(request) {
+    pool.push(request)
+  },
+})
 
 beforeAll(async () => {
   // @ts-ignore
@@ -35,12 +41,7 @@ beforeAll(async () => {
     app.head('/user', handleUserRequest)
   })
 
-  requestInterceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  requestInterceptor.use((req) => {
-    pool.push(req)
-  })
+  inteerceptor.apply()
 })
 
 afterEach(() => {
@@ -48,7 +49,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  requestInterceptor.restore()
+  inteerceptor.restore()
   await server.close()
 })
 

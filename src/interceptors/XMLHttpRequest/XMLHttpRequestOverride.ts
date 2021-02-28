@@ -9,12 +9,9 @@ import {
   HeadersObject,
   headersToObject,
   stringToHeaders,
+  Headers,
 } from 'headers-utils'
-import {
-  RequestMiddleware,
-  InterceptedRequest,
-  RequestInterceptorContext,
-} from '../../glossary'
+import { IsomoprhicRequest, Observer, Resolver } from '../../createInterceptor'
 import { parseJson } from '../../utils/parseJson'
 import { createEvent } from './helpers/createEvent'
 
@@ -30,11 +27,16 @@ interface XMLHttpRequestEvent<EventMap extends any> {
   listener: XMLHttpRequestEventHandler
 }
 
+interface CreateXMLHttpRequestOverrideOptions {
+  pureXMLHttpRequest: typeof window.XMLHttpRequest
+  observer: Observer
+  resolver: Resolver
+}
+
 export const createXMLHttpRequestOverride = (
-  middleware: RequestMiddleware,
-  context: RequestInterceptorContext,
-  XMLHttpRequestPristine: typeof window.XMLHttpRequest
+  options: CreateXMLHttpRequestOverrideOptions
 ) => {
+  const { pureXMLHttpRequest, observer, resolver } = options
   let debug = createDebug('XHR')
 
   return class XMLHttpRequestOverride implements XMLHttpRequest {
@@ -236,7 +238,7 @@ export const createXMLHttpRequestOverride = (
       debug('request headers', requestHeaders)
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
-      const req: InterceptedRequest = {
+      const req: IsomoprhicRequest = {
         url,
         method: this.method,
         body: this.data,
@@ -245,7 +247,7 @@ export const createXMLHttpRequestOverride = (
 
       debug('awaiting mocked response...')
 
-      Promise.resolve(until(async () => middleware(req, this))).then(
+      Promise.resolve(until(async () => resolver(req, this))).then(
         ([middlewareException, mockedResponse]) => {
           // When the request middleware throws an exception, error the request.
           // This cancels the request and is similar to a network error.
@@ -307,17 +309,17 @@ export const createXMLHttpRequestOverride = (
             this.trigger('load')
             this.trigger('loadend')
 
-            context.emitter.emit('response', req, {
+            observer.emit('response', req, {
               status: this.status,
               statusText: this.statusText,
-              headers: mockedResponse.headers || {},
+              headers: new Headers(mockedResponse.headers || {}),
               body: mockedResponse.body,
             })
           } else {
             debug('no mocked response received')
 
             // Perform an original request, when the request middleware returned no mocked response.
-            const originalRequest = new XMLHttpRequestPristine()
+            const originalRequest = new pureXMLHttpRequest()
 
             debug('opening an original request %s %s', this.method, this.url)
             originalRequest.open(
@@ -357,15 +359,13 @@ export const createXMLHttpRequestOverride = (
               )
               debug('original response headers', responseHeaders)
 
-              const normalizedResponseHeaders = headersToObject(
-                stringToHeaders(responseHeaders)
-              )
+              const normalizedResponseHeaders = stringToHeaders(responseHeaders)
               debug(
                 'original response headers (normalized)',
                 normalizedResponseHeaders
               )
 
-              context.emitter.emit('response', req, {
+              observer.emit('response', req, {
                 status: originalRequest.status,
                 statusText: originalRequest.statusText,
                 headers: normalizedResponseHeaders,
@@ -422,7 +422,9 @@ export const createXMLHttpRequestOverride = (
       const headerValue = Object.entries(this.responseHeaders).reduce<
         string | null
       >((_, [headerName, headerValue]) => {
-        return (headerName.toLowerCase() === name.toLowerCase()) ? headerValue : null
+        return headerName.toLowerCase() === name.toLowerCase()
+          ? headerValue
+          : null
       }, null)
 
       debug('resolved response header', name, headerValue, this.responseHeaders)

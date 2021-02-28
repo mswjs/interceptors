@@ -2,12 +2,31 @@
  * @jest-environment node
  */
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { RequestInterceptor } from '../../src'
+import { createInterceptor } from '../../src'
 import { httpsGet, httpsRequest } from '../helpers'
-import withDefaultInterceptors from '../../src/presets/default'
+import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 
-let interceptor: RequestInterceptor
 let server: ServerApi
+
+const interceptor = createInterceptor({
+  modules: [interceptClientRequest],
+  resolver(request) {
+    if ([server.https.makeUrl()].includes(request.url.href)) {
+      return {
+        status: 400,
+        statusText: 'Bad Request',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mocked: true }),
+      }
+    }
+
+    if (request.url.href === 'https://error.me/') {
+      throw new Error('Custom exception message')
+    }
+  },
+})
 
 beforeAll(async () => {
   server = await createServer((app) => {
@@ -19,25 +38,7 @@ beforeAll(async () => {
     })
   })
 
-  interceptor = new RequestInterceptor({
-    modules: withDefaultInterceptors,
-  })
-  interceptor.use((req) => {
-    if ([server.https.makeUrl()].includes(req.url.href)) {
-      return {
-        status: 400,
-        statusText: 'Bad Request',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ mocked: true }),
-      }
-    }
-
-    if (req.url.href === 'https://error.me/') {
-      throw new Error('Custom exception message')
-    }
-  })
+  interceptor.apply()
 })
 
 afterAll(async () => {

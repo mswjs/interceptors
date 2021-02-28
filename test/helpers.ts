@@ -2,9 +2,9 @@ import https from 'https'
 import http, { IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
-import { InterceptedRequest } from '../src/glossary'
 import { getCleanUrl } from '../src/utils/getCleanUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
+import { IsomoprhicRequest } from '../src/createInterceptor'
 
 interface PromisifiedResponse {
   res: IncomingMessage
@@ -140,10 +140,10 @@ export async function fetch(
 }
 
 export function findRequest(
-  pool: InterceptedRequest[],
+  pool: IsomoprhicRequest[],
   method: string = 'GET',
   url: string
-): InterceptedRequest | undefined {
+): IsomoprhicRequest | undefined {
   const parsedUrl = new URL(url)
   const expectedUrl = getCleanUrl(parsedUrl)
 
@@ -157,8 +157,8 @@ export function findRequest(
 
 export async function prepare(
   promise: Promise<PromisifiedResponse>,
-  pool: InterceptedRequest[]
-): Promise<InterceptedRequest | undefined> {
+  pool: IsomoprhicRequest[]
+): Promise<IsomoprhicRequest | undefined> {
   const { url, options } = await promise
   return findRequest(pool, options.method, url)
 }
