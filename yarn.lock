@@ -476,7 +476,7 @@
     "@types/yargs" "^15.0.0"
     chalk "^3.0.0"
 
-"@open-draft/test-server@^0.2.1":
+"@open-draft/test-server@^0.2.3":
   version "0.2.3"
   resolved "https://registry.yarnpkg.com/@open-draft/test-server/-/test-server-0.2.3.tgz#5074f257db4dcfd20cdef59ad2ad5d842262821f"
   integrity sha512-vURlfBwFEuUOjvqSzICo3Q5Q0CF9/44dM0MuOFpGtl2iriTe3LuzR1dppYvT3A157WH4ejxVVNH0PIeyGhE55w==

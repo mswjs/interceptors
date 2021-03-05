@@ -3,17 +3,10 @@
  */
 import * as path from 'path'
 import { RequestHandler } from 'express'
-import { createServer, httpsAgent, ServerApi } from '@open-draft/test-server'
-import {
-  createBrowser,
-  CreateBrowserApi,
-  pageWith,
-  ScenarioApi,
-} from 'page-with'
+import { createServer, ServerApi } from '@open-draft/test-server'
+import { pageWith, ScenarioApi } from 'page-with'
 import { IsomoprhicRequest } from '../../../src'
 import { findRequest } from '../../helpers'
-
-const webpackConfig = require('../../webpack.config')
 
 declare namespace window {
   export const pool: Array<SerializedIsomorphicRequest>
@@ -23,7 +16,6 @@ type SerializedIsomorphicRequest = Omit<IsomoprhicRequest, 'url'> & {
   url: string
 }
 
-let browser: CreateBrowserApi
 let server: ServerApi
 
 function deserializeRequest(
@@ -62,19 +54,9 @@ beforeAll(async () => {
     app.patch('/user', handleRequest)
     app.head('/user', handleRequest)
   })
-
-  browser = await createBrowser({
-    launchOptions: {
-      args: ['--allow-insecure-localhost'],
-    },
-    serverOptions: {
-      webpackConfig,
-    },
-  })
 })
 
 afterAll(async () => {
-  await browser.cleanup()
   await server.close()
 })
 
@@ -100,7 +82,7 @@ describe('HTTP', () => {
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
-    expect(await response.text()).toBe('user-body')
+    expect(response.text()).resolves.toBe('user-body')
   })
 
   test('intercepts an HTTP POST request', async () => {
@@ -130,7 +112,7 @@ describe('HTTP', () => {
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
-    expect(await response.text()).toBe('user-body')
+    expect(response.text()).resolves.toBe('user-body')
   })
 
   test('intercepts an HTTP PUT request', async () => {
@@ -160,7 +142,7 @@ describe('HTTP', () => {
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
-    expect(await response.text()).toBe('user-body')
+    expect(response.text()).resolves.toBe('user-body')
   })
 
   test('intercepts an HTTP PATCH request', async () => {
@@ -190,7 +172,7 @@ describe('HTTP', () => {
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
-    expect(await response.text()).toBe('user-body')
+    expect(response.text()).resolves.toBe('user-body')
   })
 
   test('intercepts an HTTP DELETE request', async () => {
@@ -220,7 +202,7 @@ describe('HTTP', () => {
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
-    expect(await response.text()).toBe('user-body')
+    expect(response.text()).resolves.toBe('user-body')
   })
 })
 
@@ -246,7 +228,7 @@ describe('HTTPS', () => {
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
-    expect(await response.text()).toBe('user-body')
+    expect(response.text()).resolves.toBe('user-body')
   })
 
   test('intercepts an HTTPS POST request', async () => {
@@ -276,7 +258,7 @@ describe('HTTPS', () => {
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
-    expect(await response.text()).toBe('user-body')
+    expect(response.text()).resolves.toBe('user-body')
   })
 
   test('intercepts an HTTPS PUT request', async () => {
@@ -306,7 +288,7 @@ describe('HTTPS', () => {
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
-    expect(await response.text()).toBe('user-body')
+    expect(response.text()).resolves.toBe('user-body')
   })
 
   test('intercepts an HTTPS PATCH request', async () => {
@@ -336,7 +318,7 @@ describe('HTTPS', () => {
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
-    expect(await response.text()).toBe('user-body')
+    expect(response.text()).resolves.toBe('user-body')
   })
 
   test('intercepts an HTTPS DELETE request', async () => {
@@ -366,6 +348,6 @@ describe('HTTPS', () => {
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
-    expect(await response.text()).toBe('user-body')
+    expect(response.text()).resolves.toBe('user-body')
   })
 })

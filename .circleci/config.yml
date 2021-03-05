@@ -19,11 +19,17 @@ jobs:
           name: Installing dependencies
           command: yarn install
       - run:
-          name: Testing the library
-          command: yarn test
+          name: Internal tests
+          command: yarn test:internal
       - run:
           name: Building the library
           command: yarn build
+      - run:
+          name: Node.js tests
+          command: yarn test:integration:node
+      - run:
+          name: Browser tests
+          command: yarn test:integration:browser
 
 workflows:
   build-and-test:
