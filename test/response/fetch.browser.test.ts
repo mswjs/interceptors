@@ -1,10 +1,8 @@
 import * as path from 'path'
-import { createBrowser, CreateBrowserApi, pageWith } from 'page-with'
+import { pageWith } from 'page-with'
 import { createServer, ServerApi } from '@open-draft/test-server'
 import { listToHeaders } from 'headers-utils/lib'
 import { InterceptorApi } from '../../src'
-
-const webpackConfig = require('../webpack.config')
 
 declare namespace window {
   export const interceptor: InterceptorApi
@@ -21,7 +19,6 @@ interface SerializedResponse {
   json?: Record<string, any>
 }
 
-let browser: CreateBrowserApi
 let server: ServerApi
 
 async function prepareRuntime() {
@@ -41,15 +38,6 @@ async function prepareRuntime() {
 }
 
 beforeAll(async () => {
-  browser = await createBrowser({
-    launchOptions: {
-      args: ['--allow-insecure-localhost'],
-    },
-    serverOptions: {
-      webpackConfig,
-    },
-  })
-
   server = await createServer((app) => {
     app.get('/', (req, res) => {
       res.status(200).json({ route: '/' }).end()
@@ -61,7 +49,6 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await browser.cleanup()
   await server.close()
 })
 

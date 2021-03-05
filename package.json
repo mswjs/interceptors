@@ -8,7 +8,11 @@
   "license": "MIT",
   "scripts": {
     "start": "tsc --build -w",
-    "test": "jest --no-cache --runInBand",
+    "test": "yarn test:internal && yarn test:integration",
+    "test:internal": "jest",
+    "test:integration": "yarn test:integration:node && yarn test:integration:browser",
+    "test:integration:node": "jest --c test/jest.node.config.js --runInBand",
+    "test:integration:browser": "jest --c test/jest.browser.config.js",
     "clean": "rimraf lib",
     "build": "yarn clean && tsc --build",
     "prepublishOnly": "yarn test && yarn build"
@@ -22,7 +26,7 @@
     "url": "https://github.com/mswjs/node-request-interceptor"
   },
   "devDependencies": {
-    "@open-draft/test-server": "^0.2.1",
+    "@open-draft/test-server": "^0.2.3",
     "@types/cors": "^2.8.7",
     "@types/express": "^4.17.8",
     "@types/jest": "^25.2.1",

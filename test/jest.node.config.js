@@ -1,6 +1,6 @@
 module.exports = {
-  rootDir: 'src',
-  testMatch: ['**/*.test.ts'],
+  testTimeout: 60000,
+  testRegex: '(?<!browser.*)(\\.test)\\.ts$',
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
