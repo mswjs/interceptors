@@ -9,7 +9,7 @@ import {
   HeadersObject,
   headersToObject,
   stringToHeaders,
-  Headers,
+  objectToHeaders,
 } from 'headers-utils'
 import { IsomoprhicRequest, Observer, Resolver } from '../../createInterceptor'
 import { parseJson } from '../../utils/parseJson'
@@ -312,7 +312,7 @@ export const createXMLHttpRequestOverride = (
             observer.emit('response', req, {
               status: this.status,
               statusText: this.statusText,
-              headers: new Headers(mockedResponse.headers || {}),
+              headers: objectToHeaders(mockedResponse.headers || {}),
               body: mockedResponse.body,
             })
           } else {
@@ -361,6 +361,7 @@ export const createXMLHttpRequestOverride = (
               debug('original response headers', responseHeaders)
 
               const normalizedResponseHeaders = stringToHeaders(responseHeaders)
+
               debug(
                 'original response headers (normalized)',
                 normalizedResponseHeaders

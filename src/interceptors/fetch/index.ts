@@ -1,0 +1,94 @@
+import {
+  flattenHeadersObject,
+  Headers,
+  headersToObject,
+  objectToHeaders,
+} from 'headers-utils'
+import {
+  Interceptor,
+  IsomoprhicRequest,
+  IsomoprhicResponse,
+  MockedResponse,
+} from '../../createInterceptor'
+
+const debug = require('debug')('fetch')
+
+export const interceptFetch: Interceptor = (observer, resolver) => {
+  const pureFetch = window.fetch
+
+  debug('replacing "window.fetch"...')
+
+  window.fetch = async (input, init) => {
+    const url = typeof input === 'string' ? input : input.url
+    const method = init?.method || 'GET'
+
+    debug('[%s] %s', method, url)
+
+    const request: IsomoprhicRequest = {
+      url: new URL(url, location.origin),
+      method: method,
+      headers: init?.headers ? headersToObject(new Headers(init.headers)) : {},
+      /**
+       * @todo Handle non-string request bodies: Blob, ArrayBuffer, ReadableStream.
+       */
+      body: init?.body?.toString(),
+    }
+    debug('isomorphic request', request)
+
+    observer.emit('request', request)
+
+    debug('awaiting for the mocked response...')
+
+    const response = await resolver(request, null)
+    debug('mocked response', response)
+
+    if (response) {
+      const isomorphicResponse = normalizeMockedResponse(response)
+      debug('derived isomorphic response', isomorphicResponse)
+
+      observer.emit('response', request, isomorphicResponse)
+
+      return new Response(response.body, {
+        ...isomorphicResponse,
+        // `Response.headers` cannot be instantiated with the `Headers` polyfill.
+        // Apparently, it halts if the `Headers` class contains unknown properties
+        // (i.e. the internal `Headers.map`).
+        headers: flattenHeadersObject(response.headers || {}),
+      })
+    }
+
+    debug('no mocked response found, bypassing...')
+
+    return pureFetch(input, init).then(async (response) => {
+      debug('original fetch perofrmed', response)
+
+      observer.emit('response', request, await normalizeFetchResponse(response))
+      return response
+    })
+  }
+
+  return () => {
+    debug('restoring modules...')
+    window.fetch = pureFetch
+  }
+}
+
+function normalizeMockedResponse(response: MockedResponse): IsomoprhicResponse {
+  return {
+    status: response.status || 200,
+    statusText: response.statusText || 'OK',
+    headers: objectToHeaders(response.headers || {}),
+    body: response.body,
+  }
+}
+
+async function normalizeFetchResponse(
+  response: Response
+): Promise<IsomoprhicResponse> {
+  return {
+    status: response.status,
+    statusText: response.statusText,
+    headers: objectToHeaders(headersToObject(response.headers)),
+    body: await response.text(),
+  }
+}
