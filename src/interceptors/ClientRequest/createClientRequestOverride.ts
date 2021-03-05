@@ -3,7 +3,6 @@ import { Socket } from 'net'
 import http from 'http'
 import { until } from '@open-draft/until'
 import {
-  Headers,
   HeadersObject,
   objectToHeaders,
   reduceHeadersObject,
@@ -257,7 +256,7 @@ export function createClientRequestOverride(
         observer.emit('response', formattedRequest, {
           status: mockedResponse.status || 200,
           statusText: mockedResponse.statusText || 'OK',
-          headers: new Headers(mockedResponse.headers || {}),
+          headers: objectToHeaders(mockedResponse.headers || {}),
           body: mockedResponse.body,
         })
 
@@ -354,7 +353,7 @@ export function createClientRequestOverride(
         return
       }
 
-      this.aborted = Date.now()
+      this.aborted = true
 
       const error = new Error() as NodeJS.ErrnoException
       error.code = 'aborted'

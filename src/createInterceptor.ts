@@ -1,5 +1,5 @@
 import { IncomingMessage } from 'http'
-import { Headers, HeadersObject } from 'headers-utils'
+import { HeadersObject, Headers } from 'headers-utils'
 import { StrictEventEmitter } from 'strict-event-emitter'
 
 export type Interceptor = (
@@ -40,7 +40,7 @@ interface InterceptorEventsMap {
 
 export type Resolver = (
   request: IsomoprhicRequest,
-  ref: IncomingMessage | XMLHttpRequest
+  ref: IncomingMessage | XMLHttpRequest | null
 ) => MockedResponse | Promise<MockedResponse | void> | void
 
 export interface InterceptorOptions {
