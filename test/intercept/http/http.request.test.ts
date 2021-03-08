@@ -167,8 +167,8 @@ test('intercepts an HTTP HEAD request', async () => {
   expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
 })
 
-test('intercepts an http.request requets given RequestOptions without a protocol', (done) => {
-  // Create a request with `RequetOptions` but without an explicit "protocol".
+test('intercepts an http.request request given RequestOptions without a protocol', (done) => {
+  // Create a request with `RequestOptions` without an explicit "protocol".
   // Since request is done via `http.get`, the "http:" protocol must be inferred.
   const request = http.request(
     {
