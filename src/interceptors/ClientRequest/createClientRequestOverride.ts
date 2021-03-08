@@ -23,6 +23,7 @@ import { IsomoprhicRequest, Observer, Resolver } from '../../createInterceptor'
 const createDebug = require('debug')
 
 interface CreateClientRequestOverrideOptions {
+  defaultProtocol: string
   pureClientRequest: typeof http.ClientRequest
   pureMethod: typeof http.get | typeof http.request
   observer: Observer
@@ -32,13 +33,22 @@ interface CreateClientRequestOverrideOptions {
 export function createClientRequestOverride(
   options: CreateClientRequestOverrideOptions
 ) {
-  const { pureClientRequest, pureMethod, observer, resolver } = options
+  const {
+    defaultProtocol,
+    pureClientRequest,
+    pureMethod,
+    observer,
+    resolver,
+  } = options
 
   function ClientRequestOverride(
     this: http.ClientRequest,
     ...args: Parameters<typeof http.request>
   ) {
-    const [url, options, callback] = normalizeHttpRequestParams(...args)
+    const [url, options, callback] = normalizeHttpRequestParams(
+      defaultProtocol,
+      ...args
+    )
     const usesHttps = url.protocol === 'https:'
     let requestBodyBuffer: Buffer[] = []
 

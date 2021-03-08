@@ -7,7 +7,7 @@ const debug = require('debug')('http override')
 
 type Protocol = 'http' | 'https'
 type PureModules = Map<
-  'http' | 'https',
+  Protocol,
   {
     module: typeof http | typeof https
     get: typeof http.get
@@ -20,7 +20,7 @@ type PureModules = Map<
 let pureClientRequest: typeof http.ClientRequest
 
 function handleClientRequest(
-  protocol: Protocol,
+  protocol: string,
   pureMethod: typeof http.get | typeof http.request,
   args: any[],
   observer: Observer,
@@ -33,6 +33,7 @@ function handleClientRequest(
   }
 
   const ClientRequestOverride = createClientRequestOverride({
+    defaultProtocol: `${protocol}:`,
     pureClientRequest,
     pureMethod,
     observer,
@@ -56,7 +57,7 @@ function handleClientRequest(
  */
 export const interceptClientRequest: Interceptor = (observer, resolver) => {
   const pureModules: PureModules = new Map()
-  const modules: Array<Protocol> = ['http', 'https']
+  const modules: Protocol[] = ['http', 'https']
 
   modules.forEach((protocol) => {
     const requestModule = protocol === 'https' ? https : http

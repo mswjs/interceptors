@@ -1,11 +1,13 @@
 /**
  * @jest-environment node
  */
+import * as http from 'http'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
 import { IsomoprhicRequest } from '../../../src/createInterceptor'
 import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
 import { httpGet, prepare } from '../../helpers'
+import { getIncomingMessageBody } from '../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 
 let pool: IsomoprhicRequest[] = []
 let server: ServerApi
@@ -52,4 +54,24 @@ test('intercepts an http.get request', async () => {
   expect(request).toHaveProperty('method', 'GET')
   expect(request?.url.searchParams.get('id')).toEqual('123')
   expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an http.get requets given RequestOptions without a protocol', (done) => {
+  // Create a request with `RequetOptions` but without an explicit "protocol".
+  // Since request is done via `http.get`, the "http:" protocol must be inferred.
+  const request = http.get(
+    {
+      host: server.http.getAddress().host,
+      port: server.http.getAddress().port,
+      path: '/user',
+    },
+    async (response) => {
+      const responseBody = await getIncomingMessageBody(response)
+      expect(responseBody).toBe('user-body')
+
+      done()
+    }
+  )
+
+  request.end()
 })

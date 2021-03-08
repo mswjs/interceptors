@@ -36,6 +36,7 @@ function resolveCallback(
  * so it always has a `URL` and `RequestOptions`.
  */
 export function normalizeHttpRequestParams(
+  defaultProtocol: string,
   ...args: HttpRequestArgs
 ): [URL, RequestOptions & RequestSelf, HttpRequestCallback?] {
   let url: URL
@@ -43,6 +44,7 @@ export function normalizeHttpRequestParams(
   let callback: HttpRequestCallback | undefined
 
   debug('arguments', args)
+  debug('default protocol', defaultProtocol)
 
   // Convert a url string into a URL instance
   // and derive request options from it.
@@ -83,10 +85,12 @@ export function normalizeHttpRequestParams(
 
       return isObject(args[1])
         ? normalizeHttpRequestParams(
+            defaultProtocol,
             { path: legacyUrl.path, ...args[1] },
             args[2]
           )
         : normalizeHttpRequestParams(
+            defaultProtocol,
             { path: legacyUrl.path },
             args[1] as HttpRequestCallback
           )
@@ -98,16 +102,26 @@ export function normalizeHttpRequestParams(
     const resolvedUrl = new URL(legacyUrl.href)
 
     return args[1] === undefined
-      ? normalizeHttpRequestParams(resolvedUrl)
+      ? normalizeHttpRequestParams(defaultProtocol, resolvedUrl)
       : typeof args[1] === 'function'
-      ? normalizeHttpRequestParams(resolvedUrl, args[1])
-      : normalizeHttpRequestParams(resolvedUrl, args[1], args[2])
+      ? normalizeHttpRequestParams(defaultProtocol, resolvedUrl, args[1])
+      : normalizeHttpRequestParams(
+          defaultProtocol,
+          resolvedUrl,
+          args[1],
+          args[2]
+        )
   }
   // Handle a given RequestOptions object as-is
   // and derive the URL instance from it.
   else if (isObject(args[0])) {
     options = args[0]
     debug('given request options:', options)
+
+    // When handling a `RequestOptions` object without an explicit "protocol",
+    // infer the protocol from the request issuing module (http/https).
+    options.protocol = options.protocol || defaultProtocol
+    debug('normalized request options:', options)
 
     url = getUrlByRequestOptions(options)
     debug('created a URL:', url)
@@ -124,6 +138,7 @@ export function normalizeHttpRequestParams(
   // @see https://github.com/nodejs/node/blob/d84f1312915fe45fe0febe888db692c74894c382/lib/_http_client.js#L142-L145
   // This prevents `Protocol "http:" not supported. Expected "https:"` exception for `https.request` calls.
   options.protocol = options.protocol || url.protocol
+  options.method = options.method || 'GET'
 
   debug('resolved URL:', url)
   debug('resolved options:', options)

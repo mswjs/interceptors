@@ -1,12 +1,14 @@
 /**
  * @jest-environment node
  */
+import * as https from 'https'
 import { RequestHandler } from 'express'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
 import { IsomoprhicRequest } from '../../../src/createInterceptor'
 import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
 import { prepare, httpsRequest } from '../../helpers'
+import { getIncomingMessageBody } from '../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 
 let pool: IsomoprhicRequest[] = []
 let server: ServerApi
@@ -170,4 +172,24 @@ test('intercepts an HTTPS HEAD request', async () => {
   expect(request).toHaveProperty('method', 'HEAD')
   expect(request?.url.searchParams.get('id')).toEqual('123')
   expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+})
+
+test('intercepts an http.request request given RequestOptions without a protocol', (done) => {
+  const request = https.request(
+    {
+      host: server.https.getAddress().host,
+      port: server.https.getAddress().port,
+      path: '/user',
+      // Suppress the "certificate has expired" error.
+      rejectUnauthorized: false,
+    },
+    async (response) => {
+      const responseBody = await getIncomingMessageBody(response)
+      expect(responseBody).toBe('user-body')
+
+      done()
+    }
+  )
+
+  request.end()
 })

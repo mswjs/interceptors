@@ -33,7 +33,6 @@ function getProtocolByRequestOptions(
   }
 
   const port = getPortByRequestOptions(options)
-
   const isSecureRequest = options.cert || port === SSL_PORT
 
   return isSecureRequest ? 'https:' : options.uri?.protocol || DEFAULT_PROTOCOL
