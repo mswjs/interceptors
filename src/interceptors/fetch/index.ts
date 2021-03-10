@@ -19,6 +19,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
   debug('replacing "window.fetch"...')
 
   window.fetch = async (input, init) => {
+    const ref = new Request(input, init)
     const url = typeof input === 'string' ? input : input.url
     const method = init?.method || 'GET'
 
@@ -28,18 +29,12 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
       url: new URL(url, location.origin),
       method: method,
       headers: init?.headers ? headersToObject(new Headers(init.headers)) : {},
-      /**
-       * @todo Handle non-string request bodies: Blob, ArrayBuffer, ReadableStream.
-       */
-      body: init?.body?.toString(),
+      body: await ref.text(),
     }
     debug('isomorphic request', request)
-
     observer.emit('request', request)
 
     debug('awaiting for the mocked response...')
-
-    const ref = new Request(input, init)
     const response = await resolver(request, ref)
     debug('mocked response', response)
 
