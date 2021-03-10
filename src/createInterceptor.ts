@@ -40,7 +40,7 @@ interface InterceptorEventsMap {
 
 export type Resolver = (
   request: IsomoprhicRequest,
-  ref: IncomingMessage | XMLHttpRequest | null
+  ref: IncomingMessage | XMLHttpRequest | Request
 ) => MockedResponse | Promise<MockedResponse | void> | void
 
 export interface InterceptorOptions {
