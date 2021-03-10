@@ -9,11 +9,22 @@ import { IsomoprhicRequest } from '../../../src'
 import { findRequest } from '../../helpers'
 
 declare namespace window {
-  export const pool: Array<SerializedIsomorphicRequest>
+  export const pool: Array<PoolEntry>
 }
 
 type SerializedIsomorphicRequest = Omit<IsomoprhicRequest, 'url'> & {
   url: string
+}
+
+interface SerializedRequestRef {
+  isRequestInstance: boolean
+  url: string
+  method: string
+}
+
+interface PoolEntry {
+  request: SerializedIsomorphicRequest
+  ref: SerializedRequestRef
 }
 
 let server: ServerApi
@@ -33,12 +44,26 @@ async function prepareFetch(
   init?: RequestInit
 ) {
   const response = await scenario.request(url, init)
-  const pool = await scenario.page
+  const { pool, refs } = await scenario.page
     .evaluate(() => window.pool)
-    .then((pool) => pool.map(deserializeRequest))
-  const request = findRequest(pool, init?.method || 'GET', url)!
+    .then((pool) =>
+      pool.reduce<{ pool: IsomoprhicRequest[]; refs: SerializedRequestRef[] }>(
+        (acc, entry) => {
+          acc.refs.push(entry.ref)
+          acc.pool.push(deserializeRequest(entry.request))
+          return acc
+        },
+        { pool: [], refs: [] }
+      )
+    )
 
-  return { request, response, pool }
+  const method = init?.method || 'GET'
+  const request = findRequest(pool, method, url)!
+  const ref = refs.find((ref) => {
+    return ref.method === method && ref.url === url
+  })
+
+  return { request, response, pool, ref }
 }
 
 beforeAll(async () => {
@@ -67,18 +92,24 @@ describe('HTTP', () => {
     })
 
     const url = server.http.makeUrl('/user?id=123')
-    const { request, response } = await prepareFetch(context, url, {
+    const { request, response, ref } = await prepareFetch(context, url, {
       headers: {
         'x-custom-header': 'yes',
       },
     })
 
+    // Creates correct isomorphic request.
     expect(request).toBeTruthy()
     expect(request.url).toBeInstanceOf(URL)
     expect(request.url.toString()).toBe(server.http.makeUrl('/user?id=123'))
     expect(request.url.searchParams.get('id')).toBe('123')
     expect(request).toHaveProperty('method', 'GET')
     expect(request.headers).toHaveProperty('x-custom-header', 'yes')
+
+    // Provides correct request reference.
+    expect(ref).toHaveProperty('isRequestInstance', true)
+    expect(ref).toHaveProperty('method', 'GET')
+    expect(ref).toHaveProperty('url', server.http.makeUrl('/user?id=123'))
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -90,7 +121,7 @@ describe('HTTP', () => {
       example: path.resolve(__dirname, 'fetch.runtime.js'),
     })
 
-    const { request, response } = await prepareFetch(
+    const { request, response, ref } = await prepareFetch(
       context,
       server.http.makeUrl('/user?id=123'),
       {
@@ -102,6 +133,7 @@ describe('HTTP', () => {
       }
     )
 
+    // Creates correct isomorphic request.
     expect(request).toBeTruthy()
     expect(request.url).toBeInstanceOf(URL)
     expect(request.url.toString()).toBe(server.http.makeUrl('/user?id=123'))
@@ -109,6 +141,11 @@ describe('HTTP', () => {
     expect(request).toHaveProperty('method', 'POST')
     expect(request.headers).toHaveProperty('x-custom-header', 'yes')
     expect(request).toHaveProperty('body', JSON.stringify({ body: true }))
+
+    // Provides correct request reference.
+    expect(ref).toHaveProperty('isRequestInstance', true)
+    expect(ref).toHaveProperty('method', 'POST')
+    expect(ref).toHaveProperty('url', server.http.makeUrl('/user?id=123'))
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -120,7 +157,7 @@ describe('HTTP', () => {
       example: path.resolve(__dirname, 'fetch.runtime.js'),
     })
 
-    const { request, response } = await prepareFetch(
+    const { request, response, ref } = await prepareFetch(
       context,
       server.http.makeUrl('/user?id=123'),
       {
@@ -132,6 +169,7 @@ describe('HTTP', () => {
       }
     )
 
+    // Creates correct isomorphic request.
     expect(request).toBeTruthy()
     expect(request.url).toBeInstanceOf(URL)
     expect(request.url.toString()).toBe(server.http.makeUrl('/user?id=123'))
@@ -139,6 +177,11 @@ describe('HTTP', () => {
     expect(request).toHaveProperty('method', 'PUT')
     expect(request.headers).toHaveProperty('x-custom-header', 'yes')
     expect(request).toHaveProperty('body', JSON.stringify({ body: true }))
+
+    // Provides correct request reference.
+    expect(ref).toHaveProperty('isRequestInstance', true)
+    expect(ref).toHaveProperty('method', 'PUT')
+    expect(ref).toHaveProperty('url', server.http.makeUrl('/user?id=123'))
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -150,7 +193,7 @@ describe('HTTP', () => {
       example: path.resolve(__dirname, 'fetch.runtime.js'),
     })
 
-    const { request, response } = await prepareFetch(
+    const { request, response, ref } = await prepareFetch(
       context,
       server.http.makeUrl('/user?id=123'),
       {
@@ -162,6 +205,7 @@ describe('HTTP', () => {
       }
     )
 
+    // Creates correct isomorphic request.
     expect(request).toBeTruthy()
     expect(request.url).toBeInstanceOf(URL)
     expect(request.url.toString()).toBe(server.http.makeUrl('/user?id=123'))
@@ -169,6 +213,11 @@ describe('HTTP', () => {
     expect(request).toHaveProperty('method', 'PATCH')
     expect(request.headers).toHaveProperty('x-custom-header', 'yes')
     expect(request).toHaveProperty('body', JSON.stringify({ body: true }))
+
+    // Provides correct request reference.
+    expect(ref).toHaveProperty('isRequestInstance', true)
+    expect(ref).toHaveProperty('method', 'PATCH')
+    expect(ref).toHaveProperty('url', server.http.makeUrl('/user?id=123'))
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -180,7 +229,7 @@ describe('HTTP', () => {
       example: path.resolve(__dirname, 'fetch.runtime.js'),
     })
 
-    const { request, response } = await prepareFetch(
+    const { request, response, ref } = await prepareFetch(
       context,
       server.http.makeUrl('/user?id=123'),
       {
@@ -192,6 +241,7 @@ describe('HTTP', () => {
       }
     )
 
+    // Creates correct isomorphic request.
     expect(request).toBeTruthy()
     expect(request.url).toBeInstanceOf(URL)
     expect(request.url.toString()).toBe(server.http.makeUrl('/user?id=123'))
@@ -199,6 +249,11 @@ describe('HTTP', () => {
     expect(request).toHaveProperty('method', 'DELETE')
     expect(request.headers).toHaveProperty('x-custom-header', 'yes')
     expect(request).toHaveProperty('body', JSON.stringify({ body: true }))
+
+    // Provides correct request reference.
+    expect(ref).toHaveProperty('isRequestInstance', true)
+    expect(ref).toHaveProperty('method', 'DELETE')
+    expect(ref).toHaveProperty('url', server.http.makeUrl('/user?id=123'))
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -213,18 +268,24 @@ describe('HTTPS', () => {
     })
 
     const url = server.https.makeUrl('/user?id=123')
-    const { request, response } = await prepareFetch(context, url, {
+    const { request, response, ref } = await prepareFetch(context, url, {
       headers: {
         'x-custom-header': 'yes',
       },
     })
 
+    // Creates correct isomorphic request.
     expect(request).toBeTruthy()
     expect(request.url).toBeInstanceOf(URL)
     expect(request.url.toString()).toBe(server.https.makeUrl('/user?id=123'))
     expect(request.url.searchParams.get('id')).toBe('123')
     expect(request).toHaveProperty('method', 'GET')
     expect(request.headers).toHaveProperty('x-custom-header', 'yes')
+
+    // Provides correct request reference.
+    expect(ref).toHaveProperty('isRequestInstance', true)
+    expect(ref).toHaveProperty('method', 'GET')
+    expect(ref).toHaveProperty('url', server.https.makeUrl('/user?id=123'))
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -236,7 +297,7 @@ describe('HTTPS', () => {
       example: path.resolve(__dirname, 'fetch.runtime.js'),
     })
 
-    const { request, response } = await prepareFetch(
+    const { request, response, ref } = await prepareFetch(
       context,
       server.https.makeUrl('/user?id=123'),
       {
@@ -248,6 +309,7 @@ describe('HTTPS', () => {
       }
     )
 
+    // Creates correct isomorphic request.
     expect(request).toBeTruthy()
     expect(request.url).toBeInstanceOf(URL)
     expect(request.url.toString()).toBe(server.https.makeUrl('/user?id=123'))
@@ -255,6 +317,11 @@ describe('HTTPS', () => {
     expect(request).toHaveProperty('method', 'POST')
     expect(request.headers).toHaveProperty('x-custom-header', 'yes')
     expect(request).toHaveProperty('body', JSON.stringify({ body: true }))
+
+    // Provides correct request reference.
+    expect(ref).toHaveProperty('isRequestInstance', true)
+    expect(ref).toHaveProperty('method', 'POST')
+    expect(ref).toHaveProperty('url', server.https.makeUrl('/user?id=123'))
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -266,7 +333,7 @@ describe('HTTPS', () => {
       example: path.resolve(__dirname, 'fetch.runtime.js'),
     })
 
-    const { request, response } = await prepareFetch(
+    const { request, response, ref } = await prepareFetch(
       context,
       server.https.makeUrl('/user?id=123'),
       {
@@ -278,6 +345,7 @@ describe('HTTPS', () => {
       }
     )
 
+    // Creates correct isomorphic request.
     expect(request).toBeTruthy()
     expect(request.url).toBeInstanceOf(URL)
     expect(request.url.toString()).toBe(server.https.makeUrl('/user?id=123'))
@@ -285,6 +353,11 @@ describe('HTTPS', () => {
     expect(request).toHaveProperty('method', 'PUT')
     expect(request.headers).toHaveProperty('x-custom-header', 'yes')
     expect(request).toHaveProperty('body', JSON.stringify({ body: true }))
+
+    // Provides correct request reference.
+    expect(ref).toHaveProperty('isRequestInstance', true)
+    expect(ref).toHaveProperty('method', 'PUT')
+    expect(ref).toHaveProperty('url', server.https.makeUrl('/user?id=123'))
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -296,7 +369,7 @@ describe('HTTPS', () => {
       example: path.resolve(__dirname, 'fetch.runtime.js'),
     })
 
-    const { request, response } = await prepareFetch(
+    const { request, response, ref } = await prepareFetch(
       context,
       server.https.makeUrl('/user?id=123'),
       {
@@ -308,6 +381,7 @@ describe('HTTPS', () => {
       }
     )
 
+    // Creates correct isomorphic request.
     expect(request).toBeTruthy()
     expect(request.url).toBeInstanceOf(URL)
     expect(request.url.toString()).toBe(server.https.makeUrl('/user?id=123'))
@@ -315,6 +389,11 @@ describe('HTTPS', () => {
     expect(request).toHaveProperty('method', 'PATCH')
     expect(request.headers).toHaveProperty('x-custom-header', 'yes')
     expect(request).toHaveProperty('body', JSON.stringify({ body: true }))
+
+    // Provides correct request reference.
+    expect(ref).toHaveProperty('isRequestInstance', true)
+    expect(ref).toHaveProperty('method', 'PATCH')
+    expect(ref).toHaveProperty('url', server.https.makeUrl('/user?id=123'))
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -326,7 +405,7 @@ describe('HTTPS', () => {
       example: path.resolve(__dirname, 'fetch.runtime.js'),
     })
 
-    const { request, response } = await prepareFetch(
+    const { request, response, ref } = await prepareFetch(
       context,
       server.https.makeUrl('/user?id=123'),
       {
@@ -338,6 +417,7 @@ describe('HTTPS', () => {
       }
     )
 
+    // Creates correct isomorphic request.
     expect(request).toBeTruthy()
     expect(request.url).toBeInstanceOf(URL)
     expect(request.url.toString()).toBe(server.https.makeUrl('/user?id=123'))
@@ -345,6 +425,11 @@ describe('HTTPS', () => {
     expect(request).toHaveProperty('method', 'DELETE')
     expect(request.headers).toHaveProperty('x-custom-header', 'yes')
     expect(request).toHaveProperty('body', JSON.stringify({ body: true }))
+
+    // Provides correct request reference.
+    expect(ref).toHaveProperty('isRequestInstance', true)
+    expect(ref).toHaveProperty('method', 'DELETE')
+    expect(ref).toHaveProperty('url', server.https.makeUrl('/user?id=123'))
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')

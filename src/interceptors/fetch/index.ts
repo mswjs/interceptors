@@ -39,7 +39,8 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
 
     debug('awaiting for the mocked response...')
 
-    const response = await resolver(request, null)
+    const ref = new Request(input, init)
+    const response = await resolver(request, ref)
     debug('mocked response', response)
 
     if (response) {
