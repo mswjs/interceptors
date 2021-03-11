@@ -7,9 +7,9 @@ import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { createInterceptor } from '../../src'
 import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 import { getRequestOptionsByUrl } from '../../src/utils/getRequestOptionsByUrl'
-import { IsomoprhicRequest } from '../../src/createInterceptor'
+import { IsomorphicRequest } from '../../src/createInterceptor'
 
-let pool: IsomoprhicRequest[] = []
+let pool: IsomorphicRequest[] = []
 let server: ServerApi
 
 const interceptor = createInterceptor({

@@ -3,9 +3,9 @@ import bodyParser from 'body-parser'
 import supertest from 'supertest'
 import { createInterceptor } from '../../src'
 import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
-import { IsomoprhicRequest } from '../../src/createInterceptor'
+import { IsomorphicRequest } from '../../src/createInterceptor'
 
-let pool: IsomoprhicRequest[] = []
+let pool: IsomorphicRequest[] = []
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],

@@ -3,20 +3,20 @@ import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
 import { interceptXMLHttpRequest } from '../../../src/interceptors/XMLHttpRequest'
 import { findRequest, createXMLHttpRequest } from '../../helpers'
-import { IsomoprhicRequest } from '../../../src/createInterceptor'
+import { IsomorphicRequest } from '../../../src/createInterceptor'
 
 function lookupRequest(
   req: XMLHttpRequest,
   method: string,
-  pool: IsomoprhicRequest[]
-): IsomoprhicRequest | undefined {
+  pool: IsomorphicRequest[]
+): IsomorphicRequest | undefined {
   return findRequest(pool, method, req.responseURL)
 }
 
-let pool: IsomoprhicRequest[] = []
+let pool: IsomorphicRequest[] = []
 let server: ServerApi
 
-const inteerceptor = createInterceptor({
+const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
   resolver(request) {
     pool.push(request)
@@ -41,7 +41,7 @@ beforeAll(async () => {
     app.head('/user', handleUserRequest)
   })
 
-  inteerceptor.apply()
+  interceptor.apply()
 })
 
 afterEach(() => {
@@ -49,7 +49,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  inteerceptor.restore()
+  interceptor.restore()
   await server.close()
 })
 
