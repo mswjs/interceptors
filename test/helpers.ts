@@ -4,7 +4,7 @@ import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getCleanUrl } from '../src/utils/getCleanUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { IsomoprhicRequest } from '../src/createInterceptor'
+import { IsomorphicRequest } from '../src/createInterceptor'
 
 interface PromisifiedResponse {
   res: IncomingMessage
@@ -140,10 +140,10 @@ export async function fetch(
 }
 
 export function findRequest(
-  pool: IsomoprhicRequest[],
+  pool: IsomorphicRequest[],
   method: string = 'GET',
   url: string
-): IsomoprhicRequest | undefined {
+): IsomorphicRequest | undefined {
   const parsedUrl = new URL(url)
   const expectedUrl = getCleanUrl(parsedUrl)
 
@@ -157,8 +157,8 @@ export function findRequest(
 
 export async function prepare(
   promise: Promise<PromisifiedResponse>,
-  pool: IsomoprhicRequest[]
-): Promise<IsomoprhicRequest | undefined> {
+  pool: IsomorphicRequest[]
+): Promise<IsomorphicRequest | undefined> {
   const { url, options } = await promise
   return findRequest(pool, options.method, url)
 }

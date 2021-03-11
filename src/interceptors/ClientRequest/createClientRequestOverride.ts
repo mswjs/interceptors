@@ -17,7 +17,7 @@ import { inheritRequestHeaders } from './utils/inheritRequestHeaders'
 import { normalizeHttpRequestParams } from './utils/normalizeHttpRequestParams'
 import { normalizeHttpRequestEndParams } from './utils/normalizeHttpRequestEndParams'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
-import { IsomoprhicRequest, Observer, Resolver } from '../../createInterceptor'
+import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 
 const createDebug = require('debug')
 
@@ -176,7 +176,7 @@ export function createClientRequestOverride(
       debug('request headers', requestHeaders)
 
       // Construct the intercepted request instance exposed to the request middleware.
-      const formattedRequest: IsomoprhicRequest = {
+      const formattedRequest: IsomorphicRequest = {
         url,
         method: options.method || 'GET',
         headers: requestHeaders,

@@ -7,10 +7,10 @@ import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
 import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
 import { httpRequest, prepare } from '../../helpers'
-import { IsomoprhicRequest } from '../../../src/createInterceptor'
+import { IsomorphicRequest } from '../../../src/createInterceptor'
 import { getIncomingMessageBody } from '../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 
-let pool: IsomoprhicRequest[] = []
+let pool: IsomorphicRequest[] = []
 let server: ServerApi
 
 const interceptor = createInterceptor({

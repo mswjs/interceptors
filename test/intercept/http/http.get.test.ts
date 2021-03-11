@@ -4,12 +4,12 @@
 import * as http from 'http'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
-import { IsomoprhicRequest } from '../../../src/createInterceptor'
+import { IsomorphicRequest } from '../../../src/createInterceptor'
 import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
 import { httpGet, prepare } from '../../helpers'
 import { getIncomingMessageBody } from '../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 
-let pool: IsomoprhicRequest[] = []
+let pool: IsomorphicRequest[] = []
 let server: ServerApi
 
 const interceptor = createInterceptor({

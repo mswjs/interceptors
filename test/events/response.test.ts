@@ -1,14 +1,14 @@
 import { ServerApi, createServer } from '@open-draft/test-server'
 import {
-  IsomoprhicRequest,
   createInterceptor,
-  IsomoprhicResponse,
+  IsomorphicRequest,
+  IsomorphicResponse,
 } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../helpers'
 
 let server: ServerApi
-let responses: [IsomoprhicRequest, IsomoprhicResponse][] = []
+let responses: [IsomorphicRequest, IsomorphicResponse][] = []
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],

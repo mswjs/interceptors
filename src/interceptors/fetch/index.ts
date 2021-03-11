@@ -6,8 +6,8 @@ import {
 } from 'headers-utils'
 import {
   Interceptor,
-  IsomoprhicRequest,
-  IsomoprhicResponse,
+  IsomorphicRequest,
+  IsomorphicResponse,
   MockedResponse,
 } from '../../createInterceptor'
 
@@ -25,7 +25,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
 
     debug('[%s] %s', method, url)
 
-    const request: IsomoprhicRequest = {
+    const request: IsomorphicRequest = {
       url: new URL(url, location.origin),
       method: method,
       headers: init?.headers ? headersToObject(new Headers(init.headers)) : {},
@@ -56,7 +56,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
     debug('no mocked response found, bypassing...')
 
     return pureFetch(input, init).then(async (response) => {
-      debug('original fetch perofrmed', response)
+      debug('original fetch performed', response)
 
       observer.emit('response', request, await normalizeFetchResponse(response))
       return response
@@ -69,7 +69,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
   }
 }
 
-function normalizeMockedResponse(response: MockedResponse): IsomoprhicResponse {
+function normalizeMockedResponse(response: MockedResponse): IsomorphicResponse {
   return {
     status: response.status || 200,
     statusText: response.statusText || 'OK',
@@ -80,7 +80,7 @@ function normalizeMockedResponse(response: MockedResponse): IsomoprhicResponse {
 
 async function normalizeFetchResponse(
   response: Response
-): Promise<IsomoprhicResponse> {
+): Promise<IsomorphicResponse> {
   return {
     status: response.status,
     statusText: response.statusText,
