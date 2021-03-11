@@ -34,6 +34,7 @@ This library monkey-patches the following native modules:
 - `http.get`/`http.request`
 - `https.get`/`https.request`
 - `XMLHttpRequest`
+- `fetch`
 
 Once patched, it provides an interface to execute an arbitrary logic upon any outgoing request using a request middleware function.
 
@@ -44,7 +45,6 @@ Once patched, it provides an interface to execute an arbitrary logic upon any ou
 
 - Does **not** provide any request matching logic.
 - Does **not** decide how to handle requests.
-- Does **not** run in a browser (although supports `jsdom`).
 
 ## Getting started
 
