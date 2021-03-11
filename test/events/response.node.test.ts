@@ -5,14 +5,14 @@ import fetch from 'node-fetch'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import {
   createInterceptor,
-  IsomoprhicRequest,
-  IsomoprhicResponse,
+  IsomorphicRequest,
+  IsomorphicResponse,
 } from '../../src'
 import nodeInterceptors from '../../src/presets/node'
 import { httpsRequest } from '../helpers'
 
 let server: ServerApi
-let responses: [IsomoprhicRequest, IsomoprhicResponse][] = []
+let responses: [IsomorphicRequest, IsomorphicResponse][] = []
 
 const interceptor = createInterceptor({
   modules: nodeInterceptors,

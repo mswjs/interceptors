@@ -11,7 +11,7 @@ import {
   stringToHeaders,
   objectToHeaders,
 } from 'headers-utils'
-import { IsomoprhicRequest, Observer, Resolver } from '../../createInterceptor'
+import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 import { parseJson } from '../../utils/parseJson'
 import { createEvent } from './helpers/createEvent'
 
@@ -238,7 +238,7 @@ export const createXMLHttpRequestOverride = (
       debug('request headers', requestHeaders)
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
-      const req: IsomoprhicRequest = {
+      const req: IsomorphicRequest = {
         url,
         method: this.method,
         body: this.data,

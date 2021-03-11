@@ -14,32 +14,38 @@ export type Observer = StrictEventEmitter<InterceptorEventsMap>
  */
 export type InterceptorCleanupFn = () => void
 
-export interface IsomoprhicRequest {
+export interface IsomorphicRequest {
   url: URL
   method: string
   headers: HeadersObject
   body?: string
 }
 
-export interface IsomoprhicResponse {
+// Support legacy types so this is not a breaking change
+
+export interface IsomorphicResponse {
   status: number
   statusText: string
   headers: Headers
   body?: string
 }
 
+// Support legacy types so this is not a breaking change?
+export type IsomophricRequest = IsomorphicRequest
+export type IsomophricResponse = IsomorphicResponse
+
 export interface MockedResponse
-  extends Omit<Partial<IsomoprhicResponse>, 'headers'> {
+  extends Omit<Partial<IsomorphicResponse>, 'headers'> {
   headers?: HeadersObject
 }
 
 interface InterceptorEventsMap {
-  request(request: IsomoprhicRequest): void
-  response(request: IsomoprhicRequest, response: IsomoprhicResponse): void
+  request(request: IsomorphicRequest): void
+  response(request: IsomorphicRequest, response: IsomorphicResponse): void
 }
 
 export type Resolver = (
-  request: IsomoprhicRequest,
+  request: IsomorphicRequest,
   ref: IncomingMessage | XMLHttpRequest | Request
 ) => MockedResponse | Promise<MockedResponse | void> | void
 

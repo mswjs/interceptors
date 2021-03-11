@@ -78,6 +78,7 @@ This library utilizes a concept of _interceptors_–functions that patch necessa
 
 - `/interceptors/ClientRequest`
 - `/interceptors/XMLHttpRequest`
+- `/interceptors/fetch`
 
 To use a single, or multiple interceptors, import and provide them to the `RequestInterceptor` constructor.
 
@@ -98,7 +99,7 @@ const interceptor = new createInterceptor({
 
 #### `.apply(): void`
 
-Applies module patches and enabled interception of the requests.
+Applies module patches and enables interception of the requests.
 
 ```js
 interceptor.apply()
@@ -119,7 +120,7 @@ interceptor.on('request', (request) => {
 
 #### `.restore(): void`
 
-Restores all patched modules and stops the interception of any future requests.
+Restores all patched modules and stops intercepting future requests.
 
 ```js
 interceptor.restore()

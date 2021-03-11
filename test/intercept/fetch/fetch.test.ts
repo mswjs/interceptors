@@ -3,19 +3,19 @@
  */
 import { RequestHandler } from 'express'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { createInterceptor, IsomoprhicRequest } from '../../../src'
+import { createInterceptor, IsomorphicRequest } from '../../../src'
 import nodeInterceptors from '../../../src/presets/node'
 import { fetch, findRequest } from '../../helpers'
 
 async function prepareFetch(
   executedFetch: ReturnType<typeof fetch>,
-  pool: IsomoprhicRequest[]
+  pool: IsomorphicRequest[]
 ) {
   const { url, init } = await executedFetch
   return findRequest(pool, init?.method || 'GET', url)!
 }
 
-let pool: IsomoprhicRequest[] = []
+let pool: IsomorphicRequest[] = []
 let server: ServerApi
 
 const interceptor = createInterceptor({
