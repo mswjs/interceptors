@@ -446,7 +446,7 @@ export const createXMLHttpRequestOverride = (
       }
 
       return Object.entries(this.responseHeaders)
-        .map(([name, value]) => `${name}: ${value} \r\n`)
+        .map(([name, value]) => `${name}: ${value}\r\n`)
         .join('')
     }
 
