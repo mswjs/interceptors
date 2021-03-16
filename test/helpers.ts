@@ -5,6 +5,7 @@ import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getCleanUrl } from '../src/utils/getCleanUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { IsomorphicRequest } from '../src/createInterceptor'
+import { ScenarioApi } from 'page-with'
 
 interface PromisifiedResponse {
   res: IncomingMessage
@@ -203,4 +204,69 @@ export function createXMLHttpRequest(
     req.addEventListener('error', reject)
     req.addEventListener('abort', reject)
   })
+}
+
+export interface ExpectedRequest {
+  method: string
+  url: string
+  query?: Record<string, string>
+  headers?: Record<string, string>
+  body: string
+}
+
+declare namespace window {
+  export let expected: ExpectedRequest
+}
+
+export interface XMLHttpResponse {
+  status: number
+  statusText: string
+  headers: string
+  body: string
+}
+
+export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
+  return async (
+    method: string,
+    url: string,
+    headers?: Record<string, string>,
+    body?: string,
+    assertions?: { expected: ExpectedRequest }
+  ): Promise<XMLHttpResponse> => {
+    if (assertions?.expected) {
+      await scenario.page.evaluate((expected) => {
+        window.expected = expected
+      }, assertions.expected)
+    }
+
+    return scenario.page.evaluate<
+      XMLHttpResponse,
+      [string, string, Record<string, string> | undefined, string | undefined]
+    >(
+      (args) => {
+        return new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.open(args[0], args[1])
+
+          if (args[2]) {
+            for (const headerName in args[2]) {
+              request.setRequestHeader(headerName, args[2][headerName])
+            }
+          }
+
+          request.addEventListener('load', function () {
+            resolve({
+              status: this.status,
+              statusText: this.statusText,
+              body: this.response,
+              headers: this.getAllResponseHeaders(),
+            })
+          })
+          request.addEventListener('error', reject)
+          request.send(args[3])
+        })
+      },
+      [method, url, headers, body]
+    )
+  }
 }

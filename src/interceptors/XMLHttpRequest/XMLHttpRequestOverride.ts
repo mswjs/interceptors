@@ -13,7 +13,8 @@ import {
 } from 'headers-utils'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 import { parseJson } from '../../utils/parseJson'
-import { createEvent } from './helpers/createEvent'
+import { bufferFrom } from './utils/bufferFrom'
+import { createEvent } from './utils/createEvent'
 
 const createDebug = require('debug')
 
@@ -134,7 +135,7 @@ export const createXMLHttpRequestOverride = (
       if (this.onreadystatechange) {
         this.onreadystatechange.call(
           this,
-          createEvent(options, this, 'readystatechange')
+          createEvent(this, 'readystatechange', options)
         )
       }
     }
@@ -152,19 +153,19 @@ export const createXMLHttpRequestOverride = (
 
       if (this.readyState === this.DONE && (this.onloadend || loadendEvent)) {
         const listener = this.onloadend || loadendEvent?.listener
-        listener?.call(this, createEvent(options, this, 'loadend'))
+        listener?.call(this, createEvent(this, 'loadend', options))
       }
 
       // Call the direct callback, if present.
       const directCallback = (this as any)[
         `on${eventName}`
       ] as XMLHttpRequestEventHandler
-      directCallback?.call(this, createEvent(options, this, eventName))
+      directCallback?.call(this, createEvent(this, eventName, options))
 
       // Check in the list of events attached via `addEventListener`.
       for (const event of this._events) {
         if (event.name === eventName) {
-          event.listener.call(this, createEvent(options, this, eventName))
+          event.listener.call(this, createEvent(this, eventName, options))
         }
       }
 
@@ -291,8 +292,8 @@ export const createXMLHttpRequestOverride = (
 
             if (mockedResponse.body && this.response) {
               // Presense of the mocked response implies a response body (not null).
-              // Presece of the coerced `this.response` implies the mocked body is valid.
-              const bodyBuffer = Buffer.from(mockedResponse.body)
+              // Presense of the coerced `this.response` implies the mocked body is valid.
+              const bodyBuffer = bufferFrom(mockedResponse.body)
 
               // Trigger a progress event based on the mocked response body.
               this.trigger('progress', {
@@ -499,8 +500,7 @@ export const createXMLHttpRequestOverride = (
 
         case 'arraybuffer': {
           debug('resolving response body as ArrayBuffer')
-          const buffer = Buffer.from(textBody)
-          const arrayBuffer = new Uint8Array(buffer)
+          const arrayBuffer = bufferFrom(textBody)
           return arrayBuffer
         }
 
