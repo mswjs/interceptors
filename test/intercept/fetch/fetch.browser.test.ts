@@ -91,7 +91,7 @@ describe('HTTP', () => {
 
     expect(response?.status()).toBe(200)
     expect(response?.statusText()).toBe('OK')
-    expect(response?.text()).resolves.toBe('user-body')
+    expect(await response?.text()).toBe('user-body')
   })
 
   test('intercepts an HTTP POST request', async () => {
@@ -124,7 +124,7 @@ describe('HTTP', () => {
 
     expect(response?.status()).toBe(200)
     expect(response?.statusText()).toBe('OK')
-    expect(response?.text()).resolves.toBe('user-body')
+    expect(await response?.text()).toBe('user-body')
   })
 
   test('intercepts an HTTP PUT request', async () => {
@@ -157,7 +157,7 @@ describe('HTTP', () => {
 
     expect(response?.status()).toBe(200)
     expect(response?.statusText()).toBe('OK')
-    expect(response?.text()).resolves.toBe('user-body')
+    expect(await response?.text()).toBe('user-body')
   })
 
   test('intercepts an HTTP PATCH request', async () => {
@@ -190,7 +190,7 @@ describe('HTTP', () => {
 
     expect(response?.status()).toBe(200)
     expect(response?.statusText()).toBe('OK')
-    expect(response?.text()).resolves.toBe('user-body')
+    expect(await response?.text()).toBe('user-body')
   })
 
   test('intercepts an HTTP DELETE request', async () => {
@@ -223,7 +223,7 @@ describe('HTTP', () => {
 
     expect(response?.status()).toBe(200)
     expect(response?.statusText()).toBe('OK')
-    expect(response?.text()).resolves.toBe('user-body')
+    expect(await response?.text()).toBe('user-body')
   })
 })
 
@@ -256,7 +256,7 @@ describe('HTTPS', () => {
 
     expect(response?.status()).toBe(200)
     expect(response?.statusText()).toBe('OK')
-    expect(response?.text()).resolves.toBe('user-body')
+    expect(await response?.text()).toBe('user-body')
   })
 
   test('intercepts an HTTPS POST request', async () => {
@@ -289,7 +289,7 @@ describe('HTTPS', () => {
 
     expect(response?.status()).toBe(200)
     expect(response?.statusText()).toBe('OK')
-    expect(response?.text()).resolves.toBe('user-body')
+    expect(await response?.text()).toBe('user-body')
   })
 
   test('intercepts an HTTPS PUT request', async () => {
@@ -322,7 +322,7 @@ describe('HTTPS', () => {
 
     expect(response?.status()).toBe(200)
     expect(response?.statusText()).toBe('OK')
-    expect(response?.text()).resolves.toBe('user-body')
+    expect(await response?.text()).toBe('user-body')
   })
 
   test('intercepts an HTTPS PATCH request', async () => {
@@ -355,7 +355,7 @@ describe('HTTPS', () => {
 
     expect(response?.status()).toBe(200)
     expect(response?.statusText()).toBe('OK')
-    expect(response?.text()).resolves.toBe('user-body')
+    expect(await response?.text()).toBe('user-body')
   })
 
   test('intercepts an HTTPS DELETE request', async () => {
@@ -388,6 +388,6 @@ describe('HTTPS', () => {
 
     expect(response?.status()).toBe(200)
     expect(response?.statusText()).toBe('OK')
-    expect(response?.text()).resolves.toBe('user-body')
+    expect(await response?.text()).toBe('user-body')
   })
 })

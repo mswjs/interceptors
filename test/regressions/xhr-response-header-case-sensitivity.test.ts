@@ -15,9 +15,9 @@ beforeAll(async () => {
     app.get('/account', (req, res) => {
       return res
         .status(200)
-        .set('access-control-expose-headers', 'x-test-header')
-        .set('x-test-header', req.get('x-test-header'))
-        .send(null)
+        .append('access-control-expose-headers', 'x-response-header')
+        .append('x-response-header', req.get('x-request-header'))
+        .send('account-detail')
     })
   })
 
@@ -30,12 +30,12 @@ afterAll(async () => {
 })
 
 test('getResponseHeader is case insensitive', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', server.http.makeUrl('/account'))
-    req.setRequestHeader('x-test-header', 'test-value')
+  const request = await createXMLHttpRequest((request) => {
+    request.open('GET', server.http.makeUrl('/account'))
+    request.setRequestHeader('x-request-header', 'test-value')
   })
 
-  expect(req.getResponseHeader('x-test-header')).toEqual('test-value')
-  expect(req.getResponseHeader('X-Test-Header')).toEqual('test-value')
-  expect(req.getResponseHeader('X-TEST-HEADER')).toEqual('test-value')
+  expect(request.getResponseHeader('x-response-header')).toEqual('test-value')
+  expect(request.getResponseHeader('X-response-Header')).toEqual('test-value')
+  expect(request.getResponseHeader('X-RESPONSE-HEADER')).toEqual('test-value')
 })

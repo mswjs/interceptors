@@ -4,12 +4,11 @@
  */
 import { until } from '@open-draft/until'
 import {
-  flattenHeadersObject,
-  reduceHeadersObject,
-  HeadersObject,
-  headersToObject,
+  Headers,
   stringToHeaders,
   objectToHeaders,
+  headersToString,
+  headersToObject,
 } from 'headers-utils'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 import { parseJson } from '../../utils/parseJson'
@@ -41,8 +40,8 @@ export const createXMLHttpRequestOverride = (
   let debug = createDebug('XHR')
 
   return class XMLHttpRequestOverride implements XMLHttpRequest {
-    requestHeaders: Record<string, string> = {}
-    responseHeaders: Record<string, string> = {}
+    requestHeaders: Headers
+    responseHeaders: Headers
 
     // Collection of events modified by `addEventListener`/`removeEventListener` calls.
     _events: XMLHttpRequestEvent<XMLHttpRequestEventTargetEventMap>[] = []
@@ -117,6 +116,7 @@ export const createXMLHttpRequestOverride = (
     constructor() {
       this.url = ''
       this.method = 'GET'
+      this.requestHeaders = new Headers()
       this.readyState = this.UNSENT
       this.withCredentials = false
       this.status = 200
@@ -124,6 +124,7 @@ export const createXMLHttpRequestOverride = (
       this.data = ''
       this.response = ''
       this.responseType = 'text'
+      this.responseHeaders = new Headers()
       this.responseText = ''
       this.responseXML = null
       this.responseURL = ''
@@ -178,8 +179,8 @@ export const createXMLHttpRequestOverride = (
       this.readyState = this.UNSENT
       this.status = 200
       this.statusText = ''
-      this.requestHeaders = {}
-      this.responseHeaders = {}
+      this.requestHeaders = new Headers()
+      this.responseHeaders = new Headers()
       this.data = ''
       this.response = null as any
       this.responseText = null as any
@@ -228,22 +229,14 @@ export const createXMLHttpRequestOverride = (
         url = new URL(this.url, window.location.href)
       }
 
-      const requestHeaders = reduceHeadersObject<HeadersObject>(
-        this.requestHeaders,
-        (headers, name, value) => {
-          headers[name.toLowerCase()] = value
-          return headers
-        },
-        {}
-      )
-      debug('request headers', requestHeaders)
+      debug('request headers', this.requestHeaders)
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
       const req: IsomorphicRequest = {
         url,
         method: this.method,
         body: this.data,
-        headers: requestHeaders,
+        headers: headersToObject(this.requestHeaders),
       }
 
       debug('awaiting mocked response...')
@@ -272,8 +265,8 @@ export const createXMLHttpRequestOverride = (
             this.status = mockedResponse.status || 200
             this.statusText = mockedResponse.statusText || 'OK'
             this.responseHeaders = mockedResponse.headers
-              ? flattenHeadersObject(mockedResponse.headers)
-              : {}
+              ? objectToHeaders(mockedResponse.headers)
+              : new Headers()
 
             debug('assigned response status', this.status, this.statusText)
             debug('assigned response headers', this.responseHeaders)
@@ -302,8 +295,10 @@ export const createXMLHttpRequestOverride = (
               })
             }
 
-            // Explicitly mark the request as done, so its response never hangs.
-            // @see https://github.com/mswjs/node-request-interceptor/issues/13
+            /**
+             * Explicitly mark the request as done, so its response never hangs.
+             * @see https://github.com/mswjs/node-request-interceptor/issues/13
+             */
             this.readyState = this.DONE
 
             this.trigger('loadstart')
@@ -356,22 +351,19 @@ export const createXMLHttpRequestOverride = (
               this.trigger('load')
 
               const responseHeaders = originalRequest.getAllResponseHeaders()
-              this.responseHeaders = flattenHeadersObject(
-                headersToObject(stringToHeaders(responseHeaders))
-              )
               debug('original response headers', responseHeaders)
 
-              const normalizedResponseHeaders = stringToHeaders(responseHeaders)
+              this.responseHeaders = stringToHeaders(responseHeaders)
 
               debug(
                 'original response headers (normalized)',
-                normalizedResponseHeaders
+                this.responseHeaders
               )
 
               observer.emit('response', req, {
                 status: originalRequest.status,
                 statusText: originalRequest.statusText,
-                headers: normalizedResponseHeaders,
+                headers: this.responseHeaders,
                 body: originalRequest.response,
               })
             }
@@ -380,7 +372,7 @@ export const createXMLHttpRequestOverride = (
             // to the original XHR instance.
             this.propagateCallbacks(originalRequest)
             this.propagateListeners(originalRequest)
-            this.propagateHeaders(originalRequest, requestHeaders)
+            this.propagateHeaders(originalRequest, this.requestHeaders)
 
             if (this.async) {
               originalRequest.timeout = this.timeout
@@ -407,12 +399,12 @@ export const createXMLHttpRequestOverride = (
     }
 
     public setRequestHeader(name: string, value: string) {
-      debug('set request header', name, value)
-      this.requestHeaders[name] = value
+      debug('set request header "%s" to "%s"', name, value)
+      this.requestHeaders.append(name, value)
     }
 
     public getResponseHeader(name: string): string | null {
-      debug('get response header', name)
+      debug('get response header "%s"', name)
 
       if (this.readyState < this.HEADERS_RECEIVED) {
         debug(
@@ -422,15 +414,14 @@ export const createXMLHttpRequestOverride = (
         return null
       }
 
-      const headerValue = Object.entries(this.responseHeaders).reduce<
-        string | null
-      >((_, [headerName, headerValue]) => {
-        return headerName.toLowerCase() === name.toLowerCase()
-          ? headerValue
-          : null
-      }, null)
+      const headerValue = this.responseHeaders.get(name)
 
-      debug('resolved response header', name, headerValue, this.responseHeaders)
+      debug(
+        'resolved response header "%s" to "%s"',
+        name,
+        headerValue,
+        this.responseHeaders
+      )
 
       return headerValue
     }
@@ -446,9 +437,7 @@ export const createXMLHttpRequestOverride = (
         return ''
       }
 
-      return Object.entries(this.responseHeaders)
-        .map(([name, value]) => `${name}: ${value}\r\n`)
-        .join('')
+      return headersToString(this.responseHeaders)
     }
 
     public addEventListener<K extends keyof XMLHttpRequestEventTargetEventMap>(
@@ -529,13 +518,11 @@ export const createXMLHttpRequestOverride = (
       })
     }
 
-    propagateHeaders(
-      req: XMLHttpRequest,
-      headers: Record<string, string | string[]>
-    ) {
-      const flatHeaders = flattenHeadersObject(headers)
-      Object.entries(flatHeaders).forEach(([key, value]) => {
-        req.setRequestHeader(key, value)
+    propagateHeaders(req: XMLHttpRequest, headers: Headers) {
+      debug('propagating request headers to the original request', headers)
+      headers.forEach((value, name) => {
+        debug('setting "%s" (%s) header on the original request', name, value)
+        req.setRequestHeader(name, value)
       })
     }
   }

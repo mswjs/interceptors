@@ -59,7 +59,7 @@ test('responds to an HTTP request handled in the middleware', async () => {
   const responseHeaders = req.getAllResponseHeaders()
 
   expect(req.status).toEqual(301)
-  expect(responseHeaders).toContain('Content-Type: application/hal+json')
+  expect(responseHeaders).toContain('content-type: application/hal+json')
   expect(req.response).toEqual('foo')
 })
 
@@ -79,7 +79,7 @@ test('responds to an HTTPS request handled in the middleware', async () => {
   const responseHeaders = req.getAllResponseHeaders()
 
   expect(req.status).toEqual(301)
-  expect(responseHeaders).toContain('Content-Type: application/hal+json')
+  expect(responseHeaders).toContain('content-type: application/hal+json')
   expect(req.response).toEqual('foo')
 })
 
@@ -99,7 +99,7 @@ test('responds to an HTTP request to a relative URL that is handled in the middl
   const responseHeaders = req.getAllResponseHeaders()
 
   expect(req.status).toEqual(301)
-  expect(responseHeaders).toContain('Content-Type: application/hal+json')
+  expect(responseHeaders).toContain('content-type: application/hal+json')
   expect(req.response).toEqual('foo')
 })
 

@@ -43,5 +43,5 @@ test('retrieves the response headers when called ".getAllResponseHeaders()"', as
   })
 
   const responseHeaders = request.getAllResponseHeaders()
-  expect(responseHeaders).toEqual('e-tag: 123\r\nx-powered-by: msw\r\n')
+  expect(responseHeaders).toEqual('e-tag: 123\r\nx-powered-by: msw')
 })
