@@ -52,7 +52,7 @@ test('responds to an HTTP request handled in the resolver', async () => {
   expect(response).toHaveProperty('statusText', 'Created')
   expect(response).toHaveProperty(
     'headers',
-    'Content-Type: application/hal+json\r\n'
+    'content-type: application/hal+json'
   )
   expect(response).toHaveProperty('body', JSON.stringify({ mocked: true }))
 })
@@ -66,7 +66,7 @@ test('responds to an HTTPS request handled in the resolver', async () => {
   expect(response).toHaveProperty('statusText', 'Created')
   expect(response).toHaveProperty(
     'headers',
-    'Content-Type: application/hal+json\r\n'
+    'content-type: application/hal+json'
   )
   expect(response).toHaveProperty('body', JSON.stringify({ mocked: true }))
 })
