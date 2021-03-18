@@ -263,6 +263,9 @@ export const createXMLHttpRequestOverride = (
           if (mockedResponse) {
             debug('received mocked response', mockedResponse)
 
+            // Trigger a loadstart event to indicate the initialization of the fetch
+            this.trigger('loadstart')
+            
             this.status = mockedResponse.status || 200
             this.statusText = mockedResponse.statusText || 'OK'
             this._responseHeaders = mockedResponse.headers
@@ -301,9 +304,10 @@ export const createXMLHttpRequestOverride = (
              * @see https://github.com/mswjs/node-request-interceptor/issues/13
              */
             this.readyState = this.DONE
-
-            this.trigger('loadstart')
+            
+            // Trigger a load event to indicate the fetch has succeeded
             this.trigger('load')
+            //Trigger a loadend event to indicate the fetch has completed 
             this.trigger('loadend')
 
             observer.emit('response', req, {
