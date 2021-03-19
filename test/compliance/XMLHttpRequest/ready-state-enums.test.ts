@@ -1,17 +1,9 @@
-import { createInterceptor } from '../../src'
-import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../helpers'
+import { createInterceptor } from '../../../src'
+import { interceptXMLHttpRequest } from '../../../src/interceptors/XMLHttpRequest'
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
-  resolver() {
-    return {
-      headers: {
-        'e-tag': '123',
-        'x-powered-by': 'msw',
-      },
-    }
-  },
+  resolver() {},
 })
 
 beforeAll(() => {
@@ -35,13 +27,4 @@ test('exposes ready state enums both as static and public properties', () => {
   expect(xhr.HEADERS_RECEIVED).toBe(2)
   expect(xhr.LOADING).toBe(3)
   expect(xhr.DONE).toBe(4)
-})
-
-test('retrieves the response headers when called ".getAllResponseHeaders()"', async () => {
-  const request = await createXMLHttpRequest((req) => {
-    req.open('GET', '/')
-  })
-
-  const responseHeaders = request.getAllResponseHeaders()
-  expect(responseHeaders).toEqual('e-tag: 123\r\nx-powered-by: msw')
 })
