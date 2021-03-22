@@ -2369,11 +2369,6 @@ has@^1.0.3:
   dependencies:
     function-bind "^1.1.1"
 
-headers-utils@^1.2.0:
-  version "1.2.5"
-  resolved "https://registry.yarnpkg.com/headers-utils/-/headers-utils-1.2.5.tgz#899d6a76b21bcbe18d6108f56136fdbd4f30c404"
-  integrity sha512-DAzV5P/pk3wTU/8TLZN+zFTDv4Xa1QDTU8pRvovPetcOMbmqq8CwsAvZBLPZHH6usxyy31zMp7I4aCYb6XIf6w==
-
 headers-utils@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/headers-utils/-/headers-utils-3.0.0.tgz#a2fd4c2236166d283298cebe7626f66997f8ae93"
@@ -3679,10 +3674,10 @@ p-try@^2.0.0:
   resolved "https://registry.yarnpkg.com/p-try/-/p-try-2.2.0.tgz#cb2868540e313d61de58fafbe35ce9004d5540e6"
   integrity sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==
 
-page-with@^0.3.2:
-  version "0.3.2"
-  resolved "https://registry.yarnpkg.com/page-with/-/page-with-0.3.2.tgz#ce9e625b682c7fa99980df2f7e9d76652b0def2c"
-  integrity sha512-Pys0XuR3THFcjUUOK7IqeBpKPRqxsIVNPNFn3Gm3d77wONtOUdxxkPgOcT10Sg0+vNiAkhELria4PdQL1Lisdw==
+page-with@^0.3.3:
+  version "0.3.3"
+  resolved "https://registry.yarnpkg.com/page-with/-/page-with-0.3.3.tgz#bde1e623f75037945dbc9c8213fc8bccef94df55"
+  integrity sha512-ox9UXgw4ngKd5qtUZW2isYqr98QejoeqLEcBqdOIQMVhxxJ6EY4SZRylbuBCXDBBhNEwLkmYNbxloXSbfruKdg==
   dependencies:
     "@open-draft/until" "^1.0.3"
     "@types/debug" "^4.1.5"
@@ -3691,7 +3686,7 @@ page-with@^0.3.2:
     "@types/uuid" "^8.3.0"
     debug "^4.3.1"
     express "^4.17.1"
-    headers-utils "^1.2.0"
+    headers-utils "^3.0.0"
     memfs "^3.2.0"
     mustache "^4.1.0"
     playwright "^1.8.0"
