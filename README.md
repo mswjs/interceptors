@@ -1,31 +1,27 @@
-[![Latest version](https://img.shields.io/npm/v/node-request-interceptor.svg)](https://www.npmjs.com/package/node-request-interceptor)
-[![Build status](https://img.shields.io/circleci/project/github/mswjs/node-request-interceptor/master.svg)](https://app.circleci.com/pipelines/github/mswjs/node-request-interceptor)
+[![Latest version](https://img.shields.io/npm/v/@mswjs/interceptors.svg)](https://www.npmjs.com/package/@mswjs/interceptors)
+[![Build status](https://img.shields.io/circleci/project/github/mswjs/interceptors/master.svg)](https://app.circleci.com/pipelines/github/mswjs/interceptors)
 
-# `node-request-interceptor`
+# `@mswjs/interceptors`
 
-Low-level HTTP/HTTPS/XHR request interception library for NodeJS.
+Low-level HTTP/HTTPS/XHR/fetch request interception library.
 
 **Intercepts any requests issued by:**
 
 - `http.get`/`http.request`
 - `https.get`/`https.request`
-- `fetch`
 - `XMLHttpRequest`
-- Any third-party libraries that utilize the modules above (i.e. `request`, `node-fetch`, etc.)
+- `fetch`
+- Any third-party libraries that use the modules above (i.e. `request`, `node-fetch`, etc.)
 
 ## Motivation
 
-While there are a lot of network communication mocking libraries, they tend to use request interception as an implementation detail, exposing you a high-level API that includes request matching, timeouts, retries, and so forth.
+While there are a lot of network communication mocking libraries, they tend to use request interception as an implementation detail, giving you a high-level API that includes request matching, timeouts, retries, and so forth.
 
-This library is a strip-to-bone implementation that provides as little abstraction as possible to execute arbitrary logic upon any request in NodeJS. It's primarily designed as an underlying component for a high-level API mocking solutions.
+This library is a strip-to-bone implementation that provides as little abstraction as possible to execute arbitrary logic upon any request. It's primarily designed as an underlying component for high-level API mocking solutions such as [Mock Service Worker](https://github.com/mswjs/msw).
 
 ### How is this library different?
 
-As interception is often combined with request route matching, some libraries can determine whether a request should be mocked _before_ it actually happens. This approach is not suitable for this library, as it rather _intercepts all requests_ and then let's you decide which ones should be mocked. This affects the level at which interception happens, and also the way mocked/original response is constructed, in comparison to other solutions.
-
-### Why XMLHttpRequest?
-
-Although NodeJS has no `XMLHttpRequest` implementation, this library covers it for the sake of processes that still run in NodeJS, but emulate a browser-like environment (i.e. `jsdom` when running tests in Jest).
+As interception is often combined with request route matching, some libraries can determine whether a request should be mocked _before_ it actually happens. This approach is not suitable for this library, as it rather _intercepts all requests_ and then let's you decide which ones should be mocked. This affects the level at which interception happens, and also the way mocked/original responses are constructed, in comparison to other solutions.
 
 ## What this library does
 
@@ -36,10 +32,9 @@ This library monkey-patches the following native modules:
 - `XMLHttpRequest`
 - `fetch`
 
-Once patched, it provides an interface to execute an arbitrary logic upon any outgoing request using a request middleware function.
+Once patched, it provisions the interception of requests and normalizes them to something called _isomorphic request instances_. That normalization ensures the same request handling for the consumer of the library, while requests originating from different modules may differ internally.
 
-- Bypasses all requests by default, so your network channel is not affected.
-- Handles an abstract response object returned from the request middleware as an actual response for the occurred request (taking into account the difference in constructing a response for different clients).
+In its mocking phase, this library accepts an _isomorphic response instance_ that describes a module-agnostic mocked response. This allows you to respond to requests issued by different modules using the same response instance.
 
 ## What this library doesn't do
 
@@ -49,7 +44,7 @@ Once patched, it provides an interface to execute an arbitrary logic upon any ou
 ## Getting started
 
 ```bash
-npm install node-request-interceptor
+npm install @mswjs/interceptors
 ```
 
 ## API
@@ -57,8 +52,8 @@ npm install node-request-interceptor
 ### `createInterceptor(options: CreateInterceptorOptions)`
 
 ```js
-import { createInterceptor } from 'node-request-interceptor'
-import nodeInterceptors from 'node-request-interceptor/lib/presets/node'
+import { createInterceptor } from '@mswjs/interceptors'
+import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
 
 const interceptor = createInterceptor({
   modules: nodeInterceptors,
@@ -83,8 +78,8 @@ This library utilizes a concept of _interceptors_–functions that patch necessa
 To use a single, or multiple interceptors, import and provide them to the `RequestInterceptor` constructor.
 
 ```js
-import { createInterceptor } from 'node-request-interceptor'
-import { interceptXMLHttpRequest } from 'node-request-interceptor/lib/interceptors/XMLHttpRequest'
+import { createInterceptor } from '@mswjs/interceptors'
+import { interceptXMLHttpRequest } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
 
 // This `interceptor` instance would handle only XMLHttpRequest,
 // ignoring requests issued via `http`/`https` modules.
@@ -93,7 +88,7 @@ const interceptor = new createInterceptor({
 })
 ```
 
-> Interceptors are crucial in leveraging environment-specific module overrides. Certain environments (i.e. React Native) do not have access to native NodeJS modules (like `http`). Importing such modules raises an exception, and must be avoided.
+> Interceptors are crucial in leveraging environment-specific module overrides. Certain environments (i.e. React Native) do not have access to native Node.js modules (like `http`). Importing such modules raises an exception, and must be avoided.
 
 ### Methods
 
