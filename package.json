@@ -1,6 +1,6 @@
 {
-  "name": "node-request-interceptor",
-  "description": "Low-level HTTP/HTTPS/XHR request interception library for Node.js",
+  "name": "@mswjs/interceptors",
+  "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
   "version": "0.6.3",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
@@ -23,7 +23,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/mswjs/node-request-interceptor"
+    "url": "https://github.com/mswjs/interceptors"
   },
   "devDependencies": {
     "@open-draft/test-server": "^0.2.3",
