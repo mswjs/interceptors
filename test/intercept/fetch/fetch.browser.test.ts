@@ -4,7 +4,7 @@
 import * as path from 'path'
 import { RequestHandler } from 'express'
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { pageWith, ScenarioApi } from 'page-with'
+import { Response, pageWith, ScenarioApi } from 'page-with'
 
 interface ExpectedRequest {
   method: string
@@ -32,7 +32,7 @@ async function prepareFetch(
   url: string,
   init: RequestInit = {},
   assertions: { expected: ExpectedRequest }
-) {
+): Promise<Response | null> {
   await context.page.evaluate((expected) => {
     window.expected = expected
   }, assertions.expected)

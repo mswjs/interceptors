@@ -1,8 +1,8 @@
 import {
-  flattenHeadersObject,
   Headers,
   headersToObject,
   objectToHeaders,
+  flattenHeadersObject,
 } from 'headers-utils'
 import {
   Interceptor,
@@ -25,24 +25,24 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
 
     debug('[%s] %s', method, url)
 
-    const request: IsomorphicRequest = {
+    const isoRequest: IsomorphicRequest = {
       url: new URL(url, location.origin),
       method: method,
-      headers: init?.headers ? headersToObject(new Headers(init.headers)) : {},
+      headers: new Headers(init?.headers || {}),
       body: await ref.text(),
     }
-    debug('isomorphic request', request)
-    observer.emit('request', request)
+    debug('isomorphic request', isoRequest)
+    observer.emit('request', isoRequest)
 
     debug('awaiting for the mocked response...')
-    const response = await resolver(request, ref)
+    const response = await resolver(isoRequest, ref)
     debug('mocked response', response)
 
     if (response) {
       const isomorphicResponse = normalizeMockedResponse(response)
       debug('derived isomorphic response', isomorphicResponse)
 
-      observer.emit('response', request, isomorphicResponse)
+      observer.emit('response', isoRequest, isomorphicResponse)
 
       return new Response(response.body, {
         ...isomorphicResponse,
@@ -58,7 +58,11 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
     return pureFetch(input, init).then(async (response) => {
       debug('original fetch performed', response)
 
-      observer.emit('response', request, await normalizeFetchResponse(response))
+      observer.emit(
+        'response',
+        isoRequest,
+        await normalizeFetchResponse(response)
+      )
       return response
     })
   }

@@ -17,11 +17,9 @@ export type InterceptorCleanupFn = () => void
 export interface IsomorphicRequest {
   url: URL
   method: string
-  headers: HeadersObject
+  headers: Headers
   body?: string
 }
-
-// Support legacy types so this is not a breaking change
 
 export interface IsomorphicResponse {
   status: number
