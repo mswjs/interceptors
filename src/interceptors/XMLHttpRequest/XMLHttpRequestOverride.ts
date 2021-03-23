@@ -8,7 +8,6 @@ import {
   stringToHeaders,
   objectToHeaders,
   headersToString,
-  headersToObject,
 } from 'headers-utils'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 import { parseJson } from '../../utils/parseJson'
@@ -241,16 +240,16 @@ export const createXMLHttpRequestOverride = (
       debug('request headers', this._requestHeaders)
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
-      const request: IsomorphicRequest = {
+      const isoRequest: IsomorphicRequest = {
         url,
         method: this.method,
         body: this.data,
-        headers: headersToObject(this._requestHeaders),
+        headers: this._requestHeaders,
       }
 
       debug('awaiting mocked response...')
 
-      Promise.resolve(until(async () => resolver(request, this))).then(
+      Promise.resolve(until(async () => resolver(isoRequest, this))).then(
         ([middlewareException, mockedResponse]) => {
           // When the request middleware throws an exception, error the request.
           // This cancels the request and is similar to a network error.
@@ -319,7 +318,7 @@ export const createXMLHttpRequestOverride = (
             // Trigger a loadend event to indicate the fetch has completed.
             this.trigger('loadend')
 
-            observer.emit('response', request, {
+            observer.emit('response', isoRequest, {
               status: this.status,
               statusText: this.statusText,
               headers: objectToHeaders(mockedResponse.headers || {}),
@@ -377,7 +376,7 @@ export const createXMLHttpRequestOverride = (
 
               debug('original response finished')
 
-              observer.emit('response', request, {
+              observer.emit('response', isoRequest, {
                 status: originalRequest.status,
                 statusText: originalRequest.statusText,
                 headers: this._responseHeaders,

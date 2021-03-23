@@ -53,7 +53,7 @@ test('intercepts an http.get request', async () => {
   expect(request?.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
   expect(request).toHaveProperty('method', 'GET')
   expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(request?.headers.get('x-custom-header')).toEqual('yes')
 })
 
 test('intercepts an http.get request given RequestOptions without a protocol', (done) => {

@@ -66,7 +66,7 @@ test('XMLHttpRequest: emits the "response" event upon the mocked response', asyn
 
   expect(request).toHaveProperty('method', 'GET')
   expect(request.url.toString()).toBe('https://mswjs.io/events')
-  expect(request.headers).toHaveProperty('x-request-custom', 'yes')
+  expect(request.headers.get('x-request-custom')).toBe('yes')
 
   expect(response).toHaveProperty('status', 200)
   expect(response).toHaveProperty('statusText', 'OK')
@@ -86,7 +86,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
 
   expect(request).toHaveProperty('method', 'POST')
   expect(request.url.toString()).toBe(server.https.makeUrl('/account'))
-  expect(request.headers).toHaveProperty('x-request-custom', 'yes')
+  expect(request.headers.get('x-request-custom')).toBe('yes')
   expect(request).toHaveProperty('body', 'request-body')
 
   expect(response).toHaveProperty('status', 200)

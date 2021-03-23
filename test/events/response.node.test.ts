@@ -90,8 +90,8 @@ test('ClientRequest: emits the "response" event upon the original response', asy
   expect(request).toHaveProperty('method', 'POST')
   expect(request.url).toBeInstanceOf(URL)
   expect(request.url.toString()).toBe(server.https.makeUrl('/account'))
-  expect(request.headers).toHaveProperty('content-type', 'application/json')
-  expect(request.headers).toHaveProperty('x-request-custom', 'yes')
+  expect(request.headers.get('content-type')).toBe('application/json')
+  expect(request.headers.get('x-request-custom')).toBe('yes')
   expect(request).toHaveProperty('body', `{"id":"abc-123"}`)
 
   expect(response).toHaveProperty('status', 200)

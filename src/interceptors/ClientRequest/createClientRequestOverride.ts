@@ -2,11 +2,7 @@ import { inherits } from 'util'
 import { Socket } from 'net'
 import http from 'http'
 import { until } from '@open-draft/until'
-import {
-  HeadersObject,
-  objectToHeaders,
-  reduceHeadersObject,
-} from 'headers-utils'
+import { Headers, HeadersObject, objectToHeaders } from 'headers-utils'
 import { SocketPolyfill } from './polyfills/SocketPolyfill'
 
 /* Utils */
@@ -156,28 +152,31 @@ export function createClientRequestOverride(
 
       debug('request resolved body', resolvedRequestBody)
 
-      const outHeaders = this.getHeaders()
+      const outgoingHeaders = this.getHeaders()
       const resolvedRequestHeaders = Object.assign(
         {},
-        outHeaders,
+        outgoingHeaders,
         options.headers
       )
 
-      const requestHeaders = resolvedRequestHeaders
-        ? reduceHeadersObject<HeadersObject>(
-            resolvedRequestHeaders as HeadersObject,
-            (headers, name, value) => {
-              headers[name.toLowerCase()] = value
-              return headers
-            },
-            {}
-          )
-        : {}
+      const requesHeadersObject = Object.entries(
+        resolvedRequestHeaders
+      ).reduce<HeadersObject>((headersObject, [name, value]) => {
+        if (value) {
+          const corcedValue =
+            typeof value === 'number' ? value.toString() : value
+          headersObject[name.toLowerCase()] = corcedValue
+        }
 
+        return headersObject
+      }, {})
+      debug('request headers object', requesHeadersObject)
+
+      const requestHeaders = new Headers(requesHeadersObject)
       debug('request headers', requestHeaders)
 
       // Construct the intercepted request instance exposed to the request middleware.
-      const formattedRequest: IsomorphicRequest = {
+      const isoRequest: IsomorphicRequest = {
         url,
         method: options.method || 'GET',
         headers: requestHeaders,
@@ -187,7 +186,7 @@ export function createClientRequestOverride(
       debug('awaiting mocked response...')
 
       const [resolverError, mockedResponse] = await until(async () =>
-        resolver(formattedRequest, response)
+        resolver(isoRequest, response)
       )
 
       // When the request middleware throws an exception, error the request.
@@ -254,7 +253,7 @@ export function createClientRequestOverride(
         response.push(null)
         response.complete = true
 
-        observer.emit('response', formattedRequest, {
+        observer.emit('response', isoRequest, {
           status: mockedResponse.status || 200,
           statusText: mockedResponse.statusText || 'OK',
           headers: objectToHeaders(mockedResponse.headers || {}),
@@ -299,7 +298,7 @@ export function createClientRequestOverride(
 
       // Propagate headers set after `ClientRequest` is constructed
       // onto the original request instance.
-      inheritRequestHeaders(request, outHeaders)
+      inheritRequestHeaders(request, outgoingHeaders)
 
       // Propagate a request body buffer written via `req.write()`
       // to the original request.
@@ -312,7 +311,7 @@ export function createClientRequestOverride(
       })
 
       request.on('response', async (response) => {
-        observer.emit('response', formattedRequest, {
+        observer.emit('response', isoRequest, {
           status: response.statusCode || 200,
           statusText: response.statusMessage || 'OK',
           headers: objectToHeaders(response.headers),

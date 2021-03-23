@@ -62,7 +62,7 @@ test('intercepts an HTTPS GET request', async () => {
   expect(request?.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
   expect(request).toHaveProperty('method', 'GET')
   expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(request?.headers.get('x-custom-header')).toEqual('yes')
 })
 
 test('intercepts an HTTPS POST request', async () => {
@@ -87,7 +87,7 @@ test('intercepts an HTTPS POST request', async () => {
   expect(request).toHaveProperty('method', 'POST')
   expect(request?.url.searchParams.get('id')).toEqual('123')
   expect(request).toHaveProperty('body', 'request-body')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(request?.headers.get('x-custom-header')).toEqual('yes')
 })
 
 test('intercepts an HTTPS PUT request', async () => {
@@ -111,7 +111,7 @@ test('intercepts an HTTPS PUT request', async () => {
   expect(request).toHaveProperty('method', 'PUT')
   expect(request?.url.searchParams.get('id')).toEqual('123')
   expect(request).toHaveProperty('body', 'request-body')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(request?.headers.get('x-custom-header')).toEqual('yes')
 })
 
 test('intercepts an HTTPS DELETE request', async () => {
@@ -131,7 +131,7 @@ test('intercepts an HTTPS DELETE request', async () => {
   expect(request?.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
   expect(request).toHaveProperty('method', 'DELETE')
   expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(request?.headers.get('x-custom-header')).toEqual('yes')
 })
 
 test('intercepts an HTTPS PATCH request', async () => {
@@ -151,7 +151,7 @@ test('intercepts an HTTPS PATCH request', async () => {
   expect(request?.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
   expect(request).toHaveProperty('method', 'PATCH')
   expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(request?.headers.get('x-custom-header')).toEqual('yes')
 })
 
 test('intercepts an HTTPS HEAD request', async () => {
@@ -171,7 +171,7 @@ test('intercepts an HTTPS HEAD request', async () => {
   expect(request?.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
   expect(request).toHaveProperty('method', 'HEAD')
   expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(request?.headers.get('x-custom-header')).toEqual('yes')
 })
 
 test('intercepts an http.request request given RequestOptions without a protocol', (done) => {
