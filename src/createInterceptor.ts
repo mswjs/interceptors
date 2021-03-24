@@ -28,10 +28,6 @@ export interface IsomorphicResponse {
   body?: string
 }
 
-// Support legacy types so this is not a breaking change?
-export type IsomophricRequest = IsomorphicRequest
-export type IsomophricResponse = IsomorphicResponse
-
 export interface MockedResponse
   extends Omit<Partial<IsomorphicResponse>, 'headers'> {
   headers?: HeadersObject
