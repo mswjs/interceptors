@@ -1,5 +1,5 @@
 /**
- * @see https://github.com/mswjs/node-request-interceptor/issues/7
+ * @see https://github.com/mswjs/interceptors/issues/7
  */
 import { createInterceptor } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'

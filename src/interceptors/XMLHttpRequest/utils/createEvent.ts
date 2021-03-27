@@ -20,7 +20,7 @@ export function createEvent(
 
   /**
    * `ProgressEvent` is not supported in React Native.
-   * @see https://github.com/mswjs/node-request-interceptor/issues/40
+   * @see https://github.com/mswjs/interceptors/issues/40
    */
   const ProgressEventClass = SUPPORTS_PROGRESS_EVENT
     ? ProgressEvent

@@ -26,7 +26,7 @@ function resolveRequestOptions(
   /**
    * Clone the request options to lock their state
    * at the moment they are provided to `ClientRequest.
-   * @see https://github.com/mswjs/node-request-interceptor/issues/86
+   * @see https://github.com/mswjs/interceptors/issues/86
    */
   return args[1] ? cloneObject(args[1]) : ({} as RequestOptions)
 }

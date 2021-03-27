@@ -1,5 +1,5 @@
-import { createInterceptor } from 'node-request-interceptor'
-import { interceptXMLHttpRequest } from 'node-request-interceptor/lib/interceptors/XMLHttpRequest'
+import { createInterceptor } from '@mswjs/interceptors'
+import { interceptXMLHttpRequest } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
 
 window.interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
