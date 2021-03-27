@@ -309,7 +309,7 @@ export const createXMLHttpRequestOverride = (
 
             /**
              * Explicitly mark the request as done so its response never hangs.
-             * @see https://github.com/mswjs/node-request-interceptor/issues/13
+             * @see https://github.com/mswjs/interceptors/issues/13
              */
             this.setReadyState(this.DONE)
 

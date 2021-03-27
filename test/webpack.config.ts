@@ -10,7 +10,7 @@ export default {
   ],
   resolve: {
     alias: {
-      'node-request-interceptor': path.resolve(__dirname, '..'),
+      '@mswjs/interceptors': path.resolve(__dirname, '..'),
     },
   },
 }

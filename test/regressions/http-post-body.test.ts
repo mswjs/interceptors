@@ -1,6 +1,6 @@
 /**
  * @jest-environment node
- * @see https://github.com/mswjs/node-request-interceptor/issues/32
+ * @see https://github.com/mswjs/interceptors/issues/32
  */
 import https from 'https'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'

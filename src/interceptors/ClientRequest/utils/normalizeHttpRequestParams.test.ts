@@ -244,7 +244,7 @@ test('handles [Empty RequestOptions, callback] input', () => {
 })
 
 /**
- * @see https://github.com/mswjs/node-request-interceptor/issues/19
+ * @see https://github.com/mswjs/interceptors/issues/19
  */
 test('handles [PartialRequestOptions, callback] input', () => {
   const initialOptions = {

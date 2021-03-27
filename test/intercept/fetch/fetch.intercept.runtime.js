@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { Headers } from 'headers-utils'
-import { createInterceptor } from 'node-request-interceptor'
-import { interceptFetch } from 'node-request-interceptor/lib/interceptors/fetch'
+import { createInterceptor } from '@mswjs/interceptors'
+import { interceptFetch } from '@mswjs/interceptors/lib/interceptors/fetch'
 
 const interceptor = createInterceptor({
   modules: [interceptFetch],
