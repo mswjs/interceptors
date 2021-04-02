@@ -1,13 +1,13 @@
 import { IncomingMessage } from 'http'
 
-export function getIncomingMessageBody(res: IncomingMessage): Promise<string> {
-  let responseBody = ''
+export function getIncomingMessageBody(res: IncomingMessage): Promise<Buffer> {
+  const bufs: Buffer[] = [];
 
   return new Promise((resolve, reject) => {
     res.once('error', reject)
-    res.on('data', (chunk) => (responseBody += chunk))
+    res.on('data', (chunk) => bufs.push(chunk))
     res.once('end', () => {
-      resolve(responseBody)
+      resolve(Buffer.concat(bufs))
     })
   })
 }

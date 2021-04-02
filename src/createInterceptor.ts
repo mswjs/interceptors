@@ -25,7 +25,7 @@ export interface IsomorphicResponse {
   status: number
   statusText: string
   headers: Headers
-  body?: string
+  body?: Buffer | string
 }
 
 export interface MockedResponse

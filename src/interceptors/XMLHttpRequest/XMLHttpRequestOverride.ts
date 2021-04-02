@@ -288,8 +288,8 @@ export const createXMLHttpRequestOverride = (
             this.setReadyState(this.HEADERS_RECEIVED)
 
             debug('response type', this.responseType)
-            this.response = this.getResponseBody(mockedResponse.body)
-            this.responseText = mockedResponse.body || ''
+            this.response = this.getResponseBody(mockedResponse.body?.toString())
+            this.responseText = mockedResponse.body?.toString() || ''
 
             debug('set response body', this.response)
 
@@ -298,7 +298,7 @@ export const createXMLHttpRequestOverride = (
 
               // Presense of the mocked response implies a response body (not null).
               // Presense of the coerced `this.response` implies the mocked body is valid.
-              const bodyBuffer = bufferFrom(mockedResponse.body)
+              const bodyBuffer = bufferFrom(mockedResponse.body?.toString())
 
               // Trigger a progress event based on the mocked response body.
               this.trigger('progress', {
