@@ -247,6 +247,8 @@ export const createXMLHttpRequestOverride = (
         headers: this._requestHeaders,
       }
 
+      observer.emit('request', isoRequest)
+
       debug('awaiting mocked response...')
 
       Promise.resolve(until(async () => resolver(isoRequest, this))).then(
