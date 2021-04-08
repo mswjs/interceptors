@@ -14,6 +14,7 @@ import { normalizeHttpRequestParams } from './utils/normalizeHttpRequestParams'
 import { normalizeHttpRequestEndParams } from './utils/normalizeHttpRequestEndParams'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
+import { createXMLHttpRequestOverride } from '../XMLHttpRequest/XMLHttpRequestOverride'
 
 const createDebug = require('debug')
 
@@ -182,6 +183,8 @@ export function createClientRequestOverride(
         headers: requestHeaders,
         body: resolvedRequestBody,
       }
+
+      observer.emit('request', isoRequest)
 
       debug('awaiting mocked response...')
 
