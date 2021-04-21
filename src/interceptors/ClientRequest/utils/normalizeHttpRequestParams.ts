@@ -67,7 +67,7 @@ export function normalizeHttpRequestParams(
   }
   // Handle a given URL instance as-is
   // and derive request options from it.
-  else if ('origin' in args[0]) {
+  else if (args[0] instanceof URL) {
     url = args[0]
     debug('given a URL:', url)
 

@@ -207,6 +207,7 @@ test('handles [RequestOptions, callback] input', () => {
     method: 'POST',
     protocol: 'https:',
     host: 'mswjs.io',
+    origin: 'https://mswjs.io', // see: https://github.com/mswjs/msw/issues/705
     path: '/resource',
     headers: {
       'Content-Type': 'text/plain',
