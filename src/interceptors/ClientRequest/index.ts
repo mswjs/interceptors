@@ -39,17 +39,11 @@ function handleClientRequest(
     observer,
     resolver,
   })
-
-  debug('patching native http.ClientRequest...')
-
-  // Only http.ClientRequest is overridden because https uses http
-  // @ts-ignore
-  http.ClientRequest = ClientRequestOverride
-
-  debug('new http.ClientRequest (origin: %s)', protocol)
+  
+  debug('new ClientRequestOverride (origin: %s)', protocol)
 
   // @ts-expect-error Variable call signature.
-  return new http.ClientRequest(...args)
+  return new ClientRequestOverride(...args)
 }
 
 /**
