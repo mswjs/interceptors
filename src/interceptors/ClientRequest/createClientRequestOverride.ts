@@ -284,17 +284,7 @@ export function createClientRequestOverride(
       // Decide whether to use HTTPS based on the URL protocol.
       // XHR can trigger http.request for HTTPS URL.
       if (url.protocol === 'https:') {
-        debug('reverting patches...')
-        const { ClientRequest } = http
-
-        http.ClientRequest = pureClientRequest
-
         request = pureMethod(options)
-
-        debug('re-applying patches...')
-
-        // @ts-ignore
-        http.ClientRequest = ClientRequest
       } else {
         request = pureMethod(url.toString(), options)
       }
