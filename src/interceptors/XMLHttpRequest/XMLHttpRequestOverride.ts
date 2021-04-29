@@ -292,6 +292,7 @@ export const createXMLHttpRequestOverride = (
             debug('response type', this.responseType)
             this.response = this.getResponseBody(mockedResponse.body)
             this.responseText = mockedResponse.body || ''
+            this.responseXML = this.getResponseXML()
 
             debug('set response body', this.response)
 
@@ -513,6 +514,14 @@ export const createXMLHttpRequestOverride = (
         default:
           return textBody
       }
+    }
+
+    getResponseXML() {
+      const contentType = this.getResponseHeader('Content-Type')
+      if (contentType === 'application/xml' || contentType === 'text/xml') {
+        return new DOMParser().parseFromString(this.responseText, contentType)
+      }
+      return null
     }
 
     /**
