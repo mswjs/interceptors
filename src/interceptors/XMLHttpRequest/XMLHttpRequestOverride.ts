@@ -9,6 +9,7 @@ import {
   objectToHeaders,
   headersToString,
 } from 'headers-utils'
+import { DOMParser } from 'xmldom'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 import { parseJson } from '../../utils/parseJson'
 import { bufferFrom } from './utils/bufferFrom'

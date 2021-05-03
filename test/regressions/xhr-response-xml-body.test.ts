@@ -1,6 +1,7 @@
-import { createInterceptor } from '../../src';
-import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest';
-import { createXMLHttpRequest } from '../helpers';
+import { DOMParser } from 'xmldom'
+import { createInterceptor } from '../../src'
+import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
+import { createXMLHttpRequest } from '../helpers'
 
 const XML_STRING = '<node key="value">Content</node>'
 
