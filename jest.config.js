@@ -1,7 +1,6 @@
 module.exports = {
-  rootDir: 'src',
+  preset: 'ts-jest',
   testMatch: ['**/*.test.ts'],
-  transform: {
-    '^.+\\.ts$': 'ts-jest',
-  },
+  testTimeout: 60000,
+  setupFilesAfterEnv: ['./jest.setup.js'],
 }
