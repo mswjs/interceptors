@@ -94,10 +94,18 @@ export class SocketPolyfill extends EventEmitter {
   }
 
   setTimeout(timeout: number, callback?: () => void): SocketPolyfill {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       callback?.()
       this.emit('timeout')
     }, timeout)
+
+    /**
+     * Unref the timer in node.js so the process won't hang on exit if long
+     * timeouts were used
+     */
+    if (typeof timer.unref === 'function') {
+      timer.unref()
+    }
 
     return this
   }
