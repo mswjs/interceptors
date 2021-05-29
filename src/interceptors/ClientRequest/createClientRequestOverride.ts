@@ -121,9 +121,9 @@ export function createClientRequestOverride(
         }
       }
 
-      setImmediate(() => {
+      setTimeout(() => {
         this.emit('drain')
-      })
+      }, 0)
 
       return false
     }
