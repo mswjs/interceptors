@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import { createInterceptor } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest, readBlob } from '../helpers'

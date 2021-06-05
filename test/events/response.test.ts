@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import { ServerApi, createServer } from '@open-draft/test-server'
 import {
   createInterceptor,

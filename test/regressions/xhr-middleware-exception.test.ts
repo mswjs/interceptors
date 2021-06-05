@@ -1,4 +1,5 @@
 /**
+ * @jest-environment jsdom
  * @see https://github.com/mswjs/msw/issues/355
  */
 import fetch from 'node-fetch'

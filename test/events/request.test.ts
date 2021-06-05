@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import { createServer, ServerApi } from '@open-draft/test-server'
 import { createInterceptor, IsomorphicRequest } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
@@ -65,7 +68,7 @@ it('XMLHttpRequest: emits the "request" event upon a request', async () => {
   const [request] = requests
 
   /**
-   * @note In Node.js XMLHttpRequest if often polyfilled by ClientRequest.
+   * @note In Node.js XMLHttpRequest is often polyfilled by ClientRequest.
    * This results in both XMLHttpRequest and ClientRequest interceptors
    * emitting the "request" event.
    */

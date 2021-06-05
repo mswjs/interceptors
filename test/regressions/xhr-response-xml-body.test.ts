@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import { DOMParser } from 'xmldom'
 import { createInterceptor } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
