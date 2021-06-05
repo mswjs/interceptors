@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'

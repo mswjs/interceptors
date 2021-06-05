@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
 import { interceptXMLHttpRequest } from '../../../src/interceptors/XMLHttpRequest'
@@ -28,12 +31,6 @@ const interceptor = createInterceptor({
 
 function spyOnEvents(request: XMLHttpRequest, pool: EventPool) {
   function listener(this: XMLHttpRequest, event: Event) {
-    // console.log(
-    //   'called listener "%s" (%d)\n%s',
-    //   event.type,
-    //   this.readyState,
-    //   new Error().stack
-    // )
     pool.push([event.type, this.readyState])
   }
   request.addEventListener('readystatechange', listener)

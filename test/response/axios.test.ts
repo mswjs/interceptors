@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import axios from 'axios'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../src'

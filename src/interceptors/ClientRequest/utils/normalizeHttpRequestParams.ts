@@ -17,15 +17,15 @@ function resolveRequestOptions(
   args: HttpRequestArgs,
   url: URL
 ): RequestOptions {
-  // Calling `fetch` provides only URL to ClientRequest,
-  // without RequestOptions or callback.
-  if (['function', 'undefined'].includes(typeof args[1])) {
+  // Calling `fetch` provides only URL to `ClientRequest`
+  // without any `RequestOptions` or callback.
+  if (typeof args[1] === 'undefined' || typeof args[1] === 'function') {
     return getRequestOptionsByUrl(url)
   }
 
   /**
    * Clone the request options to lock their state
-   * at the moment they are provided to `ClientRequest.
+   * at the moment they are provided to `ClientRequest`.
    * @see https://github.com/mswjs/interceptors/issues/86
    */
   return args[1] ? cloneObject(args[1]) : ({} as RequestOptions)

@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import { Headers } from 'headers-utils'
 import { RequestHandler } from 'express'
 import { ServerApi, createServer } from '@open-draft/test-server'

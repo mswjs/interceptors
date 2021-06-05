@@ -39,7 +39,7 @@ function handleClientRequest(
     observer,
     resolver,
   })
-  
+
   debug('new ClientRequestOverride (origin: %s)', protocol)
 
   // @ts-expect-error Variable call signature.

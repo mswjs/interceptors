@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import * as path from 'path'
 import { Page, pageWith } from 'page-with'
 

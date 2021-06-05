@@ -1,4 +1,5 @@
 /**
+ * @jest-environment jsdom
  * @see https://github.com/mswjs/interceptors/issues/7
  */
 import { createInterceptor } from '../../src'
