@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment node
  */
 import * as path from 'path'
 import { RequestHandler } from 'express'

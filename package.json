@@ -43,7 +43,7 @@
     "got": "^11.8.1",
     "jest": "^27.0.4",
     "node-fetch": "^2.6.0",
-    "page-with": "^0.3.3",
+    "page-with": "^0.4.0",
     "rimraf": "^3.0.2",
     "superagent": "^6.1.0",
     "supertest": "^4.0.2",
