@@ -10,6 +10,7 @@ import {
   IsomorphicResponse,
 } from '../../createInterceptor'
 import { toIsoResponse } from '../../utils/toIsoResponse'
+import { uuidv4 } from '../../utils/uuid'
 
 const debug = require('debug')('fetch')
 
@@ -26,6 +27,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
     debug('[%s] %s', method, url)
 
     const isoRequest: IsomorphicRequest = {
+      id: uuidv4(),
       url: new URL(url, location.origin),
       method: method,
       headers: new Headers(init?.headers || {}),

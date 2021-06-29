@@ -15,6 +15,7 @@ import { normalizeHttpRequestEndParams } from './utils/normalizeHttpRequestEndPa
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 import { toIsoResponse } from '../../utils/toIsoResponse'
+import { uuidv4 } from '../../utils/uuid'
 
 const createDebug = require('debug')
 
@@ -173,6 +174,7 @@ export function createClientRequestOverride(
 
       // Construct the intercepted request instance exposed to the request middleware.
       const isoRequest: IsomorphicRequest = {
+        id: uuidv4(),
         url,
         method: options.method || 'GET',
         headers: requestHeaders,
