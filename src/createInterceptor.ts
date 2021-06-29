@@ -15,6 +15,7 @@ export type Observer = StrictEventEmitter<InterceptorEventsMap>
 export type InterceptorCleanupFn = () => void
 
 export interface IsomorphicRequest {
+  id: string
   url: URL
   method: string
   headers: Headers

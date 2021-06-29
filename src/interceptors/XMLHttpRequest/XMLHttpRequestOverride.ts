@@ -13,6 +13,7 @@ import { DOMParser } from 'xmldom'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 import { parseJson } from '../../utils/parseJson'
 import { toIsoResponse } from '../../utils/toIsoResponse'
+import { uuidv4 } from '../../utils/uuid'
 import { bufferFrom } from './utils/bufferFrom'
 import { createEvent } from './utils/createEvent'
 
@@ -240,6 +241,7 @@ export const createXMLHttpRequestOverride = (
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
       const isoRequest: IsomorphicRequest = {
+        id: uuidv4(),
         url,
         method: this.method,
         body: this.data,
