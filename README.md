@@ -51,6 +51,8 @@ npm install @mswjs/interceptors
 
 ### `createInterceptor(options: CreateInterceptorOptions)`
 
+Enables request interception in the current process.
+
 ```js
 import { createInterceptor } from '@mswjs/interceptors'
 import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
@@ -64,6 +66,40 @@ const interceptor = createInterceptor({
 ```
 
 > Using the `/presets/node` interceptors preset is the recommended way to ensure all requests get intercepted, regardless of their origin.
+
+### `createRemoteInterceptor(options: CreateRemoteInterceptorOptions)`
+
+Enables request interception in the current process while delegating the response resolution logic to the _parent process_. **Requires the current process to be a child process**. Requires the parent process to establish a resolver by calling the `createRemoteResolver` function.
+
+```js
+import { createRemoteInterceptor } from '@mswjs/interceptors'
+
+const interceptor = createRemoteInterceptor({
+  modules: nodeInterceptors,
+})
+
+interceptor.apply()
+
+process.on('disconnect', () => {
+  interceptor.restore()
+})
+```
+
+### `createRemoteResolver(options: CreateRemoteResolverOptions)`
+
+Resolves an intercepted request in the given child `process`. Requires for that child process to enable request interception by calling the `createRemoteInterceptor` function.
+
+```js
+import { createRemoteResolver } from '@mswjs/interceptors'
+
+createRemoteResolver({
+  process: fff,
+  resolver(request) {
+    // Optionally, return a mocked response
+    // for a request that occurred in the child "process".
+  },
+})
+```
 
 ### Interceptors
 
