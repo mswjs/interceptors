@@ -12,6 +12,7 @@ import {
 import { DOMParser } from 'xmldom'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 import { parseJson } from '../../utils/parseJson'
+import { toIsoResponse } from '../../utils/toIsoResponse'
 import { bufferFrom } from './utils/bufferFrom'
 import { createEvent } from './utils/createEvent'
 
@@ -49,7 +50,8 @@ export const createXMLHttpRequestOverride = (
     _responseHeaders: Headers
 
     // Collection of events modified by `addEventListener`/`removeEventListener` calls.
-    _events: XMLHttpRequestEvent<InternalXMLHttpRequestEventTargetEventMap>[] = []
+    _events: XMLHttpRequestEvent<InternalXMLHttpRequestEventTargetEventMap>[] =
+      []
 
     /* Request state */
     public static readonly UNSENT = 0
@@ -82,10 +84,8 @@ export const createXMLHttpRequestOverride = (
     public responseURL: string
     public upload: XMLHttpRequestUpload
     public readyState: number
-    public onreadystatechange: (
-      this: XMLHttpRequest,
-      ev: Event
-    ) => any = null as any
+    public onreadystatechange: (this: XMLHttpRequest, ev: Event) => any =
+      null as any
     public timeout: number
 
     /* Events */
@@ -93,10 +93,8 @@ export const createXMLHttpRequestOverride = (
       this: XMLHttpRequestEventTarget,
       event: ProgressEvent
     ) => any = null as any
-    public onerror: (
-      this: XMLHttpRequestEventTarget,
-      event: Event
-    ) => any = null as any
+    public onerror: (this: XMLHttpRequestEventTarget, event: Event) => any =
+      null as any
     public onload: (
       this: XMLHttpRequestEventTarget,
       event: ProgressEvent
@@ -322,12 +320,7 @@ export const createXMLHttpRequestOverride = (
             // Trigger a loadend event to indicate the fetch has completed.
             this.trigger('loadend')
 
-            observer.emit('response', isoRequest, {
-              status: this.status,
-              statusText: this.statusText,
-              headers: objectToHeaders(mockedResponse.headers || {}),
-              body: mockedResponse.body,
-            })
+            observer.emit('response', isoRequest, toIsoResponse(mockedResponse))
           } else {
             debug('no mocked response received!')
 
