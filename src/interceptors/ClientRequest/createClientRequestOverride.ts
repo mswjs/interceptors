@@ -14,7 +14,7 @@ import { normalizeHttpRequestParams } from './utils/normalizeHttpRequestParams'
 import { normalizeHttpRequestEndParams } from './utils/normalizeHttpRequestEndParams'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
-import { createXMLHttpRequestOverride } from '../XMLHttpRequest/XMLHttpRequestOverride'
+import { toIsoResponse } from '../../utils/toIsoResponse'
 
 const createDebug = require('debug')
 
@@ -29,13 +29,8 @@ interface CreateClientRequestOverrideOptions {
 export function createClientRequestOverride(
   options: CreateClientRequestOverrideOptions
 ) {
-  const {
-    defaultProtocol,
-    pureClientRequest,
-    pureMethod,
-    observer,
-    resolver,
-  } = options
+  const { defaultProtocol, pureClientRequest, pureMethod, observer, resolver } =
+    options
 
   function ClientRequestOverride(
     this: http.ClientRequest,
@@ -61,9 +56,9 @@ export function createClientRequestOverride(
     // Propagate options headers to the request instance.
     inheritRequestHeaders(this, options.headers)
 
-    const socket = (new SocketPolyfill(options, {
+    const socket = new SocketPolyfill(options, {
       usesHttps,
-    }) as any) as Socket & {
+    }) as any as Socket & {
       authorized: boolean
     }
 
@@ -256,12 +251,7 @@ export function createClientRequestOverride(
         response.push(null)
         response.complete = true
 
-        observer.emit('response', isoRequest, {
-          status: mockedResponse.status || 200,
-          statusText: mockedResponse.statusText || 'OK',
-          headers: objectToHeaders(mockedResponse.headers || {}),
-          body: mockedResponse.body,
-        })
+        observer.emit('response', isoRequest, toIsoResponse(mockedResponse))
 
         return this
       }

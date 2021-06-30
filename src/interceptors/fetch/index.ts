@@ -8,8 +8,8 @@ import {
   Interceptor,
   IsomorphicRequest,
   IsomorphicResponse,
-  MockedResponse,
 } from '../../createInterceptor'
+import { toIsoResponse } from '../../utils/toIsoResponse'
 
 const debug = require('debug')('fetch')
 
@@ -39,7 +39,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
     debug('mocked response', response)
 
     if (response) {
-      const isomorphicResponse = normalizeMockedResponse(response)
+      const isomorphicResponse = toIsoResponse(response)
       debug('derived isomorphic response', isomorphicResponse)
 
       observer.emit('response', isoRequest, isomorphicResponse)
@@ -70,15 +70,6 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
   return () => {
     debug('restoring modules...')
     window.fetch = pureFetch
-  }
-}
-
-function normalizeMockedResponse(response: MockedResponse): IsomorphicResponse {
-  return {
-    status: response.status || 200,
-    statusText: response.statusText || 'OK',
-    headers: objectToHeaders(response.headers || {}),
-    body: response.body,
   }
 }
 
