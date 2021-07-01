@@ -4,11 +4,6 @@ const {
   interceptClientRequest,
 } = require('../../../lib/interceptors/ClientRequest')
 
-console.log('footer')
-console.log('footer')
-console.log('footer')
-console.log('footer')
-
 const interceptor = createRemoteInterceptor({
   modules: [interceptClientRequest],
 })
