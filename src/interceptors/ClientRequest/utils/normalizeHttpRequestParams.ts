@@ -20,15 +20,22 @@ function resolveRequestOptions(
   // Calling `fetch` provides only URL to `ClientRequest`
   // without any `RequestOptions` or callback.
   if (typeof args[1] === 'undefined' || typeof args[1] === 'function') {
+    debug('request options not provided, deriving from the url', url)
     return getRequestOptionsByUrl(url)
   }
 
-  /**
-   * Clone the request options to lock their state
-   * at the moment they are provided to `ClientRequest`.
-   * @see https://github.com/mswjs/interceptors/issues/86
-   */
-  return args[1] ? cloneObject(args[1]) : ({} as RequestOptions)
+  if (args[1]) {
+    /**
+     * Clone the request options to lock their state
+     * at the moment they are provided to `ClientRequest`.
+     * @see https://github.com/mswjs/interceptors/issues/86
+     */
+    debug('request options exist, cloning...')
+    return cloneObject(args[1])
+  }
+
+  debug('using an empty object as request options')
+  return {} as RequestOptions
 }
 
 function resolveCallback(
