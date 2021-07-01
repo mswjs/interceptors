@@ -80,3 +80,14 @@ test('ignores nested class instances', () => {
   expect(original.car).toBeInstanceOf(Car)
   expect(original.car.getName()).toEqual('Audi')
 })
+
+test('clones an object with null prototype', () => {
+  const original = {
+    key: Object.create(null),
+  }
+  const clone = cloneObject(original)
+
+  expect(clone).toEqual({
+    key: {},
+  })
+})
