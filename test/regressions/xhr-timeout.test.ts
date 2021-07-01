@@ -8,7 +8,7 @@ import { createXMLHttpRequest } from '../helpers'
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
-  resolver(request) {
+  resolver() {
     // Explicitly empty request middleware so that all requests
     // are bypassed (performed as-is).
   },
