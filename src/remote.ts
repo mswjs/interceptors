@@ -1,13 +1,15 @@
-import { ChildProcess } from 'child_process'
+import { ChildProcess, Serializable } from 'child_process'
 import { Headers } from 'headers-utils'
-import { Serializable } from 'node:child_process'
+import { StrictEventEmitter } from 'strict-event-emitter'
 import {
   createInterceptor,
   InterceptorApi,
+  InterceptorEventsMap,
   InterceptorOptions,
   IsomorphicRequest,
   Resolver,
 } from './createInterceptor'
+import { toIsoResponse } from './utils/toIsoResponse'
 
 type ProcessEventListener = (message: Serializable, ...args: any[]) => void
 
@@ -15,6 +17,8 @@ export type CreateRemoteInterceptorOptions = Omit<
   InterceptorOptions,
   'resolver'
 >
+
+export type RemoteResolverApi = Pick<InterceptorApi, 'on'>
 
 export interface CreateRemoteResolverOptions {
   process: ChildProcess
@@ -107,7 +111,9 @@ spawn('node', ['module.js'], { stdio: ['ipc'] })\
  */
 export function createRemoteResolver(
   options: CreateRemoteResolverOptions
-): void {
+): RemoteResolverApi {
+  const observer = new StrictEventEmitter<InterceptorEventsMap>()
+
   const handleChildMessage: ProcessEventListener = async (message) => {
     if (typeof message !== 'string') {
       return
@@ -125,12 +131,30 @@ export function createRemoteResolver(
         requestReviver
       )
 
+      observer.emit('request', isoRequest)
+
       // Retrieve the mocked response.
-      const mockedResponse = await options.resolver(isoRequest, null as any)
+      const mockedResponse = await options.resolver(
+        isoRequest,
+        undefined as any
+      )
 
       // Send the mocked response to the child process.
       const serializedResponse = JSON.stringify(mockedResponse)
-      options.process.send(`response:${isoRequest.id}:${serializedResponse}`)
+      options.process.send(
+        `response:${isoRequest.id}:${serializedResponse}`,
+        (error) => {
+          if (error) {
+            return
+          }
+
+          if (mockedResponse) {
+            // Emit an optimisting "response" event at this point,
+            // not to rely on the back-and-forth signaling for the sake of the event.
+            observer.emit('response', isoRequest, toIsoResponse(mockedResponse))
+          }
+        }
+      )
     }
   }
 
@@ -142,4 +166,10 @@ export function createRemoteResolver(
   options.process.addListener('disconnect', cleanup)
   options.process.addListener('error', cleanup)
   options.process.addListener('exit', cleanup)
+
+  return {
+    on(event, listener) {
+      observer.addListener(event, listener)
+    },
+  }
 }

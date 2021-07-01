@@ -1,8 +1,10 @@
 import * as path from 'path'
-import { spawn } from 'child_process'
+import { ChildProcess, spawn } from 'child_process'
 import { createRemoteResolver } from '../../../src'
 
-const child = spawn('node', [path.resolve(__dirname, 'child.js')], {
+const CHILD_PATH = path.resolve(__dirname, 'child.js')
+
+const child = spawn('node', [CHILD_PATH], {
   stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
 })
 
@@ -22,7 +24,9 @@ createRemoteResolver({
 })
 
 afterAll(() => {
-  child.kill()
+  if (!child.killed) {
+    child.kill()
+  }
 })
 
 it('intercepts an HTTP request made in a child process', async () => {

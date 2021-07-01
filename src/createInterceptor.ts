@@ -34,7 +34,7 @@ export interface MockedResponse
   headers?: HeadersObject
 }
 
-interface InterceptorEventsMap {
+export interface InterceptorEventsMap {
   request(request: IsomorphicRequest): void
   response(request: IsomorphicRequest, response: IsomorphicResponse): void
 }
