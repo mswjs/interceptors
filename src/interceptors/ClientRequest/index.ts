@@ -60,7 +60,7 @@ export const interceptClientRequest: Interceptor = (observer, resolver) => {
     // Wrap an original `http.request`/`https.request`
     // so that its invocations can be debugged.
     function proxiedOriginalRequest(...args: any[]) {
-      debug('%s.request original call', protocol)
+      debug('%s.request original call', protocol, args)
 
       // @ts-ignore
       return originalRequest(...args)

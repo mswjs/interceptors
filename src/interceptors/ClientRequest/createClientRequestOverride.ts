@@ -271,13 +271,8 @@ export function createClientRequestOverride(
       let request: http.ClientRequest
       debug('using', pureMethod)
 
-      // Decide whether to use HTTPS based on the URL protocol.
-      // XHR can trigger http.request for HTTPS URL.
-      if (url.protocol === 'https:') {
-        request = pureMethod(options)
-      } else {
-        request = pureMethod(url.toString(), options)
-      }
+      // XMLHttpRequest can trigger "http.request" for https URL.
+      request = pureMethod(url.toString(), options)
 
       // Propagate headers set after `ClientRequest` is constructed
       // onto the original request instance.
