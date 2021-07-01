@@ -45,6 +45,7 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
+  interceptor.restore()
   await server.close()
 })
 
