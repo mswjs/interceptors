@@ -90,13 +90,18 @@ process.on('disconnect', () => {
 Resolves an intercepted request in the given child `process`. Requires for that child process to enable request interception by calling the `createRemoteInterceptor` function.
 
 ```js
+import { spawn } from 'child_process'
 import { createRemoteResolver } from '@mswjs/interceptors'
 
+const appProcess = spawn('node', ['app.js'], {
+  stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
+})
+
 createRemoteResolver({
-  process: fff,
+  process: appProcess,
   resolver(request) {
     // Optionally, return a mocked response
-    // for a request that occurred in the child "process".
+    // for a request that occurred in the "appProcess".
   },
 })
 ```
