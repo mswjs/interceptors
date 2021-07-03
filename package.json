@@ -54,6 +54,7 @@
     "@open-draft/until": "^1.0.3",
     "debug": "^4.3.0",
     "headers-utils": "^3.0.2",
+    "outvariant": "^1.0.4",
     "strict-event-emitter": "^0.2.0",
     "xmldom": "^0.6.0"
   },
