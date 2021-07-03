@@ -1,5 +1,6 @@
 import { ChildProcess, Serializable } from 'child_process'
 import { Headers } from 'headers-utils'
+import { invariant } from 'outvariant'
 import { StrictEventEmitter } from 'strict-event-emitter'
 import {
   createInterceptor,
@@ -47,11 +48,11 @@ function requestReviver(key: string, value: any) {
 export function createRemoteInterceptor(
   options: CreateRemoteInterceptorOptions
 ): InterceptorApi {
-  if (!process.connected) {
-    throw new Error(
-      `Failed to create a remote interceptor: the current process (${process.pid}) does not have a parent. Please make sure you're spawning this process as a child process in order to use remote request interception.`
-    )
-  }
+  invariant(
+    process.connected,
+    `Failed to create a remote interceptor: the current process (%s) does not have a parent. Please make sure you're spawning this process as a child process in order to use remote request interception.`,
+    process.pid
+  )
 
   if (typeof process.send === 'undefined') {
     throw new Error(
