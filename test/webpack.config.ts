@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as webpack from 'webpack'
 
-export default {
+const webpackConfig: webpack.Configuration = {
   target: 'web',
   plugins: [
     new webpack.EnvironmentPlugin({
@@ -14,3 +14,5 @@ export default {
     },
   },
 }
+
+export default webpackConfig
