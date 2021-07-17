@@ -7,7 +7,7 @@ import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/
 import { IsomorphicRequest } from '../src/createInterceptor'
 import { ScenarioApi } from 'page-with'
 
-interface PromisifiedResponse {
+export interface PromisifiedResponse {
   res: IncomingMessage
   resBody: string
   url: string
