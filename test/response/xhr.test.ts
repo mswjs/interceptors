@@ -40,10 +40,18 @@ beforeAll(async () => {
 
   server = await createServer((app) => {
     app.get('/', (req, res) => {
-      res.status(200).send('/').end()
+      res.status(200).send('/')
     })
     app.get('/get', (req, res) => {
-      res.status(200).send('/get').end()
+      res.status(200).send('/get')
+    })
+    app.post('/cookies', (req, res) => {
+      return res
+        .cookie('authToken', 'SECRET', {
+          secure: true,
+          expires: new Date(Date.now() + 90000),
+        })
+        .send('ok')
     })
   })
 
@@ -115,6 +123,14 @@ test('produces a request error when the middleware throws an exception', async (
 
   // No way to assert the rejection error, because XMLHttpRequest doesn't propagate it.
   await expect(getResponse()).rejects.toBeTruthy()
+})
+
+test('does not propagate the forbidden "cookie" header on the bypassed response', async () => {
+  const req = await createXMLHttpRequest((req) => {
+    req.open('POST', server.https.makeUrl('/cookies'))
+  })
+  const responseHeaders = req.getAllResponseHeaders()
+  expect(responseHeaders).not.toMatch(/cookie/)
 })
 
 test('bypasses any request when the interceptor is restored', async () => {

@@ -365,7 +365,7 @@ export const createXMLHttpRequestOverride = (
               debug('original response body:', this.response)
 
               const responseHeaders = originalRequest.getAllResponseHeaders()
-              debug('original response headers', responseHeaders)
+              debug('original response headers:\n', responseHeaders)
 
               this._responseHeaders = stringToHeaders(responseHeaders)
               debug(
