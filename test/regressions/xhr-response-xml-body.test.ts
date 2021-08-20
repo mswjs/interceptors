@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { DOMParser } from 'xmldom'
+import { DOMParser } from '@xmldom/xmldom'
 import { createInterceptor } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../helpers'
