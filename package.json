@@ -52,11 +52,11 @@
   },
   "dependencies": {
     "@open-draft/until": "^1.0.3",
+    "@xmldom/xmldom": "^0.7.2",
     "debug": "^4.3.0",
     "headers-utils": "^3.0.2",
     "outvariant": "^1.2.0",
-    "strict-event-emitter": "^0.2.0",
-    "xmldom": "^0.6.0"
+    "strict-event-emitter": "^0.2.0"
   },
   "keywords": [
     "request",
