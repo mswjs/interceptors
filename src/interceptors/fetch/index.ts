@@ -63,7 +63,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
       observer.emit(
         'response',
         isoRequest,
-        await normalizeFetchResponse(response)
+        await normalizeFetchResponse(response.clone())
       )
       return response
     })
