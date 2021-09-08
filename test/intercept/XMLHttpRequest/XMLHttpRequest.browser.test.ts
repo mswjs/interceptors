@@ -85,3 +85,34 @@ test('intercepts an HTTP POST request', async () => {
   expect(response).toHaveProperty('statusText', 'OK')
   expect(response).toHaveProperty('body', 'user-body')
 })
+
+test('intercepts synchronous HTTP request', async () => {
+  const context = await prepareRuntime()
+  const request = createBrowserXMLHttpRequest(context)
+  const url = server.http.makeUrl('/user')
+  const body = JSON.stringify({
+    user: 'john',
+  })
+  const headers = {
+    'x-request-header': 'yes',
+  }
+  const response = await request(
+    'GET',
+    url,
+    headers,
+    body,
+    {
+      expected: {
+        method: 'GET',
+        url,
+        headers,
+        body,
+      },
+    },
+    true
+  )
+
+  expect(response).toHaveProperty('status', 200)
+  expect(response).toHaveProperty('statusText', 'OK')
+  expect(response).toHaveProperty('body', 'user-body')
+})

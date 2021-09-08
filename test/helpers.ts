@@ -231,7 +231,8 @@ export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
     url: string,
     headers?: Record<string, string>,
     body?: string,
-    assertions?: { expected: ExpectedRequest }
+    assertions?: { expected: ExpectedRequest },
+    sync: boolean = false
   ): Promise<XMLHttpResponse> => {
     if (assertions?.expected) {
       await scenario.page.evaluate((expected) => {
@@ -241,19 +242,35 @@ export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
 
     return scenario.page.evaluate<
       XMLHttpResponse,
-      [string, string, Record<string, string> | undefined, string | undefined]
+      [
+        string,
+        string,
+        Record<string, string> | undefined,
+        string | undefined,
+        boolean
+      ]
     >(
       (args) => {
-        return new Promise((resolve, reject) => {
-          const request = new XMLHttpRequest()
-          request.open(args[0], args[1])
+        const request = new XMLHttpRequest()
+        request.open(args[0], args[1], args[4])
 
-          if (args[2]) {
-            for (const headerName in args[2]) {
-              request.setRequestHeader(headerName, args[2][headerName])
-            }
+        if (args[2]) {
+          for (const headerName in args[2]) {
+            request.setRequestHeader(headerName, args[2][headerName])
           }
+        }
 
+        if (args[4]) {
+          request.send(args[3])
+          return Promise.resolve({
+            status: request.status,
+            statusText: request.statusText,
+            body: request.response,
+            headers: request.getAllResponseHeaders(),
+          })
+        }
+
+        return new Promise((resolve, reject) => {
           request.addEventListener('load', function () {
             resolve({
               status: this.status,
@@ -266,7 +283,7 @@ export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
           request.send(args[3])
         })
       },
-      [method, url, headers, body]
+      [method, url, headers, body, sync]
     )
   }
 }
