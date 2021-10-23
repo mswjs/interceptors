@@ -287,20 +287,27 @@ export function createClientRequestOverride(
       }
 
       request.on('finish', () => {
+        debug('request finished')
         this.emit('finish')
       })
 
-      request.on('response', async (response) => {
+      request.once('response', async (response) => {
+        debug('response: emitting observer "response" event...')
+        const responseBody = await getIncomingMessageBody(response)
+
         observer.emit('response', isoRequest, {
           status: response.statusCode || 200,
           statusText: response.statusMessage || 'OK',
           headers: objectToHeaders(response.headers),
-          body: await getIncomingMessageBody(response),
+          body: responseBody,
         })
+
+        debug('resolved response body:', responseBody)
       })
 
       request.on('response', (response) => {
         debug(response.statusCode, options.method, url.href)
+        debug('emitting "response" event...')
         this.emit('response', response)
       })
 
@@ -323,6 +330,20 @@ export function createClientRequestOverride(
       )
 
       return request
+    }
+
+    this.destroy = (error) => {
+      debug('destroy', error)
+
+      if (this.destroyed) {
+        debug('already destroyed')
+        return
+      }
+
+      response.emit('close', error)
+      socket.destroy()
+
+      this.destroyed = true
     }
 
     this.abort = () => {

@@ -11,15 +11,15 @@ export function getIncomingMessageBody(res: IncomingMessage): Promise<string> {
   }
 
   return new Promise((resolve, reject) => {
-    stream.once('error', (error) => {
-      stream.removeAllListeners()
+    stream.on('data', (chunk: string) => {
+      responseBody += chunk
+    })
+
+    stream.once('error', (error: Error) => {
       reject(error)
     })
 
-    stream.on('data', (chunk) => (responseBody += chunk))
-
     stream.once('end', () => {
-      stream.removeAllListeners()
       resolve(responseBody)
     })
   })
