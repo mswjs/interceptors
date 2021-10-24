@@ -1,6 +1,7 @@
-import { inherits } from 'util'
-import { Socket } from 'net'
 import http from 'http'
+import { Socket } from 'net'
+import { inherits } from 'util'
+import { PassThrough } from 'stream'
 import { until } from '@open-draft/until'
 import { Headers, HeadersObject, objectToHeaders } from 'headers-utils'
 import { SocketPolyfill } from './polyfills/SocketPolyfill'
@@ -16,6 +17,7 @@ import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 import { toIsoResponse } from '../../utils/toIsoResponse'
 import { uuidv4 } from '../../utils/uuid'
+import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
 
 const createDebug = require('debug')
 
@@ -291,24 +293,23 @@ export function createClientRequestOverride(
         this.emit('finish')
       })
 
-      request.once('response', async (response) => {
-        debug('response: emitting observer "response" event...')
-        const responseBody = await getIncomingMessageBody(response)
+      request.on('response', async (response) => {
+        debug(response.statusCode, options.method, url.href)
+        const responseClone = cloneIncomingMessage(response)
 
+        debug('emitting the "response" event...')
+        this.emit('response', responseClone)
+
+        const responseBody = await getIncomingMessageBody(response)
+        debug('resolved response body:', responseBody)
+
+        debug('response: emitting observer "response" event...')
         observer.emit('response', isoRequest, {
           status: response.statusCode || 200,
           statusText: response.statusMessage || 'OK',
           headers: objectToHeaders(response.headers),
           body: responseBody,
         })
-
-        debug('resolved response body:', responseBody)
-      })
-
-      request.on('response', (response) => {
-        debug(response.statusCode, options.method, url.href)
-        debug('emitting "response" event...')
-        this.emit('response', response)
       })
 
       request.on('error', (error) => {

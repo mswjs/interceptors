@@ -1,26 +1,24 @@
 import { IncomingMessage } from 'http'
-import { Stream } from 'stream'
+import { PassThrough } from 'stream'
 import * as zlib from 'zlib'
 
-export function getIncomingMessageBody(res: IncomingMessage): Promise<string> {
-  let responseBody = ''
-  let stream: Stream = res
+const gunzip = zlib.createGunzip()
 
-  if (res.headers['content-encoding'] === 'gzip') {
-    stream = res.pipe(zlib.createGunzip())
-  }
-
+/**
+ * Returns the data of the given `IncomingMessage`.
+ */
+export function getIncomingMessageBody(
+  response: IncomingMessage
+): Promise<string> {
   return new Promise((resolve, reject) => {
-    stream.on('data', (chunk: string) => {
-      responseBody += chunk
-    })
+    const responseClone = response.pipe(new PassThrough())
+    const stream =
+      response.headers['content-encoding'] === 'gzip'
+        ? responseClone.pipe(gunzip)
+        : responseClone
 
-    stream.once('error', (error: Error) => {
-      reject(error)
-    })
-
-    stream.once('end', () => {
-      resolve(responseBody)
-    })
+    stream.setEncoding(response.readableEncoding || 'utf8')
+    stream.on('data', resolve)
+    stream.on('error', reject)
   })
 }

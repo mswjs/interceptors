@@ -1,22 +1,12 @@
+import { IncomingMessage } from 'http'
 import * as https from 'https'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { createInterceptor } from '../../src'
 import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
-import { IncomingMessage } from 'node:http'
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver() {
-    return {
-      status: 401,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        errorMessage: 'Invalid API credentials',
-      }),
-    }
-  },
+  resolver() {},
 })
 
 let httpServer: ServerApi
@@ -24,7 +14,7 @@ let httpServer: ServerApi
 beforeAll(async () => {
   httpServer = await createServer((app) => {
     app.post('/customer', (req, res) => {
-      res.status(500).json('Failed to intercept request')
+      res.status(200).send('Invalid API credentials')
     })
   })
 
@@ -39,19 +29,23 @@ afterAll(async () => {
 test('allows attaching custom listeners to IncomingMessage', async () => {
   class NodeHttpResponse {
     private res: IncomingMessage
+
     constructor(res: IncomingMessage) {
       this.res = res
     }
-    toJSON() {
+
+    toText() {
       return new Promise((resolve, reject) => {
         let response = ''
+
         this.res.setEncoding('utf8')
         this.res.on('data', (chunk) => {
           response += chunk
         })
+
         this.res.once('end', () => {
           try {
-            resolve(JSON.parse(response))
+            resolve(response)
           } catch (error) {
             reject(error)
           }
@@ -76,7 +70,7 @@ test('allows attaching custom listeners to IncomingMessage', async () => {
           reject(error)
         })
 
-        req.on('socket', () => {
+        req.once('socket', () => {
           req.end()
         })
       })
@@ -88,8 +82,6 @@ test('allows attaching custom listeners to IncomingMessage', async () => {
     'POST',
     httpServer.https.makeUrl('/customer')
   )
-  const json = await res.toJSON()
-  expect(json).toEqual({
-    errorMessage: 'Invalid API credentials',
-  })
-})
+  const text = await res.toText()
+  expect(text).toEqual('Invalid API credentials')
+}, 2000)
