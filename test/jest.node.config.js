@@ -1,5 +1,5 @@
 module.exports = {
-  testTimeout: 60000,
+  testTimeout: 30000,
   testRegex: '(?<!browser.*)(\\.test)\\.ts$',
   transform: {
     '^.+\\.ts$': 'ts-jest',

@@ -7,7 +7,7 @@ import { createServer, ServerApi } from '@open-draft/test-server'
 import { RequestHandler } from 'express'
 import { createBrowserXMLHttpRequest } from '../../helpers'
 
-let server: ServerApi
+let httpServer: ServerApi
 
 function prepareRuntime() {
   return pageWith({
@@ -16,7 +16,7 @@ function prepareRuntime() {
 }
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     const requestHandler: RequestHandler = (req, res) => {
       res.status(200).send('user-body').end()
     }
@@ -27,13 +27,13 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await server.close()
+  await httpServer.close()
 })
 
 test('intercepts an HTTP GET request', async () => {
   const context = await prepareRuntime()
   const request = createBrowserXMLHttpRequest(context)
-  const url = server.http.makeUrl('/user')
+  const url = httpServer.http.makeUrl('/user')
   const response = await request(
     'GET',
     url,
@@ -53,15 +53,15 @@ test('intercepts an HTTP GET request', async () => {
     }
   )
 
-  expect(response).toHaveProperty('status', 200)
-  expect(response).toHaveProperty('statusText', 'OK')
-  expect(response).toHaveProperty('body', 'user-body')
+  expect(response.status).toEqual(200)
+  expect(response.statusText).toEqual('OK')
+  expect(response.body).toEqual('user-body')
 })
 
 test('intercepts an HTTP POST request', async () => {
   const context = await prepareRuntime()
   const request = createBrowserXMLHttpRequest(context)
-  const url = server.http.makeUrl('/user')
+  const url = httpServer.http.makeUrl('/user')
   const response = await request(
     'POST',
     url,
@@ -81,7 +81,7 @@ test('intercepts an HTTP POST request', async () => {
     }
   )
 
-  expect(response).toHaveProperty('status', 200)
-  expect(response).toHaveProperty('statusText', 'OK')
-  expect(response).toHaveProperty('body', 'user-body')
+  expect(response.status).toEqual(200)
+  expect(response.statusText).toEqual('OK')
+  expect(response.body).toEqual('user-body')
 })

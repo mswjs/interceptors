@@ -70,7 +70,7 @@ export const interceptClientRequest: Interceptor = (observer, resolver) => {
 
     // @ts-ignore
     requestModule.request = function requestOverride(...args: any[]) {
-      debug('%s.request proxy call', protocol)
+      debug('intercepted %s.request call', protocol)
 
       return handleClientRequest(
         protocol,
@@ -83,18 +83,23 @@ export const interceptClientRequest: Interceptor = (observer, resolver) => {
 
     // @ts-ignore
     requestModule.get = function getOverride(...args: any[]) {
-      debug('%s.get call', protocol)
+      debug('intercepted %s.get call', protocol)
 
-      const req = handleClientRequest(
+      const request = handleClientRequest(
         protocol,
         originalGet.bind(requestModule),
         args,
         observer,
         resolver
       )
-      req.end()
 
-      return req
+      /**
+       * @note https://nodejs.org/api/http.html#httpgetoptions-callback
+       * "http.get" sets the method to "GET" and calls "req.end()" automatically.
+       */
+      request.end()
+
+      return request
     }
 
     pureModules.set(protocol, {

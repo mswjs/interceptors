@@ -46,6 +46,12 @@ export function createClientRequestOverride(
     let requestBodyBuffer: Buffer[] = []
 
     const debug = createDebug(`http ${options.method} ${url.href}`)
+    debug(
+      'constructing ClientRequestOverride instance...',
+      url,
+      options,
+      callback
+    )
 
     // Inherit ClientRequest properties from RequestOptions.
     this.method = options.method || 'GET'
@@ -101,7 +107,7 @@ export function createClientRequestOverride(
     this.write = (chunk: string | Buffer, ...args: any[]): boolean => {
       debug('write', chunk, args)
 
-      const callback = typeof args[1] === 'function' ? args[1] : args[2]
+      const writeCallback = typeof args[1] === 'function' ? args[1] : args[2]
 
       if (this.aborted) {
         debug('cannot write: request aborted')
@@ -112,8 +118,8 @@ export function createClientRequestOverride(
           requestBodyBuffer = concatChunkToBuffer(chunk, requestBodyBuffer)
         }
 
-        if (typeof callback === 'function') {
-          callback()
+        if (typeof writeCallback === 'function') {
+          writeCallback()
         }
       }
 
@@ -125,9 +131,13 @@ export function createClientRequestOverride(
     }
 
     this.end = async (...args: any) => {
-      const [chunk, encoding, callback] = normalizeHttpRequestEndParams(...args)
+      debug('ClientRequest.end()')
 
-      debug('end', { chunk, encoding, callback })
+      const [chunk, encoding, endCallback] = normalizeHttpRequestEndParams(
+        ...args
+      )
+
+      debug('end arguments:', { chunk, encoding, endCallback })
       debug('request headers', options.headers)
 
       const writtenRequestBody = bodyBufferToString(
@@ -242,7 +252,7 @@ export function createClientRequestOverride(
         debug('response is complete, finishing request...')
 
         // Invoke the "req.end()" callback.
-        callback?.()
+        endCallback?.()
 
         this.finished = true
         this.emit('finish')
@@ -317,7 +327,7 @@ export function createClientRequestOverride(
           encoding as any,
           () => {
             debug('request ended', this.method, url.href)
-            callback?.()
+            endCallback?.()
           },
         ].filter(Boolean)
       )

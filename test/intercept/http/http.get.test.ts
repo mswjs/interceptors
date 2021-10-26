@@ -6,23 +6,21 @@ import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
 import { IsomorphicRequest } from '../../../src/createInterceptor'
 import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
-import { httpGet, prepare } from '../../helpers'
-import { getIncomingMessageBody } from '../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 
-let pool: IsomorphicRequest[] = []
-let server: ServerApi
+let requests: IsomorphicRequest[] = []
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
   resolver(request) {
-    pool.push(request)
+    requests.push(request)
   },
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/user', (req, res) => {
-      res.status(200).send('user-body').end()
+      res.status(200).send('user-body')
     })
   })
 
@@ -30,48 +28,57 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  pool = []
+  requests = []
 })
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
-test('intercepts an http.get request', async () => {
-  const request = await prepare(
-    httpGet(server.http.makeUrl('/user?id=123'), {
+test('intercepts an http.get request', (done) => {
+  const url = httpServer.http.makeUrl('/user?id=123')
+  http.get(
+    url,
+    {
       headers: {
         'x-custom-header': 'yes',
       },
-    }),
-    pool
-  )
+    },
+    () => {
+      expect(requests).toHaveLength(1)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'GET')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers.get('x-custom-header')).toEqual('yes')
+      const [request] = requests
+      expect(request).toHaveProperty('method', 'GET')
+      expect(request.url).toBeInstanceOf(URL)
+      expect(request.url.href).toEqual(url)
+      expect(request.url.searchParams.get('id')).toEqual('123')
+      expect(request.headers.get('x-custom-header')).toEqual('yes')
+
+      done()
+    }
+  )
 })
 
 test('intercepts an http.get request given RequestOptions without a protocol', (done) => {
   // Create a request with `RequestOptions` without an explicit "protocol".
   // Since request is done via `http.get`, the "http:" protocol must be inferred.
-  const request = http.get(
+  http.get(
     {
-      host: server.http.getAddress().host,
-      port: server.http.getAddress().port,
-      path: '/user',
+      host: httpServer.http.getAddress().host,
+      port: httpServer.http.getAddress().port,
+      path: '/user?id=123',
     },
-    async (response) => {
-      const responseBody = await getIncomingMessageBody(response)
-      expect(responseBody).toBe('user-body')
+    () => {
+      expect(requests).toHaveLength(1)
+
+      const [request] = requests
+      expect(request).toHaveProperty('method', 'GET')
+      expect(request.url).toBeInstanceOf(URL)
+      expect(request.url.href).toEqual(httpServer.http.makeUrl('/user?id=123'))
+      expect(request.url.searchParams.get('id')).toEqual('123')
 
       done()
     }
   )
-
-  request.end()
 })
