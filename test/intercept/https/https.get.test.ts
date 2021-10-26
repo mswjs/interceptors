@@ -6,21 +6,19 @@ import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
 import { IsomorphicRequest } from '../../../src/createInterceptor'
 import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
-import { prepare, httpsGet } from '../../helpers'
-import { getIncomingMessageBody } from '../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 
-let pool: IsomorphicRequest[] = []
-let server: ServerApi
+let requests: IsomorphicRequest[] = []
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
   resolver(request) {
-    pool.push(request)
+    requests.push(request)
   },
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/user', (req, res) => {
       res.status(200).send('user-body').end()
     })
@@ -30,31 +28,37 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  pool = []
+  requests = []
 })
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
-test('intercepts an HTTPS GET request', async () => {
-  const request = await prepare(
-    httpsGet(server.https.makeUrl('/user?id=123'), {
+test('intercepts an HTTPS GET request', (done) => {
+  const url = httpServer.https.makeUrl('/user?id=123')
+  https.get(
+    url,
+    {
+      agent: httpsAgent,
       headers: {
         'x-custom-header': 'yes',
       },
-      agent: httpsAgent,
-    }),
-    pool
-  )
+    },
+    () => {
+      expect(requests).toHaveLength(1)
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'GET')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers.get('x-custom-header')).toEqual('yes')
+      const [request] = requests
+      expect(request.method).toEqual('GET')
+      expect(request.url).toBeInstanceOf(URL)
+      expect(request.url.href).toEqual(url)
+      expect(request.url.searchParams.get('id')).toEqual('123')
+      expect(request.headers.get('x-custom-header')).toEqual('yes')
+
+      done()
+    }
+  )
 })
 
 test('intercepts an https.get request given RequestOptions without a protocol', (done) => {
@@ -62,19 +66,22 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
   // The request is made via `https` so the `https:` protocol must be inferred.
   const request = https.get(
     {
-      host: server.https.getAddress().host,
-      port: server.https.getAddress().port,
-      path: '/user',
+      host: httpServer.https.getAddress().host,
+      port: httpServer.https.getAddress().port,
+      path: '/user?id=123',
       // Suppress the "certificate has expired" error.
       rejectUnauthorized: false,
     },
-    async (response) => {
-      const responseBody = await getIncomingMessageBody(response)
-      expect(responseBody).toBe('user-body')
+    () => {
+      expect(requests).toHaveLength(1)
+
+      const [request] = requests
+      expect(request.method).toEqual('GET')
+      expect(request.url).toBeInstanceOf(URL)
+      expect(request.url.href).toEqual(httpServer.https.makeUrl('/user?id=123'))
+      expect(request.url.searchParams.get('id')).toEqual('123')
 
       done()
     }
   )
-
-  request.end()
 })

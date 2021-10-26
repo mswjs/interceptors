@@ -6,22 +6,20 @@ import { RequestHandler } from 'express'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
 import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
-import { httpRequest, prepare } from '../../helpers'
 import { IsomorphicRequest } from '../../../src/createInterceptor'
-import { getIncomingMessageBody } from '../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 
-let pool: IsomorphicRequest[] = []
-let server: ServerApi
+let requests: IsomorphicRequest[] = []
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
   resolver(request) {
-    pool.push(request)
+    requests.push(request)
   },
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     const handleUserRequest: RequestHandler = (req, res) => {
       res.status(200).send('user-body').end()
     }
@@ -36,153 +34,189 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  pool = []
+  requests = []
 })
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
-test('intercepts HTTP GET request', async () => {
-  const request = await prepare(
-    httpRequest(server.http.makeUrl('/user?id=123'), {
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
-
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'GET')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers.get('x-custom-header')).toEqual('yes')
-})
-
-test('intercepts an HTTP POST request', async () => {
-  const request = await prepare(
-    httpRequest(
-      server.http.makeUrl('/user?id=123'),
-      {
-        method: 'POST',
-        headers: {
-          'x-custom-header': 'yes',
-        },
-      },
-      'request-body'
-    ),
-    pool
-  )
-
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'POST')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request).toHaveProperty('body', 'request-body')
-  expect(request?.headers.get('x-custom-header')).toEqual('yes')
-})
-
-test('intercepts an HTTP PUT request', async () => {
-  const request = await prepare(
-    httpRequest(
-      server.http.makeUrl('/user?id=123'),
-      {
-        method: 'PUT',
-        headers: {
-          'x-custom-header': 'yes',
-        },
-      },
-      'request-body'
-    ),
-    pool
-  )
-
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'PUT')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request).toHaveProperty('body', 'request-body')
-  expect(request?.headers.get('x-custom-header')).toEqual('yes')
-})
-
-test('intercepts an HTTP DELETE request', async () => {
-  const request = await prepare(
-    httpRequest(server.http.makeUrl('/user?id=123'), {
-      method: 'DELETE',
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
-
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'DELETE')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers.get('x-custom-header')).toEqual('yes')
-})
-
-test('intercepts an HTTP PATCH request', async () => {
-  const request = await prepare(
-    httpRequest(server.http.makeUrl('/user?id=123'), {
-      method: 'PATCH',
-      headers: {
-        'x-custom-header': 'yes',
-      },
-    }),
-    pool
-  )
-
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'PATCH')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers.get('x-custom-header')).toEqual('yes')
-})
-
-test('intercepts an HTTP HEAD request', async () => {
-  const request = await prepare(
-    httpRequest(server.http.makeUrl('/user?id=123'), {
+test('intercepts a HEAD request', (done) => {
+  const url = httpServer.http.makeUrl('/user?id=123')
+  const request = http.request(
+    url,
+    {
       method: 'HEAD',
       headers: {
         'x-custom-header': 'yes',
       },
-    }),
-    pool
+    },
+    () => done()
   )
 
-  expect(request).toBeTruthy()
-  expect(request?.url).toBeInstanceOf(URL)
-  expect(request?.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
-  expect(request).toHaveProperty('method', 'HEAD')
-  expect(request?.url.searchParams.get('id')).toEqual('123')
-  expect(request?.headers.get('x-custom-header')).toEqual('yes')
+  request.end(() => {
+    expect(requests).toHaveLength(1)
+
+    const [request] = requests
+    expect(request.method).toEqual('HEAD')
+    expect(request.url).toBeInstanceOf(URL)
+    expect(request.url.href).toEqual(url)
+    expect(request.url.searchParams.get('id')).toEqual('123')
+    expect(request.headers.get('x-custom-header')).toEqual('yes')
+  })
 })
 
-test('intercepts an http.request request given RequestOptions without a protocol', (done) => {
-  // Create a request with `RequestOptions` without an explicit "protocol".
-  // Since request is done via `http.get`, the "http:" protocol must be inferred.
+test('intercepts a GET request', (done) => {
+  const url = httpServer.http.makeUrl('/user?id=123')
   const request = http.request(
+    url,
     {
-      host: server.http.getAddress().host,
-      port: server.http.getAddress().port,
-      path: '/user',
+      method: 'GET',
+      headers: {
+        'x-custom-header': 'yes',
+      },
     },
-    async (response) => {
-      const responseBody = await getIncomingMessageBody(response)
-      expect(responseBody).toBe('user-body')
-
-      done()
-    }
+    () => done()
   )
 
-  request.end()
+  request.end(() => {
+    expect(requests).toHaveLength(1)
+
+    const [request] = requests
+    expect(request.method).toEqual('GET')
+    expect(request.url).toBeInstanceOf(URL)
+    expect(request.url.href).toEqual(url)
+    expect(request.url.searchParams.get('id')).toEqual('123')
+    expect(request.headers.get('x-custom-header')).toEqual('yes')
+  })
+})
+
+test('intercepts a POST request', (done) => {
+  const url = httpServer.http.makeUrl('/user?id=123')
+  const request = http.request(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    },
+    () => done()
+  )
+
+  request.write('post-payload')
+  request.end(() => {
+    expect(requests).toHaveLength(1)
+
+    const [request] = requests
+    expect(request.method).toEqual('POST')
+    expect(request.url).toBeInstanceOf(URL)
+    expect(request.url.href).toEqual(url)
+    expect(request.url.searchParams.get('id')).toEqual('123')
+    expect(request.headers.get('x-custom-header')).toEqual('yes')
+    expect(request.body).toEqual('post-payload')
+  })
+})
+
+test('intercepts a PUT request', (done) => {
+  const url = httpServer.http.makeUrl('/user?id=123')
+  const request = http.request(
+    url,
+    {
+      method: 'PUT',
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    },
+    () => done()
+  )
+
+  request.write('put-payload')
+  request.end(() => {
+    expect(requests).toHaveLength(1)
+
+    const [request] = requests
+    expect(request.method).toEqual('PUT')
+    expect(request.url).toBeInstanceOf(URL)
+    expect(request.url.href).toEqual(url)
+    expect(request.url.searchParams.get('id')).toEqual('123')
+    expect(request.headers.get('x-custom-header')).toEqual('yes')
+    expect(request.body).toEqual('put-payload')
+  })
+})
+
+test('intercepts a PATCH request', (done) => {
+  const url = httpServer.http.makeUrl('/user?id=123')
+  const request = http.request(
+    url,
+    {
+      method: 'PATCH',
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    },
+    () => done()
+  )
+
+  request.write('patch-payload')
+  request.end(() => {
+    expect(requests).toHaveLength(1)
+
+    const [request] = requests
+    expect(request.method).toEqual('PATCH')
+    expect(request.url).toBeInstanceOf(URL)
+    expect(request.url.href).toEqual(url)
+    expect(request.url.searchParams.get('id')).toEqual('123')
+    expect(request.headers.get('x-custom-header')).toEqual('yes')
+    expect(request.body).toEqual('patch-payload')
+  })
+})
+
+test('intercepts a DELETE request', (done) => {
+  const url = httpServer.http.makeUrl('/user?id=123')
+  const request = http.request(
+    url,
+    {
+      method: 'DELETE',
+      headers: {
+        'x-custom-header': 'yes',
+      },
+    },
+    () => done()
+  )
+
+  request.end(() => {
+    expect(requests).toHaveLength(1)
+
+    const [request] = requests
+    expect(request.method).toEqual('DELETE')
+    expect(request.url).toBeInstanceOf(URL)
+    expect(request.url.href).toEqual(url)
+    expect(request.url.searchParams.get('id')).toEqual('123')
+    expect(request.headers.get('x-custom-header')).toEqual('yes')
+  })
+})
+
+test('intercepts an http.request given RequestOptions without a protocol', (done) => {
+  // Create a request with `RequestOptions` without an explicit "protocol".
+  // Since request is done via `http.get`, the "http:" protocol must be inferred.
+  http
+    .request(
+      {
+        host: httpServer.http.getAddress().host,
+        port: httpServer.http.getAddress().port,
+        path: '/user?id=123',
+      },
+      () => done()
+    )
+    .end(() => {
+      expect(requests).toHaveLength(1)
+
+      const [request] = requests
+      expect(request.method).toEqual('GET')
+      expect(request.url).toBeInstanceOf(URL)
+      expect(request.url.href).toEqual(httpServer.http.makeUrl('/user?id=123'))
+      expect(request.url.searchParams.get('id')).toEqual('123')
+    })
 })
