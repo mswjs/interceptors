@@ -6,6 +6,7 @@ import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
 import { IsomorphicRequest } from '../../../src/createInterceptor'
 import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
+import { getIncomingMessageBody } from '../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 
 let requests: IsomorphicRequest[] = []
 let httpServer: ServerApi
@@ -45,7 +46,7 @@ test('intercepts an http.get request', (done) => {
         'x-custom-header': 'yes',
       },
     },
-    () => {
+    async (response) => {
       expect(requests).toHaveLength(1)
 
       const [request] = requests
@@ -54,6 +55,9 @@ test('intercepts an http.get request', (done) => {
       expect(request.url.href).toEqual(url)
       expect(request.url.searchParams.get('id')).toEqual('123')
       expect(request.headers.get('x-custom-header')).toEqual('yes')
+
+      const responseBody = await getIncomingMessageBody(response)
+      expect(responseBody).toEqual('user-body')
 
       done()
     }
@@ -69,7 +73,7 @@ test('intercepts an http.get request given RequestOptions without a protocol', (
       port: httpServer.http.getAddress().port,
       path: '/user?id=123',
     },
-    () => {
+    async (response) => {
       expect(requests).toHaveLength(1)
 
       const [request] = requests
@@ -77,6 +81,9 @@ test('intercepts an http.get request given RequestOptions without a protocol', (
       expect(request.url).toBeInstanceOf(URL)
       expect(request.url.href).toEqual(httpServer.http.makeUrl('/user?id=123'))
       expect(request.url.searchParams.get('id')).toEqual('123')
+
+      const responseBody = await getIncomingMessageBody(response)
+      expect(responseBody).toEqual('user-body')
 
       done()
     }

@@ -1,3 +1,4 @@
+import { Socket } from 'net'
 import { RequestOptions } from 'https'
 import { EventEmitter } from 'events'
 
@@ -5,22 +6,40 @@ interface SocketOptions {
   usesHttps: boolean
 }
 
-export class SocketPolyfill extends EventEmitter {
-  public authorized?: boolean
-  public bufferSize: number
-  public writableLength: number
-  public writable: boolean
-  public readable: boolean
-  public pending: boolean
-  public destroyed: boolean
-  public connecting: boolean
-  public totalDelayMs: number
-  public timeoutMs: number | null
-  public remoteFamily: 'IPv4' | 'IPv6'
-  public localAddress: string
-  public localPort: number
-  public remoteAddress: string
-  public remotePort: number
+export class SocketPolyfill extends EventEmitter implements Socket {
+  // @ts-expect-error
+  [Symbol.asyncIterator](): AsyncIterableIterator<any> {}
+
+  authorized: boolean = false
+  bufferSize: number
+  writableLength: number
+  writable: boolean
+  readable: boolean
+  pending: boolean
+  destroyed: boolean
+  connecting: boolean
+  totalDelayMs: number
+  timeoutMs: number | null
+
+  remoteFamily: 'IPv4' | 'IPv6'
+  localAddress: string
+  localPort: number
+  remoteAddress: string
+  remotePort: number
+
+  bytesRead = 0
+  bytesWritten = 0
+  writableCorked = 0
+  writableEnded = false
+  writableFinished = false
+  writableHighWaterMark = 0
+  writableObjectMode = true
+  readableEncoding = null
+  readableEnded = false
+  readableFlowing = false
+  readableHighWaterMark = 0
+  readableLength = 0
+  readableObjectMode = true
 
   constructor(options: RequestOptions, socketOptions: SocketOptions) {
     super()
@@ -43,6 +62,14 @@ export class SocketPolyfill extends EventEmitter {
     this.remoteFamily = ipv6 ? 'IPv6' : 'IPv4'
     this.localAddress = this.remoteAddress = ipv6 ? '::1' : '127.0.0.1'
     this.localPort = this.remotePort = this.resolvePort(options.port)
+  }
+
+  setDefaultEncoding() {
+    return this
+  }
+
+  isPaused() {
+    return false
   }
 
   resolvePort(port: RequestOptions['port']): number {
@@ -77,7 +104,7 @@ export class SocketPolyfill extends EventEmitter {
    * Enable/disable the use of Nagle's algorithm.
    * Nagle's algorithm delays data before it is sent via the network.
    */
-  setNoDelay(noDelay: boolean = true): SocketPolyfill {
+  setNoDelay(noDelay: boolean = true) {
     if (noDelay) {
       this.totalDelayMs = 0
     }
@@ -89,11 +116,11 @@ export class SocketPolyfill extends EventEmitter {
    * Enable/disable keep-alive functionality, and optionally set the initial delay before
    * the first keepalive probe is sent on an idle socket.
    */
-  setKeepAlive(): SocketPolyfill {
+  setKeepAlive() {
     return this
   }
 
-  setTimeout(timeout: number, callback?: () => void): SocketPolyfill {
+  setTimeout(timeout: number, callback?: () => void) {
     const timer = setTimeout(() => {
       callback?.()
       this.emit('timeout')
@@ -114,18 +141,6 @@ export class SocketPolyfill extends EventEmitter {
     ).toString('base64')
   }
 
-  // Mock methods required to write to the response body.
-  pause(): SocketPolyfill {
-    return this
-  }
-
-  resume(): SocketPolyfill {
-    return this
-  }
-
-  cork() {}
-  uncork() {}
-
   destroy(error: Error) {
     this.destroyed = true
     this.readable = this.writable = false
@@ -136,4 +151,65 @@ export class SocketPolyfill extends EventEmitter {
 
     return this
   }
+  _destroy(error: Error) {
+    this.destroy(error)
+  }
+
+  _final() {}
+
+  read() {}
+  _read() {}
+
+  connect() {
+    return this
+  }
+
+  ref() {
+    return this
+  }
+
+  unref() {
+    return this
+  }
+
+  pipe() {
+    return this as any
+  }
+
+  unpipe() {
+    return this
+  }
+
+  unshift() {}
+  wrap() {
+    return this
+  }
+  push() {
+    return false
+  }
+
+  setEncoding() {
+    return this
+  }
+
+  // Mock methods required to write to the response body.
+  write() {
+    return false
+  }
+  _write() {}
+  _writev() {}
+
+  pause() {
+    return this
+  }
+
+  resume() {
+    return this
+  }
+
+  cork() {}
+
+  uncork() {}
+
+  end() {}
 }
