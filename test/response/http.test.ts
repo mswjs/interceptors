@@ -11,8 +11,7 @@ let server: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
   resolver(request) {
-    const serverUrl = server.http.makeUrl()
-    if ([serverUrl].includes(request.url.href)) {
+    if (request.url.pathname === '/non-existing') {
       return {
         status: 301,
         statusText: 'Moved Permanently',
@@ -48,7 +47,7 @@ afterAll(async () => {
 })
 
 test('responds to an HTTP request issued by "http.request" and handled in the middleware', async () => {
-  const { res, resBody } = await httpRequest(server.http.makeUrl('/'))
+  const { res, resBody } = await httpRequest('http://any.thing/non-existing')
 
   expect(res.statusCode).toBe(301)
   expect(res.statusMessage).toEqual('Moved Permanently')
@@ -64,7 +63,7 @@ test('bypasses an HTTP request issued by "http.request" not handled in the middl
 })
 
 test('responds to an HTTP request issued by "http.get" and handled in the middleeware', async () => {
-  const { res, resBody } = await httpRequest(server.http.makeUrl('/'))
+  const { res, resBody } = await httpGet('http://any.thing/non-existing')
 
   expect(res.statusCode).toBe(301)
   expect(res.statusMessage).toEqual('Moved Permanently')

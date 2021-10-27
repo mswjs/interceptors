@@ -1,5 +1,5 @@
 import https from 'https'
-import http, { IncomingMessage, RequestOptions } from 'http'
+import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getCleanUrl } from '../src/utils/getCleanUrl'
@@ -8,6 +8,7 @@ import { IsomorphicRequest } from '../src/createInterceptor'
 import { ScenarioApi } from 'page-with'
 
 export interface PromisifiedResponse {
+  req: ClientRequest
   res: IncomingMessage
   resBody: string
   url: string
@@ -29,7 +30,7 @@ export function httpGet(
     const req = http.get(resolvedOptions, async (res) => {
       res.setEncoding('utf8')
       const resBody = await getIncomingMessageBody(res)
-      resolve({ res, resBody, url, options: resolvedOptions })
+      resolve({ req, res, resBody, url, options: resolvedOptions })
     })
 
     req.on('error', reject)
@@ -51,7 +52,7 @@ export function httpsGet(
     const req = https.get(resolvedOptions, async (res) => {
       res.setEncoding('utf8')
       const resBody = await getIncomingMessageBody(res)
-      resolve({ res, resBody, url, options: resolvedOptions })
+      resolve({ req, res, resBody, url, options: resolvedOptions })
     })
 
     req.on('error', reject)
@@ -74,7 +75,7 @@ export function httpRequest(
     const req = http.request(resolvedOptions, async (res) => {
       res.setEncoding('utf8')
       const resBody = await getIncomingMessageBody(res)
-      resolve({ res, resBody, url, options: resolvedOptions })
+      resolve({ req, res, resBody, url, options: resolvedOptions })
     })
 
     if (body) {
@@ -101,7 +102,7 @@ export function httpsRequest(
     const req = https.request(resolvedOptions, async (res) => {
       res.setEncoding('utf8')
       const resBody = await getIncomingMessageBody(res)
-      resolve({ res, resBody, url, options: resolvedOptions })
+      resolve({ req, res, resBody, url, options: resolvedOptions })
     })
 
     if (body) {
