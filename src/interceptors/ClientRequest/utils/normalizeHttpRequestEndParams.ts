@@ -1,18 +1,17 @@
 const debug = require('debug')('http normalizeHttpRequestEndParams')
 
-type HttpRequestEndChunk = string | Buffer
-type HttpRequestEndEncoding = string
+export type HttpRequestEndChunk = string | Buffer
 type HttpRequestEndCallback = () => void
 
 type HttpRequestEndArgs =
   | []
   | [HttpRequestEndCallback]
   | [HttpRequestEndChunk, HttpRequestEndCallback?]
-  | [HttpRequestEndChunk, HttpRequestEndEncoding, HttpRequestEndCallback?]
+  | [HttpRequestEndChunk, BufferEncoding, HttpRequestEndCallback?]
 
 type NormalizedHttpRequestEndParams = [
   HttpRequestEndChunk | null,
-  HttpRequestEndEncoding | null,
+  BufferEncoding | null,
   HttpRequestEndCallback | null
 ]
 

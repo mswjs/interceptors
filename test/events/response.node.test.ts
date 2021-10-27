@@ -11,13 +11,13 @@ import {
 import nodeInterceptors from '../../src/presets/node'
 import { httpsRequest } from '../helpers'
 
-let server: ServerApi
+let httpServer: ServerApi
 let responses: [IsomorphicRequest, IsomorphicResponse][] = []
 
 const interceptor = createInterceptor({
   modules: nodeInterceptors,
   resolver(request) {
-    if (['https://mswjs.io/events'].includes(request.url.href)) {
+    if (request.url.pathname === '/mocked') {
       return {
         status: 200,
         headers: {
@@ -30,7 +30,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.post('/account', (req, res) => {
       return res
         .status(200)
@@ -51,18 +51,18 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('ClientRequest: emits the "response" event upon the mocked response', async () => {
-  await fetch('https://mswjs.io/events')
+  await fetch(httpServer.https.makeUrl('/mocked'))
 
   expect(responses).toHaveLength(1)
   const [request, response] = responses[0]
 
   expect(request).toHaveProperty('method', 'GET')
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toBe('https://mswjs.io/events')
+  expect(request.url.toString()).toBe(httpServer.https.makeUrl('/mocked'))
   expect(request).toHaveProperty('body', '')
 
   expect(response).toHaveProperty('status', 200)
@@ -72,14 +72,14 @@ test('ClientRequest: emits the "response" event upon the mocked response', async
 
 test('ClientRequest: emits the "response" event upon the original response', async () => {
   await httpsRequest(
-    server.https.makeUrl('/account'),
+    httpServer.https.makeUrl('/account'),
     {
+      agent: httpsAgent,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Request-Custom': 'yes',
       },
-      agent: httpsAgent,
     },
     JSON.stringify({ id: 'abc-123' })
   )
@@ -89,7 +89,7 @@ test('ClientRequest: emits the "response" event upon the original response', asy
 
   expect(request).toHaveProperty('method', 'POST')
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toBe(server.https.makeUrl('/account'))
+  expect(request.url.toString()).toBe(httpServer.https.makeUrl('/account'))
   expect(request.headers.get('content-type')).toBe('application/json')
   expect(request.headers.get('x-request-custom')).toBe('yes')
   expect(request).toHaveProperty('body', `{"id":"abc-123"}`)

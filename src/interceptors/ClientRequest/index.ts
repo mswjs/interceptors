@@ -1,11 +1,10 @@
 import http from 'http'
 import https from 'https'
-import { Interceptor, Observer, Resolver } from '../../createInterceptor'
-import { createClientRequestOverride } from './createClientRequestOverride'
+import { Interceptor } from '../../createInterceptor'
+import { NodeClientRequest, Protocol } from './NodeClientRequest'
 
 const debug = require('debug')('http override')
 
-type Protocol = 'http' | 'https'
 type PureModules = Map<
   Protocol,
   {
@@ -14,37 +13,6 @@ type PureModules = Map<
     request: typeof http.request
   }
 >
-
-// Store a pointer to the original `http.ClientRequest` class
-// so it can be mutated during runtime, affecting any subsequent calls.
-let pureClientRequest: typeof http.ClientRequest
-
-function handleClientRequest(
-  protocol: string,
-  pureMethod: typeof http.get | typeof http.request,
-  args: any[],
-  observer: Observer,
-  resolver: Resolver
-): http.ClientRequest {
-  // The first time we execute this, I'll save the original ClientRequest.
-  // This because is used to restore the dafault one later
-  if (!pureClientRequest) {
-    pureClientRequest = http.ClientRequest
-  }
-
-  const ClientRequestOverride = createClientRequestOverride({
-    defaultProtocol: `${protocol}:`,
-    pureClientRequest,
-    pureMethod,
-    observer,
-    resolver,
-  })
-
-  debug('new ClientRequestOverride (origin: %s)', protocol)
-
-  // @ts-expect-error Variable call signature.
-  return new ClientRequestOverride(...args)
-}
 
 /**
  * Intercepts requests issued by native `http` and `https` modules.
@@ -60,7 +28,7 @@ export const interceptClientRequest: Interceptor = (observer, resolver) => {
     // Wrap an original `http.request`/`https.request`
     // so that its invocations can be debugged.
     function proxiedOriginalRequest(...args: any[]) {
-      debug('%s.request original call', protocol, args)
+      debug('original "%s.request" call', protocol, args)
 
       // @ts-ignore
       return originalRequest(...args)
@@ -69,29 +37,33 @@ export const interceptClientRequest: Interceptor = (observer, resolver) => {
     debug('patching "%s" module...', protocol)
 
     // @ts-ignore
-    requestModule.request = function requestOverride(...args: any[]) {
-      debug('intercepted %s.request call', protocol)
+    requestModule.request = function requestOverride(
+      ...args: Parameters<typeof http.request>
+    ) {
+      debug('intercepted "%s.request" call', protocol, new Error().stack)
 
-      return handleClientRequest(
-        protocol,
-        proxiedOriginalRequest.bind(requestModule),
-        args,
+      return new NodeClientRequest({
+        defaultProtocol: protocol,
+        originalMethod: proxiedOriginalRequest.bind(requestModule),
+        resolver,
         observer,
-        resolver
-      )
+        requestOptions: args,
+      })
     }
 
     // @ts-ignore
-    requestModule.get = function getOverride(...args: any[]) {
-      debug('intercepted %s.get call', protocol)
+    requestModule.get = function getOverride(
+      ...args: Parameters<typeof http.get>
+    ) {
+      debug('intercepted "%s.get" call', protocol, new Error().stack)
 
-      const request = handleClientRequest(
-        protocol,
-        originalGet.bind(requestModule),
-        args,
+      const request = new NodeClientRequest({
+        defaultProtocol: protocol,
+        originalMethod: originalGet.bind(requestModule),
+        resolver,
         observer,
-        resolver
-      )
+        requestOptions: args,
+      })
 
       /**
        * @note https://nodejs.org/api/http.html#httpgetoptions-callback
@@ -110,7 +82,7 @@ export const interceptClientRequest: Interceptor = (observer, resolver) => {
   })
 
   return () => {
-    debug('restoring modules...')
+    debug('done, restoring modules...')
 
     for (const requestModule of pureModules.values()) {
       requestModule.module.get = requestModule.get

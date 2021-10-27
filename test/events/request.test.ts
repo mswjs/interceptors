@@ -21,7 +21,7 @@ interceptor.on('request', (request) => {
 beforeAll(async () => {
   server = await createServer((app) => {
     app.post('/user', (req, res) => {
-      res.status(200).end()
+      res.status(201).end()
     })
   })
 
@@ -55,7 +55,11 @@ it('ClientRequest: emits the "request" event upon a request', async () => {
   expect(requests).toHaveLength(1)
   expect(request.method).toEqual('POST')
   expect(request.url.toString()).toEqual(server.http.makeUrl('/user'))
-  expect(request.headers.all()).toEqual({ 'content-type': 'application/json' })
+  expect(request.headers.all()).toEqual({
+    'content-type': 'application/json',
+    // "http.request" appends the "host" request header.
+    host: `${server.http.getAddress().host}:${server.http.getAddress().port}`,
+  })
   expect(request.body).toEqual(JSON.stringify({ userId: 'abc-123' }))
 })
 
@@ -65,16 +69,23 @@ it('XMLHttpRequest: emits the "request" event upon a request', async () => {
     req.setRequestHeader('Content-Type', 'application/json')
     req.send(JSON.stringify({ userId: 'abc-123' }))
   })
-  const [request] = requests
 
   /**
-   * @note In Node.js XMLHttpRequest is often polyfilled by ClientRequest.
-   * This results in both XMLHttpRequest and ClientRequest interceptors
+   * @note In Node.js "XMLHttpRequest" is often polyfilled by "ClientRequest".
+   * This results in both "XMLHttpRequest" and "ClientRequest" interceptors
    * emitting the "request" event.
+   * @see https://github.com/mswjs/interceptors/issues/163
    */
   expect(requests).toHaveLength(4)
+  const [request] = requests
   expect(request.method).toEqual('POST')
   expect(request.url.toString()).toEqual(server.http.makeUrl('/user'))
-  expect(request.headers.all()).toEqual({ 'content-type': 'application/json' })
-  expect(request.body).toEqual(JSON.stringify({ userId: 'abc-123' }))
+  expect(request.headers.all()).toEqual({
+    'content-type': 'application/json',
+  })
+  expect(request.body).toEqual(
+    JSON.stringify({
+      userId: 'abc-123',
+    })
+  )
 })
