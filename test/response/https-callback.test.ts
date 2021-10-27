@@ -45,57 +45,49 @@ afterAll(async () => {
 })
 
 test('calls a custom callback once when the request is bypassed', (done) => {
-  let resBody: string = ''
+  let responseBody: string = ''
 
-  const customCallback = jest.fn<void, [IncomingMessage]>((res) => {
-    res.on('data', (chunk) => (resBody += chunk))
-    res.on('end', () => {
+  const responseCallback = jest.fn<void, [IncomingMessage]>((response) => {
+    response.on('data', (chunk) => (responseBody += chunk))
+    response.on('end', () => {
       // Check that the request was bypassed.
-      expect(resBody).toEqual('/')
+      expect(responseBody).toEqual('/')
 
-      // Custom callback to `https.get` must be called once.
-      expect(customCallback).toBeCalledTimes(1)
+      // Custom callback to "https.get" must be called once.
+      expect(responseCallback).toBeCalledTimes(1)
       done()
     })
-    res.on('error', done)
   })
 
-  https
-    .get(
-      {
-        ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/get'))),
-        agent: httpsAgent,
-      },
-      customCallback
-    )
-    .on('error', (error) => {
-      console.log('some error', error)
-    })
-    .end()
+  https.get(
+    {
+      ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/get'))),
+      agent: httpsAgent,
+    },
+    responseCallback
+  )
 })
 
 test('calls a custom callback once when the response is mocked', (done) => {
-  let resBody: string = ''
+  let responseBody: string = ''
 
-  const customCallback = jest.fn<void, [IncomingMessage]>((res) => {
-    res.on('data', (chunk) => (resBody += chunk))
-    res.on('end', () => {
+  const responseCallback = jest.fn<void, [IncomingMessage]>((response) => {
+    response.on('data', (chunk) => (responseBody += chunk))
+    response.on('end', () => {
       // Check that the response was mocked.
-      expect(resBody).toEqual('mocked-body')
+      expect(responseBody).toEqual('mocked-body')
 
       // Custom callback to `https.get` must be called once.
-      expect(customCallback).toBeCalledTimes(1)
+      expect(responseCallback).toBeCalledTimes(1)
       done()
     })
   })
 
-  https
-    .get(
-      {
-        ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/arbitrary'))),
-        agent: httpsAgent,
-      },
-      customCallback
-    )
-    .end()
+  https.get(
+    {
+      ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/arbitrary'))),
+      agent: httpsAgent,
+    },
+    responseCallback
+  )
 })

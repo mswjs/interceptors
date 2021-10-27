@@ -10,7 +10,7 @@ import {
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../helpers'
 
-let server: ServerApi
+let httpServer: ServerApi
 let responses: [IsomorphicRequest, IsomorphicResponse][] = []
 
 const interceptor = createInterceptor({
@@ -22,18 +22,18 @@ const interceptor = createInterceptor({
         headers: {
           'x-response-type': 'mocked',
         },
-        body: 'response-text',
+        body: 'mocked-response-text',
       }
     }
   },
 })
 
 beforeAll(async () => {
-  // @ts-ignore
+  // @ts-expect-error Internal JSDOM property.
   // Allow XHR requests to the local HTTPS server with a self-signed certificate.
   window._resourceLoader._strictSSL = false
 
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.post('/account', (req, res) => {
       return res
         .status(200)
@@ -55,11 +55,11 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('XMLHttpRequest: emits the "response" event upon the mocked response', async () => {
-  await createXMLHttpRequest((req) => {
+  const originalRequest = await createXMLHttpRequest((req) => {
     req.open('GET', 'https://mswjs.io/events')
     req.setRequestHeader('x-request-custom', 'yes')
   })
@@ -67,19 +67,24 @@ test('XMLHttpRequest: emits the "response" event upon the mocked response', asyn
   expect(responses).toHaveLength(1)
   const [request, response] = responses[0]
 
-  expect(request).toHaveProperty('method', 'GET')
-  expect(request.url.toString()).toBe('https://mswjs.io/events')
-  expect(request.headers.get('x-request-custom')).toBe('yes')
+  // Isomorphic request.
+  expect(request.method).toEqual('GET')
+  expect(request.url.href).toEqual('https://mswjs.io/events')
+  expect(request.headers.get('x-request-custom')).toEqual('yes')
 
-  expect(response).toHaveProperty('status', 200)
-  expect(response).toHaveProperty('statusText', 'OK')
-  expect(response.headers.get('x-response-type')).toBe('mocked')
-  expect(response).toHaveProperty('body', 'response-text')
+  // Isomorphic response.
+  expect(response.status).toEqual(200)
+  expect(response.statusText).toEqual('OK')
+  expect(response.headers.get('x-response-type')).toEqual('mocked')
+  expect(response.body).toEqual('mocked-response-text')
+
+  // Original response.
+  expect(originalRequest.responseText).toEqual('mocked-response-text')
 })
 
 test('XMLHttpRequest: emits the "response" event upon the original response', async () => {
-  await createXMLHttpRequest((req) => {
-    req.open('POST', server.https.makeUrl('/account'))
+  const originalRequest = await createXMLHttpRequest((req) => {
+    req.open('POST', httpServer.https.makeUrl('/account'))
     req.setRequestHeader('x-request-custom', 'yes')
     req.send('request-body')
   })
@@ -87,13 +92,18 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   expect(responses).toHaveLength(1)
   const [request, response] = responses[0]
 
-  expect(request).toHaveProperty('method', 'POST')
-  expect(request.url.toString()).toBe(server.https.makeUrl('/account'))
-  expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request).toHaveProperty('body', 'request-body')
+  // Isomorphic request.
+  expect(request.method).toEqual('POST')
+  expect(request.url.href).toEqual(httpServer.https.makeUrl('/account'))
+  expect(request.headers.get('x-request-custom')).toEqual('yes')
+  expect(request.body).toEqual('request-body')
 
-  expect(response).toHaveProperty('status', 200)
-  expect(response).toHaveProperty('statusText', 'OK')
-  expect(response.headers.get('x-response-type')).toBe('original')
-  expect(response).toHaveProperty('body', 'original-response-text')
+  // Isomorphic response.
+  expect(response.status).toEqual(200)
+  expect(response.statusText).toEqual('OK')
+  expect(response.headers.get('x-response-type')).toEqual('original')
+  expect(response.body).toEqual('original-response-text')
+
+  // Original response.
+  expect(originalRequest.responseText).toEqual('original-response-text')
 })

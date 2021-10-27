@@ -209,11 +209,10 @@ test('intercepts a DELETE request', (done) => {
 test('intercepts an http.request request given RequestOptions without a protocol', (done) => {
   const request = https.request(
     {
+      agent: httpsAgent,
       host: httpServer.https.getAddress().host,
       port: httpServer.https.getAddress().port,
       path: '/user?id=123',
-      // Suppress the "certificate has expired" error.
-      rejectUnauthorized: false,
     },
     () => done()
   )

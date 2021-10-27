@@ -36,7 +36,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('intercepts an HTTPS GET request', (done) => {
+test('intercepts a GET request', (done) => {
   const url = httpServer.https.makeUrl('/user?id=123')
   https.get(
     url,
@@ -64,7 +64,7 @@ test('intercepts an HTTPS GET request', (done) => {
 test('intercepts an https.get request given RequestOptions without a protocol', (done) => {
   // Pass a RequestOptions object without an explicit `protocol`.
   // The request is made via `https` so the `https:` protocol must be inferred.
-  const request = https.get(
+  https.get(
     {
       host: httpServer.https.getAddress().host,
       port: httpServer.https.getAddress().port,

@@ -1,27 +1,25 @@
-const debug = require('debug')('http normalizeHttpRequestEndParams')
+const debug = require('debug')('http normalizeClientRequestEndArgs')
 
-type HttpRequestEndChunk = string | Buffer
-type HttpRequestEndEncoding = string
-type HttpRequestEndCallback = () => void
+export type ClientRequestEndChunk = string | Buffer
+type ClientRequestEndCallback = () => void
 
 type HttpRequestEndArgs =
   | []
-  | [HttpRequestEndCallback]
-  | [HttpRequestEndChunk, HttpRequestEndCallback?]
-  | [HttpRequestEndChunk, HttpRequestEndEncoding, HttpRequestEndCallback?]
+  | [ClientRequestEndCallback]
+  | [ClientRequestEndChunk, ClientRequestEndCallback?]
+  | [ClientRequestEndChunk, BufferEncoding, ClientRequestEndCallback?]
 
 type NormalizedHttpRequestEndParams = [
-  HttpRequestEndChunk | null,
-  HttpRequestEndEncoding | null,
-  HttpRequestEndCallback | null
+  ClientRequestEndChunk | null,
+  BufferEncoding | null,
+  ClientRequestEndCallback | null
 ]
 
 /**
  * Normalizes a list of arguments given to the `ClientRequest.end()`
  * method to always include `chunk`, `encoding`, and `callback`.
- * Returned values may be `null`.
  */
-export function normalizeHttpRequestEndParams(
+export function normalizeClientRequestEndArgs(
   ...args: HttpRequestEndArgs
 ): NormalizedHttpRequestEndParams {
   debug('arguments', args)

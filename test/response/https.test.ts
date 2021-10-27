@@ -11,7 +11,7 @@ let server: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
   resolver(request) {
-    if ([server.https.makeUrl()].includes(request.url.href)) {
+    if (request.url.pathname === '/non-existing') {
       return {
         status: 400,
         statusText: 'Bad Request',
@@ -47,7 +47,7 @@ afterAll(async () => {
 })
 
 test('responds to an HTTPS request issued by "https.request" and handled in the middleware', async () => {
-  const { res, resBody } = await httpsRequest(server.https.makeUrl('/'))
+  const { res, resBody } = await httpsRequest('https://any.thing/non-existing')
 
   expect(res.statusCode).toEqual(400)
   expect(res.statusMessage).toEqual('Bad Request')
@@ -65,7 +65,7 @@ test('bypasses an HTTPS request issued by "https.request" not handled in the mid
 })
 
 test('responds to an HTTPS request issued by "https.get" and handled in the middleware', async () => {
-  const { res, resBody } = await httpsGet(server.https.makeUrl('/'))
+  const { res, resBody } = await httpsGet('https://any.thing/non-existing')
 
   expect(res.statusCode).toEqual(400)
   expect(res.statusMessage).toEqual('Bad Request')

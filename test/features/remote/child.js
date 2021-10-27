@@ -10,7 +10,7 @@ const interceptor = createRemoteInterceptor({
 
 interceptor.apply()
 
-function callEndpoint() {
+function makeRequest() {
   fetch('https://httpbin.org/get')
     .then((res) => res.json())
     .then((json) => {
@@ -20,7 +20,7 @@ function callEndpoint() {
 
 process.on('message', (message) => {
   if (message === 'make:request') {
-    callEndpoint()
+    makeRequest()
   }
 })
 

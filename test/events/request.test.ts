@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+import * as http from 'http'
 import { createServer, ServerApi } from '@open-draft/test-server'
 import { createInterceptor, IsomorphicRequest } from '../../src'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
@@ -21,7 +22,7 @@ interceptor.on('request', (request) => {
 beforeAll(async () => {
   server = await createServer((app) => {
     app.post('/user', (req, res) => {
-      res.status(200).end()
+      res.status(201).end()
     })
   })
 
@@ -37,8 +38,8 @@ afterAll(async () => {
   await server.close()
 })
 
-it('ClientRequest: emits the "request" event upon a request', async () => {
-  await httpRequest(
+it('ClientRequest: emits the "request" event upon the request', (done) => {
+  const request = http.request(
     server.http.makeUrl('/user'),
     {
       method: 'POST',
@@ -46,35 +47,43 @@ it('ClientRequest: emits the "request" event upon a request', async () => {
         'Content-Type': 'application/json',
       },
     },
+    () => {
+      expect(requests).toHaveLength(1)
+      const [request] = requests
+
+      expect(request.method).toEqual('POST')
+      expect(request.url.href).toEqual(server.http.makeUrl('/user'))
+      expect(request.headers.get('content-type')).toEqual('application/json')
+      expect(request.body).toEqual(JSON.stringify({ userId: 'abc-123' }))
+      done()
+    }
+  )
+  request.write(JSON.stringify({ userId: 'abc-123' }))
+  request.end()
+})
+
+it('XMLHttpRequest: emits the "request" event upon the request', async () => {
+  await createXMLHttpRequest((request) => {
+    request.open('POST', server.http.makeUrl('/user'))
+    request.setRequestHeader('Content-Type', 'application/json')
+    request.send(JSON.stringify({ userId: 'abc-123' }))
+  })
+
+  /**
+   * @note In Node.js "XMLHttpRequest" is often polyfilled by "ClientRequest".
+   * This results in both "XMLHttpRequest" and "ClientRequest" interceptors
+   * emitting the "request" event.
+   * @see https://github.com/mswjs/interceptors/issues/163
+   */
+  expect(requests).toHaveLength(4)
+
+  const [request] = requests
+  expect(request.method).toEqual('POST')
+  expect(request.url.href).toEqual(server.http.makeUrl('/user'))
+  expect(request.headers.get('content-type')).toEqual('application/json')
+  expect(request.body).toEqual(
     JSON.stringify({
       userId: 'abc-123',
     })
   )
-  const [request] = requests
-
-  expect(requests).toHaveLength(1)
-  expect(request.method).toEqual('POST')
-  expect(request.url.toString()).toEqual(server.http.makeUrl('/user'))
-  expect(request.headers.all()).toEqual({ 'content-type': 'application/json' })
-  expect(request.body).toEqual(JSON.stringify({ userId: 'abc-123' }))
-})
-
-it('XMLHttpRequest: emits the "request" event upon a request', async () => {
-  await createXMLHttpRequest((req) => {
-    req.open('POST', server.http.makeUrl('/user'))
-    req.setRequestHeader('Content-Type', 'application/json')
-    req.send(JSON.stringify({ userId: 'abc-123' }))
-  })
-  const [request] = requests
-
-  /**
-   * @note In Node.js XMLHttpRequest is often polyfilled by ClientRequest.
-   * This results in both XMLHttpRequest and ClientRequest interceptors
-   * emitting the "request" event.
-   */
-  expect(requests).toHaveLength(4)
-  expect(request.method).toEqual('POST')
-  expect(request.url.toString()).toEqual(server.http.makeUrl('/user'))
-  expect(request.headers.all()).toEqual({ 'content-type': 'application/json' })
-  expect(request.body).toEqual(JSON.stringify({ userId: 'abc-123' }))
 })

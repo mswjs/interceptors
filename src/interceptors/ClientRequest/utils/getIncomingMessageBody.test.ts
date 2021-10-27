@@ -5,18 +5,18 @@ import { getIncomingMessageBody } from './getIncomingMessageBody'
 
 test('returns utf8 string given a utf8 response body', async () => {
   const utfBuffer = Buffer.from('one')
-  const message: IncomingMessage = new IncomingMessage(new Socket())
+  const message = new IncomingMessage(new Socket())
 
   const pendingResponseBody = getIncomingMessageBody(message)
   message.emit('data', utfBuffer)
   message.emit('end')
 
-  expect(pendingResponseBody).resolves.toEqual('one')
+  expect(await pendingResponseBody).toEqual('one')
 })
 
 test('returns utf8 string given a gzipped response body', async () => {
   const utfBuffer = zlib.gzipSync(Buffer.from('two'))
-  const message: IncomingMessage = new IncomingMessage(new Socket())
+  const message = new IncomingMessage(new Socket())
   message.headers = {
     'content-encoding': 'gzip',
   }
@@ -25,12 +25,12 @@ test('returns utf8 string given a gzipped response body', async () => {
   message.emit('data', utfBuffer)
   message.emit('end')
 
-  expect(pendingResponseBody).resolves.toEqual('two')
+  expect(await pendingResponseBody).toEqual('two')
 })
 
 test('returns utf8 string given a gzipped response body with incorrect "content-lenght"', async () => {
   const utfBuffer = zlib.gzipSync(Buffer.from('three'))
-  const message: IncomingMessage = new IncomingMessage(new Socket())
+  const message = new IncomingMessage(new Socket())
   message.headers = {
     'content-encoding': 'gzip',
     'content-length': '500',
@@ -40,5 +40,5 @@ test('returns utf8 string given a gzipped response body with incorrect "content-
   message.emit('data', utfBuffer)
   message.emit('end')
 
-  expect(pendingResponseBody).resolves.toEqual('three')
+  expect(await pendingResponseBody).toEqual('three')
 })

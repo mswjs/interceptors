@@ -1,5 +1,5 @@
 import * as path from 'path'
-import { ChildProcess, spawn } from 'child_process'
+import { spawn } from 'child_process'
 import { createRemoteResolver } from '../../../src'
 
 const CHILD_PATH = path.resolve(__dirname, 'child.js')
