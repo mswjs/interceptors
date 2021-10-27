@@ -31,11 +31,9 @@ import { HttpRequestCallback } from './ClientRequest.glossary'
 import { getRequestOptionsByUrl } from '../../utils/getRequestOptionsByUrl'
 
 export type Protocol = 'http' | 'https'
-export type OriginalMethod = typeof get | typeof request
 
 export interface NodeClientRequestOptions {
   defaultProtocol: Protocol
-  originalMethod: OriginalMethod
   observer: Observer
   resolver: Resolver
   requestOptions: Parameters<typeof request>

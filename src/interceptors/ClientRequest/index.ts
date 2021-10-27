@@ -25,15 +25,6 @@ export const interceptClientRequest: Interceptor = (observer, resolver) => {
     const requestModule = protocol === 'https' ? https : http
     const { request: originalRequest, get: originalGet } = requestModule
 
-    // Wrap an original `http.request`/`https.request`
-    // so that its invocations can be debugged.
-    function proxiedOriginalRequest(...args: any[]) {
-      debug('original "%s.request" call', protocol, args)
-
-      // @ts-ignore
-      return originalRequest(...args)
-    }
-
     debug('patching "%s" module...', protocol)
 
     // @ts-ignore
@@ -44,7 +35,6 @@ export const interceptClientRequest: Interceptor = (observer, resolver) => {
 
       return new NodeClientRequest({
         defaultProtocol: protocol,
-        originalMethod: proxiedOriginalRequest.bind(requestModule),
         resolver,
         observer,
         requestOptions: args,
@@ -59,7 +49,6 @@ export const interceptClientRequest: Interceptor = (observer, resolver) => {
 
       const request = new NodeClientRequest({
         defaultProtocol: protocol,
-        originalMethod: originalGet.bind(requestModule),
         resolver,
         observer,
         requestOptions: args,
