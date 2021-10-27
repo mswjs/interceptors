@@ -2,9 +2,9 @@ import { debug } from 'debug'
 import http from 'http'
 import https from 'https'
 import { Interceptor } from '../../createInterceptor'
-import { get } from './get'
+import { get } from './http.get'
 import { Protocol } from './NodeClientRequest'
-import { request } from './request'
+import { request } from './http.request'
 
 const log = debug('http override')
 
