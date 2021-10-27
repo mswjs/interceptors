@@ -1,17 +1,9 @@
 import { Debugger, debug } from 'debug'
-import {
-  get,
-  request,
-  Agent as HttpAgent,
-  RequestOptions,
-  ClientRequest,
-  ClientRequestArgs,
-  IncomingMessage,
-} from 'http'
-import { Agent as HttpsAgent } from 'https'
+import type { request, RequestOptions } from 'http'
+import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
 import { Headers, objectToHeaders } from 'headers-utils/lib'
-import {
+import type {
   IsomorphicRequest,
   MockedResponse,
   Observer,
@@ -20,71 +12,23 @@ import {
 import { uuidv4 } from '../../utils/uuid'
 import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
 import {
-  HttpRequestEndChunk,
-  normalizeHttpRequestEndParams,
-} from './utils/normalizeHttpRequestEndParams'
-import { normalizeHttpRequestParams } from './utils/normalizeHttpRequestParams'
+  ClientRequestEndChunk,
+  normalizeClientRequestEndArgs,
+} from './utils/normalizeClientRequestEndArgs'
+import { NormalizedClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { toIsoResponse } from '../../utils/toIsoResponse'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { bodyBufferToString } from './utils/bodyBufferToString'
-import { HttpRequestCallback } from './ClientRequest.glossary'
-import { getRequestOptionsByUrl } from '../../utils/getRequestOptionsByUrl'
+import {
+  ClientRequestWriteArgs,
+  normalizeClientRequestWriteArgs,
+} from './utils/normalizeClientRequestWriteArgs'
 
 export type Protocol = 'http' | 'https'
 
-export interface NodeClientRequestOptions {
-  defaultProtocol: Protocol
+export interface NodeClientOptions {
   observer: Observer
   resolver: Resolver
-  requestOptions: Parameters<typeof request>
-}
-
-function transformInput(
-  input: NodeClientRequestOptions
-): [url: ClientRequestArgs, callback?: HttpRequestCallback] {
-  const log = debug('http transformInput')
-  log('transforming ClientRequest constructor arguments:', input)
-
-  const [url, requestOptions, callback] = normalizeHttpRequestParams(
-    input.defaultProtocol + ':',
-    ...input.requestOptions
-  )
-  const requestOptionsFromUrl = getRequestOptionsByUrl(url)
-  log('derived RequestOptions from URL:', requestOptionsFromUrl)
-
-  const clientRequestOptions = {
-    ...requestOptionsFromUrl,
-    ...requestOptions,
-  }
-
-  // Resolve the proper "Agent" depending on the URL protocol.
-  if (!clientRequestOptions.agent) {
-    log('has no agent, resolving...')
-
-    const agent =
-      url.protocol === 'https:'
-        ? new HttpsAgent({
-            rejectUnauthorized: requestOptions.rejectUnauthorized,
-          })
-        : new HttpAgent()
-    log('resolved agent:', agent)
-
-    clientRequestOptions.agent = agent
-  }
-
-  /**
-   * @note "ClientRequest" accepts either URL string or "RequestOptions".
-   * Reduce both to "RequestOptions", merging any explicit options
-   * with the ones derived from the URL.
-   */
-  const constructorArgs: [
-    url: ClientRequestArgs,
-    callback?: HttpRequestCallback
-  ] = [clientRequestOptions, callback]
-
-  log('resolved ClientRequest constructor arguments:', constructorArgs)
-
-  return constructorArgs
 }
 
 export class NodeClientRequest extends ClientRequest {
@@ -96,43 +40,28 @@ export class NodeClientRequest extends ClientRequest {
   private observer: Observer
   private log: Debugger
 
-  constructor(input: NodeClientRequestOptions) {
-    super(...transformInput(input))
+  constructor(
+    [url, requestOptions, callback]: NormalizedClientRequestArgs,
+    options: NodeClientOptions
+  ) {
+    super(requestOptions, callback)
 
-    const [url, options, callback] = normalizeHttpRequestParams(
-      input.defaultProtocol + ':',
-      ...input.requestOptions
-    )
-
-    this.log = debug(`http ${options.method} ${url.href}`)
+    this.log = debug(`http ${requestOptions.method} ${url.href}`)
     this.log('constructing ClientRequest...', { url, options, callback })
 
     this.url = url
-    this.options = options
-    this.resolver = input.resolver
-    this.observer = input.observer
+    this.options = requestOptions
+    this.resolver = options.resolver
+    this.observer = options.observer
 
-    // Response.
+    // Construct a mocked response message.
     this.response = new IncomingMessage(this.socket!)
   }
 
-  private normalizeWriteParams(
-    ...args: any[]
-  ): [
-    chunk: string | Buffer,
-    encoding?: BufferEncoding,
-    callback?: (error: Error | null | undefined) => void
-  ] {
-    const chunk = args[0]
-    const encoding =
-      typeof args[1] === 'string' ? (args[1] as BufferEncoding) : undefined
-    const callback = typeof args[1] === 'function' ? args[1] : args[2]
-    return [chunk, encoding, callback]
-  }
+  write(...args: ClientRequestWriteArgs): boolean {
+    this.log('writing chunk:', args)
 
-  write(...args: any[]): boolean {
-    const [chunk, encoding, callback] = this.normalizeWriteParams(...args)
-    this.log('writing chunk:', { chunk, encoding, callback })
+    const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
 
     const afterWrite = (error?: Error | null): void => {
       if (error) {
@@ -159,7 +88,7 @@ export class NodeClientRequest extends ClientRequest {
   async end(...args: any) {
     this.log('end', args)
 
-    const [chunk, encoding, callback] = normalizeHttpRequestEndParams(...args)
+    const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.log('normalized arguments:', { chunk, encoding, callback })
 
     const requestBody = this.getRequestBody(chunk)
@@ -175,6 +104,8 @@ export class NodeClientRequest extends ClientRequest {
     if (resolverError) {
       this.log('encountered resolver exception, aborting request...')
       this.emit('error', resolverError)
+      this.terminate()
+
       return this
     }
 
@@ -211,7 +142,7 @@ export class NodeClientRequest extends ClientRequest {
     this.once('response', async (response) => {
       const responseBody = await getIncomingMessageBody(response)
       this.log(response.statusCode, response.statusMessage, responseBody)
-      this.log('original resopnse headers:', response.headers)
+      this.log('original response headers:', response.headers)
 
       this.observer.emit('response', isomorphicRequest, {
         status: response.statusCode || 200,
@@ -259,17 +190,30 @@ export class NodeClientRequest extends ClientRequest {
     this.response.push(null)
     this.response.complete = true
 
+    /**
+     * Set the internal "res" property to the mocked "OutgoingMessage"
+     * to make the "ClientRequest" instance think there's data received
+     * from the socket.
+     * @see https://github.com/nodejs/node/blob/9c405f2591f5833d0247ed0fafdcd68c5b14ce7a/lib/_http_client.js#L501
+     */
     // @ts-ignore
     this.res = this.response
 
-    // @ts-ignore
-    this.agent.destroy()
-
     this.emit('finish')
     this.emit('response', this.response)
+
+    this.terminate()
   }
 
-  private getRequestBody(chunk: HttpRequestEndChunk | null): string {
+  /**
+   * Terminates a pending request.
+   */
+  private terminate(): void {
+    // @ts-ignore
+    this.agent.destroy()
+  }
+
+  private getRequestBody(chunk: ClientRequestEndChunk | null): string {
     const writtenRequestBody = bodyBufferToString(
       Buffer.concat(this.requestBodyBuffer)
     )

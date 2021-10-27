@@ -1,77 +1,55 @@
+import { debug } from 'debug'
 import http from 'http'
 import https from 'https'
 import { Interceptor } from '../../createInterceptor'
-import { NodeClientRequest, Protocol } from './NodeClientRequest'
+import { get } from './get'
+import { Protocol } from './NodeClientRequest'
+import { request } from './request'
 
-const debug = require('debug')('http override')
+const log = debug('http override')
 
+export type RequestModule = typeof http | typeof https
 type PureModules = Map<
   Protocol,
   {
-    module: typeof http | typeof https
+    module: RequestModule
     get: typeof http.get
     request: typeof http.request
   }
 >
 
 /**
- * Intercepts requests issued by native `http` and `https` modules.
+ * Intercepts requests issued by native "http" and "https" modules.
  */
 export const interceptClientRequest: Interceptor = (observer, resolver) => {
   const pureModules: PureModules = new Map()
-  const modules: Protocol[] = ['http', 'https']
+  const modules: [Protocol, RequestModule][] = [
+    ['http', http],
+    ['https', https],
+  ]
 
-  modules.forEach((protocol) => {
-    const requestModule = protocol === 'https' ? https : http
-    const { request: originalRequest, get: originalGet } = requestModule
-
-    debug('patching "%s" module...', protocol)
-
-    // @ts-ignore
-    requestModule.request = function requestOverride(
-      ...args: Parameters<typeof http.request>
-    ) {
-      debug('intercepted "%s.request" call', protocol, new Error().stack)
-
-      return new NodeClientRequest({
-        defaultProtocol: protocol,
-        resolver,
-        observer,
-        requestOptions: args,
-      })
-    }
-
-    // @ts-ignore
-    requestModule.get = function getOverride(
-      ...args: Parameters<typeof http.get>
-    ) {
-      debug('intercepted "%s.get" call', protocol, new Error().stack)
-
-      const request = new NodeClientRequest({
-        defaultProtocol: protocol,
-        resolver,
-        observer,
-        requestOptions: args,
-      })
-
-      /**
-       * @note https://nodejs.org/api/http.html#httpgetoptions-callback
-       * "http.get" sets the method to "GET" and calls "req.end()" automatically.
-       */
-      request.end()
-
-      return request
-    }
+  for (const [protocol, requestModule] of modules) {
+    log('patching the "%s" module...', protocol)
 
     pureModules.set(protocol, {
       module: requestModule,
-      request: originalRequest,
-      get: originalGet,
+      request: requestModule.request,
+      get: requestModule.get,
     })
-  })
+
+    // @ts-ignore Call signature overloads are incompatible.
+    requestModule.request =
+      // Force a line-break to prevent ignoring the "request" call.
+      request(protocol, resolver, observer)
+
+    // @ts-ignore Call signature overloads are incompatible.
+    requestModule.get =
+      // Force a line-break to prevent ignoring the "get" call.
+      get(protocol, resolver, observer)
+  }
 
   return () => {
-    debug('done, restoring modules...')
+    log('done, restoring modules...')
 
     for (const requestModule of pureModules.values()) {
       requestModule.module.get = requestModule.get

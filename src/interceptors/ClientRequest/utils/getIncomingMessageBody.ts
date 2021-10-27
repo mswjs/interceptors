@@ -2,12 +2,14 @@ import { IncomingMessage } from 'http'
 import { Stream } from 'stream'
 import * as zlib from 'zlib'
 
-export function getIncomingMessageBody(res: IncomingMessage): Promise<string> {
+export function getIncomingMessageBody(
+  response: IncomingMessage
+): Promise<string> {
   let responseBody = ''
-  let stream: Stream = res
+  let stream: Stream = response
 
-  if (res.headers['content-encoding'] === 'gzip') {
-    stream = res.pipe(zlib.createGunzip())
+  if (response.headers['content-encoding'] === 'gzip') {
+    stream = response.pipe(zlib.createGunzip())
   }
 
   return new Promise((resolve, reject) => {
