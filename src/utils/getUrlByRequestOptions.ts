@@ -1,10 +1,16 @@
 import { Agent } from 'http'
 import { RequestOptions, Agent as HttpsAgent } from 'https'
-import { RequestSelf } from '../interceptors/ClientRequest/ClientRequest.glossary'
 
 const debug = require('debug')('utils getUrlByRequestOptions')
 
-type IsomorphicClientRequestOptions = RequestOptions & RequestSelf
+// Request instance constructed by the "request" library
+// has a "self" property that has a "uri" field. This is
+// reproducible by performing a "XMLHttpRequest" request in JSDOM.
+export interface RequestSelf {
+  uri?: URL
+}
+
+export type ResolvedRequestOptions = RequestOptions & RequestSelf
 
 export const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
@@ -13,14 +19,12 @@ const DEFAULT_PORT = 80
 const SSL_PORT = 443
 
 function getAgent(
-  options: IsomorphicClientRequestOptions
+  options: ResolvedRequestOptions
 ): Agent | HttpsAgent | undefined {
   return options.agent instanceof Agent ? options.agent : undefined
 }
 
-function getProtocolByRequestOptions(
-  options: IsomorphicClientRequestOptions
-): string {
+function getProtocolByRequestOptions(options: ResolvedRequestOptions): string {
   if (options.protocol) {
     return options.protocol
   }
@@ -39,7 +43,7 @@ function getProtocolByRequestOptions(
 }
 
 function getPortByRequestOptions(
-  options: IsomorphicClientRequestOptions
+  options: ResolvedRequestOptions
 ): number | undefined {
   const agent = getAgent(options)
   const agentPort =
@@ -53,13 +57,11 @@ function getPortByRequestOptions(
   }
 }
 
-function getHostByRequestOptions(
-  options: IsomorphicClientRequestOptions
-): string {
+function getHostByRequestOptions(options: ResolvedRequestOptions): string {
   return options.hostname || options.host || DEFAULT_HOST
 }
 
-function getAuthByRequestOptions(options: IsomorphicClientRequestOptions) {
+function getAuthByRequestOptions(options: ResolvedRequestOptions) {
   if (options.auth) {
     const [username, password] = options.auth.split(':')
     return { username, password }
@@ -69,9 +71,7 @@ function getAuthByRequestOptions(options: IsomorphicClientRequestOptions) {
 /**
  * Creates a `URL` instance from a given `RequestOptions` object.
  */
-export function getUrlByRequestOptions(
-  options: IsomorphicClientRequestOptions
-): URL {
+export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   debug('request options', options)
 
   const protocol = getProtocolByRequestOptions(options)
