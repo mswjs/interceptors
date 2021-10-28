@@ -47,7 +47,11 @@ export class NodeClientRequest extends ClientRequest {
     super(requestOptions, callback)
 
     this.log = debug(`http ${requestOptions.method} ${url.href}`)
-    this.log('constructing ClientRequest...', { url, options, callback })
+    this.log('constructing ClientRequest...', {
+      url,
+      requestOptions,
+      callback,
+    })
 
     this.url = url
     this.options = requestOptions
@@ -131,14 +135,13 @@ export class NodeClientRequest extends ClientRequest {
     this.log('no mocked response found!')
 
     this.once('error', (error) => {
-      this.log('original response error:', error)
+      this.log('original request error:', error)
     })
 
     this.once('abort', () => {
       this.log('original request aborted!')
     })
 
-    // Perform the request as-is.
     this.once('response', async (response) => {
       const responseBody = await getIncomingMessageBody(response)
       this.log(response.statusCode, response.statusMessage, responseBody)
@@ -153,7 +156,8 @@ export class NodeClientRequest extends ClientRequest {
     })
 
     this.log('performing original request...')
-    super.end(chunk, encoding || 'utf8', () => {
+
+    return super.end(chunk, encoding || 'utf8', () => {
       this.log('original request end!')
       callback?.()
     })
@@ -198,6 +202,11 @@ export class NodeClientRequest extends ClientRequest {
      */
     // @ts-ignore
     this.res = this.response
+
+    this.finished = true
+    Object.defineProperty(this, 'writableEnded', {
+      value: true,
+    })
 
     this.emit('finish')
     this.emit('response', this.response)
