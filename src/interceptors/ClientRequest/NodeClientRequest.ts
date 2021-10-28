@@ -1,5 +1,5 @@
 import { Debugger, debug } from 'debug'
-import type { request, RequestOptions } from 'http'
+import type { RequestOptions } from 'http'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
 import { Headers, objectToHeaders } from 'headers-utils/lib'
