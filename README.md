@@ -55,12 +55,12 @@ Enables request interception in the current process.
 
 ```js
 import { createInterceptor } from '@mswjs/interceptors'
-import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
+import nodeInterceptors from '@mswjs/interceptors/presets/node'
 
 const interceptor = createInterceptor({
   modules: nodeInterceptors,
   resolver(request, ref) {
-    // Optionally, return a mocked response.
+    // (Optionally) return a mocked response.
   },
 })
 ```
