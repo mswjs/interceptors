@@ -1,14 +1,18 @@
 import { debug } from 'debug'
-import { Agent as HttpAgent } from 'http'
+import { Agent as HttpAgent, IncomingMessage } from 'http'
 import { RequestOptions, Agent as HttpsAgent } from 'https'
 import { Url as LegacyURL } from 'url'
 import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
-import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions'
+import {
+  ResolvedRequestOptions,
+  getUrlByRequestOptions,
+} from '../../../utils/getUrlByRequestOptions'
 import { cloneObject } from '../../../utils/cloneObject'
 import { isObject } from '../../../utils/isObject'
-import { HttpRequestCallback, RequestSelf } from '../ClientRequest.glossary'
 
 const log = debug('http normalizeClientRequestArgs')
+
+export type HttpRequestCallback = (response: IncomingMessage) => void
 
 export type ClientRequestArgs =
   | [string | URL | LegacyURL, HttpRequestCallback?]
@@ -59,7 +63,7 @@ function resolveCallback(
 
 export type NormalizedClientRequestArgs = [
   url: URL,
-  options: RequestOptions & RequestSelf,
+  options: ResolvedRequestOptions,
   callback?: HttpRequestCallback
 ]
 
@@ -72,7 +76,7 @@ export function normalizeClientRequestArgs(
   ...args: ClientRequestArgs
 ): NormalizedClientRequestArgs {
   let url: URL
-  let options: RequestOptions & RequestSelf
+  let options: ResolvedRequestOptions
   let callback: HttpRequestCallback | undefined
 
   log('arguments', args)
