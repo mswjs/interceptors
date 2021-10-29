@@ -1,28 +1,38 @@
+import { debug } from 'debug'
 import { IncomingMessage } from 'http'
-import { Stream } from 'stream'
+import { PassThrough } from 'stream'
 import * as zlib from 'zlib'
+
+const log = debug('http getIncomingMessageBody')
 
 export function getIncomingMessageBody(
   response: IncomingMessage
 ): Promise<string> {
-  let responseBody = ''
-  let stream: Stream = response
-
-  if (response.headers['content-encoding'] === 'gzip') {
-    stream = response.pipe(zlib.createGunzip())
-  }
-
   return new Promise((resolve, reject) => {
-    stream.once('error', (error) => {
-      stream.removeAllListeners()
-      reject(error)
+    log('cloning the original response...')
+
+    // Pipe the original response to support non-clone
+    // "response" input. No need to clone the response,
+    // as we always have access to the full "response" input,
+    // either a clone or an original one (in tests).
+    const responseClone = response.pipe(new PassThrough())
+    const stream =
+      response.headers['content-encoding'] === 'gzip'
+        ? responseClone.pipe(zlib.createGunzip())
+        : responseClone
+
+    const encoding = response.readableEncoding || 'utf8'
+    stream.setEncoding(encoding)
+    log('using encoding:', encoding)
+
+    stream.once('data', (responseBody) => {
+      log('response body read:', responseBody)
+      resolve(responseBody)
     })
 
-    stream.on('data', (chunk) => (responseBody += chunk))
-
-    stream.once('end', () => {
-      stream.removeAllListeners()
-      resolve(responseBody)
+    stream.once('error', (error) => {
+      log('error while reading response body:', error)
+      reject(error)
     })
   })
 }

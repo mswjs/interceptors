@@ -23,6 +23,7 @@ import {
   ClientRequestWriteArgs,
   normalizeClientRequestWriteArgs,
 } from './utils/normalizeClientRequestWriteArgs'
+import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
 
 export type Protocol = 'http' | 'https'
 
@@ -142,7 +143,7 @@ export class NodeClientRequest extends ClientRequest {
       this.log('original request aborted!')
     })
 
-    this.once('response', async (response) => {
+    this.once('response-internal', async (response: IncomingMessage) => {
       const responseBody = await getIncomingMessageBody(response)
       this.log(response.statusCode, response.statusMessage, responseBody)
       this.log('original response headers:', response.headers)
@@ -161,6 +162,38 @@ export class NodeClientRequest extends ClientRequest {
       this.log('original request end!')
       callback?.()
     })
+  }
+
+  emit(event: string, ...data: any[]) {
+    this.log('event:%s', event)
+
+    if (event === 'response') {
+      this.log('found "response" event, cloning the response...')
+
+      try {
+        /**
+         * Clone the response object when emitting the "response" event.
+         * This prevents the response body stream from locking
+         * and allows reading it twice:
+         * 1. Internal "response" event from the observer.
+         * 2. Any external response body listeners.
+         * @see https://github.com/mswjs/interceptors/issues/161
+         */
+        const response = data[0] as IncomingMessage
+        const firstClone = cloneIncomingMessage(response)
+        const secondClone = cloneIncomingMessage(response)
+
+        this.emit('response-internal', secondClone)
+
+        this.log('response successfuly cloned, emitting "response" event...')
+        return super.emit(event, firstClone, ...data.slice(1))
+      } catch (error) {
+        this.log('error when cloning response:', error)
+        return super.emit(event, ...data)
+      }
+    }
+
+    return super.emit(event, ...data)
   }
 
   private respondWith(mockedResponse: MockedResponse): void {

@@ -166,7 +166,7 @@ export function normalizeClientRequestArgs(
     log('normalized request options:', options)
 
     url = getUrlByRequestOptions(options)
-    log('created a URL from RequestOptions:', url)
+    log('created a URL from RequestOptions:', url.href)
 
     callback = resolveCallback(args)
   } else {
@@ -198,7 +198,7 @@ export function normalizeClientRequestArgs(
     log('resolved fallback agent:', agent)
   }
 
-  log('resolved url:', url)
+  log('successfully resolved url:', url.href)
   log('successfully resolved options:', options)
 
   return [url, options, callback]
