@@ -1,5 +1,5 @@
 [![Latest version](https://img.shields.io/npm/v/@mswjs/interceptors.svg)](https://www.npmjs.com/package/@mswjs/interceptors)
-[![Build status](https://img.shields.io/circleci/project/github/mswjs/interceptors/master.svg)](https://app.circleci.com/pipelines/github/mswjs/interceptors)
+[![Build status](https://img.shields.io/circleci/project/github/mswjs/interceptors/main.svg)](https://app.circleci.com/pipelines/github/mswjs/interceptors)
 
 # `@mswjs/interceptors`
 
