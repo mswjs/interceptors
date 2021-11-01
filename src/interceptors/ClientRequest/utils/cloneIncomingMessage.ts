@@ -1,11 +1,15 @@
 import { IncomingMessage } from 'http'
 import { PassThrough } from 'stream'
 
-const IS_CLONE = Symbol('isClone')
+export const IS_CLONE = Symbol('isClone')
+
+export interface ClonedIncomingMessage extends IncomingMessage {
+  [IS_CLONE]: boolean
+}
 
 export function cloneIncomingMessage(
   message: IncomingMessage
-): IncomingMessage {
+): ClonedIncomingMessage {
   const stream = message.pipe(new PassThrough())
   const properties = [
     ...Object.getOwnPropertyNames(message),
@@ -33,5 +37,5 @@ export function cloneIncomingMessage(
     value: true,
   })
 
-  return stream as unknown as IncomingMessage
+  return stream as unknown as ClonedIncomingMessage
 }
