@@ -1,6 +1,6 @@
 import { Debugger, debug } from 'debug'
 import type { RequestOptions } from 'http'
-import { ClientRequest, IncomingMessage } from 'http'
+import { ClientRequest, IncomingMessage, Agent } from 'http'
 import { until } from '@open-draft/until'
 import { Headers, objectToHeaders } from 'headers-utils/lib'
 import type {
@@ -24,6 +24,8 @@ import {
   normalizeClientRequestWriteArgs,
 } from './utils/normalizeClientRequestWriteArgs'
 import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
+import { Socket } from 'net'
+import { EventEmitter } from 'events'
 
 export type Protocol = 'http' | 'https'
 
@@ -35,11 +37,13 @@ export interface NodeClientOptions {
 export class NodeClientRequest extends ClientRequest {
   private url: URL
   private options: RequestOptions
+  private agent?: Agent & EventEmitter
   private requestBodyBuffer: Buffer[] = []
   private response: IncomingMessage
   private resolver: Resolver
   private observer: Observer
   private log: Debugger
+  private useMock: boolean = true
 
   constructor(
     [url, requestOptions, callback]: NormalizedClientRequestArgs,
@@ -61,6 +65,10 @@ export class NodeClientRequest extends ClientRequest {
 
     // Construct a mocked response message.
     this.response = new IncomingMessage(this.socket!)
+
+    this.once('socket', (socket) => {
+      console.log('socket connecting:', socket.connecting)
+    })
   }
 
   write(...args: ClientRequestWriteArgs): boolean {
@@ -90,7 +98,7 @@ export class NodeClientRequest extends ClientRequest {
     return result
   }
 
-  async end(...args: any) {
+  async end(...args: any): Promise<void> {
     this.log('end', args)
 
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
@@ -107,17 +115,22 @@ export class NodeClientRequest extends ClientRequest {
 
     // Halt the request whenever the resolver throws an exception.
     if (resolverError) {
-      this.log('encountered resolver exception, aborting request...')
+      this.log(
+        'encountered resolver exception, aborting request...',
+        resolverError
+      )
       this.emit('error', resolverError)
       this.terminate()
 
-      return this
+      return
     }
 
     if (mockedResponse) {
       this.log('received mocked response:', mockedResponse)
 
       const isomorphicResponse = toIsoResponse(mockedResponse)
+
+      this.respondWith(mockedResponse)
       this.log(
         isomorphicResponse.status,
         isomorphicResponse.statusText,
@@ -125,15 +138,18 @@ export class NodeClientRequest extends ClientRequest {
         '(MOCKED)'
       )
 
-      this.respondWith(mockedResponse)
       callback?.()
 
       this.observer.emit('response', isomorphicRequest, isomorphicResponse)
 
-      return this
+      return
     }
 
     this.log('no mocked response found!')
+    /**
+     * @todo Check this actually reconnects.
+     */
+    // this.socket?.connect(this.options as any)
 
     this.once('error', (error) => {
       this.log('original request error:', error)
@@ -158,14 +174,25 @@ export class NodeClientRequest extends ClientRequest {
 
     this.log('performing original request...')
 
-    return super.end(chunk, encoding || 'utf8', () => {
-      this.log('original request end!')
-      callback?.()
-    })
+    return super.end(
+      this,
+      ...[
+        chunk,
+        encoding as any,
+        () => {
+          this.log('original request end!')
+          callback?.()
+        },
+      ].filter(Boolean)
+    )
   }
 
   emit(event: string, ...data: any[]) {
     this.log('event:%s', event)
+
+    function getArg<T>(index: number): T {
+      return data[index] as T
+    }
 
     if (event === 'response') {
       this.log('found "response" event, cloning the response...')
@@ -179,7 +206,7 @@ export class NodeClientRequest extends ClientRequest {
          * 2. Any external response body listeners.
          * @see https://github.com/mswjs/interceptors/issues/161
          */
-        const response = data[0] as IncomingMessage
+        const response = getArg<IncomingMessage>(0)
         const firstClone = cloneIncomingMessage(response)
         const secondClone = cloneIncomingMessage(response)
 
@@ -193,10 +220,23 @@ export class NodeClientRequest extends ClientRequest {
       }
     }
 
+    if (event === 'error') {
+      const error = getArg<NodeJS.ErrnoException>(0)
+
+      if (this.useMock) {
+        if (error.code === 'ECONNREFUSED') {
+          console.log('ECONNREFUSED from socket')
+          return false
+        }
+      }
+    }
+
     return super.emit(event, ...data)
   }
 
   private respondWith(mockedResponse: MockedResponse): void {
+    this.log('responding with a mocked resopnse...', mockedResponse)
+
     const { status, statusText, headers, body } = mockedResponse
     this.response.statusCode = status
     this.response.statusMessage = statusText
@@ -218,6 +258,8 @@ export class NodeClientRequest extends ClientRequest {
       }
     }
 
+    this.log('mocked response headers ready:', this.response.headers)
+
     if (body) {
       this.response.push(Buffer.from(body))
     }
@@ -236,12 +278,6 @@ export class NodeClientRequest extends ClientRequest {
     // @ts-ignore
     this.res = this.response
 
-    this.finished = true
-    Object.defineProperty(this, 'writableEnded', {
-      value: true,
-    })
-
-    this.emit('finish')
     this.emit('response', this.response)
 
     this.terminate()
@@ -251,8 +287,22 @@ export class NodeClientRequest extends ClientRequest {
    * Terminates a pending request.
    */
   private terminate(): void {
-    // @ts-ignore
-    this.agent.destroy()
+    this.log('forcefully terminating request...')
+
+    this.finished = true
+    Object.defineProperty(this, 'writableEnded', {
+      enumerable: true,
+      value: true,
+    })
+
+    // @ts-expect-error Internal property.
+    this._ended = true
+    this.emit('finish')
+
+    this.agent?.destroy()
+    this.destroy()
+
+    this.log('request successfully terminated!')
   }
 
   private getRequestBody(chunk: ClientRequestEndChunk | null): string {

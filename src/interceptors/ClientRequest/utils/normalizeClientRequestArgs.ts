@@ -9,6 +9,7 @@ import {
 } from '../../../utils/getUrlByRequestOptions'
 import { cloneObject } from '../../../utils/cloneObject'
 import { isObject } from '../../../utils/isObject'
+import { prepareAgent } from './_prepareAgent'
 
 const log = debug('http normalizeClientRequestArgs')
 
@@ -194,6 +195,7 @@ export function normalizeClientRequestArgs(
           })
         : new HttpAgent()
 
+    prepareAgent(agent)
     options.agent = agent
     log('resolved fallback agent:', agent)
   }
