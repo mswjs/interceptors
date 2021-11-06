@@ -244,8 +244,9 @@ export const createXMLHttpRequestOverride = (
         id: uuidv4(),
         url,
         method: this.method,
-        body: this.data,
         headers: this._requestHeaders,
+        credentials: this.withCredentials ? 'include' : 'omit',
+        body: this.data,
       }
 
       observer.emit('request', isoRequest)
