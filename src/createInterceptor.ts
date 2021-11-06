@@ -19,6 +19,7 @@ export interface IsomorphicRequest {
   url: URL
   method: string
   headers: Headers
+  credentials: 'omit' | 'include' | 'same-origin'
   body?: string
 }
 
