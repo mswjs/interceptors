@@ -14,12 +14,14 @@ export type Observer = StrictEventEmitter<InterceptorEventsMap>
  */
 export type InterceptorCleanupFn = () => void
 
+export type RequestCredentials = 'omit' | 'include' | 'same-origin'
+
 export interface IsomorphicRequest {
   id: string
   url: URL
   method: string
   headers: Headers
-  credentials: 'omit' | 'include' | 'same-origin'
+  credentials: RequestCredentials
   body?: string
 }
 

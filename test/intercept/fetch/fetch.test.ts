@@ -298,3 +298,8 @@ test('intercepts an HTTPS HEAD request', async () => {
   expect(request.headers.get('x-custom-header')).toEqual('yes')
   expect(request.url.searchParams.get('id')).toEqual('123')
 })
+
+test('always sets "credentials" to "omit" when using "fetch" polyfills (node-fetch)', async () => {
+  const request = await prepareFetch(fetch(server.http.makeUrl('/user')), pool)
+  expect(request.credentials).toEqual('omit')
+})

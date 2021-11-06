@@ -1,8 +1,8 @@
 import { createInterceptor } from '@mswjs/interceptors'
-import { interceptXMLHttpRequest } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
+import { interceptFetch } from '@mswjs/interceptors/lib/interceptors/fetch'
 
 const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
+  modules: [interceptFetch],
   resolver(request) {
     window.dispatchEvent(
       new CustomEvent('resolver', {

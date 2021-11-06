@@ -85,3 +85,12 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
     }
   )
 })
+
+test('sets "credentials" to "omit" on the isomorphic request', (done) => {
+  https.get(httpServer.http.makeUrl('/user'), () => {
+    const [request] = requests
+    expect(request.credentials).toEqual('omit')
+
+    done()
+  })
+})

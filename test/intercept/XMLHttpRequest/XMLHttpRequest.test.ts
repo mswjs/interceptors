@@ -242,3 +242,32 @@ test('intercepts an HTTPS DELETE request', async () => {
   expect(capturedRequest.headers).toBeInstanceOf(Headers)
   expect(capturedRequest.headers.get('x-custom-header')).toEqual('yes')
 })
+
+test('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {
+  const originalRequest = await createXMLHttpRequest((req) => {
+    req.open('GET', httpServer.https.makeUrl('/user'))
+    req.withCredentials = true
+  })
+  const capturedRequest = lookupRequest(originalRequest, 'GET', requests)!
+
+  expect(capturedRequest.credentials).toEqual('include')
+})
+
+test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is not set', async () => {
+  const originalRequest = await createXMLHttpRequest((req) => {
+    req.open('GET', httpServer.https.makeUrl('/user'))
+  })
+  const capturedRequest = lookupRequest(originalRequest, 'GET', requests)!
+
+  expect(capturedRequest.credentials).toEqual('omit')
+})
+
+test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is false', async () => {
+  const originalRequest = await createXMLHttpRequest((req) => {
+    req.open('GET', httpServer.https.makeUrl('/user'))
+    req.withCredentials = false
+  })
+  const capturedRequest = lookupRequest(originalRequest, 'GET', requests)!
+
+  expect(capturedRequest.credentials).toEqual('omit')
+})

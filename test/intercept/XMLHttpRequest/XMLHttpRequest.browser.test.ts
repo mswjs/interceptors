@@ -32,26 +32,21 @@ afterAll(async () => {
 
 test('intercepts an HTTP GET request', async () => {
   const context = await prepareRuntime()
-  const request = createBrowserXMLHttpRequest(context)
+  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
   const url = httpServer.http.makeUrl('/user')
-  const response = await request(
-    'GET',
+  const [request, response] = await callXMLHttpRequest({
+    method: 'GET',
     url,
-    {
+    headers: {
       'x-request-header': 'yes',
     },
-    undefined,
-    {
-      expected: {
-        method: 'GET',
-        url,
-        headers: {
-          'x-request-header': 'yes',
-        },
-        body: '',
-      },
-    }
-  )
+  })
+
+  expect(request.method).toEqual('GET')
+  expect(request.url.href).toEqual(url)
+  expect(request.headers.get('x-request-header')).toEqual('yes')
+  expect(request.credentials).toEqual('omit')
+  expect(request.body).toEqual('')
 
   expect(response.status).toEqual(200)
   expect(response.statusText).toEqual('OK')
@@ -60,28 +55,62 @@ test('intercepts an HTTP GET request', async () => {
 
 test('intercepts an HTTP POST request', async () => {
   const context = await prepareRuntime()
-  const request = createBrowserXMLHttpRequest(context)
+  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
   const url = httpServer.http.makeUrl('/user')
-  const response = await request(
-    'POST',
+  const [request, response] = await callXMLHttpRequest({
+    method: 'POST',
     url,
-    {
+    headers: {
       'x-request-header': 'yes',
     },
-    JSON.stringify({ user: 'john' }),
-    {
-      expected: {
-        method: 'POST',
-        url,
-        headers: {
-          'x-request-header': 'yes',
-        },
-        body: JSON.stringify({ user: 'john' }),
-      },
-    }
-  )
+    body: JSON.stringify({ user: 'john' }),
+  })
+
+  expect(request.method).toEqual('POST')
+  expect(request.url.href).toEqual(url)
+  expect(request.headers.get('x-request-header')).toEqual('yes')
+  expect(request.credentials).toEqual('omit')
+  expect(request.body).toEqual(JSON.stringify({ user: 'john' }))
 
   expect(response.status).toEqual(200)
   expect(response.statusText).toEqual('OK')
   expect(response.body).toEqual('user-body')
+})
+
+it('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {
+  const context = await prepareRuntime()
+  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
+  const url = httpServer.http.makeUrl('/user')
+  const [request] = await callXMLHttpRequest({
+    method: 'POST',
+    url,
+    withCredentials: true,
+  })
+
+  expect(request.credentials).toEqual('include')
+})
+
+it('sets "credentials" to "omit" on isomorphic request when "withCredentials" is false', async () => {
+  const context = await prepareRuntime()
+  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
+  const url = httpServer.http.makeUrl('/user')
+  const [request] = await callXMLHttpRequest({
+    method: 'POST',
+    url,
+    withCredentials: false,
+  })
+
+  expect(request.credentials).toEqual('omit')
+})
+
+it('sets "credentials" to "omit" on isomorphic request when "withCredentials" is not set', async () => {
+  const context = await prepareRuntime()
+  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
+  const url = httpServer.http.makeUrl('/user')
+  const [request] = await callXMLHttpRequest({
+    method: 'POST',
+    url,
+  })
+
+  expect(request.credentials).toEqual('omit')
 })
