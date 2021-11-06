@@ -31,6 +31,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
       url: new URL(url, location.origin),
       method: method,
       headers: new Headers(init?.headers || {}),
+      credentials: init?.credentials || 'same-origin',
       body: await ref.text(),
     }
     debug('isomorphic request', isoRequest)

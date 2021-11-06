@@ -1,11 +1,12 @@
 import https from 'https'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
+import { Headers } from 'headers-utils'
+import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getCleanUrl } from '../src/utils/getCleanUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { IsomorphicRequest } from '../src/createInterceptor'
-import { ScenarioApi } from 'page-with'
+import { IsomorphicRequest, RequestCredentials } from '../src/createInterceptor'
 
 export interface PromisifiedResponse {
   req: ClientRequest
@@ -207,18 +208,6 @@ export function createXMLHttpRequest(
   })
 }
 
-export interface ExpectedRequest {
-  method: string
-  url: string
-  query?: Record<string, string>
-  headers?: Record<string, string>
-  body: string
-}
-
-declare namespace window {
-  export let expected: ExpectedRequest
-}
-
 export interface XMLHttpResponse {
   status: number
   statusText: string
@@ -226,33 +215,78 @@ export interface XMLHttpResponse {
   body: string
 }
 
-export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
-  return async (
-    method: string,
-    url: string,
-    headers?: Record<string, string>,
-    body?: string,
-    assertions?: { expected: ExpectedRequest }
-  ): Promise<XMLHttpResponse> => {
-    if (assertions?.expected) {
-      await scenario.page.evaluate((expected) => {
-        window.expected = expected
-      }, assertions.expected)
-    }
+export interface StringifiedIsomorphicRequest {
+  id: string
+  method: string
+  url: string
+  headers: Record<string, string>
+  credentials: RequestCredentials
+  body?: string
+}
+
+interface BrowserXMLHttpRequestInit {
+  method: string
+  url: string
+  headers?: Record<string, string>
+  body?: string
+  withCredentials?: boolean
+}
+
+export async function extractRequestFromPage(
+  page: Page
+): Promise<IsomorphicRequest> {
+  const request = await page.evaluate(() => {
+    return new Promise<StringifiedIsomorphicRequest>((resolve) => {
+      window.addEventListener(
+        'resolver' as any,
+        (event: CustomEvent<string>) => {
+          resolve(JSON.parse(event.detail))
+        }
+      )
+    })
+  })
+
+  return {
+    id: request.id,
+    method: request.method,
+    url: new URL(request.url),
+    headers: new Headers(request.headers),
+    credentials: request.credentials,
+    body: request.body,
+  }
+}
+
+export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {
+  return (requestInit: BrowserXMLHttpRequestInit) => {
+    const { method, url, headers, body, withCredentials } = requestInit
 
     return scenario.page.evaluate<
       XMLHttpResponse,
-      [string, string, Record<string, string> | undefined, string | undefined]
+      [
+        string,
+        string,
+        Record<string, string> | undefined,
+        string | undefined,
+        boolean | undefined
+      ]
     >(
       (args) => {
         return new Promise((resolve, reject) => {
-          const request = new XMLHttpRequest()
-          request.open(args[0], args[1])
+          // Can't use array destructuring because Playwright will explode.
+          const method = args[0]
+          const url = args[1]
+          const headers = args[2] || {}
+          const body = args[3]
+          const withCredentials = args[4]
 
-          if (args[2]) {
-            for (const headerName in args[2]) {
-              request.setRequestHeader(headerName, args[2][headerName])
-            }
+          const request = new XMLHttpRequest()
+          if (typeof withCredentials !== 'undefined') {
+            request.withCredentials = withCredentials
+          }
+          request.open(method, url)
+
+          for (const headerName in headers) {
+            request.setRequestHeader(headerName, headers[headerName])
           }
 
           request.addEventListener('load', function () {
@@ -264,10 +298,21 @@ export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
             })
           })
           request.addEventListener('error', reject)
-          request.send(args[3])
+          request.send(body)
         })
       },
-      [method, url, headers, body]
+      [method, url, headers, body, withCredentials]
     )
+  }
+}
+
+export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
+  return async (
+    requestInit: BrowserXMLHttpRequestInit
+  ): Promise<[IsomorphicRequest, XMLHttpResponse]> => {
+    return Promise.all([
+      extractRequestFromPage(scenario.page),
+      createRawBrowserXMLHttpRequest(scenario)(requestInit),
+    ])
   }
 }

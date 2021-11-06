@@ -14,11 +14,19 @@ export type Observer = StrictEventEmitter<InterceptorEventsMap>
  */
 export type InterceptorCleanupFn = () => void
 
+export type RequestCredentials = 'omit' | 'include' | 'same-origin'
+
 export interface IsomorphicRequest {
   id: string
   url: URL
   method: string
   headers: Headers
+  /**
+   * The value of the request client's "credentials" option
+   * or a compatible alternative (i.e. `withCredentials` for `XMLHttpRequest`).
+   * Always equals to "omit" in Node.js.
+   */
+  credentials: RequestCredentials
   body?: string
 }
 

@@ -4,6 +4,19 @@ import { interceptXMLHttpRequest } from '@mswjs/interceptors/lib/interceptors/XM
 window.interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
   resolver(request) {
+    window.dispatchEvent(
+      new CustomEvent('resolver', {
+        detail: JSON.stringify({
+          id: request.id,
+          method: request.method,
+          url: request.url.href,
+          headers: request.headers.all(),
+          credentials: request.credentials,
+          body: request.body,
+        }),
+      })
+    )
+
     const { serverHttpUrl, serverHttpsUrl } = window
 
     if ([serverHttpUrl, serverHttpsUrl].includes(request.url.href)) {
