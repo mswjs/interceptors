@@ -21,6 +21,11 @@ export interface IsomorphicRequest {
   url: URL
   method: string
   headers: Headers
+  /**
+   * The value of the request client's "credentials" option
+   * or a compatible alternative (i.e. `withCredentials` for `XMLHttpRequest`).
+   * Always equals to "omit" in Node.js.
+   */
   credentials: RequestCredentials
   body?: string
 }
