@@ -90,7 +90,7 @@ export class NodeClientRequest extends ClientRequest {
     return result
   }
 
-  async end(...args: any) {
+  async end(...args: any): Promise<void> {
     this.log('end', args)
 
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
@@ -107,17 +107,21 @@ export class NodeClientRequest extends ClientRequest {
 
     // Halt the request whenever the resolver throws an exception.
     if (resolverError) {
-      this.log('encountered resolver exception, aborting request...')
+      this.log(
+        'encountered resolver exception, aborting request...',
+        resolverError
+      )
       this.emit('error', resolverError)
       this.terminate()
 
-      return this
+      return
     }
 
     if (mockedResponse) {
       this.log('received mocked response:', mockedResponse)
 
       const isomorphicResponse = toIsoResponse(mockedResponse)
+      this.respondWith(mockedResponse)
       this.log(
         isomorphicResponse.status,
         isomorphicResponse.statusText,
@@ -125,12 +129,11 @@ export class NodeClientRequest extends ClientRequest {
         '(MOCKED)'
       )
 
-      this.respondWith(mockedResponse)
       callback?.()
 
       this.observer.emit('response', isomorphicRequest, isomorphicResponse)
 
-      return this
+      return
     }
 
     this.log('no mocked response found!')
@@ -158,10 +161,16 @@ export class NodeClientRequest extends ClientRequest {
 
     this.log('performing original request...')
 
-    return super.end(chunk, encoding || 'utf8', () => {
-      this.log('original request end!')
-      callback?.()
-    })
+    return super.end(
+      ...[
+        chunk,
+        encoding as any,
+        () => {
+          this.log('original request end!')
+          callback?.()
+        },
+      ].filter(Boolean)
+    )
   }
 
   emit(event: string, ...data: any[]) {
@@ -197,6 +206,8 @@ export class NodeClientRequest extends ClientRequest {
   }
 
   private respondWith(mockedResponse: MockedResponse): void {
+    this.log('responding with a mocked response...', mockedResponse)
+
     const { status, statusText, headers, body } = mockedResponse
     this.response.statusCode = status
     this.response.statusMessage = statusText
@@ -217,6 +228,7 @@ export class NodeClientRequest extends ClientRequest {
           : headerValue
       }
     }
+    this.log('mocked response headers ready:', headers)
 
     if (body) {
       this.response.push(Buffer.from(body))
