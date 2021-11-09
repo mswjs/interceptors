@@ -23,7 +23,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('gracefully finishes the request with a mocked response', (done) => {
+test('gracefully finishes the request when it has a mocked response', (done) => {
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://any.thing', {
       method: 'PUT',
@@ -88,9 +88,27 @@ test('performs the request as-is given resolver returned no mocked response', (d
   request.end()
 })
 
-test('emits the ECONNREFUSED error when connecting to a non-existing URL', (done) => {
+test('emits the ENOTFOUND error connecting to a non-existing hostname given no mocked response', (done) => {
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', 'http://localhost:12345/non-existing'),
+    normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
+    {
+      observer: new EventEmitter(),
+      resolver() {},
+    }
+  )
+
+  request.on('error', (error: NodeJS.ErrnoException) => {
+    expect(error.code).toEqual('ENOTFOUND')
+    expect(error.syscall).toEqual('getaddrinfo')
+    done()
+  })
+
+  request.end()
+})
+
+test('emits the ECONNREFUSED error connecting to an inactive server given no mocked response', (done) => {
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', 'http://localhost:12345'),
     {
       observer: new EventEmitter(),
       resolver() {},
@@ -105,4 +123,64 @@ test('emits the ECONNREFUSED error when connecting to a non-existing URL', (done
 
     done()
   })
+
+  request.end()
+})
+
+test('does not emit ENOTFOUND error connecting to an inactive server given mocked response', (done) => {
+  const handleError = jest.fn()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
+    {
+      observer: new EventEmitter(),
+      async resolver() {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve({
+              status: 200,
+              statusText: 'Works',
+            })
+          }, 250)
+        })
+      },
+    }
+  )
+
+  request.on('error', handleError)
+  request.on('response', (response) => {
+    expect(handleError).not.toHaveBeenCalled()
+    expect(response.statusCode).toEqual(200)
+    expect(response.statusMessage).toEqual('Works')
+    done()
+  })
+  request.end()
+})
+
+test('does not emit ECONNREFUSED error connecting to an inactive server given mocked response', (done) => {
+  const handleError = jest.fn()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', 'http://localhost:9876'),
+    {
+      observer: new EventEmitter(),
+      async resolver() {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve({
+              status: 200,
+              statusText: 'Works',
+            })
+          }, 250)
+        })
+      },
+    }
+  )
+
+  request.on('error', handleError)
+  request.on('response', (response) => {
+    expect(handleError).not.toHaveBeenCalled()
+    expect(response.statusCode).toEqual(200)
+    expect(response.statusMessage).toEqual('Works')
+    done()
+  })
+  request.end()
 })

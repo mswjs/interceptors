@@ -33,6 +33,12 @@ export interface NodeClientOptions {
 }
 
 export class NodeClientRequest extends ClientRequest {
+  /**
+   * The list of internal Node.js errors to suppress while
+   * using the "mock" response source.
+   */
+  static suppressErrorCodes = ['ENOTFOUND', 'ECONNREFUSED']
+
   private url: URL
   private options: RequestOptions
   private requestBodyBuffer: Buffer[] = []
@@ -40,6 +46,9 @@ export class NodeClientRequest extends ClientRequest {
   private resolver: Resolver
   private observer: Observer
   private log: Debugger
+
+  private responseSource: 'mock' | 'bypass' = 'mock'
+  private capturedError?: NodeJS.ErrnoException
 
   constructor(
     [url, requestOptions, callback]: NormalizedClientRequestArgs,
@@ -119,6 +128,7 @@ export class NodeClientRequest extends ClientRequest {
 
     if (mockedResponse) {
       this.log('received mocked response:', mockedResponse)
+      this.responseSource = 'mock'
 
       const isomorphicResponse = toIsoResponse(mockedResponse)
       this.respondWith(mockedResponse)
@@ -137,6 +147,17 @@ export class NodeClientRequest extends ClientRequest {
     }
 
     this.log('no mocked response found!')
+
+    // Set the response source to "bypass".
+    // Any errors emitted past this point are not suppressed.
+    this.responseSource = 'bypass'
+
+    // Propagate previously captured errors.
+    // For example, a ECONNREFUSED error when connecting to a non-existing host.
+    if (this.capturedError) {
+      this.emit('error', this.capturedError)
+      return
+    }
 
     this.once('error', (error) => {
       this.log('original request error:', error)
@@ -199,6 +220,28 @@ export class NodeClientRequest extends ClientRequest {
       } catch (error) {
         this.log('error when cloning response:', error)
         return super.emit(event, ...data)
+      }
+    }
+
+    if (event === 'error') {
+      const error = data[0] as NodeJS.ErrnoException
+      const errorCode = error.code || ''
+
+      this.log('error:\n', error)
+
+      // Supress certain errors while using the "mock" source.
+      // For example, no need to destroy this request if it connects
+      // to a non-existing hostname but has a mocked response.
+      if (
+        this.responseSource === 'mock' &&
+        NodeClientRequest.suppressErrorCodes.includes(errorCode)
+      ) {
+        // Capture the first emitted error in order to replay
+        // it later if this request won't have any mocked response.
+        if (!this.capturedError) {
+          this.capturedError = error
+        }
+        return false
       }
     }
 
