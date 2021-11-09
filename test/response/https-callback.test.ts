@@ -8,12 +8,12 @@ import { createInterceptor } from '../../src'
 import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 import { getRequestOptionsByUrl } from '../../src/utils/getRequestOptionsByUrl'
 
-let server: ServerApi
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
   resolver(request) {
-    if ([server.https.makeUrl('/get')].includes(request.url.href)) {
+    if ([httpServer.https.makeUrl('/get')].includes(request.url.href)) {
       return
     }
 
@@ -26,7 +26,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/get', (req, res) => {
       res.status(200).send('/').end()
     })
@@ -41,7 +41,7 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('calls a custom callback once when the request is bypassed', (done) => {
@@ -61,7 +61,7 @@ test('calls a custom callback once when the request is bypassed', (done) => {
 
   https.get(
     {
-      ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/get'))),
+      ...getRequestOptionsByUrl(new URL(httpServer.https.makeUrl('/get'))),
       agent: httpsAgent,
     },
     responseCallback
@@ -85,7 +85,9 @@ test('calls a custom callback once when the response is mocked', (done) => {
 
   https.get(
     {
-      ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/arbitrary'))),
+      ...getRequestOptionsByUrl(
+        new URL(httpServer.https.makeUrl('/arbitrary'))
+      ),
       agent: httpsAgent,
     },
     responseCallback

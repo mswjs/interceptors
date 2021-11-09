@@ -8,7 +8,7 @@ import { createXMLHttpRequest } from '../../helpers'
 
 type EventPool = [string, number][]
 
-let server: ServerApi
+let httpServer: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
   resolver(request) {
@@ -44,7 +44,7 @@ function spyOnEvents(request: XMLHttpRequest, pool: EventPool) {
 }
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/', (req, res) => {
       res.status(200).end()
     })
@@ -59,14 +59,14 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  await server.close()
+  await httpServer.close()
 })
 
 test('emits correct events sequence for an unhandled request with no response body', async () => {
   interceptor.apply()
   const mockEvents: EventPool = []
   const request = await createXMLHttpRequest((request) => {
-    request.open('GET', server.http.makeUrl())
+    request.open('GET', httpServer.http.makeUrl())
     spyOnEvents(request, mockEvents)
   })
 
@@ -90,7 +90,7 @@ test('emits correct events sequence for a handled request with no response body'
   interceptor.apply()
   const mockEvents: EventPool = []
   const request = await createXMLHttpRequest((request) => {
-    request.open('GET', server.http.makeUrl('/user'))
+    request.open('GET', httpServer.http.makeUrl('/user'))
     spyOnEvents(request, mockEvents)
   })
 
@@ -108,7 +108,7 @@ test('emits correct events sequence for an unhandled request with a response bod
   interceptor.apply()
   const mockEvents: EventPool = []
   const request = await createXMLHttpRequest((request) => {
-    request.open('GET', server.http.makeUrl('/numbers'))
+    request.open('GET', httpServer.http.makeUrl('/numbers'))
     spyOnEvents(request, mockEvents)
   })
 
@@ -132,7 +132,7 @@ test('emits correct events sequence for a handled request with a response body',
   interceptor.apply()
   const mockEvents: EventPool = []
   const request = await createXMLHttpRequest((request) => {
-    request.open('GET', server.http.makeUrl('/numbers-mock'))
+    request.open('GET', httpServer.http.makeUrl('/numbers-mock'))
     spyOnEvents(request, mockEvents)
   })
 

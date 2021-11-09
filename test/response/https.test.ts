@@ -6,7 +6,7 @@ import { createInterceptor } from '../../src'
 import { httpsGet, httpsRequest } from '../helpers'
 import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 
-let server: ServerApi
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
@@ -29,7 +29,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/', (req, res) => {
       res.status(200).send('/').end()
     })
@@ -43,7 +43,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('responds to an HTTPS request issued by "https.request" and handled in the middleware', async () => {
@@ -56,9 +56,12 @@ test('responds to an HTTPS request issued by "https.request" and handled in the 
 })
 
 test('bypasses an HTTPS request issued by "https.request" not handled in the middleware', async () => {
-  const { res, resBody } = await httpsRequest(server.https.makeUrl('/get'), {
-    agent: httpsAgent,
-  })
+  const { res, resBody } = await httpsRequest(
+    httpServer.https.makeUrl('/get'),
+    {
+      agent: httpsAgent,
+    }
+  )
 
   expect(res.statusCode).toEqual(200)
   expect(resBody).toEqual('/get')
@@ -74,7 +77,7 @@ test('responds to an HTTPS request issued by "https.get" and handled in the midd
 })
 
 test('bypasses an HTTPS request issued by "https.get" not handled in the middleware', async () => {
-  const { res, resBody } = await httpsGet(server.https.makeUrl('/get'), {
+  const { res, resBody } = await httpsGet(httpServer.https.makeUrl('/get'), {
     agent: httpsAgent,
   })
 
@@ -89,7 +92,7 @@ test('produces a request error when the middleware throws an exception', async (
 
 test('bypasses any request when the interceptor is restored', async () => {
   interceptor.restore()
-  const { res, resBody } = await httpsGet(server.https.makeUrl('/'), {
+  const { res, resBody } = await httpsGet(httpServer.https.makeUrl('/'), {
     agent: httpsAgent,
   })
 

@@ -6,7 +6,7 @@ import { createInterceptor } from '../../src'
 import { httpGet, httpRequest } from '../helpers'
 import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 
-let server: ServerApi
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
@@ -29,7 +29,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/', (req, res) => {
       res.status(200).send('/')
     })
@@ -43,7 +43,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('responds to an HTTP request issued by "http.request" and handled in the middleware', async () => {
@@ -56,7 +56,7 @@ test('responds to an HTTP request issued by "http.request" and handled in the mi
 })
 
 test('bypasses an HTTP request issued by "http.request" not handled in the middleware', async () => {
-  const { res, resBody } = await httpRequest(server.http.makeUrl('/get'))
+  const { res, resBody } = await httpRequest(httpServer.http.makeUrl('/get'))
 
   expect(res.statusCode).toBe(200)
   expect(resBody).toEqual('/get')
@@ -72,7 +72,7 @@ test('responds to an HTTP request issued by "http.get" and handled in the middle
 })
 
 test('bypasses an HTTP request issued by "http.get" not handled in the middleware', async () => {
-  const { res, resBody } = await httpGet(server.http.makeUrl('/get'))
+  const { res, resBody } = await httpGet(httpServer.http.makeUrl('/get'))
 
   expect(res.statusCode).toBe(200)
   expect(resBody).toEqual('/get')
@@ -85,7 +85,7 @@ test('produces a request error when the middleware throws an exception', async (
 
 test('bypasses any request when the interceptor is restored', async () => {
   interceptor.restore()
-  const { res, resBody } = await httpGet(server.http.makeUrl('/'))
+  const { res, resBody } = await httpGet(httpServer.http.makeUrl('/'))
 
   expect(res.statusCode).toBe(200)
   expect(resBody).toEqual('/')
