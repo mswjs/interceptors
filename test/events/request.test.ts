@@ -9,7 +9,7 @@ import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 import { createXMLHttpRequest, httpRequest } from '../helpers'
 
 let requests: IsomorphicRequest[] = []
-let server: ServerApi
+let httpServer: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptClientRequest, interceptXMLHttpRequest],
   resolver() {},
@@ -20,7 +20,7 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.post('/user', (req, res) => {
       res.status(201).end()
     })
@@ -35,12 +35,12 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 it('ClientRequest: emits the "request" event upon the request', (done) => {
   const request = http.request(
-    server.http.makeUrl('/user'),
+    httpServer.http.makeUrl('/user'),
     {
       method: 'POST',
       headers: {
@@ -52,7 +52,7 @@ it('ClientRequest: emits the "request" event upon the request', (done) => {
       const [request] = requests
 
       expect(request.method).toEqual('POST')
-      expect(request.url.href).toEqual(server.http.makeUrl('/user'))
+      expect(request.url.href).toEqual(httpServer.http.makeUrl('/user'))
       expect(request.headers.get('content-type')).toEqual('application/json')
       expect(request.body).toEqual(JSON.stringify({ userId: 'abc-123' }))
       done()
@@ -64,7 +64,7 @@ it('ClientRequest: emits the "request" event upon the request', (done) => {
 
 it('XMLHttpRequest: emits the "request" event upon the request', async () => {
   await createXMLHttpRequest((request) => {
-    request.open('POST', server.http.makeUrl('/user'))
+    request.open('POST', httpServer.http.makeUrl('/user'))
     request.setRequestHeader('Content-Type', 'application/json')
     request.send(JSON.stringify({ userId: 'abc-123' }))
   })
@@ -79,7 +79,7 @@ it('XMLHttpRequest: emits the "request" event upon the request', async () => {
 
   const [request] = requests
   expect(request.method).toEqual('POST')
-  expect(request.url.href).toEqual(server.http.makeUrl('/user'))
+  expect(request.url.href).toEqual(httpServer.http.makeUrl('/user'))
   expect(request.headers.get('content-type')).toEqual('application/json')
   expect(request.body).toEqual(
     JSON.stringify({

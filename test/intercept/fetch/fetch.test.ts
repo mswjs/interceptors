@@ -16,7 +16,7 @@ async function prepareFetch(
 }
 
 let pool: IsomorphicRequest[] = []
-let server: ServerApi
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: nodeInterceptors,
@@ -26,7 +26,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     const handleUserRequest: RequestHandler = (req, res) => {
       res.status(200).send('user-body').end()
     }
@@ -48,12 +48,12 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('intercepts an HTTP GET request', async () => {
   const request = await prepareFetch(
-    fetch(server.http.makeUrl('/user?id=123'), {
+    fetch(httpServer.http.makeUrl('/user?id=123'), {
       headers: {
         'x-custom-header': 'yes',
       },
@@ -63,7 +63,9 @@ test('intercepts an HTTP GET request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.http.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'GET')
   expect(request.url.searchParams.get('id')).toEqual('123')
   expect(request.headers.get('accept')).toEqual('*/*')
@@ -72,7 +74,7 @@ test('intercepts an HTTP GET request', async () => {
 
 test('intercepts an HTTP POST request', async () => {
   const request = await prepareFetch(
-    fetch(server.http.makeUrl('/user?id=123'), {
+    fetch(httpServer.http.makeUrl('/user?id=123'), {
       method: 'POST',
       headers: {
         'x-custom-header': 'yes',
@@ -84,7 +86,9 @@ test('intercepts an HTTP POST request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.http.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'POST')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -94,7 +98,7 @@ test('intercepts an HTTP POST request', async () => {
 
 test('intercepts an HTTP PUT request', async () => {
   const request = await prepareFetch(
-    fetch(server.http.makeUrl('/user?id=123'), {
+    fetch(httpServer.http.makeUrl('/user?id=123'), {
       method: 'PUT',
       headers: {
         'x-custom-header': 'yes',
@@ -105,7 +109,9 @@ test('intercepts an HTTP PUT request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.http.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'PUT')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -114,7 +120,7 @@ test('intercepts an HTTP PUT request', async () => {
 
 test('intercepts an HTTP DELETE request', async () => {
   const request = await prepareFetch(
-    fetch(server.http.makeUrl('/user?id=123'), {
+    fetch(httpServer.http.makeUrl('/user?id=123'), {
       method: 'DELETE',
       headers: {
         'x-custom-header': 'yes',
@@ -125,7 +131,9 @@ test('intercepts an HTTP DELETE request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.http.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'DELETE')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -134,7 +142,7 @@ test('intercepts an HTTP DELETE request', async () => {
 
 test('intercepts an HTTP PATCH request', async () => {
   const request = await prepareFetch(
-    fetch(server.http.makeUrl('/user?id=123'), {
+    fetch(httpServer.http.makeUrl('/user?id=123'), {
       method: 'PATCH',
       headers: {
         'x-custom-header': 'yes',
@@ -145,7 +153,9 @@ test('intercepts an HTTP PATCH request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.http.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'PATCH')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -154,7 +164,7 @@ test('intercepts an HTTP PATCH request', async () => {
 
 test('intercepts an HTTP HEAD request', async () => {
   const request = await prepareFetch(
-    fetch(server.http.makeUrl('/user?id=123'), {
+    fetch(httpServer.http.makeUrl('/user?id=123'), {
       method: 'HEAD',
       headers: {
         'x-custom-header': 'yes',
@@ -165,7 +175,9 @@ test('intercepts an HTTP HEAD request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.http.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.http.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'HEAD')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -174,7 +186,7 @@ test('intercepts an HTTP HEAD request', async () => {
 
 test('intercepts an HTTPS GET request', async () => {
   const request = await prepareFetch(
-    fetch(server.https.makeUrl('/user?id=123'), {
+    fetch(httpServer.https.makeUrl('/user?id=123'), {
       headers: {
         'x-custom-header': 'yes',
       },
@@ -185,7 +197,9 @@ test('intercepts an HTTPS GET request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.https.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'GET')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -194,7 +208,7 @@ test('intercepts an HTTPS GET request', async () => {
 
 test('intercepts an HTTPS POST request', async () => {
   const request = await prepareFetch(
-    fetch(server.https.makeUrl('/user?id=123'), {
+    fetch(httpServer.https.makeUrl('/user?id=123'), {
       method: 'POST',
       headers: {
         'x-custom-header': 'yes',
@@ -207,7 +221,9 @@ test('intercepts an HTTPS POST request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.https.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'POST')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -217,7 +233,7 @@ test('intercepts an HTTPS POST request', async () => {
 
 test('intercepts an HTTPS PUT request', async () => {
   const request = await prepareFetch(
-    fetch(server.https.makeUrl('/user?id=123'), {
+    fetch(httpServer.https.makeUrl('/user?id=123'), {
       method: 'PUT',
       headers: {
         'x-custom-header': 'yes',
@@ -229,7 +245,9 @@ test('intercepts an HTTPS PUT request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.https.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'PUT')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -238,7 +256,7 @@ test('intercepts an HTTPS PUT request', async () => {
 
 test('intercepts an HTTPS DELETE request', async () => {
   const request = await prepareFetch(
-    fetch(server.https.makeUrl('/user?id=123'), {
+    fetch(httpServer.https.makeUrl('/user?id=123'), {
       method: 'DELETE',
       headers: {
         'x-custom-header': 'yes',
@@ -250,7 +268,9 @@ test('intercepts an HTTPS DELETE request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.https.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'DELETE')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -259,7 +279,7 @@ test('intercepts an HTTPS DELETE request', async () => {
 
 test('intercepts an HTTPS PATCH request', async () => {
   const request = await prepareFetch(
-    fetch(server.https.makeUrl('/user?id=123'), {
+    fetch(httpServer.https.makeUrl('/user?id=123'), {
       method: 'PATCH',
       headers: {
         'x-custom-header': 'yes',
@@ -271,7 +291,9 @@ test('intercepts an HTTPS PATCH request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.https.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'PATCH')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -280,7 +302,7 @@ test('intercepts an HTTPS PATCH request', async () => {
 
 test('intercepts an HTTPS HEAD request', async () => {
   const request = await prepareFetch(
-    fetch(server.https.makeUrl('/user?id=123'), {
+    fetch(httpServer.https.makeUrl('/user?id=123'), {
       method: 'HEAD',
       headers: {
         'x-custom-header': 'yes',
@@ -292,7 +314,9 @@ test('intercepts an HTTPS HEAD request', async () => {
 
   expect(request).toBeTruthy()
   expect(request.url).toBeInstanceOf(URL)
-  expect(request.url.toString()).toEqual(server.https.makeUrl('/user?id=123'))
+  expect(request.url.toString()).toEqual(
+    httpServer.https.makeUrl('/user?id=123')
+  )
   expect(request).toHaveProperty('method', 'HEAD')
   expect(request.headers.get('accept')).toEqual('*/*')
   expect(request.headers.get('x-custom-header')).toEqual('yes')
@@ -300,6 +324,9 @@ test('intercepts an HTTPS HEAD request', async () => {
 })
 
 test('always sets "credentials" to "omit" when using "fetch" polyfills (node-fetch)', async () => {
-  const request = await prepareFetch(fetch(server.http.makeUrl('/user')), pool)
+  const request = await prepareFetch(
+    fetch(httpServer.http.makeUrl('/user')),
+    pool
+  )
   expect(request.credentials).toEqual('omit')
 })

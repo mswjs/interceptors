@@ -6,7 +6,7 @@ import { createInterceptor } from '../../../src'
 import { interceptXMLHttpRequest } from '../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../helpers'
 
-let server: ServerApi
+let httpServer: ServerApi
 let rawRequestHeaders: string[]
 
 const interceptor = createInterceptor({
@@ -19,7 +19,7 @@ beforeAll(async () => {
 
   // Handle the request in an actual server
   // to inspect the raw request headers.
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/', (req, res) => {
       rawRequestHeaders = req.rawHeaders
       res.status(200).end()
@@ -29,12 +29,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('request headers casing', async () => {
   await createXMLHttpRequest((req) => {
-    req.open('GET', server.http.makeUrl('/'))
+    req.open('GET', httpServer.http.makeUrl('/'))
     req.setRequestHeader('X-Custom-Token', 'abc-123')
   })
 

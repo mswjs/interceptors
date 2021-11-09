@@ -6,7 +6,7 @@ import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../src'
 import nodeInterceptors from '../../src/presets/node'
 
-let server: ServerApi
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: nodeInterceptors,
@@ -27,7 +27,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/books', (req, res) => {
       res.status(200).json([
         {
@@ -46,7 +46,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('responds with a mocked response to an "axios()" request', async () => {
@@ -74,7 +74,7 @@ test('responds with a mocked response to an "axios.post()" request', async () =>
 })
 
 test('bypass the interceptor and return the original response', async () => {
-  const res = await axios.get(server.http.makeUrl('/books'))
+  const res = await axios.get(httpServer.http.makeUrl('/books'))
 
   expect(res.status).toEqual(200)
   expect(res.data).toEqual([

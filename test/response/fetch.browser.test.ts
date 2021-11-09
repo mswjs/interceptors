@@ -22,7 +22,7 @@ interface SerializedResponse {
   json?: Record<string, any>
 }
 
-let server: ServerApi
+let httpServer: ServerApi
 
 async function prepareRuntime() {
   const context = await pageWith({
@@ -31,17 +31,17 @@ async function prepareRuntime() {
 
   await context.page.evaluate((httpUrl) => {
     window.serverHttpUrl = httpUrl
-  }, server.http.makeUrl('/'))
+  }, httpServer.http.makeUrl('/'))
 
   await context.page.evaluate((httpsUrl) => {
     window.serverHttpsUrl = httpsUrl
-  }, server.https.makeUrl('/'))
+  }, httpServer.https.makeUrl('/'))
 
   return context
 }
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/', (req, res) => {
       res.status(200).json({ route: '/' }).end()
     })
@@ -52,7 +52,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await server.close()
+  await httpServer.close()
 })
 
 describe('HTTP', () => {
@@ -71,7 +71,7 @@ describe('HTTP', () => {
           json,
         }))
       })
-    }, server.http.makeUrl('/'))
+    }, httpServer.http.makeUrl('/'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('default')
@@ -99,7 +99,7 @@ describe('HTTP', () => {
           ),
         }
       })
-    }, server.http.makeUrl('/get'))
+    }, httpServer.http.makeUrl('/get'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('cors')
@@ -130,7 +130,7 @@ describe('HTTPS', () => {
           json,
         }))
       })
-    }, server.https.makeUrl('/'))
+    }, httpServer.https.makeUrl('/'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('default')
@@ -158,7 +158,7 @@ describe('HTTPS', () => {
           ),
         }
       })
-    }, server.https.makeUrl('/get'))
+    }, httpServer.https.makeUrl('/get'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('cors')
@@ -191,7 +191,7 @@ test('bypasses any request when the interceptor is restored', async () => {
         }
       })
     },
-    server.http.makeUrl('/')
+    httpServer.http.makeUrl('/')
   )
 
   expect(httpResponse.type).toBe('cors')
@@ -211,7 +211,7 @@ test('bypasses any request when the interceptor is restored', async () => {
         }
       })
     },
-    server.http.makeUrl('/get')
+    httpServer.http.makeUrl('/get')
   )
 
   expect(httpsResponse.type).toBe('cors')

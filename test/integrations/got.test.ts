@@ -6,11 +6,11 @@ import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../src'
 import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 
-let server: ServerApi
+let httpServer: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
   resolver(request) {
-    if (request.url.toString() === server.http.makeUrl('/test')) {
+    if (request.url.toString() === httpServer.http.makeUrl('/test')) {
       return {
         status: 200,
         body: 'mocked-body',
@@ -20,7 +20,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/user', (req, res) => {
       return res.status(200).json({ id: 1 })
     })
@@ -31,18 +31,18 @@ beforeAll(async () => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('mocks response to a request made with "got"', async () => {
-  const res = await got(server.http.makeUrl('/test'))
+  const res = await got(httpServer.http.makeUrl('/test'))
 
   expect(res.statusCode).toBe(200)
   expect(res.body).toBe('mocked-body')
 })
 
 test('bypasses an unhandled request made with "got"', async () => {
-  const res = await got(server.http.makeUrl('/user'))
+  const res = await got(httpServer.http.makeUrl('/user'))
 
   expect(res.statusCode).toBe(200)
   expect(res.body).toEqual(`{"id":1}`)

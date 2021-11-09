@@ -10,7 +10,7 @@ import { getRequestOptionsByUrl } from '../../src/utils/getRequestOptionsByUrl'
 import { IsomorphicRequest } from '../../src/createInterceptor'
 
 let pool: IsomorphicRequest[] = []
-let server: ServerApi
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
@@ -21,7 +21,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.post('/user', (req, res) => {
       req.pipe(res)
     })
@@ -36,7 +36,7 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('supports original HTTPS request with a body written via "req.write()"', (done) => {
@@ -44,7 +44,7 @@ test('supports original HTTPS request with a body written via "req.write()"', (d
 
   const req = https.request(
     {
-      ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/user'))),
+      ...getRequestOptionsByUrl(new URL(httpServer.https.makeUrl('/user'))),
       method: 'POST',
       agent: httpsAgent,
     },
@@ -74,7 +74,7 @@ test('supports original HTTPS request with a body given to "req.end()"', (done) 
 
   const req = https.request(
     {
-      ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/user'))),
+      ...getRequestOptionsByUrl(new URL(httpServer.https.makeUrl('/user'))),
       method: 'POST',
       agent: httpsAgent,
     },
@@ -99,7 +99,7 @@ test('supports original HTTPS request with a body written via both "req.write()"
 
   const req = https.request(
     {
-      ...getRequestOptionsByUrl(new URL(server.https.makeUrl('/user'))),
+      ...getRequestOptionsByUrl(new URL(httpServer.https.makeUrl('/user'))),
       method: 'POST',
       agent: httpsAgent,
     },

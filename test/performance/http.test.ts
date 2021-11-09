@@ -24,7 +24,7 @@ function parallelRequests(
   }
 }
 
-let server: ServerApi
+let httpServer: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
   resolver(req) {
@@ -39,7 +39,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get<{ index: number }>('/number/:index', (req, res) => {
       return res.send(`real ${req.params.index}`)
     })
@@ -50,14 +50,16 @@ beforeAll(async () => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('returns responses for 500 matching parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
-      parallelRequests((i) => httpGet(server.http.makeUrl(`/user?id=${i + 1}`)))
+      parallelRequests((i) =>
+        httpGet(httpServer.http.makeUrl(`/user?id=${i + 1}`))
+      )
     )
   )
   const bodies = responses.map((response) => response.resBody)
@@ -70,7 +72,9 @@ test('returns responses for 500 bypassed parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
-      parallelRequests((i) => httpGet(server.http.makeUrl(`/number/${i + 1}`)))
+      parallelRequests((i) =>
+        httpGet(httpServer.http.makeUrl(`/number/${i + 1}`))
+      )
     )
   )
   const bodies = responses.map((response) => response.resBody)
