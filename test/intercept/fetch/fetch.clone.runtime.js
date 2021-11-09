@@ -1,4 +1,3 @@
-import { expect } from 'chai'
 import { createInterceptor } from '@mswjs/interceptors'
 import { interceptFetch } from '@mswjs/interceptors/lib/interceptors/fetch'
 
@@ -12,7 +11,12 @@ const interceptor = createInterceptor({
 
 interceptor.apply()
 
-window.fetchData = async (url, expectedText) => {
+window.fetchData = async (url) => {
   const res = await fetch(url)
-  expect(await res.text()).to.equal(expectedText)
+  // expect(await res.text()).to.equal(expectedText)
+  document.dispatchEvent(
+    new CustomEvent('response-text', {
+      detail: await res.text(),
+    })
+  )
 }
