@@ -21,10 +21,10 @@ const interceptor = createInterceptor({
   },
 })
 
-let server: ServerApi
+let httpServer: ServerApi
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/resource', (req, res) => {
       res.status(500).send('must-not-reach-server')
     })
@@ -35,11 +35,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 it('supports custom socket timeout on the HTTP request', (done) => {
-  const req = http.request(server.http.makeUrl('/resource'), (res) => {
+  const req = http.request(httpServer.http.makeUrl('/resource'), (res) => {
     res.on('data', () => null)
     res.on('end', () => {
       expect(res.statusCode).toEqual(301)

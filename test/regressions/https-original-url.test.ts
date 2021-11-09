@@ -9,7 +9,7 @@ import { createInterceptor } from '../../src'
 import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 import { getIncomingMessageBody } from '../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 
-let server: ServerApi
+let httpServer: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
   resolver() {
@@ -18,7 +18,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/resource', (req, res) => {
       res.status(200).send('hello')
     })
@@ -29,13 +29,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 it('performs the original https request', (done) => {
   https
     .request(
-      new URL(server.https.makeUrl('/resource')),
+      new URL(httpServer.https.makeUrl('/resource')),
       {
         method: 'GET',
         agent: httpsAgent,

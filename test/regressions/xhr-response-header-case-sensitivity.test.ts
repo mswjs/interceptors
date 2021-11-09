@@ -6,7 +6,7 @@ import { createInterceptor } from '../../src'
 import { createXMLHttpRequest } from '../helpers'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 
-let server: ServerApi
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
@@ -14,7 +14,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/account', (req, res) => {
       return res
         .status(200)
@@ -29,12 +29,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('getResponseHeader is case insensitive', async () => {
   const request = await createXMLHttpRequest((request) => {
-    request.open('GET', server.http.makeUrl('/account'))
+    request.open('GET', httpServer.http.makeUrl('/account'))
     request.setRequestHeader('x-request-header', 'test-value')
   })
 

@@ -6,7 +6,7 @@ import { createInterceptor } from '../../src'
 import { createXMLHttpRequest } from '../helpers'
 import { interceptXMLHttpRequest } from '../../src/interceptors/XMLHttpRequest'
 
-let server: ServerApi
+let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
@@ -14,7 +14,7 @@ const interceptor = createInterceptor({
 })
 
 beforeAll(async () => {
-  server = await createServer((app) => {
+  httpServer = await createServer((app) => {
     app.get('/account', (req, res) => {
       return res
         .status(200)
@@ -34,12 +34,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   interceptor.restore()
-  await server.close()
+  await httpServer.close()
 })
 
 test('forward the request headers to the server', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', server.http.makeUrl('/account'))
+    req.open('GET', httpServer.http.makeUrl('/account'))
     req.setRequestHeader('x-client-header', 'yes')
     req.setRequestHeader('x-multi-values', 'value1; value2')
   })
