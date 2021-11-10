@@ -21,6 +21,7 @@ import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { bodyBufferToString } from './utils/bodyBufferToString'
 import {
   ClientRequestWriteArgs,
+  ClientRequestWriteCallback,
   normalizeClientRequestWriteArgs,
 } from './utils/normalizeClientRequestWriteArgs'
 import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
@@ -41,12 +42,16 @@ export class NodeClientRequest extends ClientRequest {
 
   private url: URL
   private options: RequestOptions
-  private requestBodyBuffer: Buffer[] = []
+  private requestBody: Buffer[] = []
   private response: IncomingMessage
   private resolver: Resolver
   private observer: Observer
   private log: Debugger
-
+  private chunks: Array<{
+    chunk?: string | Buffer
+    encoding?: BufferEncoding
+    callback?: ClientRequestWriteCallback
+  }> = []
   private responseSource: 'mock' | 'bypass' = 'mock'
   private capturedError?: NodeJS.ErrnoException
 
@@ -73,30 +78,30 @@ export class NodeClientRequest extends ClientRequest {
   }
 
   write(...args: ClientRequestWriteArgs): boolean {
-    this.log('writing chunk:', args)
-
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
+    this.log('write:', { chunk, encoding, callback })
 
-    const afterWrite = (error?: Error | null): void => {
-      if (error) {
-        this.emit('error while writing chunk!', error)
-      }
-      callback?.(error)
-    }
+    this.chunks.push({
+      chunk,
+      encoding,
+      callback: (error?: Error | null) => {
+        if (error) {
+          this.log('error while writing chunk!', error)
+        } else {
+          this.log('request chunk successfully written!')
+        }
 
-    const result = encoding
-      ? super.write(chunk, encoding, afterWrite)
-      : super.write(chunk, afterWrite)
+        callback?.(error)
+      },
+    })
 
-    if (result) {
-      this.log('chunk successfully written!')
-      this.requestBodyBuffer = concatChunkToBuffer(
-        chunk,
-        this.requestBodyBuffer
-      )
-    }
+    this.log('chunk successfully stored!')
+    this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
 
-    return result
+    // Do not write the request body chunks to prevent
+    // the Socket from sending data to a potentially existing
+    // server when there is a mocked response defined.
+    return true
   }
 
   async end(...args: any): Promise<void> {
@@ -157,6 +162,17 @@ export class NodeClientRequest extends ClientRequest {
     if (this.capturedError) {
       this.emit('error', this.capturedError)
       return
+    }
+
+    // Write the request body chunks in the order of ".write()" calls.
+    // Note that no request body has been written prior to this point
+    // in order to prevent the Socket to communicate with a potentially
+    // existing server.
+    this.log('writing request chunks...', this.chunks)
+    for (const { chunk, encoding, callback } of this.chunks) {
+      encoding
+        ? super.write(chunk, encoding, callback)
+        : super.write(chunk, callback)
     }
 
     this.once('error', (error) => {
@@ -312,15 +328,13 @@ export class NodeClientRequest extends ClientRequest {
 
   private getRequestBody(chunk: ClientRequestEndChunk | null): string {
     const writtenRequestBody = bodyBufferToString(
-      Buffer.concat(this.requestBodyBuffer)
+      Buffer.concat(this.requestBody)
     )
     this.log('written request body:', writtenRequestBody)
 
     const finalRequestBody = bodyBufferToString(
       Buffer.concat(
-        chunk
-          ? concatChunkToBuffer(chunk, this.requestBodyBuffer)
-          : this.requestBodyBuffer
+        chunk ? concatChunkToBuffer(chunk, this.requestBody) : this.requestBody
       )
     )
     this.log('final request body:', finalRequestBody)

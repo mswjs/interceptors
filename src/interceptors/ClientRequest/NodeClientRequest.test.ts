@@ -1,4 +1,8 @@
+/**
+ * @jest-environment node
+ */
 import { EventEmitter } from 'events'
+import * as express from 'express'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { NodeClientRequest } from './NodeClientRequest'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
@@ -11,10 +15,20 @@ interface ErrorConnectionRefused extends NodeJS.ErrnoException {
 
 let httpServer: ServerApi
 
+function waitFor(duration: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, duration)
+  })
+}
+
 beforeAll(async () => {
   httpServer = await createServer((app) => {
     app.post('/comment', (req, res) => {
       res.status(200).send('original-response')
+    })
+
+    app.post('/write', express.text(), (req, res) => {
+      res.status(200).send(req.body)
     })
   })
 })
@@ -52,8 +66,35 @@ test('gracefully finishes the request when it has a mocked response', (done) => 
     expect(response.statusCode).toEqual(301)
     expect(response.headers).toHaveProperty('x-custom-header', 'yes')
 
-    const responseBody = await getIncomingMessageBody(response)
-    expect(responseBody).toEqual('mocked-response')
+    const text = await getIncomingMessageBody(response)
+    expect(text).toEqual('mocked-response')
+
+    done()
+  })
+
+  request.end()
+})
+
+test('responds with a mocked response when requesting an existing hostname', (done) => {
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment')),
+    {
+      observer: new EventEmitter(),
+      async resolver() {
+        await waitFor(250)
+        return {
+          status: 201,
+          body: 'mocked-response',
+        }
+      },
+    }
+  )
+
+  request.on('response', async (response) => {
+    expect(response.statusCode).toEqual(201)
+
+    const text = await getIncomingMessageBody(response)
+    expect(text).toEqual('mocked-response')
 
     done()
   })
@@ -80,8 +121,9 @@ test('performs the request as-is given resolver returned no mocked response', (d
     expect(response.statusMessage).toEqual('OK')
     expect(response.headers).toHaveProperty('x-powered-by', 'Express')
 
-    const responseBody = await getIncomingMessageBody(response)
-    expect(responseBody).toEqual('original-response')
+    const text = await getIncomingMessageBody(response)
+    expect(text).toEqual('original-response')
+
     done()
   })
 
@@ -134,14 +176,11 @@ test('does not emit ENOTFOUND error connecting to an inactive server given mocke
     {
       observer: new EventEmitter(),
       async resolver() {
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            resolve({
-              status: 200,
-              statusText: 'Works',
-            })
-          }, 250)
-        })
+        await waitFor(250)
+        return {
+          status: 200,
+          statusText: 'Works',
+        }
       },
     }
   )
@@ -163,14 +202,11 @@ test('does not emit ECONNREFUSED error connecting to an inactive server given mo
     {
       observer: new EventEmitter(),
       async resolver() {
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            resolve({
-              status: 200,
-              statusText: 'Works',
-            })
-          }, 250)
-        })
+        await waitFor(250)
+        return {
+          status: 200,
+          statusText: 'Works',
+        }
       },
     }
   )
@@ -182,5 +218,66 @@ test('does not emit ECONNREFUSED error connecting to an inactive server given mo
     expect(response.statusMessage).toEqual('Works')
     done()
   })
+  request.end()
+})
+
+test('sends the request body to the server given no mocked response', (done) => {
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/write'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+    }),
+    {
+      observer: new EventEmitter(),
+      resolver() {},
+    }
+  )
+
+  request.write('one')
+  request.write('two')
+
+  request.on('response', async (response) => {
+    expect(response.statusCode).toEqual(200)
+
+    const text = await getIncomingMessageBody(response)
+    expect(text).toEqual('onetwothree')
+
+    done()
+  })
+
+  request.end('three')
+})
+
+test('does not send request body to the original server given mocked response', (done) => {
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/write'), {
+      method: 'POST',
+    }),
+    {
+      observer: new EventEmitter(),
+      async resolver() {
+        await waitFor(200)
+        return {
+          status: 301,
+          body: 'mock created!',
+        }
+      },
+    }
+  )
+
+  request.write('one')
+  request.write('two')
+
+  request.on('response', async (response) => {
+    expect(response.statusCode).toEqual(301)
+
+    const text = await getIncomingMessageBody(response)
+    expect(text).toEqual('mock created!')
+
+    done()
+  })
+
   request.end()
 })

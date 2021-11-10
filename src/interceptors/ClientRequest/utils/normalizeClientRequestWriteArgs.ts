@@ -12,7 +12,7 @@ export type ClientRequestWriteArgs = [
 export type NormalizedClientRequestWriteArgs = [
   chunk: string | Buffer,
   encoding?: BufferEncoding,
-  callback?: (error?: Error | null) => void
+  callback?: ClientRequestWriteCallback
 ]
 
 export function normalizeClientRequestWriteArgs(
