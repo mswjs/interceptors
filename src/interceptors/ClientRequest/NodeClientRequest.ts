@@ -21,6 +21,7 @@ import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { bodyBufferToString } from './utils/bodyBufferToString'
 import {
   ClientRequestWriteArgs,
+  ClientRequestWriteCallback,
   normalizeClientRequestWriteArgs,
 } from './utils/normalizeClientRequestWriteArgs'
 import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
@@ -33,13 +34,26 @@ export interface NodeClientOptions {
 }
 
 export class NodeClientRequest extends ClientRequest {
+  /**
+   * The list of internal Node.js errors to suppress while
+   * using the "mock" response source.
+   */
+  static suppressErrorCodes = ['ENOTFOUND', 'ECONNREFUSED']
+
   private url: URL
   private options: RequestOptions
-  private requestBodyBuffer: Buffer[] = []
+  private requestBody: Buffer[] = []
   private response: IncomingMessage
   private resolver: Resolver
   private observer: Observer
   private log: Debugger
+  private chunks: Array<{
+    chunk?: string | Buffer
+    encoding?: BufferEncoding
+    callback?: ClientRequestWriteCallback
+  }> = []
+  private responseSource: 'mock' | 'bypass' = 'mock'
+  private capturedError?: NodeJS.ErrnoException
 
   constructor(
     [url, requestOptions, callback]: NormalizedClientRequestArgs,
@@ -64,30 +78,30 @@ export class NodeClientRequest extends ClientRequest {
   }
 
   write(...args: ClientRequestWriteArgs): boolean {
-    this.log('writing chunk:', args)
-
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
+    this.log('write:', { chunk, encoding, callback })
 
-    const afterWrite = (error?: Error | null): void => {
-      if (error) {
-        this.emit('error while writing chunk!', error)
-      }
-      callback?.(error)
-    }
+    this.chunks.push({
+      chunk,
+      encoding,
+      callback: (error?: Error | null) => {
+        if (error) {
+          this.log('error while writing chunk!', error)
+        } else {
+          this.log('request chunk successfully written!')
+        }
 
-    const result = encoding
-      ? super.write(chunk, encoding, afterWrite)
-      : super.write(chunk, afterWrite)
+        callback?.(error)
+      },
+    })
 
-    if (result) {
-      this.log('chunk successfully written!')
-      this.requestBodyBuffer = concatChunkToBuffer(
-        chunk,
-        this.requestBodyBuffer
-      )
-    }
+    this.log('chunk successfully stored!')
+    this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
 
-    return result
+    // Do not write the request body chunks to prevent
+    // the Socket from sending data to a potentially existing
+    // server when there is a mocked response defined.
+    return true
   }
 
   async end(...args: any): Promise<void> {
@@ -119,6 +133,7 @@ export class NodeClientRequest extends ClientRequest {
 
     if (mockedResponse) {
       this.log('received mocked response:', mockedResponse)
+      this.responseSource = 'mock'
 
       const isomorphicResponse = toIsoResponse(mockedResponse)
       this.respondWith(mockedResponse)
@@ -137,6 +152,28 @@ export class NodeClientRequest extends ClientRequest {
     }
 
     this.log('no mocked response found!')
+
+    // Set the response source to "bypass".
+    // Any errors emitted past this point are not suppressed.
+    this.responseSource = 'bypass'
+
+    // Propagate previously captured errors.
+    // For example, a ECONNREFUSED error when connecting to a non-existing host.
+    if (this.capturedError) {
+      this.emit('error', this.capturedError)
+      return
+    }
+
+    // Write the request body chunks in the order of ".write()" calls.
+    // Note that no request body has been written prior to this point
+    // in order to prevent the Socket to communicate with a potentially
+    // existing server.
+    this.log('writing request chunks...', this.chunks)
+    for (const { chunk, encoding, callback } of this.chunks) {
+      encoding
+        ? super.write(chunk, encoding, callback)
+        : super.write(chunk, callback)
+    }
 
     this.once('error', (error) => {
       this.log('original request error:', error)
@@ -199,6 +236,28 @@ export class NodeClientRequest extends ClientRequest {
       } catch (error) {
         this.log('error when cloning response:', error)
         return super.emit(event, ...data)
+      }
+    }
+
+    if (event === 'error') {
+      const error = data[0] as NodeJS.ErrnoException
+      const errorCode = error.code || ''
+
+      this.log('error:\n', error)
+
+      // Supress certain errors while using the "mock" source.
+      // For example, no need to destroy this request if it connects
+      // to a non-existing hostname but has a mocked response.
+      if (
+        this.responseSource === 'mock' &&
+        NodeClientRequest.suppressErrorCodes.includes(errorCode)
+      ) {
+        // Capture the first emitted error in order to replay
+        // it later if this request won't have any mocked response.
+        if (!this.capturedError) {
+          this.capturedError = error
+        }
+        return false
       }
     }
 
@@ -269,15 +328,13 @@ export class NodeClientRequest extends ClientRequest {
 
   private getRequestBody(chunk: ClientRequestEndChunk | null): string {
     const writtenRequestBody = bodyBufferToString(
-      Buffer.concat(this.requestBodyBuffer)
+      Buffer.concat(this.requestBody)
     )
     this.log('written request body:', writtenRequestBody)
 
     const finalRequestBody = bodyBufferToString(
       Buffer.concat(
-        chunk
-          ? concatChunkToBuffer(chunk, this.requestBodyBuffer)
-          : this.requestBodyBuffer
+        chunk ? concatChunkToBuffer(chunk, this.requestBody) : this.requestBody
       )
     )
     this.log('final request body:', finalRequestBody)
