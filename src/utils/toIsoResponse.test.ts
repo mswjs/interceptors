@@ -1,7 +1,7 @@
 import { Headers } from 'headers-utils'
 import { toIsoResponse } from './toIsoResponse'
 
-it('returns a well-formed empty response', () => {
+test('returns a well-formed empty response', () => {
   expect(toIsoResponse({})).toEqual({
     status: 200,
     statusText: 'OK',
@@ -9,7 +9,7 @@ it('returns a well-formed empty response', () => {
   })
 })
 
-it('uses fallback values for the missing response properties', () => {
+test('uses fallback values for the missing response properties', () => {
   expect(toIsoResponse({ status: 301, body: 'text-body' })).toEqual({
     status: 301,
     statusText: 'OK',
@@ -18,7 +18,7 @@ it('uses fallback values for the missing response properties', () => {
   })
 })
 
-it('returns a full response as-is, converting the headers', () => {
+test('returns a full response as-is, converting the headers', () => {
   expect(
     toIsoResponse({
       status: 301,

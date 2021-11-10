@@ -11,7 +11,7 @@ Low-level HTTP/HTTPS/XHR/fetch request interception library.
 - `https.get`/`https.request`
 - `XMLHttpRequest`
 - `fetch`
-- Any third-party libraries that use the modules above (i.e. `request`, `node-fetch`, etc.)
+- Any third-party libraries that use the modules above (i.e. `request`, `node-fetch`, `supertest`, etc.)
 
 ## Motivation
 
