@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  */
-import { request as undiciRequest } from 'undici'
-import { RequestHandler } from 'express'
+import * as undici from 'undici'
+import { RequestHandler } from 'express-serve-static-core'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../../src'
 import { IsomorphicRequest } from '../../../src/createInterceptor'
@@ -46,15 +46,12 @@ afterAll(async () => {
 
 test('intercepts a HEAD request', async () => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  await undiciRequest(
-    url,
-    {
-      method: 'HEAD',
-      headers: {
-        'x-custom-header': 'yes',
-      },
+  await undici.request(url, {
+    method: 'HEAD',
+    headers: {
+      'x-custom-header': 'yes',
     },
-  )
+  })
 
   expect(requests).toHaveLength(1)
 
@@ -68,15 +65,12 @@ test('intercepts a HEAD request', async () => {
 
 test('intercepts a GET request', async () => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  await undiciRequest(
-    url,
-    {
-      method: 'GET',
-      headers: {
-        'x-custom-header': 'yes',
-      },
+  await undici.request(url, {
+    method: 'GET',
+    headers: {
+      'x-custom-header': 'yes',
     },
-  )
+  })
 
   expect(requests).toHaveLength(1)
 
@@ -90,16 +84,13 @@ test('intercepts a GET request', async () => {
 
 test('intercepts a POST request', async () => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  await undiciRequest(
-    url,
-    {
-      method: 'POST',
-      headers: {
-        'x-custom-header': 'yes',
-      },
-      body: 'post-payload',
+  await undici.request(url, {
+    method: 'POST',
+    headers: {
+      'x-custom-header': 'yes',
     },
-  )
+    body: 'post-payload',
+  })
 
   expect(requests).toHaveLength(1)
 
@@ -114,16 +105,13 @@ test('intercepts a POST request', async () => {
 
 test('intercepts a PUT request', async () => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  await undiciRequest(
-    url,
-    {
-      method: 'PUT',
-      headers: {
-        'x-custom-header': 'yes',
-      },
-      body: 'put-payload',
+  await undici.request(url, {
+    method: 'PUT',
+    headers: {
+      'x-custom-header': 'yes',
     },
-  )
+    body: 'put-payload',
+  })
 
   expect(requests).toHaveLength(1)
 
@@ -138,16 +126,13 @@ test('intercepts a PUT request', async () => {
 
 test('intercepts a PATCH request', async () => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  await undiciRequest(
-    url,
-    {
-      method: 'PATCH',
-      headers: {
-        'x-custom-header': 'yes',
-      },
-      body: 'patch-payload',
+  await undici.request(url, {
+    method: 'PATCH',
+    headers: {
+      'x-custom-header': 'yes',
     },
-  )
+    body: 'patch-payload',
+  })
 
   expect(requests).toHaveLength(1)
 
@@ -162,15 +147,12 @@ test('intercepts a PATCH request', async () => {
 
 test('intercepts a DELETE request', async () => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  await undiciRequest(
-    url,
-    {
-      method: 'DELETE',
-      headers: {
-        'x-custom-header': 'yes',
-      },
+  await undici.request(url, {
+    method: 'DELETE',
+    headers: {
+      'x-custom-header': 'yes',
     },
-  )
+  })
 
   expect(requests).toHaveLength(1)
 
@@ -183,7 +165,7 @@ test('intercepts a DELETE request', async () => {
 })
 
 test('sets "credentials" to "omit" on the isomorphic request', async () => {
-  await undiciRequest(httpServer.http.makeUrl('/user'))
+  await undici.request(httpServer.http.makeUrl('/user'))
 
   const [request] = requests
   expect(request.credentials).toEqual('omit')
