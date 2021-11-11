@@ -38,11 +38,10 @@ export class NodeClientRequest extends ClientRequest {
    * The list of internal Node.js errors to suppress while
    * using the "mock" response source.
    */
-  static suppressErrorCodes = ['ENOTFOUND', 'ECONNREFUSED']
+  static suppressErrorCodes = ['ENOTFOUND', 'ECONNREFUSED', 'ECONNRESET']
 
   private url: URL
   private options: RequestOptions
-  private requestBody: Buffer[] = []
   private response: IncomingMessage
   private resolver: Resolver
   private observer: Observer
@@ -54,6 +53,8 @@ export class NodeClientRequest extends ClientRequest {
   }> = []
   private responseSource: 'mock' | 'bypass' = 'mock'
   private capturedError?: NodeJS.ErrnoException
+
+  public requestBody: Buffer[] = []
 
   constructor(
     [url, requestOptions, callback]: NormalizedClientRequestArgs,
@@ -332,14 +333,18 @@ export class NodeClientRequest extends ClientRequest {
     )
     this.log('written request body:', writtenRequestBody)
 
-    const finalRequestBody = bodyBufferToString(
-      Buffer.concat(
-        chunk ? concatChunkToBuffer(chunk, this.requestBody) : this.requestBody
-      )
-    )
-    this.log('final request body:', finalRequestBody)
+    // Write the last request body chunk to the internal request body buffer.
+    if (chunk) {
+      this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
+    }
 
-    return finalRequestBody
+    const resolvedRequestBody = bodyBufferToString(
+      Buffer.concat(this.requestBody)
+    )
+
+    this.log('resolved request body:', resolvedRequestBody)
+
+    return resolvedRequestBody
   }
 
   private toIsomorphicRequest(body: string): IsomorphicRequest {

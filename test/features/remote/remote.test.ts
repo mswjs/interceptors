@@ -29,7 +29,7 @@ afterAll(() => {
   }
 })
 
-it('intercepts an HTTP request made in a child process', async () => {
+test('intercepts an HTTP request made in a child process', async () => {
   child.send('make:request')
 
   const response = await new Promise((resolve, reject) => {

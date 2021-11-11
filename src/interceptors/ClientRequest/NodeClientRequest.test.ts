@@ -23,7 +23,7 @@ function waitFor(duration: number): Promise<void> {
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
-    app.post('/comment', (req, res) => {
+    app.post('/comment', (_req, res) => {
       res.status(200).send('original-response')
     })
 
