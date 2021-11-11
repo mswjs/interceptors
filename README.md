@@ -21,24 +21,74 @@ This library is a strip-to-bone implementation that provides as little abstracti
 
 ### How is this library different?
 
-As interception is often combined with request route matching, some libraries can determine whether a request should be mocked _before_ it actually happens. This approach is not suitable for this library, as it rather _intercepts all requests_ and then let's you decide which ones should be mocked. This affects the level at which interception happens, and also the way mocked/original responses are constructed, in comparison to other solutions.
+A traditional API mocking implementation in Node.js looks roughly like this:
+
+```js
+import http from 'http'
+
+function applyMock() {
+  // Store the original request module.
+  const originalHttpRequest = http.request
+
+  // Rewrite the request module entirely.
+  http.request = function (...args) {
+    // Decide whether to handle this request before
+    // the actual request happens.
+    if (shouldMock(args)) {
+      // If so, never create a request, respond to it
+      // using the mocked response from this blackbox.
+      return coerceToResponse.bind(this, mock)
+    }
+
+    // Otherwise, construct the original request
+    // and perform it as-is (receives the original response).
+    return originalHttpRequest(...args)
+  }
+}
+```
+
+This library deviates from such implementation and uses _class extensions_ instead of module rewrites. Such deviation is necessary because, unlike other solutions that include request matching and can determine whether to mock requests _before_ they actually happen, this library is not opinionated about the mocked/bypassed nature of the requests. Instead, it _intercepts all requests_ and delegates the decision of mocking to the end consumer.
+
+```js
+class NodeClientRequest extends ClientRequest {
+  async end(...args) {
+    // Check if there's a mocked response for this request.
+    // You control this in the "resolver" function.
+    const mockedResponse = await resolver(isomorphicRequest)
+
+    // If there is a mocked response, use it to respond to this
+    // request, finalizing it afterward as if it received that
+    // response from the actual server it connected to.
+    if (mockedResponse) {
+      this.respondWith(mockedResponse)
+      this.finish()
+      return
+    }
+
+    // Otherwise, perform the original "ClientRequest.prototype.end" call.
+    return super.end(...args)
+  }
+}
+```
+
+By extending the native modules, this library actually constructs requests as soon as they are constructed by the consumer. This enables all the request input validation and transformations done natively by Node.js—something that traditional solutions simply cannot do (they replace `http.ClientRequest` entirely). The class extension allows to fully utilize Node.js internals instead of polyfilling them, which results in more resilient mocks.
 
 ## What this library does
 
-This library monkey-patches the following native modules:
+This library extends (or patches, where applicable) the following native modules:
 
 - `http.get`/`http.request`
 - `https.get`/`https.request`
 - `XMLHttpRequest`
 - `fetch`
 
-Once patched, it provisions the interception of requests and normalizes them to something called _isomorphic request instances_. That normalization ensures the same request handling for the consumer of the library, while requests originating from different modules may differ internally.
+Once extended, it intercepts and normalizes all requests to the _isomorphic request instances_. The isomorphic request is an abstract representation of the request coming from different sources (`ClientRequest`, `XMLHttpRequest`, `window.Request`, etc.) that allows us to handle such requests in the same, unified manner.
 
-In its mocking phase, this library accepts an _isomorphic response instance_ that describes a module-agnostic mocked response. This allows you to respond to requests issued by different modules using the same response instance.
+You can respond to an isomorphic request using an _isomorphic response_. In a similar way, the isomorphic response is a representation of the response to use for different requests. Responding to requests differs substantially when using modules like `http` or `XMLHttpRequest`. This library takes the responsibility for coercing isomorphic responses into appropriate responses depending on the request module automatically.
 
 ## What this library doesn't do
 
-- Does **not** provide any request matching logic.
+- Does **not** provide any request matching logic;
 - Does **not** decide how to handle requests.
 
 ## Getting started
@@ -108,15 +158,15 @@ createRemoteResolver({
 
 ### Interceptors
 
-This library utilizes a concept of _interceptors_–functions that patch necessary modules, handle mocked responses, and restore patched modules.
+This library utilizes a concept of _interceptors_–functions that extend request modules, handle mocked responses, and restore themselves when done.
 
-**List of interceptors:**
+**Available interceptors:**
 
 - `/interceptors/ClientRequest`
 - `/interceptors/XMLHttpRequest`
 - `/interceptors/fetch`
 
-To use a single, or multiple interceptors, import and provide them to the `RequestInterceptor` constructor.
+To use a single, or multiple interceptors, import and provide them to the `createInterceptor` function.
 
 ```js
 import { createInterceptor } from '@mswjs/interceptors'
@@ -124,12 +174,12 @@ import { interceptXMLHttpRequest } from '@mswjs/interceptors/lib/interceptors/XM
 
 // This `interceptor` instance would handle only XMLHttpRequest,
 // ignoring requests issued via `http`/`https` modules.
-const interceptor = new createInterceptor({
+const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
 })
 ```
 
-> Interceptors are crucial in leveraging environment-specific module overrides. Certain environments (i.e. React Native) do not have access to native Node.js modules (like `http`). Importing such modules raises an exception, and must be avoided.
+> Interceptors are crucial in leveraging environment-specific module overrides. Certain environments (i.e. React Native) do not have access to native Node.js modules (like `http`). Importing such modules throws an exception and should be avoided.
 
 ### Methods
 
@@ -145,8 +195,8 @@ interceptor.apply()
 
 Adds an event listener to one of the following supported events:
 
-- `request`, whenever a new request happens.
-- `response`, whenever a request library responds to a request.
+- `request`, signals when a new request happens;
+- `response`, signals when a response was sent.
 
 ```js
 interceptor.on('request', (request) => {
@@ -156,7 +206,7 @@ interceptor.on('request', (request) => {
 
 #### `.restore(): void`
 
-Restores all patched modules and stops intercepting future requests.
+Restores all extensions and stops the interception of future requests.
 
 ```js
 interceptor.restore()
