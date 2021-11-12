@@ -6,7 +6,7 @@ import { createServer, ServerApi } from '@open-draft/test-server'
 import { createInterceptor, IsomorphicRequest } from '../../../src'
 import { interceptXMLHttpRequest } from '../../../src/interceptors/XMLHttpRequest'
 import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
-import { createXMLHttpRequest, httpRequest } from '../../helpers'
+import { createXMLHttpRequest } from '../../helpers'
 
 let requests: IsomorphicRequest[] = []
 let httpServer: ServerApi
@@ -21,7 +21,7 @@ interceptor.on('request', (request) => {
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
-    app.post('/user', (req, res) => {
+    app.post('/user', (_req, res) => {
       res.status(201).end()
     })
   })
@@ -63,19 +63,13 @@ test('ClientRequest: emits the "request" event upon the request', (done) => {
 })
 
 test('XMLHttpRequest: emits the "request" event upon the request', async () => {
-  await createXMLHttpRequest((request) => {
-    request.open('POST', httpServer.http.makeUrl('/user'))
-    request.setRequestHeader('Content-Type', 'application/json')
-    request.send(JSON.stringify({ userId: 'abc-123' }))
+  await createXMLHttpRequest((req) => {
+    req.open('POST', httpServer.http.makeUrl('/user'))
+    req.setRequestHeader('Content-Type', 'application/json')
+    req.send(JSON.stringify({ userId: 'abc-123' }))
   })
 
-  /**
-   * @note In Node.js "XMLHttpRequest" is often polyfilled by "ClientRequest".
-   * This results in both "XMLHttpRequest" and "ClientRequest" interceptors
-   * emitting the "request" event.
-   * @see https://github.com/mswjs/interceptors/issues/163
-   */
-  expect(requests).toHaveLength(4)
+  expect(requests).toHaveLength(2)
 
   const [request] = requests
   expect(request.method).toEqual('POST')

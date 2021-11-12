@@ -32,6 +32,7 @@ test('responds with an object when "responseType" equals "json"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
     req.responseType = 'json'
+    req.send()
   })
 
   expect(typeof req.response).toBe('object')
@@ -45,6 +46,7 @@ test('responds with a Blob when "responseType" equals "blob"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
     req.responseType = 'blob'
+    req.send()
   })
 
   const expectedBlob = new Blob(
@@ -78,6 +80,7 @@ test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', as
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
     req.responseType = 'arraybuffer'
+    req.send()
   })
 
   const expectedArrayBuffer = new Uint8Array(

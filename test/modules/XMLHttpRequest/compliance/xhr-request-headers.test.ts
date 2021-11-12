@@ -47,6 +47,7 @@ test('sends the request headers to the server', async () => {
     req.open('GET', httpServer.http.makeUrl('/'))
     req.setRequestHeader('X-ClienT-HeadeR', 'abc-123')
     req.setRequestHeader('X-Multi-Value', 'value1; value2')
+    req.send()
   })
   const res = JSON.parse(req.responseText) as ResponseType
 

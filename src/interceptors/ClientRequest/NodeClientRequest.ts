@@ -265,10 +265,10 @@ export class NodeClientRequest extends ClientRequest {
     return super.emit(event, ...data)
   }
 
-  private respondWith(mockedResponse: MockedResponse): void {
-    this.log('responding with a mocked response...', mockedResponse)
+  private respondWith(response: MockedResponse): void {
+    this.log('responding with a mocked response...', response)
 
-    const { status, statusText, headers, body } = mockedResponse
+    const { status, statusText, headers, body } = response
     this.response.statusCode = status
     this.response.statusMessage = statusText
 

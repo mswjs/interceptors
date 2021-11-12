@@ -192,12 +192,6 @@ export function createXMLHttpRequest(
     )
   }
 
-  if (req.readyState < 2) {
-    // Send the request only if it hasn't been sent
-    // as a part of the middleware function.
-    req.send()
-  }
-
   return new Promise((resolve, reject) => {
     req.addEventListener('loadend', () => {
       resolve(req)

@@ -3,11 +3,11 @@ import { ProgressEventPolyfill } from '../polyfills/ProgressEventPolyfill'
 
 const SUPPORTS_PROGRESS_EVENT = typeof ProgressEvent !== 'undefined'
 
-export function createEvent(
-  target: XMLHttpRequest,
+export function createEvent<EventTargetType extends EventTarget>(
+  target: EventTargetType,
   type: string,
   init?: ProgressEventInit
-): EventPolyfill {
+): EventPolyfill<EventTargetType> {
   const progressEvents = [
     'error',
     'progress',
@@ -32,7 +32,7 @@ export function createEvent(
         loaded: init?.loaded || 0,
         total: init?.total || 0,
       })
-    : new EventPolyfill(type, {
+    : new EventPolyfill<EventTargetType>(type, {
         target,
         currentTarget: target,
       })

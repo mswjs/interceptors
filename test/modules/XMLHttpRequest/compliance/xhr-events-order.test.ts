@@ -68,17 +68,12 @@ test('emits correct events sequence for an unhandled request with no response bo
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.makeUrl())
     spyOnEvents(req, listener)
+    req.send()
   })
 
   expect(listener.mock.calls).toEqual([
     ['loadstart', 1],
     ['readystatechange', 2],
-    ['readystatechange', 4],
-    /**
-     * @note XMLHttpRequest polyfill from JSDOM dispatches the "readystatechange" listener.
-     * XMLHttpRequest override also dispatches the "readystatechange" listener for the original
-     * request explicitly to it never hangs. This results in the listener being called twice.
-     */
     ['readystatechange', 4],
     ['load', 4],
     ['loadend', 4],
@@ -92,6 +87,7 @@ test('emits correct events sequence for a handled request with no response body'
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.makeUrl('/user'))
     spyOnEvents(req, listener)
+    req.send()
   })
 
   expect(listener.mock.calls).toEqual([
@@ -110,6 +106,7 @@ test('emits correct events sequence for an unhandled request with a response bod
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.makeUrl('/numbers'))
     spyOnEvents(req, listener)
+    req.send()
   })
 
   expect(listener.mock.calls).toEqual([
@@ -117,10 +114,6 @@ test('emits correct events sequence for an unhandled request with a response bod
     ['readystatechange', 2],
     ['readystatechange', 3],
     ['progress', 3],
-    ['readystatechange', 4],
-    /**
-     * @note The same issue with the "readystatechange" callback being called twice.
-     */
     ['readystatechange', 4],
     ['load', 4],
     ['loadend', 4],
@@ -134,6 +127,7 @@ test('emits correct events sequence for a handled request with a response body',
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.makeUrl('/numbers-mock'))
     spyOnEvents(req, listener)
+    req.send()
   })
 
   expect(listener.mock.calls).toEqual([

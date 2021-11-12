@@ -17,7 +17,9 @@ const interceptor = createInterceptor({
 beforeAll(async () => {
   httpServer = await createServer((app) => {
     app.get('/', (_req, res) => {
-      res.send('ok')
+      setTimeout(() => {
+        res.send('ok')
+      }, 50)
     })
   })
 
@@ -31,7 +33,7 @@ afterAll(async () => {
 
 test('handles request timeout via the "ontimeout" callback', (done) => {
   createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/'), true)
+    req.open('GET', httpServer.http.makeUrl('/'))
     req.timeout = 1
     req.ontimeout = function () {
       expect(this.readyState).toBe(4)
@@ -43,7 +45,7 @@ test('handles request timeout via the "ontimeout" callback', (done) => {
 
 test('handles request timeout via the "timeout" event listener', (done) => {
   createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/'), true)
+    req.open('GET', httpServer.http.makeUrl('/'))
     req.timeout = 1
     req.addEventListener('timeout', function () {
       expect(this.readyState).toBe(4)

@@ -39,6 +39,7 @@ test('handles response of type "json" and missing response JSON body', async () 
   const req = await createXMLHttpRequest((req) => {
     req.open('PUT', '/no-body')
     req.responseType = 'json'
+    req.send()
   })
 
   // When XHR fails to parse a given response JSON body,
@@ -52,6 +53,7 @@ test('handles response of type "json" and invalid response JSON body', async () 
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/invalid-json')
     req.responseType = 'json'
+    req.send()
   })
 
   expect(req).toHaveProperty('response', null)

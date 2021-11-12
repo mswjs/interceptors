@@ -34,7 +34,11 @@ beforeAll(async () => {
 
   httpServer = await createServer((app) => {
     const handleUserRequest: RequestHandler = (_req, res) => {
-      res.status(200).send('user-body').end()
+      res
+        // Allow accepting the credentials so that "withCredentials"
+        // can be set to true.
+        .set('Access-Control-Allow-Credentials', 'true')
+        .send('user-body')
     }
 
     app.get('/user', handleUserRequest)
@@ -62,6 +66,7 @@ test('intercepts an HTTP HEAD request', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('HEAD', url)
     req.setRequestHeader('x-custom-header', 'yes')
+    req.send()
   })
   const capturedRequest = lookupRequest(originalRequest, 'HEAD', requests)!!
 
@@ -78,6 +83,7 @@ test('intercepts an HTTP GET request', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('GET', url)
     req.setRequestHeader('x-custom-header', 'yes')
+    req.send()
   })
   const capturedRequest = lookupRequest(originalRequest, 'GET', requests)!
 
@@ -130,6 +136,7 @@ test('intercepts an HTTP DELETE request', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('DELETE', url)
     req.setRequestHeader('x-custom-header', 'yes')
+    req.send()
   })
   const capturedRequest = lookupRequest(originalRequest, 'DELETE', requests)!
 
@@ -146,6 +153,7 @@ test('intercepts an HTTPS HEAD request', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('HEAD', url)
     req.setRequestHeader('x-custom-header', 'yes')
+    req.send()
   })
   const capturedRequest = lookupRequest(originalRequest, 'HEAD', requests)!
 
@@ -162,6 +170,7 @@ test('intercepts an HTTPS GET request', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.https.makeUrl('/user?id=123'))
     req.setRequestHeader('x-custom-header', 'yes')
+    req.send()
   })
   const capturedRequest = lookupRequest(originalRequest, 'GET', requests)!
 
@@ -232,6 +241,7 @@ test('intercepts an HTTPS DELETE request', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('DELETE', url)
     req.setRequestHeader('x-custom-header', 'yes')
+    req.send()
   })
   const capturedRequest = lookupRequest(originalRequest, 'DELETE', requests)!
 
@@ -247,6 +257,7 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.https.makeUrl('/user'))
     req.withCredentials = true
+    req.send()
   })
   const capturedRequest = lookupRequest(originalRequest, 'GET', requests)!
 
@@ -256,6 +267,7 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is not set', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.https.makeUrl('/user'))
+    req.send()
   })
   const capturedRequest = lookupRequest(originalRequest, 'GET', requests)!
 
@@ -266,6 +278,7 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.https.makeUrl('/user'))
     req.withCredentials = false
+    req.send()
   })
   const capturedRequest = lookupRequest(originalRequest, 'GET', requests)!
 

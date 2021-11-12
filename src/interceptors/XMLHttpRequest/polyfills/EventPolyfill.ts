@@ -1,4 +1,6 @@
-export class EventPolyfill implements Event {
+export class EventPolyfill<EventTargetType extends EventTarget>
+  implements Event
+{
   readonly AT_TARGET: number = 0
   readonly BUBBLING_PHASE: number = 0
   readonly CAPTURING_PHASE: number = 0
@@ -6,7 +8,7 @@ export class EventPolyfill implements Event {
 
   public type: string = ''
   public srcElement: EventTarget | null = null
-  public target: EventTarget | null
+  public target: EventTargetType | null
   public currentTarget: EventTarget | null = null
   public eventPhase: number = 0
   public timeStamp: number
@@ -24,7 +26,7 @@ export class EventPolyfill implements Event {
 
   constructor(
     type: string,
-    options?: { target: EventTarget; currentTarget: EventTarget }
+    options?: { target: EventTargetType; currentTarget: EventTarget }
   ) {
     this.type = type
     this.target = options?.target || null

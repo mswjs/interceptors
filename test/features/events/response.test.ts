@@ -62,6 +62,7 @@ test('XMLHttpRequest: emits the "response" event upon the mocked response', asyn
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('GET', 'https://mswjs.io/events')
     req.setRequestHeader('x-request-custom', 'yes')
+    req.send()
   })
 
   expect(responses).toHaveLength(1)

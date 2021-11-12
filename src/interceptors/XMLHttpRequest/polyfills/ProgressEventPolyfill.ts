@@ -1,6 +1,6 @@
 import { EventPolyfill } from './EventPolyfill'
 
-export class ProgressEventPolyfill extends EventPolyfill {
+export class ProgressEventPolyfill extends EventPolyfill<any> {
   readonly lengthComputable: boolean
   readonly composed: boolean
   readonly loaded: number
