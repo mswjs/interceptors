@@ -22,7 +22,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
   window.fetch = async (input, init) => {
     const ref = new Request(input, init)
     const url = typeof input === 'string' ? input : input.url
-    const method = init?.method || 'GET'
+    const method = ref.method
 
     debug('[%s] %s', method, url)
 
@@ -30,8 +30,8 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
       id: uuidv4(),
       url: new URL(url, location.origin),
       method: method,
-      headers: new Headers(init?.headers || {}),
-      credentials: init?.credentials || 'same-origin',
+      headers: new Headers(ref.headers),
+      credentials: ref.credentials,
       body: await ref.text(),
     }
     debug('isomorphic request', isoRequest)
