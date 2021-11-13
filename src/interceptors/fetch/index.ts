@@ -20,9 +20,9 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
   debug('replacing "window.fetch"...')
 
   window.fetch = async (input, init) => {
-    const ref = new Request(input, init)
+    const request = new Request(input, init)
     const url = typeof input === 'string' ? input : input.url
-    const method = ref.method
+    const method = request.method
 
     debug('[%s] %s', method, url)
 
@@ -30,15 +30,15 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
       id: uuidv4(),
       url: new URL(url, location.origin),
       method: method,
-      headers: new Headers(ref.headers),
-      credentials: ref.credentials,
-      body: await ref.text(),
+      headers: new Headers(request.headers),
+      credentials: request.credentials,
+      body: await request.text(),
     }
     debug('isomorphic request', isoRequest)
     observer.emit('request', isoRequest)
 
     debug('awaiting for the mocked response...')
-    const response = await resolver(isoRequest, ref)
+    const response = await resolver(isoRequest, request)
     debug('mocked response', response)
 
     if (response) {
