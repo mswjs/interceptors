@@ -32,7 +32,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
       method: method,
       headers: new Headers(request.headers),
       credentials: request.credentials,
-      body: await request.text(),
+      body: await request.clone().text(),
     }
     debug('isomorphic request', isoRequest)
     observer.emit('request', isoRequest)
@@ -58,7 +58,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
 
     debug('no mocked response found, bypassing...')
 
-    return pureFetch(input, init).then(async (response) => {
+    return pureFetch(request).then(async (response) => {
       const cloneResponse = response.clone()
       debug('original fetch performed', cloneResponse)
 
