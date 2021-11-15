@@ -28,10 +28,7 @@ beforeAll(async () => {
       rateLimit({
         max: 5,
         windowMs: 100,
-        onLimitReached() {
-          console.warn('RATE LIMIT REACHED!')
-          handleLimitReached()
-        },
+        onLimitReached: handleLimitReached,
       })
     )
 
@@ -52,7 +49,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('does not reach the rate preforming more mocked requests than allowed', async () => {
+test('does not reach the rate limit preforming more mocked requests than allowed', async () => {
   const requests: Promise<http.IncomingMessage>[] = []
 
   // Perform more requests than allowed by rate limiting.
@@ -74,7 +71,7 @@ test('does not reach the rate preforming more mocked requests than allowed', asy
   expect(handleLimitReached).not.toHaveBeenCalled()
 })
 
-test('does not reach the rate limiting performing allowed number of bypassed requests', async () => {
+test('does not reach the rate limit performing allowed number of bypassed requests', async () => {
   const requests: Promise<http.IncomingMessage>[] = []
 
   // Perform allowed number of requests according to rate limiting.
