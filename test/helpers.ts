@@ -226,17 +226,20 @@ interface BrowserXMLHttpRequestInit {
   withCredentials?: boolean
 }
 
+declare global {
+  interface WindowEventMap {
+    'test:request': CustomEvent<string>
+  }
+}
+
 export async function extractRequestFromPage(
   page: Page
 ): Promise<IsomorphicRequest> {
   const request = await page.evaluate(() => {
     return new Promise<StringifiedIsomorphicRequest>((resolve) => {
-      window.addEventListener(
-        'resolver' as any,
-        (event: CustomEvent<string>) => {
-          resolve(JSON.parse(event.detail))
-        }
-      )
+      window.addEventListener('test:request', (event) => {
+        resolve(JSON.parse(event.detail))
+      })
     })
   })
 

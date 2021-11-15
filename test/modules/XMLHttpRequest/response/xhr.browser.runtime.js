@@ -5,7 +5,7 @@ window.interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
   resolver(request) {
     window.dispatchEvent(
-      new CustomEvent('resolver', {
+      new CustomEvent('test:request', {
         detail: JSON.stringify({
           id: request.id,
           method: request.method,

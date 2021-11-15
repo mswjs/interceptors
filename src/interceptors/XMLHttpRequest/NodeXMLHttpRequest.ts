@@ -15,25 +15,42 @@ import { parseJson } from '../../utils/parseJson'
 import { bufferFrom } from './utils/bufferFrom'
 import { DOMParser } from '@xmldom/xmldom'
 import { toIsoResponse } from '../../utils/toIsoResponse'
+import { getRequestBodyLength } from './utils/getRequestBodyLength'
 
 export interface NodeXMLHttpRequestOptions {
   observer: Observer
   resolver: Resolver
 }
 
-export type XMLHttpRequestData = Document | BodyInit | null | undefined
+export type XMLHttpRequestBodyType =
+  | Document
+  | BodyInit
+  | string
+  | null
+  | undefined
 
-export type XMLHttpRequestEventHandler<
-  Event extends keyof XMLHttpRequestEventTargetEventMap
-> = (
-  this: XMLHttpRequest,
-  event: XMLHttpRequestEventTargetEventMap[Event]
-) => void
+export type XMLHttpRequestListener<
+  Context extends any,
+  Event extends keyof EventsMap,
+  EventsMap extends XMLHttpRequestEventTargetEventMap
+> = (this: Context, event: EventsMap[Event]) => void
 
-type XMLHttpRequestEventsMap = {
-  [Event in keyof XMLHttpRequestEventMap]: (
-    event: XMLHttpRequestEventMap[Event]
-  ) => void
+type EventMapToListeners<
+  Context extends any,
+  EventsMap extends XMLHttpRequestEventTargetEventMap
+> = {
+  [Event in keyof EventsMap]: XMLHttpRequestListener<Context, Event, EventsMap>
+}
+
+declare global {
+  export interface XMLHttpRequestUpload {
+    events: StrictEventEmitter<
+      EventMapToListeners<
+        XMLHttpRequestUpload,
+        XMLHttpRequestEventTargetEventMap
+      >
+    >
+  }
 }
 
 export class NodeXMLHttpRequest extends XMLHttpRequest {
@@ -41,8 +58,11 @@ export class NodeXMLHttpRequest extends XMLHttpRequest {
 
   private method: string
   private url: string
-  private events: StrictEventEmitter<XMLHttpRequestEventsMap>
+  private events: StrictEventEmitter<
+    EventMapToListeners<XMLHttpRequest, XMLHttpRequestEventTargetEventMap>
+  >
   private requestHeaders: Headers
+  private requestBodyLength: number
   private responseHeaders: Headers
   private responseSource: 'mock' | 'bypass' = 'mock'
 
@@ -55,10 +75,37 @@ export class NodeXMLHttpRequest extends XMLHttpRequest {
     this.log = debug('xhr')
     this.events = new StrictEventEmitter()
 
+    this.upload.events = new StrictEventEmitter()
+    this.spyOnUploadEvents()
+
     this.method = ''
     this.url = ''
     this.requestHeaders = new Headers()
+    this.requestBodyLength = 0
     this.responseHeaders = new Headers()
+  }
+
+  private spyOnUploadEvents(): void {
+    const { addEventListener, removeEventListener } = this.upload
+
+    this.upload.addEventListener = function <
+      Event extends keyof XMLHttpRequestEventTargetEventMap
+    >(
+      name: Event,
+      listener: (
+        this: XMLHttpRequestUpload,
+        event: XMLHttpRequestEventTargetEventMap[Event]
+      ) => void,
+      options?: boolean | AddEventListenerOptions
+    ) {
+      this.events.addListener(name, listener)
+      return addEventListener(name, listener, options)
+    }
+
+    this.upload.removeEventListener = function (name: any, listener: any) {
+      this.events.removeListener(name, listener)
+      return removeEventListener(name, listener)
+    }
   }
 
   open(
@@ -80,10 +127,13 @@ export class NodeXMLHttpRequest extends XMLHttpRequest {
   /**
    * @note The "send" method must remain synchronous.
    */
-  send(data?: XMLHttpRequestData): void {
-    this.log('send:', data, this.readyState)
+  send(body?: XMLHttpRequestBodyType): void {
+    this.log('send:', body, this.readyState)
 
-    const isomorphicRequest = this.toIsomorphicRequest(data)
+    // Set the request body length later used by progress events.
+    this.setRequestBodyLength(body)
+
+    const isomorphicRequest = this.toIsomorphicRequest(body)
     NodeXMLHttpRequest.observer.emit('request', isomorphicRequest)
 
     this.log('executing response resolver...')
@@ -100,6 +150,38 @@ export class NodeXMLHttpRequest extends XMLHttpRequest {
 
       if (mockedResponse) {
         this.log('received mocked response:', mockedResponse)
+
+        // Trigger upload events.
+        if (!this.requestHeaders.has('content-length')) {
+          this.requestHeaders.set(
+            'content-length',
+            this.requestBodyLength.toString()
+          )
+        }
+
+        const requestBodyLength = parseInt(
+          this.requestHeaders.get('content-length') || ' 0'
+        )
+
+        const lengthComputable = requestBodyLength > 0
+        this.trigger(
+          'loadstart',
+          {
+            lengthComputable,
+            loaded: 0,
+            total: requestBodyLength,
+          },
+          this.upload
+        )
+
+        const doneProgressInit: ProgressEventInit = {
+          lengthComputable,
+          loaded: requestBodyLength,
+          total: requestBodyLength,
+        }
+        this.trigger('progress', doneProgressInit, this.upload)
+        this.trigger('load', doneProgressInit, this.upload)
+        this.trigger('loadend', doneProgressInit, this.upload)
 
         this.respondWith(mockedResponse)
         NodeXMLHttpRequest.observer.emit(
@@ -149,13 +231,16 @@ export class NodeXMLHttpRequest extends XMLHttpRequest {
         )
       })
 
-      return super.send(data)
+      return super.send(body)
     })
   }
 
   addEventListener<Event extends keyof XMLHttpRequestEventTargetEventMap>(
     event: Event,
-    listener: XMLHttpRequestEventHandler<Event>,
+    listener: (
+      this: XMLHttpRequest,
+      event: XMLHttpRequestEventTargetEventMap[Event]
+    ) => void,
     options?: boolean | AddEventListenerOptions
   ): void {
     this.log('add event listener "%s"', event)
@@ -178,7 +263,10 @@ export class NodeXMLHttpRequest extends XMLHttpRequest {
 
   removeEventListener<Event extends keyof XMLHttpRequestEventTargetEventMap>(
     event: Event,
-    listener: XMLHttpRequestEventHandler<Event>,
+    listener: (
+      this: XMLHttpRequest,
+      event: XMLHttpRequestEventTargetEventMap[Event]
+    ) => void,
     options?: boolean | EventListenerOptions
   ): void {
     this.log('remove event listener "%s"', event)
@@ -237,40 +325,47 @@ export class NodeXMLHttpRequest extends XMLHttpRequest {
 
   private trigger<Event extends keyof XMLHttpRequestEventMap>(
     event: Event,
-    options?: Event extends 'progress' ? ProgressEventInit : never
+    options?: ProgressEventInit,
+    target?: NodeXMLHttpRequest | XMLHttpRequestUpload
   ): void {
     this.log('trigger "%s"', event, this.readyState)
+
+    const resolvedTarget = target || this
     const synthenicEvent = createEvent<XMLHttpRequestEventTarget>(
-      this,
+      resolvedTarget,
       event,
       options
     )
 
-    // @ts-expect-error
-    const callback = this[`on${event}`] as XMLHttpRequestEventHandler<Event>
-    callback?.call(this, synthenicEvent as any)
+    const callback =
+      // @ts-expect-error Dynamic access to class properties.
+      resolvedTarget[`on${event}`] as XMLHttpRequestListener<
+        typeof resolvedTarget,
+        Event,
+        XMLHttpRequestEventMap
+      >
+    callback?.call(resolvedTarget, synthenicEvent)
 
-    for (const listener of this.events.listeners(event)) {
-      listener.call(this, synthenicEvent)
+    for (const listener of (
+      resolvedTarget as NodeXMLHttpRequest
+    ).events.listeners(event)) {
+      listener.call(resolvedTarget, synthenicEvent)
     }
   }
 
-  private toIsomorphicRequest(data?: XMLHttpRequestData): IsomorphicRequest {
-    let url: URL
+  private setRequestBodyLength(body: XMLHttpRequestBodyType): void {
+    this.requestBodyLength = this.requestHeaders.has('content-length')
+      ? parseInt(this.requestHeaders.get('content-length')!)
+      : getRequestBodyLength(body)
+  }
 
-    try {
-      url = new URL(this.url)
-    } catch (error) {
-      // Assume a relative URL, if construction of a new `URL` instance fails.
-      // Since `XMLHttpRequest` always executed in a DOM-like environment,
-      // resolve the relative request URL against the current window location.
-      url = new URL(this.url, window.location.href)
-    }
-
+  private toIsomorphicRequest(
+    data?: XMLHttpRequestBodyType
+  ): IsomorphicRequest {
     return {
       id: uuidv4(),
       method: this.method,
-      url,
+      url: new URL(this.url, document.baseURI),
       headers: this.requestHeaders,
       credentials: this.withCredentials ? 'include' : 'omit',
       /**
@@ -306,8 +401,8 @@ export class NodeXMLHttpRequest extends XMLHttpRequest {
     if (response.headers) {
       this.responseHeaders = new Headers(response.headers)
     }
-
     this.setReadyState(this.HEADERS_RECEIVED)
+
     const contentType = this.getResponseHeader('content-type') || 'text/plain'
 
     // Set the explicit "response*" properties.
@@ -355,14 +450,20 @@ export class NodeXMLHttpRequest extends XMLHttpRequest {
       }
     }
 
-    if (response.body && this.response) {
+    // Compose and trigger the "progress" event.
+    const contentLength = this.responseHeaders.get('content-length') || '0'
+    const bodyBuffer = bufferFrom(response.body || '')
+    const bufferLength = parseInt(contentLength) || bodyBuffer.length
+    const progressInit: ProgressEventInit = {
+      lengthComputable: false,
+    }
+
+    if (bufferLength > 0) {
       this.setReadyState(this.LOADING)
 
-      const bodyBuffer = bufferFrom(response.body)
-      this.trigger('progress', {
-        loaded: bodyBuffer.length,
-        total: bodyBuffer.length,
-      })
+      progressInit.loaded = bufferLength
+      progressInit.total = bufferLength
+      this.trigger('progress', progressInit)
     }
 
     /**

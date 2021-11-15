@@ -5,11 +5,11 @@ const log = debug('xhr')
 
 const pureXMLHttpRequest =
   // Although executed in node, certain processes emulate the DOM-like environment
-  // (i.e. `js-dom` in Jest). The `window` object would be avilable in such environments.
+  // (i.e. "js-dom" in Jest). The "window" object would be avilable in such environments.
   typeof window === 'undefined' ? undefined : window.XMLHttpRequest
 
 /**
- * Intercepts requests issued via `XMLHttpRequest`.
+ * Intercepts requests issued via "XMLHttpRequest".
  */
 export const interceptXMLHttpRequest: Interceptor = (observer, resolver) => {
   if (pureXMLHttpRequest) {
