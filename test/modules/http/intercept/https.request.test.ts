@@ -3,6 +3,7 @@
  */
 import * as http from 'http'
 import * as https from 'https'
+import { parse } from 'url'
 import { RequestHandler } from 'express'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { createInterceptor } from '../../../../src'
@@ -238,4 +239,12 @@ test('intercepts an http.request request given RequestOptions without a protocol
     },
     expect.any(http.IncomingMessage)
   )
+})
+
+test('keeps headers when RequestOptions is created from url.parse', (done) => {
+  const requestOptions = {...parse('https://mswjs.io/resource'), headers: {'authorization': 'auth-token'}}
+  https.request(requestOptions, () => done()).end(() => {
+    const [request] = requests
+    expect(request.headers.get('authorization')).toEqual(requestOptions.headers.authorization)
+  })
 })

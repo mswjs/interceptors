@@ -241,6 +241,27 @@ test('handles [RequestOptions, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
+// example of this pattern being used
+// https://github.com/EventSource/eventsource/blob/master/lib/eventsource.js#L84-L139
+test('handles [RequestOptions, callback] input when creating input options with url.parse', () => {
+  const initialOptions = {...parse('https://mswjs.io/resource'), headers: {'Content-Type': 'text/plain'}}
+
+  const [url, options, callback] = normalizeClientRequestArgs(
+    'https:',
+    initialOptions,
+    function cb() {}
+  )
+
+  // URL must be derived from request options.
+  expect(url.href).toEqual('https://mswjs.io/resource')
+
+  // Request headers must be preserved
+  expect(options.headers).toEqual(initialOptions.headers)
+
+  // Callback must be preserved.
+  expect(callback?.name).toEqual('cb')
+})
+
 test('handles [Empty RequestOptions, callback] input', () => {
   const [_, options, callback] = normalizeClientRequestArgs(
     'https:',
