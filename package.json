@@ -6,6 +6,9 @@
   "typings": "lib/index.d.ts",
   "author": "Artem Zakharchenko",
   "license": "MIT",
+  "engines": {
+    "node": ">=12.20.0"
+  },
   "scripts": {
     "start": "tsc --build -w",
     "test": "yarn test:internal && yarn test:integration",
