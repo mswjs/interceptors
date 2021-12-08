@@ -4,7 +4,7 @@ jobs:
   build-and-test:
     working_directory: ~/release
     docker:
-      - image: circleci/node:12.18.0-browsers
+      - image: circleci/node:12.20.0-browsers
         environment:
           TERM: xterm
     steps:
