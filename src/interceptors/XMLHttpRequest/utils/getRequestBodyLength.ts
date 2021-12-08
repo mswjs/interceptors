@@ -1,15 +1,18 @@
-import type { XMLHttpRequestBodyType } from '../NodeXMLHttpRequest'
+import type { XMLHttpRequestBodyType } from '../patchXMLHttpRequest'
 
 /**
  * Returns the computed length of the XMLHttpRequest body.
  */
 export function getRequestBodyLength(body?: XMLHttpRequestBodyType): number {
+  if (typeof body === 'string') {
+    return body.length
+  }
+
   if (
-    typeof body === 'string' ||
     (typeof Buffer !== 'undefined' && body instanceof Buffer) ||
     body instanceof ArrayBuffer
   ) {
-    return Buffer.byteLength(body)
+    return body.byteLength
   }
 
   if (body instanceof Blob) {

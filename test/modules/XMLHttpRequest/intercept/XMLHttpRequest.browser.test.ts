@@ -3,6 +3,7 @@
  */
 import * as path from 'path'
 import { pageWith } from 'page-with'
+import cors from 'cors'
 import { createServer, ServerApi } from '@open-draft/test-server'
 import { RequestHandler } from 'express-serve-static-core'
 import { createBrowserXMLHttpRequest } from '../../../helpers'
@@ -17,8 +18,14 @@ function prepareRuntime() {
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
-    const requestHandler: RequestHandler = (_req, res) => {
-      res.status(200).send('user-body')
+    const requestHandler: RequestHandler = (req, res) => {
+      res
+        // Set the allowed origin (CORS) to enable "withCredentials".
+        .set('Access-Control-Allow-Origin', req.header('origin'))
+        // Allow accepting the credentials so that "withCredentials"
+        // can be set to true.
+        .set('Access-Control-Allow-Credentials', 'true')
+        .send('user-body')
     }
 
     app.get('/user', requestHandler)
@@ -46,7 +53,7 @@ test('intercepts an HTTP GET request', async () => {
   expect(request.url.href).toEqual(url)
   expect(request.headers.get('x-request-header')).toEqual('yes')
   expect(request.credentials).toEqual('omit')
-  expect(request.body).toEqual('')
+  expect(request.body).toBeUndefined()
 
   expect(response.status).toEqual(200)
   expect(response.statusText).toEqual('OK')

@@ -46,7 +46,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('retrieves the mocked response headers when called ".getAllResponseHeaders()"', async () => {
+test.only('retrieves the mocked response headers when called ".getAllResponseHeaders()"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/?mock=true')
     req.send()

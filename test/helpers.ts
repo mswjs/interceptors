@@ -184,6 +184,10 @@ export function createXMLHttpRequest(
   middleware: (req: XMLHttpRequest) => void
 ): Promise<XMLHttpRequest> {
   const req = new XMLHttpRequest()
+
+  // @ts-ignore
+  console.log(req.respondWith)
+
   middleware(req)
 
   if (req.readyState < 1) {
