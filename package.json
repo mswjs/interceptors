@@ -45,7 +45,7 @@
     "express-rate-limit": "^5.5.1",
     "got": "^11.8.3",
     "jest": "^27.4.3",
-    "node-fetch": "2.6.0",
+    "node-fetch": "2.6.1",
     "page-with": "^0.5.0",
     "rimraf": "^3.0.2",
     "superagent": "^6.1.0",
