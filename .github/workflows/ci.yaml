@@ -1,0 +1,27 @@
+name: ci
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 12.20.0
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Unit tests
+        run: yarn test:internal
+
+      - name: Build
+        run: yarn build
+
+      - name: Node.js tests
+        run: yarn test:integration:node
+
+      - name: Browser tests
+        run: yarn test:integration:browser
