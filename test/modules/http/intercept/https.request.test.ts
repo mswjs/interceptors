@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import * as https from 'https'
+import { request as httpsRequest } from 'https'
 import { RequestHandler } from 'express'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { createInterceptor } from '../../../../src'
@@ -46,7 +46,7 @@ afterAll(async () => {
 
 test('intercepts a HEAD request', (done) => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  const request = https.request(
+  const request = httpsRequest(
     url,
     {
       agent: httpsAgent,
@@ -72,7 +72,7 @@ test('intercepts a HEAD request', (done) => {
 
 test('intercepts a GET request', (done) => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  const request = https.request(
+  const request = httpsRequest(
     url,
     {
       agent: httpsAgent,
@@ -98,7 +98,7 @@ test('intercepts a GET request', (done) => {
 
 test('intercepts a POST request', (done) => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  const request = https.request(
+  const request = httpsRequest(
     url,
     {
       agent: httpsAgent,
@@ -126,7 +126,7 @@ test('intercepts a POST request', (done) => {
 
 test('intercepts a PUT request', (done) => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  const request = https.request(
+  const request = httpsRequest(
     url,
     {
       agent: httpsAgent,
@@ -154,7 +154,7 @@ test('intercepts a PUT request', (done) => {
 
 test('intercepts a PATCH request', (done) => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  const request = https.request(
+  const request = httpsRequest(
     url,
     {
       agent: httpsAgent,
@@ -182,7 +182,7 @@ test('intercepts a PATCH request', (done) => {
 
 test('intercepts a DELETE request', (done) => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  const request = https.request(
+  const request = httpsRequest(
     url,
     {
       agent: httpsAgent,
@@ -207,7 +207,7 @@ test('intercepts a DELETE request', (done) => {
 })
 
 test('intercepts an http.request request given RequestOptions without a protocol', (done) => {
-  const request = https.request(
+  const request = httpsRequest(
     {
       agent: httpsAgent,
       host: httpServer.https.getAddress().host,
@@ -229,10 +229,8 @@ test('intercepts an http.request request given RequestOptions without a protocol
 })
 
 test('sets "credentials" to "omit" on the isomorphic request', (done) => {
-  https
-    .request(httpServer.http.makeUrl('/user'), () => done())
-    .end(() => {
-      const [request] = requests
-      expect(request.credentials).toEqual('omit')
-    })
+  httpsRequest(httpServer.http.makeUrl('/user'), () => done()).end(() => {
+    const [request] = requests
+    expect(request.credentials).toEqual('omit')
+  })
 })
