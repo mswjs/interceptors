@@ -7,7 +7,7 @@
   "author": "Artem Zakharchenko",
   "license": "MIT",
   "engines": {
-    "node": ">=12.20.0"
+    "node": ">=12.x"
   },
   "scripts": {
     "start": "tsc --build -w",
