@@ -2,7 +2,7 @@ import { Debugger, debug } from 'debug'
 import type { RequestOptions } from 'http'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
-import { Headers, objectToHeaders } from 'headers-utils/lib'
+import { Headers, objectToHeaders } from 'headers-polyfill/lib'
 import type {
   IsomorphicRequest,
   MockedResponse,

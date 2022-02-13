@@ -1,4 +1,4 @@
-import { Headers } from 'headers-utils'
+import { Headers } from 'headers-polyfill'
 import { toIsoResponse } from './toIsoResponse'
 
 test('returns a well-formed empty response', () => {

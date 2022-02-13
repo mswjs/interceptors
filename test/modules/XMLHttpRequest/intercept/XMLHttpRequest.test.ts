@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { Headers } from 'headers-utils'
+import { Headers } from 'headers-polyfill'
 import { RequestHandler } from 'express-serve-static-core'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { createInterceptor } from '../../../../src'

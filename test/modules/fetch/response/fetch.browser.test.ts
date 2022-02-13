@@ -4,7 +4,7 @@
 import * as path from 'path'
 import { pageWith } from 'page-with'
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { listToHeaders } from 'headers-utils'
+import { listToHeaders } from 'headers-polyfill'
 import { InterceptorApi } from '../../../../src'
 
 declare namespace window {

@@ -3,7 +3,7 @@ import {
   headersToObject,
   objectToHeaders,
   flattenHeadersObject,
-} from 'headers-utils'
+} from 'headers-polyfill'
 import {
   Interceptor,
   IsomorphicRequest,
