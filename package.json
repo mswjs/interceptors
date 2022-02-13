@@ -52,7 +52,7 @@
     "got": "^11.8.3",
     "jest": "^27.4.3",
     "node-fetch": "2.6.1",
-    "page-with": "^0.5.0",
+    "page-with": "^0.5.1",
     "rimraf": "^3.0.2",
     "simple-git-hooks": "^2.7.0",
     "superagent": "^6.1.0",
@@ -64,7 +64,7 @@
     "@open-draft/until": "^1.0.3",
     "@xmldom/xmldom": "^0.7.5",
     "debug": "^4.3.3",
-    "headers-utils": "^3.0.2",
+    "headers-polyfill": "^3.0.3",
     "outvariant": "^1.2.1",
     "strict-event-emitter": "^0.2.0"
   },

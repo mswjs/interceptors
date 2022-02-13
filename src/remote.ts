@@ -1,5 +1,5 @@
 import { ChildProcess, Serializable } from 'child_process'
-import { Headers } from 'headers-utils'
+import { Headers } from 'headers-polyfill'
 import { invariant } from 'outvariant'
 import { StrictEventEmitter } from 'strict-event-emitter'
 import {

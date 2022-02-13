@@ -8,7 +8,7 @@ import {
   stringToHeaders,
   objectToHeaders,
   headersToString,
-} from 'headers-utils'
+} from 'headers-polyfill'
 import { DOMParser } from '@xmldom/xmldom'
 import { IsomorphicRequest, Observer, Resolver } from '../../createInterceptor'
 import { parseJson } from '../../utils/parseJson'

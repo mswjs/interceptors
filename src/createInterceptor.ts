@@ -1,5 +1,5 @@
 import { IncomingMessage } from 'http'
-import { HeadersObject, Headers } from 'headers-utils'
+import { HeadersObject, Headers } from 'headers-polyfill'
 import { StrictEventEmitter } from 'strict-event-emitter'
 
 export type Interceptor = (

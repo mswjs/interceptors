@@ -2772,10 +2772,10 @@ has@^1.0.3:
   dependencies:
     function-bind "^1.1.1"
 
-headers-utils@^3.0.2:
-  version "3.0.2"
-  resolved "https://registry.yarnpkg.com/headers-utils/-/headers-utils-3.0.2.tgz#dfc65feae4b0e34357308aefbcafa99c895e59ef"
-  integrity sha512-xAxZkM1dRyGV2Ou5bzMxBPNLoRCjcX+ya7KSWybQD2KwLphxsapUVK6x/02o7f4VU6GPSXch9vNY2+gkU8tYWQ==
+headers-polyfill@^3.0.3:
+  version "3.0.3"
+  resolved "https://registry.yarnpkg.com/headers-polyfill/-/headers-polyfill-3.0.3.tgz#222bd9a6b5a1f610ad563473efb0d34a13eb7ebc"
+  integrity sha512-Ak5m549Y+5vBtWNnIUcyARJjF0tQpINuy3+vOqG8tK/qjF0itYhAPgrzJc0zsZJh7AX8PalzICMPuWIqHpZlEA==
 
 homedir-polyfill@^1.0.1:
   version "1.0.3"
@@ -4094,10 +4094,10 @@ p-try@^2.0.0:
   resolved "https://registry.yarnpkg.com/p-try/-/p-try-2.2.0.tgz#cb2868540e313d61de58fafbe35ce9004d5540e6"
   integrity sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==
 
-page-with@^0.5.0:
-  version "0.5.0"
-  resolved "https://registry.yarnpkg.com/page-with/-/page-with-0.5.0.tgz#4c7f710699ba2ded834a0b407b0cbe93577d1d70"
-  integrity sha512-bO+Anha8YHSh+BJMHl5UbGI4Ur0R0dsJGKGWJCF1Wkb9bnOXkaDNKU63M5GaV+5bVaUh3cdDhCS7cg8gqiKB6g==
+page-with@^0.5.1:
+  version "0.5.1"
+  resolved "https://registry.yarnpkg.com/page-with/-/page-with-0.5.1.tgz#b1558c205c130218623e491c8302ae501288d782"
+  integrity sha512-830oKHY2kfhPuc3vsaaeqrwCH1FkOhopFQ0JmSPObGI4yVZQLYYpRW4frNP4hYyuxVgC0zbwMqr+Z4ESgDX5Sw==
   dependencies:
     "@open-draft/until" "^1.0.3"
     "@types/debug" "^4.1.7"
@@ -4106,7 +4106,7 @@ page-with@^0.5.0:
     "@types/uuid" "^8.3.1"
     debug "^4.3.2"
     express "^4.17.1"
-    headers-utils "^3.0.2"
+    headers-polyfill "^3.0.3"
     memfs "^3.3.0"
     mustache "^4.2.0"
     playwright "^1.16.2"

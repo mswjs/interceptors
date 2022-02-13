@@ -1,4 +1,4 @@
-import { objectToHeaders } from 'headers-utils'
+import { objectToHeaders } from 'headers-polyfill'
 import { IsomorphicResponse, MockedResponse } from '../createInterceptor'
 
 /**

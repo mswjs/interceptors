@@ -1,7 +1,7 @@
 import https from 'https'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
-import { Headers } from 'headers-utils'
+import { Headers } from 'headers-polyfill'
 import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getCleanUrl } from '../src/utils/getCleanUrl'
