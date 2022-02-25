@@ -30,6 +30,7 @@ afterAll(() => {
 test('supports XHR mocked response with an empty response body', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
+    req.send()
   })
 
   expect(req.status).toEqual(401)

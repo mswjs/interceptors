@@ -1,11 +1,13 @@
 /**
  * @jest-environment node
  */
+import * as http from 'http'
 import { Request } from 'node-fetch'
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { createInterceptor, IsomorphicRequest, Resolver } from '../../../../src'
+import { createInterceptor, Resolver } from '../../../../src'
 import nodeInterceptors from '../../../../src/presets/node'
 import { fetch } from '../../../helpers'
+import { anyUuid, headersContaining } from '../../../jest.expect'
 
 let httpServer: ServerApi
 
@@ -38,7 +40,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
   const request = new Request(httpServer.http.makeUrl('/user'), {
     method: 'POST',
     headers: {
-      'Content-Type': 'plain/text',
+      'Content-Type': 'text/plain',
       'User-Agent': 'interceptors',
     },
     body: 'hello world',
@@ -51,15 +53,18 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
   expect(await res.text()).toEqual('mocked')
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  const [capturedRequest] = resolver.mock.calls[0]
-
-  expect(capturedRequest).toMatchObject<Partial<IsomorphicRequest>>({
-    method: 'POST',
-    url: new URL(httpServer.http.makeUrl('/user')),
-    body: 'hello world',
-  })
-  expect(capturedRequest.headers.all()).toMatchObject({
-    'content-type': 'plain/text',
-    'user-agent': 'interceptors',
-  })
+  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
+    {
+      id: anyUuid(),
+      method: 'POST',
+      url: new URL(httpServer.http.makeUrl('/user')),
+      headers: headersContaining({
+        'content-type': 'text/plain',
+        'user-agent': 'interceptors',
+      }),
+      credentials: 'omit',
+      body: 'hello world',
+    },
+    expect.any(http.IncomingMessage)
+  )
 })

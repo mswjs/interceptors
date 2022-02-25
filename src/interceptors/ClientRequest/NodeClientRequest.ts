@@ -147,6 +147,7 @@ export class NodeClientRequest extends ClientRequest {
 
       callback?.()
 
+      this.log('emitting the custom "response" event...')
       this.observer.emit('response', isomorphicRequest, isomorphicResponse)
 
       return
@@ -189,6 +190,7 @@ export class NodeClientRequest extends ClientRequest {
       this.log(response.statusCode, response.statusMessage, responseBody)
       this.log('original response headers:', response.headers)
 
+      this.log('emitting the custom "response" event...')
       this.observer.emit('response', isomorphicRequest, {
         status: response.statusCode || 200,
         statusText: response.statusMessage || 'OK',

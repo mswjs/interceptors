@@ -7,19 +7,17 @@ import http, { IncomingMessage } from 'http'
 import { createServer, ServerApi } from '@open-draft/test-server'
 import {
   createInterceptor,
-  IsomorphicRequest,
   IsomorphicResponse,
+  Resolver,
 } from '../../../../src'
 import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
 
-let requests: IsomorphicRequest[] = []
 let httpServer: ServerApi
 
+const resolver = jest.fn<ReturnType<Resolver>, Parameters<Resolver>>()
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(request) {
-    requests.push(request)
-  },
+  resolver,
 })
 
 beforeAll(async () => {
@@ -33,7 +31,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  requests = []
+  jest.resetAllMocks()
 })
 
 afterAll(async () => {

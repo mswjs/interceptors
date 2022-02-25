@@ -68,6 +68,7 @@ test('emits correct events sequence for an unhandled request with no response bo
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.makeUrl())
     spyOnEvents(req, listener)
+    req.send()
   })
 
   expect(listener.mock.calls).toEqual([
@@ -92,6 +93,7 @@ test('emits correct events sequence for a handled request with no response body'
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.makeUrl('/user'))
     spyOnEvents(req, listener)
+    req.send()
   })
 
   expect(listener.mock.calls).toEqual([
@@ -110,6 +112,7 @@ test('emits correct events sequence for an unhandled request with a response bod
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.makeUrl('/numbers'))
     spyOnEvents(req, listener)
+    req.send()
   })
 
   expect(listener.mock.calls).toEqual([
@@ -134,6 +137,7 @@ test('emits correct events sequence for a handled request with a response body',
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.makeUrl('/numbers-mock'))
     spyOnEvents(req, listener)
+    req.send()
   })
 
   expect(listener.mock.calls).toEqual([

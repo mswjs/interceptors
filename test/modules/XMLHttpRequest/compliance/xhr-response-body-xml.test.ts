@@ -31,6 +31,7 @@ describe('Content-Type: application/xml', () => {
   test('supports a mocked response with an XML response body', async () => {
     const req = await createXMLHttpRequest((req) => {
       req.open('GET', '/arbitrary-url')
+      req.send()
     })
 
     expect(req.responseXML).toStrictEqual(
@@ -62,6 +63,7 @@ describe('Content-Type: text/xml', () => {
   test('supports a mocked response with an XML response body', async () => {
     const req = await createXMLHttpRequest((req) => {
       req.open('GET', '/arbitrary-url')
+      req.send()
     })
 
     expect(req.responseXML).toStrictEqual(

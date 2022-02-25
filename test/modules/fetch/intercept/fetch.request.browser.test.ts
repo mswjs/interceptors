@@ -6,6 +6,7 @@ import { pageWith } from 'page-with'
 import { createServer, ServerApi } from '@open-draft/test-server'
 import { IsomorphicRequest } from '../../../../src/createInterceptor'
 import { extractRequestFromPage } from '../../../helpers'
+import { anyUuid, headersContaining } from '../../../jest.expect'
 
 let httpServer: ServerApi
 
@@ -33,7 +34,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
       const request = new Request(url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'plain/text',
+          'Content-Type': 'text/plain',
           'X-Origin': 'interceptors',
         },
         body: 'hello world',
@@ -43,14 +44,15 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
     }, url),
   ])
 
-  expect(request).toMatchObject<Partial<IsomorphicRequest>>({
-    method: 'POST',
+  expect(request).toEqual<IsomorphicRequest>({
+    id: anyUuid(),
     url: new URL(url),
+    method: 'POST',
+    headers: headersContaining({
+      'content-type': 'text/plain',
+      'x-origin': 'interceptors',
+    }),
     body: 'hello world',
     credentials: 'same-origin',
-  })
-  expect(request.headers.all()).toMatchObject({
-    'content-type': 'plain/text',
-    'x-origin': 'interceptors',
   })
 })

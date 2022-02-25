@@ -4,7 +4,6 @@ import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { Headers } from 'headers-polyfill'
 import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
-import { getCleanUrl } from '../src/utils/getCleanUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { IsomorphicRequest, RequestCredentials } from '../src/createInterceptor'
 
@@ -142,30 +141,6 @@ export async function fetch(
   }
 }
 
-export function findRequest(
-  pool: IsomorphicRequest[],
-  method: string = 'GET',
-  url: string
-): IsomorphicRequest | undefined {
-  const parsedUrl = new URL(url)
-  const expectedUrl = getCleanUrl(parsedUrl)
-
-  return pool.find((request) => {
-    const isMethodEqual = request.method === method
-    const isUrlEqual = getCleanUrl(request.url) === expectedUrl
-
-    return isMethodEqual && isUrlEqual
-  })
-}
-
-export async function prepare(
-  promise: Promise<PromisifiedResponse>,
-  pool: IsomorphicRequest[]
-): Promise<IsomorphicRequest | undefined> {
-  const { url, options } = await promise
-  return findRequest(pool, options.method, url)
-}
-
 export async function readBlob(
   blob: Blob
 ): Promise<string | ArrayBuffer | null> {
@@ -190,12 +165,6 @@ export function createXMLHttpRequest(
     throw new Error(
       'Failed to create an XMLHttpRequest. Did you forget to call `req.open()` in the middleware function?'
     )
-  }
-
-  if (req.readyState < 2) {
-    // Send the request only if it hasn't been sent
-    // as a part of the middleware function.
-    req.send()
   }
 
   return new Promise((resolve, reject) => {
@@ -315,4 +284,23 @@ export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
       createRawBrowserXMLHttpRequest(scenario)(requestInit),
     ])
   }
+}
+
+export async function waitForClientRequest(req: http.ClientRequest): Promise<{
+  res: http.IncomingMessage
+  text(): Promise<string>
+}> {
+  return new Promise((resolve, reject) => {
+    req.on('response', async (res) => {
+      res.setEncoding('utf8')
+      resolve({
+        res,
+        text: getIncomingMessageBody.bind(null, res),
+      })
+    })
+
+    req.on('error', reject)
+    req.on('abort', reject)
+    req.on('timeout', reject)
+  })
 }

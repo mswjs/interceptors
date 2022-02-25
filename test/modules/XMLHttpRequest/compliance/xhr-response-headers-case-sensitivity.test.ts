@@ -33,11 +33,12 @@ afterAll(async () => {
 })
 
 test('ignores casing when retrieving response headers via "getResponseHeader"', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', httpServer.http.makeUrl('/account'))
+  const req = await createXMLHttpRequest((req) => {
+    req.open('GET', httpServer.http.makeUrl('/account'))
+    req.send()
   })
 
-  expect(request.getResponseHeader('x-response-type')).toEqual('bypass')
-  expect(request.getResponseHeader('X-response-Type')).toEqual('bypass')
-  expect(request.getResponseHeader('X-RESPONSE-TYPE')).toEqual('bypass')
+  expect(req.getResponseHeader('x-response-type')).toEqual('bypass')
+  expect(req.getResponseHeader('X-response-Type')).toEqual('bypass')
+  expect(req.getResponseHeader('X-RESPONSE-TYPE')).toEqual('bypass')
 })
