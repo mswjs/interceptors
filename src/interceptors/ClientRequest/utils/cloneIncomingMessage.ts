@@ -10,32 +10,46 @@ export interface ClonedIncomingMessage extends IncomingMessage {
 export function cloneIncomingMessage(
   message: IncomingMessage
 ): ClonedIncomingMessage {
-  const stream = message.pipe(new PassThrough())
-  const properties = [
-    ...Object.getOwnPropertyNames(message),
-    ...Object.getOwnPropertySymbols(message),
-  ] as Array<keyof IncomingMessage>
+  const stream = message.pipe(new PassThrough());
+  mixin(stream, message);
 
-  for (const propertyName of properties) {
-    if (stream.hasOwnProperty(propertyName)) {
-      continue
-    }
-
-    const propertyDescriptor = Object.getOwnPropertyDescriptor(
-      message,
-      propertyName
-    )
-
-    Object.defineProperty(stream, propertyName, {
-      ...propertyDescriptor,
-      value: message[propertyName],
-    })
-  }
+  const prototype = {};
+  getPrototypes(stream).forEach(p => {
+    mixin(prototype, p);
+  });
+  getPrototypes(message).forEach(p => {
+    mixin(prototype, p);
+  })
+  Object.setPrototypeOf(stream, prototype);
 
   Object.defineProperty(stream, IS_CLONE, {
     enumerable: true,
     value: true,
   })
-
   return stream as unknown as ClonedIncomingMessage
+}
+
+function getPrototypes<T extends object>(target: T) {
+  const prototypes = [];
+  let current = target;
+  while (current = Object.getPrototypeOf(current)) {
+    prototypes.push(current);
+  }
+  return prototypes;
+}
+
+function mixin<T extends object, U extends object>(target: T, source: U) {
+  const properties = [
+    ...Object.getOwnPropertyNames(source),
+    ...Object.getOwnPropertySymbols(source),
+  ] as Array<keyof U>;
+  for (const property of properties) {
+    if (target.hasOwnProperty(property)) {
+      continue
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(source, property);
+    Object.defineProperty(target, property, {
+      ...descriptor,
+    })
+  }
 }
