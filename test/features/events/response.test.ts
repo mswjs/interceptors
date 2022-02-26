@@ -1,22 +1,26 @@
 /**
  * @jest-environment jsdom
  */
-import { ServerApi, createServer } from '@open-draft/test-server'
+import * as https from 'https'
+import fetch from 'node-fetch'
+import waitForExpect from 'wait-for-expect'
+import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import {
   createInterceptor,
+  InterceptorEventsMap,
   IsomorphicRequest,
   IsomorphicResponse,
 } from '../../../src'
-import { interceptXMLHttpRequest } from '../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../helpers'
+import nodeInterceptors from '../../../src/presets/node'
+import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
+import { anyUuid, headersContaining } from '../../jest.expect'
 
 let httpServer: ServerApi
-let responses: [IsomorphicRequest, IsomorphicResponse][] = []
 
 const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
+  modules: nodeInterceptors,
   resolver(request) {
-    if (['https://mswjs.io/events'].includes(request.url.href)) {
+    if (request.url.pathname === '/user') {
       return {
         status: 200,
         headers: {
@@ -28,12 +32,22 @@ const interceptor = createInterceptor({
   },
 })
 
+const responseListener = jest.fn<
+  ReturnType<InterceptorEventsMap['response']>,
+  Parameters<InterceptorEventsMap['response']>
+>()
+interceptor.on('response', responseListener)
+
 beforeAll(async () => {
   // @ts-expect-error Internal JSDOM property.
   // Allow XHR requests to the local HTTPS server with a self-signed certificate.
   window._resourceLoader._strictSSL = false
 
   httpServer = await createServer((app) => {
+    app.get('/user', (_req, res) => {
+      res.status(500).send('must-use-mocks')
+    })
+
     app.post('/account', (_req, res) => {
       return res
         .status(200)
@@ -44,13 +58,10 @@ beforeAll(async () => {
   })
 
   interceptor.apply()
-  interceptor.on('response', (req, res) => {
-    responses.push([req, res])
-  })
 })
 
 afterEach(() => {
-  responses = []
+  jest.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -58,25 +69,112 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('XMLHttpRequest: emits the "response" event upon the mocked response', async () => {
+test('ClientRequest: emits the "response" event upon a mocked response', async () => {
+  const req = https.request(httpServer.https.makeUrl('/user'), {
+    method: 'GET',
+    headers: {
+      'x-request-custom': 'yes',
+    },
+  })
+  req.end()
+  const { text } = await waitForClientRequest(req)
+
+  expect(responseListener).toHaveBeenCalledTimes(1)
+  expect(responseListener).toHaveBeenCalledWith<
+    [IsomorphicRequest, IsomorphicResponse]
+  >(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(httpServer.https.makeUrl('/user')),
+      headers: headersContaining({
+        'x-request-custom': 'yes',
+      }),
+      credentials: 'omit',
+      body: '',
+    },
+    {
+      status: 200,
+      statusText: 'OK',
+      headers: headersContaining({
+        'x-response-type': 'mocked',
+      }),
+      body: 'mocked-response-text',
+    }
+  )
+
+  expect(await text()).toEqual('mocked-response-text')
+})
+
+test('ClientRequest: emits the "response" event upon the original response', async () => {
+  const req = https.request(httpServer.https.makeUrl('/account'), {
+    method: 'POST',
+    headers: {
+      'x-request-custom': 'yes',
+    },
+    agent: httpsAgent,
+  })
+  req.write('request-body')
+  req.end()
+  const { text } = await waitForClientRequest(req)
+
+  expect(responseListener).toHaveBeenCalledTimes(1)
+  expect(responseListener).toHaveBeenCalledWith<
+    [IsomorphicRequest, IsomorphicResponse]
+  >(
+    {
+      id: anyUuid(),
+      method: 'POST',
+      url: new URL(httpServer.https.makeUrl('/account')),
+      headers: headersContaining({
+        'x-request-custom': 'yes',
+      }),
+      credentials: 'omit',
+      body: 'request-body',
+    },
+    {
+      status: 200,
+      statusText: 'OK',
+      headers: headersContaining({
+        'x-response-type': 'original',
+      }),
+      body: 'original-response-text',
+    }
+  )
+
+  expect(await text()).toEqual('original-response-text')
+})
+
+test('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
-    req.open('GET', 'https://mswjs.io/events')
+    req.open('GET', httpServer.https.makeUrl('/user'))
     req.setRequestHeader('x-request-custom', 'yes')
+    req.send()
   })
 
-  expect(responses).toHaveLength(1)
-  const [request, response] = responses[0]
-
-  // Isomorphic request.
-  expect(request.method).toEqual('GET')
-  expect(request.url.href).toEqual('https://mswjs.io/events')
-  expect(request.headers.get('x-request-custom')).toEqual('yes')
-
-  // Isomorphic response.
-  expect(response.status).toEqual(200)
-  expect(response.statusText).toEqual('OK')
-  expect(response.headers.get('x-response-type')).toEqual('mocked')
-  expect(response.body).toEqual('mocked-response-text')
+  expect(responseListener).toHaveBeenCalledTimes(1)
+  expect(responseListener).toHaveBeenCalledWith<
+    [IsomorphicRequest, IsomorphicResponse]
+  >(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(httpServer.https.makeUrl('/user')),
+      headers: headersContaining({
+        'x-request-custom': 'yes',
+      }),
+      credentials: 'omit',
+      body: '',
+    },
+    {
+      status: 200,
+      statusText: 'OK',
+      headers: headersContaining({
+        'x-response-type': 'mocked',
+      }),
+      body: 'mocked-response-text',
+    }
+  )
 
   // Original response.
   expect(originalRequest.responseText).toEqual('mocked-response-text')
@@ -89,21 +187,105 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
     req.send('request-body')
   })
 
-  expect(responses).toHaveLength(1)
-  const [request, response] = responses[0]
-
-  // Isomorphic request.
-  expect(request.method).toEqual('POST')
-  expect(request.url.href).toEqual(httpServer.https.makeUrl('/account'))
-  expect(request.headers.get('x-request-custom')).toEqual('yes')
-  expect(request.body).toEqual('request-body')
-
-  // Isomorphic response.
-  expect(response.status).toEqual(200)
-  expect(response.statusText).toEqual('OK')
-  expect(response.headers.get('x-response-type')).toEqual('original')
-  expect(response.body).toEqual('original-response-text')
+  /**
+   * @note In Node.js "XMLHttpRequest" is often polyfilled by "ClientRequest".
+   * This results in both "XMLHttpRequest" and "ClientRequest" interceptors
+   * emitting the "request" event.
+   * @see https://github.com/mswjs/interceptors/issues/163
+   */
+  expect(responseListener).toHaveBeenCalledTimes(2)
+  expect(responseListener).toHaveBeenCalledWith<
+    [IsomorphicRequest, IsomorphicResponse]
+  >(
+    {
+      id: anyUuid(),
+      method: 'POST',
+      url: new URL(httpServer.https.makeUrl('/account')),
+      headers: headersContaining({
+        'x-request-custom': 'yes',
+      }),
+      credentials: 'omit',
+      body: 'request-body',
+    },
+    {
+      status: 200,
+      statusText: 'OK',
+      headers: headersContaining({
+        'x-response-type': 'original',
+      }),
+      body: 'original-response-text',
+    }
+  )
 
   // Original response.
   expect(originalRequest.responseText).toEqual('original-response-text')
+})
+
+test('fetch: emits the "response" event upon a mocked response', async () => {
+  await fetch(httpServer.https.makeUrl('/user'), {
+    headers: {
+      'x-request-custom': 'yes',
+    },
+  })
+
+  expect(responseListener).toHaveBeenCalledTimes(1)
+  expect(responseListener).toHaveBeenCalledWith<
+    [IsomorphicRequest, IsomorphicResponse]
+  >(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(httpServer.https.makeUrl('/user')),
+      headers: headersContaining({
+        'x-request-custom': 'yes',
+      }),
+      credentials: 'omit',
+      body: '',
+    },
+    {
+      status: 200,
+      statusText: 'OK',
+      headers: headersContaining({
+        'x-response-type': 'mocked',
+      }),
+      body: 'mocked-response-text',
+    }
+  )
+})
+
+test('fetch: emits the "response" event upon the original response', async () => {
+  await fetch(httpServer.https.makeUrl('/account'), {
+    agent: httpsAgent,
+    method: 'POST',
+    headers: {
+      'x-request-custom': 'yes',
+    },
+    body: 'request-body',
+  })
+
+  await waitForExpect(() => {
+    expect(responseListener).toHaveBeenCalledTimes(1)
+  })
+  expect(responseListener).toHaveBeenCalledWith<
+    [IsomorphicRequest, IsomorphicResponse]
+  >(
+    {
+      id: anyUuid(),
+      method: 'POST',
+      url: new URL(httpServer.https.makeUrl('/account')),
+      headers: headersContaining({
+        'x-request-custom': 'yes',
+      }),
+      credentials: 'omit',
+      body: 'request-body',
+    },
+    {
+      status: 200,
+      statusText: 'OK',
+      headers: headersContaining({
+        'x-response-type': 'original',
+      }),
+      body: 'original-response-text',
+    }
+  )
 })

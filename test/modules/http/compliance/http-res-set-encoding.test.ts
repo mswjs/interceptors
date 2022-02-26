@@ -17,7 +17,7 @@ const interceptor = createInterceptor({
     return {
       status: 200,
       headers: {
-        'Content-Type': 'plain/text',
+        'Content-Type': 'text/plain',
       },
       body: 'hello world',
     }

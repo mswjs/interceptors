@@ -6,6 +6,8 @@ import { pageWith } from 'page-with'
 import { createServer, ServerApi } from '@open-draft/test-server'
 import { RequestHandler } from 'express-serve-static-core'
 import { createBrowserXMLHttpRequest } from '../../../helpers'
+import { IsomorphicRequest, IsomorphicResponse } from '../../../../src'
+import { anyUuid, headersContaining } from '../../../jest.expect'
 
 let httpServer: ServerApi
 
@@ -42,15 +44,22 @@ test('intercepts an HTTP GET request', async () => {
     },
   })
 
-  expect(request.method).toEqual('GET')
-  expect(request.url.href).toEqual(url)
-  expect(request.headers.get('x-request-header')).toEqual('yes')
-  expect(request.credentials).toEqual('omit')
-  expect(request.body).toEqual('')
-
-  expect(response.status).toEqual(200)
-  expect(response.statusText).toEqual('OK')
-  expect(response.body).toEqual('user-body')
+  expect(request).toEqual<IsomorphicRequest>({
+    id: anyUuid(),
+    method: 'GET',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-request-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: '',
+  })
+  expect(response).toEqual<IsomorphicResponse>({
+    status: 200,
+    statusText: 'OK',
+    headers: headersContaining({}),
+    body: 'user-body',
+  })
 })
 
 test('intercepts an HTTP POST request', async () => {
@@ -61,20 +70,26 @@ test('intercepts an HTTP POST request', async () => {
     method: 'POST',
     url,
     headers: {
+      'content-type': 'application/json',
       'x-request-header': 'yes',
     },
     body: JSON.stringify({ user: 'john' }),
   })
 
-  expect(request.method).toEqual('POST')
-  expect(request.url.href).toEqual(url)
-  expect(request.headers.get('x-request-header')).toEqual('yes')
-  expect(request.credentials).toEqual('omit')
-  expect(request.body).toEqual(JSON.stringify({ user: 'john' }))
-
-  expect(response.status).toEqual(200)
-  expect(response.statusText).toEqual('OK')
-  expect(response.body).toEqual('user-body')
+  expect(request).toEqual<IsomorphicRequest>({
+    id: anyUuid(),
+    method: 'POST',
+    url: new URL(url),
+    headers: headersContaining({}),
+    credentials: 'omit',
+    body: JSON.stringify({ user: 'john' }),
+  })
+  expect(response).toEqual<IsomorphicResponse>({
+    status: 200,
+    statusText: 'OK',
+    headers: headersContaining({}),
+    body: 'user-body',
+  })
 })
 
 test('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {
@@ -87,7 +102,9 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
     withCredentials: true,
   })
 
-  expect(request.credentials).toEqual('include')
+  expect(request).toMatchObject<Partial<IsomorphicRequest>>({
+    credentials: 'include',
+  })
 })
 
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is false', async () => {
@@ -100,7 +117,9 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
     withCredentials: false,
   })
 
-  expect(request.credentials).toEqual('omit')
+  expect(request).toMatchObject<Partial<IsomorphicRequest>>({
+    credentials: 'omit',
+  })
 })
 
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is not set', async () => {
@@ -112,5 +131,7 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
     url,
   })
 
-  expect(request.credentials).toEqual('omit')
+  expect(request).toMatchObject<Partial<IsomorphicRequest>>({
+    credentials: 'omit',
+  })
 })

@@ -44,5 +44,6 @@ test('calls the "load" event attached via "addEventListener" with a mocked respo
       expect(headers).toContain('x-header: yes')
       expect(responseText).toBe(`{"mocked":true}`)
     })
+    req.send()
   })
 })

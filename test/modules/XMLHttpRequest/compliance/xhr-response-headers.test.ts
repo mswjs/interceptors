@@ -49,6 +49,7 @@ afterAll(async () => {
 test('retrieves the mocked response headers when called ".getAllResponseHeaders()"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/?mock=true')
+    req.send()
   })
 
   const responseHeaders = req.getAllResponseHeaders()
@@ -60,6 +61,7 @@ test('returns the bypass response headers when called ".getAllResponseHeaders()"
     // Perform a HEAD request so that the response has no "Content-Type" header
     // always appended by Express.
     req.open('HEAD', httpServer.http.makeUrl('/'))
+    req.send()
   })
 
   const responseHeaders = req.getAllResponseHeaders()

@@ -3,19 +3,17 @@
  */
 import * as http from 'http'
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { IsomorphicRequest } from '../../../../src/createInterceptor'
+import { createInterceptor, Resolver } from '../../../../src'
 import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
-import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
+import { anyUuid, headersContaining } from '../../../jest.expect'
+import { waitForClientRequest } from '../../../helpers'
 
-let requests: IsomorphicRequest[] = []
 let httpServer: ServerApi
 
+const resolver = jest.fn<ReturnType<Resolver>, Parameters<Resolver>>()
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(request) {
-    requests.push(request)
-  },
+  resolver,
 })
 
 beforeAll(async () => {
@@ -29,7 +27,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  requests = []
+  jest.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -37,64 +35,53 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('intercepts an http.get request', (done) => {
+test('intercepts an http.get request', async () => {
   const url = httpServer.http.makeUrl('/user?id=123')
-  http.get(
-    url,
-    {
-      headers: {
-        'x-custom-header': 'yes',
-      },
+  const req = http.get(url, {
+    headers: {
+      'x-custom-header': 'yes',
     },
-    async (response) => {
-      expect(requests).toHaveLength(1)
+  })
+  const { text } = await waitForClientRequest(req)
 
-      const [request] = requests
-      expect(request).toHaveProperty('method', 'GET')
-      expect(request.url).toBeInstanceOf(URL)
-      expect(request.url.href).toEqual(url)
-      expect(request.url.searchParams.get('id')).toEqual('123')
-      expect(request.headers.get('x-custom-header')).toEqual('yes')
-
-      const responseBody = await getIncomingMessageBody(response)
-      expect(responseBody).toEqual('user-body')
-
-      done()
-    }
+  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: '',
+    },
+    expect.any(http.IncomingMessage)
   )
+  expect(await text()).toEqual('user-body')
 })
 
-test('intercepts an http.get request given RequestOptions without a protocol', (done) => {
+test('intercepts an http.get request given RequestOptions without a protocol', async () => {
   // Create a request with `RequestOptions` without an explicit "protocol".
   // Since request is done via `http.get`, the "http:" protocol must be inferred.
-  http.get(
-    {
-      host: httpServer.http.getAddress().host,
-      port: httpServer.http.getAddress().port,
-      path: '/user?id=123',
-    },
-    async (response) => {
-      expect(requests).toHaveLength(1)
-
-      const [request] = requests
-      expect(request).toHaveProperty('method', 'GET')
-      expect(request.url).toBeInstanceOf(URL)
-      expect(request.url.href).toEqual(httpServer.http.makeUrl('/user?id=123'))
-      expect(request.url.searchParams.get('id')).toEqual('123')
-
-      const responseBody = await getIncomingMessageBody(response)
-      expect(responseBody).toEqual('user-body')
-
-      done()
-    }
-  )
-})
-
-test('sets "credentials" to "omit" on the isomorphic request', (done) => {
-  http.get(httpServer.http.makeUrl('/user'), () => {
-    const [request] = requests
-    expect(request.credentials).toEqual('omit')
-
-    done()
+  const req = http.get({
+    host: httpServer.http.getAddress().host,
+    port: httpServer.http.getAddress().port,
+    path: '/user?id=123',
   })
+  const { text } = await waitForClientRequest(req)
+
+  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(httpServer.http.makeUrl('/user?id=123')),
+      headers: headersContaining({}),
+      credentials: 'omit',
+      body: '',
+    },
+    expect.anything()
+  )
+  expect(await text()).toEqual('user-body')
 })

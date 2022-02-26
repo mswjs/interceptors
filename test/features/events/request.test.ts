@@ -3,21 +3,28 @@
  */
 import * as http from 'http'
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { createInterceptor, IsomorphicRequest } from '../../../src'
+import {
+  createInterceptor,
+  InterceptorEventsMap,
+  IsomorphicRequest,
+} from '../../../src'
 import { interceptXMLHttpRequest } from '../../../src/interceptors/XMLHttpRequest'
 import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
-import { createXMLHttpRequest, httpRequest } from '../../helpers'
+import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
+import { anyUuid, headersContaining } from '../../jest.expect'
 
-let requests: IsomorphicRequest[] = []
 let httpServer: ServerApi
+
 const interceptor = createInterceptor({
   modules: [interceptClientRequest, interceptXMLHttpRequest],
   resolver() {},
 })
 
-interceptor.on('request', (request) => {
-  requests.push(request)
-})
+const requestListener = jest.fn<
+  ReturnType<InterceptorEventsMap['request']>,
+  Parameters<InterceptorEventsMap['request']>
+>()
+interceptor.on('request', requestListener)
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
@@ -30,7 +37,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  requests = []
+  jest.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -38,35 +45,37 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('ClientRequest: emits the "request" event upon the request', (done) => {
-  const request = http.request(
-    httpServer.http.makeUrl('/user'),
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+test('ClientRequest: emits the "request" event upon the request', async () => {
+  const url = httpServer.http.makeUrl('/user')
+  const req = http.request(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
-    () => {
-      expect(requests).toHaveLength(1)
-      const [request] = requests
+  })
+  req.write(JSON.stringify({ userId: 'abc-123' }))
+  req.end()
+  await waitForClientRequest(req)
 
-      expect(request.method).toEqual('POST')
-      expect(request.url.href).toEqual(httpServer.http.makeUrl('/user'))
-      expect(request.headers.get('content-type')).toEqual('application/json')
-      expect(request.body).toEqual(JSON.stringify({ userId: 'abc-123' }))
-      done()
-    }
-  )
-  request.write(JSON.stringify({ userId: 'abc-123' }))
-  request.end()
+  expect(requestListener).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledWith<[IsomorphicRequest]>({
+    id: anyUuid(),
+    method: 'POST',
+    url: new URL(url),
+    headers: headersContaining({
+      'content-type': 'application/json',
+    }),
+    credentials: expect.anything(),
+    body: JSON.stringify({ userId: 'abc-123' }),
+  })
 })
 
 test('XMLHttpRequest: emits the "request" event upon the request', async () => {
-  await createXMLHttpRequest((request) => {
-    request.open('POST', httpServer.http.makeUrl('/user'))
-    request.setRequestHeader('Content-Type', 'application/json')
-    request.send(JSON.stringify({ userId: 'abc-123' }))
+  const url = httpServer.http.makeUrl('/user')
+  await createXMLHttpRequest((req) => {
+    req.open('POST', url)
+    req.setRequestHeader('Content-Type', 'application/json')
+    req.send(JSON.stringify({ userId: 'abc-123' }))
   })
 
   /**
@@ -75,15 +84,15 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
    * emitting the "request" event.
    * @see https://github.com/mswjs/interceptors/issues/163
    */
-  expect(requests).toHaveLength(4)
-
-  const [request] = requests
-  expect(request.method).toEqual('POST')
-  expect(request.url.href).toEqual(httpServer.http.makeUrl('/user'))
-  expect(request.headers.get('content-type')).toEqual('application/json')
-  expect(request.body).toEqual(
-    JSON.stringify({
-      userId: 'abc-123',
-    })
-  )
+  expect(requestListener).toHaveBeenCalledTimes(2)
+  expect(requestListener).toHaveBeenCalledWith<[IsomorphicRequest]>({
+    id: anyUuid(),
+    method: 'POST',
+    url: new URL(url),
+    headers: headersContaining({
+      'content-type': 'application/json',
+    }),
+    credentials: 'omit',
+    body: JSON.stringify({ userId: 'abc-123' }),
+  })
 })

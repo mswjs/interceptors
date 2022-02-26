@@ -1,20 +1,21 @@
 /**
  * @jest-environment node
  */
+import * as http from 'http'
 import * as https from 'https'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { createInterceptor } from '../../../../src'
-import { IsomorphicRequest } from '../../../../src/createInterceptor'
+import { Resolver } from '../../../../src/createInterceptor'
 import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { anyUuid, headersContaining } from '../../../jest.expect'
+import { waitForClientRequest } from '../../../helpers'
 
-let requests: IsomorphicRequest[] = []
 let httpServer: ServerApi
 
+const resolver = jest.fn<ReturnType<Resolver>, Parameters<Resolver>>()
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(request) {
-    requests.push(request)
-  },
+  resolver,
 })
 
 beforeAll(async () => {
@@ -28,7 +29,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  requests = []
+  jest.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -36,61 +37,54 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('intercepts a GET request', (done) => {
+test('intercepts a GET request', async () => {
   const url = httpServer.https.makeUrl('/user?id=123')
-  https.get(
-    url,
-    {
-      agent: httpsAgent,
-      headers: {
-        'x-custom-header': 'yes',
-      },
+  const req = https.get(url, {
+    agent: httpsAgent,
+    headers: {
+      'x-custom-header': 'yes',
     },
-    () => {
-      expect(requests).toHaveLength(1)
+  })
+  await waitForClientRequest(req)
 
-      const [request] = requests
-      expect(request.method).toEqual('GET')
-      expect(request.url).toBeInstanceOf(URL)
-      expect(request.url.href).toEqual(url)
-      expect(request.url.searchParams.get('id')).toEqual('123')
-      expect(request.headers.get('x-custom-header')).toEqual('yes')
-
-      done()
-    }
+  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: '',
+    },
+    expect.any(http.IncomingMessage)
   )
 })
 
-test('intercepts an https.get request given RequestOptions without a protocol', (done) => {
+test('intercepts an https.get request given RequestOptions without a protocol', async () => {
   // Pass a RequestOptions object without an explicit `protocol`.
   // The request is made via `https` so the `https:` protocol must be inferred.
-  https.get(
-    {
-      host: httpServer.https.getAddress().host,
-      port: httpServer.https.getAddress().port,
-      path: '/user?id=123',
-      // Suppress the "certificate has expired" error.
-      rejectUnauthorized: false,
-    },
-    () => {
-      expect(requests).toHaveLength(1)
-
-      const [request] = requests
-      expect(request.method).toEqual('GET')
-      expect(request.url).toBeInstanceOf(URL)
-      expect(request.url.href).toEqual(httpServer.https.makeUrl('/user?id=123'))
-      expect(request.url.searchParams.get('id')).toEqual('123')
-
-      done()
-    }
-  )
-})
-
-test('sets "credentials" to "omit" on the isomorphic request', (done) => {
-  https.get(httpServer.http.makeUrl('/user'), () => {
-    const [request] = requests
-    expect(request.credentials).toEqual('omit')
-
-    done()
+  const req = https.get({
+    host: httpServer.https.getAddress().host,
+    port: httpServer.https.getAddress().port,
+    path: '/user?id=123',
+    // Suppress the "certificate has expired" error.
+    rejectUnauthorized: false,
   })
+  await waitForClientRequest(req)
+
+  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      headers: headersContaining({}),
+      credentials: 'omit',
+      body: '',
+    },
+    expect.any(http.IncomingMessage)
+  )
 })
