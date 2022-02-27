@@ -12,6 +12,7 @@ test('clones a given IncomingMessage', () => {
   expect(clone.statusCode).toEqual(200)
   expect(clone.statusMessage).toEqual('OK')
   expect(clone.headers).toHaveProperty('x-powered-by', 'msw')
+  expect(clone).toBeInstanceOf(IncomingMessage);
 
   // Cloned IncomingMessage must be marked respectively.
   expect(clone[IS_CLONE]).toEqual(true)

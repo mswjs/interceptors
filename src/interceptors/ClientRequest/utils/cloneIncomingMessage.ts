@@ -13,13 +13,10 @@ export function cloneIncomingMessage(
   const stream = message.pipe(new PassThrough());
   mixin(stream, message);
 
-  const prototype = {};
+  const prototype = Object.create(IncomingMessage.prototype);
   getPrototypes(stream).forEach(p => {
     mixin(prototype, p);
   });
-  getPrototypes(message).forEach(p => {
-    mixin(prototype, p);
-  })
   Object.setPrototypeOf(stream, prototype);
 
   Object.defineProperty(stream, IS_CLONE, {
