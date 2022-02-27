@@ -65,7 +65,7 @@
     "@open-draft/until": "^1.0.3",
     "@xmldom/xmldom": "^0.7.5",
     "debug": "^4.3.3",
-    "headers-polyfill": "^3.0.3",
+    "headers-polyfill": "^3.0.4",
     "outvariant": "^1.2.1",
     "strict-event-emitter": "^0.2.0"
   },
