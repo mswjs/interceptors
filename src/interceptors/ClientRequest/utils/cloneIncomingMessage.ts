@@ -18,7 +18,6 @@ export function cloneIncomingMessage(
     mixin(prototype, p);
   });
   Object.setPrototypeOf(stream, prototype);
-
   Object.defineProperty(stream, IS_CLONE, {
     enumerable: true,
     value: true,
@@ -26,7 +25,7 @@ export function cloneIncomingMessage(
   return stream as unknown as ClonedIncomingMessage
 }
 
-function getPrototypes<T extends object>(target: T) {
+function getPrototypes(target: object) {
   const prototypes = [];
   let current = target;
   while (current = Object.getPrototypeOf(current)) {
@@ -35,11 +34,11 @@ function getPrototypes<T extends object>(target: T) {
   return prototypes;
 }
 
-function mixin<T extends object, U extends object>(target: T, source: U) {
+function mixin(target: object, source: object) {
   const properties = [
     ...Object.getOwnPropertyNames(source),
     ...Object.getOwnPropertySymbols(source),
-  ] as Array<keyof U>;
+  ] as Array<keyof typeof source>;
   for (const property of properties) {
     if (target.hasOwnProperty(property)) {
       continue
