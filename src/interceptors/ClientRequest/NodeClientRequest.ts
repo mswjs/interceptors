@@ -105,7 +105,7 @@ export class NodeClientRequest extends ClientRequest {
     return true
   }
 
-  async end(...args: any): Promise<void> {
+  end(...args: any): this {
     this.log('end', args)
 
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
@@ -116,101 +116,106 @@ export class NodeClientRequest extends ClientRequest {
     this.observer.emit('request', isomorphicRequest)
 
     this.log('executing response resolver...')
-    const [resolverError, mockedResponse] = await until(async () =>
-      this.resolver(isomorphicRequest, this.response)
-    )
 
-    // Halt the request whenever the resolver throws an exception.
-    if (resolverError) {
-      this.log(
-        'encountered resolver exception, aborting request...',
-        resolverError
-      )
-      this.emit('error', resolverError)
-      this.terminate()
+    // Execute the resolver Promise like a side-effect.
+    // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
+    until(async () => this.resolver(isomorphicRequest, this.response)).then(
+      ([resolverException, mockedResponse]) => {
+        // Halt the request whenever the resolver throws an exception.
+        if (resolverException) {
+          this.log(
+            'encountered resolver exception, aborting request...',
+            resolverException
+          )
+          this.emit('error', resolverException)
+          this.terminate()
 
-      return
-    }
+          return this
+        }
 
-    if (mockedResponse) {
-      this.log('received mocked response:', mockedResponse)
-      this.responseSource = 'mock'
+        if (mockedResponse) {
+          this.log('received mocked response:', mockedResponse)
+          this.responseSource = 'mock'
 
-      const isomorphicResponse = toIsoResponse(mockedResponse)
-      this.respondWith(mockedResponse)
-      this.log(
-        isomorphicResponse.status,
-        isomorphicResponse.statusText,
-        isomorphicResponse.body,
-        '(MOCKED)'
-      )
+          const isomorphicResponse = toIsoResponse(mockedResponse)
+          this.respondWith(mockedResponse)
+          this.log(
+            isomorphicResponse.status,
+            isomorphicResponse.statusText,
+            isomorphicResponse.body,
+            '(MOCKED)'
+          )
 
-      callback?.()
-
-      this.log('emitting the custom "response" event...')
-      this.observer.emit('response', isomorphicRequest, isomorphicResponse)
-
-      return
-    }
-
-    this.log('no mocked response found!')
-
-    // Set the response source to "bypass".
-    // Any errors emitted past this point are not suppressed.
-    this.responseSource = 'bypass'
-
-    // Propagate previously captured errors.
-    // For example, a ECONNREFUSED error when connecting to a non-existing host.
-    if (this.capturedError) {
-      this.emit('error', this.capturedError)
-      return
-    }
-
-    // Write the request body chunks in the order of ".write()" calls.
-    // Note that no request body has been written prior to this point
-    // in order to prevent the Socket to communicate with a potentially
-    // existing server.
-    this.log('writing request chunks...', this.chunks)
-    for (const { chunk, encoding, callback } of this.chunks) {
-      encoding
-        ? super.write(chunk, encoding, callback)
-        : super.write(chunk, callback)
-    }
-
-    this.once('error', (error) => {
-      this.log('original request error:', error)
-    })
-
-    this.once('abort', () => {
-      this.log('original request aborted!')
-    })
-
-    this.once('response-internal', async (response: IncomingMessage) => {
-      const responseBody = await getIncomingMessageBody(response)
-      this.log(response.statusCode, response.statusMessage, responseBody)
-      this.log('original response headers:', response.headers)
-
-      this.log('emitting the custom "response" event...')
-      this.observer.emit('response', isomorphicRequest, {
-        status: response.statusCode || 200,
-        statusText: response.statusMessage || 'OK',
-        headers: objectToHeaders(response.headers),
-        body: responseBody,
-      })
-    })
-
-    this.log('performing original request...')
-
-    return super.end(
-      ...[
-        chunk,
-        encoding as any,
-        () => {
-          this.log('original request end!')
           callback?.()
-        },
-      ].filter(Boolean)
+
+          this.log('emitting the custom "response" event...')
+          this.observer.emit('response', isomorphicRequest, isomorphicResponse)
+
+          return this
+        }
+
+        this.log('no mocked response found!')
+
+        // Set the response source to "bypass".
+        // Any errors emitted past this point are not suppressed.
+        this.responseSource = 'bypass'
+
+        // Propagate previously captured errors.
+        // For example, a ECONNREFUSED error when connecting to a non-existing host.
+        if (this.capturedError) {
+          this.emit('error', this.capturedError)
+          return this
+        }
+
+        // Write the request body chunks in the order of ".write()" calls.
+        // Note that no request body has been written prior to this point
+        // in order to prevent the Socket to communicate with a potentially
+        // existing server.
+        this.log('writing request chunks...', this.chunks)
+        for (const { chunk, encoding, callback } of this.chunks) {
+          encoding
+            ? super.write(chunk, encoding, callback)
+            : super.write(chunk, callback)
+        }
+
+        this.once('error', (error) => {
+          this.log('original request error:', error)
+        })
+
+        this.once('abort', () => {
+          this.log('original request aborted!')
+        })
+
+        this.once('response-internal', async (response: IncomingMessage) => {
+          const responseBody = await getIncomingMessageBody(response)
+          this.log(response.statusCode, response.statusMessage, responseBody)
+          this.log('original response headers:', response.headers)
+
+          this.log('emitting the custom "response" event...')
+          this.observer.emit('response', isomorphicRequest, {
+            status: response.statusCode || 200,
+            statusText: response.statusMessage || 'OK',
+            headers: objectToHeaders(response.headers),
+            body: responseBody,
+          })
+        })
+
+        this.log('performing original request...')
+
+        return super.end(
+          ...[
+            chunk,
+            encoding as any,
+            () => {
+              this.log('original request end!')
+              callback?.()
+            },
+          ].filter(Boolean)
+        )
+      }
     )
+
+    return this
   }
 
   emit(event: string, ...data: any[]) {

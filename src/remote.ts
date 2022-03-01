@@ -1,4 +1,4 @@
-import { ChildProcess, Serializable } from 'child_process'
+import { ChildProcess } from 'child_process'
 import { Headers } from 'headers-polyfill'
 import { invariant } from 'outvariant'
 import { StrictEventEmitter } from 'strict-event-emitter'
@@ -11,8 +11,6 @@ import {
   Resolver,
 } from './createInterceptor'
 import { toIsoResponse } from './utils/toIsoResponse'
-
-type ProcessEventListener = (message: Serializable, ...args: any[]) => void
 
 export type CreateRemoteInterceptorOptions = Omit<
   InterceptorOptions,
@@ -64,7 +62,7 @@ spawn('node', ['module.js'], { stdio: ['ipc'] })\
     )
   }
 
-  let handleParentMessage: ProcessEventListener
+  let handleParentMessage: NodeJS.MessageListener
 
   const interceptor = createInterceptor({
     ...options,
@@ -73,7 +71,7 @@ spawn('node', ['module.js'], { stdio: ['ipc'] })\
       process.send?.(`request:${serializedRequest}`)
 
       return new Promise((resolve) => {
-        handleParentMessage = (message: Serializable) => {
+        handleParentMessage = (message) => {
           if (typeof message !== 'string') {
             return
           }
@@ -115,7 +113,7 @@ export function createRemoteResolver(
 ): RemoteResolverApi {
   const observer = new StrictEventEmitter<InterceptorEventsMap>()
 
-  const handleChildMessage: ProcessEventListener = async (message) => {
+  const handleChildMessage: NodeJS.MessageListener = async (message) => {
     if (typeof message !== 'string') {
       return
     }
