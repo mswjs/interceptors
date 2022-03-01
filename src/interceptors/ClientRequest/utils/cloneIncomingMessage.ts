@@ -7,6 +7,9 @@ export interface ClonedIncomingMessage extends IncomingMessage {
   [IS_CLONE]: boolean
 }
 
+/**
+ * Clones a given `http.IncomingMessage` instance.
+ */
 export function cloneIncomingMessage(
   message: IncomingMessage
 ): ClonedIncomingMessage {
@@ -30,6 +33,9 @@ export function cloneIncomingMessage(
   return clone as unknown as ClonedIncomingMessage
 }
 
+/**
+ * Returns a list of all prototypes the given object extends.
+ */
 function getPrototypes(source: object): object[] {
   const prototypes: object[] = []
   let current = source
@@ -41,6 +47,12 @@ function getPrototypes(source: object): object[] {
   return prototypes
 }
 
+/**
+ * Inherits a given target object properties and symbols
+ * onto the given source object.
+ * @param source Object which should acquire properties.
+ * @param target Object to inherit the properties from.
+ */
 function inheritProperties(source: object, target: object): void {
   const properties = [
     ...Object.getOwnPropertyNames(source),
