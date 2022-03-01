@@ -19,7 +19,7 @@
     "clean": "rimraf lib",
     "build": "yarn clean && tsc --build",
     "prepare": "yarn simple-git-hooks init",
-    "prepublishOnly": "yarn test:internal && yarn build && yarn test:integration"
+    "prepublishOnly": "yarn build"
   },
   "files": [
     "lib",

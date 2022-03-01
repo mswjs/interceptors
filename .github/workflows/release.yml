@@ -18,6 +18,12 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
 
+      - name: Build
+        run: yarn build
+
+      - name: Test
+        run: yarn test
+
       - name: Release
         uses: cycjimmy/semantic-release-action@v2
         env:
