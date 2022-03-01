@@ -10,42 +10,53 @@ export interface ClonedIncomingMessage extends IncomingMessage {
 export function cloneIncomingMessage(
   message: IncomingMessage
 ): ClonedIncomingMessage {
-  const stream = message.pipe(new PassThrough());
-  mixin(stream, message);
+  const clone = message.pipe(new PassThrough())
 
-  const prototype = Object.create(IncomingMessage.prototype);
-  getPrototypes(stream).forEach(p => {
-    mixin(prototype, p);
-  });
-  Object.setPrototypeOf(stream, prototype);
-  Object.defineProperty(stream, IS_CLONE, {
+  // Inherit all direct "IncomingMessage" properties.
+  inheritProperties(message, clone)
+
+  // Deeply inherit the message prototypes (Readable, Stream, EventEmitter, etc.).
+  const clonedPrototype = Object.create(IncomingMessage.prototype)
+  getPrototypes(clone).forEach((prototype) => {
+    inheritProperties(prototype, clonedPrototype)
+  })
+  Object.setPrototypeOf(clone, clonedPrototype)
+
+  Object.defineProperty(clone, IS_CLONE, {
     enumerable: true,
     value: true,
   })
-  return stream as unknown as ClonedIncomingMessage
+
+  return clone as unknown as ClonedIncomingMessage
 }
 
-function getPrototypes(target: object) {
-  const prototypes = [];
-  let current = target;
-  while (current = Object.getPrototypeOf(current)) {
-    prototypes.push(current);
+function getPrototypes(source: object): object[] {
+  const prototypes: object[] = []
+  let current = source
+
+  while ((current = Object.getPrototypeOf(current))) {
+    prototypes.push(current)
   }
-  return prototypes;
+
+  return prototypes
 }
 
-function mixin(target: object, source: object) {
+function inheritProperties(source: object, target: object): void {
   const properties = [
     ...Object.getOwnPropertyNames(source),
     ...Object.getOwnPropertySymbols(source),
-  ] as Array<keyof typeof source>;
+  ]
+
   for (const property of properties) {
     if (target.hasOwnProperty(property)) {
       continue
     }
-    const descriptor = Object.getOwnPropertyDescriptor(source, property);
-    Object.defineProperty(target, property, {
-      ...descriptor,
-    })
+
+    const descriptor = Object.getOwnPropertyDescriptor(source, property)
+    if (!descriptor) {
+      continue
+    }
+
+    Object.defineProperty(target, property, descriptor)
   }
 }
