@@ -18,7 +18,7 @@
     "test:integration:browser": "jest --c test/jest.browser.config.js",
     "clean": "rimraf lib",
     "build": "yarn clean && tsc --build",
-    "prepare": "yarn simple-git-hooks init",
+    "prepare": "yarn simple-git-hooks init --ignore-engines",
     "prepublishOnly": "yarn build"
   },
   "files": [
