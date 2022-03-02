@@ -18,8 +18,9 @@
     "test:integration:browser": "jest --c test/jest.browser.config.js",
     "clean": "rimraf lib",
     "build": "yarn clean && tsc --build",
-    "prepare": "yarn simple-git-hooks init --ignore-engines",
-    "prepublishOnly": "yarn build"
+    "prepare": "yarn simple-git-hooks init",
+    "release": "semantic-release",
+    "prepublishOnly": "yarn build && yarn test"
   },
   "files": [
     "lib",
@@ -54,6 +55,7 @@
     "node-fetch": "2.6.7",
     "page-with": "^0.5.1",
     "rimraf": "^3.0.2",
+    "semantic-release": "^19.0.2",
     "simple-git-hooks": "^2.7.0",
     "superagent": "^6.1.0",
     "supertest": "^6.1.6",
