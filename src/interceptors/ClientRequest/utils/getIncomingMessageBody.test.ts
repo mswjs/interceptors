@@ -47,7 +47,7 @@ test('returns empty string given an empty body', async () => {
   const message = new IncomingMessage(new Socket())
 
   const pendingResponseBody = getIncomingMessageBody(message)
-  message.emit('end');
+  message.emit('end')
 
-  expect(await pendingResponseBody).toEqual("")
+  expect(await pendingResponseBody).toEqual('')
 })
