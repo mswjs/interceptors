@@ -27,7 +27,7 @@ export function getIncomingMessageBody(
 
     let body = '';
 
-    stream.once('data', (responseBody) => {
+    stream.on('data', (responseBody) => {
       log('response body read:', responseBody)
       body += responseBody;
     })
