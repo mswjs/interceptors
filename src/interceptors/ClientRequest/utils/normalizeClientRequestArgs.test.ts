@@ -1,5 +1,6 @@
 import { parse } from 'url'
-import { Agent as HttpsAgent } from 'https'
+import { globalAgent as httpGlobalAgent, RequestOptions } from 'http'
+import { Agent as HttpsAgent, globalAgent as httpsGlobalAgent } from 'https'
 import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions'
 import { normalizeClientRequestArgs } from './normalizeClientRequestArgs'
 
@@ -192,8 +193,9 @@ test('handles [URL, RequestOptions, callback] input', () => {
   expect(url.href).toEqual('https://mswjs.io/resource')
 
   // Options must be preserved.
-  expect(options).toEqual({
+  expect(options).toEqual<RequestOptions>({
     agent: false,
+    _defaultAgent: httpsGlobalAgent,
     protocol: url.protocol,
     method: 'GET',
     headers: {
@@ -294,12 +296,11 @@ test('sets fallback Agent based on the URL protocol', () => {
     'https:',
     'https://github.com'
   )
+  const agent = options.agent as HttpsAgent
 
-  expect(options.agent).toBeInstanceOf(HttpsAgent)
-  expect(
-    // @ts-expect-error Protocol is an internal property.
-    options.agent.protocol
-  ).toEqual(url.protocol)
+  expect(agent).toBeInstanceOf(HttpsAgent)
+  expect(agent).toHaveProperty('defaultPort', 443)
+  expect(agent).toHaveProperty('protocol', url.protocol)
 })
 
 test('does not set any fallback Agent given "agent: false" option', () => {
@@ -310,6 +311,41 @@ test('does not set any fallback Agent given "agent: false" option', () => {
   )
 
   expect(options.agent).toEqual(false)
+})
+
+test('sets the default Agent for HTTP request', () => {
+  const [, options] = normalizeClientRequestArgs(
+    'http:',
+    'http://github.com',
+    {}
+  )
+
+  expect(options._defaultAgent).toEqual(httpGlobalAgent)
+})
+
+test('sets the default Agent for HTTPS request', () => {
+  const [, options] = normalizeClientRequestArgs(
+    'https:',
+    'https://github.com',
+    {}
+  )
+
+  expect(options._defaultAgent).toEqual(httpsGlobalAgent)
+})
+
+test('preserves a custom default Agent when set', () => {
+  const [, options] = normalizeClientRequestArgs(
+    'https:',
+    'https://github.com',
+    {
+      /**
+       * @note Intentionally incorrect Agent for HTTPS request.
+       */
+      _defaultAgent: httpGlobalAgent,
+    }
+  )
+
+  expect(options._defaultAgent).toEqual(httpGlobalAgent)
 })
 
 test('merges URL-based RequestOptions with the custom RequestOptions', () => {
