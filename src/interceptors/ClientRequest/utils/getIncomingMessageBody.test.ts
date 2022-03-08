@@ -42,3 +42,12 @@ test('returns utf8 string given a gzipped response body with incorrect "content-
 
   expect(await pendingResponseBody).toEqual('three')
 })
+
+test('returns empty string given an empty body', async () => {
+  const message = new IncomingMessage(new Socket())
+
+  const pendingResponseBody = getIncomingMessageBody(message)
+  message.emit('end');
+
+  expect(await pendingResponseBody).toEqual("")
+})

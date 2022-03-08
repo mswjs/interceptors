@@ -25,9 +25,16 @@ export function getIncomingMessageBody(
     stream.setEncoding(encoding)
     log('using encoding:', encoding)
 
+    let body = '';
+
     stream.once('data', (responseBody) => {
       log('response body read:', responseBody)
-      resolve(responseBody)
+      body += responseBody;
+    })
+
+    stream.once('end', () => {
+      log('response body end');
+      resolve(body);
     })
 
     stream.once('error', (error) => {
