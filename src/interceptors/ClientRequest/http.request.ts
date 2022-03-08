@@ -15,7 +15,7 @@ export function request(
   observer: Observer
 ) {
   return (...args: ClientRequestArgs): ClientRequest => {
-    log('intercepted request:', args)
+    log('request call (protocol "%s"):', protocol, args)
 
     const clientRequestArgs = normalizeClientRequestArgs(
       `${protocol}:`,
