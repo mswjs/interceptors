@@ -92,7 +92,7 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
     headers: headersContaining({
       'content-type': 'application/json',
     }),
-    credentials: 'omit',
+    credentials: 'same-origin',
     body: JSON.stringify({ userId: 'abc-123' }),
   })
 })

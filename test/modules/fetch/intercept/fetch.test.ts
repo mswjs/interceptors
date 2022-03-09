@@ -60,7 +60,7 @@ test('intercepts an HTTP HEAD request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
@@ -83,7 +83,7 @@ test('intercepts an HTTP GET request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
@@ -109,7 +109,7 @@ test('intercepts an HTTP POST request', async () => {
         accept: '*/*',
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: JSON.stringify({ body: true }),
     },
     expect.any(http.IncomingMessage)
@@ -134,7 +134,7 @@ test('intercepts an HTTP PUT request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: 'request-payload',
     },
     expect.any(http.IncomingMessage)
@@ -158,7 +158,7 @@ test('intercepts an HTTP DELETE request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
@@ -183,7 +183,7 @@ test('intercepts an HTTP PATCH request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: 'request-payload',
     },
     expect.any(http.IncomingMessage)
@@ -208,7 +208,7 @@ test('intercepts an HTTPS HEAD request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
@@ -232,7 +232,7 @@ test('intercepts an HTTPS GET request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
@@ -258,7 +258,7 @@ test('intercepts an HTTPS POST request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: JSON.stringify({ body: true }),
     },
     expect.any(http.IncomingMessage)
@@ -284,7 +284,7 @@ test('intercepts an HTTPS PUT request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: 'request-payload',
     },
     expect.any(http.IncomingMessage)
@@ -309,7 +309,7 @@ test('intercepts an HTTPS DELETE request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
@@ -334,7 +334,7 @@ test('intercepts an HTTPS PATCH request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)

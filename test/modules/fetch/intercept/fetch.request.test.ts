@@ -62,7 +62,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
         'content-type': 'text/plain',
         'user-agent': 'interceptors',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: 'hello world',
     },
     expect.any(http.IncomingMessage)

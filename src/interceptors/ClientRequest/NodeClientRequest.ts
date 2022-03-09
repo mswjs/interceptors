@@ -373,7 +373,7 @@ export class NodeClientRequest extends ClientRequest {
       id: uuidv4(),
       url: this.url,
       method: this.options.method || 'GET',
-      credentials: 'omit',
+      credentials: 'same-origin',
       headers,
       body,
     }

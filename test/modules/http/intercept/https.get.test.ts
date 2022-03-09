@@ -56,7 +56,7 @@ test('intercepts a GET request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
@@ -82,7 +82,7 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
       method: 'GET',
       url: new URL(httpServer.https.makeUrl('/user?id=123')),
       headers: headersContaining({}),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)

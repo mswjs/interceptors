@@ -90,7 +90,7 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     {
@@ -129,7 +129,7 @@ test('ClientRequest: emits the "response" event upon the original response', asy
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: 'request-body',
     },
     {
@@ -204,7 +204,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: 'request-body',
     },
     {
@@ -239,7 +239,7 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     {
@@ -276,7 +276,7 @@ test('fetch: emits the "response" event upon the original response', async () =>
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: 'request-body',
     },
     {
