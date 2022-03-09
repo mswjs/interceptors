@@ -66,7 +66,7 @@ test('intercepts a HEAD request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
@@ -94,7 +94,7 @@ test('intercepts a GET request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
@@ -123,7 +123,7 @@ test('intercepts a POST request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: 'post-payload',
     },
     expect.any(http.IncomingMessage)
@@ -152,7 +152,7 @@ test('intercepts a PUT request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: 'put-payload',
     },
     expect.any(http.IncomingMessage)
@@ -181,7 +181,7 @@ test('intercepts a PATCH request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: 'patch-payload',
     },
     expect.any(http.IncomingMessage)
@@ -209,7 +209,7 @@ test('intercepts a DELETE request', async () => {
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
@@ -233,7 +233,7 @@ test('intercepts an http.request request given RequestOptions without a protocol
       method: 'GET',
       url: new URL(httpServer.https.makeUrl('/user?id=123')),
       headers: headersContaining({}),
-      credentials: 'omit',
+      credentials: 'same-origin',
       body: '',
     },
     expect.any(http.IncomingMessage)
