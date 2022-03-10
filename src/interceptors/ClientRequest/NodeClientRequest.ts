@@ -64,11 +64,6 @@ export class NodeClientRequest extends ClientRequest {
 
     this.log = debug(`http ${requestOptions.method} ${url.href}`)
 
-    this.log(
-      'constructing ClientRequest at:\n',
-      console.trace('Constructor call')
-    )
-
     this.log('constructing ClientRequest using options:', {
       url,
       requestOptions,
@@ -267,13 +262,7 @@ export class NodeClientRequest extends ClientRequest {
       const error = data[0] as NodeJS.ErrnoException
       const errorCode = error.code || ''
 
-      this.log(
-        'error:\n',
-        error,
-        '\n',
-        'Thrown at:\n',
-        console.trace(error.name)
-      )
+      this.log('error:\n', error)
 
       // Supress certain errors while using the "mock" source.
       // For example, no need to destroy this request if it connects
