@@ -63,7 +63,13 @@ export class NodeClientRequest extends ClientRequest {
     super(requestOptions, callback)
 
     this.log = debug(`http ${requestOptions.method} ${url.href}`)
-    this.log('constructing ClientRequest...', {
+
+    this.log(
+      'constructing ClientRequest at:\n',
+      console.trace('Constructor call')
+    )
+
+    this.log('constructing ClientRequest using options:', {
       url,
       requestOptions,
       callback,
@@ -86,18 +92,25 @@ export class NodeClientRequest extends ClientRequest {
       chunk,
       encoding,
       callback: (error?: Error | null) => {
+        this.log('executing custom callback...')
+
         if (error) {
           this.log('error while writing chunk!', error)
         } else {
           this.log('request chunk successfully written!')
         }
 
+        /**
+         * @todo Do not call callback if the `chunk` is empty.
+         * @see https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
+         */
+        this.log('executing custom write callback:', callback)
         callback?.(error)
       },
     })
 
-    this.log('chunk successfully stored!')
     this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
+    this.log('chunk successfully stored!', this.requestBody)
 
     // Do not write the request body chunks to prevent
     // the Socket from sending data to a potentially existing
@@ -121,6 +134,8 @@ export class NodeClientRequest extends ClientRequest {
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
     until(async () => this.resolver(isomorphicRequest, this.response)).then(
       ([resolverException, mockedResponse]) => {
+        this.log('resolver has finished')
+
         // Halt the request whenever the resolver throws an exception.
         if (resolverException) {
           this.log(
@@ -172,6 +187,7 @@ export class NodeClientRequest extends ClientRequest {
         // in order to prevent the Socket to communicate with a potentially
         // existing server.
         this.log('writing request chunks...', this.chunks)
+
         for (const { chunk, encoding, callback } of this.chunks) {
           encoding
             ? super.write(chunk, encoding, callback)
@@ -251,7 +267,13 @@ export class NodeClientRequest extends ClientRequest {
       const error = data[0] as NodeJS.ErrnoException
       const errorCode = error.code || ''
 
-      this.log('error:\n', error)
+      this.log(
+        'error:\n',
+        error,
+        '\n',
+        'Thrown at:\n',
+        console.trace(error.name)
+      )
 
       // Supress certain errors while using the "mock" source.
       // For example, no need to destroy this request if it connects
@@ -264,6 +286,7 @@ export class NodeClientRequest extends ClientRequest {
         // it later if this request won't have any mocked response.
         if (!this.capturedError) {
           this.capturedError = error
+          this.log('captured the first error:', this.capturedError)
         }
         return false
       }
