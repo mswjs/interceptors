@@ -188,10 +188,9 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   })
 
   /**
-   * @note In Node.js "XMLHttpRequest" is often polyfilled by "ClientRequest".
-   * This results in both "XMLHttpRequest" and "ClientRequest" interceptors
-   * emitting the "request" event.
-   * @see https://github.com/mswjs/interceptors/issues/163
+   * @note There are two requests that happen:
+   * - OPTIONS /account
+   * - POST /account
    */
   expect(responseListener).toHaveBeenCalledTimes(2)
   expect(responseListener).toHaveBeenCalledWith<
@@ -204,7 +203,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
-      credentials: 'same-origin',
+      credentials: 'omit',
       body: 'request-body',
     },
     {
