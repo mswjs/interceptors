@@ -8,6 +8,7 @@ import { createInterceptor } from '../../../../src'
 import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
 import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { NodeClientRequest } from '../../../../src/interceptors/ClientRequest/NodeClientRequest'
+import { waitForClientRequest } from '../../../helpers'
 
 let httpServer: ServerApi
 
@@ -110,4 +111,31 @@ test('writes Buffer request body', (done) => {
 
     done()
   })
+})
+
+test('does not call the write callback when writing an empty string', async () => {
+  const req = http.request(httpServer.http.makeUrl('/resource'), {
+    method: 'POST',
+  })
+
+  const writeCallback = jest.fn()
+  req.write('', writeCallback)
+  req.end()
+  await waitForClientRequest(req)
+
+  expect(writeCallback).not.toHaveBeenCalled()
+})
+
+test('does not call the write callback when writing an empty Buffer', async () => {
+  const req = http.request(httpServer.http.makeUrl('/resource'), {
+    method: 'POST',
+  })
+
+  const writeCallback = jest.fn()
+  req.write(Buffer.from(''), writeCallback)
+  req.end()
+
+  await waitForClientRequest(req)
+
+  expect(writeCallback).not.toHaveBeenCalled()
 })
