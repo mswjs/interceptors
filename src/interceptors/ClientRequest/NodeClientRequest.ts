@@ -96,9 +96,14 @@ export class NodeClientRequest extends ClientRequest {
         }
 
         /**
-         * @todo Do not call callback if the `chunk` is empty.
+         * Prevent invoking the callback if the written chunk is empty.
          * @see https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
          */
+        if (!chunk || chunk.length === 0) {
+          this.log('written chunk is empty, skipping callback...')
+          return
+        }
+
         this.log('executing custom write callback:', callback)
         callback?.(error)
       },
