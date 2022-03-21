@@ -7,15 +7,15 @@ import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
-  resolver() {
-    return {
+  resolver(event) {
+    event.respondWith({
       status: 401,
       statusText: 'Unathorized',
       // @ts-nocheck JavaScript clients and type-casting may
       // circument the mocked response body type signature,
       // setting in invalid value.
       body: null as any,
-    }
+    })
   },
 })
 

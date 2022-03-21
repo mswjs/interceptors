@@ -10,9 +10,9 @@ let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: nodeInterceptors,
-  resolver(request) {
-    if (request.url.pathname === '/user') {
-      return {
+  resolver(event) {
+    if (event.request.url.pathname === '/user') {
+      event.respondWith({
         status: 200,
         headers: {
           'content-type': 'application/json',
@@ -21,7 +21,7 @@ const interceptor = createInterceptor({
         body: JSON.stringify({
           mocked: true,
         }),
-      }
+      })
     }
   },
 })

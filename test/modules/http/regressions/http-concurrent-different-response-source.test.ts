@@ -10,18 +10,18 @@ let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  async resolver(request) {
+  async resolver(event) {
+    const { request } = event
+
     if (request.headers.get('x-bypass')) {
       return
     }
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          status: 201,
-          body: 'mocked-response',
-        })
-      }, 250)
+    await new Promise((resolve) => setTimeout(resolve, 250))
+
+    event.respondWith({
+      status: 201,
+      body: 'mocked-response',
     })
   },
 })

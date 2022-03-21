@@ -3,8 +3,8 @@ import { interceptFetch } from '@mswjs/interceptors/lib/interceptors/fetch'
 
 const interceptor = createInterceptor({
   modules: [interceptFetch],
-  resolver(request) {
-    window.requestBody = request.body
+  resolver(event) {
+    window.requestBody = event.request.body
   },
 })
 

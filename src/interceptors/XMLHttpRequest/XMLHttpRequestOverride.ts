@@ -16,6 +16,7 @@ import { toIsoResponse } from '../../utils/toIsoResponse'
 import { uuidv4 } from '../../utils/uuid'
 import { bufferFrom } from './utils/bufferFrom'
 import { createEvent } from './utils/createEvent'
+import { createResolverEvent } from '../../utils/createResolverEvent'
 
 const createDebug = require('debug')
 
@@ -251,154 +252,163 @@ export const createXMLHttpRequestOverride = (
 
       observer.emit('request', isoRequest)
 
-      debug('awaiting mocked response...')
+      const [resolverEvent, respondedWithCalled] = createResolverEvent({
+        source: 'http',
+        target: this,
+        request: isoRequest,
+      })
+      debug('created resolver event:', resolverEvent)
 
-      Promise.resolve(until(async () => resolver(isoRequest, this))).then(
-        ([middlewareException, mockedResponse]) => {
-          // When the request middleware throws an exception, error the request.
-          // This cancels the request and is similar to a network error.
-          if (middlewareException) {
-            debug(
-              'middleware function threw an exception!',
-              middlewareException
-            )
+      Promise.resolve(
+        until(async () => {
+          debug('calling the resolver...')
+          await resolver(resolverEvent)
 
-            // No way to propagate the actual error message.
-            this.trigger('error')
-            this.abort()
+          debug('awaiting the "event.respondWith()"...')
+          return respondedWithCalled()
+        })
+      ).then(([middlewareException, mockedResponse]) => {
+        // When the request middleware throws an exception, error the request.
+        // This cancels the request and is similar to a network error.
+        if (middlewareException) {
+          debug('middleware function threw an exception!', middlewareException)
 
-            return
+          // No way to propagate the actual error message.
+          this.trigger('error')
+          this.abort()
+
+          return
+        }
+
+        // Return a mocked response, if provided in the middleware.
+        if (mockedResponse) {
+          debug('received mocked response', mockedResponse)
+
+          // Trigger a loadstart event to indicate the initialization of the fetch.
+          this.trigger('loadstart')
+
+          this.status = mockedResponse.status || 200
+          this.statusText = mockedResponse.statusText || 'OK'
+          this._responseHeaders = mockedResponse.headers
+            ? objectToHeaders(mockedResponse.headers)
+            : new Headers()
+
+          debug('set response status', this.status, this.statusText)
+          debug('set response headers', this._responseHeaders)
+
+          // Mark that response headers has been received
+          // and trigger a ready state event to reflect received headers
+          // in a custom `onreadystatechange` callback.
+          this.setReadyState(this.HEADERS_RECEIVED)
+
+          debug('response type', this.responseType)
+          this.response = this.getResponseBody(mockedResponse.body)
+          this.responseText = mockedResponse.body || ''
+          this.responseXML = this.getResponseXML()
+
+          debug('set response body', this.response)
+
+          if (mockedResponse.body && this.response) {
+            this.setReadyState(this.LOADING)
+
+            // Presense of the mocked response implies a response body (not null).
+            // Presense of the coerced `this.response` implies the mocked body is valid.
+            const bodyBuffer = bufferFrom(mockedResponse.body)
+
+            // Trigger a progress event based on the mocked response body.
+            this.trigger('progress', {
+              loaded: bodyBuffer.length,
+              total: bodyBuffer.length,
+            })
           }
 
-          // Return a mocked response, if provided in the middleware.
-          if (mockedResponse) {
-            debug('received mocked response', mockedResponse)
+          /**
+           * Explicitly mark the request as done so its response never hangs.
+           * @see https://github.com/mswjs/interceptors/issues/13
+           */
+          this.setReadyState(this.DONE)
 
-            // Trigger a loadstart event to indicate the initialization of the fetch.
-            this.trigger('loadstart')
+          // Trigger a load event to indicate the fetch has succeeded.
+          this.trigger('load')
+          // Trigger a loadend event to indicate the fetch has completed.
+          this.trigger('loadend')
 
-            this.status = mockedResponse.status || 200
-            this.statusText = mockedResponse.statusText || 'OK'
-            this._responseHeaders = mockedResponse.headers
-              ? objectToHeaders(mockedResponse.headers)
-              : new Headers()
+          observer.emit('response', isoRequest, toIsoResponse(mockedResponse))
+        } else {
+          debug('no mocked response received!')
 
-            debug('set response status', this.status, this.statusText)
-            debug('set response headers', this._responseHeaders)
+          // Perform an original request, when the request middleware returned no mocked response.
+          const originalRequest = new pureXMLHttpRequest()
 
-            // Mark that response headers has been received
-            // and trigger a ready state event to reflect received headers
-            // in a custom `onreadystatechange` callback.
-            this.setReadyState(this.HEADERS_RECEIVED)
+          debug('opening an original request %s %s', this.method, this.url)
+          originalRequest.open(
+            this.method,
+            this.url,
+            this.async ?? true,
+            this.user,
+            this.password
+          )
 
-            debug('response type', this.responseType)
-            this.response = this.getResponseBody(mockedResponse.body)
-            this.responseText = mockedResponse.body || ''
-            this.responseXML = this.getResponseXML()
+          // Reflect a successful state of the original request
+          // on the patched instance.
+          originalRequest.addEventListener('load', () => {
+            debug('original "onload"')
 
-            debug('set response body', this.response)
+            this.status = originalRequest.status
+            this.statusText = originalRequest.statusText
+            this.responseURL = originalRequest.responseURL
+            this.responseType = originalRequest.responseType
+            this.response = originalRequest.response
+            this.responseText = originalRequest.responseText
+            this.responseXML = originalRequest.responseXML
 
-            if (mockedResponse.body && this.response) {
-              this.setReadyState(this.LOADING)
+            debug('set mock request readyState to DONE')
 
-              // Presense of the mocked response implies a response body (not null).
-              // Presense of the coerced `this.response` implies the mocked body is valid.
-              const bodyBuffer = bufferFrom(mockedResponse.body)
-
-              // Trigger a progress event based on the mocked response body.
-              this.trigger('progress', {
-                loaded: bodyBuffer.length,
-                total: bodyBuffer.length,
-              })
-            }
-
+            // Explicitly mark the mocked request instance as done
+            // so the response never hangs.
             /**
-             * Explicitly mark the request as done so its response never hangs.
-             * @see https://github.com/mswjs/interceptors/issues/13
+             * @note `readystatechange` listener is called TWICE
+             * in the case of unhandled request.
              */
             this.setReadyState(this.DONE)
 
-            // Trigger a load event to indicate the fetch has succeeded.
-            this.trigger('load')
-            // Trigger a loadend event to indicate the fetch has completed.
-            this.trigger('loadend')
+            debug('received original response', this.status, this.statusText)
+            debug('original response body:', this.response)
 
-            observer.emit('response', isoRequest, toIsoResponse(mockedResponse))
-          } else {
-            debug('no mocked response received!')
+            const responseHeaders = originalRequest.getAllResponseHeaders()
+            debug('original response headers:\n', responseHeaders)
 
-            // Perform an original request, when the request middleware returned no mocked response.
-            const originalRequest = new pureXMLHttpRequest()
-
-            debug('opening an original request %s %s', this.method, this.url)
-            originalRequest.open(
-              this.method,
-              this.url,
-              this.async ?? true,
-              this.user,
-              this.password
+            this._responseHeaders = stringToHeaders(responseHeaders)
+            debug(
+              'original response headers (normalized)',
+              this._responseHeaders
             )
 
-            // Reflect a successful state of the original request
-            // on the patched instance.
-            originalRequest.addEventListener('load', () => {
-              debug('original "onload"')
+            debug('original response finished')
 
-              this.status = originalRequest.status
-              this.statusText = originalRequest.statusText
-              this.responseURL = originalRequest.responseURL
-              this.responseType = originalRequest.responseType
-              this.response = originalRequest.response
-              this.responseText = originalRequest.responseText
-              this.responseXML = originalRequest.responseXML
-
-              debug('set mock request readyState to DONE')
-
-              // Explicitly mark the mocked request instance as done
-              // so the response never hangs.
-              /**
-               * @note `readystatechange` listener is called TWICE
-               * in the case of unhandled request.
-               */
-              this.setReadyState(this.DONE)
-
-              debug('received original response', this.status, this.statusText)
-              debug('original response body:', this.response)
-
-              const responseHeaders = originalRequest.getAllResponseHeaders()
-              debug('original response headers:\n', responseHeaders)
-
-              this._responseHeaders = stringToHeaders(responseHeaders)
-              debug(
-                'original response headers (normalized)',
-                this._responseHeaders
-              )
-
-              debug('original response finished')
-
-              observer.emit('response', isoRequest, {
-                status: originalRequest.status,
-                statusText: originalRequest.statusText,
-                headers: this._responseHeaders,
-                body: originalRequest.response,
-              })
+            observer.emit('response', isoRequest, {
+              status: originalRequest.status,
+              statusText: originalRequest.statusText,
+              headers: this._responseHeaders,
+              body: originalRequest.response,
             })
+          })
 
-            // Assign callbacks and event listeners from the intercepted XHR instance
-            // to the original XHR instance.
-            this.propagateCallbacks(originalRequest)
-            this.propagateListeners(originalRequest)
-            this.propagateHeaders(originalRequest, this._requestHeaders)
+          // Assign callbacks and event listeners from the intercepted XHR instance
+          // to the original XHR instance.
+          this.propagateCallbacks(originalRequest)
+          this.propagateListeners(originalRequest)
+          this.propagateHeaders(originalRequest, this._requestHeaders)
 
-            if (this.async) {
-              originalRequest.timeout = this.timeout
-            }
-
-            debug('send', this.data)
-            originalRequest.send(this.data)
+          if (this.async) {
+            debug('propagating the "timeout" value:', this.timeout)
+            originalRequest.timeout = this.timeout
           }
+
+          debug('send', this.data)
+          originalRequest.send(this.data)
         }
-      )
+      })
     }
 
     public abort() {

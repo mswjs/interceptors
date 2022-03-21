@@ -7,8 +7,8 @@ import { createXMLHttpRequest, readBlob } from '../../../helpers'
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
-  resolver() {
-    return {
+  resolver(event) {
+    event.respondWith({
       headers: {
         'Content-Type': 'application/json',
       },
@@ -16,7 +16,7 @@ const interceptor = createInterceptor({
         firstName: 'John',
         lastName: 'Maverick',
       }),
-    }
+    })
   },
 })
 

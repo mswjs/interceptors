@@ -10,17 +10,17 @@ let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
-  resolver(req) {
-    if (!req.url.searchParams.has('mock')) {
+  resolver(event) {
+    if (!event.request.url.searchParams.has('mock')) {
       return
     }
 
-    return {
+    event.respondWith({
       headers: {
         etag: '123',
         'x-response-type': 'mock',
       },
-    }
+    })
   },
 })
 

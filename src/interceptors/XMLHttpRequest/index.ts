@@ -11,7 +11,10 @@ const pureXMLHttpRequest =
 /**
  * Intercepts requests issued via `XMLHttpRequest`.
  */
-export const interceptXMLHttpRequest: Interceptor = (observer, resolver) => {
+export const interceptXMLHttpRequest: Interceptor<'http'> = (
+  observer,
+  resolver
+) => {
   if (pureXMLHttpRequest) {
     debug('patching "XMLHttpRequest" module...')
 

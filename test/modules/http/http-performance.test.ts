@@ -27,13 +27,16 @@ function parallelRequests(
 let httpServer: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(req) {
-    if (req.url.pathname.startsWith('/user')) {
-      const id = req.url.searchParams.get('id')
-      return {
+  resolver(event) {
+    const { request } = event
+
+    if (request.url.pathname.startsWith('/user')) {
+      const id = request.url.searchParams.get('id')
+
+      event.respondWith({
         status: 200,
         body: `mocked ${id}`,
-      }
+      })
     }
   },
 })

@@ -9,12 +9,13 @@ import {
   IsomorphicRequest,
   IsomorphicResponse,
 } from '../../createInterceptor'
+import { createResolverEvent } from '../../utils/createResolverEvent'
 import { toIsoResponse } from '../../utils/toIsoResponse'
 import { uuidv4 } from '../../utils/uuid'
 
 const debug = require('debug')('fetch')
 
-export const interceptFetch: Interceptor = (observer, resolver) => {
+export const interceptFetch: Interceptor<'http'> = (observer, resolver) => {
   const pureFetch = window.fetch
 
   debug('replacing "window.fetch"...')
@@ -26,7 +27,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
 
     debug('[%s] %s', method, url)
 
-    const isoRequest: IsomorphicRequest = {
+    const isomorphicRequest: IsomorphicRequest = {
       id: uuidv4(),
       url: new URL(url, location.origin),
       method: method,
@@ -34,18 +35,27 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
       credentials: request.credentials,
       body: await request.clone().text(),
     }
-    debug('isomorphic request', isoRequest)
-    observer.emit('request', isoRequest)
+    debug('isomorphic request', isomorphicRequest)
+    observer.emit('request', isomorphicRequest)
+
+    const [resolverEvent, respondedWithCalled] = createResolverEvent({
+      source: 'http',
+      request: isomorphicRequest,
+      target: request,
+    })
+    debug('created resolver event:', resolverEvent)
 
     debug('awaiting for the mocked response...')
-    const response = await resolver(isoRequest, request)
-    debug('mocked response', response)
+    await resolver(resolverEvent)
+    const response = await respondedWithCalled()
+
+    debug('mocked response:', response)
 
     if (response) {
       const isomorphicResponse = toIsoResponse(response)
       debug('derived isomorphic response', isomorphicResponse)
 
-      observer.emit('response', isoRequest, isomorphicResponse)
+      observer.emit('response', isomorphicRequest, isomorphicResponse)
 
       return new Response(response.body, {
         ...isomorphicResponse,
@@ -64,7 +74,7 @@ export const interceptFetch: Interceptor = (observer, resolver) => {
 
       observer.emit(
         'response',
-        isoRequest,
+        isomorphicRequest,
         await normalizeFetchResponse(cloneResponse)
       )
       return response

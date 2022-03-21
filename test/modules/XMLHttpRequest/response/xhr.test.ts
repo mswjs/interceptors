@@ -10,24 +10,26 @@ let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
-  resolver(request) {
+  resolver(event) {
     const shouldMock =
       [httpServer.http.makeUrl(), httpServer.https.makeUrl()].includes(
-        request.url.href
-      ) || ['/login'].includes(request.url.pathname)
+        event.request.url.href
+      ) || ['/login'].includes(event.request.url.pathname)
 
     if (shouldMock) {
-      return {
+      event.respondWith({
         status: 301,
         statusText: 'Moved Permantently',
         headers: {
           'Content-Type': 'application/hal+json',
         },
         body: 'foo',
-      }
+      })
+
+      return
     }
 
-    if (request.url.href === 'https://error.me/') {
+    if (event.request.url.href === 'https://error.me/') {
       throw new Error('Custom exception message')
     }
   },

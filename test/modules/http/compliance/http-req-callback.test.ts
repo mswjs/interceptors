@@ -12,16 +12,18 @@ let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(req) {
-    if ([httpServer.https.makeUrl('/get')].includes(req.url.href)) {
+  resolver(event) {
+    const { request } = event
+
+    if ([httpServer.https.makeUrl('/get')].includes(request.url.href)) {
       return
     }
 
-    return {
+    event.respondWith({
       status: 403,
       statusText: 'Forbidden',
       body: 'mocked-body',
-    }
+    })
   },
 })
 
