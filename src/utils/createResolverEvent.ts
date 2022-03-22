@@ -1,28 +1,20 @@
 import { invariant } from 'outvariant'
 import type {
   MaybePromise,
-  ResolverEvent,
   HttpRequestEvent,
-  WebSocketEvent,
   ResolverEventsMap,
 } from '../createInterceptor'
 
-export type EventProperties =
-  | {
-      source: HttpRequestEvent['source']
-      target: HttpRequestEvent['target']
-      request: HttpRequestEvent['request']
-    }
-  | {
-      source: WebSocketEvent['source']
-      target: WebSocketEvent['target']
-      message: WebSocketEvent['message']
-    }
+export type EventProperties = {
+  source: HttpRequestEvent['source']
+  target: HttpRequestEvent['target']
+  request: HttpRequestEvent['request']
+}
 
 export type EventReturnType<Properties extends EventProperties> =
   ExtractEventReturnType<ResolverEventsMap[Properties['source']]>
 
-export type ExtractEventReturnType<Event extends ResolverEvent> = Parameters<
+export type ExtractEventReturnType<Event extends HttpRequestEvent> = Parameters<
   Event['respondWith']
 >[0] extends MaybePromise<infer DataType>
   ? DataType | undefined
@@ -30,10 +22,7 @@ export type ExtractEventReturnType<Event extends ResolverEvent> = Parameters<
 
 export function createResolverEvent<Properties extends EventProperties>(
   properties: Properties
-): [
-  ResolverEventsMap[Properties['source']],
-  () => Promise<EventReturnType<Properties>>
-] {
+): [HttpRequestEvent, () => Promise<EventReturnType<Properties>>] {
   let calledTimes = 0
   let autoResolveTimeout: NodeJS.Timeout
   let remoteResolve: (data: EventReturnType<Properties>) => void
@@ -50,7 +39,7 @@ export function createResolverEvent<Properties extends EventProperties>(
       clearTimeout(autoResolveTimeout)
     })
 
-  const event: ResolverEvent = {
+  const event: HttpRequestEvent = {
     ...properties,
     timeStamp: Date.now(),
     respondWith(data: any) {
@@ -75,5 +64,5 @@ export function createResolverEvent<Properties extends EventProperties>(
     return responsePromise
   }
 
-  return [event as ResolverEventsMap[Properties['source']], respondedWithCalled]
+  return [event, respondedWithCalled]
 }

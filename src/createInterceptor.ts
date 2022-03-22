@@ -1,6 +1,7 @@
 import { IncomingMessage } from 'http'
 import { HeadersObject, Headers } from 'headers-polyfill'
 import { StrictEventEmitter } from 'strict-event-emitter'
+import { WebSocketConnection } from './interceptors/WebSocket/browser/WebSocketOverride'
 
 export type Interceptor<EventType extends ResolverEventType> = (
   observer: Observer,
@@ -65,9 +66,8 @@ export interface HttpRequestEvent extends IsomorphicEvent {
 
 export interface WebSocketEvent extends IsomorphicEvent {
   source: 'websocket'
-  message: string
   target: WebSocket
-  respondWith(data: string): void
+  connection: WebSocketConnection
 }
 
 export interface ResolverEventsMap {
