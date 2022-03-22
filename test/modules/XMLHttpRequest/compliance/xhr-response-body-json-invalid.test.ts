@@ -7,21 +7,23 @@ import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
-  resolver(request) {
-    switch (request.url.pathname) {
+  resolver(event) {
+    switch (event.request.url.pathname) {
       case '/no-body': {
-        return {
+        event.respondWith({
           status: 204,
-        }
+        })
+        break
       }
 
       case '/invalid-json': {
-        return {
+        event.respondWith({
           headers: {
             'Content-Type': 'application/json',
           },
           body: `{"invalid: js'on`,
-        }
+        })
+        break
       }
     }
   },

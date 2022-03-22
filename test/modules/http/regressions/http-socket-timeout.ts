@@ -13,11 +13,11 @@ jest.setTimeout(5000)
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver() {
-    return {
+  resolver(event) {
+    event.respondWith({
       status: 301,
       body: 'Hello world',
-    }
+    })
   },
 })
 

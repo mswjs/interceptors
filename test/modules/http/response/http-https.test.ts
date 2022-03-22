@@ -12,16 +12,20 @@ let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(request) {
+  async resolver(event) {
+    const { request } = event
+
     if (request.url.pathname === '/non-existing') {
-      return {
+      event.respondWith({
         status: 301,
         statusText: 'Moved Permanently',
         headers: {
           'Content-Type': 'text/plain',
         },
         body: 'mocked',
-      }
+      })
+
+      return
     }
 
     if (request.url.href === 'http://error.me/') {

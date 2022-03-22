@@ -11,12 +11,12 @@ const XML_STRING = '<node key="value">Content</node>'
 describe('Content-Type: application/xml', () => {
   const interceptor = createInterceptor({
     modules: [interceptXMLHttpRequest],
-    resolver() {
-      return {
+    resolver(event) {
+      event.respondWith({
         headers: { 'Content-Type': 'application/xml' },
         status: 200,
         body: XML_STRING,
-      }
+      })
     },
   })
 
@@ -43,12 +43,12 @@ describe('Content-Type: application/xml', () => {
 describe('Content-Type: text/xml', () => {
   const interceptor = createInterceptor({
     modules: [interceptXMLHttpRequest],
-    resolver() {
-      return {
+    resolver(event) {
+      event.respondWith({
         headers: { 'Content-Type': 'text/xml' },
         status: 200,
         body: XML_STRING,
-      }
+      })
     },
   })
 

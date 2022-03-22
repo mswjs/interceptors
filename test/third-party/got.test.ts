@@ -9,12 +9,12 @@ import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
 let httpServer: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(request) {
-    if (request.url.toString() === httpServer.http.makeUrl('/test')) {
-      return {
+  resolver(event) {
+    if (event.request.url.toString() === httpServer.http.makeUrl('/test')) {
+      event.respondWith({
         status: 200,
         body: 'mocked-body',
-      }
+      })
     }
   },
 })

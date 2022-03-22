@@ -48,8 +48,10 @@ test('intercepts a GET request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
+  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>({
+    source: 'http',
+    target: expect.any(http.IncomingMessage),
+    request: {
       id: anyUuid(),
       method: 'GET',
       url: new URL(url),
@@ -59,8 +61,9 @@ test('intercepts a GET request', async () => {
       credentials: 'same-origin',
       body: '',
     },
-    expect.any(http.IncomingMessage)
-  )
+    respondWith: expect.any(Function),
+    timeStamp: expect.any(Number),
+  })
 })
 
 test('intercepts an https.get request given RequestOptions without a protocol', async () => {
@@ -76,8 +79,10 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
+  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>({
+    source: 'http',
+    target: expect.any(http.IncomingMessage),
+    request: {
       id: anyUuid(),
       method: 'GET',
       url: new URL(httpServer.https.makeUrl('/user?id=123')),
@@ -85,6 +90,7 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
       credentials: 'same-origin',
       body: '',
     },
-    expect.any(http.IncomingMessage)
-  )
+    respondWith: expect.any(Function),
+    timeStamp: expect.any(Number),
+  })
 })

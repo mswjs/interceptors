@@ -9,18 +9,20 @@ import { interceptClientRequest } from '../../../../src/interceptors/ClientReque
 let httpServer: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(req) {
-    if (!req.url.searchParams.has('mock')) {
+  resolver(event) {
+    const { request } = event
+
+    if (!request.url.searchParams.has('mock')) {
       return
     }
 
-    return {
+    event.respondWith({
       status: 200,
       headers: {
         'Content-Type': 'text/plain',
       },
       body: 'hello world',
-    }
+    })
   },
 })
 

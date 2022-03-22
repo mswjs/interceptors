@@ -21,7 +21,10 @@ type PureModules = Map<
 /**
  * Intercepts requests issued by native "http" and "https" modules.
  */
-export const interceptClientRequest: Interceptor = (observer, resolver) => {
+export const interceptClientRequest: Interceptor<'http'> = (
+  observer,
+  resolver
+) => {
   const pureModules: PureModules = new Map()
   const modules: [Protocol, RequestModule][] = [
     ['http', http],

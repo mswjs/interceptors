@@ -10,8 +10,8 @@ const child = spawn('node', [CHILD_PATH], {
 
 createRemoteResolver({
   process: child,
-  resolver() {
-    return {
+  resolver(event) {
+    event.respondWith({
       status: 200,
       headers: {
         'Content-Type': 'application/json',
@@ -19,7 +19,7 @@ createRemoteResolver({
       body: JSON.stringify({
         mockedFromParent: true,
       }),
-    }
+    })
   },
 })
 

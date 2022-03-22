@@ -96,6 +96,54 @@ You can respond to an isomorphic request using an _isomorphic response_. In a si
 npm install @mswjs/interceptors
 ```
 
+### Introspect a request
+
+```js
+import { createInterceptor } from '@mswjs/interceptors'
+import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
+
+const interceptor = createInterceptor({
+  modules: nodeInterceptors,
+  resolver(event) {
+    console.log(event)
+  },
+})
+```
+
+The `event` argument is an object with the following properties:
+
+| Property name | Type                                                        | Description                                                                                                                                           |
+| ------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source`      | `"http"`                                                    | Source type of the interceptor. The source determines other available event poperties like `target`, and may append additional properties.            |
+| `target`      | `IncomingMessage \| XMLHttpRequest \| Request \| Websocket` | Reference to the original request instance.                                                                                                           |
+| `request`     | `IsomorphicRequest`                                         | Normalize intercepted request object.                                                                                                                 |
+| `timeStamp`   | `number`                                                    | Timestamp when the request has been intercepted.                                                                                                      |
+| `respondWith` | `(data: unknown) => void`                                   | A method to respond to the intercepted request. When called, the request will not be performed, and the given mocked data will be used to resolve it. |
+
+### Mock a response
+
+Call the `event.respondWith()` function with the mocked response you wish to use to resolve the intercepted request.
+
+```js
+import { createInterceptor } from '@mswjs/interceptors'
+import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
+
+const interceptor = createInterceptor({
+  modules: nodeInterceptors,
+  resolver(event) {
+    event.respondWith({
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+      body: 'hello world',
+    })
+  },
+})
+```
+
+> Make sure to call `event.respondWith()` only once in your resolver. A single intercepted request can be responded to only once.
+
 ## API
 
 ### `createInterceptor(options: CreateInterceptorOptions)`
@@ -108,8 +156,9 @@ import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
 
 const interceptor = createInterceptor({
   modules: nodeInterceptors,
-  resolver(request, ref) {
-    // Optionally, return a mocked response.
+  resolver(event) {
+    // Introspect via "event.request".
+    // Respond with a mocked data via "event.respondWith()".
   },
 })
 ```
@@ -148,7 +197,7 @@ const appProcess = spawn('node', ['app.js'], {
 
 createRemoteResolver({
   process: appProcess,
-  resolver(request) {
+  resolver(event) {
     // Optionally, return a mocked response
     // for a request that occurred in the "appProcess".
   },

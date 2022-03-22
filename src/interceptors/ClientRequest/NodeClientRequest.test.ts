@@ -44,14 +44,14 @@ test('gracefully finishes the request when it has a mocked response', (done) => 
     }),
     {
       observer: new EventEmitter(),
-      resolver() {
-        return {
+      resolver(event) {
+        event.respondWith({
           status: 301,
           headers: {
             'x-custom-header': 'yes',
           },
           body: 'mocked-response',
-        }
+        })
       },
     }
   )
@@ -80,12 +80,12 @@ test('responds with a mocked response when requesting an existing hostname', (do
     normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment')),
     {
       observer: new EventEmitter(),
-      async resolver() {
+      async resolver(event) {
         await waitFor(250)
-        return {
+        event.respondWith({
           status: 201,
           body: 'mocked-response',
-        }
+        })
       },
     }
   )
@@ -175,12 +175,12 @@ test('does not emit ENOTFOUND error connecting to an inactive server given mocke
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
     {
       observer: new EventEmitter(),
-      async resolver() {
+      async resolver(event) {
         await waitFor(250)
-        return {
+        event.respondWith({
           status: 200,
           statusText: 'Works',
-        }
+        })
       },
     }
   )
@@ -201,12 +201,12 @@ test('does not emit ECONNREFUSED error connecting to an inactive server given mo
     normalizeClientRequestArgs('http:', 'http://localhost:9876'),
     {
       observer: new EventEmitter(),
-      async resolver() {
+      async resolver(event) {
         await waitFor(250)
-        return {
+        event.respondWith({
           status: 200,
           statusText: 'Works',
-        }
+        })
       },
     }
   )
@@ -257,12 +257,12 @@ test('does not send request body to the original server given mocked response', 
     }),
     {
       observer: new EventEmitter(),
-      async resolver() {
+      async resolver(event) {
         await waitFor(200)
-        return {
+        event.respondWith({
           status: 301,
           body: 'mock created!',
-        }
+        })
       },
     }
   )

@@ -11,8 +11,8 @@ let requests: IsomorphicRequest[] = []
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(req) {
-    requests.push(req)
+  resolver(event) {
+    requests.push(event.request)
   },
 })
 

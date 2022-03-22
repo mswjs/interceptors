@@ -10,10 +10,11 @@ import {
   IsomorphicRequest,
   Resolver,
 } from './createInterceptor'
+import { createResolverEvent } from './utils/createResolverEvent'
 import { toIsoResponse } from './utils/toIsoResponse'
 
 export type CreateRemoteInterceptorOptions = Omit<
-  InterceptorOptions,
+  InterceptorOptions<any[]>,
   'resolver'
 >
 
@@ -24,13 +25,13 @@ export interface CreateRemoteResolverOptions {
   resolver: Resolver
 }
 
-function requestReviver(key: string, value: any) {
+function requestReviver(key: string, value: unknown) {
   switch (key) {
     case 'url':
-      return new URL(value)
+      return new URL(value as string)
 
     case 'headers':
-      return new Headers(value)
+      return new Headers(value as Headers)
 
     default:
       return value
@@ -66,32 +67,34 @@ spawn('node', ['module.js'], { stdio: ['ipc'] })\
 
   const interceptor = createInterceptor({
     ...options,
-    resolver(request) {
+    resolver(event) {
+      if (event.source !== 'http') {
+        return
+      }
+
+      const { request } = event
       const serializedRequest = JSON.stringify(request)
+
       process.send?.(`request:${serializedRequest}`)
 
-      return new Promise((resolve) => {
-        handleParentMessage = (message) => {
-          if (typeof message !== 'string') {
+      handleParentMessage = (message) => {
+        if (typeof message !== 'string') {
+          return
+        }
+
+        if (message.startsWith(`response:${request.id}`)) {
+          const [, responseText] = message.match(/^response:.+?:(.+)$/) || []
+
+          if (!responseText) {
             return
           }
 
-          if (message.startsWith(`response:${request.id}`)) {
-            const [, responseString] =
-              message.match(/^response:.+?:(.+)$/) || []
-
-            if (!responseString) {
-              return resolve()
-            }
-
-            const mockedResponse = JSON.parse(responseString)
-
-            return resolve(mockedResponse)
-          }
+          const mockedResponse = JSON.parse(responseText)
+          event.respondWith(mockedResponse)
         }
+      }
 
-        process.addListener('message', handleParentMessage)
-      })
+      process.addListener('message', handleParentMessage)
     },
   })
 
@@ -125,23 +128,30 @@ export function createRemoteResolver(
         return
       }
 
-      const isoRequest: IsomorphicRequest = JSON.parse(
+      const isomorphicRequest: IsomorphicRequest = JSON.parse(
         requestString,
         requestReviver
       )
 
-      observer.emit('request', isoRequest)
+      observer.emit('request', isomorphicRequest)
 
-      // Retrieve the mocked response.
-      const mockedResponse = await options.resolver(
-        isoRequest,
-        undefined as any
-      )
+      const [resolverEvent, respondedWithCalled] = createResolverEvent({
+        source: 'http',
+        request: isomorphicRequest,
+        target: undefined as any,
+      })
+
+      // Execute the resolver.
+      await options.resolver(resolverEvent)
+
+      // Await for the "event.respondWith" to be called.
+      const mockedResponse = await respondedWithCalled()
 
       // Send the mocked response to the child process.
       const serializedResponse = JSON.stringify(mockedResponse)
+
       options.process.send(
-        `response:${isoRequest.id}:${serializedResponse}`,
+        `response:${isomorphicRequest.id}:${serializedResponse}`,
         (error) => {
           if (error) {
             return
@@ -150,7 +160,11 @@ export function createRemoteResolver(
           if (mockedResponse) {
             // Emit an optimisting "response" event at this point,
             // not to rely on the back-and-forth signaling for the sake of the event.
-            observer.emit('response', isoRequest, toIsoResponse(mockedResponse))
+            observer.emit(
+              'response',
+              isomorphicRequest,
+              toIsoResponse(mockedResponse)
+            )
           }
         }
       )

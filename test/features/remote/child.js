@@ -18,6 +18,8 @@ function makeRequest() {
     })
 }
 
+console.log('footer')
+
 process.on('message', (message) => {
   if (message === 'make:request') {
     makeRequest()

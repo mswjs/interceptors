@@ -10,19 +10,21 @@ let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
-  resolver(request) {
-    switch (request.url.pathname) {
+  resolver(event) {
+    switch (event.request.url.pathname) {
       case '/user': {
-        return {
+        event.respondWith({
           status: 200,
-        }
+        })
+        break
       }
 
       case '/numbers-mock': {
-        return {
+        event.respondWith({
           status: 200,
           body: JSON.stringify([1, 2, 3]),
-        }
+        })
+        break
       }
     }
   },

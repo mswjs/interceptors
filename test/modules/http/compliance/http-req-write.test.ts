@@ -14,8 +14,8 @@ let httpServer: ServerApi
 const interceptedRequestBody = jest.fn()
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(req) {
-    interceptedRequestBody(req.body)
+  resolver(event) {
+    interceptedRequestBody(event.request.body)
   },
 })
 

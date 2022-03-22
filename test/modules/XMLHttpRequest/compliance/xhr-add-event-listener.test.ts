@@ -8,9 +8,9 @@ import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
-  resolver(request) {
-    if (request.url.href === 'https://test.mswjs.io/user') {
-      return {
+  resolver(event) {
+    if (event.request.url.href === 'https://test.mswjs.io/user') {
+      event.respondWith({
         status: 200,
         statusText: 'OK',
         headers: {
@@ -20,7 +20,7 @@ const interceptor = createInterceptor({
         body: JSON.stringify({
           mocked: true,
         }),
-      }
+      })
     }
   },
 })

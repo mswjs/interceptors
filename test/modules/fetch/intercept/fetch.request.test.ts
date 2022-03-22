@@ -53,8 +53,10 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
   expect(await res.text()).toEqual('mocked')
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
+  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>({
+    source: 'http',
+    target: expect.any(http.IncomingMessage),
+    request: {
       id: anyUuid(),
       method: 'POST',
       url: new URL(httpServer.http.makeUrl('/user')),
@@ -65,6 +67,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
       credentials: 'same-origin',
       body: 'hello world',
     },
-    expect.any(http.IncomingMessage)
-  )
+    timeStamp: expect.any(Number),
+    respondWith: expect.any(Function),
+  })
 })

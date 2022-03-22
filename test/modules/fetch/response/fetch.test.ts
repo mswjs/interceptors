@@ -10,19 +10,19 @@ let httpServer: ServerApi
 
 const interceptor = createInterceptor({
   modules: nodeInterceptors,
-  resolver(request) {
+  resolver(event) {
     if (
       [httpServer.http.makeUrl(), httpServer.https.makeUrl()].includes(
-        request.url.href
+        event.request.url.href
       )
     ) {
-      return {
+      event.respondWith({
         status: 201,
         headers: {
           'Content-Type': 'application/hal+json',
         },
         body: JSON.stringify({ mocked: true }),
-      }
+      })
     }
   },
 })

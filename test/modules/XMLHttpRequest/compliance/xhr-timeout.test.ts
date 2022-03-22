@@ -17,7 +17,9 @@ const interceptor = createInterceptor({
 beforeAll(async () => {
   httpServer = await createServer((app) => {
     app.get('/', (_req, res) => {
-      res.send('ok')
+      setTimeout(() => {
+        res.send('ok')
+      }, 50)
     })
   })
 

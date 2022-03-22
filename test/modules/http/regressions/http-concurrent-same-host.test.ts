@@ -10,11 +10,13 @@ let requests: IsomorphicRequest[] = []
 
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
-  resolver(request) {
+  resolver(event) {
+    const { request } = event
     requests.push(request)
-    return {
+
+    event.respondWith({
       status: 200,
-    }
+    })
   },
 })
 
