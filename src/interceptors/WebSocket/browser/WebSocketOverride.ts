@@ -16,18 +16,29 @@ interface WebSocketEventsMap {
   close(event: CloseEvent): void
 }
 
-export class WebSocketConnection {
-  private emitter: StrictEventEmitter<any>
+export interface WebSocketConnectionEventsMap {
+  message(event: MessageEvent): void
+  close(event: CloseEvent): void
+}
 
-  constructor(private readonly client: WebSocket) {
+export class WebSocketConnection {
+  private emitter: StrictEventEmitter<WebSocketConnectionEventsMap>
+
+  constructor(public readonly client: WebSocket) {
     this.emitter = new StrictEventEmitter()
   }
 
-  emit(event: any, ...data: any[]): void {
+  emit<Event extends keyof WebSocketConnectionEventsMap>(
+    event: Event,
+    ...data: Parameters<WebSocketConnectionEventsMap[Event]>
+  ): void {
     this.emitter.emit(event, ...data)
   }
 
-  on(event: any, listener: any): void {
+  on<Event extends keyof WebSocketConnectionEventsMap>(
+    event: Event,
+    listener: WebSocketConnectionEventsMap[Event]
+  ): void {
     this.emitter.addListener(event, listener)
   }
 
