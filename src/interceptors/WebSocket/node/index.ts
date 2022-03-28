@@ -1,7 +1,12 @@
 import { Interceptor } from '../../../createInterceptor'
 
-const interceptWebSocketNode: Interceptor<'websocket'> = () => {
-  throw new Error('Not Implemented')
+const interceptWebSocketNode: Interceptor<'websocket'> = (
+  _observer,
+  resolver
+) => {
+  console.log('interceptor applied')
+
+  return () => {}
 }
 
 export default interceptWebSocketNode

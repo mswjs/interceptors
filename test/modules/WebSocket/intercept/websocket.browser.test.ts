@@ -2,13 +2,18 @@
  * @jest-environment node
  */
 import * as path from 'path'
+import { io as socketClient } from 'socket.io-client'
+import { ServerApi, createServer } from '@open-draft/test-server'
 import { pageWith } from 'page-with'
 import { WebSocketConnection } from '../../../../src/interceptors/WebSocket/browser/WebSocketOverride'
 
 declare namespace window {
+  export const io: typeof socketClient
   export const sockets: WebSocket[]
   export const connections: WebSocketConnection[]
 }
+
+let testServer: ServerApi
 
 function prepareRuntime() {
   return pageWith({
@@ -16,16 +21,25 @@ function prepareRuntime() {
   })
 }
 
-it('intercepts data sent by the connected client', async () => {
-  const runtime = await prepareRuntime()
+beforeAll(async () => {
+  testServer = await createServer()
+})
 
-  await runtime.page.evaluate(() => {
+afterAll(async () => {
+  await testServer.close()
+})
+
+it('intercepts data sent from the client', async () => {
+  const runtime = await prepareRuntime()
+  const wsUrl = testServer.ws.address.toString()
+
+  await runtime.page.evaluate((wsUrl) => {
     return new Promise((resolve) => {
-      const socket = new WebSocket('wss://example.com')
-      window.sockets.push(socket)
-      socket.addEventListener('open', resolve)
+      const socket = window.io(wsUrl)
+      // window.sockets.push(socket)
+      // socket.addEventListener('open', resolve)
     })
-  })
+  }, wsUrl)
 
   await runtime.page.evaluate(() => {
     window.connections[0].on('message', (event) => {
@@ -43,6 +57,58 @@ it('intercepts data sent by the connected client', async () => {
   })
   expect(runtime.consoleSpy.get('log')).toContain('second message')
 })
+
+it.only('intercepts data sent from the server', async () => {
+  const runtime = await prepareRuntime()
+  const wsUrl = testServer.ws.address.toString()
+
+  await runtime.page.evaluate((wsUrl) => {
+    return new Promise((resolve) => {
+      console.log('constructing io client...')
+      const socket = window.io(wsUrl, {
+        transports: ['websocket'],
+        timeout: 3000,
+        reconnection: false,
+      })
+
+      socket.on('data', (data) => {
+        console.log('data', data)
+      })
+
+      socket.on('connect', () => {
+        console.log('socket connected!')
+      })
+
+      socket.on('error', console.error)
+      socket.on('connect_error', console.error)
+      socket.on('timeout', console.error)
+
+      // @ts-ignore
+      window.socket = socket
+
+      // window.sockets.push(socket)
+      // socket.addEventListener('open', resolve)
+      // socket.addEventListener('message', (event) => {
+      //   console.log(event.data)
+      // })
+    })
+  }, wsUrl)
+
+  console.log(testServer.ws.address.toString())
+
+  testServer.ws.instance.on('connection', () => {
+    console.log('NEW CLIENT CONNECTED')
+  })
+
+  // setInterval(() => {
+  //   testServer.ws.instance.send('hello from server')
+  //   testServer.ws.instance.emit('data', 'foo')
+  // }, 1000)
+
+  await runtime.debug()
+
+  expect(runtime.consoleSpy.get('log')).toBe(['hello from server'])
+}, 9999999)
 
 it('intercepts data sent by multiple clients', async () => {
   const runtime = await prepareRuntime()

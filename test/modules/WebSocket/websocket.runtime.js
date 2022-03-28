@@ -1,9 +1,6 @@
 import { createInterceptor } from '@mswjs/interceptors'
 import { interceptWebSocket } from '@mswjs/interceptors/lib/interceptors/WebSocket'
 
-window.sockets = []
-window.connections = []
-
 const interceptor = createInterceptor({
   modules: [interceptWebSocket],
   resolver(event) {
@@ -29,12 +26,13 @@ const interceptor = createInterceptor({
 
 interceptor.apply()
 
-// window.socket = new WebSocket('wss://example.com')
+// Require "socket.io" after the interceptor so it hoists
+// the overridden WebSocket constructor.
+window.sockets = []
+window.connections = []
 
-// socket.addEventListener('message', (event) => {
-//   console.log('> %s', event.data)
-// })
-
-// document.body.addEventListener('click', () => {
-//   socket.send('hello Mr. Socket!')
-// })
+async function assignSocketIO() {
+  const socketIO = await import('socket.io-client')
+  window.io = socketIO.default
+}
+assignSocketIO()

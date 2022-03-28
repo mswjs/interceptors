@@ -1,11 +1,6 @@
 import { isNodeProcess } from 'is-node-process'
+import { Interceptor } from '../../createInterceptor'
 
-if (isNodeProcess()) {
-  module.exports = {
-    interceptWebSocket: require('./node').default,
-  }
-} else {
-  module.exports = {
-    interceptWebSocket: require('./browser').default,
-  }
-}
+export const interceptWebSocket: Interceptor<'websocket'> = isNodeProcess()
+  ? require('./node').default
+  : require('./browser').default
