@@ -5,7 +5,7 @@ import * as path from 'path'
 import { io as socketClient } from 'socket.io-client'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { pageWith } from 'page-with'
-import { WebSocketConnection } from '../../../../src/interceptors/WebSocket/browser/WebSocketOverride'
+import { WebSocketConnection } from '../../../../src/interceptors/WebSocket/browser/WebSocketConnection'
 
 declare namespace window {
   export const io: typeof socketClient
@@ -42,12 +42,6 @@ it('intercepts data sent from the client', async () => {
   }, wsUrl)
 
   await runtime.page.evaluate(() => {
-    window.connections[0].on('message', (event) => {
-      console.log(event.data)
-    })
-  })
-
-  await runtime.page.evaluate(() => {
     window.sockets[0].send('hello world')
   })
   expect(runtime.consoleSpy.get('log')).toContain('hello world')
@@ -71,12 +65,20 @@ it.only('intercepts data sent from the server', async () => {
         reconnection: false,
       })
 
-      socket.on('data', (data) => {
-        console.log('data', data)
+      socket.on('greet', (data) => {
+        console.log('> GREET FROM SERVER:', data)
+      })
+
+      socket.on('message', (...args) => {
+        console.log('> from server:', ...args)
       })
 
       socket.on('connect', () => {
-        console.log('socket connected!')
+        console.warn('socket connected!')
+      })
+
+      socket.on('disconnect', (...args) => {
+        console.warn('socket disconnected', ...args)
       })
 
       socket.on('error', console.error)
@@ -85,12 +87,6 @@ it.only('intercepts data sent from the server', async () => {
 
       // @ts-ignore
       window.socket = socket
-
-      // window.sockets.push(socket)
-      // socket.addEventListener('open', resolve)
-      // socket.addEventListener('message', (event) => {
-      //   console.log(event.data)
-      // })
     })
   }, wsUrl)
 
@@ -128,7 +124,7 @@ it('intercepts data sent by multiple clients', async () => {
   await runtime.page.evaluate(() => {
     window.connections.forEach((connection) => {
       connection.on('message', (event) => {
-        console.log(`${event.data} ${connection.client.url}`)
+        // console.log(`${event.data} ${connection.client.url}`)
       })
     })
   })

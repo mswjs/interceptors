@@ -5,6 +5,8 @@ import { createEvent } from '../utils/createEvent'
 import { getDataLength } from '../utils/getDataLength'
 import { parseWebSocketProtocols } from '../utils/parseWebSocketProtocols'
 import { parseWebSocketUrl } from '../utils/parseWebSocketUrl'
+import { SocketIOTransport } from './middleware/socket.io'
+import { WebSocketConnection } from './WebSocketConnection'
 
 export type WebSocketMessageData =
   | ArrayBufferLike
@@ -16,11 +18,6 @@ export interface WebSocketEventsMap {
   open(event: Event): void
   message(event: MessageEvent): void
   error(event: Event): void
-  close(event: CloseEvent): void
-}
-
-export interface WebSocketConnectionEventsMap {
-  message(event: MessageEvent): void
   close(event: CloseEvent): void
 }
 
@@ -36,38 +33,6 @@ enum EnginesIOParserPacketTypes {
   MESSAGE = '4',
   UPGRADE = '5',
   NOOP = '6',
-}
-
-export class WebSocketConnection {
-  private emitter: StrictEventEmitter<WebSocketConnectionEventsMap>
-
-  constructor(public readonly client: WebSocket) {
-    this.emitter = new StrictEventEmitter()
-  }
-
-  emit<Event extends keyof WebSocketConnectionEventsMap>(
-    event: Event,
-    ...data: Parameters<WebSocketConnectionEventsMap[Event]>
-  ): void {
-    this.emitter.emit(event, ...data)
-  }
-
-  on<Event extends keyof WebSocketConnectionEventsMap>(
-    event: Event,
-    listener: WebSocketConnectionEventsMap[Event]
-  ): void {
-    this.emitter.addListener(event, listener)
-  }
-
-  send(data: WebSocketMessageData): void {
-    const messageEvent = new MessageEvent('message', { data })
-    // @ts-ignore
-    this.client.emitter.emit('message', messageEvent)
-  }
-
-  terminate(): void {
-    this.emitter.removeAllListeners()
-  }
 }
 
 export interface WebSocketOverrideArgs {
@@ -99,6 +64,8 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
       const parsedUrl = parseWebSocketUrl(url)
       const parsedProtocols = parseWebSocketProtocols(protocols)
 
+      const useSocketIO = parsedUrl.pathname.startsWith('/socket.io/')
+
       this.url = url
       this.protocol = parsedProtocols[0] || parsedUrl.protocol
       this.extensions = ''
@@ -107,7 +74,9 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
       this.bufferedAmount = 0
 
       this.emitter = new StrictEventEmitter()
-      this.connection = new WebSocketConnection(this)
+      this.connection = new WebSocketConnection(this, {
+        transport: useSocketIO ? SocketIOTransport : undefined,
+      })
 
       nextTick(() => {
         this.readyState = this.OPEN
@@ -115,11 +84,17 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
         // Dispatch the "open" event.
         this.dispatchEvent(createEvent(Event, 'open', { target: this }))
 
-        this.addEventListener('message', (event) => {
-          console.log('outgoing message:', event.data)
-        })
+        // Call the resolver to let it know about a new client connection.
+        const resolverEvent: WebSocketEvent = {
+          source: 'websocket',
+          target: this,
+          connection: this.connection,
+          timeStamp: Date.now(),
+          intercept() {},
+        }
+        resolver(resolverEvent)
 
-        if (parsedUrl.pathname.startsWith('/socket.io/')) {
+        if (useSocketIO) {
           this.mockSocketIOConnection()
         }
       })
@@ -165,6 +140,7 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
             JSON.stringify({
               sid,
             }),
+          target: this,
         })
       )
 
@@ -174,30 +150,23 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
         this.emitter.emit(
           'message',
           createEvent(MessageEvent, 'message', {
-            /**
-             * node_modules/engine.io-parser/build/esm/commons.js
-             */
+            // node_modules/engine.io-parser/build/esm/commons.js
             data: EnginesIOParserPacketTypes.PING,
             target: this,
           })
         )
       }, pingInterval)
 
-      const clearTimer = () => {
+      const clearPingTimer = () => {
         clearInterval(pingTimer)
       }
 
-      this.addEventListener('close', clearTimer)
-      this.addEventListener('error', clearTimer)
-
-      /**
-       * @todo Handle socket.io special message data format
-       * when calling ".send" and ".emit".
-       */
+      this.addEventListener('close', clearPingTimer)
+      this.addEventListener('error', clearPingTimer)
     }
 
     send(data: WebSocketMessageData): void {
-      console.warn('mock.send:', data)
+      console.log('WebSocket.prototype.send:', data)
 
       if (this.readyState === this.CONNECTING) {
         this.close()
@@ -209,10 +178,9 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
         return
       }
 
-      // Notify the connection about the outgoing client message.
       nextTick(() => {
-        const messageEvent = new MessageEvent('message', { data })
-        this.connection.emit('message', messageEvent)
+        // Notify the "connection" about the outgoing client message.
+        this.connection.emit('message', new MessageEvent('message', { data }))
       })
     }
 
@@ -245,8 +213,8 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
         // Notify the connection about the client closing.
         this.connection.emit('close', closeEvent)
 
-        // Terminate the connection so it can no longer receive or send events.
-        this.connection.terminate()
+        // Close the connection so it can no longer receive or send events.
+        this.connection.close()
 
         // Remove all internal listeners.
         this.emitter.removeAllListeners()

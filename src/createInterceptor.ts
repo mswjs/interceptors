@@ -1,7 +1,7 @@
 import { IncomingMessage } from 'http'
 import { HeadersObject, Headers } from 'headers-polyfill'
 import { StrictEventEmitter } from 'strict-event-emitter'
-import { WebSocketConnection } from './interceptors/WebSocket/browser/WebSocketOverride'
+import { WebSocketConnection } from './interceptors/WebSocket/browser/WebSocketConnection'
 
 export type Interceptor<EventType extends ResolverEventType> = (
   observer: Observer,

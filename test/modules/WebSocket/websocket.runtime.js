@@ -4,23 +4,24 @@ import { interceptWebSocket } from '@mswjs/interceptors/lib/interceptors/WebSock
 const interceptor = createInterceptor({
   modules: [interceptWebSocket],
   resolver(event) {
-    window.connections.push(event.connection)
+    const { connection } = event
 
-    // Send a message to the connected client.
-    // connection.send('what a lovely day!')
+    console.warn('interceptor: ws connection established!', event)
+    window.connections.push(connection)
 
-    // Listen to the incoming message from the client.
-    // connection.on('message', (event) => {
-    //   console.log(event.data)
+    connection.on('message', (...args) => {
+      console.warn('interceptor: ws message received!', ...args)
+    })
 
-    // Respond on demand.
-    // connection.send('hello to you too!')
-    // })
+    connection.on('greet', (who) => {
+      console.log('server: should greet', who)
 
-    // Listen to the client closing.
-    // connection.on('close', (event) => {
-    //   console.log('> client closed', event)
-    // })
+      /**
+       * @fixme This forces socket.io to disconnect.
+       * "transport error"
+       */
+      connection.send('greet', `42["hello to you too ${who}"]`)
+    })
   },
 })
 
