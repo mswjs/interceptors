@@ -5,7 +5,10 @@ import { createEvent } from '../utils/createEvent'
 import { getDataLength } from '../utils/getDataLength'
 import { parseWebSocketProtocols } from '../utils/parseWebSocketProtocols'
 import { parseWebSocketUrl } from '../utils/parseWebSocketUrl'
-import { SocketIOTransport } from './middleware/socket.io'
+import {
+  EnginesIoParserPacketTypes,
+  SocketIoConnection,
+} from './SocketIoConnection'
 import { WebSocketConnection } from './WebSocketConnection'
 
 export type WebSocketMessageData =
@@ -23,16 +26,6 @@ export interface WebSocketEventsMap {
 
 function nextTick(callback: () => void): void {
   setTimeout(callback, 0)
-}
-
-enum EnginesIOParserPacketTypes {
-  OPEN = '0',
-  CLOSE = '1',
-  PING = '2',
-  PONG = '3',
-  MESSAGE = '4',
-  UPGRADE = '5',
-  NOOP = '6',
 }
 
 export interface WebSocketOverrideArgs {
@@ -74,9 +67,9 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
       this.bufferedAmount = 0
 
       this.emitter = new StrictEventEmitter()
-      this.connection = new WebSocketConnection(this, {
-        transport: useSocketIO ? SocketIOTransport : undefined,
-      })
+      this.connection = useSocketIO
+        ? new SocketIoConnection(this)
+        : new WebSocketConnection(this)
 
       nextTick(() => {
         this.readyState = this.OPEN
@@ -119,7 +112,7 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
             // "0" is a specific code parsed by "engine.io-parser" as "CONNECT".
             // When "socket.io-client" receives this code, it will emit a reserved
             // "connect" event, marking the socket as "connected".
-            EnginesIOParserPacketTypes.OPEN +
+            EnginesIoParserPacketTypes.OPEN +
             JSON.stringify({
               sid,
               upgrades: [],
@@ -135,8 +128,8 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
         'message',
         createEvent(MessageEvent, 'message', {
           data:
-            EnginesIOParserPacketTypes.MESSAGE +
-            EnginesIOParserPacketTypes.OPEN +
+            EnginesIoParserPacketTypes.MESSAGE +
+            EnginesIoParserPacketTypes.OPEN +
             JSON.stringify({
               sid,
             }),
@@ -151,7 +144,7 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
           'message',
           createEvent(MessageEvent, 'message', {
             // node_modules/engine.io-parser/build/esm/commons.js
-            data: EnginesIOParserPacketTypes.PING,
+            data: EnginesIoParserPacketTypes.PING,
             target: this,
           })
         )

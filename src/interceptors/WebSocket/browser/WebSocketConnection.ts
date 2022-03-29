@@ -9,22 +9,15 @@ export interface WebSocketConnectionEventsMap {
   close(event: CloseEvent): void
 }
 
-export interface WebSocketConnectionOptions {
-  transport: { new (socket: WebSocket): StrictEventEmitter<any> }
-}
-
 export class WebSocketConnection {
   public readonly emitter: StrictEventEmitter<WebSocketConnectionEventsMap>
 
   constructor(
     public readonly client: WebSocket & {
       emitter: StrictEventEmitter<WebSocketEventsMap>
-    },
-    options: Partial<WebSocketConnectionOptions> = {}
+    }
   ) {
-    this.emitter = options.transport
-      ? new options.transport(this.client)
-      : new StrictEventEmitter()
+    this.emitter = new StrictEventEmitter()
   }
 
   public emit<Event extends keyof WebSocketConnectionEventsMap>(
@@ -42,13 +35,7 @@ export class WebSocketConnection {
   }
 
   public send(data: WebSocketMessageData): void {
-    /**
-     * @todo Encode the "data" so the socket.io transport can digest it.
-     * Without this, socket.io will throw "transport error" and close.
-     */
-
     const messageEvent = new MessageEvent('message', { data })
-
     this.client.emitter.emit('message', messageEvent)
   }
 
