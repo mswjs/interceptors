@@ -42,7 +42,7 @@ afterAll(async () => {
 
 test('handles an original response without any headers', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/user'))
+    req.open('GET', httpServer.http.url('/user'))
     req.send()
   })
 

@@ -60,9 +60,7 @@ test('returns responses for 500 matching parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
-      parallelRequests((i) =>
-        httpGet(httpServer.http.makeUrl(`/user?id=${i + 1}`))
-      )
+      parallelRequests((i) => httpGet(httpServer.http.url(`/user?id=${i + 1}`)))
     )
   )
   const bodies = responses.map((response) => response.resBody)
@@ -75,9 +73,7 @@ test('returns responses for 500 bypassed parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
-      parallelRequests((i) =>
-        httpGet(httpServer.http.makeUrl(`/number/${i + 1}`))
-      )
+      parallelRequests((i) => httpGet(httpServer.http.url(`/number/${i + 1}`)))
     )
   )
   const bodies = responses.map((response) => response.resBody)

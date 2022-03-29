@@ -26,7 +26,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
   const context = await pageWith({
     example: path.resolve(__dirname, 'fetch.browser.runtime.js'),
   })
-  const url = httpServer.http.makeUrl('/user')
+  const url = httpServer.http.url('/user')
 
   const [request] = await Promise.all([
     extractRequestFromPage(context.page),

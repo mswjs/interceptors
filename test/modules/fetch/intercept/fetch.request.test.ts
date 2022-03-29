@@ -37,7 +37,7 @@ afterAll(async () => {
 })
 
 test('intercepts fetch requests constructed via a "Request" instance', async () => {
-  const request = new Request(httpServer.http.makeUrl('/user'), {
+  const request = new Request(httpServer.http.url('/user'), {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain',
@@ -59,7 +59,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
     request: {
       id: anyUuid(),
       method: 'POST',
-      url: new URL(httpServer.http.makeUrl('/user')),
+      url: new URL(httpServer.http.url('/user')),
       headers: headersContaining({
         'content-type': 'text/plain',
         'user-agent': 'interceptors',

@@ -10,7 +10,7 @@ let httpServer: ServerApi
 const interceptor = createInterceptor({
   modules: [interceptClientRequest],
   resolver(event) {
-    if (event.request.url.toString() === httpServer.http.makeUrl('/test')) {
+    if (event.request.url.toString() === httpServer.http.url('/test')) {
       event.respondWith({
         status: 200,
         body: 'mocked-body',
@@ -35,14 +35,14 @@ afterAll(async () => {
 })
 
 test('mocks response to a request made with "got"', async () => {
-  const res = await got(httpServer.http.makeUrl('/test'))
+  const res = await got(httpServer.http.url('/test'))
 
   expect(res.statusCode).toBe(200)
   expect(res.body).toBe('mocked-body')
 })
 
 test('bypasses an unhandled request made with "got"', async () => {
-  const res = await got(httpServer.http.makeUrl('/user'))
+  const res = await got(httpServer.http.url('/user'))
 
   expect(res.statusCode).toBe(200)
   expect(res.body).toEqual(`{"id":1}`)

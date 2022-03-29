@@ -45,8 +45,8 @@ afterAll(async () => {
 
 test('handles concurrent requests with different response sources', async () => {
   const requests = await Promise.all([
-    httpGet(httpServer.http.makeUrl('/')),
-    httpGet(httpServer.http.makeUrl('/'), {
+    httpGet(httpServer.http.url('/')),
+    httpGet(httpServer.http.url('/'), {
       headers: {
         'x-bypass': 'yes',
       },

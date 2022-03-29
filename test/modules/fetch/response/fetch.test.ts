@@ -12,7 +12,7 @@ const interceptor = createInterceptor({
   modules: nodeInterceptors,
   resolver(event) {
     if (
-      [httpServer.http.makeUrl(), httpServer.https.makeUrl()].includes(
+      [httpServer.http.url(), httpServer.https.url()].includes(
         event.request.url.href
       )
     ) {
@@ -52,7 +52,7 @@ afterAll(async () => {
 })
 
 test('responds to an HTTP request that is handled in the middleware', async () => {
-  const res = await fetch(httpServer.http.makeUrl('/'))
+  const res = await fetch(httpServer.http.url('/'))
   const body = await res.json()
 
   expect(res.status).toEqual(201)
@@ -63,7 +63,7 @@ test('responds to an HTTP request that is handled in the middleware', async () =
 })
 
 test('bypasses an HTTP request not handled in the middleware', async () => {
-  const res = await fetch(httpServer.http.makeUrl('/get'))
+  const res = await fetch(httpServer.http.url('/get'))
   const body = await res.json()
 
   expect(res.status).toEqual(200)
@@ -71,7 +71,7 @@ test('bypasses an HTTP request not handled in the middleware', async () => {
 })
 
 test('responds to an HTTPS request that is handled in the middleware', async () => {
-  const res = await fetch(httpServer.https.makeUrl('/'), { agent: httpsAgent })
+  const res = await fetch(httpServer.https.url('/'), { agent: httpsAgent })
   const body = await res.json()
 
   expect(res.status).toEqual(201)
@@ -80,7 +80,7 @@ test('responds to an HTTPS request that is handled in the middleware', async () 
 })
 
 test('bypasses an HTTPS request not handled in the middleware', async () => {
-  const res = await fetch(httpServer.https.makeUrl('/get'), {
+  const res = await fetch(httpServer.https.url('/get'), {
     agent: httpsAgent,
   })
   const body = await res.json()
@@ -91,12 +91,12 @@ test('bypasses an HTTPS request not handled in the middleware', async () => {
 
 test('bypasses any request when the interceptor is restored', async () => {
   interceptor.restore()
-  const httpRes = await fetch(httpServer.http.makeUrl('/'))
+  const httpRes = await fetch(httpServer.http.url('/'))
   const httpBody = await httpRes.json()
   expect(httpRes.status).toEqual(200)
   expect(httpBody).toEqual({ route: '/' })
 
-  const httpsRes = await fetch(httpServer.https.makeUrl('/'), {
+  const httpsRes = await fetch(httpServer.https.url('/'), {
     agent: httpsAgent,
   })
   const httpsBody = await httpsRes.json()
@@ -111,7 +111,7 @@ test('does not throw an error if there are multiple interceptors', async () => {
   })
   secondInterceptor.apply()
 
-  let res = await fetch(httpServer.https.makeUrl('/get'), { agent: httpsAgent })
+  let res = await fetch(httpServer.https.url('/get'), { agent: httpsAgent })
   let body = await res.json()
 
   expect(res.status).toEqual(200)

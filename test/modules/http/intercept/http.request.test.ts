@@ -43,7 +43,7 @@ afterAll(async () => {
 })
 
 test('intercepts a HEAD request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'HEAD',
     headers: {
@@ -73,7 +73,7 @@ test('intercepts a HEAD request', async () => {
 })
 
 test('intercepts a GET request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'GET',
     headers: {
@@ -103,7 +103,7 @@ test('intercepts a GET request', async () => {
 })
 
 test('intercepts a POST request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'POST',
     headers: {
@@ -134,7 +134,7 @@ test('intercepts a POST request', async () => {
 })
 
 test('intercepts a PUT request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'PUT',
     headers: {
@@ -165,7 +165,7 @@ test('intercepts a PUT request', async () => {
 })
 
 test('intercepts a PATCH request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'PATCH',
     headers: {
@@ -196,7 +196,7 @@ test('intercepts a PATCH request', async () => {
 })
 
 test('intercepts a DELETE request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'DELETE',
     headers: {
@@ -244,7 +244,7 @@ test('intercepts an http.request given RequestOptions without a protocol', async
     request: {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.http.makeUrl('/user?id=123')),
+      url: new URL(httpServer.http.url('/user?id=123')),
       headers: headersContaining({}),
       credentials: 'same-origin',
       body: '',

@@ -15,7 +15,7 @@ const interceptor = createInterceptor({
   resolver(event) {
     const { request } = event
 
-    if ([httpServer.https.makeUrl('/get')].includes(request.url.href)) {
+    if ([httpServer.https.url('/get')].includes(request.url.href)) {
       return
     }
 
@@ -63,7 +63,7 @@ test('calls a custom callback once when the request is bypassed', (done) => {
 
   https.get(
     {
-      ...getRequestOptionsByUrl(new URL(httpServer.https.makeUrl('/get'))),
+      ...getRequestOptionsByUrl(new URL(httpServer.https.url('/get'))),
       agent: httpsAgent,
     },
     responseCallback
@@ -87,9 +87,7 @@ test('calls a custom callback once when the response is mocked', (done) => {
 
   https.get(
     {
-      ...getRequestOptionsByUrl(
-        new URL(httpServer.https.makeUrl('/arbitrary'))
-      ),
+      ...getRequestOptionsByUrl(new URL(httpServer.https.url('/arbitrary'))),
       agent: httpsAgent,
     },
     responseCallback

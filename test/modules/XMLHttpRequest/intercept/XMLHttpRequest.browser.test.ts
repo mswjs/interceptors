@@ -35,7 +35,7 @@ afterAll(async () => {
 test('intercepts an HTTP GET request', async () => {
   const context = await prepareRuntime()
   const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
-  const url = httpServer.http.makeUrl('/user')
+  const url = httpServer.http.url('/user')
   const [request, response] = await callXMLHttpRequest({
     method: 'GET',
     url,
@@ -65,7 +65,7 @@ test('intercepts an HTTP GET request', async () => {
 test('intercepts an HTTP POST request', async () => {
   const context = await prepareRuntime()
   const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
-  const url = httpServer.http.makeUrl('/user')
+  const url = httpServer.http.url('/user')
   const [request, response] = await callXMLHttpRequest({
     method: 'POST',
     url,
@@ -95,7 +95,7 @@ test('intercepts an HTTP POST request', async () => {
 test('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {
   const context = await prepareRuntime()
   const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
-  const url = httpServer.http.makeUrl('/user')
+  const url = httpServer.http.url('/user')
   const [request] = await callXMLHttpRequest({
     method: 'POST',
     url,
@@ -110,7 +110,7 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is false', async () => {
   const context = await prepareRuntime()
   const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
-  const url = httpServer.http.makeUrl('/user')
+  const url = httpServer.http.url('/user')
   const [request] = await callXMLHttpRequest({
     method: 'POST',
     url,
@@ -125,7 +125,7 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is not set', async () => {
   const context = await prepareRuntime()
   const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
-  const url = httpServer.http.makeUrl('/user')
+  const url = httpServer.http.url('/user')
   const [request] = await callXMLHttpRequest({
     method: 'POST',
     url,

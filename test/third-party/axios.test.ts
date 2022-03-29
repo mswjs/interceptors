@@ -74,7 +74,7 @@ test('responds with a mocked response to an "axios.post()" request', async () =>
 })
 
 test('bypass the interceptor and return the original response', async () => {
-  const res = await axios.get(httpServer.http.makeUrl('/books'))
+  const res = await axios.get(httpServer.http.url('/books'))
 
   expect(res.status).toEqual(200)
   expect(res.data).toEqual([

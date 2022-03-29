@@ -38,7 +38,7 @@ afterAll(async () => {
 })
 
 test('intercepts a GET request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.get(url, {
     agent: httpsAgent,
     headers: {
@@ -85,7 +85,7 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
     request: {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({}),
       credentials: 'same-origin',
       body: '',

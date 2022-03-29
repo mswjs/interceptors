@@ -12,7 +12,7 @@ const interceptor = createInterceptor({
   modules: [interceptXMLHttpRequest],
   resolver(event) {
     const shouldMock =
-      [httpServer.http.makeUrl(), httpServer.https.makeUrl()].includes(
+      [httpServer.http.url(), httpServer.https.url()].includes(
         event.request.url.href
       ) || ['/login'].includes(event.request.url.pathname)
 
@@ -67,7 +67,7 @@ afterAll(async () => {
 
 test('responds to an HTTP request handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/'))
+    req.open('GET', httpServer.http.url('/'))
     req.send()
   })
   const responseHeaders = req.getAllResponseHeaders()
@@ -79,7 +79,7 @@ test('responds to an HTTP request handled in the middleware', async () => {
 
 test('bypasses an HTTP request not handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/get'))
+    req.open('GET', httpServer.http.url('/get'))
     req.send()
   })
 
@@ -89,7 +89,7 @@ test('bypasses an HTTP request not handled in the middleware', async () => {
 
 test('responds to an HTTPS request handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/'))
+    req.open('GET', httpServer.https.url('/'))
     req.send()
   })
   const responseHeaders = req.getAllResponseHeaders()
@@ -101,7 +101,7 @@ test('responds to an HTTPS request handled in the middleware', async () => {
 
 test('bypasses an HTTPS request not handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/get'))
+    req.open('GET', httpServer.https.url('/get'))
     req.send()
   })
 
@@ -111,7 +111,7 @@ test('bypasses an HTTPS request not handled in the middleware', async () => {
 
 test('responds to an HTTP request to a relative URL that is handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.makeUrl('/login'))
+    req.open('POST', httpServer.https.url('/login'))
     req.send()
   })
   const responseHeaders = req.getAllResponseHeaders()
@@ -135,7 +135,7 @@ test('produces a request error when the middleware throws an exception', async (
 
 test('does not propagate the forbidden "cookie" header on the bypassed response', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.makeUrl('/cookies'))
+    req.open('POST', httpServer.https.url('/cookies'))
     req.send()
   })
   const responseHeaders = req.getAllResponseHeaders()
@@ -145,7 +145,7 @@ test('does not propagate the forbidden "cookie" header on the bypassed response'
 test('bypasses any request when the interceptor is restored', async () => {
   interceptor.restore()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/'))
+    req.open('GET', httpServer.https.url('/'))
     req.send()
   })
 

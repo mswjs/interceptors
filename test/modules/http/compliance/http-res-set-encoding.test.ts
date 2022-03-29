@@ -70,7 +70,7 @@ const encodings: BufferEncoding[] = [
 describe('given the original response', () => {
   encodings.forEach((encoding) => {
     test(`reads the response body encoded with ${encoding}`, (done) => {
-      const req = http.get(httpServer.http.makeUrl('/resource'))
+      const req = http.get(httpServer.http.url('/resource'))
 
       req.on('response', async (res) => {
         res.setEncoding(encoding)
@@ -86,7 +86,7 @@ describe('given the original response', () => {
 describe('given the mocked response', () => {
   encodings.forEach((encoding) => {
     test(`reads the response body encoded with ${encoding}`, (done) => {
-      const req = http.get(httpServer.http.makeUrl('/resource?mock=true'))
+      const req = http.get(httpServer.http.url('/resource?mock=true'))
 
       req.on('response', async (res) => {
         res.setEncoding(encoding)

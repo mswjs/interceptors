@@ -27,9 +27,14 @@ beforeAll(async () => {
       res.status(200).send('original-response')
     })
 
-    app.post('/write', express.text(), (req, res) => {
-      res.status(200).send(req.body)
-    })
+    app.post(
+      '/write',
+      // @ts-expect-error Weird Express TS issue.
+      express.text(),
+      (req, res) => {
+        res.status(200).send(req.body)
+      }
+    )
   })
 })
 
@@ -77,7 +82,7 @@ test('gracefully finishes the request when it has a mocked response', (done) => 
 
 test('responds with a mocked response when requesting an existing hostname', (done) => {
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment')),
+    normalizeClientRequestArgs('http:', httpServer.http.url('/comment')),
     {
       observer: new EventEmitter(),
       async resolver(event) {
@@ -104,7 +109,7 @@ test('responds with a mocked response when requesting an existing hostname', (do
 
 test('performs the request as-is given resolver returned no mocked response', (done) => {
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment'), {
+    normalizeClientRequestArgs('http:', httpServer.http.url('/comment'), {
       method: 'POST',
     }),
     {
@@ -223,7 +228,7 @@ test('does not emit ECONNREFUSED error connecting to an inactive server given mo
 
 test('sends the request body to the server given no mocked response', (done) => {
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/write'), {
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',
@@ -252,7 +257,7 @@ test('sends the request body to the server given no mocked response', (done) => 
 
 test('does not send request body to the original server given mocked response', (done) => {
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/write'), {
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
       method: 'POST',
     }),
     {

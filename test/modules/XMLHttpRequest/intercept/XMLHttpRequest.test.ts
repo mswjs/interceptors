@@ -52,7 +52,7 @@ afterAll(async () => {
 })
 
 test('intercepts an HTTP HEAD request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('HEAD', url)
     req.setRequestHeader('x-custom-header', 'yes')
@@ -79,7 +79,7 @@ test('intercepts an HTTP HEAD request', async () => {
 })
 
 test('intercepts an HTTP GET request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('GET', url)
     req.setRequestHeader('x-custom-header', 'yes')
@@ -106,7 +106,7 @@ test('intercepts an HTTP GET request', async () => {
 })
 
 test('intercepts an HTTP POST request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('POST', url)
     req.setRequestHeader('x-custom-header', 'yes')
@@ -133,7 +133,7 @@ test('intercepts an HTTP POST request', async () => {
 })
 
 test('intercepts an HTTP PUT request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('PUT', url)
     req.setRequestHeader('x-custom-header', 'yes')
@@ -160,7 +160,7 @@ test('intercepts an HTTP PUT request', async () => {
 })
 
 test('intercepts an HTTP DELETE request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('DELETE', url)
     req.setRequestHeader('x-custom-header', 'yes')
@@ -187,7 +187,7 @@ test('intercepts an HTTP DELETE request', async () => {
 })
 
 test('intercepts an HTTPS HEAD request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('HEAD', url)
     req.setRequestHeader('x-custom-header', 'yes')
@@ -214,7 +214,7 @@ test('intercepts an HTTPS HEAD request', async () => {
 })
 
 test('intercepts an HTTPS GET request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('GET', url)
     req.setRequestHeader('x-custom-header', 'yes')
@@ -241,7 +241,7 @@ test('intercepts an HTTPS GET request', async () => {
 })
 
 test('intercepts an HTTPS POST request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('POST', url)
     req.setRequestHeader('x-custom-header', 'yes')
@@ -268,7 +268,7 @@ test('intercepts an HTTPS POST request', async () => {
 })
 
 test('intercepts an HTTPS PUT request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('PUT', url)
     req.setRequestHeader('x-custom-header', 'yes')
@@ -295,7 +295,7 @@ test('intercepts an HTTPS PUT request', async () => {
 })
 
 test('intercepts an HTTPS DELETE request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('DELETE', url)
     req.setRequestHeader('x-custom-header', 'yes')
@@ -323,7 +323,7 @@ test('intercepts an HTTPS DELETE request', async () => {
 
 test('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {
   await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/user'))
+    req.open('GET', httpServer.https.url('/user'))
     req.withCredentials = true
     req.send()
   })
@@ -341,7 +341,7 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
 
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is not set', async () => {
   await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/user'))
+    req.open('GET', httpServer.https.url('/user'))
     req.send()
   })
 
@@ -358,7 +358,7 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
 
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is false', async () => {
   await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/user'))
+    req.open('GET', httpServer.https.url('/user'))
     req.withCredentials = false
     req.send()
   })

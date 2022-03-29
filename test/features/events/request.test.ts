@@ -46,7 +46,7 @@ afterAll(async () => {
 })
 
 test('ClientRequest: emits the "request" event upon the request', async () => {
-  const url = httpServer.http.makeUrl('/user')
+  const url = httpServer.http.url('/user')
   const req = http.request(url, {
     method: 'POST',
     headers: {
@@ -71,7 +71,7 @@ test('ClientRequest: emits the "request" event upon the request', async () => {
 })
 
 test('XMLHttpRequest: emits the "request" event upon the request', async () => {
-  const url = httpServer.http.makeUrl('/user')
+  const url = httpServer.http.url('/user')
   await createXMLHttpRequest((req) => {
     req.open('POST', url)
     req.setRequestHeader('Content-Type', 'application/json')

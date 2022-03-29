@@ -27,7 +27,7 @@ test('does not lock the original response', async () => {
 
   runtime.page.evaluate((url) => {
     return window.fetchData(url)
-  }, httpServer.http.makeUrl('/'))
+  }, httpServer.http.url('/'))
 
   const responseText = await runtime.page.evaluate(() => {
     return new Promise((resolve) => {

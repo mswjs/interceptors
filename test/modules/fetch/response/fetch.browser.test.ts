@@ -31,11 +31,11 @@ async function prepareRuntime() {
 
   await context.page.evaluate((httpUrl) => {
     window.serverHttpUrl = httpUrl
-  }, httpServer.http.makeUrl('/'))
+  }, httpServer.http.url('/'))
 
   await context.page.evaluate((httpsUrl) => {
     window.serverHttpsUrl = httpsUrl
-  }, httpServer.https.makeUrl('/'))
+  }, httpServer.https.url('/'))
 
   return context
 }
@@ -71,7 +71,7 @@ describe('HTTP', () => {
           json,
         }))
       })
-    }, httpServer.http.makeUrl('/'))
+    }, httpServer.http.url('/'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('default')
@@ -99,7 +99,7 @@ describe('HTTP', () => {
           ),
         }
       })
-    }, httpServer.http.makeUrl('/get'))
+    }, httpServer.http.url('/get'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('cors')
@@ -130,7 +130,7 @@ describe('HTTPS', () => {
           json,
         }))
       })
-    }, httpServer.https.makeUrl('/'))
+    }, httpServer.https.url('/'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('default')
@@ -158,7 +158,7 @@ describe('HTTPS', () => {
           ),
         }
       })
-    }, httpServer.https.makeUrl('/get'))
+    }, httpServer.https.url('/get'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('cors')
@@ -191,7 +191,7 @@ test('bypasses any request when the interceptor is restored', async () => {
         }
       })
     },
-    httpServer.http.makeUrl('/')
+    httpServer.http.url('/')
   )
 
   expect(httpResponse.type).toBe('cors')
@@ -211,7 +211,7 @@ test('bypasses any request when the interceptor is restored', async () => {
         }
       })
     },
-    httpServer.http.makeUrl('/get')
+    httpServer.http.url('/get')
   )
 
   expect(httpsResponse.type).toBe('cors')

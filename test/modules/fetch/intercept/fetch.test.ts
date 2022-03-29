@@ -44,7 +44,7 @@ afterAll(async () => {
 })
 
 test('intercepts an HTTP HEAD request', async () => {
-  await fetch(httpServer.http.makeUrl('/user?id=123'), {
+  await fetch(httpServer.http.url('/user?id=123'), {
     method: 'HEAD',
     headers: {
       'x-custom-header': 'yes',
@@ -58,7 +58,7 @@ test('intercepts an HTTP HEAD request', async () => {
     request: {
       id: anyUuid(),
       method: 'HEAD',
-      url: new URL(httpServer.http.makeUrl('/user?id=123')),
+      url: new URL(httpServer.http.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -71,7 +71,7 @@ test('intercepts an HTTP HEAD request', async () => {
 })
 
 test('intercepts an HTTP GET request', async () => {
-  await fetch(httpServer.http.makeUrl('/user?id=123'), {
+  await fetch(httpServer.http.url('/user?id=123'), {
     headers: {
       'x-custom-header': 'yes',
     },
@@ -84,7 +84,7 @@ test('intercepts an HTTP GET request', async () => {
     request: {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.http.makeUrl('/user?id=123')),
+      url: new URL(httpServer.http.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -97,7 +97,7 @@ test('intercepts an HTTP GET request', async () => {
 })
 
 test('intercepts an HTTP POST request', async () => {
-  await fetch(httpServer.http.makeUrl('/user?id=123'), {
+  await fetch(httpServer.http.url('/user?id=123'), {
     method: 'POST',
     headers: {
       'x-custom-header': 'yes',
@@ -112,7 +112,7 @@ test('intercepts an HTTP POST request', async () => {
     request: {
       id: anyUuid(),
       method: 'POST',
-      url: new URL(httpServer.http.makeUrl('/user?id=123')),
+      url: new URL(httpServer.http.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -125,7 +125,7 @@ test('intercepts an HTTP POST request', async () => {
 })
 
 test('intercepts an HTTP PUT request', async () => {
-  await fetch(httpServer.http.makeUrl('/user?id=123'), {
+  await fetch(httpServer.http.url('/user?id=123'), {
     method: 'PUT',
     headers: {
       'x-custom-header': 'yes',
@@ -140,7 +140,7 @@ test('intercepts an HTTP PUT request', async () => {
     request: {
       id: anyUuid(),
       method: 'PUT',
-      url: new URL(httpServer.http.makeUrl('/user?id=123')),
+      url: new URL(httpServer.http.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -153,7 +153,7 @@ test('intercepts an HTTP PUT request', async () => {
 })
 
 test('intercepts an HTTP DELETE request', async () => {
-  await fetch(httpServer.http.makeUrl('/user?id=123'), {
+  await fetch(httpServer.http.url('/user?id=123'), {
     method: 'DELETE',
     headers: {
       'x-custom-header': 'yes',
@@ -167,7 +167,7 @@ test('intercepts an HTTP DELETE request', async () => {
     request: {
       id: anyUuid(),
       method: 'DELETE',
-      url: new URL(httpServer.http.makeUrl('/user?id=123')),
+      url: new URL(httpServer.http.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -180,7 +180,7 @@ test('intercepts an HTTP DELETE request', async () => {
 })
 
 test('intercepts an HTTP PATCH request', async () => {
-  await fetch(httpServer.http.makeUrl('/user?id=123'), {
+  await fetch(httpServer.http.url('/user?id=123'), {
     method: 'PATCH',
     headers: {
       'x-custom-header': 'yes',
@@ -195,7 +195,7 @@ test('intercepts an HTTP PATCH request', async () => {
     request: {
       id: anyUuid(),
       method: 'PATCH',
-      url: new URL(httpServer.http.makeUrl('/user?id=123')),
+      url: new URL(httpServer.http.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -208,7 +208,7 @@ test('intercepts an HTTP PATCH request', async () => {
 })
 
 test('intercepts an HTTPS HEAD request', async () => {
-  await fetch(httpServer.https.makeUrl('/user?id=123'), {
+  await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     method: 'HEAD',
     headers: {
@@ -223,7 +223,7 @@ test('intercepts an HTTPS HEAD request', async () => {
     request: {
       id: anyUuid(),
       method: 'HEAD',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -236,7 +236,7 @@ test('intercepts an HTTPS HEAD request', async () => {
 })
 
 test('intercepts an HTTPS GET request', async () => {
-  await fetch(httpServer.https.makeUrl('/user?id=123'), {
+  await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     headers: {
       'x-custom-header': 'yes',
@@ -250,7 +250,7 @@ test('intercepts an HTTPS GET request', async () => {
     request: {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -263,7 +263,7 @@ test('intercepts an HTTPS GET request', async () => {
 })
 
 test('intercepts an HTTPS POST request', async () => {
-  await fetch(httpServer.https.makeUrl('/user?id=123'), {
+  await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     method: 'POST',
     headers: {
@@ -279,7 +279,7 @@ test('intercepts an HTTPS POST request', async () => {
     request: {
       id: anyUuid(),
       method: 'POST',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -292,7 +292,7 @@ test('intercepts an HTTPS POST request', async () => {
 })
 
 test('intercepts an HTTPS PUT request', async () => {
-  await fetch(httpServer.https.makeUrl('/user?id=123'), {
+  await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     method: 'PUT',
     headers: {
@@ -308,7 +308,7 @@ test('intercepts an HTTPS PUT request', async () => {
     request: {
       id: anyUuid(),
       method: 'PUT',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -321,7 +321,7 @@ test('intercepts an HTTPS PUT request', async () => {
 })
 
 test('intercepts an HTTPS DELETE request', async () => {
-  await fetch(httpServer.https.makeUrl('/user?id=123'), {
+  await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     method: 'DELETE',
     headers: {
@@ -336,7 +336,7 @@ test('intercepts an HTTPS DELETE request', async () => {
     request: {
       id: anyUuid(),
       method: 'DELETE',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -349,7 +349,7 @@ test('intercepts an HTTPS DELETE request', async () => {
 })
 
 test('intercepts an HTTPS PATCH request', async () => {
-  await fetch(httpServer.https.makeUrl('/user?id=123'), {
+  await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     method: 'PATCH',
     headers: {
@@ -364,7 +364,7 @@ test('intercepts an HTTPS PATCH request', async () => {
     request: {
       id: anyUuid(),
       method: 'PATCH',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),

@@ -81,7 +81,7 @@ test('responds to a handled request issued by "https.get"', async () => {
 })
 
 test('bypasses an unhandled request issued by "http.get"', async () => {
-  const req = http.get(httpServer.http.makeUrl('/get'))
+  const req = http.get(httpServer.http.url('/get'))
   const { res, text } = await waitForClientRequest(req)
 
   expect(res).toMatchObject<Partial<http.IncomingMessage>>({
@@ -92,7 +92,7 @@ test('bypasses an unhandled request issued by "http.get"', async () => {
 })
 
 test('bypasses an unhandled request issued by "https.get"', async () => {
-  const req = https.get(httpServer.https.makeUrl('/get'), { agent: httpsAgent })
+  const req = https.get(httpServer.https.url('/get'), { agent: httpsAgent })
   const { res, text } = await waitForClientRequest(req)
 
   expect(res).toMatchObject<Partial<http.IncomingMessage>>({
@@ -132,7 +132,7 @@ test('responds to a handled request issued by "https.request"', async () => {
 })
 
 test('bypasses an unhandled request issued by "http.request"', async () => {
-  const req = http.request(httpServer.http.makeUrl('/get'))
+  const req = http.request(httpServer.http.url('/get'))
   req.end()
   const { res, text } = await waitForClientRequest(req)
 
@@ -144,7 +144,7 @@ test('bypasses an unhandled request issued by "http.request"', async () => {
 })
 
 test('bypasses an unhandled request issued by "https.request"', async () => {
-  const req = https.request(httpServer.https.makeUrl('/get'), {
+  const req = https.request(httpServer.https.url('/get'), {
     agent: httpsAgent,
   })
   req.end()
@@ -167,7 +167,7 @@ test('throws a request error when the middleware throws an exception', async () 
 test('bypasses any request after the interceptor was restored', async () => {
   interceptor.restore()
 
-  const req = http.get(httpServer.http.makeUrl('/'))
+  const req = http.get(httpServer.http.url('/'))
   const { res, text } = await waitForClientRequest(req)
 
   expect(res).toMatchObject<Partial<http.IncomingMessage>>({

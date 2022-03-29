@@ -70,7 +70,7 @@ afterAll(async () => {
 })
 
 test('ClientRequest: emits the "response" event upon a mocked response', async () => {
-  const req = https.request(httpServer.https.makeUrl('/user'), {
+  const req = https.request(httpServer.https.url('/user'), {
     method: 'GET',
     headers: {
       'x-request-custom': 'yes',
@@ -86,7 +86,7 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
     {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user')),
+      url: new URL(httpServer.https.url('/user')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
@@ -107,7 +107,7 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
 })
 
 test('ClientRequest: emits the "response" event upon the original response', async () => {
-  const req = https.request(httpServer.https.makeUrl('/account'), {
+  const req = https.request(httpServer.https.url('/account'), {
     method: 'POST',
     headers: {
       'x-request-custom': 'yes',
@@ -125,7 +125,7 @@ test('ClientRequest: emits the "response" event upon the original response', asy
     {
       id: anyUuid(),
       method: 'POST',
-      url: new URL(httpServer.https.makeUrl('/account')),
+      url: new URL(httpServer.https.url('/account')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
@@ -147,7 +147,7 @@ test('ClientRequest: emits the "response" event upon the original response', asy
 
 test('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/user'))
+    req.open('GET', httpServer.https.url('/user'))
     req.setRequestHeader('x-request-custom', 'yes')
     req.send()
   })
@@ -159,7 +159,7 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
     {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user')),
+      url: new URL(httpServer.https.url('/user')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
@@ -182,7 +182,7 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
 
 test('XMLHttpRequest: emits the "response" event upon the original response', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.makeUrl('/account'))
+    req.open('POST', httpServer.https.url('/account'))
     req.setRequestHeader('x-request-custom', 'yes')
     req.send('request-body')
   })
@@ -199,7 +199,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
     {
       id: anyUuid(),
       method: 'POST',
-      url: new URL(httpServer.https.makeUrl('/account')),
+      url: new URL(httpServer.https.url('/account')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
@@ -221,7 +221,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
 })
 
 test('fetch: emits the "response" event upon a mocked response', async () => {
-  await fetch(httpServer.https.makeUrl('/user'), {
+  await fetch(httpServer.https.url('/user'), {
     headers: {
       'x-request-custom': 'yes',
     },
@@ -234,7 +234,7 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
     {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user')),
+      url: new URL(httpServer.https.url('/user')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
@@ -253,7 +253,7 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
 })
 
 test('fetch: emits the "response" event upon the original response', async () => {
-  await fetch(httpServer.https.makeUrl('/account'), {
+  await fetch(httpServer.https.url('/account'), {
     agent: httpsAgent,
     method: 'POST',
     headers: {
@@ -271,7 +271,7 @@ test('fetch: emits the "response" event upon the original response', async () =>
     {
       id: anyUuid(),
       method: 'POST',
-      url: new URL(httpServer.https.makeUrl('/account')),
+      url: new URL(httpServer.https.url('/account')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),

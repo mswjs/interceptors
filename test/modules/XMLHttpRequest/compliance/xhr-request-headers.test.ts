@@ -44,7 +44,7 @@ afterAll(async () => {
 
 test('sends the request headers to the server', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/'))
+    req.open('GET', httpServer.http.url('/'))
     req.setRequestHeader('X-ClienT-HeadeR', 'abc-123')
     req.setRequestHeader('X-Multi-Value', 'value1; value2')
     req.send()

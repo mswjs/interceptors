@@ -25,11 +25,11 @@ async function prepareRuntime() {
 
   await scenario.page.evaluate((httpUrl) => {
     window.serverHttpUrl = httpUrl
-  }, httpServer.http.makeUrl('/'))
+  }, httpServer.http.url('/'))
 
   await scenario.page.evaluate((httpsUrl) => {
     window.serverHttpsUrl = httpsUrl
-  }, httpServer.https.makeUrl('/'))
+  }, httpServer.https.url('/'))
 
   return scenario
 }
@@ -54,7 +54,7 @@ test('responds to an HTTP request handled in the resolver', async () => {
   const callXMLHttpRequest = createBrowserXMLHttpRequest(scenario)
   const [, response] = await callXMLHttpRequest({
     method: 'GET',
-    url: httpServer.http.makeUrl('/'),
+    url: httpServer.http.url('/'),
   })
 
   expect(response.status).toEqual(201)
@@ -68,7 +68,7 @@ test('responds to an HTTPS request handled in the resolver', async () => {
   const callXMLHttpRequest = createBrowserXMLHttpRequest(scenario)
   const [, response] = await callXMLHttpRequest({
     method: 'GET',
-    url: httpServer.https.makeUrl('/'),
+    url: httpServer.https.url('/'),
   })
 
   expect(response.status).toEqual(201)
@@ -82,7 +82,7 @@ test('bypasses a request not handled in the resolver', async () => {
   const callXMLHttpRequest = createBrowserXMLHttpRequest(scenario)
   const [, response] = await callXMLHttpRequest({
     method: 'GET',
-    url: httpServer.http.makeUrl('/get'),
+    url: httpServer.http.url('/get'),
   })
 
   expect(response.status).toEqual(200)
@@ -102,7 +102,7 @@ test('bypasses any request when the interceptor is restored', async () => {
 
   const firstResponse = await callXMLHttpRequest({
     method: 'GET',
-    url: httpServer.http.makeUrl('/'),
+    url: httpServer.http.url('/'),
   })
 
   expect(firstResponse.status).toEqual(200)
@@ -111,7 +111,7 @@ test('bypasses any request when the interceptor is restored', async () => {
 
   const secondResponse = await callXMLHttpRequest({
     method: 'GET',
-    url: httpServer.http.makeUrl('/get'),
+    url: httpServer.http.url('/get'),
   })
   expect(secondResponse.status).toEqual(200)
   expect(secondResponse.statusText).toEqual('OK')

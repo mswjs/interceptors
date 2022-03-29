@@ -39,7 +39,7 @@ afterAll(async () => {
 })
 
 test('supports custom socket timeout on the HTTP request', (done) => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), (res) => {
+  const req = http.request(httpServer.http.url('/resource'), (res) => {
     res.on('data', () => null)
     res.on('end', () => {
       expect(res.statusCode).toEqual(301)

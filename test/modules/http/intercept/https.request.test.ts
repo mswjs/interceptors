@@ -46,7 +46,7 @@ afterAll(async () => {
 })
 
 test('intercepts a HEAD request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'HEAD',
@@ -64,7 +64,7 @@ test('intercepts a HEAD request', async () => {
     request: {
       id: anyUuid(),
       method: 'HEAD',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -77,7 +77,7 @@ test('intercepts a HEAD request', async () => {
 })
 
 test('intercepts a GET request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'GET',
@@ -95,7 +95,7 @@ test('intercepts a GET request', async () => {
     request: {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -108,7 +108,7 @@ test('intercepts a GET request', async () => {
 })
 
 test('intercepts a POST request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'POST',
@@ -127,7 +127,7 @@ test('intercepts a POST request', async () => {
     request: {
       id: anyUuid(),
       method: 'POST',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -140,7 +140,7 @@ test('intercepts a POST request', async () => {
 })
 
 test('intercepts a PUT request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'PUT',
@@ -159,7 +159,7 @@ test('intercepts a PUT request', async () => {
     request: {
       id: anyUuid(),
       method: 'PUT',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -172,7 +172,7 @@ test('intercepts a PUT request', async () => {
 })
 
 test('intercepts a PATCH request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'PATCH',
@@ -191,7 +191,7 @@ test('intercepts a PATCH request', async () => {
     request: {
       id: anyUuid(),
       method: 'PATCH',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -204,7 +204,7 @@ test('intercepts a PATCH request', async () => {
 })
 
 test('intercepts a DELETE request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'DELETE',
@@ -222,7 +222,7 @@ test('intercepts a DELETE request', async () => {
     request: {
       id: anyUuid(),
       method: 'DELETE',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({
         'x-custom-header': 'yes',
       }),
@@ -251,7 +251,7 @@ test('intercepts an http.request request given RequestOptions without a protocol
     request: {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({}),
       credentials: 'same-origin',
       body: '',

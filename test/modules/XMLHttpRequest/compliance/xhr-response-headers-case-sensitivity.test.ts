@@ -34,7 +34,7 @@ afterAll(async () => {
 
 test('ignores casing when retrieving response headers via "getResponseHeader"', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/account'))
+    req.open('GET', httpServer.http.url('/account'))
     req.send()
   })
 

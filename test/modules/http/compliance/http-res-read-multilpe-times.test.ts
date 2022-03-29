@@ -65,7 +65,7 @@ test('allows reading the response body after it has been read internally', async
 
   const makeRequest = (): Promise<RequestTransformer> => {
     return new Promise((resolve, reject) => {
-      const request = http.get(httpServer.http.makeUrl('/user'))
+      const request = http.get(httpServer.http.url('/user'))
       request.on('response', (response) => {
         resolve(new RequestTransformer(response))
       })

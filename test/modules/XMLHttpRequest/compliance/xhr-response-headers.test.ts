@@ -60,7 +60,7 @@ test('returns the bypass response headers when called ".getAllResponseHeaders()"
   const req = await createXMLHttpRequest((req) => {
     // Perform a HEAD request so that the response has no "Content-Type" header
     // always appended by Express.
-    req.open('HEAD', httpServer.http.makeUrl('/'))
+    req.open('HEAD', httpServer.http.url('/'))
     req.send()
   })
 

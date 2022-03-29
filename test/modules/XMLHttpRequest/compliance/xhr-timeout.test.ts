@@ -33,7 +33,7 @@ afterAll(async () => {
 
 test('handles request timeout via the "ontimeout" callback', (done) => {
   createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/'), true)
+    req.open('GET', httpServer.http.url('/'), true)
     req.timeout = 1
     req.ontimeout = function () {
       expect(this.readyState).toBe(4)
@@ -45,7 +45,7 @@ test('handles request timeout via the "ontimeout" callback', (done) => {
 
 test('handles request timeout via the "timeout" event listener', (done) => {
   createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/'), true)
+    req.open('GET', httpServer.http.url('/'), true)
     req.timeout = 1
     req.addEventListener('timeout', function () {
       expect(this.readyState).toBe(4)

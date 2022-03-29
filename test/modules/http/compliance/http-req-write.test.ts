@@ -44,7 +44,7 @@ afterAll(async () => {
 })
 
 test('writes string request body', async () => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), {
+  const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain',
@@ -64,7 +64,7 @@ test('writes string request body', async () => {
 })
 
 test('writes JSON request body', async () => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), {
+  const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ test('writes JSON request body', async () => {
 })
 
 test('writes Buffer request body', async () => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), {
+  const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -104,7 +104,7 @@ test('writes Buffer request body', async () => {
 })
 
 test('does not call the write callback when writing an empty string', async () => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), {
+  const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
 
@@ -117,7 +117,7 @@ test('does not call the write callback when writing an empty string', async () =
 })
 
 test('does not call the write callback when writing an empty Buffer', async () => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), {
+  const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
 

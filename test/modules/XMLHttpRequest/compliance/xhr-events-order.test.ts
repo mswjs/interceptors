@@ -68,7 +68,7 @@ test('emits correct events sequence for an unhandled request with no response bo
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl())
+    req.open('GET', httpServer.http.url())
     spyOnEvents(req, listener)
     req.send()
   })
@@ -93,7 +93,7 @@ test('emits correct events sequence for a handled request with no response body'
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/user'))
+    req.open('GET', httpServer.http.url('/user'))
     spyOnEvents(req, listener)
     req.send()
   })
@@ -112,7 +112,7 @@ test('emits correct events sequence for an unhandled request with a response bod
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/numbers'))
+    req.open('GET', httpServer.http.url('/numbers'))
     spyOnEvents(req, listener)
     req.send()
   })
@@ -137,7 +137,7 @@ test('emits correct events sequence for a handled request with a response body',
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/numbers-mock'))
+    req.open('GET', httpServer.http.url('/numbers-mock'))
     spyOnEvents(req, listener)
     req.send()
   })

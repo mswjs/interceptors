@@ -33,7 +33,7 @@ afterAll(async () => {
 test('performs the original HTTPS request', (done) => {
   https
     .request(
-      new URL(httpServer.https.makeUrl('/resource')),
+      new URL(httpServer.https.url('/resource')),
       {
         method: 'GET',
         agent: httpsAgent,

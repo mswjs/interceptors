@@ -61,7 +61,7 @@ test('does not reach the rate preforming more mocked requests than allowed', asy
   for (let i = 0; i < 100; i++) {
     requests.push(
       new Promise((resolve, reject) => {
-        const req = http.get(httpServer.http.makeUrl('/?mock=true'))
+        const req = http.get(httpServer.http.url('/?mock=true'))
         req.on('abort', reject)
         req.on('error', reject)
         req.on('response', resolve)
@@ -83,7 +83,7 @@ test('does not reach the rate limiting performing allowed number of bypassed req
   for (let i = 0; i < 5; i++) {
     requests.push(
       new Promise((resolve, reject) => {
-        const req = http.get(httpServer.http.makeUrl('/'))
+        const req = http.get(httpServer.http.url('/'))
         req.on('abort', reject)
         req.on('error', reject)
         req.on('response', resolve)
