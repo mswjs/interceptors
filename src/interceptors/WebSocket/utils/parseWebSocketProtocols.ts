@@ -1,4 +1,5 @@
 import { invariant } from 'outvariant'
+import { WEBSOCKET_CONSTRUCTOR_ERROR } from './parseWebSocketUrl'
 
 function getDuplicateItems<T>(array: T[]): T[] {
   const duplicates = []
@@ -20,7 +21,8 @@ export function parseWebSocketProtocols(
 ): string[] | string {
   invariant(
     Array.isArray(protocols) || typeof protocols === 'string',
-    `The subprotocol '%s' is invalid.`,
+    `%s: The subprotocol '%s' is invalid.`,
+    WEBSOCKET_CONSTRUCTOR_ERROR,
     protocols.toString()
   )
 
@@ -29,7 +31,8 @@ export function parseWebSocketProtocols(
 
   invariant(
     duplicateProtocols.length === 0,
-    `The subprotocol '%s' is duplicated.`,
+    `%s: The subprotocol '%s' is duplicated.`,
+    WEBSOCKET_CONSTRUCTOR_ERROR,
     duplicateProtocols[0]
   )
 

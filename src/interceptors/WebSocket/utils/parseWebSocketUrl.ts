@@ -1,6 +1,6 @@
-import { invariant } from 'outvariant'
+import { invariant, format } from 'outvariant'
 
-const WEBSOCKET_ERROR_PREFIX = `Syntax Error: Failed to construct 'WebSocket'`
+export const WEBSOCKET_CONSTRUCTOR_ERROR = `Syntax Error: Failed to construct 'WebSocket'`
 
 /**
  * Validate the given WebSocket URL string.
@@ -8,13 +8,21 @@ const WEBSOCKET_ERROR_PREFIX = `Syntax Error: Failed to construct 'WebSocket'`
 export function parseWebSocketUrl(url?: string | null): URL {
   invariant(url, 'SyntaxError: 1 argument required, but only 0 present.')
 
-  const urlRecord = new URL(url)
+  let urlRecord: URL
+
+  try {
+    urlRecord = new URL(url)
+  } catch (error) {
+    throw new Error(
+      format(`%s: The URL '%s' is invalid.`, WEBSOCKET_CONSTRUCTOR_ERROR, url)
+    )
+  }
 
   // URL must have a protocol specified.
   invariant(
     urlRecord.protocol !== '',
     `%s: The URL '%s' is invalid.`,
-    WEBSOCKET_ERROR_PREFIX,
+    WEBSOCKET_CONSTRUCTOR_ERROR,
     urlRecord.toString()
   )
 
@@ -22,16 +30,16 @@ export function parseWebSocketUrl(url?: string | null): URL {
   invariant(
     urlRecord.protocol === 'wss:' || urlRecord.protocol === 'ws:',
     `%s: The URL's scheme must be either 'ws' or 'wss'. '%s' is not allowed.`,
-    WEBSOCKET_ERROR_PREFIX,
-    urlRecord.protocol
+    WEBSOCKET_CONSTRUCTOR_ERROR,
+    urlRecord.protocol.replace(':', '')
   )
 
   // Forbid fragments (hashes) in the WebSocket URL.
   invariant(
     urlRecord.hash === '',
     `%s: The URL contains a fragment identifier ('%s'). Fragment identifiers are not allowed in WebSocket URLs.`,
-    WEBSOCKET_ERROR_PREFIX,
-    urlRecord.hash
+    WEBSOCKET_CONSTRUCTOR_ERROR,
+    urlRecord.hash.replace('#', '')
   )
 
   return urlRecord
