@@ -1,14 +1,10 @@
 import { StrictEventEmitter } from 'strict-event-emitter'
 import type { Resolver, WebSocketEvent } from '../../../createInterceptor'
-import { uuidv4 } from '../../../utils/uuid'
 import { createEvent } from '../utils/createEvent'
 import { getDataLength } from '../utils/getDataLength'
 import { parseWebSocketProtocols } from '../utils/parseWebSocketProtocols'
 import { parseWebSocketUrl } from '../utils/parseWebSocketUrl'
-import {
-  EnginesIoParserPacketTypes,
-  SocketIoConnection,
-} from './SocketIoConnection'
+import { SocketIoConnection } from './SocketIoConnection'
 import { WebSocketConnection } from './WebSocketConnection'
 
 export type WebSocketMessageData =
@@ -86,76 +82,7 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
           intercept() {},
         }
         resolver(resolverEvent)
-
-        if (useSocketIO) {
-          this.mockSocketIOConnection()
-        }
       })
-    }
-
-    /**
-     * @todo Abstract this away from socket.io.
-     * - Will this work for regular WebSocket connections?
-     * - This should definitely be ignored in the "connection" events.
-     * This is an internal event.
-     */
-    mockSocketIOConnection(): void {
-      const sid = uuidv4()
-      const pingInterval = 25000
-
-      // First, emulate that this client has received the "OPEN" event from the server.
-      // This lets "socket.io-client" know that the server connection is established.
-      this.emitter.emit(
-        'message',
-        createEvent(MessageEvent, 'message', {
-          data:
-            // "0" is a specific code parsed by "engine.io-parser" as "CONNECT".
-            // When "socket.io-client" receives this code, it will emit a reserved
-            // "connect" event, marking the socket as "connected".
-            EnginesIoParserPacketTypes.OPEN +
-            JSON.stringify({
-              sid,
-              upgrades: [],
-              pingInterval,
-              pingTimeout: 60000,
-            }),
-          target: this,
-        })
-      )
-
-      // Next, emulate that the server has confirmed a new client.
-      this.emitter.emit(
-        'message',
-        createEvent(MessageEvent, 'message', {
-          data:
-            EnginesIoParserPacketTypes.MESSAGE +
-            EnginesIoParserPacketTypes.OPEN +
-            JSON.stringify({
-              sid,
-            }),
-          target: this,
-        })
-      )
-
-      // Then, emulate the client receiving the "PING" event from the server,
-      // which keeps the connection alive.
-      const pingTimer = setInterval(() => {
-        this.emitter.emit(
-          'message',
-          createEvent(MessageEvent, 'message', {
-            // node_modules/engine.io-parser/build/esm/commons.js
-            data: EnginesIoParserPacketTypes.PING,
-            target: this,
-          })
-        )
-      }, pingInterval)
-
-      const clearPingTimer = () => {
-        clearInterval(pingTimer)
-      }
-
-      this.addEventListener('close', clearPingTimer)
-      this.addEventListener('error', clearPingTimer)
     }
 
     send(data: WebSocketMessageData): void {

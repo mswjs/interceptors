@@ -5,6 +5,8 @@ import {
   WebSocketConnectionEventsMap,
 } from './WebSocketConnection'
 import type { WebSocketMessageData } from './WebSocketOverride'
+import { uuidv4 } from '../../../utils/uuid'
+import { createEvent } from '../utils/createEvent'
 
 /**
  * @see {@link node_modules/engine.io-parser/build/esm/commons.js}
@@ -23,17 +25,79 @@ export class SocketIoConnection extends WebSocketConnection {
   private encoder: Encoder = new Encoder()
   private decoder: Decoder = new Decoder()
 
-  constructor(client: any) {
+  constructor(client: WebSocket) {
     super(client)
 
     // Establish the decoder handler once.
     this.decoder.on('decoded', this.handleDecodedPacket.bind(this))
+
+    this.client.addEventListener('open', () => {
+      this.connect()
+    })
+  }
+
+  /**
+   * Emulate the routine "socket.io-client" executes to confirm
+   * a successful server connection.
+   */
+  private connect(): void {
+    const sid = uuidv4()
+    const pingInterval = 25000
+
+    // First, emulate that this client receives the "OPEN" event from the server.
+    // This lets "socket.io-client" know that the server connection is established.
+    this.client.dispatchEvent(
+      createEvent(MessageEvent, 'message', {
+        target: this.client,
+        data:
+          EnginesIoParserPacketTypes.OPEN +
+          JSON.stringify({
+            sid,
+            upgrades: [],
+            pingInterval,
+            pingTimeout: 60000,
+          }),
+      })
+    )
+
+    // Next, emulate that the server has confirmed a new client.
+    this.client.dispatchEvent(
+      createEvent(MessageEvent, 'message', {
+        target: this.client,
+        data:
+          EnginesIoParserPacketTypes.MESSAGE +
+          EnginesIoParserPacketTypes.OPEN +
+          JSON.stringify({
+            sid,
+          }),
+      })
+    )
+
+    // Then, emulate the client receiving the "PING" event from the server.
+    // This keeps the connection alive, as "socket.io-client" sends "PONG" in response.
+    const pingTimer = setInterval(() => {
+      this.client.dispatchEvent(
+        createEvent(MessageEvent, 'message', {
+          target: this.client,
+          // node_modules/engine.io-parser/build/esm/commons.js
+          data: EnginesIoParserPacketTypes.PING,
+        })
+      )
+    }, pingInterval)
+
+    const clearPingTimer = () => {
+      clearInterval(pingTimer)
+    }
+
+    // Clear the ping/poing internal if the socket terminates.
+    this.client.addEventListener('error', clearPingTimer)
+    this.client.addEventListener('error', clearPingTimer)
   }
 
   /**
    * Decode outgoing client messages of the "2<data>" format.
    */
-  handleDecodedPacket(packet: Packet) {
+  private handleDecodedPacket(packet: Packet) {
     // Ignore reserved events like "PING" from propagating
     // to the user-facing "connection".
     if (packet.type !== PacketType.EVENT) {
@@ -88,9 +152,9 @@ export class SocketIoConnection extends WebSocketConnection {
     const encodedPackets = this.encoder.encode(packet)
 
     for (const encodedPacket of encodedPackets) {
-      this.client.emitter.emit(
-        'message',
-        new MessageEvent('message', {
+      this.client.dispatchEvent(
+        createEvent(MessageEvent, 'message', {
+          target: this.client,
           data: encodedPacket,
         })
       )

@@ -1,8 +1,6 @@
 import { StrictEventEmitter } from 'strict-event-emitter'
-import type {
-  WebSocketEventsMap,
-  WebSocketMessageData,
-} from './WebSocketOverride'
+import { createEvent } from '../utils/createEvent'
+import type { WebSocketMessageData } from './WebSocketOverride'
 
 export interface WebSocketConnectionEventsMap {
   message(event: MessageEvent<WebSocketMessageData>): void
@@ -12,11 +10,7 @@ export interface WebSocketConnectionEventsMap {
 export class WebSocketConnection {
   public readonly emitter: StrictEventEmitter<WebSocketConnectionEventsMap>
 
-  constructor(
-    public readonly client: WebSocket & {
-      emitter: StrictEventEmitter<WebSocketEventsMap>
-    }
-  ) {
+  constructor(public readonly client: WebSocket) {
     this.emitter = new StrictEventEmitter()
   }
 
@@ -35,8 +29,12 @@ export class WebSocketConnection {
   }
 
   public send(data: WebSocketMessageData): void {
-    const messageEvent = new MessageEvent('message', { data })
-    this.client.emitter.emit('message', messageEvent)
+    this.client.dispatchEvent(
+      createEvent(MessageEvent, 'message', {
+        target: this.client,
+        data,
+      })
+    )
   }
 
   public close(): void {
