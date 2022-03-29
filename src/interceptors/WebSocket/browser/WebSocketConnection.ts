@@ -3,6 +3,7 @@ import { createEvent } from '../utils/createEvent'
 import type { WebSocketMessageData } from './WebSocketOverride'
 
 export interface WebSocketConnectionEventsMap {
+  [event: string]: (...data: any[]) => void
   message(event: MessageEvent<WebSocketMessageData>): void
   close(event: CloseEvent): void
 }
