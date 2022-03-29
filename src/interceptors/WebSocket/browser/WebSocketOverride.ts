@@ -86,8 +86,6 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
     }
 
     send(data: WebSocketMessageData): void {
-      console.log('WebSocket.prototype.send:', data)
-
       if (this.readyState === this.CONNECTING) {
         this.close()
         throw new Error('InvalidStateError')
