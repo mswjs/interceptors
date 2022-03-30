@@ -237,8 +237,8 @@ test('intercepts a DELETE request', async () => {
 test('intercepts an http.request request given RequestOptions without a protocol', async () => {
   const req = https.request({
     agent: httpsAgent,
-    host: httpServer.https.getAddress().host,
-    port: httpServer.https.getAddress().port,
+    host: httpServer.https.address.host,
+    port: httpServer.https.address.port,
     path: '/user?id=123',
   })
   req.end()

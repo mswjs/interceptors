@@ -70,8 +70,8 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
   // Pass a RequestOptions object without an explicit `protocol`.
   // The request is made via `https` so the `https:` protocol must be inferred.
   const req = https.get({
-    host: httpServer.https.getAddress().host,
-    port: httpServer.https.getAddress().port,
+    host: httpServer.https.address.host,
+    port: httpServer.https.address.port,
     path: '/user?id=123',
     // Suppress the "certificate has expired" error.
     rejectUnauthorized: false,

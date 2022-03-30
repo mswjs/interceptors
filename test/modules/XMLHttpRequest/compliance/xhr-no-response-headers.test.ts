@@ -30,7 +30,7 @@ hello world`)
    * @note Stub the internal JSDOM property to prevent the following error:
    * Error: Cross origin http://127.0.0.1:XXXXX/ forbidden
    */
-  const { protocol, host, port } = httpServer.http.getAddress()
+  const { protocol, host, port } = httpServer.http.address
   // @ts-expect-error
   window._origin = `${protocol}//${host}:${port}`
 })

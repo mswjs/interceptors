@@ -68,8 +68,8 @@ test('intercepts an http.get request given RequestOptions without a protocol', a
   // Create a request with `RequestOptions` without an explicit "protocol".
   // Since request is done via `http.get`, the "http:" protocol must be inferred.
   const req = http.get({
-    host: httpServer.http.getAddress().host,
-    port: httpServer.http.getAddress().port,
+    host: httpServer.http.address.host,
+    port: httpServer.http.address.port,
     path: '/user?id=123',
   })
   const { text } = await waitForClientRequest(req)
