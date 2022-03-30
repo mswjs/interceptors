@@ -6,7 +6,7 @@ import { io as socketClient, Socket } from 'socket.io-client'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { pageWith } from 'page-with'
 import waitForExpect from 'wait-for-expect'
-import type { Resolver, WebSocketEvent } from '../../../../src'
+import type { Resolver, WebSocketEvent } from '../../../../../src'
 
 declare namespace window {
   export const io: typeof socketClient

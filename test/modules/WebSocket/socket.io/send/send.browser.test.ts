@@ -3,7 +3,7 @@ import { pageWith } from 'page-with'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { io as socketClient, Socket } from 'socket.io-client'
 import waitForExpect from 'wait-for-expect'
-import { Resolver, WebSocketEvent } from '../../../../src'
+import { Resolver, WebSocketEvent } from '../../../../../src'
 
 declare namespace window {
   export const io: typeof socketClient
@@ -58,41 +58,6 @@ it('sends data from the connection', async () => {
 
   await waitForExpect(() => {
     expect(runtime.consoleSpy.get('log')).toEqual(['hello from server'])
-  })
-})
-
-it('emits custom events from the connection', async () => {
-  const runtime = await prepareRuntime()
-  const wssUrl = testServer.wss.address.toString()
-
-  await runtime.page.evaluate(() => {
-    window.resolver = (event) => {
-      window.event = event
-    }
-
-    document.body.addEventListener('click', () => {
-      window.event.connection.emit('greet', 'Kate')
-    })
-  })
-
-  await runtime.page.evaluate((wssUrl) => {
-    return new Promise<void>((resolve) => {
-      window.socket = window.io(wssUrl, {
-        transports: ['websocket'],
-      })
-      window.socket.on('connect', resolve)
-      window.socket.on('greet', (text) => {
-        console.log(text)
-      })
-    })
-  }, wssUrl)
-
-  await runtime.page.evaluate(() => {
-    document.body.click()
-  })
-
-  await waitForExpect(() => {
-    expect(runtime.consoleSpy.get('log')).toEqual(['Kate'])
   })
 })
 
