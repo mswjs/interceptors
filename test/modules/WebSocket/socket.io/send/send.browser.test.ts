@@ -44,14 +44,15 @@ it('sends data from the connection', async () => {
   })
 
   await runtime.page.evaluate((wssUrl) => {
+    window.socket = window.io(wssUrl, {
+      transports: ['websocket'],
+    })
+    window.socket.on('message', (text) => {
+      console.log(text)
+    })
+
     return new Promise<void>((resolve) => {
-      window.socket = window.io(wssUrl, {
-        transports: ['websocket'],
-      })
       window.socket.on('connect', resolve)
-      window.socket.on('message', (text) => {
-        console.log(text)
-      })
     })
   }, wssUrl)
 
@@ -79,14 +80,15 @@ it('sends data from the connection in response to client event', async () => {
   })
 
   await runtime.page.evaluate((wssUrl) => {
+    window.socket = window.io(wssUrl, {
+      transports: ['websocket'],
+    })
+    window.socket.on('message', (text) => {
+      console.log(text)
+    })
+
     return new Promise<void>((resolve) => {
-      window.socket = window.io(wssUrl, {
-        transports: ['websocket'],
-      })
       window.socket.on('connect', resolve)
-      window.socket.on('message', (text) => {
-        console.log(text)
-      })
     })
   }, wssUrl)
 
@@ -97,4 +99,58 @@ it('sends data from the connection in response to client event', async () => {
   await waitForExpect(() => {
     expect(runtime.consoleSpy.get('log')).toEqual(['hello, John'])
   })
+})
+
+it('sends data to multiple clients', async () => {
+  const runtime = await prepareRuntime()
+  const wssUrl = testServer.wss.address.toString()
+
+  await runtime.page.evaluate(() => {
+    window.resolver = (event) => {
+      document.body.addEventListener('click', () => {
+        event.connection.send('hello')
+      })
+    }
+  })
+
+  const [firstSocketId, secondSocketId] = await runtime.page.evaluate(
+    (wssUrl) => {
+      const firstSocket = window.io(wssUrl, {
+        transports: ['websocket'],
+      })
+      firstSocket.on('message', (text) => {
+        console.log(`${firstSocket.id} ${text}`)
+      })
+
+      const secondSocket = window.io(wssUrl, {
+        transports: ['websocket'],
+      })
+      secondSocket.on('message', (text) => {
+        console.log(`${secondSocket.id} ${text}`)
+      })
+
+      return Promise.all([
+        new Promise<string>((resolve) =>
+          firstSocket.on('connect', () => {
+            resolve(firstSocket.id)
+          })
+        ),
+        new Promise<string>((resolve) =>
+          secondSocket.on('connect', () => {
+            resolve(secondSocket.id)
+          })
+        ),
+      ])
+    },
+    wssUrl
+  )
+
+  await runtime.page.evaluate(() => {
+    document.body.click()
+  })
+
+  expect(runtime.consoleSpy.get('log')).toEqual([
+    `${firstSocketId} hello`,
+    `${secondSocketId} hello`,
+  ])
 })
