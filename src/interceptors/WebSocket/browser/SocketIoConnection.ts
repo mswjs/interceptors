@@ -22,11 +22,14 @@ export enum EnginesIoParserPacketTypes {
 }
 
 export class SocketIoConnection extends WebSocketConnection {
-  private encoder: Encoder = new Encoder()
-  private decoder: Decoder = new Decoder()
+  private encoder: Encoder
+  private decoder: Decoder
 
   constructor(socket: WebSoketOverrideInstance) {
     super(socket)
+
+    this.encoder = new Encoder()
+    this.decoder = new Decoder()
 
     // Establish the decoder handler once.
     this.decoder.on('decoded', this.handleDecodedPacket.bind(this))

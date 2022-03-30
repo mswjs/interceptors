@@ -68,7 +68,6 @@ export interface WebSocketEvent extends IsomorphicEvent {
   source: 'websocket'
   target: WebSocket
   connection: WebSocketConnection
-  intercept(): void
 }
 
 export interface ResolverEventsMap {

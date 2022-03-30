@@ -97,7 +97,6 @@ export function createWebSocketOverride({
           target: this,
           connection: this.connection,
           timeStamp: Date.now(),
-          intercept() {},
         }
         resolver(resolverEvent)
       })
