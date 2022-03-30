@@ -27,14 +27,9 @@ beforeAll(async () => {
       res.status(200).send('original-response')
     })
 
-    app.post(
-      '/write',
-      // @ts-expect-error Weird Express TS issue.
-      express.text(),
-      (req, res) => {
-        res.status(200).send(req.body)
-      }
-    )
+    app.post('/write', express.text(), (req, res) => {
+      res.status(200).send(req.body)
+    })
   })
 })
 
