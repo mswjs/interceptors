@@ -34,6 +34,11 @@ it('intercepts the "message" event sent from the client', async () => {
   const runtime = await prepareRuntime()
   const wsUrl = testServer.ws.address.toString()
 
+  const serverListener = jest.fn()
+  testServer.ws.instance.on('connection', (socket) => {
+    socket.on('message', serverListener)
+  })
+
   await runtime.page.evaluate(() => {
     window.resolver = (event) => {
       event.connection.on('message', (text) => {
@@ -59,11 +64,21 @@ it('intercepts the "message" event sent from the client', async () => {
   await waitForExpect(() => {
     expect(runtime.consoleSpy.get('log')).toEqual(['hello'])
   })
+
+  // The actual server must receive the event.
+  expect(serverListener).toHaveBeenCalledWith('hello')
 })
 
 it('intercepts the custom event sent from the client', async () => {
   const runtime = await prepareRuntime()
   const wsUrl = testServer.ws.address.toString()
+
+  const serverListener = jest.fn()
+  testServer.ws.instance.on('connection', (socket) => {
+    socket.on('greeting', (text) => {
+      serverListener(text)
+    })
+  })
 
   await runtime.page.evaluate(() => {
     window.resolver = (event: WebSocketEvent) => {
@@ -89,4 +104,7 @@ it('intercepts the custom event sent from the client', async () => {
   await waitForExpect(() => {
     expect(runtime.consoleSpy.get('log')).toEqual(['John'])
   })
+
+  // The actual server must receive the event.
+  expect(serverListener).toHaveBeenCalledWith('John')
 })

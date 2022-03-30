@@ -25,6 +25,7 @@ function nextTick(callback: () => void): void {
 }
 
 export interface WebSocketOverrideArgs {
+  WebSocket: typeof window.WebSocket
   resolver: Resolver<WebSocketEvent>
 }
 
@@ -33,7 +34,10 @@ export interface WebSoketOverrideInstance extends WebSocket {
   connection: WebSocketConnection
 }
 
-export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
+export function createWebSocketOverride({
+  WebSocket,
+  resolver,
+}: WebSocketOverrideArgs) {
   return class WebSocketOverride
     implements EventTarget, WebSocket, WebSoketOverrideInstance
   {
@@ -53,6 +57,7 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
     binaryType: BinaryType
     bufferedAmount: number
 
+    ws: WebSocket
     emitter: StrictEventEmitter<WebSocketEventsMap>
     connection: WebSocketConnection
 
@@ -73,6 +78,12 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
       this.connection = useSocketIo
         ? new SocketIoConnection(this)
         : new WebSocketConnection(this)
+
+      // Create an original WebSocket connection
+      // so that we can proxy the incoming server events
+      // to the mocked WebSocket instance.
+      this.ws = new WebSocket(url, protocols)
+      this.ws.addEventListener('message', this.dispatchEvent.bind(this))
 
       nextTick(() => {
         this.readyState = this.OPEN
@@ -105,13 +116,15 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
 
       nextTick(() => {
         // Notify the "connection" about the outgoing client message.
-        this.connection['emitReserved'](
-          'message',
+        this.connection['handleOutgoingMessage'](
           createEvent(MessageEvent, 'message', {
             target: this,
             data,
           })
         )
+
+        // Proxy the message to the original WebSocket connection.
+        this.ws.send(data)
       })
     }
 
@@ -143,6 +156,14 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
 
         // Remove all internal listeners.
         this.emitter.removeAllListeners()
+
+        // Close the original WebSocket connection.
+        if (
+          this.ws.readyState !== this.CLOSING &&
+          this.ws.readyState !== this.CLOSED
+        ) {
+          this.ws.close(code, reason)
+        }
       })
     }
 

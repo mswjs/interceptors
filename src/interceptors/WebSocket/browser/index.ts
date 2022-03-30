@@ -11,6 +11,7 @@ const interceptWebSocketBrowser: Interceptor<'websocket'> = (
 
   debug('replacing "window.WebSocket"...')
   const WebSocketOverride = createWebSocketOverride({
+    WebSocket: pureWebSocket,
     resolver,
   })
   window.WebSocket = WebSocketOverride

@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import path from 'path'
 import { pageWith } from 'page-with'
 import { ServerApi, createServer } from '@open-draft/test-server'

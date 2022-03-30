@@ -10,27 +10,17 @@ export type WebSocketConnectionEventsMap = {
   [event: string]: (...data: unknown[]) => void
 }
 
-export interface WebSocketConnectionReservedEventsMap {
-  message(event: MessageEvent<WebSocketMessageData>): void
-}
-
 export class WebSocketConnection {
   protected readonly emitter: StrictEventEmitter<WebSocketConnectionEventsMap>
-  protected readonly reservedEmitter: StrictEventEmitter<WebSocketConnectionReservedEventsMap>
 
   constructor(protected readonly socket: WebSoketOverrideInstance) {
     this.emitter = new StrictEventEmitter()
-    this.reservedEmitter = new StrictEventEmitter()
 
     this.socket.addEventListener('close', (event) => {
       this.emit('close', event)
 
       // Close this connection once the underlying socket closes.
       this.close()
-    })
-
-    this.reservedEmitter.on('message', (event) => {
-      this.handleOutgoingMessage(event)
     })
   }
 
@@ -69,15 +59,6 @@ export class WebSocketConnection {
     )
   }
 
-  private emitReserved<
-    ReservedEvent extends keyof WebSocketConnectionReservedEventsMap
-  >(
-    event: ReservedEvent,
-    ...data: Parameters<WebSocketConnectionReservedEventsMap[ReservedEvent]>
-  ): void {
-    this.reservedEmitter.emit(event, ...data)
-  }
-
   /**
    * Subscribe to client-side events.
    */
@@ -105,6 +86,5 @@ export class WebSocketConnection {
    */
   protected close(): void {
     this.emitter.removeAllListeners()
-    this.reservedEmitter.removeAllListeners()
   }
 }
