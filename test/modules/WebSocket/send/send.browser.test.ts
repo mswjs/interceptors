@@ -1,11 +1,18 @@
 import path from 'path'
 import { pageWith } from 'page-with'
-import { WebSocketConnection } from '../../../../src/interceptors/WebSocket/browser/WebSocketOverride'
+import { ServerApi, createServer } from '@open-draft/test-server'
+import { io as socketClient, Socket } from 'socket.io-client'
+import waitForExpect from 'wait-for-expect'
+import { Resolver, WebSocketEvent } from '../../../../src'
 
 declare namespace window {
-  export const sockets: WebSocket[]
-  export const connections: WebSocketConnection[]
+  export const io: typeof socketClient
+  export let socket: Socket
+  export let event: WebSocketEvent
+  export let resolver: Resolver<WebSocketEvent>
 }
+
+let testServer: ServerApi
 
 function prepareRuntime() {
   return pageWith({
@@ -13,47 +20,113 @@ function prepareRuntime() {
   })
 }
 
-it('sends data from the connection', async () => {
-  const runtime = await prepareRuntime()
-
-  await runtime.page.evaluate(() => {
-    const socket = new WebSocket('wss://example.com')
-    socket.addEventListener('message', (event) => {
-      console.log(event.data)
-    })
-    window.sockets.push(socket)
-    return new Promise((resolve) => (socket.onopen = resolve))
-  })
-
-  await runtime.page.evaluate(() => {
-    window.connections[0].send('hello from server')
-  })
-
-  expect(runtime.consoleSpy.get('log')).toEqual(['hello from server'])
+beforeAll(async () => {
+  testServer = await createServer()
 })
 
-it('sends data from the connection in response to client data', async () => {
+afterAll(async () => {
+  await testServer.close()
+})
+
+it('sends data from the connection', async () => {
   const runtime = await prepareRuntime()
+  const wssUrl = testServer.wss.address.toString()
 
   await runtime.page.evaluate(() => {
-    const socket = new WebSocket('wss://example.com')
-    socket.addEventListener('message', (event) => {
-      console.log(event.data)
+    window.resolver = (event) => {
+      document.body.addEventListener('click', () => {
+        event.connection.send('hello from server')
+      })
+    }
+  })
+
+  await runtime.page.evaluate((wssUrl) => {
+    return new Promise<void>((resolve) => {
+      window.socket = window.io(wssUrl, {
+        transports: ['websocket'],
+      })
+      window.socket.on('connect', resolve)
+      window.socket.on('message', (text) => {
+        console.log(text)
+      })
     })
-    window.sockets.push(socket)
-    return new Promise((resolve) => (socket.onopen = resolve))
-  })
+  }, wssUrl)
 
   await runtime.page.evaluate(() => {
-    const [connection] = window.connections
-    connection.on('message', (event) => {
-      connection.send(`no, you are ${event.data}`)
+    document.body.click()
+  })
+
+  await waitForExpect(() => {
+    expect(runtime.consoleSpy.get('log')).toEqual(['hello from server'])
+  })
+})
+
+it('emits custom events from the connection', async () => {
+  const runtime = await prepareRuntime()
+  const wssUrl = testServer.wss.address.toString()
+
+  await runtime.page.evaluate(() => {
+    window.resolver = (event) => {
+      window.event = event
+    }
+
+    document.body.addEventListener('click', () => {
+      window.event.connection.emit('greet', 'Kate')
     })
   })
 
+  await runtime.page.evaluate((wssUrl) => {
+    return new Promise<void>((resolve) => {
+      window.socket = window.io(wssUrl, {
+        transports: ['websocket'],
+      })
+      window.socket.on('connect', resolve)
+      window.socket.on('greet', (text) => {
+        console.log(text)
+      })
+    })
+  }, wssUrl)
+
   await runtime.page.evaluate(() => {
-    window.sockets[0].send('gorgeous')
+    document.body.click()
   })
 
-  expect(runtime.consoleSpy.get('log')).toEqual(['no, you are gorgeous'])
+  await waitForExpect(() => {
+    expect(runtime.consoleSpy.get('log')).toEqual(['Kate'])
+  })
+})
+
+it('sends data from the connection in response to client event', async () => {
+  const runtime = await prepareRuntime()
+  const wssUrl = testServer.wss.address.toString()
+
+  await runtime.page.evaluate(() => {
+    window.resolver = (event) => {
+      const { connection } = event
+
+      connection.on('greet', (text) => {
+        connection.send(`hello, ${text}`)
+      })
+    }
+  })
+
+  await runtime.page.evaluate((wssUrl) => {
+    return new Promise<void>((resolve) => {
+      window.socket = window.io(wssUrl, {
+        transports: ['websocket'],
+      })
+      window.socket.on('connect', resolve)
+      window.socket.on('message', (text) => {
+        console.log(text)
+      })
+    })
+  }, wssUrl)
+
+  await runtime.page.evaluate(() => {
+    window.socket.emit('greet', 'John')
+  })
+
+  await waitForExpect(() => {
+    expect(runtime.consoleSpy.get('log')).toEqual(['hello, John'])
+  })
 })

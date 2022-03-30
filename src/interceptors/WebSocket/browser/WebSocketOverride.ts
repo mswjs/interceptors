@@ -28,8 +28,15 @@ export interface WebSocketOverrideArgs {
   resolver: Resolver<WebSocketEvent>
 }
 
+export interface WebSoketOverrideInstance extends WebSocket {
+  emitter: StrictEventEmitter<WebSocketEventsMap>
+  connection: WebSocketConnection
+}
+
 export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
-  return class WebSocketOverride implements EventTarget, WebSocket {
+  return class WebSocketOverride
+    implements EventTarget, WebSocket, WebSoketOverrideInstance
+  {
     static readonly CONNECTING = WebSocket.CONNECTING
     static readonly OPEN = WebSocket.OPEN
     static readonly CLOSING = WebSocket.CLOSING
@@ -53,7 +60,7 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
       const parsedUrl = parseWebSocketUrl(url)
       const parsedProtocols = parseWebSocketProtocols(protocols)
 
-      const useSocketIO = parsedUrl.pathname.startsWith('/socket.io/')
+      const useSocketIo = parsedUrl.pathname.startsWith('/socket.io/')
 
       this.url = url
       this.protocol = parsedProtocols[0] || parsedUrl.protocol
@@ -63,7 +70,7 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
       this.bufferedAmount = 0
 
       this.emitter = new StrictEventEmitter()
-      this.connection = useSocketIO
+      this.connection = useSocketIo
         ? new SocketIoConnection(this)
         : new WebSocketConnection(this)
 
@@ -98,7 +105,13 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
 
       nextTick(() => {
         // Notify the "connection" about the outgoing client message.
-        this.connection.emit('message', new MessageEvent('message', { data }))
+        this.connection['emitReserved'](
+          'message',
+          createEvent(MessageEvent, 'message', {
+            target: this,
+            data,
+          })
+        )
       })
     }
 
@@ -127,12 +140,6 @@ export function createWebSocketOverride({ resolver }: WebSocketOverrideArgs) {
         })
 
         this.dispatchEvent(closeEvent)
-
-        // Notify the connection about the client closing.
-        this.connection.emit('close', closeEvent)
-
-        // Close the connection so it can no longer receive or send events.
-        this.connection.close()
 
         // Remove all internal listeners.
         this.emitter.removeAllListeners()

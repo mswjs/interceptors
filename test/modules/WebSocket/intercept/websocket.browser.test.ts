@@ -35,7 +35,7 @@ it('intercepts the "message" event sent from the client', async () => {
   const wsUrl = testServer.ws.address.toString()
 
   await runtime.page.evaluate(() => {
-    window.resolver = (event: WebSocketEvent) => {
+    window.resolver = (event) => {
       event.connection.on('message', (text) => {
         // "socket.io" does not send "MessageEvent".
         console.log(text)
