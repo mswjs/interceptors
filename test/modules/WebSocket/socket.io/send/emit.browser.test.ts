@@ -31,7 +31,7 @@ afterAll(async () => {
   await testServer.close()
 })
 
-it('emits custom events from the connection', async () => {
+it('emits custom event to a single client', async () => {
   const runtime = await prepareRuntime()
   const wssUrl = testServer.wss.address.toString()
 
@@ -64,4 +64,58 @@ it('emits custom events from the connection', async () => {
   await waitForExpect(() => {
     expect(runtime.consoleSpy.get('log')).toEqual(['Kate'])
   })
+})
+
+it('emits custom events to all clients', async () => {
+  const runtime = await prepareRuntime()
+  const wssUrl = testServer.wss.address.toString()
+
+  await runtime.page.evaluate(() => {
+    window.resolver = (event) => {
+      document.body.addEventListener('click', () => {
+        event.connection.emit('greet', 'John')
+      })
+    }
+  })
+
+  const [firstSocketId, secondSocketId] = await runtime.page.evaluate(
+    (wssUrl) => {
+      const firstSocket = window.io(wssUrl, {
+        transports: ['websocket'],
+      })
+      firstSocket.on('greet', (username) => {
+        console.log(`${firstSocket.id} ${username}`)
+      })
+
+      const secondSocket = window.io(wssUrl, {
+        transports: ['websocket'],
+      })
+      secondSocket.on('greet', (username) => {
+        console.log(`${secondSocket.id} ${username}`)
+      })
+
+      return Promise.all([
+        new Promise<string>((resolve) =>
+          firstSocket.on('connect', () => {
+            resolve(firstSocket.id)
+          })
+        ),
+        new Promise<string>((resolve) =>
+          secondSocket.on('connect', () => {
+            resolve(secondSocket.id)
+          })
+        ),
+      ])
+    },
+    wssUrl
+  )
+
+  await runtime.page.evaluate(() => {
+    document.body.click()
+  })
+
+  expect(runtime.consoleSpy.get('log')).toEqual([
+    `${firstSocketId} John`,
+    `${secondSocketId} John`,
+  ])
 })
