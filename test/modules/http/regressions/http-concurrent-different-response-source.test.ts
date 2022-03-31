@@ -2,36 +2,31 @@
  * @jest-environment node
  */
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
 import { httpGet } from '../../../helpers'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { sleep } from '../../../../src/utils/sleep'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  async resolver(request) {
-    if (request.headers.get('x-bypass')) {
-      return
-    }
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', async (request) => {
+  if (request.headers.get('x-bypass')) {
+    return
+  }
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          status: 201,
-          body: 'mocked-response',
-        })
-      }, 250)
-    })
-  },
+  await sleep(250)
+
+  request.respondWith({
+    status: 201,
+    body: 'mocked-response',
+  })
 })
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
-    app.get('/', (req, res) => {
-      setTimeout(() => {
-        res.status(200).send('original-response')
-      }, 300)
+    app.get('/', async (req, res) => {
+      await sleep(300)
+      res.status(200).send('original-response')
     })
   })
 
@@ -39,7 +34,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 

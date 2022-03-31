@@ -1,24 +1,19 @@
 import { ClientRequest } from 'node:http'
-import { Observer, Resolver } from '../../createInterceptor'
+import type { ClientRequestEmitter } from '.'
 import { NodeClientRequest, Protocol } from './NodeClientRequest'
 import {
   ClientRequestArgs,
   normalizeClientRequestArgs,
 } from './utils/normalizeClientRequestArgs'
 
-export function get(
-  protocol: Protocol,
-  resolver: Resolver,
-  observer: Observer
-) {
+export function get(protocol: Protocol, emitter: ClientRequestEmitter) {
   return (...args: ClientRequestArgs): ClientRequest => {
     const clientRequestArgs = normalizeClientRequestArgs(
       `${protocol}:`,
       ...args
     )
     const request = new NodeClientRequest(clientRequestArgs, {
-      resolver,
-      observer,
+      emitter,
     })
 
     /**

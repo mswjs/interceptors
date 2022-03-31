@@ -5,20 +5,18 @@
  */
 import http, { IncomingMessage } from 'http'
 import { createServer, ServerApi } from '@open-draft/test-server'
+import { IsomorphicResponse } from '../../../../src'
 import {
-  createInterceptor,
-  IsomorphicResponse,
-  Resolver,
-} from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+  ClientRequestEventListener,
+  ClientRequestInterceptor,
+} from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
-const resolver = jest.fn<ReturnType<Resolver>, Parameters<Resolver>>()
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver,
-})
+const resolver = jest.fn<never, Parameters<ClientRequestEventListener>>()
+
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', resolver)
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
@@ -35,7 +33,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 

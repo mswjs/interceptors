@@ -3,25 +3,23 @@
  */
 import * as http from 'http'
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(req) {
-    if (!req.url.searchParams.has('mock')) {
-      return
-    }
 
-    return {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/plain',
-      },
-      body: 'hello world',
-    }
-  },
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (!request.url.searchParams.has('mock')) {
+    return
+  }
+
+  request.respondWith({
+    status: 200,
+    headers: {
+      'Content-Type': 'text/plain',
+    },
+    body: 'hello world',
+  })
 })
 
 function encode(text: string, encoding: BufferEncoding): string {
@@ -49,7 +47,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await httpServer.close()
-  interceptor.restore()
+  interceptor.dispose()
 })
 
 const encodings: BufferEncoding[] = [

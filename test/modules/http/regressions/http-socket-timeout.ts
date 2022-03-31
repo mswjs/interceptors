@@ -6,22 +6,19 @@
  */
 import * as http from 'http'
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src/createInterceptor'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 jest.setTimeout(5000)
 
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver() {
-    return {
-      status: 301,
-      body: 'Hello world',
-    }
-  },
-})
-
 let httpServer: ServerApi
+
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  request.respondWith({
+    status: 301,
+    body: 'Hello world',
+  })
+})
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
@@ -34,7 +31,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 

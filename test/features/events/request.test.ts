@@ -9,14 +9,13 @@ import {
   IsomorphicRequest,
 } from '../../../src'
 import { interceptXMLHttpRequest } from '../../../src/interceptors/XMLHttpRequest'
-import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 import { anyUuid, headersContaining } from '../../jest.expect'
 
 let httpServer: ServerApi
 
 const interceptor = createInterceptor({
-  modules: [interceptClientRequest, interceptXMLHttpRequest],
+  modules: [interceptXMLHttpRequest],
   resolver() {},
 })
 

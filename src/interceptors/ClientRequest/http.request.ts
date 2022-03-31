@@ -1,19 +1,15 @@
 import { debug } from 'debug'
 import { ClientRequest } from 'http'
-import { Observer, Resolver } from '../../createInterceptor'
+import type { ClientRequestEmitter } from '.'
 import { NodeClientRequest, Protocol } from './NodeClientRequest'
 import {
   normalizeClientRequestArgs,
   ClientRequestArgs,
 } from './utils/normalizeClientRequestArgs'
 
-const log = debug('http.request')
+const log = debug('http request')
 
-export function request(
-  protocol: Protocol,
-  resolver: Resolver,
-  observer: Observer
-) {
+export function request(protocol: Protocol, emitter: ClientRequestEmitter) {
   return (...args: ClientRequestArgs): ClientRequest => {
     log('request call (protocol "%s"):', protocol, args)
 
@@ -22,8 +18,7 @@ export function request(
       ...args
     )
     return new NodeClientRequest(clientRequestArgs, {
-      observer,
-      resolver,
+      emitter,
     })
   }
 }

@@ -4,30 +4,27 @@
 import * as http from 'http'
 import * as https from 'https'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(request) {
-    if (request.url.pathname === '/non-existing') {
-      return {
-        status: 301,
-        statusText: 'Moved Permanently',
-        headers: {
-          'Content-Type': 'text/plain',
-        },
-        body: 'mocked',
-      }
-    }
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (request.url.pathname === '/non-existing') {
+    request.respondWith({
+      status: 301,
+      statusText: 'Moved Permanently',
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+      body: 'mocked',
+    })
+  }
 
-    if (request.url.href === 'http://error.me/') {
-      throw new Error('Custom exception message')
-    }
-  },
+  if (request.url.href === 'http://error.me/') {
+    throw new Error('Custom exception message')
+  }
 })
 
 beforeAll(async () => {
@@ -44,7 +41,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
@@ -161,7 +158,7 @@ test('throws a request error when the middleware throws an exception', async () 
 })
 
 test('bypasses any request after the interceptor was restored', async () => {
-  interceptor.restore()
+  interceptor.dispose()
 
   const req = http.get(httpServer.http.makeUrl('/'))
   const { res, text } = await waitForClientRequest(req)

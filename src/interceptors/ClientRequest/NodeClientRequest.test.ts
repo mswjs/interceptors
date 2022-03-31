@@ -1,12 +1,14 @@
 /**
  * @jest-environment node
  */
-import { EventEmitter } from 'events'
 import * as express from 'express'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { NodeClientRequest } from './NodeClientRequest'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
+import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
+import { sleep } from '../../utils/sleep'
+import { ClientRequestEventMap } from '.'
 
 interface ErrorConnectionRefused extends NodeJS.ErrnoException {
   address: string
@@ -14,12 +16,6 @@ interface ErrorConnectionRefused extends NodeJS.ErrnoException {
 }
 
 let httpServer: ServerApi
-
-function waitFor(duration: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, duration)
-  })
-}
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
@@ -38,23 +34,25 @@ afterAll(async () => {
 })
 
 test('gracefully finishes the request when it has a mocked response', (done) => {
+  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://any.thing', {
       method: 'PUT',
     }),
     {
-      observer: new EventEmitter(),
-      resolver() {
-        return {
-          status: 301,
-          headers: {
-            'x-custom-header': 'yes',
-          },
-          body: 'mocked-response',
-        }
-      },
+      emitter,
     }
   )
+
+  emitter.on('request', (request) => {
+    request.respondWith({
+      status: 301,
+      headers: {
+        'x-custom-header': 'yes',
+      },
+      body: 'mocked-response',
+    })
+  })
 
   request.on('response', async (response) => {
     // Request must be marked as finished.
@@ -76,19 +74,20 @@ test('gracefully finishes the request when it has a mocked response', (done) => 
 })
 
 test('responds with a mocked response when requesting an existing hostname', (done) => {
+  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment')),
     {
-      observer: new EventEmitter(),
-      async resolver() {
-        await waitFor(250)
-        return {
-          status: 201,
-          body: 'mocked-response',
-        }
-      },
+      emitter,
     }
   )
+
+  emitter.on('request', (request) => {
+    request.respondWith({
+      status: 201,
+      body: 'mocked-response',
+    })
+  })
 
   request.on('response', async (response) => {
     expect(response.statusCode).toEqual(201)
@@ -103,13 +102,13 @@ test('responds with a mocked response when requesting an existing hostname', (do
 })
 
 test('performs the request as-is given resolver returned no mocked response', (done) => {
+  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment'), {
       method: 'POST',
     }),
     {
-      observer: new EventEmitter(),
-      resolver() {},
+      emitter,
     }
   )
 
@@ -131,11 +130,11 @@ test('performs the request as-is given resolver returned no mocked response', (d
 })
 
 test('emits the ENOTFOUND error connecting to a non-existing hostname given no mocked response', (done) => {
+  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
     {
-      observer: new EventEmitter(),
-      resolver() {},
+      emitter,
     }
   )
 
@@ -149,11 +148,11 @@ test('emits the ENOTFOUND error connecting to a non-existing hostname given no m
 })
 
 test('emits the ECONNREFUSED error connecting to an inactive server given no mocked response', (done) => {
+  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://localhost:12345'),
     {
-      observer: new EventEmitter(),
-      resolver() {},
+      emitter,
     }
   )
 
@@ -170,20 +169,22 @@ test('emits the ECONNREFUSED error connecting to an inactive server given no moc
 })
 
 test('does not emit ENOTFOUND error connecting to an inactive server given mocked response', (done) => {
+  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
   const handleError = jest.fn()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
     {
-      observer: new EventEmitter(),
-      async resolver() {
-        await waitFor(250)
-        return {
-          status: 200,
-          statusText: 'Works',
-        }
-      },
+      emitter,
     }
   )
+
+  emitter.on('request', async (request) => {
+    await sleep(250)
+    request.respondWith({
+      status: 200,
+      statusText: 'Works',
+    })
+  })
 
   request.on('error', handleError)
   request.on('response', (response) => {
@@ -196,20 +197,22 @@ test('does not emit ENOTFOUND error connecting to an inactive server given mocke
 })
 
 test('does not emit ECONNREFUSED error connecting to an inactive server given mocked response', (done) => {
+  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
   const handleError = jest.fn()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://localhost:9876'),
     {
-      observer: new EventEmitter(),
-      async resolver() {
-        await waitFor(250)
-        return {
-          status: 200,
-          statusText: 'Works',
-        }
-      },
+      emitter,
     }
   )
+
+  emitter.on('request', async (request) => {
+    await sleep(250)
+    request.respondWith({
+      status: 200,
+      statusText: 'Works',
+    })
+  })
 
   request.on('error', handleError)
   request.on('response', (response) => {
@@ -222,6 +225,7 @@ test('does not emit ECONNREFUSED error connecting to an inactive server given mo
 })
 
 test('sends the request body to the server given no mocked response', (done) => {
+  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/write'), {
       method: 'POST',
@@ -230,8 +234,7 @@ test('sends the request body to the server given no mocked response', (done) => 
       },
     }),
     {
-      observer: new EventEmitter(),
-      resolver() {},
+      emitter,
     }
   )
 
@@ -251,21 +254,23 @@ test('sends the request body to the server given no mocked response', (done) => 
 })
 
 test('does not send request body to the original server given mocked response', (done) => {
+  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/write'), {
       method: 'POST',
     }),
     {
-      observer: new EventEmitter(),
-      async resolver() {
-        await waitFor(200)
-        return {
-          status: 301,
-          body: 'mock created!',
-        }
-      },
+      emitter,
     }
   )
+
+  emitter.on('request', async (request) => {
+    await sleep(200)
+    request.respondWith({
+      status: 301,
+      body: 'mock created!',
+    })
+  })
 
   request.write('one')
   request.write('two')

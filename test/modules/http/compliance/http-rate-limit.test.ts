@@ -1,23 +1,21 @@
 import * as http from 'http'
 import rateLimit from 'express-rate-limit'
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(req) {
-    if (!req.url.searchParams.has('mock')) {
-      return
-    }
 
-    return {
-      status: 403,
-      statusText: 'Forbidden',
-      body: 'mocked-body',
-    }
-  },
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (!request.url.searchParams.has('mock')) {
+    return
+  }
+
+  request.respondWith({
+    status: 403,
+    statusText: 'Forbidden',
+    body: 'mocked-body',
+  })
 })
 
 const handleLimitReached = jest.fn()
@@ -48,7 +46,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
