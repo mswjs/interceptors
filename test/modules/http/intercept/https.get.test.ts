@@ -8,7 +8,6 @@ import { waitForClientRequest } from '../../../helpers'
 import {
   ClientRequestEventListener,
   ClientRequestInterceptor,
-  InteractiveIsomorphicRequest,
 } from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
@@ -47,17 +46,19 @@ test('intercepts a GET request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<[InteractiveIsomorphicRequest]>({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'same-origin',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  expect(resolver).toHaveBeenCalledWith<Parameters<ClientRequestEventListener>>(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'same-origin',
+      body: '',
+      respondWith: expect.any(Function),
+    }
+  )
 })
 
 test('intercepts an https.get request given RequestOptions without a protocol', async () => {
@@ -73,13 +74,15 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<[InteractiveIsomorphicRequest]>({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(httpServer.https.makeUrl('/user?id=123')),
-    headers: headersContaining({}),
-    credentials: 'same-origin',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  expect(resolver).toHaveBeenCalledWith<Parameters<ClientRequestEventListener>>(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(httpServer.https.makeUrl('/user?id=123')),
+      headers: headersContaining({}),
+      credentials: 'same-origin',
+      body: '',
+      respondWith: expect.any(Function),
+    }
+  )
 })

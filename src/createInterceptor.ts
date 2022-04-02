@@ -1,6 +1,7 @@
 import { IncomingMessage } from 'http'
 import { HeadersObject, Headers } from 'headers-polyfill'
 import { StrictEventEmitter } from 'strict-event-emitter'
+import type { LazyCallback } from './utils/createLazyCallback'
 
 export type Interceptor = (
   observer: Observer,
@@ -28,6 +29,10 @@ export interface IsomorphicRequest {
    */
   credentials: RequestCredentials
   body?: string
+}
+
+export interface InteractiveIsomorphicRequest extends IsomorphicRequest {
+  respondWith: LazyCallback<(mockedResponse: MockedResponse) => void>
 }
 
 export interface IsomorphicResponse {

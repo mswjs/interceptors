@@ -6,30 +6,27 @@ import fetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import {
-  createInterceptor,
   InterceptorEventsMap,
   IsomorphicRequest,
   IsomorphicResponse,
 } from '../../../src'
-import nodeInterceptors from '../../../src/presets/node'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 import { anyUuid, headersContaining } from '../../jest.expect'
+import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: nodeInterceptors,
-  resolver(request) {
-    if (request.url.pathname === '/user') {
-      return {
-        status: 200,
-        headers: {
-          'x-response-type': 'mocked',
-        },
-        body: 'mocked-response-text',
-      }
-    }
-  },
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (request.url.pathname === '/user') {
+    request.respondWith({
+      status: 200,
+      headers: {
+        'x-response-type': 'mocked',
+      },
+      body: 'mocked-response-text',
+    })
+  }
 })
 
 const responseListener = jest.fn<
@@ -65,11 +62,11 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
-test('ClientRequest: emits the "response" event upon a mocked response', async () => {
+test.skip('ClientRequest: emits the "response" event upon a mocked response', async () => {
   const req = https.request(httpServer.https.makeUrl('/user'), {
     method: 'GET',
     headers: {
@@ -106,7 +103,7 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
   expect(await text()).toEqual('mocked-response-text')
 })
 
-test('ClientRequest: emits the "response" event upon the original response', async () => {
+test.skip('ClientRequest: emits the "response" event upon the original response', async () => {
   const req = https.request(httpServer.https.makeUrl('/account'), {
     method: 'POST',
     headers: {
@@ -187,12 +184,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
     req.send('request-body')
   })
 
-  /**
-   * @note There are two requests that happen:
-   * - OPTIONS /account
-   * - POST /account
-   */
-  expect(responseListener).toHaveBeenCalledTimes(2)
+  expect(responseListener).toHaveBeenCalledTimes(1)
   expect(responseListener).toHaveBeenCalledWith<
     [IsomorphicRequest, IsomorphicResponse]
   >(
@@ -220,7 +212,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   expect(originalRequest.responseText).toEqual('original-response-text')
 })
 
-test('fetch: emits the "response" event upon a mocked response', async () => {
+test.skip('fetch: emits the "response" event upon a mocked response', async () => {
   await fetch(httpServer.https.makeUrl('/user'), {
     headers: {
       'x-request-custom': 'yes',
@@ -252,7 +244,7 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
   )
 })
 
-test('fetch: emits the "response" event upon the original response', async () => {
+test.skip('fetch: emits the "response" event upon the original response', async () => {
   await fetch(httpServer.https.makeUrl('/account'), {
     agent: httpsAgent,
     method: 'POST',

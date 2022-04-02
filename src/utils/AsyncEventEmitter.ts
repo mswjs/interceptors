@@ -1,5 +1,5 @@
-import { nextTick } from 'process'
 import { StrictEventEmitter, EventMapType } from 'strict-event-emitter'
+import { nextTick } from './nextTick'
 
 export class AsyncEventEmitter<
   EventMap extends EventMapType

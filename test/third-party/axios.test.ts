@@ -3,27 +3,24 @@
  */
 import axios from 'axios'
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../src'
-import nodeInterceptors from '../../src/presets/node'
+import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: nodeInterceptors,
-  resolver(request) {
-    if (request.url.pathname === '/user') {
-      return {
-        status: 200,
-        headers: {
-          'content-type': 'application/json',
-          'x-header': 'yes',
-        },
-        body: JSON.stringify({
-          mocked: true,
-        }),
-      }
-    }
-  },
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (request.url.pathname === '/user') {
+    request.respondWith({
+      status: 200,
+      headers: {
+        'content-type': 'application/json',
+        'x-header': 'yes',
+      },
+      body: JSON.stringify({
+        mocked: true,
+      }),
+    })
+  }
 })
 
 beforeAll(async () => {
@@ -45,7 +42,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 

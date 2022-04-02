@@ -1,35 +1,34 @@
-import { createInterceptor } from '@mswjs/interceptors'
-import { interceptXMLHttpRequest } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
 
-window.interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver(request) {
-    window.dispatchEvent(
-      new CustomEvent('resolver', {
-        detail: JSON.stringify({
-          id: request.id,
-          method: request.method,
-          url: request.url.href,
-          headers: request.headers.all(),
-          credentials: request.credentials,
-          body: request.body,
-        }),
-      })
-    )
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  window.dispatchEvent(
+    new CustomEvent('resolver', {
+      detail: JSON.stringify({
+        id: request.id,
+        method: request.method,
+        url: request.url.href,
+        headers: request.headers.all(),
+        credentials: request.credentials,
+        body: request.body,
+      }),
+    })
+  )
 
-    const { serverHttpUrl, serverHttpsUrl } = window
+  const { serverHttpUrl, serverHttpsUrl } = window
 
-    if ([serverHttpUrl, serverHttpsUrl].includes(request.url.href)) {
-      return {
-        status: 201,
-        statusText: 'Created',
-        headers: {
-          'Content-Type': 'application/hal+json',
-        },
-        body: JSON.stringify({ mocked: true }),
-      }
-    }
-  },
+  if ([serverHttpUrl, serverHttpsUrl].includes(request.url.href)) {
+    request.respondWith({
+      status: 201,
+      statusText: 'Created',
+      headers: {
+        'Content-Type': 'application/hal+json',
+      },
+      body: JSON.stringify({ mocked: true }),
+    })
+  }
 })
 
-window.interceptor.apply()
+interceptor.apply()
+
+window.interceptor = interceptor

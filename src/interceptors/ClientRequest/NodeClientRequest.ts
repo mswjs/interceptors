@@ -1,11 +1,15 @@
-import { Debugger, debug } from 'debug'
+import type { Debugger } from 'debug'
 import type { RequestOptions } from 'http'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
 import { Headers, objectToHeaders } from 'headers-polyfill/lib'
-import type { IsomorphicRequest, MockedResponse } from '../../createInterceptor'
+import type {
+  InteractiveIsomorphicRequest,
+  IsomorphicRequest,
+  MockedResponse,
+} from '../../createInterceptor'
 import { uuidv4 } from '../../utils/uuid'
-import type { ClientRequestEmitter, InteractiveIsomorphicRequest } from '.'
+import type { ClientRequestEmitter } from '.'
 import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
 import {
   ClientRequestEndChunk,
@@ -27,6 +31,7 @@ export type Protocol = 'http' | 'https'
 
 export interface NodeClientOptions {
   emitter: ClientRequestEmitter
+  log: Debugger
 }
 
 export class NodeClientRequest extends ClientRequest {
@@ -57,7 +62,9 @@ export class NodeClientRequest extends ClientRequest {
   ) {
     super(requestOptions, callback)
 
-    this.log = debug(`http ${requestOptions.method} ${url.href}`)
+    this.log = options.log.extend(
+      `request ${requestOptions.method} ${url.href}`
+    )
 
     this.log('constructing ClientRequest using options:', {
       url,
@@ -136,12 +143,11 @@ export class NodeClientRequest extends ClientRequest {
       await this.emitter.untilIdle('request')
       this.log('all request listeners have been resolved!')
 
-      return interactiveIsomorphicRequest.respondWith
-        .invoked()
-        .then(([mockedResponse]) => {
-          this.log('event.respondWith called with:', mockedResponse)
-          return mockedResponse
-        })
+      const [mockedResponse] =
+        await interactiveIsomorphicRequest.respondWith.invoked()
+      this.log('event.respondWith called with:', mockedResponse)
+
+      return mockedResponse
     }).then(([resolverException, mockedResponse]) => {
       this.log('the listeners promise awaited!')
 

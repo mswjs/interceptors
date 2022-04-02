@@ -2,35 +2,32 @@
  * @jest-environment jsdom
  */
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver(request) {
-    const shouldMock =
-      [httpServer.http.makeUrl(), httpServer.https.makeUrl()].includes(
-        request.url.href
-      ) || ['/login'].includes(request.url.pathname)
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  const shouldMock =
+    [httpServer.http.makeUrl(), httpServer.https.makeUrl()].includes(
+      request.url.href
+    ) || ['/login'].includes(request.url.pathname)
 
-    if (shouldMock) {
-      return {
-        status: 301,
-        statusText: 'Moved Permantently',
-        headers: {
-          'Content-Type': 'application/hal+json',
-        },
-        body: 'foo',
-      }
-    }
+  if (shouldMock) {
+    request.respondWith({
+      status: 301,
+      statusText: 'Moved Permantently',
+      headers: {
+        'Content-Type': 'application/hal+json',
+      },
+      body: 'foo',
+    })
+  }
 
-    if (request.url.href === 'https://error.me/') {
-      throw new Error('Custom exception message')
-    }
-  },
+  if (request.url.href === 'https://error.me/') {
+    throw new Error('Custom exception message')
+  }
 })
 
 beforeAll(async () => {
@@ -59,7 +56,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
@@ -141,7 +138,8 @@ test('does not propagate the forbidden "cookie" header on the bypassed response'
 })
 
 test('bypasses any request when the interceptor is restored', async () => {
-  interceptor.restore()
+  interceptor.dispose()
+
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.https.makeUrl('/'))
     req.send()

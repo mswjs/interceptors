@@ -39,12 +39,27 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
   }
 
   /**
+   * Determine if this interceptor can be applied
+   * in the current environment.
+   */
+  protected checkEnvironment(): boolean {
+    return true
+  }
+
+  /**
    * Apply this interceptor to the current process.
    * Returns an already running interceptor instance if it's present.
    */
   public apply(): void {
     const log = this.log.extend('apply')
     log('applying the interceptor...')
+
+    const shouldApply = this.checkEnvironment()
+
+    if (!shouldApply) {
+      log('the interceptor cannot be applied in this environment!')
+      return
+    }
 
     // Whenever applying a new interceptor, check if it hasn't been applied already.
     // This enables to apply the same interceptor multiple times, for example from a different

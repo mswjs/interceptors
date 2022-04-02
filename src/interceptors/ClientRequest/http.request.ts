@@ -1,7 +1,10 @@
 import { debug } from 'debug'
 import { ClientRequest } from 'http'
-import type { ClientRequestEmitter } from '.'
-import { NodeClientRequest, Protocol } from './NodeClientRequest'
+import {
+  NodeClientOptions,
+  NodeClientRequest,
+  Protocol,
+} from './NodeClientRequest'
 import {
   normalizeClientRequestArgs,
   ClientRequestArgs,
@@ -9,7 +12,7 @@ import {
 
 const log = debug('http request')
 
-export function request(protocol: Protocol, emitter: ClientRequestEmitter) {
+export function request(protocol: Protocol, options: NodeClientOptions) {
   return (...args: ClientRequestArgs): ClientRequest => {
     log('request call (protocol "%s"):', protocol, args)
 
@@ -17,8 +20,6 @@ export function request(protocol: Protocol, emitter: ClientRequestEmitter) {
       `${protocol}:`,
       ...args
     )
-    return new NodeClientRequest(clientRequestArgs, {
-      emitter,
-    })
+    return new NodeClientRequest(clientRequestArgs, options)
   }
 }

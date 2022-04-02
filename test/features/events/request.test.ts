@@ -3,21 +3,17 @@
  */
 import * as http from 'http'
 import { createServer, ServerApi } from '@open-draft/test-server'
-import {
-  createInterceptor,
-  InterceptorEventsMap,
-  IsomorphicRequest,
-} from '../../../src'
-import { interceptXMLHttpRequest } from '../../../src/interceptors/XMLHttpRequest'
+import { InterceptorEventsMap } from '../../../src'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 import { anyUuid, headersContaining } from '../../jest.expect'
+import {
+  ClientRequestInterceptor,
+  ClientRequestEventListener,
+} from '../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver() {},
-})
+const interceptor = new ClientRequestInterceptor()
 
 const requestListener = jest.fn<
   ReturnType<InterceptorEventsMap['request']>,
@@ -40,7 +36,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
@@ -57,7 +53,9 @@ test('ClientRequest: emits the "request" event upon the request', async () => {
   await waitForClientRequest(req)
 
   expect(requestListener).toHaveBeenCalledTimes(1)
-  expect(requestListener).toHaveBeenCalledWith<[IsomorphicRequest]>({
+  expect(requestListener).toHaveBeenCalledWith<
+    Parameters<ClientRequestEventListener>
+  >({
     id: anyUuid(),
     method: 'POST',
     url: new URL(url),
@@ -66,10 +64,11 @@ test('ClientRequest: emits the "request" event upon the request', async () => {
     }),
     credentials: expect.anything(),
     body: JSON.stringify({ userId: 'abc-123' }),
+    respondWith: expect.any(Function),
   })
 })
 
-test('XMLHttpRequest: emits the "request" event upon the request', async () => {
+test.skip('XMLHttpRequest: emits the "request" event upon the request', async () => {
   const url = httpServer.http.makeUrl('/user')
   await createXMLHttpRequest((req) => {
     req.open('POST', url)
@@ -77,14 +76,10 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
     req.send(JSON.stringify({ userId: 'abc-123' }))
   })
 
-  /**
-   * @note In Node.js "XMLHttpRequest" is often polyfilled by "ClientRequest".
-   * This results in both "XMLHttpRequest" and "ClientRequest" interceptors
-   * emitting the "request" event.
-   * @see https://github.com/mswjs/interceptors/issues/163
-   */
-  expect(requestListener).toHaveBeenCalledTimes(2)
-  expect(requestListener).toHaveBeenCalledWith<[IsomorphicRequest]>({
+  expect(requestListener).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledWith<
+    Parameters<ClientRequestEventListener>
+  >({
     id: anyUuid(),
     method: 'POST',
     url: new URL(url),
@@ -93,5 +88,6 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
     }),
     credentials: 'same-origin',
     body: JSON.stringify({ userId: 'abc-123' }),
+    respondWith: expect.any(Function),
   })
 })

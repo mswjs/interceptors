@@ -6,7 +6,6 @@ import { ServerApi, createServer } from '@open-draft/test-server'
 import {
   ClientRequestEventListener,
   ClientRequestInterceptor,
-  InteractiveIsomorphicRequest,
 } from '../../../../src/interceptors/ClientRequest'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
@@ -47,17 +46,19 @@ test('intercepts an http.get request', async () => {
   const { text } = await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<[InteractiveIsomorphicRequest]>({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'same-origin',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  expect(resolver).toHaveBeenCalledWith<Parameters<ClientRequestEventListener>>(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'same-origin',
+      body: '',
+      respondWith: expect.any(Function),
+    }
+  )
   expect(await text()).toEqual('user-body')
 })
 
@@ -72,14 +73,16 @@ test('intercepts an http.get request given RequestOptions without a protocol', a
   const { text } = await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<[InteractiveIsomorphicRequest]>({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(httpServer.http.makeUrl('/user?id=123')),
-    headers: headersContaining({}),
-    credentials: 'same-origin',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  expect(resolver).toHaveBeenCalledWith<Parameters<ClientRequestEventListener>>(
+    {
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(httpServer.http.makeUrl('/user?id=123')),
+      headers: headersContaining({}),
+      credentials: 'same-origin',
+      body: '',
+      respondWith: expect.any(Function),
+    }
+  )
   expect(await text()).toEqual('user-body')
 })

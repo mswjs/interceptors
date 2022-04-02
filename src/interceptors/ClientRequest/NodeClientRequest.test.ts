@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { debug } from 'debug'
 import * as express from 'express'
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { NodeClientRequest } from './NodeClientRequest'
@@ -16,6 +17,8 @@ interface ErrorConnectionRefused extends NodeJS.ErrnoException {
 }
 
 let httpServer: ServerApi
+
+const log = debug('test')
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
@@ -41,6 +44,7 @@ test('gracefully finishes the request when it has a mocked response', (done) => 
     }),
     {
       emitter,
+      log,
     }
   )
 
@@ -79,6 +83,7 @@ test('responds with a mocked response when requesting an existing hostname', (do
     normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment')),
     {
       emitter,
+      log,
     }
   )
 
@@ -109,6 +114,7 @@ test('performs the request as-is given resolver returned no mocked response', (d
     }),
     {
       emitter,
+      log,
     }
   )
 
@@ -135,6 +141,7 @@ test('emits the ENOTFOUND error connecting to a non-existing hostname given no m
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
     {
       emitter,
+      log,
     }
   )
 
@@ -153,6 +160,7 @@ test('emits the ECONNREFUSED error connecting to an inactive server given no moc
     normalizeClientRequestArgs('http:', 'http://localhost:12345'),
     {
       emitter,
+      log,
     }
   )
 
@@ -175,6 +183,7 @@ test('does not emit ENOTFOUND error connecting to an inactive server given mocke
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
     {
       emitter,
+      log,
     }
   )
 
@@ -203,6 +212,7 @@ test('does not emit ECONNREFUSED error connecting to an inactive server given mo
     normalizeClientRequestArgs('http:', 'http://localhost:9876'),
     {
       emitter,
+      log,
     }
   )
 
@@ -235,6 +245,7 @@ test('sends the request body to the server given no mocked response', (done) => 
     }),
     {
       emitter,
+      log,
     }
   )
 
@@ -261,6 +272,7 @@ test('does not send request body to the original server given mocked response', 
     }),
     {
       emitter,
+      log,
     }
   )
 

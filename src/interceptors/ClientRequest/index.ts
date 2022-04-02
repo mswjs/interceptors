@@ -3,18 +3,13 @@ import https from 'https'
 import {
   IsomorphicRequest,
   IsomorphicResponse,
-  MockedResponse,
+  InteractiveIsomorphicRequest,
 } from '../../createInterceptor'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
-import type { LazyCallback } from '../../utils/createLazyCallback'
 import { get } from './http.get'
 import { request } from './http.request'
-import { Protocol } from './NodeClientRequest'
-
-export interface InteractiveIsomorphicRequest extends IsomorphicRequest {
-  respondWith: LazyCallback<(mockedResponse: MockedResponse) => void>
-}
+import { NodeClientOptions, Protocol } from './NodeClientRequest'
 
 export type ClientRequestEventListener = (
   request: InteractiveIsomorphicRequest
@@ -65,15 +60,24 @@ export class ClientRequestInterceptor extends Interceptor<ClientRequestEventMap>
 
       log('patching the "%s" module...', protocol)
 
+      const options: NodeClientOptions = {
+        emitter: this.emitter,
+        log: this.log,
+      }
+
       // @ts-ignore
       requestModule.request =
         // Force a line break.
-        request(protocol, this.emitter)
+        request(protocol, options)
+
+      log('native "%s.request" function patched!', requestModule.request)
 
       // @ts-ignore
       requestModule.get =
         // Force a line break.
-        get(protocol, this.emitter)
+        get(protocol, options)
+
+      log('native "%s.get" function patched!', requestModule.get)
     }
   }
 }
