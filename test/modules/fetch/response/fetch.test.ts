@@ -3,28 +3,25 @@
  */
 import fetch from 'node-fetch'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import nodeInterceptors from '../../../../src/presets/node'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: nodeInterceptors,
-  resolver(request) {
-    if (
-      [httpServer.http.makeUrl(), httpServer.https.makeUrl()].includes(
-        request.url.href
-      )
-    ) {
-      return {
-        status: 201,
-        headers: {
-          'Content-Type': 'application/hal+json',
-        },
-        body: JSON.stringify({ mocked: true }),
-      }
-    }
-  },
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (
+    [httpServer.http.makeUrl(), httpServer.https.makeUrl()].includes(
+      request.url.href
+    )
+  ) {
+    request.respondWith({
+      status: 201,
+      headers: {
+        'Content-Type': 'application/hal+json',
+      },
+      body: JSON.stringify({ mocked: true }),
+    })
+  }
 })
 
 beforeAll(async () => {
@@ -42,12 +39,12 @@ beforeEach(() => {
   interceptor.apply()
 })
 
-afterEach(async () => {
-  interceptor.restore()
+afterEach(() => {
+  interceptor.dispose()
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
@@ -71,7 +68,9 @@ test('bypasses an HTTP request not handled in the middleware', async () => {
 })
 
 test('responds to an HTTPS request that is handled in the middleware', async () => {
-  const res = await fetch(httpServer.https.makeUrl('/'), { agent: httpsAgent })
+  const res = await fetch(httpServer.https.makeUrl('/'), {
+    agent: httpsAgent,
+  })
   const body = await res.json()
 
   expect(res.status).toEqual(201)
@@ -90,7 +89,7 @@ test('bypasses an HTTPS request not handled in the middleware', async () => {
 })
 
 test('bypasses any request when the interceptor is restored', async () => {
-  interceptor.restore()
+  interceptor.dispose()
   const httpRes = await fetch(httpServer.http.makeUrl('/'))
   const httpBody = await httpRes.json()
   expect(httpRes.status).toEqual(200)
@@ -105,10 +104,7 @@ test('bypasses any request when the interceptor is restored', async () => {
 })
 
 test('does not throw an error if there are multiple interceptors', async () => {
-  const secondInterceptor = createInterceptor({
-    modules: nodeInterceptors,
-    resolver() {},
-  })
+  const secondInterceptor = new ClientRequestInterceptor()
   secondInterceptor.apply()
 
   let res = await fetch(httpServer.https.makeUrl('/get'), { agent: httpsAgent })
@@ -117,5 +113,5 @@ test('does not throw an error if there are multiple interceptors', async () => {
   expect(res.status).toEqual(200)
   expect(body).toEqual({ route: '/get' })
 
-  secondInterceptor.restore()
+  secondInterceptor.dispose()
 })

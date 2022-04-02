@@ -1,11 +1,8 @@
-import { createInterceptor } from '@mswjs/interceptors'
-import { interceptFetch } from '@mswjs/interceptors/lib/interceptors/fetch'
+import { FetchInterceptor } from '@mswjs/interceptors/lib/interceptors/fetch'
 
-const interceptor = createInterceptor({
-  modules: [interceptFetch],
-  resolver(request) {
-    window.requestBody = request.body
-  },
+const interceptor = new FetchInterceptor()
+interceptor.on('request', (request) => {
+  window.requestBody = request.body
 })
 
 interceptor.apply()

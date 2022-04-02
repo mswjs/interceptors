@@ -1,29 +1,13 @@
 import http from 'http'
 import https from 'https'
-import {
-  IsomorphicRequest,
-  IsomorphicResponse,
-  InteractiveIsomorphicRequest,
-} from '../../createInterceptor'
+import { HttpRequestEventMap } from '../../createInterceptor'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { get } from './http.get'
 import { request } from './http.request'
 import { NodeClientOptions, Protocol } from './NodeClientRequest'
 
-export type ClientRequestEventListener = (
-  request: InteractiveIsomorphicRequest
-) => Promise<void> | void
-
-export type ClientRequestEventMap = {
-  request: ClientRequestEventListener
-  response(
-    request: IsomorphicRequest,
-    response: IsomorphicResponse
-  ): Promise<void> | void
-}
-
-export type ClientRequestEmitter = AsyncEventEmitter<ClientRequestEventMap>
+export type ClientRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
 
 export type ClientRequestModules = Map<Protocol, typeof http | typeof https>
 
@@ -31,7 +15,7 @@ export type ClientRequestModules = Map<Protocol, typeof http | typeof https>
  * Intercept requests made via the `ClientRequest` class.
  * Such requests include `http.get`, `https.request`, etc.
  */
-export class ClientRequestInterceptor extends Interceptor<ClientRequestEventMap> {
+export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('http')
   private modules: ClientRequestModules
 
@@ -53,12 +37,8 @@ export class ClientRequestInterceptor extends Interceptor<ClientRequestEventMap>
         requestModule.request = pureRequest
         requestModule.get = pureGet
 
-        this.modules.delete(protocol)
-
         log('native "%s" module restored!', protocol)
       })
-
-      log('patching the "%s" module...', protocol)
 
       const options: NodeClientOptions = {
         emitter: this.emitter,
@@ -70,14 +50,12 @@ export class ClientRequestInterceptor extends Interceptor<ClientRequestEventMap>
         // Force a line break.
         request(protocol, options)
 
-      log('native "%s.request" function patched!', requestModule.request)
-
       // @ts-ignore
       requestModule.get =
         // Force a line break.
         get(protocol, options)
 
-      log('native "%s.get" function patched!', requestModule.get)
+      log('native "%s" module patched!', protocol)
     }
   }
 }

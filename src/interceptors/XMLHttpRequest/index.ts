@@ -1,7 +1,6 @@
 import type {
+  HttpRequestEventMap,
   InteractiveIsomorphicRequest,
-  IsomorphicRequest,
-  IsomorphicResponse,
 } from '../../createInterceptor'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
@@ -11,14 +10,9 @@ export type XMLHttpRequestEventListener = (
   request: InteractiveIsomorphicRequest
 ) => Promise<void> | void
 
-export type XMLHttpRequestEventMap = {
-  request: XMLHttpRequestEventListener
-  response(request: IsomorphicRequest, response: IsomorphicResponse): void
-}
+export type XMLHttpRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
 
-export type XMLHttpRequestEmitter = AsyncEventEmitter<XMLHttpRequestEventMap>
-
-export class XMLHttpRequestInterceptor extends Interceptor<XMLHttpRequestEventMap> {
+export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('xhr')
 
   constructor() {

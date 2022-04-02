@@ -5,14 +5,12 @@ import * as https from 'https'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
-import {
-  ClientRequestEventListener,
-  ClientRequestInterceptor,
-} from '../../../../src/interceptors/ClientRequest'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestEventMap } from '../../../../src'
 
 let httpServer: ServerApi
 
-const resolver = jest.fn<never, Parameters<ClientRequestEventListener>>()
+const resolver = jest.fn<never, Parameters<HttpRequestEventMap['request']>>()
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
@@ -46,19 +44,19 @@ test('intercepts a GET request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<ClientRequestEventListener>>(
-    {
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'same-origin',
-      body: '',
-      respondWith: expect.any(Function),
-    }
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'GET',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'same-origin',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an https.get request given RequestOptions without a protocol', async () => {
@@ -74,15 +72,15 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<ClientRequestEventListener>>(
-    {
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
-      headers: headersContaining({}),
-      credentials: 'same-origin',
-      body: '',
-      respondWith: expect.any(Function),
-    }
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'GET',
+    url: new URL(httpServer.https.makeUrl('/user?id=123')),
+    headers: headersContaining({}),
+    credentials: 'same-origin',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })

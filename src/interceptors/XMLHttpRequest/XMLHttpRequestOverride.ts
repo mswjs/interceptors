@@ -265,6 +265,10 @@ export const createXMLHttpRequestOverride = (
         respondWith: createLazyCallback(),
       }
 
+      this.log(
+        'emitting the "request" event for %d listener(s)...',
+        emitter.listenerCount('request')
+      )
       emitter.emit('request', interactiveIsomorphicRequest)
 
       this.log('awaiting mocked response...')

@@ -64,20 +64,24 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
     // Whenever applying a new interceptor, check if it hasn't been applied already.
     // This enables to apply the same interceptor multiple times, for example from a different
     // interceptor, only proxying events but keeping the stubs in a single place.
-    const runningInstance = getGlobalSymbol<this>(this.symbol)
+    const runningInstance = this.getInstance()
 
     if (runningInstance) {
-      log('found a running instance')
+      log('found a running instance, reusing...')
 
       // Proxy any listeners you set on this instance to the running instance.
       this.on = (event, listener) => {
         log('proxying the "%s" listener')
 
-        runningInstance.emitter.prependListener(event, listener)
+        // Add listeners to the running instance so they appear
+        // at the top of the event listeners list and are executed first.
+        runningInstance.emitter.addListener(event, listener)
 
         this.subscriptions.push(() => {
           // Automatically remove the listener when the instance is disposed.
           runningInstance.emitter.removeListener(event, listener)
+
+          log('removed proxied "%s" listener!', event)
         })
       }
 
@@ -90,7 +94,7 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
     this.setup()
 
     // Store the newly applied interceptor instance globally.
-    setGlobalSymbol(this.symbol, this)
+    this.setInstance()
   }
 
   /**
@@ -120,18 +124,41 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
     const log = this.log.extend('dispose')
     log('disposing the interceptor...')
 
+    if (!this.getInstance()) {
+      log('no interceptors running, skipping dispose...')
+      return
+    }
+
     // Delete the global symbol as soon as possible,
     // indicating that the interceptor is no longer running.
-    deleteGlobalSymbol(this.symbol)
+    this.clearInstance()
 
     log('global symbol deleted:', getGlobalSymbol(this.symbol))
 
-    for (const dispose of this.subscriptions) {
-      dispose()
+    if (this.subscriptions.length > 0) {
+      log('disposing of %d subscriptions...', this.subscriptions.length)
+
+      for (const dispose of this.subscriptions) {
+        dispose()
+      }
+      this.subscriptions = []
+
+      log('disposed of all subscriptions!', this.subscriptions.length)
     }
-    log('disposed of %d subscriptions!', this.subscriptions.length)
 
     this.emitter.removeAllListeners()
     log('removed all listeners!')
+  }
+
+  private getInstance(): this | undefined {
+    return getGlobalSymbol<this>(this.symbol)
+  }
+
+  private setInstance(): void {
+    setGlobalSymbol(this.symbol, this)
+  }
+
+  private clearInstance(): void {
+    deleteGlobalSymbol(this.symbol)
   }
 }

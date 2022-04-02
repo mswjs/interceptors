@@ -9,7 +9,7 @@ import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { sleep } from '../../utils/sleep'
-import { ClientRequestEventMap } from '.'
+import { HttpRequestEventMap } from '../../createInterceptor'
 
 interface ErrorConnectionRefused extends NodeJS.ErrnoException {
   address: string
@@ -37,7 +37,7 @@ afterAll(async () => {
 })
 
 test('gracefully finishes the request when it has a mocked response', (done) => {
-  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://any.thing', {
       method: 'PUT',
@@ -78,7 +78,7 @@ test('gracefully finishes the request when it has a mocked response', (done) => 
 })
 
 test('responds with a mocked response when requesting an existing hostname', (done) => {
-  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment')),
     {
@@ -107,7 +107,7 @@ test('responds with a mocked response when requesting an existing hostname', (do
 })
 
 test('performs the request as-is given resolver returned no mocked response', (done) => {
-  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment'), {
       method: 'POST',
@@ -136,7 +136,7 @@ test('performs the request as-is given resolver returned no mocked response', (d
 })
 
 test('emits the ENOTFOUND error connecting to a non-existing hostname given no mocked response', (done) => {
-  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
     {
@@ -155,7 +155,7 @@ test('emits the ENOTFOUND error connecting to a non-existing hostname given no m
 })
 
 test('emits the ECONNREFUSED error connecting to an inactive server given no mocked response', (done) => {
-  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://localhost:12345'),
     {
@@ -177,7 +177,7 @@ test('emits the ECONNREFUSED error connecting to an inactive server given no moc
 })
 
 test('does not emit ENOTFOUND error connecting to an inactive server given mocked response', (done) => {
-  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const handleError = jest.fn()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
@@ -206,7 +206,7 @@ test('does not emit ENOTFOUND error connecting to an inactive server given mocke
 })
 
 test('does not emit ECONNREFUSED error connecting to an inactive server given mocked response', (done) => {
-  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const handleError = jest.fn()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://localhost:9876'),
@@ -235,7 +235,7 @@ test('does not emit ECONNREFUSED error connecting to an inactive server given mo
 })
 
 test('sends the request body to the server given no mocked response', (done) => {
-  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/write'), {
       method: 'POST',
@@ -265,7 +265,7 @@ test('sends the request body to the server given no mocked response', (done) => 
 })
 
 test('does not send request body to the original server given mocked response', (done) => {
-  const emitter = new AsyncEventEmitter<ClientRequestEventMap>()
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/write'), {
       method: 'POST',

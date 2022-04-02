@@ -3,13 +3,10 @@
  */
 import * as http from 'http'
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { InterceptorEventsMap } from '../../../src'
+import { HttpRequestEventMap, InterceptorEventsMap } from '../../../src'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 import { anyUuid, headersContaining } from '../../jest.expect'
-import {
-  ClientRequestInterceptor,
-  ClientRequestEventListener,
-} from '../../../src/interceptors/ClientRequest'
+import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
@@ -54,7 +51,7 @@ test('ClientRequest: emits the "request" event upon the request', async () => {
 
   expect(requestListener).toHaveBeenCalledTimes(1)
   expect(requestListener).toHaveBeenCalledWith<
-    Parameters<ClientRequestEventListener>
+    Parameters<HttpRequestEventMap['request']>
   >({
     id: anyUuid(),
     method: 'POST',
@@ -78,7 +75,7 @@ test.skip('XMLHttpRequest: emits the "request" event upon the request', async ()
 
   expect(requestListener).toHaveBeenCalledTimes(1)
   expect(requestListener).toHaveBeenCalledWith<
-    Parameters<ClientRequestEventListener>
+    Parameters<HttpRequestEventMap['request']>
   >({
     id: anyUuid(),
     method: 'POST',

@@ -134,7 +134,10 @@ export class NodeClientRequest extends ClientRequest {
 
     // Notify the interceptor about the request.
     // This will call any "request" listeners the users have.
-    this.log('emitting the "request" event...')
+    this.log(
+      'emitting the "request" event for %d listener(s)...',
+      this.emitter.listenerCount('request')
+    )
     this.emitter.emit('request', interactiveIsomorphicRequest)
 
     // Execute the resolver Promise like a side-effect.
@@ -185,7 +188,7 @@ export class NodeClientRequest extends ClientRequest {
         return this
       }
 
-      this.log('no mocked response found!')
+      this.log('no mocked response received!')
 
       // Set the response source to "bypass".
       // Any errors emitted past this point are not suppressed.

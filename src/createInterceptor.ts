@@ -35,6 +35,14 @@ export interface InteractiveIsomorphicRequest extends IsomorphicRequest {
   respondWith: LazyCallback<(mockedResponse: MockedResponse) => void>
 }
 
+export type HttpRequestEventMap = {
+  request(request: InteractiveIsomorphicRequest): Promise<void> | void
+  response(
+    request: IsomorphicRequest,
+    response: IsomorphicResponse
+  ): Promise<void> | void
+}
+
 export interface IsomorphicResponse {
   status: number
   statusText: string
