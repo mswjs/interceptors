@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { spawn } from 'child_process'
-import { createRemoteResolver } from '../../../src'
+import { RemoteHttpResolver } from '../../../src/RemoteInterceptor'
 
 const CHILD_PATH = path.resolve(__dirname, 'child.js')
 
@@ -8,19 +8,24 @@ const child = spawn('node', [CHILD_PATH], {
   stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
 })
 
-createRemoteResolver({
+const resolver = new RemoteHttpResolver({
   process: child,
-  resolver() {
-    return {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        mockedFromParent: true,
-      }),
-    }
-  },
+})
+
+resolver.on('request', (request) => {
+  request.respondWith({
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      mockedFromParent: true,
+    }),
+  })
+})
+
+beforeAll(() => {
+  resolver.apply()
 })
 
 afterAll(() => {
@@ -34,14 +39,12 @@ test('intercepts an HTTP request made in a child process', async () => {
 
   const response = await new Promise((resolve, reject) => {
     child.addListener('message', (message) => {
-      if (typeof message !== 'string') {
+      if (typeof message !== 'string' || !message.startsWith('done:')) {
         return
       }
 
-      if (message.startsWith('done:')) {
-        const [, responseString] = message.match(/^done:(.+)$/) || []
-        resolve(JSON.parse(responseString))
-      }
+      const [, responseString] = message.match(/^done:(.+)$/) || []
+      resolve(JSON.parse(responseString))
     })
     child.addListener('error', reject)
     child.addListener('exit', reject)

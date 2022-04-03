@@ -3,19 +3,26 @@
  */
 import * as http from 'http'
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { HttpRequestEventMap, InterceptorEventsMap } from '../../../src'
+import { HttpRequestEventMap } from '../../../src'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 import { anyUuid, headersContaining } from '../../jest.expect'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
+import { InterceptorBus } from '../../../src/InterceptorBus'
+import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 
 let httpServer: ServerApi
 
-const interceptor = new ClientRequestInterceptor()
-
 const requestListener = jest.fn<
-  ReturnType<InterceptorEventsMap['request']>,
-  Parameters<InterceptorEventsMap['request']>
+  ReturnType<HttpRequestEventMap['request']>,
+  Parameters<HttpRequestEventMap['request']>
 >()
+
+const interceptor = new InterceptorBus({
+  interceptors: [
+    new ClientRequestInterceptor(),
+    new XMLHttpRequestInterceptor(),
+  ],
+})
 interceptor.on('request', requestListener)
 
 beforeAll(async () => {
@@ -65,7 +72,7 @@ test('ClientRequest: emits the "request" event upon the request', async () => {
   })
 })
 
-test.skip('XMLHttpRequest: emits the "request" event upon the request', async () => {
+test('XMLHttpRequest: emits the "request" event upon the request', async () => {
   const url = httpServer.http.makeUrl('/user')
   await createXMLHttpRequest((req) => {
     req.open('POST', url)
@@ -73,7 +80,13 @@ test.skip('XMLHttpRequest: emits the "request" event upon the request', async ()
     req.send(JSON.stringify({ userId: 'abc-123' }))
   })
 
-  expect(requestListener).toHaveBeenCalledTimes(1)
+  /**
+   * @note In Node.js "XMLHttpRequest" is often polyfilled by "ClientRequest".
+   * This results in both "XMLHttpRequest" and "ClientRequest" interceptors
+   * emitting the "request" event.
+   * @see https://github.com/mswjs/interceptors/issues/163
+   */
+  expect(requestListener).toHaveBeenCalledTimes(2)
   expect(requestListener).toHaveBeenCalledWith<
     Parameters<HttpRequestEventMap['request']>
   >({
