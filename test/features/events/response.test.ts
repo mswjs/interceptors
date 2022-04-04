@@ -13,12 +13,12 @@ import {
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 import { anyUuid, headersContaining } from '../../jest.expect'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
-import { InterceptorBus } from '../../../src/InterceptorBus'
+import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
-const interceptor = new InterceptorBus({
+const interceptor = new BatchInterceptor({
   interceptors: [
     new ClientRequestInterceptor(),
     new XMLHttpRequestInterceptor(),

@@ -1,25 +1,28 @@
 import { Interceptor } from './Interceptor'
 
-export interface InterceptorBusOptions<
+export interface BatchInterceptorOptions<
   InterceptorList extends Interceptor<any>[]
 > {
   interceptors: InterceptorList
 }
 
-export class InterceptorBus<
+export type ExtractEventMapType<InterceptorList extends Interceptor<any>[]> =
+  InterceptorList extends Interceptor<infer EventMap>[] ? EventMap : never
+
+/**
+ * A batch interceptor that exposes a single interface
+ * to apply and operate with multiple interceptors at once.
+ */
+export class BatchInterceptor<
   InterceptorList extends Interceptor<any>[],
-  EventMap extends Record<string, any> = InterceptorList extends Interceptor<
-    infer EventMap
-  >[]
-    ? EventMap
-    : never
+  EventMap extends Record<string, any> = ExtractEventMapType<InterceptorList>
 > extends Interceptor<EventMap> {
   static symbol = Symbol('interceptor-bus')
 
   private interceptors: InterceptorList
 
-  constructor(options: InterceptorBusOptions<InterceptorList>) {
-    super(InterceptorBus.symbol)
+  constructor(options: BatchInterceptorOptions<InterceptorList>) {
+    super(BatchInterceptor.symbol)
     this.interceptors = options.interceptors
   }
 
@@ -41,6 +44,8 @@ export class InterceptorBus<
     event: Event,
     listener: EventMap[Event]
   ) {
+    // Instead of adding a listener to the batch interceptor,
+    // propagate the listener to each of the individual interceptors.
     this.interceptors.forEach((interceptor) => {
       interceptor.on(event, listener)
     })

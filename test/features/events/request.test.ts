@@ -7,7 +7,7 @@ import { HttpRequestEventMap } from '../../../src'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 import { anyUuid, headersContaining } from '../../jest.expect'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
-import { InterceptorBus } from '../../../src/InterceptorBus'
+import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 
 let httpServer: ServerApi
@@ -17,7 +17,7 @@ const requestListener = jest.fn<
   Parameters<HttpRequestEventMap['request']>
 >()
 
-const interceptor = new InterceptorBus({
+const interceptor = new BatchInterceptor({
   interceptors: [
     new ClientRequestInterceptor(),
     new XMLHttpRequestInterceptor(),

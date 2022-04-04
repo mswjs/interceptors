@@ -6,13 +6,13 @@ import type {
   IsomorphicRequest,
 } from './glossary'
 import { Interceptor } from './Interceptor'
-import { InterceptorBus } from './InterceptorBus'
+import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
 import { createLazyCallback } from './utils/createLazyCallback'
 import { toIsoResponse } from './utils/toIsoResponse'
 
-export class RemoteHttpInterceptor extends InterceptorBus<
+export class RemoteHttpInterceptor extends BatchInterceptor<
   [ClientRequestInterceptor, XMLHttpRequestInterceptor]
 > {
   constructor() {
