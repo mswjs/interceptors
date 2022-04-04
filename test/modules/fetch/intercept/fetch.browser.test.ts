@@ -6,7 +6,7 @@ import { RequestHandler } from 'express'
 import { createServer, ServerApi } from '@open-draft/test-server'
 import { Response, pageWith, ScenarioApi } from 'page-with'
 import { extractRequestFromPage } from '../../../helpers'
-import { IsomorphicRequest } from '../../../../src/createInterceptor'
+import { IsomorphicRequest } from '../../../../src/glossary'
 
 let httpServer: ServerApi
 

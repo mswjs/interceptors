@@ -7,7 +7,7 @@ import type {
   InteractiveIsomorphicRequest,
   IsomorphicRequest,
   MockedResponse,
-} from '../../createInterceptor'
+} from '../../glossary'
 import { uuidv4 } from '../../utils/uuid'
 import type { ClientRequestEmitter } from '.'
 import { concatChunkToBuffer } from './utils/concatChunkToBuffer'

@@ -1,4 +1,4 @@
-export * from './createInterceptor'
+export * from './glossary'
 export * from './RemoteInterceptor'
 
 /* Utils */

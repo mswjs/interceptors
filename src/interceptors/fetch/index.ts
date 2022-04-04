@@ -8,7 +8,7 @@ import type {
   HttpRequestEventMap,
   InteractiveIsomorphicRequest,
   IsomorphicResponse,
-} from '../../createInterceptor'
+} from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { createLazyCallback } from '../../utils/createLazyCallback'
 import { toIsoResponse } from '../../utils/toIsoResponse'

@@ -4,7 +4,7 @@
 import express from 'express'
 import supertest from 'supertest'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
-import { IsomorphicRequest } from '../../src/createInterceptor'
+import { IsomorphicRequest } from '../../src/glossary'
 
 let requests: IsomorphicRequest[] = []
 

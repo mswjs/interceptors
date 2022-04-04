@@ -5,7 +5,7 @@ import { Headers } from 'headers-polyfill'
 import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { IsomorphicRequest, RequestCredentials } from '../src/createInterceptor'
+import { IsomorphicRequest, RequestCredentials } from '../src/glossary'
 
 export interface PromisifiedResponse {
   req: ClientRequest

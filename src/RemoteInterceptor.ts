@@ -4,7 +4,7 @@ import type {
   HttpRequestEventMap,
   InteractiveIsomorphicRequest,
   IsomorphicRequest,
-} from './createInterceptor'
+} from './glossary'
 import { Interceptor } from './Interceptor'
 import { InterceptorBus } from './InterceptorBus'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'

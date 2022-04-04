@@ -1,7 +1,7 @@
 import type {
   HttpRequestEventMap,
   InteractiveIsomorphicRequest,
-} from '../../createInterceptor'
+} from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { createXMLHttpRequestOverride } from './XMLHttpRequestOverride'

@@ -11,10 +11,7 @@ import {
   headersToString,
 } from 'headers-polyfill'
 import { DOMParser } from '@xmldom/xmldom'
-import {
-  InteractiveIsomorphicRequest,
-  IsomorphicRequest,
-} from '../../createInterceptor'
+import { InteractiveIsomorphicRequest, IsomorphicRequest } from '../../glossary'
 import { parseJson } from '../../utils/parseJson'
 import { toIsoResponse } from '../../utils/toIsoResponse'
 import { uuidv4 } from '../../utils/uuid'

@@ -9,7 +9,7 @@ import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { sleep } from '../../utils/sleep'
-import { HttpRequestEventMap } from '../../createInterceptor'
+import { HttpRequestEventMap } from '../../glossary'
 
 interface ErrorConnectionRefused extends NodeJS.ErrnoException {
   address: string

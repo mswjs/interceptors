@@ -4,7 +4,7 @@
 import * as path from 'path'
 import { pageWith } from 'page-with'
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { IsomorphicRequest } from '../../../../src/createInterceptor'
+import { IsomorphicRequest } from '../../../../src/glossary'
 import { extractRequestFromPage } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 

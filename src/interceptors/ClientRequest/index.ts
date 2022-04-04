@@ -1,6 +1,6 @@
 import http from 'http'
 import https from 'https'
-import { HttpRequestEventMap } from '../../createInterceptor'
+import { HttpRequestEventMap } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { get } from './http.get'
