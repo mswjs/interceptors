@@ -197,7 +197,7 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
       log('disposed of all subscriptions!', this.subscriptions.length)
     }
 
-    this.emitter.destroy()
+    this.emitter.deactivate()
     log('destroyed the listener!')
 
     nextTick(() => {

@@ -55,12 +55,12 @@ it('propagates listener exceptions to "untilIdle" promise', async () => {
   await expect(emitter.untilIdle('ping')).rejects.toBe(error)
 })
 
-it('does not emit events once the emitter was destroyed', () => {
+it('does not emit events once the emitter was deactivated', () => {
   const emitter = new AsyncEventEmitter<{ ping(): void }>()
 
   const listener = jest.fn()
   emitter.on('ping', listener)
-  emitter.destroy()
+  emitter.deactivate()
 
   emitter.emit('ping')
 

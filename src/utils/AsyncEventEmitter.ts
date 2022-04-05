@@ -6,7 +6,7 @@ export type QueueItem = Promise<void>
 
 export enum AsyncEventEmitterReadyState {
   ACTIVE = 'ACTIVE',
-  DESTROYED = 'DESTROYED',
+  DEACTIVATED = 'DEACTIVATED',
 }
 
 export class AsyncEventEmitter<
@@ -34,7 +34,7 @@ export class AsyncEventEmitter<
 
     log('adding "%s" listener...', event)
 
-    if (this.readyState === AsyncEventEmitterReadyState.DESTROYED) {
+    if (this.readyState === AsyncEventEmitterReadyState.DEACTIVATED) {
       log('the emitter is destroyed, skipping!')
       return this
     }
@@ -73,7 +73,7 @@ export class AsyncEventEmitter<
 
     log('emitting "%s" event...', event)
 
-    if (this.readyState === AsyncEventEmitterReadyState.DESTROYED) {
+    if (this.readyState === AsyncEventEmitterReadyState.DEACTIVATED) {
       log('the emitter is destroyed, skipping!')
       return false
     }
@@ -155,16 +155,17 @@ export class AsyncEventEmitter<
   }
 
   /**
-   * Destroy this event emitter.
-   * Destroyed emitter can no longer emit and listen to events.
+   * Deactivate this event emitter.
+   * Deactivated emitter can no longer emit and listen to events
+   * and needs to be activated again in order to do so.
    */
-  public destroy(): void {
-    const log = this.log.extend('destroy')
+  public deactivate(): void {
+    const log = this.log.extend('deactivate')
 
     log('removing all listeners...')
     this.removeAllListeners()
 
-    this.readyState = AsyncEventEmitterReadyState.DESTROYED
+    this.readyState = AsyncEventEmitterReadyState.DEACTIVATED
     log('set state to:', this.readyState)
   }
 }
