@@ -30,6 +30,9 @@ export enum InterceptorReadyState {
   DISPOSED = 'DISPOSED',
 }
 
+export type ExtractEventNames<EventMap extends Record<string, any>> =
+  EventMap extends Record<infer EventName, any> ? EventName : never
+
 export class Interceptor<EventMap extends InterceptorEventMap> {
   protected emitter: AsyncEventEmitter<EventMap>
   protected subscriptions: InterceptorSubscription[]
@@ -141,7 +144,7 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
   /**
    * Listen to the interceptor's public events.
    */
-  public on<Event extends keyof EventMap>(
+  public on<Event extends ExtractEventNames<EventMap>>(
     event: Event,
     listener: EventMap[Event]
   ): void {

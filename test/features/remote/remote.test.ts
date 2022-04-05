@@ -32,6 +32,8 @@ afterAll(() => {
   if (!child.killed) {
     child.kill()
   }
+
+  resolver.dispose()
 })
 
 test('intercepts an HTTP request made in a child process', async () => {

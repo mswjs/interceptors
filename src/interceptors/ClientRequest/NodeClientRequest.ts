@@ -26,6 +26,7 @@ import {
 } from './utils/normalizeClientRequestWriteArgs'
 import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
 import { createLazyCallback } from '../../utils/createLazyCallback'
+import { invariant } from 'outvariant'
 
 export type Protocol = 'http' | 'https'
 
@@ -129,7 +130,17 @@ export class NodeClientRequest extends ClientRequest {
     const isomorphicRequest = this.toIsomorphicRequest(requestBody)
     const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
       ...isomorphicRequest,
-      respondWith: createLazyCallback(),
+      respondWith: createLazyCallback({
+        maxCalls: 1,
+        maxCallsCallback() {
+          invariant(
+            false,
+            'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
+            isomorphicRequest.method,
+            isomorphicRequest.url.href
+          )
+        },
+      }),
     }
 
     // Notify the interceptor about the request.

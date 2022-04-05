@@ -9,9 +9,15 @@ export interface LazyCallback<FnType extends AnyFunction> {
   invoked(): Promise<LazyCallbackReturnType<FnType>>
 }
 
-export function createLazyCallback<
-  FnType extends AnyFunction
->(): LazyCallback<FnType> {
+export interface LazyCallbackOptions {
+  maxCalls?: number
+  maxCallsCallback?(): void
+}
+
+export function createLazyCallback<FnType extends AnyFunction>(
+  options: LazyCallbackOptions = {}
+): LazyCallback<FnType> {
+  let calledTimes = 0
   let autoResolveTimeout: NodeJS.Timeout
   let remoteResolve: (args: LazyCallbackReturnType<FnType>) => unknown
 
@@ -22,7 +28,12 @@ export function createLazyCallback<
   })
 
   const fn: LazyCallback<FnType> = function (...args) {
+    if (options.maxCalls && calledTimes >= options.maxCalls) {
+      options.maxCallsCallback?.()
+    }
+
     remoteResolve(args)
+    calledTimes++
   }
 
   fn.invoked = async () => {

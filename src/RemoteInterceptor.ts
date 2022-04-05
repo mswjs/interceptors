@@ -17,6 +17,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
 > {
   constructor() {
     super({
+      name: 'remote-interceptor',
       interceptors: [
         new ClientRequestInterceptor(),
         new XMLHttpRequestInterceptor(),
@@ -24,7 +25,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
     })
   }
 
-  setup() {
+  protected setup() {
     super.setup()
 
     let handleParentMessage: NodeJS.MessageListener
@@ -100,7 +101,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
     this.process = options.process
   }
 
-  setup() {
+  protected setup() {
     const log = this.log.extend('setup')
 
     const handleChildMessage: NodeJS.MessageListener = async (message) => {

@@ -18,6 +18,7 @@ const requestListener = jest.fn<
 >()
 
 const interceptor = new BatchInterceptor({
+  name: 'batch-interceptor',
   interceptors: [
     new ClientRequestInterceptor(),
     new XMLHttpRequestInterceptor(),

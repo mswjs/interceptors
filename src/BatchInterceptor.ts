@@ -1,13 +1,19 @@
-import { Interceptor } from './Interceptor'
+import { EventMapType } from 'strict-event-emitter'
+import { ExtractEventNames, Interceptor } from './Interceptor'
 
 export interface BatchInterceptorOptions<
   InterceptorList extends Interceptor<any>[]
 > {
+  name: string
   interceptors: InterceptorList
 }
 
 export type ExtractEventMapType<InterceptorList extends Interceptor<any>[]> =
-  InterceptorList extends Interceptor<infer EventMap>[] ? EventMap : never
+  InterceptorList extends Array<infer InterceptorType>
+    ? InterceptorType extends Interceptor<infer EventMap>
+      ? EventMap
+      : never
+    : never
 
 /**
  * A batch interceptor that exposes a single interface
@@ -15,18 +21,19 @@ export type ExtractEventMapType<InterceptorList extends Interceptor<any>[]> =
  */
 export class BatchInterceptor<
   InterceptorList extends Interceptor<any>[],
-  EventMap extends Record<string, any> = ExtractEventMapType<InterceptorList>
+  EventMap extends EventMapType = ExtractEventMapType<InterceptorList>
 > extends Interceptor<EventMap> {
-  static symbol = Symbol('interceptor-bus')
+  static symbol: Symbol
 
   private interceptors: InterceptorList
 
   constructor(options: BatchInterceptorOptions<InterceptorList>) {
+    BatchInterceptor.symbol = Symbol(options.name)
     super(BatchInterceptor.symbol)
     this.interceptors = options.interceptors
   }
 
-  setup() {
+  protected setup() {
     const log = this.log.extend('setup')
 
     log('applying all %d interceptors...', this.interceptors.length)
@@ -40,7 +47,7 @@ export class BatchInterceptor<
     }
   }
 
-  public on<Event extends keyof EventMap>(
+  public on<Event extends ExtractEventNames<EventMap>>(
     event: Event,
     listener: EventMap[Event]
   ) {
