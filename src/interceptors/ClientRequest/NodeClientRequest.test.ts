@@ -8,7 +8,7 @@ import { NodeClientRequest } from './NodeClientRequest'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
-import { sleep } from '../../utils/sleep'
+import { sleep } from '../../../test/helpers'
 import { HttpRequestEventMap } from '../../glossary'
 
 interface ErrorConnectionRefused extends NodeJS.ErrnoException {

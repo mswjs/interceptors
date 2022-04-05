@@ -3,7 +3,7 @@
  */
 import { ServerApi, createServer } from '@open-draft/test-server'
 import { httpGet } from '../../../helpers'
-import { sleep } from '../../../../src/utils/sleep'
+import { sleep } from '../../../../test/helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi

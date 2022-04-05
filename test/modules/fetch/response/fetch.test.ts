@@ -27,7 +27,7 @@ interceptor.on('request', (request) => {
 beforeAll(async () => {
   httpServer = await createServer((app) => {
     app.get('/', (req, res) => {
-      res.status(200).json({ route: '/' }).end()
+      res.status(500).json({ error: 'must use mock' })
     })
     app.get('/get', (req, res) => {
       res.status(200).json({ route: '/get' }).end()
@@ -92,15 +92,15 @@ test('bypasses any request when the interceptor is restored', async () => {
   interceptor.dispose()
   const httpRes = await fetch(httpServer.http.makeUrl('/'))
   const httpBody = await httpRes.json()
-  expect(httpRes.status).toEqual(200)
-  expect(httpBody).toEqual({ route: '/' })
+  expect(httpRes.status).toEqual(500)
+  expect(httpBody).toEqual({ error: 'must use mock' })
 
   const httpsRes = await fetch(httpServer.https.makeUrl('/'), {
     agent: httpsAgent,
   })
   const httpsBody = await httpsRes.json()
-  expect(httpsRes.status).toEqual(200)
-  expect(httpsBody).toEqual({ route: '/' })
+  expect(httpsRes.status).toEqual(500)
+  expect(httpsBody).toEqual({ error: 'must use mock' })
 })
 
 test('does not throw an error if there are multiple interceptors', async () => {

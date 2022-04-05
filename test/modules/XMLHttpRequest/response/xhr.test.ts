@@ -23,6 +23,7 @@ interceptor.on('request', (request) => {
       },
       body: 'foo',
     })
+    return
   }
 
   if (request.url.href === 'https://error.me/') {

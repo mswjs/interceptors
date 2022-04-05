@@ -4,7 +4,7 @@
  */
 import { createServer, ServerApi } from '@open-draft/test-server'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { sleep } from '../../../../src/utils/sleep'
+import { sleep } from '../../../../test/helpers'
 import { createXMLHttpRequest } from '../../../helpers'
 
 let httpServer: ServerApi
