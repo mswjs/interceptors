@@ -6,10 +6,10 @@ import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => {
+  app.get('/', (_req, res) => {
     res.status(500).json({ error: 'must use mock' })
   })
-  app.get('/get', (req, res) => {
+  app.get('/get', (_req, res) => {
     res.status(200).json({ route: '/get' }).end()
   })
 })

@@ -26,7 +26,6 @@ interceptor.on('request', (request) => {
 
 beforeAll(async () => {
   await httpServer.listen()
-
   interceptor.apply()
 })
 
