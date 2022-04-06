@@ -1,7 +1,8 @@
-throw new Error('Interceptor presents are not implemented yet')
+import { FetchInterceptor } from '../interceptors/fetch'
+import { XMLHttpRequestInterceptor } from '../interceptors/XMLHttpRequest'
 
 /**
  * The default preset provisions the interception of requests
  * regardless of their type (fetch/XMLHttpRequest).
  */
-export default []
+export default [new FetchInterceptor(), new XMLHttpRequestInterceptor()]

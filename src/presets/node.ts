@@ -1,7 +1,8 @@
-throw new Error('Interceptor presents are not implemented yet')
+import { ClientRequestInterceptor } from '../interceptors/ClientRequest'
+import { XMLHttpRequestInterceptor } from '../interceptors/XMLHttpRequest'
 
 /**
  * The default preset provisions the interception of requests
  * regardless of their type (http/https/XMLHttpRequest).
  */
-export default []
+export default [new ClientRequestInterceptor(), new XMLHttpRequestInterceptor()]
