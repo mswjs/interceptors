@@ -4,19 +4,17 @@
 import * as http from 'http'
 import * as express from 'express'
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
 import { NodeClientRequest } from '../../../../src/interceptors/ClientRequest/NodeClientRequest'
 import { waitForClientRequest } from '../../../helpers'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
 const interceptedRequestBody = jest.fn()
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(req) {
-    interceptedRequestBody(req.body)
-  },
+
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  interceptedRequestBody(request.body)
 })
 
 function getInternalRequestBody(req: http.ClientRequest): Buffer {
@@ -38,9 +36,9 @@ afterEach(() => {
 })
 
 afterAll(async () => {
+  interceptor.dispose()
   jest.restoreAllMocks()
   await httpServer.close()
-  interceptor.restore()
 })
 
 test('writes string request body', async () => {

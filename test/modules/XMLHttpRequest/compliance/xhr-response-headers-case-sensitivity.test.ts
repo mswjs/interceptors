@@ -2,16 +2,12 @@
  * @jest-environment jsdom
  */
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
 import { createXMLHttpRequest } from '../../../helpers'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver() {},
-})
+const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
@@ -28,7 +24,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 

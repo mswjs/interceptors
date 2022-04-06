@@ -5,15 +5,11 @@
 import * as https from 'https'
 import { URL } from 'url'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
 import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver() {},
-})
+const interceptor = new ClientRequestInterceptor()
 
 beforeAll(async () => {
   httpServer = await createServer((app) => {
@@ -26,7 +22,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 

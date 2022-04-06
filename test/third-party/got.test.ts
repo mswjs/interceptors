@@ -3,20 +3,18 @@
  */
 import got from 'got'
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../src'
-import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
+import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(request) {
-    if (request.url.toString() === httpServer.http.makeUrl('/test')) {
-      return {
-        status: 200,
-        body: 'mocked-body',
-      }
-    }
-  },
+
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (request.url.toString() === httpServer.http.makeUrl('/test')) {
+    request.respondWith({
+      status: 200,
+      body: 'mocked-body',
+    })
+  }
 })
 
 beforeAll(async () => {
@@ -30,7 +28,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 

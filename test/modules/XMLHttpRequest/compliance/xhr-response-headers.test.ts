@@ -2,26 +2,23 @@
  * @jest-environment jsdom
  */
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver(req) {
-    if (!req.url.searchParams.has('mock')) {
-      return
-    }
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (!request.url.searchParams.has('mock')) {
+    return
+  }
 
-    return {
-      headers: {
-        etag: '123',
-        'x-response-type': 'mock',
-      },
-    }
-  },
+  request.respondWith({
+    headers: {
+      etag: '123',
+      'x-response-type': 'mock',
+    },
+  })
 })
 
 beforeAll(async () => {
@@ -42,7 +39,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 

@@ -1,61 +1,61 @@
-import { debug } from 'debug'
 import http from 'http'
 import https from 'https'
-import { Interceptor } from '../../createInterceptor'
+import { HttpRequestEventMap } from '../../glossary'
+import { Interceptor } from '../../Interceptor'
+import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { get } from './http.get'
-import { Protocol } from './NodeClientRequest'
 import { request } from './http.request'
+import { NodeClientOptions, Protocol } from './NodeClientRequest'
 
-const log = debug('http override')
+export type ClientRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
 
-export type RequestModule = typeof http | typeof https
-type PureModules = Map<
-  Protocol,
-  {
-    module: RequestModule
-    get: typeof http.get
-    request: typeof http.request
-  }
->
+export type ClientRequestModules = Map<Protocol, typeof http | typeof https>
 
 /**
- * Intercepts requests issued by native "http" and "https" modules.
+ * Intercept requests made via the `ClientRequest` class.
+ * Such requests include `http.get`, `https.request`, etc.
  */
-export const interceptClientRequest: Interceptor = (observer, resolver) => {
-  const pureModules: PureModules = new Map()
-  const modules: [Protocol, RequestModule][] = [
-    ['http', http],
-    ['https', https],
-  ]
+export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
+  static symbol = Symbol('http')
+  private modules: ClientRequestModules
 
-  for (const [protocol, requestModule] of modules) {
-    log('patching the "%s" module...', protocol)
+  constructor() {
+    super(ClientRequestInterceptor.symbol)
 
-    pureModules.set(protocol, {
-      module: requestModule,
-      request: requestModule.request,
-      get: requestModule.get,
-    })
-
-    // @ts-ignore Call signature overloads are incompatible.
-    requestModule.request =
-      // Force a line-break to prevent ignoring the "request" call.
-      request(protocol, resolver, observer)
-
-    // @ts-ignore Call signature overloads are incompatible.
-    requestModule.get =
-      // Force a line-break to prevent ignoring the "get" call.
-      get(protocol, resolver, observer)
+    this.modules = new Map()
+    this.modules.set('http', http)
+    this.modules.set('https', https)
   }
 
-  return () => {
-    log('done, restoring modules...')
+  protected setup(): void {
+    const log = this.log.extend('setup')
 
-    for (const requestModule of pureModules.values()) {
-      requestModule.module.get = requestModule.get
-      requestModule.module.request = requestModule.request
+    for (const [protocol, requestModule] of this.modules) {
+      const { request: pureRequest, get: pureGet } = requestModule
+
+      this.subscriptions.push(() => {
+        requestModule.request = pureRequest
+        requestModule.get = pureGet
+
+        log('native "%s" module restored!', protocol)
+      })
+
+      const options: NodeClientOptions = {
+        emitter: this.emitter,
+        log: this.log,
+      }
+
+      // @ts-ignore
+      requestModule.request =
+        // Force a line break.
+        request(protocol, options)
+
+      // @ts-ignore
+      requestModule.get =
+        // Force a line break.
+        get(protocol, options)
+
+      log('native "%s" module patched!', protocol)
     }
-
-    pureModules.clear()
   }
 }

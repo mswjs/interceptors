@@ -1,17 +1,11 @@
 const fetch = require('node-fetch')
-const { createRemoteInterceptor } = require('../../../lib')
-const {
-  interceptClientRequest,
-} = require('../../../lib/interceptors/ClientRequest')
+const { RemoteHttpInterceptor } = require('../../../lib')
 
-const interceptor = createRemoteInterceptor({
-  modules: [interceptClientRequest],
-})
-
+const interceptor = new RemoteHttpInterceptor()
 interceptor.apply()
 
 function makeRequest() {
-  fetch('https://httpbin.org/get')
+  fetch('http://localhost/api')
     .then((res) => res.json())
     .then((json) => {
       process.send(`done:${JSON.stringify(json)}`)
@@ -22,8 +16,4 @@ process.on('message', (message) => {
   if (message === 'make:request') {
     makeRequest()
   }
-})
-
-process.on('disconnect', () => {
-  interceptor.restore()
 })

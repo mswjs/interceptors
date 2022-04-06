@@ -8,10 +8,10 @@ import {
   createBrowserXMLHttpRequest,
   createRawBrowserXMLHttpRequest,
 } from '../../../helpers'
-import { InterceptorApi } from '../../../../src'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 
 declare namespace window {
-  export const interceptor: InterceptorApi
+  export const interceptor: XMLHttpRequestInterceptor
   export let serverHttpUrl: string
   export let serverHttpsUrl: string
 }
@@ -97,7 +97,7 @@ test('bypasses any request when the interceptor is restored', async () => {
   const callXMLHttpRequest = createRawBrowserXMLHttpRequest(scenario)
 
   await scenario.page.evaluate(() => {
-    window.interceptor.restore()
+    window.interceptor.dispose()
   })
 
   const firstResponse = await callXMLHttpRequest({

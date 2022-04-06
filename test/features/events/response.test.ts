@@ -6,35 +6,40 @@ import fetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
 import {
-  createInterceptor,
-  InterceptorEventsMap,
+  HttpRequestEventMap,
   IsomorphicRequest,
   IsomorphicResponse,
 } from '../../../src'
-import nodeInterceptors from '../../../src/presets/node'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 import { anyUuid, headersContaining } from '../../jest.expect'
+import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
+import { BatchInterceptor } from '../../../src/BatchInterceptor'
+import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: nodeInterceptors,
-  resolver(request) {
-    if (request.url.pathname === '/user') {
-      return {
-        status: 200,
-        headers: {
-          'x-response-type': 'mocked',
-        },
-        body: 'mocked-response-text',
-      }
-    }
-  },
+const interceptor = new BatchInterceptor({
+  name: 'batch-interceptor',
+  interceptors: [
+    new ClientRequestInterceptor(),
+    new XMLHttpRequestInterceptor(),
+  ],
+})
+interceptor.on('request', (request) => {
+  if (request.url.pathname === '/user') {
+    request.respondWith({
+      status: 200,
+      headers: {
+        'x-response-type': 'mocked',
+      },
+      body: 'mocked-response-text',
+    })
+  }
 })
 
 const responseListener = jest.fn<
-  ReturnType<InterceptorEventsMap['response']>,
-  Parameters<InterceptorEventsMap['response']>
+  ReturnType<HttpRequestEventMap['response']>,
+  Parameters<HttpRequestEventMap['response']>
 >()
 interceptor.on('response', responseListener)
 
@@ -65,7 +70,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
@@ -188,9 +193,10 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   })
 
   /**
-   * @note There are two requests that happen:
-   * - OPTIONS /account
-   * - POST /account
+   * @note In Node.js "XMLHttpRequest" is often polyfilled by "ClientRequest".
+   * This results in both "XMLHttpRequest" and "ClientRequest" interceptors
+   * emitting the "request" event.
+   * @see https://github.com/mswjs/interceptors/issues/163
    */
   expect(responseListener).toHaveBeenCalledTimes(2)
   expect(responseListener).toHaveBeenCalledWith<

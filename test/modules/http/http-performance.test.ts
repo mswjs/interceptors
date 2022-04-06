@@ -2,8 +2,7 @@
  * @jest-environment node
  */
 import { createServer, ServerApi } from '@open-draft/test-server'
-import { createInterceptor } from '../../../src'
-import { interceptClientRequest } from '../../../src/interceptors/ClientRequest'
+import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 import { httpGet, PromisifiedResponse } from '../../helpers'
 
 function arrayWith<V>(length: number, mapFn: (index: number) => V): V[] {
@@ -25,17 +24,17 @@ function parallelRequests(
 }
 
 let httpServer: ServerApi
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(req) {
-    if (req.url.pathname.startsWith('/user')) {
-      const id = req.url.searchParams.get('id')
-      return {
-        status: 200,
-        body: `mocked ${id}`,
-      }
-    }
-  },
+
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (request.url.pathname.startsWith('/user')) {
+    const id = request.url.searchParams.get('id')
+
+    request.respondWith({
+      status: 200,
+      body: `mocked ${id}`,
+    })
+  }
 })
 
 beforeAll(async () => {
@@ -49,7 +48,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 

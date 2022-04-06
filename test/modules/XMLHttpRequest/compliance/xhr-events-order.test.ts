@@ -2,30 +2,29 @@
  * @jest-environment jsdom
  */
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver(request) {
-    switch (request.url.pathname) {
-      case '/user': {
-        return {
-          status: 200,
-        }
-      }
-
-      case '/numbers-mock': {
-        return {
-          status: 200,
-          body: JSON.stringify([1, 2, 3]),
-        }
-      }
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  switch (request.url.pathname) {
+    case '/user': {
+      request.respondWith({
+        status: 200,
+      })
+      break
     }
-  },
+
+    case '/numbers-mock': {
+      request.respondWith({
+        status: 200,
+        body: JSON.stringify([1, 2, 3]),
+      })
+      break
+    }
+  }
 })
 
 function spyOnEvents(req: XMLHttpRequest, listener: jest.Mock) {
@@ -55,7 +54,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  interceptor.restore()
+  interceptor.dispose()
 })
 
 afterAll(async () => {

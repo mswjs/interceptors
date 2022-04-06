@@ -4,25 +4,22 @@
 import { IncomingMessage } from 'http'
 import * as https from 'https'
 import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
 import { getRequestOptionsByUrl } from '../../../../src/utils/getRequestOptionsByUrl'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let httpServer: ServerApi
 
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(req) {
-    if ([httpServer.https.makeUrl('/get')].includes(req.url.href)) {
-      return
-    }
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  if ([httpServer.https.makeUrl('/get')].includes(request.url.href)) {
+    return
+  }
 
-    return {
-      status: 403,
-      statusText: 'Forbidden',
-      body: 'mocked-body',
-    }
-  },
+  request.respondWith({
+    status: 403,
+    statusText: 'Forbidden',
+    body: 'mocked-body',
+  })
 })
 
 beforeAll(async () => {
@@ -40,7 +37,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 

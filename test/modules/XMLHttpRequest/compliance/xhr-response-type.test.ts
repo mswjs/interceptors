@@ -1,23 +1,20 @@
 /**
  * @jest-environment jsdom
  */
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest, readBlob } from '../../../helpers'
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver() {
-    return {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        firstName: 'John',
-        lastName: 'Maverick',
-      }),
-    }
-  },
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  request.respondWith({
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      firstName: 'John',
+      lastName: 'Maverick',
+    }),
+  })
 })
 
 beforeAll(() => {
@@ -25,7 +22,7 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  interceptor.restore()
+  interceptor.dispose()
 })
 
 test('responds with an object when "responseType" equals "json"', async () => {

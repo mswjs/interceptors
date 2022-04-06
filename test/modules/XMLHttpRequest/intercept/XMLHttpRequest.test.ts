@@ -3,18 +3,20 @@
  */
 import { RequestHandler } from 'express-serve-static-core'
 import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor, IsomorphicRequest, Resolver } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { IsomorphicRequest } from '../../../../src'
+import {
+  XMLHttpRequestEventListener,
+  XMLHttpRequestInterceptor,
+} from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 
 let httpServer: ServerApi
 
-const resolver = jest.fn<ReturnType<Resolver>, Parameters<Resolver>>()
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver,
-})
+const resolver = jest.fn<never, Parameters<XMLHttpRequestEventListener>>()
+
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', resolver)
 
 beforeAll(async () => {
   // @ts-expect-error Internal jsdom global property.
@@ -42,7 +44,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
@@ -55,19 +57,19 @@ test('intercepts an HTTP HEAD request', async () => {
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'HEAD',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: '',
-    },
-    expect.any(XMLHttpRequest)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<XMLHttpRequestEventListener>
+  >({
+    id: anyUuid(),
+    method: 'HEAD',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an HTTP GET request', async () => {
@@ -79,19 +81,19 @@ test('intercepts an HTTP GET request', async () => {
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: '',
-    },
-    expect.any(XMLHttpRequest)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<XMLHttpRequestEventListener>
+  >({
+    id: anyUuid(),
+    method: 'GET',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an HTTP POST request', async () => {
@@ -103,19 +105,19 @@ test('intercepts an HTTP POST request', async () => {
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'POST',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: 'post-payload',
-    },
-    expect.any(XMLHttpRequest)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<XMLHttpRequestEventListener>
+  >({
+    id: anyUuid(),
+    method: 'POST',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: 'post-payload',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an HTTP PUT request', async () => {
@@ -127,19 +129,19 @@ test('intercepts an HTTP PUT request', async () => {
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'PUT',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: 'put-payload',
-    },
-    expect.any(XMLHttpRequest)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<XMLHttpRequestEventListener>
+  >({
+    id: anyUuid(),
+    method: 'PUT',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: 'put-payload',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an HTTP DELETE request', async () => {
@@ -151,19 +153,19 @@ test('intercepts an HTTP DELETE request', async () => {
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'DELETE',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: '',
-    },
-    expect.any(XMLHttpRequest)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<XMLHttpRequestEventListener>
+  >({
+    id: anyUuid(),
+    method: 'DELETE',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an HTTPS HEAD request', async () => {
@@ -175,19 +177,19 @@ test('intercepts an HTTPS HEAD request', async () => {
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'HEAD',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: '',
-    },
-    expect.any(XMLHttpRequest)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<XMLHttpRequestEventListener>
+  >({
+    id: anyUuid(),
+    method: 'HEAD',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an HTTPS GET request', async () => {
@@ -199,19 +201,19 @@ test('intercepts an HTTPS GET request', async () => {
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: '',
-    },
-    expect.any(XMLHttpRequest)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<XMLHttpRequestEventListener>
+  >({
+    id: anyUuid(),
+    method: 'GET',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an HTTPS POST request', async () => {
@@ -223,19 +225,19 @@ test('intercepts an HTTPS POST request', async () => {
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'POST',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: 'post-payload',
-    },
-    expect.any(XMLHttpRequest)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<XMLHttpRequestEventListener>
+  >({
+    id: anyUuid(),
+    method: 'POST',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: 'post-payload',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an HTTPS PUT request', async () => {
@@ -247,19 +249,19 @@ test('intercepts an HTTPS PUT request', async () => {
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'PUT',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: 'put-payload',
-    },
-    expect.any(XMLHttpRequest)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<XMLHttpRequestEventListener>
+  >({
+    id: anyUuid(),
+    method: 'PUT',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: 'put-payload',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an HTTPS DELETE request', async () => {
@@ -271,19 +273,19 @@ test('intercepts an HTTPS DELETE request', async () => {
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'DELETE',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: '',
-    },
-    expect.any(XMLHttpRequest)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<XMLHttpRequestEventListener>
+  >({
+    id: anyUuid(),
+    method: 'DELETE',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'omit',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {
@@ -297,8 +299,7 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
   expect(resolver).toHaveBeenCalledWith(
     expect.objectContaining<Partial<IsomorphicRequest>>({
       credentials: 'include',
-    }),
-    expect.any(XMLHttpRequest)
+    })
   )
 })
 
@@ -312,8 +313,7 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
   expect(resolver).toHaveBeenCalledWith(
     expect.objectContaining<Partial<IsomorphicRequest>>({
       credentials: 'omit',
-    }),
-    expect.any(XMLHttpRequest)
+    })
   )
 })
 
@@ -328,7 +328,6 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
   expect(resolver).toHaveBeenCalledWith(
     expect.objectContaining<Partial<IsomorphicRequest>>({
       credentials: 'omit',
-    }),
-    expect.any(XMLHttpRequest)
+    })
   )
 })

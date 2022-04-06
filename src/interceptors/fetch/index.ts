@@ -1,79 +1,102 @@
 import {
   Headers,
-  headersToObject,
-  objectToHeaders,
   flattenHeadersObject,
+  objectToHeaders,
+  headersToObject,
 } from 'headers-polyfill'
-import {
-  Interceptor,
-  IsomorphicRequest,
+import type {
+  HttpRequestEventMap,
+  InteractiveIsomorphicRequest,
   IsomorphicResponse,
-} from '../../createInterceptor'
+} from '../../glossary'
+import { Interceptor } from '../../Interceptor'
+import { createLazyCallback } from '../../utils/createLazyCallback'
 import { toIsoResponse } from '../../utils/toIsoResponse'
 import { uuidv4 } from '../../utils/uuid'
 
-const debug = require('debug')('fetch')
+export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
+  static symbol = Symbol('fetch')
 
-export const interceptFetch: Interceptor = (observer, resolver) => {
-  const pureFetch = window.fetch
+  constructor() {
+    super(FetchInterceptor.symbol)
+  }
 
-  debug('replacing "window.fetch"...')
+  protected checkEnvironment() {
+    return typeof window !== 'undefined' && typeof window.fetch !== 'undefined'
+  }
 
-  window.fetch = async (input, init) => {
-    const request = new Request(input, init)
-    const url = typeof input === 'string' ? input : input.url
-    const method = request.method
+  protected setup() {
+    const pureFetch = window.fetch
 
-    debug('[%s] %s', method, url)
+    window.fetch = async (input, init) => {
+      const request = new Request(input, init)
+      const url = typeof input === 'string' ? input : input.url
+      const method = request.method
 
-    const isoRequest: IsomorphicRequest = {
-      id: uuidv4(),
-      url: new URL(url, location.origin),
-      method: method,
-      headers: new Headers(request.headers),
-      credentials: request.credentials,
-      body: await request.clone().text(),
-    }
-    debug('isomorphic request', isoRequest)
-    observer.emit('request', isoRequest)
+      this.log('[%s] %s', method, url)
 
-    debug('awaiting for the mocked response...')
-    const response = await resolver(isoRequest, request)
-    debug('mocked response', response)
+      const isomorphicRequest: InteractiveIsomorphicRequest = {
+        id: uuidv4(),
+        url: new URL(url, location.origin),
+        method: method,
+        headers: new Headers(request.headers),
+        credentials: request.credentials,
+        body: await request.clone().text(),
+        respondWith: createLazyCallback(),
+      }
 
-    if (response) {
-      const isomorphicResponse = toIsoResponse(response)
-      debug('derived isomorphic response', isomorphicResponse)
+      this.log('isomorphic request', isomorphicRequest)
 
-      observer.emit('response', isoRequest, isomorphicResponse)
+      this.log(
+        'emitting the "request" event for %d listener(s)...',
+        this.emitter.listenerCount('request')
+      )
+      this.emitter.emit('request', isomorphicRequest)
 
-      return new Response(response.body, {
-        ...isomorphicResponse,
-        // `Response.headers` cannot be instantiated with the `Headers` polyfill.
-        // Apparently, it halts if the `Headers` class contains unknown properties
-        // (i.e. the internal `Headers.map`).
-        headers: flattenHeadersObject(response.headers || {}),
+      this.log('awaiting for the mocked response...')
+
+      await this.emitter.untilIdle('request')
+      this.log('all request listeners have been resolved!')
+
+      const [mockedResponse] = await isomorphicRequest.respondWith.invoked()
+      this.log('event.respondWith called with:', mockedResponse)
+
+      if (mockedResponse) {
+        this.log('received mocked response:', mockedResponse)
+
+        const isomorphicResponse = toIsoResponse(mockedResponse)
+        this.log('derived isomorphic response:', isomorphicResponse)
+
+        this.emitter.emit('response', isomorphicRequest, isomorphicResponse)
+
+        return new Response(mockedResponse.body, {
+          ...isomorphicResponse,
+          // `Response.headers` cannot be instantiated with the `Headers` polyfill.
+          // Apparently, it halts if the `Headers` class contains unknown properties
+          // (i.e. the internal `Headers.map`).
+          headers: flattenHeadersObject(mockedResponse.headers || {}),
+        })
+      }
+
+      this.log('no mocked response received!')
+
+      return pureFetch(request).then(async (response) => {
+        const cloneResponse = response.clone()
+        this.log('original fetch performed', cloneResponse)
+
+        this.emitter.emit(
+          'response',
+          isomorphicRequest,
+          await normalizeFetchResponse(cloneResponse)
+        )
+        return response
       })
     }
 
-    debug('no mocked response found, bypassing...')
-
-    return pureFetch(request).then(async (response) => {
-      const cloneResponse = response.clone()
-      debug('original fetch performed', cloneResponse)
-
-      observer.emit(
-        'response',
-        isoRequest,
-        await normalizeFetchResponse(cloneResponse)
-      )
-      return response
+    this.subscriptions.push(() => {
+      window.fetch = pureFetch
+      this.log('restored native "window.fetch"!', window.fetch.name)
     })
-  }
-
-  return () => {
-    debug('restoring modules...')
-    window.fetch = pureFetch
   }
 }
 

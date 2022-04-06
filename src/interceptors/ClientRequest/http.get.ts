@@ -1,25 +1,21 @@
 import { ClientRequest } from 'node:http'
-import { Observer, Resolver } from '../../createInterceptor'
-import { NodeClientRequest, Protocol } from './NodeClientRequest'
+import {
+  NodeClientOptions,
+  NodeClientRequest,
+  Protocol,
+} from './NodeClientRequest'
 import {
   ClientRequestArgs,
   normalizeClientRequestArgs,
 } from './utils/normalizeClientRequestArgs'
 
-export function get(
-  protocol: Protocol,
-  resolver: Resolver,
-  observer: Observer
-) {
+export function get(protocol: Protocol, options: NodeClientOptions) {
   return (...args: ClientRequestArgs): ClientRequest => {
     const clientRequestArgs = normalizeClientRequestArgs(
       `${protocol}:`,
       ...args
     )
-    const request = new NodeClientRequest(clientRequestArgs, {
-      resolver,
-      observer,
-    })
+    const request = new NodeClientRequest(clientRequestArgs, options)
 
     /**
      * @note https://nodejs.org/api/http.html#httpgetoptions-callback

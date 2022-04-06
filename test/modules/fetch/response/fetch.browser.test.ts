@@ -5,10 +5,10 @@ import * as path from 'path'
 import { pageWith } from 'page-with'
 import { createServer, ServerApi } from '@open-draft/test-server'
 import { listToHeaders } from 'headers-polyfill'
-import { InterceptorApi } from '../../../../src'
+import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 
 declare namespace window {
-  export const interceptor: InterceptorApi
+  export const interceptor: FetchInterceptor
   export let serializeHeaders: (headers: Headers) => Record<string, string>
   export let serverHttpUrl: string
   export let serverHttpsUrl: string
@@ -174,7 +174,7 @@ test('bypasses any request when the interceptor is restored', async () => {
   const context = await prepareRuntime()
 
   await context.page.evaluate(() => {
-    window.interceptor.restore()
+    window.interceptor.dispose()
   })
 
   const httpResponse: SerializedResponse = await context.page.evaluate(

@@ -1,30 +1,29 @@
 /**
  * @jest-environment jsdom
  */
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver(request) {
-    switch (request.url.pathname) {
-      case '/no-body': {
-        return {
-          status: 204,
-        }
-      }
-
-      case '/invalid-json': {
-        return {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: `{"invalid: js'on`,
-        }
-      }
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  switch (request.url.pathname) {
+    case '/no-body': {
+      request.respondWith({
+        status: 204,
+      })
+      break
     }
-  },
+
+    case '/invalid-json': {
+      request.respondWith({
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: `{"invalid: js'on`,
+      })
+      break
+    }
+  }
 })
 
 beforeAll(() => {
@@ -32,7 +31,7 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  interceptor.restore()
+  interceptor.dispose()
 })
 
 test('handles response of type "json" and missing response JSON body', async () => {
@@ -44,9 +43,9 @@ test('handles response of type "json" and missing response JSON body', async () 
 
   // When XHR fails to parse a given response JSON body,
   // fall back to null, as the failed JSON parsing result.
-  expect(req).toHaveProperty('response', null)
-  expect(req).toHaveProperty('responseText', '')
-  expect(req).toHaveProperty('responseType', 'json')
+  expect(req.response).toBe(null)
+  expect(req.responseText).toBe('')
+  expect(req.responseType).toBe('json')
 })
 
 test('handles response of type "json" and invalid response JSON body', async () => {
@@ -56,7 +55,7 @@ test('handles response of type "json" and invalid response JSON body', async () 
     req.send()
   })
 
-  expect(req).toHaveProperty('response', null)
-  expect(req).toHaveProperty('responseText', `{"invalid: js'on`)
-  expect(req).toHaveProperty('responseType', 'json')
+  expect(req.response).toBe(null)
+  expect(req.responseText).toBe(`{"invalid: js'on`)
+  expect(req.responseType).toEqual('json')
 })
