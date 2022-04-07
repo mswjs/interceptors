@@ -3,7 +3,7 @@
  */
 import { debug } from 'debug'
 import * as express from 'express'
-import { ServerApi, createServer } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { NodeClientRequest } from './NodeClientRequest'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
@@ -16,20 +16,20 @@ interface ErrorConnectionRefused extends NodeJS.ErrnoException {
   port: number
 }
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.post('/comment', (_req, res) => {
+    res.status(200).send('original-response')
+  })
+
+  app.post('/write', express.text(), (req, res) => {
+    res.status(200).send(req.body)
+  })
+})
 
 const log = debug('test')
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.post('/comment', (_req, res) => {
-      res.status(200).send('original-response')
-    })
-
-    app.post('/write', express.text(), (req, res) => {
-      res.status(200).send(req.body)
-    })
-  })
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -80,7 +80,7 @@ test('gracefully finishes the request when it has a mocked response', (done) => 
 test('responds with a mocked response when requesting an existing hostname', (done) => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment')),
+    normalizeClientRequestArgs('http:', httpServer.http.url('/comment')),
     {
       emitter,
       log,
@@ -109,7 +109,7 @@ test('responds with a mocked response when requesting an existing hostname', (do
 test('performs the request as-is given resolver returned no mocked response', (done) => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/comment'), {
+    normalizeClientRequestArgs('http:', httpServer.http.url('/comment'), {
       method: 'POST',
     }),
     {
@@ -237,7 +237,7 @@ test('does not emit ECONNREFUSED error connecting to an inactive server given mo
 test('sends the request body to the server given no mocked response', (done) => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/write'), {
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',
@@ -267,7 +267,7 @@ test('sends the request body to the server given no mocked response', (done) => 
 test('does not send request body to the original server given mocked response', (done) => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', httpServer.http.makeUrl('/write'), {
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
       method: 'POST',
     }),
     {

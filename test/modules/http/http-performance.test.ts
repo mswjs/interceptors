@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { createServer, ServerApi } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 import { httpGet, PromisifiedResponse } from '../../helpers'
 
@@ -23,7 +23,11 @@ function parallelRequests(
   }
 }
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get<{ index: number }>('/number/:index', (req, res) => {
+    return res.send(`real ${req.params.index}`)
+  })
+})
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
@@ -38,11 +42,7 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get<{ index: number }>('/number/:index', (req, res) => {
-      return res.send(`real ${req.params.index}`)
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -56,9 +56,7 @@ test('returns responses for 500 matching parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
-      parallelRequests((i) =>
-        httpGet(httpServer.http.makeUrl(`/user?id=${i + 1}`))
-      )
+      parallelRequests((i) => httpGet(httpServer.http.url(`/user?id=${i + 1}`)))
     )
   )
   const bodies = responses.map((response) => response.resBody)
@@ -71,9 +69,7 @@ test('returns responses for 500 bypassed parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
-      parallelRequests((i) =>
-        httpGet(httpServer.http.makeUrl(`/number/${i + 1}`))
-      )
+      parallelRequests((i) => httpGet(httpServer.http.url(`/number/${i + 1}`)))
     )
   )
   const bodies = responses.map((response) => response.resBody)

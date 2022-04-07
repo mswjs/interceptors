@@ -1,9 +1,24 @@
 import * as http from 'http'
 import rateLimit from 'express-rate-limit'
-import { ServerApi, createServer } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.use(
+    rateLimit({
+      max: 5,
+      windowMs: 100,
+      onLimitReached() {
+        console.warn('RATE LIMIT REACHED!')
+        handleLimitReached()
+      },
+    })
+  )
+
+  app.get('/', (req, res) => {
+    res.send('ok')
+  })
+})
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
@@ -21,23 +36,7 @@ interceptor.on('request', (request) => {
 const handleLimitReached = jest.fn()
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.use(
-      rateLimit({
-        max: 5,
-        windowMs: 100,
-        onLimitReached() {
-          console.warn('RATE LIMIT REACHED!')
-          handleLimitReached()
-        },
-      })
-    )
-
-    app.get('/', (req, res) => {
-      res.send('ok')
-    })
-  })
-
+  await httpServer.listen()
   interceptor.apply()
 })
 
@@ -57,7 +56,7 @@ test('does not reach the rate preforming more mocked requests than allowed', asy
   for (let i = 0; i < 100; i++) {
     requests.push(
       new Promise((resolve, reject) => {
-        const req = http.get(httpServer.http.makeUrl('/?mock=true'))
+        const req = http.get(httpServer.http.url('/?mock=true'))
         req.on('abort', reject)
         req.on('error', reject)
         req.on('response', resolve)
@@ -79,7 +78,7 @@ test('does not reach the rate limiting performing allowed number of bypassed req
   for (let i = 0; i < 5; i++) {
     requests.push(
       new Promise((resolve, reject) => {
-        const req = http.get(httpServer.http.makeUrl('/'))
+        const req = http.get(httpServer.http.url('/'))
         req.on('abort', reject)
         req.on('error', reject)
         req.on('response', resolve)

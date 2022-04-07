@@ -2,10 +2,14 @@
  * @jest-environment node
  */
 import * as http from 'http'
-import { createServer, ServerApi } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/resource', (req, res) => {
+    res.status(200).send('hello world')
+  })
+})
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
@@ -36,11 +40,7 @@ function readIncomingMessage(res: http.IncomingMessage): any {
 }
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/resource', (req, res) => {
-      res.status(200).send('hello world')
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -66,7 +66,7 @@ const encodings: BufferEncoding[] = [
 describe('given the original response', () => {
   encodings.forEach((encoding) => {
     test(`reads the response body encoded with ${encoding}`, (done) => {
-      const req = http.get(httpServer.http.makeUrl('/resource'))
+      const req = http.get(httpServer.http.url('/resource'))
 
       req.on('response', async (res) => {
         res.setEncoding(encoding)
@@ -82,7 +82,7 @@ describe('given the original response', () => {
 describe('given the mocked response', () => {
   encodings.forEach((encoding) => {
     test(`reads the response body encoded with ${encoding}`, (done) => {
-      const req = http.get(httpServer.http.makeUrl('/resource?mock=true'))
+      const req = http.get(httpServer.http.url('/resource?mock=true'))
 
       req.on('response', async (res) => {
         res.setEncoding(encoding)

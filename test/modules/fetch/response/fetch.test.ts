@@ -2,17 +2,22 @@
  * @jest-environment node
  */
 import fetch from 'node-fetch'
-import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
+import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/', (req, res) => {
+    res.status(500).json({ error: 'must use mock' })
+  })
+  app.get('/get', (req, res) => {
+    res.status(200).json({ route: '/get' }).end()
+  })
+})
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
   if (
-    [httpServer.http.makeUrl(), httpServer.https.makeUrl()].includes(
-      request.url.href
-    )
+    [httpServer.http.url(), httpServer.https.url()].includes(request.url.href)
   ) {
     request.respondWith({
       status: 201,
@@ -25,14 +30,7 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/', (req, res) => {
-      res.status(500).json({ error: 'must use mock' })
-    })
-    app.get('/get', (req, res) => {
-      res.status(200).json({ route: '/get' }).end()
-    })
-  })
+  await httpServer.listen()
 })
 
 beforeEach(() => {
@@ -49,7 +47,7 @@ afterAll(async () => {
 })
 
 test('responds to an HTTP request that is handled in the middleware', async () => {
-  const res = await fetch(httpServer.http.makeUrl('/'))
+  const res = await fetch(httpServer.http.url('/'))
   const body = await res.json()
 
   expect(res.status).toEqual(201)
@@ -60,7 +58,7 @@ test('responds to an HTTP request that is handled in the middleware', async () =
 })
 
 test('bypasses an HTTP request not handled in the middleware', async () => {
-  const res = await fetch(httpServer.http.makeUrl('/get'))
+  const res = await fetch(httpServer.http.url('/get'))
   const body = await res.json()
 
   expect(res.status).toEqual(200)
@@ -68,7 +66,7 @@ test('bypasses an HTTP request not handled in the middleware', async () => {
 })
 
 test('responds to an HTTPS request that is handled in the middleware', async () => {
-  const res = await fetch(httpServer.https.makeUrl('/'), {
+  const res = await fetch(httpServer.https.url('/'), {
     agent: httpsAgent,
   })
   const body = await res.json()
@@ -79,7 +77,7 @@ test('responds to an HTTPS request that is handled in the middleware', async () 
 })
 
 test('bypasses an HTTPS request not handled in the middleware', async () => {
-  const res = await fetch(httpServer.https.makeUrl('/get'), {
+  const res = await fetch(httpServer.https.url('/get'), {
     agent: httpsAgent,
   })
   const body = await res.json()
@@ -90,12 +88,12 @@ test('bypasses an HTTPS request not handled in the middleware', async () => {
 
 test('bypasses any request when the interceptor is restored', async () => {
   interceptor.dispose()
-  const httpRes = await fetch(httpServer.http.makeUrl('/'))
+  const httpRes = await fetch(httpServer.http.url('/'))
   const httpBody = await httpRes.json()
   expect(httpRes.status).toEqual(500)
   expect(httpBody).toEqual({ error: 'must use mock' })
 
-  const httpsRes = await fetch(httpServer.https.makeUrl('/'), {
+  const httpsRes = await fetch(httpServer.https.url('/'), {
     agent: httpsAgent,
   })
   const httpsBody = await httpsRes.json()
@@ -107,7 +105,7 @@ test('does not throw an error if there are multiple interceptors', async () => {
   const secondInterceptor = new ClientRequestInterceptor()
   secondInterceptor.apply()
 
-  let res = await fetch(httpServer.https.makeUrl('/get'), { agent: httpsAgent })
+  let res = await fetch(httpServer.https.url('/get'), { agent: httpsAgent })
   let body = await res.json()
 
   expect(res.status).toEqual(200)

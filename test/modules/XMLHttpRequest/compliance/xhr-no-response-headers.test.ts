@@ -1,24 +1,24 @@
 /**
  * @jest-environment jsdom
  */
-import { ServerApi, createServer } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/user', (_req, res) => {
+    // Respond with a message that has no headers.
+    res.socket?.end(`\
+HTTP/1.1 200 OK
+
+hello world`)
+  })
+})
 
 const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/user', (_req, res) => {
-      // Respond with a message that has no headers.
-      res.socket?.end(`\
-HTTP/1.1 200 OK
-
-hello world`)
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 
@@ -26,7 +26,7 @@ hello world`)
    * @note Stub the internal JSDOM property to prevent the following error:
    * Error: Cross origin http://127.0.0.1:XXXXX/ forbidden
    */
-  const { protocol, host, port } = httpServer.http.getAddress()
+  const { protocol, host, port } = httpServer.http.address
   // @ts-expect-error
   window._origin = `${protocol}//${host}:${port}`
 })
@@ -38,7 +38,7 @@ afterAll(async () => {
 
 test('handles an original response without any headers', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/user'))
+    req.open('GET', httpServer.http.url('/user'))
     req.send()
   })
 

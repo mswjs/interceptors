@@ -1,20 +1,20 @@
 import * as http from 'http'
-import { ServerApi, createServer } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '.'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/', (_req, res) => {
+    res.status(200).send('/')
+  })
+  app.get('/get', (_req, res) => {
+    res.status(200).send('/get')
+  })
+})
 
 const interceptor = new ClientRequestInterceptor()
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/', (_req, res) => {
-      res.status(200).send('/')
-    })
-    app.get('/get', (_req, res) => {
-      res.status(200).send('/get')
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -25,7 +25,7 @@ afterAll(async () => {
 })
 
 it('forbids calling "respondWith" multiple times for the same request', (done) => {
-  const requestUrl = httpServer.http.makeUrl('/')
+  const requestUrl = httpServer.http.url('/')
 
   interceptor.on('request', (request) => {
     request.respondWith({ status: 200 })

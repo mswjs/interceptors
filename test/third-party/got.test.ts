@@ -2,14 +2,18 @@
  * @jest-environment node
  */
 import got from 'got'
-import { ServerApi, createServer } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/user', (req, res) => {
+    return res.status(200).json({ id: 1 })
+  })
+})
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
-  if (request.url.toString() === httpServer.http.makeUrl('/test')) {
+  if (request.url.toString() === httpServer.http.url('/test')) {
     request.respondWith({
       status: 200,
       body: 'mocked-body',
@@ -18,12 +22,7 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/user', (req, res) => {
-      return res.status(200).json({ id: 1 })
-    })
-  })
-
+  await httpServer.listen()
   interceptor.apply()
 })
 
@@ -33,14 +32,14 @@ afterAll(async () => {
 })
 
 test('mocks response to a request made with "got"', async () => {
-  const res = await got(httpServer.http.makeUrl('/test'))
+  const res = await got(httpServer.http.url('/test'))
 
   expect(res.statusCode).toBe(200)
   expect(res.body).toBe('mocked-body')
 })
 
 test('bypasses an unhandled request made with "got"', async () => {
-  const res = await got(httpServer.http.makeUrl('/user'))
+  const res = await got(httpServer.http.url('/user'))
 
   expect(res.statusCode).toBe(200)
   expect(res.body).toEqual(`{"id":1}`)

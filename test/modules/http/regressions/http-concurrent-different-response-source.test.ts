@@ -1,12 +1,17 @@
 /**
  * @jest-environment node
  */
-import { ServerApi, createServer } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { httpGet } from '../../../helpers'
 import { sleep } from '../../../../test/helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/', async (req, res) => {
+    await sleep(300)
+    res.status(200).send('original-response')
+  })
+})
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', async (request) => {
@@ -23,12 +28,7 @@ interceptor.on('request', async (request) => {
 })
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/', async (req, res) => {
-      await sleep(300)
-      res.status(200).send('original-response')
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -40,8 +40,8 @@ afterAll(async () => {
 
 test('handles concurrent requests with different response sources', async () => {
   const requests = await Promise.all([
-    httpGet(httpServer.http.makeUrl('/')),
-    httpGet(httpServer.http.makeUrl('/'), {
+    httpGet(httpServer.http.url('/')),
+    httpGet(httpServer.http.url('/'), {
       headers: {
         'x-bypass': 'yes',
       },

@@ -2,24 +2,24 @@
  * @jest-environment node
  */
 import * as https from 'https'
-import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
+import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/user', (req, res) => {
+    res.status(200).send('user-body').end()
+  })
+})
 
 const resolver = jest.fn<never, Parameters<HttpRequestEventMap['request']>>()
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/user', (req, res) => {
-      res.status(200).send('user-body').end()
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -34,7 +34,7 @@ afterAll(async () => {
 })
 
 test('intercepts a GET request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.get(url, {
     agent: httpsAgent,
     headers: {
@@ -63,8 +63,8 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
   // Pass a RequestOptions object without an explicit `protocol`.
   // The request is made via `https` so the `https:` protocol must be inferred.
   const req = https.get({
-    host: httpServer.https.getAddress().host,
-    port: httpServer.https.getAddress().port,
+    host: httpServer.https.address.host,
+    port: httpServer.https.address.port,
     path: '/user?id=123',
     // Suppress the "certificate has expired" error.
     rejectUnauthorized: false,
@@ -77,7 +77,7 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
   >({
     id: anyUuid(),
     method: 'GET',
-    url: new URL(httpServer.https.makeUrl('/user?id=123')),
+    url: new URL(httpServer.https.url('/user?id=123')),
     headers: headersContaining({}),
     credentials: 'same-origin',
     body: '',

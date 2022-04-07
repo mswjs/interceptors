@@ -1,11 +1,18 @@
 /**
  * @jest-environment jsdom
  */
-import { ServerApi, createServer } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/', (_req, res) => {
+    res.status(200).end()
+  })
+  app.get('/numbers', (_req, res) => {
+    res.status(200).json([1, 2, 3])
+  })
+})
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
@@ -43,14 +50,7 @@ function spyOnEvents(req: XMLHttpRequest, listener: jest.Mock) {
 }
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/', (_req, res) => {
-      res.status(200).end()
-    })
-    app.get('/numbers', (_req, res) => {
-      res.status(200).json([1, 2, 3])
-    })
-  })
+  await httpServer.listen()
 })
 
 afterEach(() => {
@@ -65,7 +65,7 @@ test('emits correct events sequence for an unhandled request with no response bo
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl())
+    req.open('GET', httpServer.http.url())
     spyOnEvents(req, listener)
     req.send()
   })
@@ -90,7 +90,7 @@ test('emits correct events sequence for a handled request with no response body'
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/user'))
+    req.open('GET', httpServer.http.url('/user'))
     spyOnEvents(req, listener)
     req.send()
   })
@@ -109,7 +109,7 @@ test('emits correct events sequence for an unhandled request with a response bod
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/numbers'))
+    req.open('GET', httpServer.http.url('/numbers'))
     spyOnEvents(req, listener)
     req.send()
   })
@@ -134,7 +134,7 @@ test('emits correct events sequence for a handled request with a response body',
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/numbers-mock'))
+    req.open('GET', httpServer.http.url('/numbers-mock'))
     spyOnEvents(req, listener)
     req.send()
   })

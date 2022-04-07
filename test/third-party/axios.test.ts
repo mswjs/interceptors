@@ -2,10 +2,23 @@
  * @jest-environment jsdom
  */
 import axios from 'axios'
-import { ServerApi, createServer } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/books', (req, res) => {
+    res.status(200).json([
+      {
+        title: 'The Lord of the Rings',
+        author: 'J. R. R. Tolkien',
+      },
+      {
+        title: 'The Hobbit',
+        author: 'J. R. R. Tolkien',
+      },
+    ])
+  })
+})
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
@@ -24,20 +37,7 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/books', (req, res) => {
-      res.status(200).json([
-        {
-          title: 'The Lord of the Rings',
-          author: 'J. R. R. Tolkien',
-        },
-        {
-          title: 'The Hobbit',
-          author: 'J. R. R. Tolkien',
-        },
-      ])
-    })
-  })
+  await httpServer.listen()
   interceptor.apply()
 })
 
@@ -71,7 +71,7 @@ test('responds with a mocked response to an "axios.post()" request', async () =>
 })
 
 test('bypass the interceptor and return the original response', async () => {
-  const res = await axios.get(httpServer.http.makeUrl('/books'))
+  const res = await axios.get(httpServer.http.url('/books'))
 
   expect(res.status).toEqual(200)
   expect(res.data).toEqual([

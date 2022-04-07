@@ -4,7 +4,7 @@
 import * as https from 'https'
 import fetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
-import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
+import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import {
   HttpRequestEventMap,
   IsomorphicRequest,
@@ -16,7 +16,25 @@ import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequ
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
+declare namespace window {
+  export const _resourceLoader: {
+    _strictSSL: boolean
+  }
+}
+
+const httpServer = new HttpServer((app) => {
+  app.get('/user', (_req, res) => {
+    res.status(500).send('must-use-mocks')
+  })
+
+  app.post('/account', (_req, res) => {
+    return res
+      .status(200)
+      .set('access-control-expose-headers', 'x-response-type')
+      .set('x-response-type', 'original')
+      .send('original-response-text')
+  })
+})
 
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',
@@ -44,23 +62,10 @@ const responseListener = jest.fn<
 interceptor.on('response', responseListener)
 
 beforeAll(async () => {
-  // @ts-expect-error Internal JSDOM property.
   // Allow XHR requests to the local HTTPS server with a self-signed certificate.
   window._resourceLoader._strictSSL = false
 
-  httpServer = await createServer((app) => {
-    app.get('/user', (_req, res) => {
-      res.status(500).send('must-use-mocks')
-    })
-
-    app.post('/account', (_req, res) => {
-      return res
-        .status(200)
-        .set('access-control-expose-headers', 'x-response-type')
-        .set('x-response-type', 'original')
-        .send('original-response-text')
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -75,7 +80,7 @@ afterAll(async () => {
 })
 
 test('ClientRequest: emits the "response" event upon a mocked response', async () => {
-  const req = https.request(httpServer.https.makeUrl('/user'), {
+  const req = https.request(httpServer.https.url('/user'), {
     method: 'GET',
     headers: {
       'x-request-custom': 'yes',
@@ -91,7 +96,7 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
     {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user')),
+      url: new URL(httpServer.https.url('/user')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
@@ -112,7 +117,7 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
 })
 
 test('ClientRequest: emits the "response" event upon the original response', async () => {
-  const req = https.request(httpServer.https.makeUrl('/account'), {
+  const req = https.request(httpServer.https.url('/account'), {
     method: 'POST',
     headers: {
       'x-request-custom': 'yes',
@@ -130,7 +135,7 @@ test('ClientRequest: emits the "response" event upon the original response', asy
     {
       id: anyUuid(),
       method: 'POST',
-      url: new URL(httpServer.https.makeUrl('/account')),
+      url: new URL(httpServer.https.url('/account')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
@@ -152,7 +157,7 @@ test('ClientRequest: emits the "response" event upon the original response', asy
 
 test('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/user'))
+    req.open('GET', httpServer.https.url('/user'))
     req.setRequestHeader('x-request-custom', 'yes')
     req.send()
   })
@@ -164,7 +169,7 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
     {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user')),
+      url: new URL(httpServer.https.url('/user')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
@@ -187,7 +192,7 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
 
 test('XMLHttpRequest: emits the "response" event upon the original response', async () => {
   const originalRequest = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.makeUrl('/account'))
+    req.open('POST', httpServer.https.url('/account'))
     req.setRequestHeader('x-request-custom', 'yes')
     req.send('request-body')
   })
@@ -205,7 +210,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
     {
       id: anyUuid(),
       method: 'POST',
-      url: new URL(httpServer.https.makeUrl('/account')),
+      url: new URL(httpServer.https.url('/account')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
@@ -227,7 +232,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
 })
 
 test('fetch: emits the "response" event upon a mocked response', async () => {
-  await fetch(httpServer.https.makeUrl('/user'), {
+  await fetch(httpServer.https.url('/user'), {
     headers: {
       'x-request-custom': 'yes',
     },
@@ -240,7 +245,7 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
     {
       id: anyUuid(),
       method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user')),
+      url: new URL(httpServer.https.url('/user')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),
@@ -259,7 +264,7 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
 })
 
 test('fetch: emits the "response" event upon the original response', async () => {
-  await fetch(httpServer.https.makeUrl('/account'), {
+  await fetch(httpServer.https.url('/account'), {
     agent: httpsAgent,
     method: 'POST',
     headers: {
@@ -277,7 +282,7 @@ test('fetch: emits the "response" event upon the original response', async () =>
     {
       id: anyUuid(),
       method: 'POST',
-      url: new URL(httpServer.https.makeUrl('/account')),
+      url: new URL(httpServer.https.url('/account')),
       headers: headersContaining({
         'x-request-custom': 'yes',
       }),

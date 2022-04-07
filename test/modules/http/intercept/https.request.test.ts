@@ -3,31 +3,31 @@
  */
 import * as https from 'https'
 import { RequestHandler } from 'express'
-import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
+import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { waitForClientRequest } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  const handleUserRequest: RequestHandler = (req, res) => {
+    res.status(200).send('user-body').end()
+  }
+
+  app.get('/user', handleUserRequest)
+  app.post('/user', handleUserRequest)
+  app.put('/user', handleUserRequest)
+  app.delete('/user', handleUserRequest)
+  app.patch('/user', handleUserRequest)
+  app.head('/user', handleUserRequest)
+})
 
 const resolver = jest.fn<never, Parameters<HttpRequestEventMap['request']>>()
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    const handleUserRequest: RequestHandler = (req, res) => {
-      res.status(200).send('user-body').end()
-    }
-
-    app.get('/user', handleUserRequest)
-    app.post('/user', handleUserRequest)
-    app.put('/user', handleUserRequest)
-    app.delete('/user', handleUserRequest)
-    app.patch('/user', handleUserRequest)
-    app.head('/user', handleUserRequest)
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -42,7 +42,7 @@ afterAll(async () => {
 })
 
 test('intercepts a HEAD request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'HEAD',
@@ -59,7 +59,7 @@ test('intercepts a HEAD request', async () => {
   >({
     id: anyUuid(),
     method: 'HEAD',
-    url: new URL(httpServer.https.makeUrl('/user?id=123')),
+    url: new URL(httpServer.https.url('/user?id=123')),
     headers: headersContaining({
       'x-custom-header': 'yes',
     }),
@@ -70,7 +70,7 @@ test('intercepts a HEAD request', async () => {
 })
 
 test('intercepts a GET request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'GET',
@@ -87,7 +87,7 @@ test('intercepts a GET request', async () => {
   >({
     id: anyUuid(),
     method: 'GET',
-    url: new URL(httpServer.https.makeUrl('/user?id=123')),
+    url: new URL(httpServer.https.url('/user?id=123')),
     headers: headersContaining({
       'x-custom-header': 'yes',
     }),
@@ -98,7 +98,7 @@ test('intercepts a GET request', async () => {
 })
 
 test('intercepts a POST request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'POST',
@@ -116,7 +116,7 @@ test('intercepts a POST request', async () => {
   >({
     id: anyUuid(),
     method: 'POST',
-    url: new URL(httpServer.https.makeUrl('/user?id=123')),
+    url: new URL(httpServer.https.url('/user?id=123')),
     headers: headersContaining({
       'x-custom-header': 'yes',
     }),
@@ -127,7 +127,7 @@ test('intercepts a POST request', async () => {
 })
 
 test('intercepts a PUT request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'PUT',
@@ -145,7 +145,7 @@ test('intercepts a PUT request', async () => {
   >({
     id: anyUuid(),
     method: 'PUT',
-    url: new URL(httpServer.https.makeUrl('/user?id=123')),
+    url: new URL(httpServer.https.url('/user?id=123')),
     headers: headersContaining({
       'x-custom-header': 'yes',
     }),
@@ -156,7 +156,7 @@ test('intercepts a PUT request', async () => {
 })
 
 test('intercepts a PATCH request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'PATCH',
@@ -174,7 +174,7 @@ test('intercepts a PATCH request', async () => {
   >({
     id: anyUuid(),
     method: 'PATCH',
-    url: new URL(httpServer.https.makeUrl('/user?id=123')),
+    url: new URL(httpServer.https.url('/user?id=123')),
     headers: headersContaining({
       'x-custom-header': 'yes',
     }),
@@ -185,7 +185,7 @@ test('intercepts a PATCH request', async () => {
 })
 
 test('intercepts a DELETE request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'DELETE',
@@ -202,7 +202,7 @@ test('intercepts a DELETE request', async () => {
   >({
     id: anyUuid(),
     method: 'DELETE',
-    url: new URL(httpServer.https.makeUrl('/user?id=123')),
+    url: new URL(httpServer.https.url('/user?id=123')),
     headers: headersContaining({
       'x-custom-header': 'yes',
     }),
@@ -215,8 +215,8 @@ test('intercepts a DELETE request', async () => {
 test('intercepts an http.request request given RequestOptions without a protocol', async () => {
   const req = https.request({
     agent: httpsAgent,
-    host: httpServer.https.getAddress().host,
-    port: httpServer.https.getAddress().port,
+    host: httpServer.https.address.host,
+    port: httpServer.https.address.port,
     path: '/user?id=123',
   })
   req.end()
@@ -228,7 +228,7 @@ test('intercepts an http.request request given RequestOptions without a protocol
   >({
     id: anyUuid(),
     method: 'GET',
-    url: new URL(httpServer.https.makeUrl('/user?id=123')),
+    url: new URL(httpServer.https.url('/user?id=123')),
     headers: headersContaining({}),
     credentials: 'same-origin',
     body: '',

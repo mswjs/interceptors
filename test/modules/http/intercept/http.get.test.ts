@@ -2,13 +2,17 @@
  * @jest-environment node
  */
 import * as http from 'http'
-import { ServerApi, createServer } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/user', (req, res) => {
+    res.status(200).send('user-body')
+  })
+})
 
 const resolver = jest.fn<never, Parameters<HttpRequestEventMap['request']>>()
 
@@ -16,12 +20,7 @@ const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/user', (req, res) => {
-      res.status(200).send('user-body')
-    })
-  })
-
+  await httpServer.listen()
   interceptor.apply()
 })
 
@@ -35,7 +34,7 @@ afterAll(async () => {
 })
 
 test('intercepts an http.get request', async () => {
-  const url = httpServer.http.makeUrl('/user?id=123')
+  const url = httpServer.http.url('/user?id=123')
   const req = http.get(url, {
     headers: {
       'x-custom-header': 'yes',
@@ -64,8 +63,8 @@ test('intercepts an http.get request given RequestOptions without a protocol', a
   // Create a request with `RequestOptions` without an explicit "protocol".
   // Since request is done via `http.get`, the "http:" protocol must be inferred.
   const req = http.get({
-    host: httpServer.http.getAddress().host,
-    port: httpServer.http.getAddress().port,
+    host: httpServer.http.address.host,
+    port: httpServer.http.address.port,
     path: '/user?id=123',
   })
   const { text } = await waitForClientRequest(req)
@@ -76,7 +75,7 @@ test('intercepts an http.get request given RequestOptions without a protocol', a
   >({
     id: anyUuid(),
     method: 'GET',
-    url: new URL(httpServer.http.makeUrl('/user?id=123')),
+    url: new URL(httpServer.http.url('/user?id=123')),
     headers: headersContaining({}),
     credentials: 'same-origin',
     body: '',

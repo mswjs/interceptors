@@ -1,19 +1,19 @@
 import * as path from 'path'
 import { pageWith } from 'page-with'
-import { ServerApi, createServer } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 
 declare namespace window {
   export const fetchData: (url: RequestInfo) => Promise<void>
 }
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/', (req, res) => {
+    res.send('hello world')
+  })
+})
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/', (req, res) => {
-      res.send('hello world')
-    })
-  })
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -27,7 +27,7 @@ test('does not lock the original response', async () => {
 
   runtime.page.evaluate((url) => {
     return window.fetchData(url)
-  }, httpServer.http.makeUrl('/'))
+  }, httpServer.http.url('/'))
 
   const responseText = await runtime.page.evaluate(() => {
     return new Promise((resolve) => {
