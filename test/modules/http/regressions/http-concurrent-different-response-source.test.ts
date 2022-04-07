@@ -3,7 +3,7 @@
  */
 import { HttpServer } from '@open-draft/test-server/http'
 import { httpGet } from '../../../helpers'
-import { sleep } from '../../../../test/helpers'
+import { sleep } from '../../../../src/utils/sleep'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {

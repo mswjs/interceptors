@@ -4,7 +4,7 @@
  */
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { sleep } from '../../../../test/helpers'
+import { sleep } from '../../../../src/utils/sleep'
 import { createXMLHttpRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {

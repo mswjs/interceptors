@@ -304,9 +304,3 @@ export async function waitForClientRequest(req: http.ClientRequest): Promise<{
     req.on('timeout', reject)
   })
 }
-
-export function sleep(duration: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, duration)
-  })
-}
