@@ -1,4 +1,5 @@
 import type { HeadersObject, Headers } from 'headers-polyfill'
+import type { WebSocketConnection } from './interceptors/WebSocket/WebSocketConnection'
 import type { LazyCallback } from './utils/createLazyCallback'
 
 export type RequestCredentials = 'omit' | 'include' | 'same-origin'
@@ -39,4 +40,8 @@ export type HttpRequestEventMap = {
     request: IsomorphicRequest,
     response: IsomorphicResponse
   ): Promise<void> | void
+}
+
+export type WebSocketEventMap = {
+  connection(socket: WebSocketConnection): void
 }
