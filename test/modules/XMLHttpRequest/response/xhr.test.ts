@@ -1,71 +1,74 @@
 /**
  * @jest-environment jsdom
  */
-import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { HttpServer } from '@open-draft/test-server/http'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
-let httpServer: ServerApi
+declare namespace window {
+  export const _resourceLoader: {
+    _strictSSL: boolean
+  }
+}
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver(request) {
-    const shouldMock =
-      [httpServer.http.makeUrl(), httpServer.https.makeUrl()].includes(
-        request.url.href
-      ) || ['/login'].includes(request.url.pathname)
+const httpServer = new HttpServer((app) => {
+  app.get('/', (req, res) => {
+    res.status(200).send('/')
+  })
+  app.get('/get', (req, res) => {
+    res.status(200).send('/get')
+  })
+  app.post('/cookies', (req, res) => {
+    return res
+      .cookie('authToken', 'SECRET', {
+        secure: true,
+        expires: new Date(Date.now() + 90000),
+      })
+      .send('ok')
+  })
+})
 
-    if (shouldMock) {
-      return {
-        status: 301,
-        statusText: 'Moved Permantently',
-        headers: {
-          'Content-Type': 'application/hal+json',
-        },
-        body: 'foo',
-      }
-    }
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  const shouldMock =
+    [httpServer.http.url(), httpServer.https.url()].includes(
+      request.url.href
+    ) || ['/login'].includes(request.url.pathname)
 
-    if (request.url.href === 'https://error.me/') {
-      throw new Error('Custom exception message')
-    }
-  },
+  if (shouldMock) {
+    request.respondWith({
+      status: 301,
+      statusText: 'Moved Permantently',
+      headers: {
+        'Content-Type': 'application/hal+json',
+      },
+      body: 'foo',
+    })
+    return
+  }
+
+  if (request.url.href === 'https://error.me/') {
+    throw new Error('Custom exception message')
+  }
 })
 
 beforeAll(async () => {
-  // @ts-expect-error Internal jsdom global property.
   // Allow XHR requests to the local HTTPS server with a self-signed certificate.
   window._resourceLoader._strictSSL = false
 
-  httpServer = await createServer((app) => {
-    app.get('/', (req, res) => {
-      res.status(200).send('/')
-    })
-    app.get('/get', (req, res) => {
-      res.status(200).send('/get')
-    })
-    app.post('/cookies', (req, res) => {
-      return res
-        .cookie('authToken', 'SECRET', {
-          secure: true,
-          expires: new Date(Date.now() + 90000),
-        })
-        .send('ok')
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
 test('responds to an HTTP request handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/'))
+    req.open('GET', httpServer.http.url('/'))
     req.send()
   })
   const responseHeaders = req.getAllResponseHeaders()
@@ -77,7 +80,7 @@ test('responds to an HTTP request handled in the middleware', async () => {
 
 test('bypasses an HTTP request not handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/get'))
+    req.open('GET', httpServer.http.url('/get'))
     req.send()
   })
 
@@ -87,7 +90,7 @@ test('bypasses an HTTP request not handled in the middleware', async () => {
 
 test('responds to an HTTPS request handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/'))
+    req.open('GET', httpServer.https.url('/'))
     req.send()
   })
   const responseHeaders = req.getAllResponseHeaders()
@@ -99,7 +102,7 @@ test('responds to an HTTPS request handled in the middleware', async () => {
 
 test('bypasses an HTTPS request not handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/get'))
+    req.open('GET', httpServer.https.url('/get'))
     req.send()
   })
 
@@ -109,7 +112,7 @@ test('bypasses an HTTPS request not handled in the middleware', async () => {
 
 test('responds to an HTTP request to a relative URL that is handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.makeUrl('/login'))
+    req.open('POST', httpServer.https.url('/login'))
     req.send()
   })
   const responseHeaders = req.getAllResponseHeaders()
@@ -133,7 +136,7 @@ test('produces a request error when the middleware throws an exception', async (
 
 test('does not propagate the forbidden "cookie" header on the bypassed response', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.makeUrl('/cookies'))
+    req.open('POST', httpServer.https.url('/cookies'))
     req.send()
   })
   const responseHeaders = req.getAllResponseHeaders()
@@ -141,9 +144,10 @@ test('does not propagate the forbidden "cookie" header on the bypassed response'
 })
 
 test('bypasses any request when the interceptor is restored', async () => {
-  interceptor.restore()
+  interceptor.dispose()
+
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.makeUrl('/'))
+    req.open('GET', httpServer.https.url('/'))
     req.send()
   })
 

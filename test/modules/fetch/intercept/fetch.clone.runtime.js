@@ -1,18 +1,14 @@
-import { createInterceptor } from '@mswjs/interceptors'
-import { interceptFetch } from '@mswjs/interceptors/lib/interceptors/fetch'
+import { FetchInterceptor } from '@mswjs/interceptors/lib/interceptors/fetch'
 
-const interceptor = createInterceptor({
-  modules: [interceptFetch],
-  resolver() {
-    // Intentionally don't mock any responses
-    // so that the original responses are sent.
-  },
-})
+// Intentionally don't mock any responses
+// so that the original responses are sent.
+const interceptor = new FetchInterceptor()
 
 interceptor.apply()
 
 window.fetchData = async (url) => {
   const res = await fetch(url)
+
   // expect(await res.text()).to.equal(expectedText)
   document.dispatchEvent(
     new CustomEvent('response-text', {

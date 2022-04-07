@@ -1,50 +1,46 @@
 /**
  * @jest-environment jsdom
  */
-import { createServer, ServerApi } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { HttpServer } from '@open-draft/test-server/http'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
 interface ResponseType {
   requestRawHeaders: string[]
 }
 
-let httpServer: ServerApi
-
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver() {},
+const httpServer = new HttpServer((app) => {
+  app.get<never, ResponseType>('/', (req, res) => {
+    res
+      .set({
+        'Access-Control-Expose-Headers':
+          'x-response-type, x-client-header, x-multi-value',
+        'X-Response-Type': 'bypass',
+        'X-Client-Header': req.get('x-client-header'),
+        'X-Multi-Value': req.get('x-multi-value'),
+      })
+      .json({
+        requestRawHeaders: req.rawHeaders,
+      })
+  })
 })
 
+const interceptor = new XMLHttpRequestInterceptor()
+
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get<never, ResponseType>('/', (req, res) => {
-      res
-        .set({
-          'Access-Control-Expose-Headers':
-            'x-response-type, x-client-header, x-multi-value',
-          'X-Response-Type': 'bypass',
-          'X-Client-Header': req.get('x-client-header'),
-          'X-Multi-Value': req.get('x-multi-value'),
-        })
-        .json({
-          requestRawHeaders: req.rawHeaders,
-        })
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
 test('sends the request headers to the server', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/'))
+    req.open('GET', httpServer.http.url('/'))
     req.setRequestHeader('X-ClienT-HeadeR', 'abc-123')
     req.setRequestHeader('X-Multi-Value', 'value1; value2')
     req.send()

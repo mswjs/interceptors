@@ -3,12 +3,23 @@
  */
 import * as path from 'path'
 import { RequestHandler } from 'express'
-import { createServer, ServerApi } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { Response, pageWith, ScenarioApi } from 'page-with'
 import { extractRequestFromPage } from '../../../helpers'
-import { IsomorphicRequest } from '../../../../src/createInterceptor'
+import { IsomorphicRequest } from '../../../../src/glossary'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  const handleRequest: RequestHandler = (_req, res) => {
+    res.status(200).send('user-body').end()
+  }
+
+  app.get('/user', handleRequest)
+  app.post('/user', handleRequest)
+  app.put('/user', handleRequest)
+  app.delete('/user', handleRequest)
+  app.patch('/user', handleRequest)
+  app.head('/user', handleRequest)
+})
 
 function prepareRuntime() {
   return pageWith({
@@ -28,18 +39,7 @@ async function callFetch(
 }
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    const handleRequest: RequestHandler = (_req, res) => {
-      res.status(200).send('user-body').end()
-    }
-
-    app.get('/user', handleRequest)
-    app.post('/user', handleRequest)
-    app.put('/user', handleRequest)
-    app.delete('/user', handleRequest)
-    app.patch('/user', handleRequest)
-    app.head('/user', handleRequest)
-  })
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -49,7 +49,7 @@ afterAll(async () => {
 describe('HTTP', () => {
   test('intercepts an HTTP GET request', async () => {
     const context = await prepareRuntime()
-    const url = httpServer.http.makeUrl('/user?id=123')
+    const url = httpServer.http.url('/user?id=123')
     const [request, response] = await callFetch(context, url, {
       headers: {
         'x-custom-header': 'yes',
@@ -69,7 +69,7 @@ describe('HTTP', () => {
 
   test('intercepts an HTTP POST request', async () => {
     const context = await prepareRuntime()
-    const url = httpServer.http.makeUrl('/user?id=123')
+    const url = httpServer.http.url('/user?id=123')
     const [request, response] = await callFetch(context, url, {
       method: 'POST',
       headers: {
@@ -91,7 +91,7 @@ describe('HTTP', () => {
 
   test('intercepts an HTTP PUT request', async () => {
     const context = await prepareRuntime()
-    const url = httpServer.http.makeUrl('/user?id=123')
+    const url = httpServer.http.url('/user?id=123')
     const [request, response] = await callFetch(context, url, {
       method: 'PUT',
       headers: {
@@ -113,7 +113,7 @@ describe('HTTP', () => {
 
   test('intercepts an HTTP PATCH request', async () => {
     const context = await prepareRuntime()
-    const url = httpServer.http.makeUrl('/user?id=123')
+    const url = httpServer.http.url('/user?id=123')
     const [request, response] = await callFetch(context, url, {
       method: 'PATCH',
       headers: {
@@ -135,7 +135,7 @@ describe('HTTP', () => {
 
   test('intercepts an HTTP DELETE request', async () => {
     const context = await prepareRuntime()
-    const url = httpServer.http.makeUrl('/user?id=123')
+    const url = httpServer.http.url('/user?id=123')
     const [request, response] = await callFetch(context, url, {
       method: 'DELETE',
       headers: {
@@ -159,7 +159,7 @@ describe('HTTP', () => {
 describe('HTTPS', () => {
   test('intercepts an HTTPS GET request', async () => {
     const context = await prepareRuntime()
-    const url = httpServer.https.makeUrl('/user?id=123')
+    const url = httpServer.https.url('/user?id=123')
     const [request, response] = await callFetch(context, url, {
       headers: {
         'x-custom-header': 'yes',
@@ -179,7 +179,7 @@ describe('HTTPS', () => {
 
   test('intercepts an HTTPS POST request', async () => {
     const context = await prepareRuntime()
-    const url = httpServer.https.makeUrl('/user?id=123')
+    const url = httpServer.https.url('/user?id=123')
     const [request, response] = await callFetch(context, url, {
       method: 'POST',
       headers: {
@@ -201,7 +201,7 @@ describe('HTTPS', () => {
 
   test('intercepts an HTTPS PUT request', async () => {
     const context = await prepareRuntime()
-    const url = httpServer.https.makeUrl('/user?id=123')
+    const url = httpServer.https.url('/user?id=123')
     const [request, response] = await callFetch(context, url, {
       method: 'PUT',
       headers: {
@@ -223,7 +223,7 @@ describe('HTTPS', () => {
 
   test('intercepts an HTTPS PATCH request', async () => {
     const context = await prepareRuntime()
-    const url = httpServer.https.makeUrl('/user?id=123')
+    const url = httpServer.https.url('/user?id=123')
     const [request, response] = await callFetch(context, url, {
       method: 'PATCH',
       headers: {
@@ -245,7 +245,7 @@ describe('HTTPS', () => {
 
   test('intercepts an HTTPS DELETE request', async () => {
     const context = await prepareRuntime()
-    const url = httpServer.https.makeUrl('/user?id=123')
+    const url = httpServer.https.url('/user?id=123')
     const [request, response] = await callFetch(context, url, {
       method: 'DELETE',
       headers: {
@@ -268,7 +268,7 @@ describe('HTTPS', () => {
 
 test('sets "credentials" to "include" on the isomorphic request when fetch sets it to "include"', async () => {
   const context = await prepareRuntime()
-  const url = httpServer.https.makeUrl('/user')
+  const url = httpServer.https.url('/user')
   const [request] = await callFetch(context, url, {
     mode: 'no-cors',
     credentials: 'include',
@@ -279,7 +279,7 @@ test('sets "credentials" to "include" on the isomorphic request when fetch sets 
 
 test('sets "credentials" to "omit" on the isomorphic request when fetch sets it to "omit"', async () => {
   const context = await prepareRuntime()
-  const url = httpServer.http.makeUrl('/user')
+  const url = httpServer.http.url('/user')
   const [request] = await callFetch(context, url, {
     credentials: 'omit',
   })

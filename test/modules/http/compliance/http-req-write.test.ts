@@ -3,20 +3,22 @@
  */
 import * as http from 'http'
 import * as express from 'express'
-import { createServer, ServerApi } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { HttpServer } from '@open-draft/test-server/http'
 import { NodeClientRequest } from '../../../../src/interceptors/ClientRequest/NodeClientRequest'
 import { waitForClientRequest } from '../../../helpers'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.post('/resource', express.text(), (req, res) => {
+    res.send(req.body)
+  })
+})
 
 const interceptedRequestBody = jest.fn()
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(req) {
-    interceptedRequestBody(req.body)
-  },
+
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  interceptedRequestBody(request.body)
 })
 
 function getInternalRequestBody(req: http.ClientRequest): Buffer {
@@ -24,11 +26,7 @@ function getInternalRequestBody(req: http.ClientRequest): Buffer {
 }
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.post('/resource', express.text(), (req, res) => {
-      res.send(req.body)
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -38,13 +36,13 @@ afterEach(() => {
 })
 
 afterAll(async () => {
+  interceptor.dispose()
   jest.restoreAllMocks()
   await httpServer.close()
-  interceptor.restore()
 })
 
 test('writes string request body', async () => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), {
+  const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain',
@@ -64,7 +62,7 @@ test('writes string request body', async () => {
 })
 
 test('writes JSON request body', async () => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), {
+  const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -84,7 +82,7 @@ test('writes JSON request body', async () => {
 })
 
 test('writes Buffer request body', async () => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), {
+  const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -104,7 +102,7 @@ test('writes Buffer request body', async () => {
 })
 
 test('does not call the write callback when writing an empty string', async () => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), {
+  const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
 
@@ -117,7 +115,7 @@ test('does not call the write callback when writing an empty string', async () =
 })
 
 test('does not call the write callback when writing an empty Buffer', async () => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), {
+  const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
 

@@ -1,28 +1,26 @@
 /**
  * @jest-environment node
  */
-import * as http from 'http'
 import { Request } from 'node-fetch'
-import { createServer, ServerApi } from '@open-draft/test-server'
-import { createInterceptor, Resolver } from '../../../../src'
-import nodeInterceptors from '../../../../src/presets/node'
+import { HttpServer } from '@open-draft/test-server/http'
+import { HttpRequestEventMap } from '../../../../src'
 import { fetch } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
-
-const resolver = jest.fn<ReturnType<Resolver>, Parameters<Resolver>>()
-const interceptor = createInterceptor({
-  modules: nodeInterceptors,
-  resolver,
+const httpServer = new HttpServer((app) => {
+  app.post('/user', (_req, res) => {
+    res.status(200).send('mocked')
+  })
 })
 
+const resolver = jest.fn<never, Parameters<HttpRequestEventMap['request']>>()
+
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', resolver)
+
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.post('/user', (_req, res) => {
-      res.status(200).send('mocked')
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -32,12 +30,12 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
 test('intercepts fetch requests constructed via a "Request" instance', async () => {
-  const request = new Request(httpServer.http.makeUrl('/user'), {
+  const request = new Request(httpServer.http.url('/user'), {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain',
@@ -53,18 +51,18 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
   expect(await res.text()).toEqual('mocked')
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'POST',
-      url: new URL(httpServer.http.makeUrl('/user')),
-      headers: headersContaining({
-        'content-type': 'text/plain',
-        'user-agent': 'interceptors',
-      }),
-      credentials: 'same-origin',
-      body: 'hello world',
-    },
-    expect.any(http.IncomingMessage)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'POST',
+    url: new URL(httpServer.http.url('/user')),
+    headers: headersContaining({
+      'content-type': 'text/plain',
+      'user-agent': 'interceptors',
+    }),
+    credentials: 'same-origin',
+    body: 'hello world',
+    respondWith: expect.any(Function),
+  })
 })

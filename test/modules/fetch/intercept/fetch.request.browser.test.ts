@@ -3,19 +3,19 @@
  */
 import * as path from 'path'
 import { pageWith } from 'page-with'
-import { createServer, ServerApi } from '@open-draft/test-server'
-import { IsomorphicRequest } from '../../../../src/createInterceptor'
+import { HttpServer } from '@open-draft/test-server/http'
+import { IsomorphicRequest } from '../../../../src/glossary'
 import { extractRequestFromPage } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.post('/user', (_req, res) => {
+    res.status(200).send('mocked')
+  })
+})
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.post('/user', (_req, res) => {
-      res.status(200).send('mocked')
-    })
-  })
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -26,7 +26,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
   const context = await pageWith({
     example: path.resolve(__dirname, 'fetch.browser.runtime.js'),
   })
-  const url = httpServer.http.makeUrl('/user')
+  const url = httpServer.http.url('/user')
 
   const [request] = await Promise.all([
     extractRequestFromPage(context.page),

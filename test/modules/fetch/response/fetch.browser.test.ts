@@ -3,12 +3,12 @@
  */
 import * as path from 'path'
 import { pageWith } from 'page-with'
-import { createServer, ServerApi } from '@open-draft/test-server'
+import { HttpServer } from '@open-draft/test-server/http'
 import { listToHeaders } from 'headers-polyfill'
-import { InterceptorApi } from '../../../../src'
+import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 
 declare namespace window {
-  export const interceptor: InterceptorApi
+  export const interceptor: FetchInterceptor
   export let serializeHeaders: (headers: Headers) => Record<string, string>
   export let serverHttpUrl: string
   export let serverHttpsUrl: string
@@ -22,7 +22,14 @@ interface SerializedResponse {
   json?: Record<string, any>
 }
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/', (req, res) => {
+    res.status(200).json({ route: '/' }).end()
+  })
+  app.get('/get', (req, res) => {
+    res.status(200).json({ route: '/get' }).end()
+  })
+})
 
 async function prepareRuntime() {
   const context = await pageWith({
@@ -31,24 +38,17 @@ async function prepareRuntime() {
 
   await context.page.evaluate((httpUrl) => {
     window.serverHttpUrl = httpUrl
-  }, httpServer.http.makeUrl('/'))
+  }, httpServer.http.url('/'))
 
   await context.page.evaluate((httpsUrl) => {
     window.serverHttpsUrl = httpsUrl
-  }, httpServer.https.makeUrl('/'))
+  }, httpServer.https.url('/'))
 
   return context
 }
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/', (req, res) => {
-      res.status(200).json({ route: '/' }).end()
-    })
-    app.get('/get', (req, res) => {
-      res.status(200).json({ route: '/get' }).end()
-    })
-  })
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -71,7 +71,7 @@ describe('HTTP', () => {
           json,
         }))
       })
-    }, httpServer.http.makeUrl('/'))
+    }, httpServer.http.url('/'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('default')
@@ -99,7 +99,7 @@ describe('HTTP', () => {
           ),
         }
       })
-    }, httpServer.http.makeUrl('/get'))
+    }, httpServer.http.url('/get'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('cors')
@@ -130,7 +130,7 @@ describe('HTTPS', () => {
           json,
         }))
       })
-    }, httpServer.https.makeUrl('/'))
+    }, httpServer.https.url('/'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('default')
@@ -158,7 +158,7 @@ describe('HTTPS', () => {
           ),
         }
       })
-    }, httpServer.https.makeUrl('/get'))
+    }, httpServer.https.url('/get'))
     const headers = listToHeaders(response.headers)
 
     expect(response.type).toBe('cors')
@@ -174,7 +174,7 @@ test('bypasses any request when the interceptor is restored', async () => {
   const context = await prepareRuntime()
 
   await context.page.evaluate(() => {
-    window.interceptor.restore()
+    window.interceptor.dispose()
   })
 
   const httpResponse: SerializedResponse = await context.page.evaluate(
@@ -191,7 +191,7 @@ test('bypasses any request when the interceptor is restored', async () => {
         }
       })
     },
-    httpServer.http.makeUrl('/')
+    httpServer.http.url('/')
   )
 
   expect(httpResponse.type).toBe('cors')
@@ -211,7 +211,7 @@ test('bypasses any request when the interceptor is restored', async () => {
         }
       })
     },
-    httpServer.http.makeUrl('/get')
+    httpServer.http.url('/get')
   )
 
   expect(httpsResponse.type).toBe('cors')

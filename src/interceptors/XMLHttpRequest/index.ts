@@ -1,34 +1,52 @@
-import { Interceptor } from '../../createInterceptor'
+import type {
+  HttpRequestEventMap,
+  InteractiveIsomorphicRequest,
+} from '../../glossary'
+import { Interceptor } from '../../Interceptor'
+import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { createXMLHttpRequestOverride } from './XMLHttpRequestOverride'
 
-const debug = require('debug')('XHR')
+export type XMLHttpRequestEventListener = (
+  request: InteractiveIsomorphicRequest
+) => Promise<void> | void
 
-const pureXMLHttpRequest =
-  // Although executed in node, certain processes emulate the DOM-like environment
-  // (i.e. `js-dom` in Jest). The `window` object would be avilable in such environments.
-  typeof window === 'undefined' ? undefined : window.XMLHttpRequest
+export type XMLHttpRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
 
-/**
- * Intercepts requests issued via `XMLHttpRequest`.
- */
-export const interceptXMLHttpRequest: Interceptor = (observer, resolver) => {
-  if (pureXMLHttpRequest) {
-    debug('patching "XMLHttpRequest" module...')
+export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
+  static symbol = Symbol('xhr')
 
-    const XMLHttpRequestOverride = createXMLHttpRequestOverride({
-      pureXMLHttpRequest,
-      observer,
-      resolver,
-    })
-
-    window.XMLHttpRequest = XMLHttpRequestOverride
+  constructor() {
+    super(XMLHttpRequestInterceptor.symbol)
   }
 
-  return () => {
-    if (pureXMLHttpRequest) {
-      debug('restoring modules...')
+  protected checkEnvironment() {
+    return (
+      typeof window !== 'undefined' &&
+      typeof window.XMLHttpRequest !== 'undefined'
+    )
+  }
 
-      window.XMLHttpRequest = pureXMLHttpRequest
-    }
+  protected setup() {
+    const log = this.log.extend('setup')
+
+    log('patching "XMLHttpRequest" module...')
+
+    const PureXMLHttpRequest = window.XMLHttpRequest
+
+    window.XMLHttpRequest = createXMLHttpRequestOverride({
+      XMLHttpRequest: PureXMLHttpRequest,
+      emitter: this.emitter,
+      log: this.log,
+    })
+
+    log('native "XMLHttpRequest" module patched!', window.XMLHttpRequest.name)
+
+    this.subscriptions.push(() => {
+      window.XMLHttpRequest = PureXMLHttpRequest
+      log(
+        'native "XMLHttpRequest" module restored!',
+        window.XMLHttpRequest.name
+      )
+    })
   }
 }

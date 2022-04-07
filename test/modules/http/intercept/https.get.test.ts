@@ -1,29 +1,25 @@
 /**
  * @jest-environment node
  */
-import * as http from 'http'
 import * as https from 'https'
-import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { Resolver } from '../../../../src/createInterceptor'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestEventMap } from '../../../../src'
 
-let httpServer: ServerApi
-
-const resolver = jest.fn<ReturnType<Resolver>, Parameters<Resolver>>()
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver,
+const httpServer = new HttpServer((app) => {
+  app.get('/user', (req, res) => {
+    res.status(200).send('user-body').end()
+  })
 })
 
+const resolver = jest.fn<never, Parameters<HttpRequestEventMap['request']>>()
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', resolver)
+
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/user', (req, res) => {
-      res.status(200).send('user-body').end()
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -33,12 +29,12 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
 test('intercepts a GET request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.get(url, {
     agent: httpsAgent,
     headers: {
@@ -48,27 +44,27 @@ test('intercepts a GET request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'same-origin',
-      body: '',
-    },
-    expect.any(http.IncomingMessage)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'GET',
+    url: new URL(url),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'same-origin',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an https.get request given RequestOptions without a protocol', async () => {
   // Pass a RequestOptions object without an explicit `protocol`.
   // The request is made via `https` so the `https:` protocol must be inferred.
   const req = https.get({
-    host: httpServer.https.getAddress().host,
-    port: httpServer.https.getAddress().port,
+    host: httpServer.https.address.host,
+    port: httpServer.https.address.port,
     path: '/user?id=123',
     // Suppress the "certificate has expired" error.
     rejectUnauthorized: false,
@@ -76,15 +72,15 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
-      headers: headersContaining({}),
-      credentials: 'same-origin',
-      body: '',
-    },
-    expect.any(http.IncomingMessage)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'GET',
+    url: new URL(httpServer.https.url('/user?id=123')),
+    headers: headersContaining({}),
+    credentials: 'same-origin',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })

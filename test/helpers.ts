@@ -5,7 +5,7 @@ import { Headers } from 'headers-polyfill'
 import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { IsomorphicRequest, RequestCredentials } from '../src/createInterceptor'
+import { IsomorphicRequest, RequestCredentials } from '../src/glossary'
 
 export interface PromisifiedResponse {
   req: ClientRequest
@@ -302,5 +302,11 @@ export async function waitForClientRequest(req: http.ClientRequest): Promise<{
     req.on('error', reject)
     req.on('abort', reject)
     req.on('timeout', reject)
+  })
+}
+
+export function sleep(duration: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, duration)
   })
 }

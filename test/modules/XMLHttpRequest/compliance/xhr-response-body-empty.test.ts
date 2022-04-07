@@ -1,22 +1,19 @@
 /**
  * @jest-environment jsdom
  */
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver() {
-    return {
-      status: 401,
-      statusText: 'Unathorized',
-      // @ts-nocheck JavaScript clients and type-casting may
-      // circument the mocked response body type signature,
-      // setting in invalid value.
-      body: null as any,
-    }
-  },
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  request.respondWith({
+    status: 401,
+    statusText: 'Unathorized',
+    // @ts-nocheck JavaScript clients and type-casting may
+    // circument the mocked response body type signature,
+    // setting in invalid value.
+    body: null as any,
+  })
 })
 
 beforeAll(() => {
@@ -24,10 +21,10 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  interceptor.restore()
+  interceptor.dispose()
 })
 
-test('supports XHR mocked response with an empty response body', async () => {
+test('sends a mocked response with an empty response body', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
     req.send()

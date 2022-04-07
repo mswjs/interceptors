@@ -1,48 +1,45 @@
 /**
  * @jest-environment jsdom
  */
-import { createServer, ServerApi } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { HttpServer } from '@open-draft/test-server/http'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.head('/', (_req, res) => {
+    res
+      .set({
+        // Specify which response headers to expose to the client.
+        'Access-Control-Expose-Headers': 'etag, x-response-type',
+        etag: '456',
+        'x-response-type': 'bypass',
+      })
+      .end()
+  })
+})
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver(req) {
-    if (!req.url.searchParams.has('mock')) {
-      return
-    }
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (!request.url.searchParams.has('mock')) {
+    return
+  }
 
-    return {
-      headers: {
-        etag: '123',
-        'x-response-type': 'mock',
-      },
-    }
-  },
+  request.respondWith({
+    headers: {
+      etag: '123',
+      'x-response-type': 'mock',
+    },
+  })
 })
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.head('/', (_req, res) => {
-      res
-        .set({
-          // Specify which response headers to expose to the client.
-          'Access-Control-Expose-Headers': 'etag, x-response-type',
-          etag: '456',
-          'x-response-type': 'bypass',
-        })
-        .end()
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
@@ -60,7 +57,7 @@ test('returns the bypass response headers when called ".getAllResponseHeaders()"
   const req = await createXMLHttpRequest((req) => {
     // Perform a HEAD request so that the response has no "Content-Type" header
     // always appended by Express.
-    req.open('HEAD', httpServer.http.makeUrl('/'))
+    req.open('HEAD', httpServer.http.url('/'))
     req.send()
   })
 

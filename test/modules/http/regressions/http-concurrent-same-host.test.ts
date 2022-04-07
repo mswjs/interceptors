@@ -3,19 +3,17 @@
  * @see https://github.com/mswjs/interceptors/issues/2
  */
 import * as http from 'http'
-import { createInterceptor, IsomorphicRequest } from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { IsomorphicRequest } from '../../../../src'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let requests: IsomorphicRequest[] = []
 
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(request) {
-    requests.push(request)
-    return {
-      status: 200,
-    }
-  },
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  requests.push(request)
+  request.respondWith({
+    status: 200,
+  })
 })
 
 beforeAll(() => {
@@ -27,7 +25,7 @@ afterEach(() => {
 })
 
 afterAll(() => {
-  interceptor.restore()
+  interceptor.dispose()
 })
 
 function promisifyClientRequest(
