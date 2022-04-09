@@ -1,21 +1,22 @@
-import type {
-  InteractiveIsomorphicRequest,
-  WebSocketEventMap,
-} from '../../glossary'
+import type { WebSocketEventMap } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
-import { uuidv4 } from '../../utils/uuid'
 import { XMLHttpRequestInterceptor } from '../XMLHttpRequest'
-import { EnginesIoParserPacketTypes } from './SocketIoConnection'
-import { sleep } from '../../utils/sleep'
+import {
+  isHandshakeRequest,
+  isSocketIoPollingRequest,
+  XMLHttpRequestTransport,
+} from './transports/XMLHttpRequestTransport'
+import { Connection } from './Connection'
+import { createEvent } from '../../utils/createEvent'
+import { SocketIoConnection } from './SocketIoConnection'
 
 export class WebSocketPollingInterceptor extends Interceptor<WebSocketEventMap> {
   static symbol = Symbol('websocket-polling-interceptor')
 
-  private sockets: Map<string, { open: boolean }>
+  private connection: Connection = null as any
 
   constructor() {
     super(WebSocketPollingInterceptor.symbol)
-    this.sockets = new Map()
   }
 
   protected checkEnvironment() {
@@ -23,112 +24,46 @@ export class WebSocketPollingInterceptor extends Interceptor<WebSocketEventMap> 
   }
 
   protected setup() {
+    /**
+     * @todo Check the environment and use different interceptors
+     * if running in the browser or Node.js.
+     */
     const xhr = new XMLHttpRequestInterceptor()
-    xhr.on('request', this.handleOutgoingRequest.bind(this))
     xhr.apply()
-
     this.subscriptions.push(() => xhr.dispose())
-  }
 
-  private async handleOutgoingRequest(request: InteractiveIsomorphicRequest) {
-    if (!request.url.pathname.includes('/socket.io/')) {
-      return
-    }
+    this.connection = new SocketIoConnection({
+      transport: new XMLHttpRequestTransport(xhr),
+    })
+    this.subscriptions.push(() => this.connection['close']())
 
-    const sid = request.url.searchParams.get('sid')
-    const transport = request.url.searchParams.get('transport')
-    const pingInterval = 25000
+    // Invoke the open callback immediately because it adds a request listener
+    // in the transport that intercepts and handles all the handshake requests.
+    this.connection['onOpen']()
 
-    if (transport !== 'polling') {
-      return
-    }
+    xhr.on('request', (request) => {
+      if (!isSocketIoPollingRequest(request)) {
+        return
+      }
 
-    console.log(request)
+      // Signal the interceptor that a new socket connection has been established.
+      // It's safe to assume a connection on a handshake request because the entire
+      // handshake/open/ping/pong sequence is mocked by the transport.
+      if (isHandshakeRequest(request)) {
+        this.emitter.emit('connection', this.connection)
+        return
+      }
 
-    switch (request.method) {
-      case 'GET': {
-        if (sid) {
-          // Respond to FIRST GET/?sid with 40{"sid"}
-          // but all the subsequent respond with "2"
-
-          const isOpen = this.sockets.get(sid)?.open ?? false
-
-          if (isOpen) {
-            await sleep(pingInterval)
-            request.respondWith({
-              status: 200,
-              headers: {
-                Connection: 'keep-alive',
-                'Content-Type': 'text/plain',
-                'Keep-Alive': 'timeout=5',
-              },
-              body: EnginesIoParserPacketTypes.PING,
-            })
-
-            return
-          }
-
-          request.respondWith({
-            status: 200,
-            headers: {
-              Connection: 'keep-alive',
-              'Content-Type': 'text/plain',
-              'Keep-Alive': 'timeout=5',
-            },
-            body:
-              EnginesIoParserPacketTypes.MESSAGE +
-              EnginesIoParserPacketTypes.OPEN +
-              JSON.stringify({
-                // "socket.io" respond with a different session ID
-                // for this particular request.
-                sid,
-              }),
+      // A POST request with a body starting with "42" indicates an outgoing
+      // client-side message being sent.
+      if (request.method === 'POST' && request.body?.startsWith('42')) {
+        this.connection['onMessage'](
+          createEvent(MessageEvent, 'message', {
+            data: request.body,
           })
-
-          this.sockets.set(sid, { open: true })
-
-          return
-        }
-
-        const newSessionId = uuidv4()
-
-        // Handshake response from the server to welcome a new client.
-        request.respondWith({
-          status: 200,
-          headers: {
-            Connection: 'keep-alive',
-            'Content-Type': 'text/plain',
-            'Keep-Alive': 'timeout=5',
-          },
-          body:
-            EnginesIoParserPacketTypes.OPEN +
-            JSON.stringify({
-              sid: newSessionId,
-              upgrades: [],
-              pingInterval,
-              pingTimeout: 60000,
-            }),
-        })
-
-        this.sockets.set(newSessionId, { open: false })
-
+        )
         return
       }
-
-      case 'POST': {
-        // "PONG" response from the server.
-        request.respondWith({
-          status: 200,
-          headers: {
-            Connection: 'keep-alive',
-            'Content-Type': 'text/html',
-            'Keep-Alive': 'timeout=5',
-          },
-          body: 'ok',
-        })
-
-        return
-      }
-    }
+    })
   }
 }
