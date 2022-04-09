@@ -30,7 +30,7 @@ afterAll(async () => {
   await wsServer.close()
 })
 
-it('intercepts the "message" event sent from the client', async () => {
+it('intercepts message events sent from the client', async () => {
   const runtime = await prepareRuntime()
   const wsUrl = wsServer.ws.address.href
 
@@ -55,7 +55,6 @@ it('intercepts the "message" event sent from the client', async () => {
     return new Promise<void>((resolve) => {
       window.socket = window.io(wsUrl, {
         transports: ['polling'],
-        reconnection: false,
       })
       window.socket.on('connect', () => {
         resolve()
@@ -75,4 +74,44 @@ it('intercepts the "message" event sent from the client', async () => {
 
   // The actual server must receive the event.
   // expect(serverConnectionListener).toHaveBeenCalledWith('hello')
+})
+
+it('intercepts custom events sent from the client', async () => {
+  const runtime = await prepareRuntime()
+  const wsUrl = wsServer.ws.address.href
+
+  // const serverMessageListener = jest.fn()
+  // wsServer.ws.on('connection', (socket) => {
+  //   socket.on('greeting', (text) => {
+  //     serverMessageListener(text)
+  //   })
+  // })
+
+  await runtime.page.evaluate(() => {
+    window.interceptor.on('connection', (socket) => {
+      socket.on('greeting', (text) => {
+        console.log(text)
+      })
+    })
+  })
+
+  await runtime.page.evaluate((wsUrl) => {
+    return new Promise<void>((resolve) => {
+      window.socket = window.io(wsUrl, {
+        transports: ['polling'],
+      })
+      window.socket.on('connect', resolve)
+    })
+  }, wsUrl)
+
+  await runtime.page.evaluate(() => {
+    window.socket.emit('greeting', 'John')
+  })
+
+  await waitForExpect(() => {
+    expect(runtime.consoleSpy.get('log')).toEqual(['John'])
+  })
+
+  // The actual server must receive the event.
+  // expect(serverMessageListener).toHaveBeenCalledWith('John')
 })

@@ -30,7 +30,7 @@ afterAll(async () => {
   await wsServer.close()
 })
 
-it('intercepts the "message" event sent from the client', async () => {
+it('intercepts message events sent from the client', async () => {
   const runtime = await prepareRuntime()
   const wsUrl = wsServer.ws.address.href
 
@@ -69,7 +69,7 @@ it('intercepts the "message" event sent from the client', async () => {
   expect(serverConnectionListener).toHaveBeenCalledWith('hello')
 })
 
-it('intercepts the custom event sent from the client', async () => {
+it('intercepts custom events sent from the client', async () => {
   const runtime = await prepareRuntime()
   const wsUrl = wsServer.ws.address.href
 

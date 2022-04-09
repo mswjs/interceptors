@@ -49,7 +49,6 @@ export abstract class Connection {
   }
 
   protected close(): void {
-    console.log('CONNECTION CLOSED!')
     this.emitter.removeAllListeners()
   }
 }
