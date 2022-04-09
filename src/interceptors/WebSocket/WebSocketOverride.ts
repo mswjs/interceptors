@@ -2,7 +2,9 @@ import { StrictEventEmitter } from 'strict-event-emitter'
 import { WebSocketEventMap } from '../../glossary'
 import { createEvent } from '../../utils/createEvent'
 import { nextTick } from '../../utils/nextTick'
+import type { Connection } from './Connection'
 import { SocketIoConnection } from './SocketIoConnection'
+import { SocketIoWebSocketTransport } from './transports/SocketIoWebSocketTransport'
 import { getDataLength } from './utils/getDataLength'
 import { parseWebSocketProtocols } from './utils/parseWebSocketProtocols'
 import { parseWebSocketUrl } from './utils/parseWebSocketUrl'
@@ -23,7 +25,7 @@ export interface WebSocketOverrideEventMap {
 
 export interface WebSoketOverrideInstance extends WebSocket {
   emitter: StrictEventEmitter<WebSocketOverrideEventMap>
-  connection: WebSocketConnection
+  connection: Connection
 }
 
 export interface WebSocketOverrideArgs {
@@ -56,7 +58,7 @@ export function createWebSocketOverride({
 
     ws: WebSocket
     emitter: StrictEventEmitter<WebSocketOverrideEventMap>
-    connection: WebSocketConnection
+    connection: Connection
 
     constructor(url: string, protocols: string[] | string = []) {
       const parsedUrl = parseWebSocketUrl(url)
@@ -73,7 +75,9 @@ export function createWebSocketOverride({
 
       this.emitter = new StrictEventEmitter()
       this.connection = useSocketIo
-        ? new SocketIoConnection(this)
+        ? new SocketIoConnection({
+            transport: new SocketIoWebSocketTransport(this),
+          })
         : new WebSocketConnection(this)
 
       // Create an original WebSocket connection
@@ -90,6 +94,12 @@ export function createWebSocketOverride({
 
         // Emit a public "connection" event of the interceptor.
         emitter.emit('connection', this.connection)
+        this.connection['onOpen']()
+
+        this.emitter.on('close', () => {
+          // Close this connection once the underlying socket closes.
+          this.connection['close']()
+        })
       })
     }
 
@@ -106,7 +116,7 @@ export function createWebSocketOverride({
 
       nextTick(() => {
         // Notify the "connection" about the outgoing client message.
-        this.connection['handleOutgoingMessage'](
+        this.connection['onMessage'](
           createEvent(MessageEvent, 'message', {
             target: this,
             data,

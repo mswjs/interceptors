@@ -1,5 +1,5 @@
 import type { HeadersObject, Headers } from 'headers-polyfill'
-import type { WebSocketConnection } from './interceptors/WebSocket/WebSocketConnection'
+import type { Connection } from './interceptors/WebSocket/Connection'
 import type { LazyCallback } from './utils/createLazyCallback'
 
 export type RequestCredentials = 'omit' | 'include' | 'same-origin'
@@ -43,5 +43,5 @@ export type HttpRequestEventMap = {
 }
 
 export type WebSocketEventMap = {
-  connection(socket: WebSocketConnection): void
+  connection(socket: Connection): void
 }

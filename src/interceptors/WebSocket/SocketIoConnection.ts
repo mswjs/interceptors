@@ -1,12 +1,8 @@
 import { Packet, PacketType, Decoder, Encoder } from 'socket.io-parser'
 import { decodePacket } from 'engine.io-parser'
-import { WebSocketConnection } from './WebSocketConnection'
-import type {
-  WebSoketOverrideInstance,
-  WebSocketMessageData,
-} from './WebSocketOverride'
-import { createEvent } from '../../utils/createEvent'
-import { uuidv4 } from '../../utils/uuid'
+import type { WebSocketMessageData } from './WebSocketOverride'
+import type { Transport } from './transports/WebSocketTransport'
+import { Connection } from './Connection'
 
 /**
  * @see {@link node_modules/engine.io-parser/build/esm/commons.js}
@@ -21,123 +17,65 @@ export enum EnginesIoParserPacketTypes {
   NOOP = '6',
 }
 
+export interface SocketIoConnectionOptions {
+  transport: Transport
+}
+
+export function createHandshakeResponse(
+  sessionId: string,
+  pingInterval: number
+): string {
+  return (
+    EnginesIoParserPacketTypes.OPEN +
+    JSON.stringify({
+      sid: sessionId,
+      upgrades: [],
+      pingInterval,
+      pingTimeout: 60000,
+    })
+  )
+}
+
+export function createOpenResponse(sessionId: string): string {
+  return (
+    EnginesIoParserPacketTypes.MESSAGE +
+    EnginesIoParserPacketTypes.OPEN +
+    JSON.stringify({
+      sid: sessionId,
+    })
+  )
+}
+
+export function createPingResponse(): string {
+  return EnginesIoParserPacketTypes.PING
+}
+
 /**
- * Custom WebSocket connection tailored to emulate "socket.io" connection.
- * Emulates all the necessary server-client interactions to make
- * "socket.io" think it has connected to an actual server.
+ * SocketIO connection encodes and decodes outgoing/incoming traffic
+ * but delegates the actual data transfer to the given transport.
  */
-export class SocketIoConnection extends WebSocketConnection {
+export class SocketIoConnection extends Connection {
   private encoder: Encoder
   private decoder: Decoder
 
-  constructor(socket: WebSoketOverrideInstance) {
-    super(socket)
+  constructor(options: SocketIoConnectionOptions) {
+    super({
+      transport: options.transport,
+    })
 
     this.encoder = new Encoder()
     this.decoder = new Decoder()
-
-    // Establish the decoder handler once.
     this.decoder.on('decoded', this.handleDecodedPacket.bind(this))
-
-    this.socket.addEventListener('open', () => {
-      this.connect()
-    })
   }
 
-  /**
-   * Emulate the routine "socket.io-client" executes to confirm
-   * a successful server connection.
-   */
-  private connect(): void {
-    const sid = uuidv4()
-    const pingInterval = 25000
-
-    // First, emulate that this client receives the "OPEN" event from the server.
-    // This lets "socket.io-client" know that the server connection is established.
-    this.socket.dispatchEvent(
-      createEvent(MessageEvent, 'message', {
-        target: this.socket,
-        data:
-          EnginesIoParserPacketTypes.OPEN +
-          JSON.stringify({
-            sid,
-            upgrades: [],
-            pingInterval,
-            pingTimeout: 60000,
-          }),
-      })
-    )
-
-    // Next, emulate that the server has confirmed a new client.
-    this.socket.dispatchEvent(
-      createEvent(MessageEvent, 'message', {
-        target: this.socket,
-        data:
-          EnginesIoParserPacketTypes.MESSAGE +
-          EnginesIoParserPacketTypes.OPEN +
-          JSON.stringify({
-            sid,
-          }),
-      })
-    )
-
-    // Then, emulate the client receiving the "PING" event from the server.
-    // This keeps the connection alive, as "socket.io-client" sends "PONG" in response.
-    const pingTimer = setInterval(() => {
-      this.socket.dispatchEvent(
-        createEvent(MessageEvent, 'message', {
-          target: this.socket,
-          // node_modules/engine.io-parser/build/esm/commons.js
-          data: EnginesIoParserPacketTypes.PING,
-        })
-      )
-    }, pingInterval)
-
-    const clearPingTimer = () => {
-      clearInterval(pingTimer)
-    }
-
-    // Clear the ping/poing internal if the socket terminates.
-    this.socket.addEventListener('error', clearPingTimer)
-    this.socket.addEventListener('error', clearPingTimer)
+  public send(data: WebSocketMessageData): void {
+    this.emit('message', data)
   }
 
-  /**
-   * Decode all outgoing "message" socket events.
-   * Prevent them from routing to the connection emitter as-is,
-   * as the "socket.io" messages must be decoded first.
-   */
-  protected handleOutgoingMessage(event: MessageEvent<WebSocketMessageData>) {
-    const packet = decodePacket(event.data, this.socket.binaryType)
-
-    if (packet.data) {
-      // Actual event emitting is delegated to the decoder callback.
-      this.decoder.add(packet.data)
-    }
-  }
-
-  /**
-   * Decode outgoing client messages of the "2<data>" format.
-   */
-  private handleDecodedPacket(packet: Packet): void {
-    // Ignore reserved events like "PING" from propagating
-    // to the user-facing "connection".
-    if (packet.type !== PacketType.EVENT) {
-      return
-    }
-
-    // The fist argument in the emitted message is always the event name.
-    // - prepended "message" when using "socket.send()".
-    // - custom event when using "socket.emit()".
-    const data: [string, ...any] = packet.data || ['message']
-
-    this.emitter.emit(...data)
-  }
-
-  public emit(eventName: string, ...data: any[]) {
+  public emit(event: string, ...data: unknown[]): void {
     const packet: Packet = {
       type: Number(`${EnginesIoParserPacketTypes.MESSAGE}${PacketType.EVENT}`),
-      data: [eventName, ...data],
+      data: [event, ...data],
       /**
        * @todo Is this safe to hard-code?
        */
@@ -145,26 +83,30 @@ export class SocketIoConnection extends WebSocketConnection {
     }
 
     const encodedPackets = this.encoder.encode(packet)
-
     for (const encodedPacket of encodedPackets) {
-      this.socket.dispatchEvent(
-        createEvent(MessageEvent, 'message', {
-          target: this.socket,
-          data: encodedPacket,
-        })
-      )
+      this.transport.send(encodedPacket)
     }
   }
 
-  public send(data: WebSocketMessageData): void {
-    // Calling "socket.send" is equivalent to emitting the "message" event.
-    this.emit('message', data)
+  protected onMessage(event: MessageEvent<WebSocketMessageData>): void {
+    const packet = decodePacket(event.data, 'arraybuffer')
+
+    if (!packet.data) {
+      return
+    }
+
+    // Actual event emitting is delegated to the decoder callback.
+    this.decoder.add(packet.data)
   }
 
-  protected close() {
-    // Destroy the decoder when the connection is closed.
-    this.decoder.destroy()
+  private handleDecodedPacket(packet: Packet): void {
+    // Ignore "socket.io" internal events like "PING"
+    // so they don't propagate to the user-facing connection.
+    if (packet.type !== PacketType.EVENT) {
+      return
+    }
 
-    return super.close()
+    const data: [string, ...unknown[]] = packet.data || ['message']
+    this.emitter.emit(...data)
   }
 }
