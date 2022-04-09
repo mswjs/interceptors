@@ -1,5 +1,5 @@
 import { AsyncEventEmitter } from './AsyncEventEmitter'
-import { sleep } from '../../test/helpers'
+import { sleep } from './sleep'
 
 it('emits and listens to events', () => {
   const emitter = new AsyncEventEmitter<{ hello(name: string): void }>()
