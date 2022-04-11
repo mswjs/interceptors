@@ -1,4 +1,9 @@
-import type { HttpRequestEventMap, IsomorphicRequest } from '../../../glossary'
+import { StrictEventEmitter } from 'strict-event-emitter'
+import type {
+  HttpRequestEventMap,
+  InteractiveIsomorphicRequest,
+  IsomorphicRequest,
+} from '../../../glossary'
 import type { Interceptor } from '../../../Interceptor'
 import { sleep } from '../../../utils/sleep'
 import { uuidv4 } from '../../../utils/uuid'
@@ -23,11 +28,13 @@ export function isHandshakeRequest(request: IsomorphicRequest): boolean {
 
 export class XMLHttpRequestTransport extends Transport {
   private sockets: Map<string, { open: boolean }>
+  private emitter: StrictEventEmitter<{ 'transport:send'(data: string): void }>
 
   constructor(private readonly interceptor: Interceptor<HttpRequestEventMap>) {
     super()
 
     this.sockets = new Map()
+    this.emitter = new StrictEventEmitter()
   }
 
   public open(): void {
@@ -61,7 +68,21 @@ export class XMLHttpRequestTransport extends Transport {
         const isSocketOpen = this.sockets.get(sessionId)?.open ?? false
 
         if (isSocketOpen) {
-          await sleep(pollingInterval)
+          const pollingResponseBody = new Promise<string>(async (resolve) => {
+            // Respond with an "ok" PONG response body once the ping
+            // interval expires.
+            const responseInterval = setInterval(() => {
+              resolve(createPingResponse())
+            }, pollingInterval)
+
+            // Resolve the ping request immediately if the server
+            // sends something to the client.
+            this.emitter.on('transport:send', (data) => {
+              clearInterval(responseInterval)
+              resolve(data)
+            })
+          })
+
           return request.respondWith({
             status: 200,
             headers: {
@@ -69,7 +90,7 @@ export class XMLHttpRequestTransport extends Transport {
               'Keep-Alive': 'timeout=5',
               'Content-Type': 'text/plain',
             },
-            body: createPingResponse(),
+            body: await pollingResponseBody,
           })
         }
 
@@ -108,6 +129,6 @@ export class XMLHttpRequestTransport extends Transport {
   }
 
   public send(data: WebSocketMessageData): void {
-    //
+    this.emitter.emit('transport:send', data.toString())
   }
 }
