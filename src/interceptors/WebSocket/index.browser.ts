@@ -1,11 +1,15 @@
 import type { WebSocketEventMap } from '../../glossary'
 import type { Interceptor } from '../../Interceptor'
 import { BatchInterceptor } from '../../BatchInterceptor'
-import { ClientRequestInterceptor } from '../ClientRequest'
+import { XMLHttpRequestInterceptor } from '../XMLHttpRequest'
+import { WebSocketNativeInterceptor } from './WebSocketNativeInterceptor'
 import { WebSocketPollingInterceptor } from './WebSocketPollingInterceptor'
 
+// WebSocket interception is achieved by intercepting each individual
+// WebSocket transport ("window.WebSocket", HTTP/XMLHttpRequest polling, etc).
 const interceptors: Interceptor<WebSocketEventMap>[] = [
-  new WebSocketPollingInterceptor(new ClientRequestInterceptor()),
+  new WebSocketNativeInterceptor(),
+  new WebSocketPollingInterceptor(new XMLHttpRequestInterceptor()),
 ]
 
 export class WebSocketInterceptor extends BatchInterceptor<

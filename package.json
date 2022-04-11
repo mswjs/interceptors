@@ -9,6 +9,9 @@
   "engines": {
     "node": ">=14"
   },
+  "browser": {
+    "./lib/interceptors/WebSocket": "./lib/interceptors/WebSocket/index.browser.js"
+  },
   "scripts": {
     "start": "tsc --build -w",
     "test": "yarn test:internal && yarn test:integration",
