@@ -11,7 +11,7 @@ export interface LazyCallback<FnType extends AnyFunction> {
 
 export interface LazyCallbackOptions {
   maxCalls?: number
-  maxCallsCallback?(): void
+  onMaxCallsExceeded?(): void
 }
 
 export function createLazyCallback<FnType extends AnyFunction>(
@@ -29,7 +29,7 @@ export function createLazyCallback<FnType extends AnyFunction>(
 
   const fn: LazyCallback<FnType> = function (...args) {
     if (options.maxCalls && calledTimes >= options.maxCalls) {
-      options.maxCallsCallback?.()
+      options.onMaxCallsExceeded?.()
     }
 
     remoteResolve(args)

@@ -131,8 +131,10 @@ export class NodeClientRequest extends ClientRequest {
     const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
       ...isomorphicRequest,
       respondWith: createLazyCallback({
+        // Prevent multiple "request" listeners from responding to the same
+        // intercepted request. Throw exception when that happens.
         maxCalls: 1,
-        maxCallsCallback() {
+        onMaxCallsExceeded() {
           invariant(
             false,
             'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
@@ -143,13 +145,13 @@ export class NodeClientRequest extends ClientRequest {
       }),
     }
 
-    // Notify the interceptor about the request.
-    // This will call any "request" listeners the users have.
     this.log(
       'emitting the "request" event for %d listener(s)...',
       this.emitter.listenerCount('request')
     )
 
+    // Notify the interceptor about the request.
+    // This will call any "request" listeners the users have.
     this.emitter.emit('request', interactiveIsomorphicRequest)
 
     // Execute the resolver Promise like a side-effect.
