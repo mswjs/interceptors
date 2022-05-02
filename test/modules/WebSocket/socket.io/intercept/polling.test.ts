@@ -25,7 +25,7 @@ afterAll(async () => {
   await wsServer.close()
 })
 
-it.only('intercepts message events sent from the client', async () => {
+it('intercepts message events sent from the client', async () => {
   const wsUrl = wsServer.ws.address.href
 
   const messageListener = jest.fn()
@@ -49,12 +49,12 @@ it.only('intercepts message events sent from the client', async () => {
   expect(messageListener).toHaveBeenCalledTimes(1)
 })
 
-it.skip('intercepts custom events sent from the client', async () => {
+it('intercepts custom events sent from the client', async () => {
   const wsUrl = wsServer.ws.address.href
 
-  const messageListener = jest.fn()
+  const greetListener = jest.fn()
   interceptor.on('connection', (socket) => {
-    socket.on('greet', messageListener)
+    socket.on('greet', greetListener)
   })
 
   const socket = io(wsUrl, {
@@ -67,10 +67,10 @@ it.skip('intercepts custom events sent from the client', async () => {
   })
 
   socket.emit('greet', 'Sedrick')
-  // socket.disconnect()
+  socket.disconnect()
 
   await waitForExpect(() => {
-    expect(messageListener).toHaveBeenCalledWith('Sedrick')
-    expect(messageListener).toHaveBeenCalledTimes(1)
+    expect(greetListener).toHaveBeenCalledWith('Sedrick')
+    expect(greetListener).toHaveBeenCalledTimes(1)
   })
 })

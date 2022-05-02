@@ -34,9 +34,9 @@ it('intercepts message events sent from the client', async () => {
   const runtime = await prepareRuntime()
   const wsUrl = wsServer.ws.address.href
 
-  const serverConnectionListener = jest.fn()
+  const messageListener = jest.fn()
   wsServer.ws.on('connection', (socket) => {
-    socket.on('message', serverConnectionListener)
+    socket.on('message', messageListener)
   })
 
   await runtime.page.evaluate(() => {
@@ -66,23 +66,21 @@ it('intercepts message events sent from the client', async () => {
   })
 
   // The actual server must receive the event.
-  expect(serverConnectionListener).toHaveBeenCalledWith('hello')
+  expect(messageListener).toHaveBeenCalledWith('hello')
 })
 
 it('intercepts custom events sent from the client', async () => {
   const runtime = await prepareRuntime()
   const wsUrl = wsServer.ws.address.href
 
-  const serverMessageListener = jest.fn()
+  const greetListener = jest.fn()
   wsServer.ws.on('connection', (socket) => {
-    socket.on('greeting', (text) => {
-      serverMessageListener(text)
-    })
+    socket.on('greet', greetListener)
   })
 
   await runtime.page.evaluate(() => {
     window.interceptor.on('connection', (socket) => {
-      socket.on('greeting', (text) => {
+      socket.on('greet', (text) => {
         console.log(text)
       })
     })
@@ -98,7 +96,7 @@ it('intercepts custom events sent from the client', async () => {
   }, wsUrl)
 
   await runtime.page.evaluate(() => {
-    window.socket.emit('greeting', 'John')
+    window.socket.emit('greet', 'John')
   })
 
   await waitForExpect(() => {
@@ -106,5 +104,5 @@ it('intercepts custom events sent from the client', async () => {
   })
 
   // The actual server must receive the event.
-  expect(serverMessageListener).toHaveBeenCalledWith('John')
+  expect(greetListener).toHaveBeenCalledWith('John')
 })

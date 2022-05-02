@@ -69,15 +69,6 @@ export class SocketIoPollingTransport extends Transport {
           throw new Error('CANNOT RUN THIS IS MADNESS')
         }
 
-        if (request.method === 'POST') {
-          console.warn(
-            '%s %s',
-            request.method,
-            request.body,
-            this.interceptor['emitter']
-          )
-        }
-
         const sessionId = request.url.searchParams.get('sid')
 
         log('intercepted:', request.method, request.url.href)
