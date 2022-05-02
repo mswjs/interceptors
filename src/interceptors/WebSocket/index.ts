@@ -5,7 +5,9 @@ import { ClientRequestInterceptor } from '../ClientRequest'
 import { WebSocketPollingInterceptor } from './WebSocketPollingInterceptor'
 
 const interceptors: Interceptor<WebSocketEventMap>[] = [
-  new WebSocketPollingInterceptor(new ClientRequestInterceptor()),
+  new WebSocketPollingInterceptor({
+    using: new ClientRequestInterceptor(),
+  }),
 ]
 
 export class WebSocketInterceptor extends BatchInterceptor<

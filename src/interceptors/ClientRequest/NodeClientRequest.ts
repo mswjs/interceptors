@@ -149,6 +149,7 @@ export class NodeClientRequest extends ClientRequest {
       'emitting the "request" event for %d listener(s)...',
       this.emitter.listenerCount('request')
     )
+
     this.emitter.emit('request', interactiveIsomorphicRequest)
 
     // Execute the resolver Promise like a side-effect.

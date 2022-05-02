@@ -60,6 +60,7 @@ export class SocketIoConnection extends Connection {
 
   constructor(options: SocketIoConnectionOptions) {
     super({
+      name: 'socket-io',
       transport: options.transport,
     })
 
@@ -69,10 +70,16 @@ export class SocketIoConnection extends Connection {
   }
 
   public send(data: WebSocketMessageData): void {
+    const log = this.log.extend('send')
+    log(data)
+
     this.emit('message', data)
   }
 
   public emit(event: string, ...data: unknown[]): void {
+    const log = this.log.extend('emit')
+    log(event, data)
+
     const packet: Packet = {
       type: Number(`${EnginesIoParserPacketTypes.MESSAGE}${PacketType.EVENT}`),
       data: [event, ...data],
@@ -89,9 +96,14 @@ export class SocketIoConnection extends Connection {
   }
 
   protected onMessage(event: MessageEvent<WebSocketMessageData>): void {
+    const log = this.log.extend('onMessage')
+    log(event.type, event.data)
+
     const packet = decodePacket(event.data, 'arraybuffer')
+    log('decoded packet:', packet)
 
     if (!packet.data) {
+      log('packet has no data, ignoring...')
       return
     }
 
@@ -100,13 +112,19 @@ export class SocketIoConnection extends Connection {
   }
 
   private handleDecodedPacket(packet: Packet): void {
+    const log = this.log.extend('handleDecodedPacket')
+    log(packet)
+
     // Ignore "socket.io" internal events like "PING"
     // so they don't propagate to the user-facing connection.
     if (packet.type !== PacketType.EVENT) {
+      log('internal packet type "%s", ignoring...', packet.type)
       return
     }
 
     const data: [string, ...unknown[]] = packet.data || ['message']
+
+    log('emitting "%s" connection event with:', data[0], data.slice(1))
     this.emitter.emit(...data)
   }
 }

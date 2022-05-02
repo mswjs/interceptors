@@ -15,24 +15,6 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new XMLHttpRequestInterceptor()
-interceptor.on('request', (request) => {
-  switch (request.url.pathname) {
-    case '/user': {
-      request.respondWith({
-        status: 200,
-      })
-      break
-    }
-
-    case '/numbers-mock': {
-      request.respondWith({
-        status: 200,
-        body: JSON.stringify([1, 2, 3]),
-      })
-      break
-    }
-  }
-})
 
 function spyOnEvents(req: XMLHttpRequest, listener: jest.Mock) {
   function wrapListener(this: XMLHttpRequest, event: Event) {
@@ -53,6 +35,28 @@ beforeAll(async () => {
   await httpServer.listen()
 })
 
+beforeEach(() => {
+  interceptor.apply()
+  interceptor.on('request', (request) => {
+    switch (request.url.pathname) {
+      case '/user': {
+        request.respondWith({
+          status: 200,
+        })
+        break
+      }
+
+      case '/numbers-mock': {
+        request.respondWith({
+          status: 200,
+          body: JSON.stringify([1, 2, 3]),
+        })
+        break
+      }
+    }
+  })
+})
+
 afterEach(() => {
   interceptor.dispose()
 })
@@ -62,7 +66,6 @@ afterAll(async () => {
 })
 
 test('emits correct events sequence for an unhandled request with no response body', async () => {
-  interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url())
@@ -87,7 +90,6 @@ test('emits correct events sequence for an unhandled request with no response bo
 })
 
 test('emits correct events sequence for a handled request with no response body', async () => {
-  interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/user'))
@@ -106,7 +108,6 @@ test('emits correct events sequence for a handled request with no response body'
 })
 
 test('emits correct events sequence for an unhandled request with a response body', async () => {
-  interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/numbers'))
@@ -131,7 +132,6 @@ test('emits correct events sequence for an unhandled request with a response bod
 })
 
 test('emits correct events sequence for a handled request with a response body', async () => {
-  interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/numbers-mock'))

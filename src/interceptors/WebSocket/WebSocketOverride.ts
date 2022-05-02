@@ -2,6 +2,7 @@ import { StrictEventEmitter } from 'strict-event-emitter'
 import { WebSocketEventMap } from '../../glossary'
 import { createEvent } from '../../utils/createEvent'
 import { nextTick } from '../../utils/nextTick'
+import { ObservableEmitter } from '../../utils/ObservableEmitter'
 import type { Connection } from './Connection'
 import { SocketIoConnection } from './SocketIoConnection'
 import { SocketIoWebSocketTransport } from './transports/SocketIoWebSocketTransport'
@@ -30,7 +31,7 @@ export interface WebSoketOverrideInstance extends WebSocket {
 
 export interface WebSocketOverrideArgs {
   WebSocket: typeof window.WebSocket
-  emitter: StrictEventEmitter<WebSocketEventMap>
+  emitter: ObservableEmitter<WebSocketEventMap>
 }
 
 export function createWebSocketOverride({

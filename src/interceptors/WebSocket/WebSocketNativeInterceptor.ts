@@ -12,6 +12,8 @@ export class WebSocketNativeInterceptor extends Interceptor<WebSocketEventMap> {
   protected checkEnvironment() {
     // This interceptor targets the "window.WebSocket" class
     // and will only work in the browser, where such class exists.
+    // Browser-like environments are also fine as long as they polyfill
+    // the "window.WebSocket" class.
     return (
       typeof window !== 'undefined' && typeof window.WebSocket !== 'undefined'
     )

@@ -30,6 +30,7 @@ export class BatchInterceptor<
   constructor(options: BatchInterceptorOptions<InterceptorList>) {
     BatchInterceptor.symbol = Symbol(options.name)
     super(BatchInterceptor.symbol)
+
     this.interceptors = options.interceptors
   }
 
@@ -39,11 +40,14 @@ export class BatchInterceptor<
     log('applying all %d interceptors...', this.interceptors.length)
 
     for (const interceptor of this.interceptors) {
-      log('applying "%s" interceptor...', interceptor.constructor.name)
+      const interceptorName = interceptor.constructor.name
+      log('applying "%s" interceptor...', interceptorName)
       interceptor.apply()
 
-      log('adding interceptor dispose subscription')
-      this.subscriptions.push(() => interceptor.dispose())
+      log('adding dispose subscription for "%s"', interceptorName)
+      this.subscriptions.push(() => {
+        interceptor.dispose()
+      })
     }
   }
 
@@ -51,6 +55,13 @@ export class BatchInterceptor<
     event: Event,
     listener: EventMap[Event]
   ) {
+    const log = this.log.extend('on')
+    log(
+      'propagating "%s" listener to %d child interceptor(s)...',
+      event,
+      this.interceptors.length
+    )
+
     // Instead of adding a listener to the batch interceptor,
     // propagate the listener to each of the individual interceptors.
     this.interceptors.forEach((interceptor) => {

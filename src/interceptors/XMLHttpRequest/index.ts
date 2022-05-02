@@ -3,14 +3,14 @@ import type {
   InteractiveIsomorphicRequest,
 } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
-import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
+import { ObservableEmitter } from '../../utils/ObservableEmitter'
 import { createXMLHttpRequestOverride } from './XMLHttpRequestOverride'
 
 export type XMLHttpRequestEventListener = (
   request: InteractiveIsomorphicRequest
 ) => Promise<void> | void
 
-export type XMLHttpRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
+export type XMLHttpRequestEmitter = ObservableEmitter<HttpRequestEventMap>
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('xhr')

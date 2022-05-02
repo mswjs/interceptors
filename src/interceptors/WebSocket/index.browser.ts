@@ -9,7 +9,9 @@ import { WebSocketPollingInterceptor } from './WebSocketPollingInterceptor'
 // WebSocket transport ("window.WebSocket", HTTP/XMLHttpRequest polling, etc).
 const interceptors: Interceptor<WebSocketEventMap>[] = [
   new WebSocketNativeInterceptor(),
-  new WebSocketPollingInterceptor(new XMLHttpRequestInterceptor()),
+  new WebSocketPollingInterceptor({
+    using: new XMLHttpRequestInterceptor(),
+  }),
 ]
 
 export class WebSocketInterceptor extends BatchInterceptor<

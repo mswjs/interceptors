@@ -5,6 +5,7 @@ import {
   InterceptorReadyState,
 } from './Interceptor'
 import { nextTickAsync } from './utils/nextTick'
+import { sleep } from './utils/sleep'
 
 const symbol = Symbol('test')
 
@@ -12,33 +13,10 @@ afterEach(() => {
   deleteGlobalSymbol(symbol)
 })
 
-it('does not set a maximum listeners limit', () => {
-  const interceptor = new Interceptor(symbol)
-  expect(interceptor['emitter'].getMaxListeners()).toBe(0)
-})
-
-describe('persistence', () => {
-  it('stores global reference to the applied interceptor', () => {
-    const interceptor = new Interceptor(symbol)
-    interceptor.apply()
-
-    expect(getGlobalSymbol(symbol)).toEqual(interceptor)
-  })
-
-  it('deletes global reference when the interceptor is disposed', () => {
-    const interceptor = new Interceptor(symbol)
-
-    interceptor.apply()
-    interceptor.dispose()
-
-    expect(getGlobalSymbol(symbol)).toBeUndefined()
-  })
-})
-
 describe('readyState', () => {
   it('sets the state to "IDLE" when the interceptor is created', () => {
     const interceptor = new Interceptor(symbol)
-    expect(interceptor.readyState).toBe(InterceptorReadyState.IDLE)
+    expect(interceptor['readyState']).toBe(InterceptorReadyState.IDLE)
   })
 
   it('leaves state as "IDLE" if the interceptor failed the environment check', async () => {
@@ -50,10 +28,10 @@ describe('readyState', () => {
     const interceptor = new MyInterceptor(symbol)
     interceptor.apply()
 
-    expect(interceptor.readyState).toBe(InterceptorReadyState.IDLE)
+    expect(interceptor['readyState']).toBe(InterceptorReadyState.IDLE)
 
     await nextTickAsync(() => {
-      expect(interceptor.readyState).toBe(InterceptorReadyState.IDLE)
+      expect(interceptor['readyState']).toBe(InterceptorReadyState.IDLE)
     })
   })
 
@@ -61,11 +39,7 @@ describe('readyState', () => {
     const interceptor = new Interceptor(symbol)
     interceptor.apply()
 
-    expect(interceptor.readyState).toBe(InterceptorReadyState.APPLYING)
-
-    await nextTickAsync(() => {
-      expect(interceptor.readyState).toBe(InterceptorReadyState.APPLIED)
-    })
+    expect(interceptor['readyState']).toBe(InterceptorReadyState.APPLIED)
   })
 
   it('perfroms state transition when disposing of the interceptor', async () => {
@@ -73,15 +47,18 @@ describe('readyState', () => {
     interceptor.apply()
     interceptor.dispose()
 
-    expect(interceptor.readyState).toBe(InterceptorReadyState.DISPOSING)
-
-    await nextTickAsync(() => {
-      expect(interceptor.readyState).toBe(InterceptorReadyState.DISPOSED)
-    })
+    expect(interceptor['readyState']).toBe(InterceptorReadyState.DISPOSED)
   })
 })
 
 describe('apply', () => {
+  it('stores global reference to the applied interceptor', () => {
+    const interceptor = new Interceptor(symbol)
+    interceptor.apply()
+
+    expect(getGlobalSymbol(symbol)).toEqual(interceptor)
+  })
+
   it('does not apply the same interceptor multiple times', () => {
     const interceptor = new Interceptor(symbol)
     const setupSpy = jest.spyOn(
@@ -145,11 +122,27 @@ describe('apply', () => {
 })
 
 describe('dispose', () => {
+  it('deletes global reference when the interceptor is disposed', () => {
+    const interceptor = new Interceptor(symbol)
+
+    interceptor.apply()
+    interceptor.dispose()
+
+    expect(getGlobalSymbol(symbol)).toBeUndefined()
+  })
+
   it('removes all listeners when the interceptor is disposed', async () => {
     const interceptor = new Interceptor(symbol)
 
     interceptor.apply()
-    const listener = jest.fn()
+    const listener = jest.fn(() => {
+      throw new Error('This listener must never be called')
+    })
+    interceptor.on('test', listener)
+    interceptor.on('test', async () => {
+      await sleep(200)
+      listener()
+    })
     interceptor.on('test', listener)
     interceptor.dispose()
 

@@ -30,7 +30,7 @@ afterAll(async () => {
   await wsServer.close()
 })
 
-it('intercepts message events sent from the client', async () => {
+it.only('intercepts message events sent from the client', async () => {
   const runtime = await prepareRuntime()
   const wsUrl = wsServer.ws.address.href
 
@@ -71,6 +71,8 @@ it('intercepts message events sent from the client', async () => {
   await waitForExpect(() => {
     expect(runtime.consoleSpy.get('log')).toEqual(['hello'])
   })
+
+  await runtime.debug()
 
   // The actual server must receive the event.
   // expect(serverConnectionListener).toHaveBeenCalledWith('hello')

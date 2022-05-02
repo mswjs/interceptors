@@ -1,9 +1,8 @@
 import { Debugger, debug } from 'debug'
-import { AsyncEventEmitter } from './utils/AsyncEventEmitter'
-import { nextTick } from './utils/nextTick'
+import { Disposable } from './utils/Disposable'
+import { ObservableEmitter } from './utils/ObservableEmitter'
 
 export type InterceptorEventMap = Record<string, (...args: any[]) => void>
-export type InterceptorSubscription = () => void
 
 export function getGlobalSymbol<V>(symbol: Symbol): V | undefined {
   return (
@@ -24,32 +23,33 @@ export function deleteGlobalSymbol(symbol: Symbol): void {
 
 export enum InterceptorReadyState {
   IDLE = 'IDLE',
-  APPLYING = 'APPLYING',
   APPLIED = 'APPLIED',
-  DISPOSING = 'DISPOSING',
   DISPOSED = 'DISPOSED',
 }
 
 export type ExtractEventNames<EventMap extends Record<string, any>> =
   EventMap extends Record<infer EventName, any> ? EventName : never
 
-export class Interceptor<EventMap extends InterceptorEventMap> {
-  protected emitter: AsyncEventEmitter<EventMap>
-  protected subscriptions: InterceptorSubscription[]
+export class Interceptor<
+  EventMap extends InterceptorEventMap
+> extends Disposable {
   protected log: Debugger
+  protected emitter: ObservableEmitter<EventMap>
 
-  public readyState: InterceptorReadyState
+  protected readyState: InterceptorReadyState
 
   constructor(private readonly symbol: Symbol) {
+    super()
+
+    this.log = debug(symbol.description!)
     this.readyState = InterceptorReadyState.IDLE
 
-    this.emitter = new AsyncEventEmitter()
-    this.subscriptions = []
-    this.log = debug(symbol.description!)
+    this.emitter = new ObservableEmitter(symbol.description!)
 
     // Do not limit the maximum number of listeners
     // so not to limit the maximum amount of parallel events emitted.
-    this.emitter.setMaxListeners(0)
+    // this.emitter.setMaxListeners(0)
+    this.subscriptions.push(() => this.emitter.removeAllListeners())
 
     this.log('constructing the interceptor...')
   }
@@ -70,30 +70,22 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
     const log = this.log.extend('apply')
     log('applying the interceptor...')
 
+    // Ignore calling ".apply()" multiple times.
     if (this.readyState === InterceptorReadyState.APPLIED) {
       log('intercepted already applied!')
       return
     }
 
-    const shouldApply = this.checkEnvironment()
-
-    if (!shouldApply) {
+    // Check that the interceptor can be applied in the current environment.
+    if (!this.checkEnvironment()) {
       log('the interceptor cannot be applied in this environment!')
       return
     }
 
-    this.readyState = InterceptorReadyState.APPLYING
-
-    // Always activate the emitter when applying the interceptor.
-    // This will ensure the interceptor can process events after it's
-    // been disposed and re-applied again (it may be a singleton).
-    this.emitter.activate()
-    log('activated the emiter!', this.emitter.readyState)
-
     // Whenever applying a new interceptor, check if it hasn't been applied already.
-    // This enables to apply the same interceptor multiple times, for example from a different
-    // interceptor, only proxying events but keeping the stubs in a single place.
-    const runningInstance = this.getInstance()
+    // This prevents multiple interceptors of the same class from patching modules
+    // multiple times within the same process.
+    const runningInstance = this.hydrateInstance()
 
     if (runningInstance) {
       log('found a running instance, reusing...')
@@ -114,9 +106,7 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
         })
       }
 
-      nextTick(() => {
-        this.readyState = InterceptorReadyState.APPLIED
-      })
+      this.readyState = InterceptorReadyState.APPLIED
 
       return
     }
@@ -127,17 +117,16 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
     this.setup()
 
     // Store the newly applied interceptor instance globally.
-    this.setInstance()
+    this.persistInstance()
+    this.subscriptions.push(() => this.clearInstance())
 
-    nextTick(() => {
-      this.readyState = InterceptorReadyState.APPLIED
-    })
+    this.readyState = InterceptorReadyState.APPLIED
   }
 
   /**
    * Setup the module augments and stubs necessary for this interceptor.
-   * This method is not run if there's a running interceptor instance
-   * to prevent instantiating an interceptor multiple times.
+   * This method is not run if there's an already running interceptor instance
+   * to prevent instantiating the same interceptor multiple times.
    */
   protected setup(): void {}
 
@@ -150,21 +139,17 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
   ): void {
     const log = this.log.extend('on')
 
-    if (
-      this.readyState === InterceptorReadyState.DISPOSING ||
-      this.readyState === InterceptorReadyState.DISPOSED
-    ) {
+    if (this.readyState === InterceptorReadyState.DISPOSED) {
       log('cannot listen to events, already disposed!')
       return
     }
 
-    log('adding "%s" event listener:', event, listener.name)
-
+    log('adding "%s" event listener:', event, listener.name, new Error().stack)
     this.emitter.on(event, listener)
   }
 
   /**
-   * Disposes of any side-effects this interceptor has introduced.
+   * Dispose of all side-effects introduced by this interceptor.
    */
   public dispose(): void {
     const log = this.log.extend('dispose')
@@ -175,46 +160,17 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
     }
 
     log('disposing the interceptor...')
-    this.readyState = InterceptorReadyState.DISPOSING
-
-    if (!this.getInstance()) {
-      log('no interceptors running, skipping dispose...')
-      return
-    }
-
-    // Delete the global symbol as soon as possible,
-    // indicating that the interceptor is no longer running.
-    this.clearInstance()
-
-    log('global symbol deleted:', getGlobalSymbol(this.symbol))
-
-    if (this.subscriptions.length > 0) {
-      log('disposing of %d subscriptions...', this.subscriptions.length)
-
-      for (const dispose of this.subscriptions) {
-        dispose()
-      }
-
-      this.subscriptions = []
-
-      log('disposed of all subscriptions!', this.subscriptions.length)
-    }
-
-    this.emitter.deactivate()
-    log('destroyed the listener!')
-
-    nextTick(() => {
-      this.readyState = InterceptorReadyState.DISPOSED
-    })
+    super.dispose()
+    this.readyState = InterceptorReadyState.DISPOSED
   }
 
-  private getInstance(): this | undefined {
+  private hydrateInstance(): this | undefined {
     const instance = getGlobalSymbol<this>(this.symbol)
     this.log('retrieved global instance:', instance?.constructor?.name)
     return instance
   }
 
-  private setInstance(): void {
+  private persistInstance(): void {
     setGlobalSymbol(this.symbol, this)
     this.log('set global instance!', this.symbol.description)
   }

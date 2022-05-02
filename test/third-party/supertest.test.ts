@@ -3,20 +3,19 @@
  */
 import express from 'express'
 import supertest from 'supertest'
+import type { InteractiveIsomorphicRequest } from '../../src/glossary'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
-import { IsomorphicRequest } from '../../src/glossary'
 
-let requests: IsomorphicRequest[] = []
+const requestListener = jest.fn<never, [InteractiveIsomorphicRequest]>()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor(Symbol('supertest-http'))
 interceptor.on('request', (request) => {
-  requests.push(request)
+  requestListener(request)
 })
 
-const app = express()
-app.use(express.json())
-app.post('/', (req, res) => {
-  res.status(200).json(req.body)
+Object.defineProperty(requestListener, 'name', {
+  value: 'SUPERTEST_REQUEST_LISTENER',
+  writable: false,
 })
 
 beforeAll(() => {
@@ -24,7 +23,7 @@ beforeAll(() => {
 })
 
 afterEach(() => {
-  requests = []
+  jest.resetAllMocks()
 })
 
 afterAll(() => {
@@ -32,6 +31,11 @@ afterAll(() => {
 })
 
 test('preserves original POST request JSON body', async () => {
+  const app = express()
+  app.use(express.json())
+  app.post('/', (req, res) => {
+    res.status(200).json(req.body)
+  })
   const res = await supertest(app)
     .post('/')
     .set('Content-Type', 'application/json')
@@ -41,8 +45,12 @@ test('preserves original POST request JSON body', async () => {
   expect(res.status).toBe(200)
   expect(res.body).toEqual({ query: 'foo' })
 
-  expect(requests).toHaveLength(1)
-  const [request] = requests
-  expect(request.method).toBe('POST')
-  expect(request.body).toEqual(JSON.stringify({ query: 'foo' }))
+  expect(requestListener.mock.calls).toEqual([
+    [
+      expect.objectContaining<Partial<InteractiveIsomorphicRequest>>({
+        method: 'POST',
+        body: JSON.stringify({ query: 'foo' }),
+      }),
+    ],
+  ])
 })

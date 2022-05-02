@@ -2,12 +2,12 @@ import http from 'http'
 import https from 'https'
 import { HttpRequestEventMap } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
-import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
+import { ObservableEmitter } from '../../utils/ObservableEmitter'
 import { get } from './http.get'
 import { request } from './http.request'
 import { NodeClientOptions, Protocol } from './NodeClientRequest'
 
-export type ClientRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
+export type ClientRequestEmitter = ObservableEmitter<HttpRequestEventMap>
 
 export type ClientRequestModules = Map<Protocol, typeof http | typeof https>
 
@@ -19,8 +19,8 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('http')
   private modules: ClientRequestModules
 
-  constructor() {
-    super(ClientRequestInterceptor.symbol)
+  constructor(symbol?: Symbol) {
+    super(symbol || ClientRequestInterceptor.symbol)
 
     this.modules = new Map()
     this.modules.set('http', http)
