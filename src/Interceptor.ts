@@ -1,5 +1,6 @@
 import { Debugger, debug } from 'debug'
 import { Disposable } from './utils/Disposable'
+import { getStackTrace } from './utils/getStackTrace'
 import { ObservableEmitter } from './utils/ObservableEmitter'
 
 export type InterceptorEventMap = Record<string, (...args: any[]) => void>
@@ -43,13 +44,7 @@ export class Interceptor<
 
     this.log = debug(symbol.description!)
     this.readyState = InterceptorReadyState.IDLE
-
     this.emitter = new ObservableEmitter(symbol.description!)
-
-    // Do not limit the maximum number of listeners
-    // so not to limit the maximum amount of parallel events emitted.
-    // this.emitter.setMaxListeners(0)
-    this.subscriptions.push(() => this.emitter.removeAllListeners())
 
     this.log('constructing the interceptor...')
   }
@@ -81,6 +76,11 @@ export class Interceptor<
       log('the interceptor cannot be applied in this environment!')
       return
     }
+
+    // Remove all listeners on each "apply" call so that a single module
+    // can alternate between apply/dispose multiple times without listeners
+    // persisting between applications.
+    this.subscriptions.push(() => this.emitter.removeAllListeners())
 
     // Whenever applying a new interceptor, check if it hasn't been applied already.
     // This prevents multiple interceptors of the same class from patching modules
@@ -121,6 +121,11 @@ export class Interceptor<
     this.subscriptions.push(() => this.clearInstance())
 
     this.readyState = InterceptorReadyState.APPLIED
+
+    this.subscriptions.push(() => {
+      // Mark the ready state as disposed once this interceptor is disposed of.
+      this.readyState = InterceptorReadyState.DISPOSED
+    })
   }
 
   /**
@@ -144,24 +149,8 @@ export class Interceptor<
       return
     }
 
-    log('adding "%s" event listener:', event, listener.name, new Error().stack)
+    log('adding "%s" event listener:', event, listener.name, getStackTrace())
     this.emitter.on(event, listener)
-  }
-
-  /**
-   * Dispose of all side-effects introduced by this interceptor.
-   */
-  public dispose(): void {
-    const log = this.log.extend('dispose')
-
-    if (this.readyState === InterceptorReadyState.DISPOSED) {
-      log('cannot dispose, already disposed!')
-      return
-    }
-
-    log('disposing the interceptor...')
-    super.dispose()
-    this.readyState = InterceptorReadyState.DISPOSED
   }
 
   private hydrateInstance(): this | undefined {

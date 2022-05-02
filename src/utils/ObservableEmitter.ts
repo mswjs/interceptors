@@ -1,5 +1,6 @@
 import { debug, Debugger } from 'debug'
 import type { EventMapType } from 'strict-event-emitter'
+import { getStackTrace } from './getStackTrace'
 
 export type EventRecord<ListenerType extends (...args: unknown[]) => unknown> =
   {
@@ -20,7 +21,7 @@ export class ObservableEmitter<EventMap extends EventMapType = {}> {
       this.log = this.log.extend(domain)
     }
 
-    this.callFrame = new Error().stack!
+    this.callFrame = getStackTrace()
 
     this.log('created a new emitter')
   }
@@ -54,10 +55,12 @@ export class ObservableEmitter<EventMap extends EventMapType = {}> {
   public removeAllListeners<Event extends keyof EventMap>(event?: Event): void {
     if (typeof event === 'undefined') {
       this.events.clear()
+      this.log('removed all listeners!', this.events)
       return
     }
 
     this.getEvent(event).listeners.clear()
+    this.log('removed all listeners for "%s"!', event, this.events.get(event))
   }
 
   public on<Event extends keyof EventMap>(
@@ -107,11 +110,11 @@ export class ObservableEmitter<EventMap extends EventMapType = {}> {
   }
 
   public listeners<Event extends keyof EventMap>(event: Event): Set<Function> {
-    return this.getEvent(event).listeners
+    return this.events.get(event)?.listeners || new Set()
   }
 
   public listenerCount<Event extends keyof EventMap>(event: Event): number {
-    return this.getEvent(event).listeners.size
+    return this.events.get(event)?.listeners.size || 0
   }
 
   public untilIdle<Event extends keyof EventMap>(event: Event): Promise<void> {
@@ -162,7 +165,6 @@ export class ObservableEmitter<EventMap extends EventMapType = {}> {
   }
 
   private clearQueue<Event extends keyof EventMap>(event: Event): void {
-    const { queue } = this.getEvent(event)
-    queue.clear()
+    this.events.get(event)?.queue.clear()
   }
 }
