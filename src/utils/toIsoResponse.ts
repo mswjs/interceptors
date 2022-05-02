@@ -1,5 +1,5 @@
 import { objectToHeaders } from 'headers-polyfill'
-import { IsomorphicResponse, MockedResponse } from '../createInterceptor'
+import { IsomorphicResponse, MockedResponse } from '../glossary'
 
 /**
  * Converts a given mocked response object into an isomorphic response.

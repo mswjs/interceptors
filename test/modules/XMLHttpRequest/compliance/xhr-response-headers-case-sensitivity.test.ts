@@ -1,40 +1,36 @@
 /**
  * @jest-environment jsdom
  */
-import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
+import { HttpServer } from '@open-draft/test-server/http'
 import { createXMLHttpRequest } from '../../../helpers'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 
-let httpServer: ServerApi
-
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver() {},
+const httpServer = new HttpServer((app) => {
+  app.get('/account', (req, res) => {
+    return res
+      .status(200)
+      .append('access-control-expose-headers', 'x-response-type')
+      .append('x-response-type', 'bypass')
+      .send()
+  })
 })
 
+const interceptor = new XMLHttpRequestInterceptor()
+
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/account', (req, res) => {
-      return res
-        .status(200)
-        .append('access-control-expose-headers', 'x-response-type')
-        .append('x-response-type', 'bypass')
-        .send()
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
 test('ignores casing when retrieving response headers via "getResponseHeader"', async () => {
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.makeUrl('/account'))
+    req.open('GET', httpServer.http.url('/account'))
     req.send()
   })
 

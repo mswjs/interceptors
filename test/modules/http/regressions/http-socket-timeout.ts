@@ -5,41 +5,38 @@
  * due to the unterminated socket.
  */
 import * as http from 'http'
-import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src/createInterceptor'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { HttpServer } from '@open-draft/test-server/http'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 jest.setTimeout(5000)
 
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver() {
-    return {
-      status: 301,
-      body: 'Hello world',
-    }
-  },
+const httpServer = new HttpServer((app) => {
+  app.get('/resource', (_req, res) => {
+    res.status(500).send('must-not-reach-server')
+  })
 })
 
-let httpServer: ServerApi
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  request.respondWith({
+    status: 301,
+    body: 'Hello world',
+  })
+})
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/resource', (_req, res) => {
-      res.status(500).send('must-not-reach-server')
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
 test('supports custom socket timeout on the HTTP request', (done) => {
-  const req = http.request(httpServer.http.makeUrl('/resource'), (res) => {
+  const req = http.request(httpServer.http.url('/resource'), (res) => {
     res.on('data', () => null)
     res.on('end', () => {
       expect(res.statusCode).toEqual(301)

@@ -1,37 +1,33 @@
 /**
  * @jest-environment node
  */
-import * as http from 'http'
 import * as https from 'https'
 import { RequestHandler } from 'express'
-import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { Resolver } from '../../../../src/createInterceptor'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { waitForClientRequest } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestEventMap } from '../../../../src'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  const handleUserRequest: RequestHandler = (req, res) => {
+    res.status(200).send('user-body').end()
+  }
 
-const resolver = jest.fn<ReturnType<Resolver>, Parameters<Resolver>>()
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver,
+  app.get('/user', handleUserRequest)
+  app.post('/user', handleUserRequest)
+  app.put('/user', handleUserRequest)
+  app.delete('/user', handleUserRequest)
+  app.patch('/user', handleUserRequest)
+  app.head('/user', handleUserRequest)
 })
 
-beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    const handleUserRequest: RequestHandler = (req, res) => {
-      res.status(200).send('user-body').end()
-    }
+const resolver = jest.fn<never, Parameters<HttpRequestEventMap['request']>>()
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', resolver)
 
-    app.get('/user', handleUserRequest)
-    app.post('/user', handleUserRequest)
-    app.put('/user', handleUserRequest)
-    app.delete('/user', handleUserRequest)
-    app.patch('/user', handleUserRequest)
-    app.head('/user', handleUserRequest)
-  })
+beforeAll(async () => {
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -41,12 +37,12 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
 test('intercepts a HEAD request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'HEAD',
@@ -58,23 +54,23 @@ test('intercepts a HEAD request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'HEAD',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: '',
-    },
-    expect.any(http.IncomingMessage)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'HEAD',
+    url: new URL(httpServer.https.url('/user?id=123')),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'same-origin',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts a GET request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'GET',
@@ -86,23 +82,23 @@ test('intercepts a GET request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: '',
-    },
-    expect.any(http.IncomingMessage)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'GET',
+    url: new URL(httpServer.https.url('/user?id=123')),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'same-origin',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts a POST request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'POST',
@@ -115,23 +111,23 @@ test('intercepts a POST request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'POST',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: 'post-payload',
-    },
-    expect.any(http.IncomingMessage)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'POST',
+    url: new URL(httpServer.https.url('/user?id=123')),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'same-origin',
+    body: 'post-payload',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts a PUT request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'PUT',
@@ -144,23 +140,23 @@ test('intercepts a PUT request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'PUT',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: 'put-payload',
-    },
-    expect.any(http.IncomingMessage)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'PUT',
+    url: new URL(httpServer.https.url('/user?id=123')),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'same-origin',
+    body: 'put-payload',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts a PATCH request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'PATCH',
@@ -173,23 +169,23 @@ test('intercepts a PATCH request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'PATCH',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: 'patch-payload',
-    },
-    expect.any(http.IncomingMessage)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'PATCH',
+    url: new URL(httpServer.https.url('/user?id=123')),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'same-origin',
+    body: 'patch-payload',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts a DELETE request', async () => {
-  const url = httpServer.https.makeUrl('/user?id=123')
+  const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
     method: 'DELETE',
@@ -201,41 +197,41 @@ test('intercepts a DELETE request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'DELETE',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'omit',
-      body: '',
-    },
-    expect.any(http.IncomingMessage)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'DELETE',
+    url: new URL(httpServer.https.url('/user?id=123')),
+    headers: headersContaining({
+      'x-custom-header': 'yes',
+    }),
+    credentials: 'same-origin',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })
 
 test('intercepts an http.request request given RequestOptions without a protocol', async () => {
   const req = https.request({
     agent: httpsAgent,
-    host: httpServer.https.getAddress().host,
-    port: httpServer.https.getAddress().port,
+    host: httpServer.https.address.host,
+    port: httpServer.https.address.port,
     path: '/user?id=123',
   })
   req.end()
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<Parameters<Resolver>>(
-    {
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(httpServer.https.makeUrl('/user?id=123')),
-      headers: headersContaining({}),
-      credentials: 'omit',
-      body: '',
-    },
-    expect.any(http.IncomingMessage)
-  )
+  expect(resolver).toHaveBeenCalledWith<
+    Parameters<HttpRequestEventMap['request']>
+  >({
+    id: anyUuid(),
+    method: 'GET',
+    url: new URL(httpServer.https.url('/user?id=123')),
+    headers: headersContaining({}),
+    credentials: 'same-origin',
+    body: '',
+    respondWith: expect.any(Function),
+  })
 })

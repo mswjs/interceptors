@@ -4,36 +4,32 @@
  */
 import * as https from 'https'
 import { URL } from 'url'
-import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver() {},
+const httpServer = new HttpServer((app) => {
+  app.get('/resource', (req, res) => {
+    res.status(200).send('hello')
+  })
 })
+const interceptor = new ClientRequestInterceptor()
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/resource', (req, res) => {
-      res.status(200).send('hello')
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
 test('performs the original HTTPS request', (done) => {
   https
     .request(
-      new URL(httpServer.https.makeUrl('/resource')),
+      new URL(httpServer.https.url('/resource')),
       {
         method: 'GET',
         agent: httpsAgent,

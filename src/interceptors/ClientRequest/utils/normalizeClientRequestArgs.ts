@@ -1,6 +1,14 @@
 import { debug } from 'debug'
-import { Agent as HttpAgent, IncomingMessage } from 'http'
-import { RequestOptions, Agent as HttpsAgent } from 'https'
+import {
+  Agent as HttpAgent,
+  globalAgent as httpGlobalAgent,
+  IncomingMessage,
+} from 'http'
+import {
+  RequestOptions,
+  Agent as HttpsAgent,
+  globalAgent as httpsGlobalAgent,
+} from 'https'
 import { Url as LegacyURL } from 'url'
 import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
 import {
@@ -198,8 +206,27 @@ export function normalizeClientRequestArgs(
     log('resolved fallback agent:', agent)
   }
 
+  /**
+   * Ensure that the default Agent is always set.
+   * This prevents the protocol mismatch for requests with { agent: false },
+   * where the global Agent is inferred.
+   * @see https://github.com/mswjs/msw/issues/1150
+   * @see https://github.com/nodejs/node/blob/418ff70b810f0e7112d48baaa72932a56cfa213b/lib/_http_client.js#L130
+   * @see https://github.com/nodejs/node/blob/418ff70b810f0e7112d48baaa72932a56cfa213b/lib/_http_client.js#L157-L159
+   */
+  if (!options._defaultAgent) {
+    log(
+      'has no default agent, setting the default agent for "%s"',
+      options.protocol
+    )
+
+    options._defaultAgent =
+      options.protocol === 'https:' ? httpsGlobalAgent : httpGlobalAgent
+  }
+
   log('successfully resolved url:', url.href)
   log('successfully resolved options:', options)
+  log('successfully resolved callback:', callback)
 
   return [url, options, callback]
 }

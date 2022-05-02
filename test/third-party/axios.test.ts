@@ -2,50 +2,47 @@
  * @jest-environment jsdom
  */
 import axios from 'axios'
-import { ServerApi, createServer } from '@open-draft/test-server'
-import { createInterceptor } from '../../src'
-import nodeInterceptors from '../../src/presets/node'
+import { HttpServer } from '@open-draft/test-server/http'
+import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/books', (req, res) => {
+    res.status(200).json([
+      {
+        title: 'The Lord of the Rings',
+        author: 'J. R. R. Tolkien',
+      },
+      {
+        title: 'The Hobbit',
+        author: 'J. R. R. Tolkien',
+      },
+    ])
+  })
+})
 
-const interceptor = createInterceptor({
-  modules: nodeInterceptors,
-  resolver(request) {
-    if (request.url.pathname === '/user') {
-      return {
-        status: 200,
-        headers: {
-          'content-type': 'application/json',
-          'x-header': 'yes',
-        },
-        body: JSON.stringify({
-          mocked: true,
-        }),
-      }
-    }
-  },
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (request.url.pathname === '/user') {
+    request.respondWith({
+      status: 200,
+      headers: {
+        'content-type': 'application/json',
+        'x-header': 'yes',
+      },
+      body: JSON.stringify({
+        mocked: true,
+      }),
+    })
+  }
 })
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/books', (req, res) => {
-      res.status(200).json([
-        {
-          title: 'The Lord of the Rings',
-          author: 'J. R. R. Tolkien',
-        },
-        {
-          title: 'The Hobbit',
-          author: 'J. R. R. Tolkien',
-        },
-      ])
-    })
-  })
+  await httpServer.listen()
   interceptor.apply()
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
@@ -74,7 +71,7 @@ test('responds with a mocked response to an "axios.post()" request', async () =>
 })
 
 test('bypass the interceptor and return the original response', async () => {
-  const res = await axios.get(httpServer.http.makeUrl('/books'))
+  const res = await axios.get(httpServer.http.url('/books'))
 
   expect(res.status).toEqual(200)
   expect(res.data).toEqual([

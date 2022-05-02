@@ -3,17 +3,14 @@
  */
 import express from 'express'
 import supertest from 'supertest'
-import { createInterceptor } from '../../src'
-import { interceptClientRequest } from '../../src/interceptors/ClientRequest'
-import { IsomorphicRequest } from '../../src/createInterceptor'
+import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
+import { IsomorphicRequest } from '../../src/glossary'
 
 let requests: IsomorphicRequest[] = []
 
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(req) {
-    requests.push(req)
-  },
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  requests.push(request)
 })
 
 const app = express()
@@ -31,7 +28,7 @@ afterEach(() => {
 })
 
 afterAll(() => {
-  interceptor.restore()
+  interceptor.dispose()
 })
 
 test('preserves original POST request JSON body', async () => {

@@ -2,27 +2,24 @@
  * @jest-environment jsdom
  * @see https://github.com/mswjs/msw/issues/273
  */
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver(request) {
-    if (request.url.href === 'https://test.mswjs.io/user') {
-      return {
-        status: 200,
-        statusText: 'OK',
-        headers: {
-          'content-type': 'application/json',
-          'x-header': 'yes',
-        },
-        body: JSON.stringify({
-          mocked: true,
-        }),
-      }
-    }
-  },
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  if (request.url.href === 'https://test.mswjs.io/user') {
+    request.respondWith({
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        'content-type': 'application/json',
+        'x-header': 'yes',
+      },
+      body: JSON.stringify({
+        mocked: true,
+      }),
+    })
+  }
 })
 
 beforeAll(() => {
@@ -30,7 +27,7 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  interceptor.restore()
+  interceptor.dispose()
 })
 
 test('calls the "load" event attached via "addEventListener" with a mocked response', async () => {

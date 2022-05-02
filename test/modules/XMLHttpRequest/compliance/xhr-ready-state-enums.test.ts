@@ -1,20 +1,16 @@
 /**
  * @jest-environment jsdom
  */
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver() {},
-})
+const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
 })
 
 afterAll(() => {
-  interceptor.restore()
+  interceptor.dispose()
 })
 
 test('exposes ready state enums both as static and public properties', () => {

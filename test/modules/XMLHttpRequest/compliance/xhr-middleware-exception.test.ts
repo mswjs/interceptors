@@ -4,14 +4,11 @@
  */
 import fetch from 'node-fetch'
 import axios from 'axios'
-import { createInterceptor } from '../../../../src'
-import { interceptXMLHttpRequest } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-  resolver() {
-    throw new Error('Custom error message')
-  },
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.on('request', (request) => {
+  throw new Error('Custom error message')
 })
 
 beforeAll(() => {
@@ -19,7 +16,7 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  interceptor.restore()
+  interceptor.dispose()
 })
 
 test('propagates a custom error message to the fetch request error', () => {

@@ -3,34 +3,31 @@
  */
 import { IncomingMessage } from 'http'
 import * as https from 'https'
-import { ServerApi, createServer, httpsAgent } from '@open-draft/test-server'
-import { createInterceptor } from '../../../../src'
-import { interceptClientRequest } from '../../../../src/interceptors/ClientRequest'
+import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { getRequestOptionsByUrl } from '../../../../src/utils/getRequestOptionsByUrl'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let httpServer: ServerApi
+const httpServer = new HttpServer((app) => {
+  app.get('/get', (req, res) => {
+    res.status(200).send('/').end()
+  })
+})
 
-const interceptor = createInterceptor({
-  modules: [interceptClientRequest],
-  resolver(req) {
-    if ([httpServer.https.makeUrl('/get')].includes(req.url.href)) {
-      return
-    }
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  if ([httpServer.https.url('/get')].includes(request.url.href)) {
+    return
+  }
 
-    return {
-      status: 403,
-      statusText: 'Forbidden',
-      body: 'mocked-body',
-    }
-  },
+  request.respondWith({
+    status: 403,
+    statusText: 'Forbidden',
+    body: 'mocked-body',
+  })
 })
 
 beforeAll(async () => {
-  httpServer = await createServer((app) => {
-    app.get('/get', (req, res) => {
-      res.status(200).send('/').end()
-    })
-  })
+  await httpServer.listen()
 
   interceptor.apply()
 })
@@ -40,7 +37,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  interceptor.restore()
+  interceptor.dispose()
   await httpServer.close()
 })
 
@@ -61,7 +58,7 @@ test('calls a custom callback once when the request is bypassed', (done) => {
 
   https.get(
     {
-      ...getRequestOptionsByUrl(new URL(httpServer.https.makeUrl('/get'))),
+      ...getRequestOptionsByUrl(new URL(httpServer.https.url('/get'))),
       agent: httpsAgent,
     },
     responseCallback
@@ -85,9 +82,7 @@ test('calls a custom callback once when the response is mocked', (done) => {
 
   https.get(
     {
-      ...getRequestOptionsByUrl(
-        new URL(httpServer.https.makeUrl('/arbitrary'))
-      ),
+      ...getRequestOptionsByUrl(new URL(httpServer.https.url('/arbitrary'))),
       agent: httpsAgent,
     },
     responseCallback

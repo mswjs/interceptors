@@ -98,101 +98,111 @@ npm install @mswjs/interceptors
 
 ## API
 
-### `createInterceptor(options: CreateInterceptorOptions)`
+### Individual interceptors
 
-Enables request interception in the current process.
+There are multiple individual interceptors exported from this library:
+
+- `ClientRequestInterceptor`
+- `XMLHttpRequestInterceptor`
+- `FetchInterceptor`
+
+All aforementioned interceptors implement the same HTTP request interception contract, meaning that they allow you to handle intercepted requests in the same way, regardless of the request origin (`http`/`XMLHttpRequest`/`fetch`).
+
+To use multiple interceptors at once, consider [`BatchInterceptor`](#BatchInterceptor).
 
 ```js
-import { createInterceptor } from '@mswjs/interceptors'
+import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/ClientRequest'
+
+const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', (request) => {
+  // Introspect request or mock its response
+  // via "request.respondWith()".
+})
+```
+
+### `BatchInterceptor`
+
+Applies multiple request interceptors at the same time.
+
+```js
+import { BatchInterceptor } from '@mswjs/interceptors'
 import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
 
-const interceptor = createInterceptor({
-  modules: nodeInterceptors,
-  resolver(request, ref) {
-    // Optionally, return a mocked response.
-  },
+const interceptor = BatchInterceptor({
+  interceptors: nodeInterceptors,
+})
+
+interceptor.on('request', (request) => {
+  // Inspect the intercepted "request".
+  // Optionally, return a mocked response.
 })
 ```
 
 > Using the `/presets/node` interceptors preset is the recommended way to ensure all requests get intercepted, regardless of their origin.
 
-### `createRemoteInterceptor(options: CreateRemoteInterceptorOptions)`
+### `RemoteHttpInterceptor`
 
 Enables request interception in the current process while delegating the response resolution logic to the _parent process_. **Requires the current process to be a child process**. Requires the parent process to establish a resolver by calling the `createRemoteResolver` function.
 
 ```js
-import { createRemoteInterceptor } from '@mswjs/interceptors'
+// child.js
+import { RemoteHttpInterceptor } from '@mswjs/interceptors'
+import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/ClientRequest'
 
-const interceptor = createRemoteInterceptor({
-  modules: nodeInterceptors,
+const interceptor = new RemoteHttpInterceptor({
+  // Alternatively, you can use presets.
+  interceptors: [new ClientRequestInterceptor()],
 })
 
 interceptor.apply()
 
 process.on('disconnect', () => {
-  interceptor.restore()
+  interceptor.dispose()
 })
 ```
+
+You can still listen to and handle any requests in the child process via the `request` event listener. Keep in mind that a single request can only be responded to once.
 
 ### `createRemoteResolver(options: CreateRemoteResolverOptions)`
 
 Resolves an intercepted request in the given child `process`. Requires for that child process to enable request interception by calling the `createRemoteInterceptor` function.
 
 ```js
+// parent.js
 import { spawn } from 'child_process'
-import { createRemoteResolver } from '@mswjs/interceptors'
+import { RemoteHttpResolver } from '@mswjs/interceptors'
 
 const appProcess = spawn('node', ['app.js'], {
   stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
 })
 
-createRemoteResolver({
+const resolver = new RemoteHttpResolver({
   process: appProcess,
-  resolver(request) {
-    // Optionally, return a mocked response
-    // for a request that occurred in the "appProcess".
-  },
+})
+
+resolver.on('request', (request) => {
+  // Optionally, return a mocked response
+  // for a request that occurred in the "appProcess".
 })
 ```
-
-### Interceptors
-
-This library utilizes a concept of _interceptors_–functions that extend request modules, handle mocked responses, and restore themselves when done.
-
-**Available interceptors:**
-
-- `/interceptors/ClientRequest`
-- `/interceptors/XMLHttpRequest`
-- `/interceptors/fetch`
-
-To use a single, or multiple interceptors, import and provide them to the `createInterceptor` function.
-
-```js
-import { createInterceptor } from '@mswjs/interceptors'
-import { interceptXMLHttpRequest } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
-
-// This `interceptor` instance would handle only XMLHttpRequest,
-// ignoring requests issued via `http`/`https` modules.
-const interceptor = createInterceptor({
-  modules: [interceptXMLHttpRequest],
-})
-```
-
-> Interceptors are crucial in leveraging environment-specific module overrides. Certain environments (i.e. React Native) do not have access to native Node.js modules (like `http`). Importing such modules throws an exception and should be avoided.
 
 ### Methods
 
-#### `.apply(): void`
+#### `apply`
 
-Applies module patches and enables interception of the requests.
+Applies interceptor, enabling the interception of requests in the current process.
 
 ```js
 interceptor.apply()
 ```
 
-#### `.on(event, listener): boolean`
+The same interceptor can be applied multiple times. If that happens, each subsequent interceptor instance will reusing a single running instance instead of applying itself repeatedly. Each interceptor instance should still be disposed individually.
 
-Adds an event listener to one of the following supported events:
+#### `on`
+
+Listens to the interceptor events.
+
+Each interceptor decides what event map to implement. Currently, all exported interceptors implement an HTTP request event map that consists of the following events:
 
 - `request`, signals when a new request happens;
 - `response`, signals when a response was sent.
@@ -201,14 +211,23 @@ Adds an event listener to one of the following supported events:
 interceptor.on('request', (request) => {
   console.log('[%s] %s', request.method, request.url.toString())
 })
+
+interceptor.on('response', (request, response) => {
+  console.log(
+    'Received response to [%s] %s:',
+    request.method,
+    request.url.href,
+    response
+  )
+})
 ```
 
-#### `.restore(): void`
+#### `dispose`
 
-Restores all extensions and stops the interception of future requests.
+Disposes of the applied interceptor. This cleans up all the side-effects introduced by the interceptor (i.e. restores augmented modules).
 
 ```js
-interceptor.restore()
+interceptor.dispose()
 ```
 
 ## Special mention
