@@ -26,9 +26,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected setup() {
-    const pureFetch = window.fetch
+    const pureFetch = global.fetch
 
-    window.fetch = async (input, init) => {
+    global.fetch = async (input, init) => {
       const request = new Request(input, init)
       const url = typeof input === 'string' ? input : input.url
       const method = request.method
@@ -94,8 +94,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     }
 
     this.subscriptions.push(() => {
-      window.fetch = pureFetch
-      this.log('restored native "window.fetch"!', window.fetch.name)
+      global.fetch = pureFetch
+      this.log('restored native "window.fetch"!', global.fetch.name)
     })
   }
 }
