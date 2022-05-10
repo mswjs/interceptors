@@ -22,7 +22,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected checkEnvironment() {
-    return typeof window !== 'undefined' && typeof window.fetch !== 'undefined'
+    return (
+      typeof globalThis !== 'undefined' &&
+      typeof globalThis.fetch !== 'undefined'
+    )
   }
 
   protected setup() {
@@ -95,7 +98,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
     this.subscriptions.push(() => {
       globalThis.fetch = pureFetch
-      this.log('restored native "window.fetch"!', globalThis.fetch.name)
+      this.log('restored native "globalThis.fetch"!', globalThis.fetch.name)
     })
   }
 }
