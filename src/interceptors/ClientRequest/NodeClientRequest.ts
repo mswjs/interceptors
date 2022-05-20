@@ -40,7 +40,12 @@ export class NodeClientRequest extends ClientRequest {
    * The list of internal Node.js errors to suppress while
    * using the "mock" response source.
    */
-  static suppressErrorCodes = ['ENOTFOUND', 'ECONNREFUSED', 'ECONNRESET']
+  static suppressErrorCodes = [
+    'ENOTFOUND',
+    'ECONNREFUSED',
+    'ECONNRESET',
+    'EAI_AGAIN',
+  ]
 
   private url: URL
   private options: RequestOptions
