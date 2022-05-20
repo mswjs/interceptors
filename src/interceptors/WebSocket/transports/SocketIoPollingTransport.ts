@@ -118,8 +118,6 @@ export class SocketIoPollingTransport extends Transport {
                 resolve(createPingResponse())
               })
 
-              // Resolve the ping request immediately if the server
-              // sends something to the client.
               /**
                * @todo @fixme Check how this behaves with multiple
                * clients that ping/poing at the same time.
@@ -127,6 +125,10 @@ export class SocketIoPollingTransport extends Transport {
                */
               this.emitter.once('transport:send', (data) => {
                 log('<- message (server)')
+
+                // Resolve the ping request immediately if the server
+                // sends something to the client. This pending polling request
+                // is the means to find out when a server-sent event happens.
                 resolve(data)
               })
             }).finally(() => {
