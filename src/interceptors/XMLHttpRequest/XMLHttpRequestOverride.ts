@@ -138,7 +138,7 @@ export const createXMLHttpRequestOverride = (
       this.responseText = ''
       this.responseXML = null
       this.responseURL = ''
-      this.upload = {} as any
+      this.upload = { addEventListener: () => {} } as any
       this.timeout = 0
 
       this._requestHeaders = new Headers()
