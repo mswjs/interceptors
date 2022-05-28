@@ -159,8 +159,15 @@ export class NodeClientRequest extends ClientRequest {
     // Execute the resolver Promise like a side-effect.
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
     until(async () => {
-      await this.emitter.untilIdle('request')
-      this.log('all request listeners have been resolved!')
+      await this.emitter.untilIdle('request', ({ args: [request] }) => {
+        /**
+         * @note Await only those listeners that are relevant to this request.
+         * This prevents extraneous parallel request from blocking the resolution
+         * of another, unrelated request. For example, during response patching,
+         * when request resolution is nested.
+         */
+        return request.id === interactiveIsomorphicRequest.id
+      })
 
       const [mockedResponse] =
         await interactiveIsomorphicRequest.respondWith.invoked()
