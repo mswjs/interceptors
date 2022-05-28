@@ -129,6 +129,7 @@ import { BatchInterceptor } from '@mswjs/interceptors'
 import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
 
 const interceptor = BatchInterceptor({
+  name: 'my-interceptor',
   interceptors: nodeInterceptors,
 })
 
@@ -146,7 +147,7 @@ Enables request interception in the current process while delegating the respons
 
 ```js
 // child.js
-import { RemoteHttpInterceptor } from '@mswjs/interceptors'
+import { RemoteHttpInterceptor } from '@mswjs/interceptors/lib/RemoteHttpInterceptor'
 import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/ClientRequest'
 
 const interceptor = new RemoteHttpInterceptor({
@@ -163,14 +164,14 @@ process.on('disconnect', () => {
 
 You can still listen to and handle any requests in the child process via the `request` event listener. Keep in mind that a single request can only be responded to once.
 
-### `createRemoteResolver(options: CreateRemoteResolverOptions)`
+### `RemoteHttpResolver`
 
 Resolves an intercepted request in the given child `process`. Requires for that child process to enable request interception by calling the `createRemoteInterceptor` function.
 
 ```js
 // parent.js
 import { spawn } from 'child_process'
-import { RemoteHttpResolver } from '@mswjs/interceptors'
+import { RemoteHttpResolver } from '@mswjs/interceptors/lib/RemoteHttpInterceptor'
 
 const appProcess = spawn('node', ['app.js'], {
   stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
