@@ -320,6 +320,7 @@ export const createXMLHttpRequestOverride = (
 
           this.log('response type', this.responseType)
           this.response = this.getResponseBody(mockedResponse.body)
+          this.responseURL = this.url
           this.responseText = mockedResponse.body || ''
           this.responseXML = this.getResponseXML()
 
