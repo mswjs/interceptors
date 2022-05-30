@@ -15,6 +15,7 @@ declare namespace window {
 }
 
 interface SerializedResponse {
+  url: Response['url']
   type: Response['type']
   status: Response['status']
   statusText: Response['statusText']
@@ -60,6 +61,7 @@ test('responds to an HTTP request handled in the resolver', async () => {
   const response: SerializedResponse = await context.page.evaluate((url) => {
     return fetch(url).then((response) => {
       return response.json().then((json) => ({
+        url: response.url,
         type: response.type,
         status: response.status,
         statusText: response.statusText,
@@ -73,6 +75,7 @@ test('responds to an HTTP request handled in the resolver', async () => {
   }, httpServer.http.url('/'))
   const headers = listToHeaders(response.headers)
 
+  expect(response.url).toBe(httpServer.http.url('/'))
   expect(response.type).toBe('default')
   expect(response.status).toBe(201)
   expect(response.statusText).toBe('OK')
@@ -89,6 +92,7 @@ test('bypasses an HTTP request not handled in the resolver', async () => {
   const response: SerializedResponse = await context.page.evaluate((url) => {
     return fetch(url).then((response) => {
       return {
+        url: response.url,
         type: response.type,
         status: response.status,
         statusText: response.statusText,
@@ -101,6 +105,7 @@ test('bypasses an HTTP request not handled in the resolver', async () => {
   }, httpServer.http.url('/get'))
   const headers = listToHeaders(response.headers)
 
+  expect(response.url).toBe(httpServer.http.url('/get'))
   expect(response.type).toBe('cors')
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
@@ -117,6 +122,7 @@ test('responds to an HTTPS request handled in the resolver', async () => {
      */
     return fetch(url).then((response) => {
       return response.json().then((json) => ({
+        url: response.url,
         type: response.type,
         status: response.status,
         statusText: response.statusText,
@@ -130,6 +136,7 @@ test('responds to an HTTPS request handled in the resolver', async () => {
   }, httpServer.https.url('/'))
   const headers = listToHeaders(response.headers)
 
+  expect(response.url).toBe(httpServer.https.url('/'))
   expect(response.type).toBe('default')
   expect(response.status).toBe(201)
   expect(response.statusText).toBe('OK')
@@ -146,6 +153,7 @@ test('bypasses an HTTPS request not handled in the resolver', async () => {
   const response: SerializedResponse = await context.page.evaluate((url) => {
     return fetch(url).then((response) => {
       return {
+        url: response.url,
         type: response.type,
         status: response.status,
         statusText: response.statusText,
@@ -158,6 +166,7 @@ test('bypasses an HTTPS request not handled in the resolver', async () => {
   }, httpServer.https.url('/get'))
   const headers = listToHeaders(response.headers)
 
+  expect(response.url).toBe(httpServer.https.url('/get'))
   expect(response.type).toBe('cors')
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
@@ -177,6 +186,7 @@ test('bypasses any request when the interceptor is restored', async () => {
     (url) => {
       return fetch(url).then((response) => {
         return {
+          url: response.url,
           type: response.type,
           status: response.status,
           statusText: response.statusText,
@@ -190,6 +200,7 @@ test('bypasses any request when the interceptor is restored', async () => {
     httpServer.http.url('/')
   )
 
+  expect(httpResponse.url).toBe(httpServer.http.url('/'))
   expect(httpResponse.type).toBe('cors')
   expect(httpResponse.status).toBe(200)
 
@@ -197,6 +208,7 @@ test('bypasses any request when the interceptor is restored', async () => {
     (url) => {
       return fetch(url).then((response) => {
         return {
+          url: response.url,
           type: response.type,
           status: response.status,
           statusText: response.statusText,
@@ -207,9 +219,10 @@ test('bypasses any request when the interceptor is restored', async () => {
         }
       })
     },
-    httpServer.http.url('/get')
+    httpServer.https.url('/get')
   )
 
+  expect(httpsResponse.url).toBe(httpServer.https.url('/get'))
   expect(httpsResponse.type).toBe('cors')
   expect(httpsResponse.status).toBe(200)
 })

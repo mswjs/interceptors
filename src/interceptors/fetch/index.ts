@@ -75,13 +75,23 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
         this.emitter.emit('response', isomorphicRequest, isomorphicResponse)
 
-        return new Response(mockedResponse.body, {
+        const response = new Response(mockedResponse.body, {
           ...isomorphicResponse,
           // `Response.headers` cannot be instantiated with the `Headers` polyfill.
           // Apparently, it halts if the `Headers` class contains unknown properties
           // (i.e. the internal `Headers.map`).
           headers: flattenHeadersObject(mockedResponse.headers || {}),
         })
+
+        // Set the "response.url" property to equal the intercepted request URL.
+        Object.defineProperty(response, 'url', {
+          writable: false,
+          enumerable: true,
+          configurable: false,
+          value: isomorphicRequest.url.href,
+        })
+
+        return response
       }
 
       this.log('no mocked response received!')
