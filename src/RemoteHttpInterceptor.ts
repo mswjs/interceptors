@@ -131,7 +131,9 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       }
 
       this.emitter.emit('request', interactiveIsomorphicRequest)
-      await this.emitter.untilIdle('request')
+      await this.emitter.untilIdle('request', ({ args: [request] }) => {
+        return request.id === interactiveIsomorphicRequest.id
+      })
       const [mockedResponse] =
         await interactiveIsomorphicRequest.respondWith.invoked()
 
