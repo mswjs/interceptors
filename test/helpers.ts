@@ -205,10 +205,19 @@ export async function extractRequestFromPage(
   page: Page
 ): Promise<IsomorphicRequest> {
   const request = await page.evaluate(() => {
-    return new Promise<StringifiedIsomorphicRequest>((resolve) => {
+    return new Promise<StringifiedIsomorphicRequest>((resolve, reject) => {
+      const timeoutTimer = setTimeout(() => {
+        reject(
+          new Error(
+            'Browser runtime module did not dispatch the custom "resolver" event'
+          )
+        )
+      }, 5000)
+
       window.addEventListener(
         'resolver' as any,
         (event: CustomEvent<string>) => {
+          clearTimeout(timeoutTimer)
           resolve(JSON.parse(event.detail))
         }
       )

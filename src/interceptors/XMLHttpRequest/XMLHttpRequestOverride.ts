@@ -272,7 +272,9 @@ export const createXMLHttpRequestOverride = (
 
       Promise.resolve(
         until(async () => {
-          await emitter.untilIdle('request')
+          await emitter.untilIdle('request', ({ args: [request] }) => {
+            return request.id === interactiveIsomorphicRequest.id
+          })
           this.log('all request listeners have been resolved!')
 
           const [mockedResponse] =
@@ -320,6 +322,7 @@ export const createXMLHttpRequestOverride = (
 
           this.log('response type', this.responseType)
           this.response = this.getResponseBody(mockedResponse.body)
+          this.responseURL = this.url
           this.responseText = mockedResponse.body || ''
           this.responseXML = this.getResponseXML()
 

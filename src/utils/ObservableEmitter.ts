@@ -2,11 +2,15 @@ import { debug, Debugger } from 'debug'
 import type { EventMapType } from 'strict-event-emitter'
 import { getStackTrace } from './getStackTrace'
 
-export type EventRecord<ListenerType extends (...args: unknown[]) => unknown> =
-  {
-    listeners: Set<ListenerType>
-    queue: Set<Promise<unknown>>
-  }
+export interface QueueItem<Args extends unknown[]> {
+  args: Args
+  done: Promise<unknown>
+}
+
+export type EventRecord<Listener extends (...args: unknown[]) => unknown> = {
+  listeners: Set<Listener>
+  queue: QueueItem<Parameters<Listener>>[]
+}
 
 export class ObservableEmitter<EventMap extends EventMapType = {}> {
   private log: Debugger
@@ -105,7 +109,10 @@ export class ObservableEmitter<EventMap extends EventMapType = {}> {
     )
 
     for (const listener of listeners) {
-      queue.add(this.wrapListener(listener, ...args))
+      queue.push({
+        args,
+        done: this.wrapListener(listener, ...args),
+      })
     }
   }
 
@@ -117,12 +124,16 @@ export class ObservableEmitter<EventMap extends EventMapType = {}> {
     return this.events.get(event)?.listeners.size || 0
   }
 
-  public untilIdle<Event extends keyof EventMap>(event: Event): Promise<void> {
+  public untilIdle<Event extends keyof EventMap>(
+    event: Event,
+    predicate: (item: QueueItem<Parameters<EventMap[Event]>>) => boolean = () =>
+      true
+  ): Promise<void> {
     const { queue } = this.getEvent(event)
 
     this.log('awaiting "%s" listeners queue...', event, queue)
 
-    return Promise.all(queue)
+    return Promise.all(queue.filter(predicate).map(({ done }) => done))
       .then(() => {
         this.log('all "%s" listeners have resolved!', event, queue)
       })
@@ -147,7 +158,7 @@ export class ObservableEmitter<EventMap extends EventMapType = {}> {
 
     this.events.set(event, {
       listeners: new Set(),
-      queue: new Set(),
+      queue: [],
     })
 
     return this.events.get(event)!
@@ -165,6 +176,10 @@ export class ObservableEmitter<EventMap extends EventMapType = {}> {
   }
 
   private clearQueue<Event extends keyof EventMap>(event: Event): void {
-    this.events.get(event)?.queue.clear()
+    const events = this.events.get(event)
+
+    if (events) {
+      events.queue = []
+    }
   }
 }

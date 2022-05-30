@@ -129,7 +129,37 @@ describe('untilIdle', () => {
     await emitter.untilIdle('greet')
 
     expect(listener).toHaveBeenCalledTimes(1)
-    expect(emitter['events'].get('greet')?.queue).toEqual(new Set())
+    expect(emitter['events'].get('greet')?.queue).toEqual([])
+  })
+
+  it('resolves "untilIdle" only for the relevant listeners', async () => {
+    const emitter = new ObservableEmitter<{ signal(code: number): void }>()
+
+    const results: number[] = []
+    const listener = jest.fn(async (code: number) => {
+      if (code !== 1) {
+        // Delay listener based on the signal code.
+        await sleep(150)
+      }
+
+      results.push(code)
+    })
+    emitter.on('signal', listener)
+
+    emitter.emit('signal', 1)
+    emitter.emit('signal', 2)
+
+    const resultsAfterIdle = await emitter
+      .untilIdle('signal', ({ args: [code] }) => {
+        return code === 1
+      })
+      .then(() => results)
+
+    await emitter.untilIdle('signal')
+
+    expect(listener).toHaveBeenCalled()
+    expect(resultsAfterIdle).toEqual([1])
+    expect(emitter['events'].get('signal')?.queue).toEqual([])
   })
 
   it('rejects if one of the listeners throws', async () => {
@@ -150,6 +180,6 @@ describe('untilIdle', () => {
     expect(listener).toHaveBeenCalledTimes(1)
 
     // The queue must be cleaned nonetheless.
-    expect(emitter['events'].get('greet')?.queue).toEqual(new Set())
+    expect(emitter['events'].get('greet')?.queue).toEqual([])
   })
 })

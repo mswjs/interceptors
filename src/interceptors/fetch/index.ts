@@ -22,14 +22,18 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected checkEnvironment() {
-    return typeof window !== 'undefined' && typeof window.fetch !== 'undefined'
+    return (
+      typeof globalThis !== 'undefined' &&
+      typeof globalThis.fetch !== 'undefined'
+    )
   }
 
   protected setup() {
-    const pureFetch = window.fetch
+    const pureFetch = globalThis.fetch
 
-    window.fetch = async (input, init) => {
+    globalThis.fetch = async (input, init) => {
       const request = new Request(input, init)
+
       const url = typeof input === 'string' ? input : input.url
       const method = request.method
 
@@ -55,7 +59,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.log('awaiting for the mocked response...')
 
-      await this.emitter.untilIdle('request')
+      await this.emitter.untilIdle('request', ({ args: [request] }) => {
+        return request.id === isomorphicRequest.id
+      })
       this.log('all request listeners have been resolved!')
 
       const [mockedResponse] = await isomorphicRequest.respondWith.invoked()
@@ -69,13 +75,23 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
         this.emitter.emit('response', isomorphicRequest, isomorphicResponse)
 
-        return new Response(mockedResponse.body, {
+        const response = new Response(mockedResponse.body, {
           ...isomorphicResponse,
           // `Response.headers` cannot be instantiated with the `Headers` polyfill.
           // Apparently, it halts if the `Headers` class contains unknown properties
           // (i.e. the internal `Headers.map`).
           headers: flattenHeadersObject(mockedResponse.headers || {}),
         })
+
+        // Set the "response.url" property to equal the intercepted request URL.
+        Object.defineProperty(response, 'url', {
+          writable: false,
+          enumerable: true,
+          configurable: false,
+          value: isomorphicRequest.url.href,
+        })
+
+        return response
       }
 
       this.log('no mocked response received!')
@@ -94,8 +110,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     }
 
     this.subscriptions.push(() => {
-      window.fetch = pureFetch
-      this.log('restored native "window.fetch"!', window.fetch.name)
+      globalThis.fetch = pureFetch
+      this.log('restored native "globalThis.fetch"!', globalThis.fetch.name)
     })
   }
 }
