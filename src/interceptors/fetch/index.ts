@@ -31,12 +31,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   protected setup() {
     const pureFetch = globalThis.fetch
 
-    console.log({ pureFetch })
-
     globalThis.fetch = async (input, init) => {
       const request = new Request(input, init)
-
-      console.log({ input, init })
 
       const url = typeof input === 'string' ? input : input.url
       const method = request.method
