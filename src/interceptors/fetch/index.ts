@@ -33,6 +33,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
     globalThis.fetch = async (input, init) => {
       const request = new Request(input, init)
+
       const url = typeof input === 'string' ? input : input.url
       const method = request.method
 
@@ -58,7 +59,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.log('awaiting for the mocked response...')
 
-      await this.emitter.untilIdle('request')
+      await this.emitter.untilIdle('request', ({ args: [request] }) => {
+        return request.id === isomorphicRequest.id
+      })
       this.log('all request listeners have been resolved!')
 
       const [mockedResponse] = await isomorphicRequest.respondWith.invoked()

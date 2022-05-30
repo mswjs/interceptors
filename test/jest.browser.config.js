@@ -1,5 +1,5 @@
 module.exports = {
-  testTimeout: 60000,
+  testTimeout: 15000,
   testMatch: ['**/*.browser.test.ts'],
   setupFilesAfterEnv: ['./jest.browser.setup.ts'],
   transform: {

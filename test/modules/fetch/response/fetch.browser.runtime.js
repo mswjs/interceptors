@@ -1,6 +1,7 @@
 import { FetchInterceptor } from '@mswjs/interceptors/lib/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
+
 interceptor.on('request', (request) => {
   const { serverHttpUrl, serverHttpsUrl } = window
 
