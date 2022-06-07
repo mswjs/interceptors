@@ -31,7 +31,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-test('preserves original POST request JSON body', async () => {
+test('request is sent with req.end(data)', async () => {
   const data = JSON.stringify({ todo: 'Buy the milk' })
 
   const options = {
