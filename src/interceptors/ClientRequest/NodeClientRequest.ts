@@ -55,7 +55,6 @@ export class NodeClientRequest extends ClientRequest {
   private chunks: Array<{
     chunk?: string | Buffer
     encoding?: BufferEncoding
-    callback?: ClientRequestWriteCallback
   }> = []
   private responseSource: 'mock' | 'bypass' = 'mock'
   private capturedError?: NodeJS.ErrnoException
@@ -89,35 +88,19 @@ export class NodeClientRequest extends ClientRequest {
   write(...args: ClientRequestWriteArgs): boolean {
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
     this.log('write:', { chunk, encoding, callback })
-
-    this.chunks.push({
-      chunk,
-      encoding,
-      callback: (error?: Error | null) => {
-        this.log('executing custom callback...')
-
-        if (error) {
-          this.log('error while writing chunk!', error)
-        } else {
-          this.log('request chunk successfully written!')
-        }
-
-        /**
-         * Prevent invoking the callback if the written chunk is empty.
-         * @see https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
-         */
-        if (!chunk || chunk.length === 0) {
-          this.log('written chunk is empty, skipping callback...')
-          return
-        }
-
-        this.log('executing custom write callback:', callback)
-        callback?.(error)
-      },
-    })
-
+    this.chunks.push({ chunk, encoding })
     this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
     this.log('chunk successfully stored!', this.requestBody)
+
+    /**
+     * Prevent invoking the callback if the written chunk is empty.
+     * @see https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
+     */
+    if (!chunk || chunk.length === 0) {
+      this.log('written chunk is empty, skipping callback...')
+    } else {
+      callback?.()
+    }
 
     // Do not write the request body chunks to prevent
     // the Socket from sending data to a potentially existing
@@ -230,10 +213,12 @@ export class NodeClientRequest extends ClientRequest {
       // existing server.
       this.log('writing request chunks...', this.chunks)
 
-      for (const { chunk, encoding, callback } of this.chunks) {
-        encoding
-          ? super.write(chunk, encoding, callback)
-          : super.write(chunk, callback)
+      for (const { chunk, encoding } of this.chunks) {
+        if (encoding) {
+          super.write(chunk, encoding)
+        } else {
+          super.write(chunk)
+        }
       }
 
       this.once('error', (error) => {
@@ -296,7 +281,7 @@ export class NodeClientRequest extends ClientRequest {
 
         this.emit('response-internal', secondClone)
 
-        this.log('response successfuly cloned, emitting "response" event...')
+        this.log('response successfully cloned, emitting "response" event...')
         return super.emit(event, firstClone, ...data.slice(1))
       } catch (error) {
         this.log('error when cloning response:', error)
@@ -310,7 +295,7 @@ export class NodeClientRequest extends ClientRequest {
 
       this.log('error:\n', error)
 
-      // Supress certain errors while using the "mock" source.
+      // Suppress certain errors while using the "mock" source.
       // For example, no need to destroy this request if it connects
       // to a non-existing hostname but has a mocked response.
       if (
