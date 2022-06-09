@@ -214,7 +214,11 @@ export class NodeClientRequest extends ClientRequest {
       this.log('writing request chunks...', this.chunks)
 
       for (const { chunk, encoding } of this.chunks) {
-        encoding ? super.write(chunk, encoding) : super.write(chunk)
+        if (encoding) {
+          super.write(chunk, encoding)
+        } else {
+          super.write(chunk)
+        }
       }
 
       this.once('error', (error) => {
