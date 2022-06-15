@@ -1,5 +1,6 @@
 import http from 'http'
 import https from 'https'
+import { invariant } from 'outvariant'
 import { HttpRequestEventMap } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
@@ -7,9 +8,18 @@ import { get } from './http.get'
 import { request } from './http.request'
 import { NodeClientOptions, Protocol } from './NodeClientRequest'
 
+export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
+
+export type MaybePatchedModule<Module> = Module & {
+  [IS_PATCHED_MODULE]?: boolean
+}
+
 export type ClientRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
 
-export type ClientRequestModules = Map<Protocol, typeof http | typeof https>
+export type ClientRequestModules = Map<
+  Protocol,
+  MaybePatchedModule<typeof http> | MaybePatchedModule<typeof https>
+>
 
 /**
  * Intercept requests made via the `ClientRequest` class.
@@ -33,7 +43,17 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     for (const [protocol, requestModule] of this.modules) {
       const { request: pureRequest, get: pureGet } = requestModule
 
+      invariant(
+        !(IS_PATCHED_MODULE in requestModule),
+        'Failed to patch the "%s" module: already patched.',
+        protocol
+      )
+
       this.subscriptions.push(() => {
+        Object.defineProperty(requestModule, IS_PATCHED_MODULE, {
+          value: undefined,
+        })
+
         requestModule.request = pureRequest
         requestModule.get = pureGet
 
@@ -54,6 +74,12 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       requestModule.get =
         // Force a line break.
         get(protocol, options)
+
+      Object.defineProperty(requestModule, IS_PATCHED_MODULE, {
+        configurable: true,
+        enumerable: true,
+        value: true,
+      })
 
       log('native "%s" module patched!', protocol)
     }
