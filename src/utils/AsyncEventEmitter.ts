@@ -1,4 +1,5 @@
 import { Debugger, debug } from 'debug'
+import { invariant } from 'outvariant'
 import { StrictEventEmitter, EventMapType } from 'strict-event-emitter'
 import { nextTick } from './nextTick'
 
@@ -12,11 +13,17 @@ export enum AsyncEventEmitterReadyState {
   DEACTIVATED = 'DEACTIVATED',
 }
 
+export type InternalEventMap<EventMap extends EventMapType> = Record<
+  keyof EventMap,
+  Array<() => unknown>
+>
+
 export class AsyncEventEmitter<
   EventMap extends EventMapType
 > extends StrictEventEmitter<EventMap> {
   public readyState: AsyncEventEmitterReadyState
 
+  private _events: InternalEventMap<EventMap>
   private log: Debugger
   protected queue: Map<
     keyof EventMap,
@@ -25,6 +32,7 @@ export class AsyncEventEmitter<
 
   constructor() {
     super()
+    this._events = {} as InternalEventMap<EventMap>
 
     this.log = debug('async-event-emitter')
     this.queue = new Map()
@@ -38,7 +46,14 @@ export class AsyncEventEmitter<
   ) {
     const log = this.log.extend('on')
 
-    log('adding "%s" listener...', event)
+    const maxListenersCount = this.getMaxListeners()
+    invariant(
+      maxListenersCount === 0 || this.listenerCount(event) < maxListenersCount,
+      'Cannot append a "%s" listener: listeners count exceed maximum allowed value.',
+      event
+    )
+
+    log('adding "%s" listener (total: %d)...', event, this.listenerCount(event))
 
     if (this.readyState === AsyncEventEmitterReadyState.DEACTIVATED) {
       log('the emitter is destroyed, skipping!')
@@ -160,6 +175,18 @@ export class AsyncEventEmitter<
     return super.removeAllListeners(event)
   }
 
+  /**
+   * Remove all listeners for the given event
+   * and ensure that all internal listeners for that event
+   * are pruned. `super.removeAllListeners()` does not clean up
+   * internal `_events` record, which causes listeners to persist
+   * even after being removed.
+   */
+  public pruneListeners<Event extends keyof EventMap>(event?: Event): void {
+    this.removeAllListeners(event)
+    this.removeInternalListeners(event)
+  }
+
   public activate(): void {
     const log = this.log.extend('activate')
     this.readyState = AsyncEventEmitterReadyState.ACTIVE
@@ -179,5 +206,16 @@ export class AsyncEventEmitter<
 
     this.readyState = AsyncEventEmitterReadyState.DEACTIVATED
     log('set state to:', this.readyState)
+  }
+
+  private removeInternalListeners<Event extends keyof EventMap>(
+    event?: Event
+  ): void {
+    if (event) {
+      this._events[event] = []
+    }
+
+    this._events = {} as InternalEventMap<EventMap>
+    return
   }
 }

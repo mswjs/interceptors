@@ -31,12 +31,21 @@ export class BatchInterceptor<
     BatchInterceptor.symbol = Symbol(options.name)
     super(BatchInterceptor.symbol)
     this.interceptors = options.interceptors
+
+    /**
+     * Ensure that child interceptors have no event listeners
+     * when the batch interceptor is constructed. The listeners may
+     * persists between Fast Refresh in modern apps, causing
+     * the same intercepted request to be handled multiple times.
+     * @see https://github.com/mswjs/msw/issues/1271
+     */
+    for (const interceptor of this.interceptors) {
+      interceptor['emitter'].pruneListeners()
+    }
   }
 
   protected setup() {
     const log = this.log.extend('setup')
-
-    log('applying all %d interceptors...', this.interceptors.length)
 
     for (const interceptor of this.interceptors) {
       log('applying "%s" interceptor...', interceptor.constructor.name)

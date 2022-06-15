@@ -111,3 +111,42 @@ it('disposes of child interceptors', async () => {
   expect(primaryDisposeSpy).toHaveBeenCalledTimes(1)
   expect(secondaryDisposeSpy).toHaveBeenCalledTimes(1)
 })
+
+it('prunes child interceptor listeners when constructing a batch interceptor', () => {
+  class PrimaryInterceptor extends Interceptor<any> {
+    constructor() {
+      super(Symbol('primary'))
+    }
+  }
+
+  class SecondaryInterceptor extends Interceptor<any> {
+    constructor() {
+      super(Symbol('secondary'))
+    }
+  }
+
+  const secondary = new SecondaryInterceptor()
+  secondary.on('request', () => {})
+
+  const instances = {
+    primary: new PrimaryInterceptor(),
+    secondary,
+  }
+
+  const interceptor = new BatchInterceptor({
+    name: 'batch-prune-listeners',
+    interceptors: [instances.primary, instances.secondary],
+  })
+  interceptor.apply()
+
+  // Any existing listeners have been pruned.
+  expect(secondary['emitter'].listenerCount('request')).toBe(0)
+
+  // Any addition listeners are added as usual.
+  const listener = jest.fn()
+  interceptor.on('request', listener)
+  expect(instances.primary['emitter'].listenerCount('request')).toBe(1)
+  expect(instances.secondary['emitter'].listenerCount('request')).toBe(1)
+
+  interceptor.dispose()
+})
