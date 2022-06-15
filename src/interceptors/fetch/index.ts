@@ -34,7 +34,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     const pureFetch = globalThis.fetch
 
     invariant(
-      !(IS_PATCHED_MODULE in pureFetch),
+      !(pureFetch as any)[IS_PATCHED_MODULE],
       'Failed to patch the "fetch" module: already patched.'
     )
 

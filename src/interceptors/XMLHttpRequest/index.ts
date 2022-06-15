@@ -36,7 +36,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     const PureXMLHttpRequest = window.XMLHttpRequest
 
     invariant(
-      !(IS_PATCHED_MODULE in PureXMLHttpRequest),
+      !(PureXMLHttpRequest as any)[IS_PATCHED_MODULE],
       'Failed to patch the "XMLHttpRequest" module: already patched.'
     )
 

@@ -42,7 +42,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       const { request: pureRequest, get: pureGet } = requestModule
 
       invariant(
-        !(IS_PATCHED_MODULE in requestModule),
+        !requestModule[IS_PATCHED_MODULE],
         'Failed to patch the "%s" module: already patched.',
         protocol
       )
