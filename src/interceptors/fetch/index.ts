@@ -4,10 +4,12 @@ import {
   objectToHeaders,
   headersToObject,
 } from 'headers-polyfill'
-import type {
+import { invariant } from 'outvariant'
+import {
   HttpRequestEventMap,
   InteractiveIsomorphicRequest,
   IsomorphicResponse,
+  IS_PATCHED_MODULE,
 } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { createLazyCallback } from '../../utils/createLazyCallback'
@@ -30,6 +32,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
   protected setup() {
     const pureFetch = globalThis.fetch
+
+    invariant(
+      !(pureFetch as any)[IS_PATCHED_MODULE],
+      'Failed to patch the "fetch" module: already patched.'
+    )
 
     globalThis.fetch = async (input, init) => {
       const request = new Request(input, init)
@@ -109,8 +116,19 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       })
     }
 
+    Object.defineProperty(globalThis.fetch, IS_PATCHED_MODULE, {
+      enumerable: true,
+      configurable: true,
+      value: true,
+    })
+
     this.subscriptions.push(() => {
+      Object.defineProperty(globalThis.fetch, IS_PATCHED_MODULE, {
+        value: undefined,
+      })
+
       globalThis.fetch = pureFetch
+
       this.log('restored native "globalThis.fetch"!', globalThis.fetch.name)
     })
   }
