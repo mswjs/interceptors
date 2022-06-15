@@ -1,14 +1,12 @@
 import http from 'http'
 import https from 'https'
 import { invariant } from 'outvariant'
-import { HttpRequestEventMap } from '../../glossary'
+import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { get } from './http.get'
 import { request } from './http.request'
 import { NodeClientOptions, Protocol } from './NodeClientRequest'
-
-export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
 
 export type MaybePatchedModule<Module> = Module & {
   [IS_PATCHED_MODULE]?: boolean

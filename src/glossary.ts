@@ -1,6 +1,8 @@
 import type { HeadersObject, Headers } from 'headers-polyfill'
 import type { LazyCallback } from './utils/createLazyCallback'
 
+export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
+
 export type RequestCredentials = 'omit' | 'include' | 'same-origin'
 
 export interface IsomorphicRequest {
