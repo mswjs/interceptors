@@ -213,6 +213,7 @@ export class AsyncEventEmitter<
   ): void {
     if (event) {
       this._events[event] = []
+      return
     }
 
     this._events = {} as InternalEventMap<EventMap>

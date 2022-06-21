@@ -99,3 +99,39 @@ it('does not emit events once the emitter was deactivated', () => {
 
   expect(listener).not.toHaveBeenCalled()
 })
+
+describe('pruneListeners', () => {
+  it('prunes listeners for the given event name', () => {
+    const emitter = new AsyncEventEmitter<{ ping(): void; pong(): void }>()
+
+    emitter.on('ping', () => {})
+    emitter.on('ping', () => {})
+    emitter.on('pong', () => {})
+
+    emitter.pruneListeners('ping')
+
+    expect(emitter.listenerCount('ping')).toBe(0)
+    expect(emitter.listeners('ping')).toEqual([])
+    expect(emitter['_events']).toHaveProperty('ping', [])
+
+    expect(emitter.listenerCount('pong')).toBe(1)
+    expect(emitter.listeners('pong')).toHaveLength(1)
+  })
+
+  it('prunes all listeners', () => {
+    const emitter = new AsyncEventEmitter<{ ping(): void; pong(): void }>()
+
+    emitter.on('ping', () => {})
+    emitter.on('pong', () => {})
+
+    emitter.pruneListeners()
+
+    expect(emitter.listenerCount('ping')).toBe(0)
+    expect(emitter.listeners('ping')).toEqual([])
+
+    expect(emitter.listenerCount('pong')).toBe(0)
+    expect(emitter.listeners('pong')).toEqual([])
+
+    expect(emitter['_events']).toEqual({})
+  })
+})
