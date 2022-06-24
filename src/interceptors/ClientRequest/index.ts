@@ -4,7 +4,7 @@ import { invariant } from 'outvariant'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
-import { get } from './http.get'
+import { createHttpGetHandler } from './getProxyHandler'
 import { request } from './http.request'
 import { NodeClientOptions, Protocol } from './NodeClientRequest'
 
@@ -68,14 +68,13 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         // Force a line break.
         request(protocol, options)
 
-      // @ts-ignore
-      requestModule.get =
-        // Force a line break.
-        get(protocol, options)
+      requestModule.get = new Proxy(requestModule.get, {
+        apply: createHttpGetHandler(this.emitter),
+      })
 
       Object.defineProperty(requestModule, IS_PATCHED_MODULE, {
         configurable: true,
-        enumerable: true,
+        enumerable: false,
         value: true,
       })
 
