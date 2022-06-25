@@ -4,7 +4,7 @@ import { invariant } from 'outvariant'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
-import { createHttpGetHandler } from './getProxyHandler'
+import { createHttpGetHandler } from './createHttpGetHandler'
 import { NodeClientOptions, Protocol } from './NodeClientRequest'
 
 export type MaybePatchedModule<Module> = Module & {

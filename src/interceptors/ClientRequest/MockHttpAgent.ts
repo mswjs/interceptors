@@ -4,7 +4,7 @@ import { invariant } from 'outvariant'
 import { until } from '@open-draft/until'
 import { Headers } from 'headers-polyfill/lib'
 import type { ClientRequestEmitter } from '.'
-import {
+import type {
   InteractiveIsomorphicRequest,
   IsomorphicRequest,
   MockedResponse,
@@ -19,6 +19,7 @@ import {
   HttpRequestEndArgs,
   normalizeClientRequestEndArgs,
 } from './utils/normalizeClientRequestEndArgs'
+import { toIsomorphicResponse } from '../../utils/toIsomorphicResponse'
 
 interface HttpMockAgentOptions {
   url: URL
@@ -71,7 +72,12 @@ export class HttpMockAgent extends http.Agent {
       respondWith: createLazyCallback({
         maxCalls: 1,
         maxCallsCallback() {
-          throw new Error('request event already responses to.')
+          invariant(
+            false,
+            'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
+            isomorphicRequest.method,
+            isomorphicRequest.url.href
+          )
         },
       }),
     }
@@ -80,6 +86,12 @@ export class HttpMockAgent extends http.Agent {
 
     const [resolverException, mockedResponse] = await until(async () => {
       await this.emitter.untilIdle('request', ({ args: [request] }) => {
+        /**
+         * @note Await only the listeners relevant to this request.
+         * This prevents extraneous parallel request from blocking the resolution
+         * of sibling requests. For example, during response patching,
+         * when request resolution is nested.
+         */
         return request.id === interactiveIsomorphicRequest.id
       })
 
@@ -105,6 +117,13 @@ export class HttpMockAgent extends http.Agent {
       respondWith(request, mockedResponse)
       socket.emit('end')
       socket.emit('close')
+
+      // Let the consumer know about the mocked response.
+      this.emitter.emit(
+        'response',
+        isomorphicRequest,
+        toIsomorphicResponse(mockedResponse)
+      )
       return
     }
 

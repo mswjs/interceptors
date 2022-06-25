@@ -16,7 +16,7 @@ import {
   normalizeClientRequestEndArgs,
 } from './utils/normalizeClientRequestEndArgs'
 import { NormalizedClientRequestArgs } from './utils/normalizeClientRequestArgs'
-import { toIsoResponse } from '../../utils/toIsoResponse'
+import { toIsomorphicResponse } from '../../utils/toIsomorphicResponse'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { bodyBufferToString } from './utils/bodyBufferToString'
 import {
@@ -114,7 +114,7 @@ export class NodeClientRequest extends ClientRequest {
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.log('normalized arguments:', { chunk, encoding, callback })
 
-    const requestBody = this.getRequestBody(chunk)
+    const requestBody = this.getRequestBody(chunk as any)
     const isomorphicRequest = this.toIsomorphicRequest(requestBody)
     const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
       ...isomorphicRequest,
@@ -176,7 +176,7 @@ export class NodeClientRequest extends ClientRequest {
         this.log('received mocked response:', mockedResponse)
         this.responseSource = 'mock'
 
-        const isomorphicResponse = toIsoResponse(mockedResponse)
+        const isomorphicResponse = toIsomorphicResponse(mockedResponse)
         this.respondWith(mockedResponse)
         this.log(
           isomorphicResponse.status,
