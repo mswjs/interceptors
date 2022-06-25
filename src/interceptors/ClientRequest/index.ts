@@ -4,7 +4,7 @@ import { invariant } from 'outvariant'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
-import { createHttpGetHandler } from './createHttpGetHandler'
+import { createHttpApplyHandler } from './createHttpApplyHandler'
 import { NodeClientOptions, Protocol } from './NodeClientRequest'
 
 export type MaybePatchedModule<Module> = Module & {
@@ -63,11 +63,11 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       }
 
       requestModule.get = new Proxy(requestModule.get, {
-        apply: createHttpGetHandler(this.emitter),
+        apply: createHttpApplyHandler(this.emitter),
       })
 
       requestModule.request = new Proxy(requestModule.request, {
-        apply: createHttpGetHandler(this.emitter),
+        apply: createHttpApplyHandler(this.emitter),
       })
 
       Object.defineProperty(requestModule, IS_PATCHED_MODULE, {

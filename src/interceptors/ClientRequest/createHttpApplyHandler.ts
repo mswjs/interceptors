@@ -9,7 +9,7 @@ export interface HttpGlobalAgent extends http.Agent {
   protocol: 'http:' | 'https:'
 }
 
-export function createHttpGetHandler(emitter: ClientRequestEmitter) {
+export function createHttpApplyHandler(emitter: ClientRequestEmitter) {
   return (
     target: typeof http.get,
     context: typeof http,
