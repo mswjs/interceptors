@@ -5,7 +5,6 @@ import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { createHttpGetHandler } from './getProxyHandler'
-import { request } from './http.request'
 import { NodeClientOptions, Protocol } from './NodeClientRequest'
 
 export type MaybePatchedModule<Module> = Module & {
@@ -39,7 +38,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     const log = this.log.extend('setup')
 
     for (const [protocol, requestModule] of this.modules) {
-      const { request: pureRequest, get: pureGet } = requestModule
+      const { get: pureGet, request: pureRequest } = requestModule
 
       invariant(
         !requestModule[IS_PATCHED_MODULE],
@@ -52,8 +51,8 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           value: undefined,
         })
 
-        requestModule.request = pureRequest
         requestModule.get = pureGet
+        requestModule.request = pureRequest
 
         log('native "%s" module restored!', protocol)
       })
@@ -63,12 +62,11 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         log: this.log,
       }
 
-      // @ts-ignore
-      requestModule.request =
-        // Force a line break.
-        request(protocol, options)
-
       requestModule.get = new Proxy(requestModule.get, {
+        apply: createHttpGetHandler(this.emitter),
+      })
+
+      requestModule.request = new Proxy(requestModule.request, {
         apply: createHttpGetHandler(this.emitter),
       })
 

@@ -3,16 +3,16 @@ const debug = require('debug')('http normalizeClientRequestEndArgs')
 export type ClientRequestEndChunk = string | Buffer
 type ClientRequestEndCallback = () => void
 
-type HttpRequestEndArgs =
+export type HttpRequestEndArgs =
   | []
   | [ClientRequestEndCallback]
   | [ClientRequestEndChunk, ClientRequestEndCallback?]
   | [ClientRequestEndChunk, BufferEncoding, ClientRequestEndCallback?]
 
 type NormalizedHttpRequestEndParams = [
-  ClientRequestEndChunk | null,
-  BufferEncoding | null,
-  ClientRequestEndCallback | null
+  ClientRequestEndChunk | undefined,
+  BufferEncoding | undefined,
+  ClientRequestEndCallback | undefined
 ]
 
 /**
@@ -24,7 +24,7 @@ export function normalizeClientRequestEndArgs(
 ): NormalizedHttpRequestEndParams {
   debug('arguments', args)
   const normalizedArgs = new Array(3)
-    .fill(null)
+    .fill(undefined)
     .map((value, index) => args[index] || value)
 
   normalizedArgs.sort((a, b) => {
