@@ -71,9 +71,9 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       })
 
       Object.defineProperty(requestModule, IS_PATCHED_MODULE, {
+        value: true,
         configurable: true,
         enumerable: false,
-        value: true,
       })
 
       log('native "%s" module patched!', protocol)

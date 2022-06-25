@@ -1,142 +1,125 @@
-import { Socket } from 'net'
 import * as http from 'http'
+import { Socket } from 'net'
+import type { HttpMockAgent } from './HttpMockAgent'
+import { toIsomorphicResponse } from '../../../utils/toIsomorphicResponse'
+import { createLazyCallback } from '../../../utils/createLazyCallback'
 import { invariant } from 'outvariant'
-import { until } from '@open-draft/until'
-import { Headers } from 'headers-polyfill/lib'
-import type { ClientRequestEmitter } from '.'
-import type {
+import {
   InteractiveIsomorphicRequest,
   IsomorphicRequest,
   MockedResponse,
-} from '../../glossary'
-import { createLazyCallback } from '../../utils/createLazyCallback'
-import { uuidv4 } from '../../utils/uuid'
-import {
-  ClientRequestWriteArgs,
-  normalizeClientRequestWriteArgs,
-} from './utils/normalizeClientRequestWriteArgs'
+} from '../../../glossary'
+import { until } from '@open-draft/until'
 import {
   HttpRequestEndArgs,
   normalizeClientRequestEndArgs,
-} from './utils/normalizeClientRequestEndArgs'
-import { toIsomorphicResponse } from '../../utils/toIsomorphicResponse'
+} from '../utils/normalizeClientRequestEndArgs'
+import {
+  ClientRequestWriteArgs,
+  normalizeClientRequestWriteArgs,
+} from '../utils/normalizeClientRequestWriteArgs'
+import { uuidv4 } from '../../../utils/uuid'
+import { Headers } from 'headers-polyfill/lib'
 
-interface HttpMockAgentOptions {
-  url: URL
-  emitter: ClientRequestEmitter
-}
+export async function handleRequest(
+  this: HttpMockAgent,
+  request: http.ClientRequest,
+  options?: http.RequestOptions
+): Promise<void> {
+  const socket = new Socket()
+  Object.defineProperty(request, 'socket', {
+    value: socket,
+    enumerable: true,
+    configurable: true,
+  })
+  request.emit('socket', socket)
 
-export class HttpMockAgent extends http.Agent {
-  private url: URL
-  private emitter: ClientRequestEmitter
+  socket.emit('connect')
+  socket.emit('resume')
+  socket.emit('lookup')
 
-  constructor(options: HttpMockAgentOptions) {
-    super()
-    this.url = options.url
-    this.emitter = options.emitter
+  const encoding = getContentEncoding(request)
+  const requestBody = await drainRequestBody(request)
+
+  /**
+   * @todo Consider handling request bodie as Buffer
+   * to prevent binary content distortion.
+   */
+  const requestBodyString = requestBody.toString(encoding)
+
+  // Lookup a mocked response for this request.
+  const isomorphicRequest = toIsomorphicRequest(
+    this.requestUrl,
+    request,
+    requestBodyString
+  )
+  const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
+    ...isomorphicRequest,
+    respondWith: createLazyCallback({
+      maxCalls: 1,
+      maxCallsCallback() {
+        invariant(
+          false,
+          'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
+          isomorphicRequest.method,
+          isomorphicRequest.url.href
+        )
+      },
+    }),
   }
 
-  async addRequest(
-    request: http.ClientRequest,
-    options: http.RequestOptions
-  ): Promise<void> {
-    const socket = new Socket()
-    Object.defineProperty(request, 'socket', {
-      value: socket,
-      enumerable: true,
-      configurable: true,
-    })
-    request.emit('socket', socket)
+  this.emitter.emit('request', interactiveIsomorphicRequest)
 
-    socket.emit('connect')
-    socket.emit('resume')
-    socket.emit('lookup')
-
-    const encoding = getContentEncoding(request)
-    const requestBody = await drainRequestBody(request)
-
-    /**
-     * @todo Consider handling request bodie as Buffer
-     * to prevent binary content distortion.
-     */
-    const requestBodyString = requestBody.toString(encoding)
-
-    // Lookup a mocked response for this request.
-    const isomorphicRequest = toIsomorphicRequest(
-      this.url,
-      request,
-      requestBodyString
-    )
-    const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
-      ...isomorphicRequest,
-      respondWith: createLazyCallback({
-        maxCalls: 1,
-        maxCallsCallback() {
-          invariant(
-            false,
-            'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
-            isomorphicRequest.method,
-            isomorphicRequest.url.href
-          )
-        },
-      }),
-    }
-
-    this.emitter.emit('request', interactiveIsomorphicRequest)
-
-    const [resolverException, mockedResponse] = await until(async () => {
-      await this.emitter.untilIdle('request', ({ args: [request] }) => {
-        /**
-         * @note Await only the listeners relevant to this request.
-         * This prevents extraneous parallel request from blocking the resolution
-         * of sibling requests. For example, during response patching,
-         * when request resolution is nested.
-         */
-        return request.id === interactiveIsomorphicRequest.id
-      })
-
-      const [mockedResponse] =
-        await interactiveIsomorphicRequest.respondWith.invoked()
-      return mockedResponse
-    })
-
-    if (resolverException) {
+  const [resolverException, mockedResponse] = await until(async () => {
+    await this.emitter.untilIdle('request', ({ args: [request] }) => {
       /**
-       * @todo Check if socket error propagates to the request error.
-       * May be no need to emit both here, socket will be enough.
+       * @note Await only the listeners relevant to this request.
+       * This prevents extraneous parallel request from blocking the resolution
+       * of sibling requests. For example, during response patching,
+       * when request resolution is nested.
        */
-      // request.emit('error', resolverException)
-      socket.emit('end')
-      socket.emit('close', resolverException)
-      terminateRequest(request)
-      return
-    }
+      return request.id === interactiveIsomorphicRequest.id
+    })
 
-    if (mockedResponse) {
-      console.warn('should respond with mocks!')
-      respondWith(request, mockedResponse)
-      socket.emit('end')
-      socket.emit('close')
+    const [mockedResponse] =
+      await interactiveIsomorphicRequest.respondWith.invoked()
+    return mockedResponse
+  })
 
-      // Let the consumer know about the mocked response.
-      this.emitter.emit(
-        'response',
-        isomorphicRequest,
-        toIsomorphicResponse(mockedResponse)
-      )
-      return
-    }
-
+  if (resolverException) {
     /**
-     * @fixme Handle mock sockets better as this now
-     * will emit socket events twice:
-     * - once for the mock socket;
-     * - the second time for the actual socket below.
+     * @todo Check if socket error propagates to the request error.
+     * May be no need to emit both here, socket will be enough.
      */
-    // Perform the request as-is at this point.
-    // @ts-expect-error Internal method.
-    return super['addRequest'](request, options)
+    // request.emit('error', resolverException)
+    socket.emit('end')
+    socket.emit('close', resolverException)
+    terminateRequest(request)
+    return
   }
+
+  if (mockedResponse) {
+    respondWith(request, mockedResponse)
+    socket.emit('end')
+    socket.emit('close')
+
+    // Let the consumer know about the mocked response.
+    this.emitter.emit(
+      'response',
+      isomorphicRequest,
+      toIsomorphicResponse(mockedResponse)
+    )
+    return
+  }
+
+  /**
+   * @fixme Handle mock sockets better as this now
+   * will emit socket events twice:
+   * - once for the mock socket;
+   * - the second time for the actual socket below.
+   */
+  // Perform the request as-is at this point.
+  return this.next(request, options)
 }
 
 function terminateRequest(request: http.ClientRequest): void {
