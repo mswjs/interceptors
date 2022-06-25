@@ -87,13 +87,9 @@ export async function handleRequest(
   })
 
   if (resolverException) {
-    /**
-     * @todo Check if socket error propagates to the request error.
-     * May be no need to emit both here, socket will be enough.
-     */
-    // request.emit('error', resolverException)
     socket.emit('end')
     socket.emit('close', resolverException)
+    request.emit('error', resolverException)
     terminateRequest(request)
     return
   }
@@ -251,8 +247,8 @@ function drainRequestBody(request: http.ClientRequest): Promise<Buffer> {
   let body = Buffer.from([])
 
   const pushChunk = (
-    chunk?: Buffer | string,
-    encoding?: BufferEncoding
+    chunk?: Buffer | string | null,
+    encoding?: BufferEncoding | null
   ): void => {
     if (chunk == null) {
       return
@@ -260,7 +256,7 @@ function drainRequestBody(request: http.ClientRequest): Promise<Buffer> {
 
     const chunkBuffer = Buffer.isBuffer(chunk)
       ? chunk
-      : Buffer.from(chunk, encoding)
+      : Buffer.from(chunk, encoding || undefined)
 
     body = Buffer.concat([body, chunkBuffer])
   }

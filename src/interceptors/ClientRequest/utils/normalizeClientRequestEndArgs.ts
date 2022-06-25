@@ -10,9 +10,9 @@ export type HttpRequestEndArgs =
   | [ClientRequestEndChunk, BufferEncoding, ClientRequestEndCallback?]
 
 type NormalizedHttpRequestEndParams = [
-  ClientRequestEndChunk | undefined,
-  BufferEncoding | undefined,
-  ClientRequestEndCallback | undefined
+  ClientRequestEndChunk | null,
+  BufferEncoding | null,
+  ClientRequestEndCallback | null
 ]
 
 /**
@@ -23,9 +23,9 @@ export function normalizeClientRequestEndArgs(
   ...args: HttpRequestEndArgs
 ): NormalizedHttpRequestEndParams {
   debug('arguments', args)
-  const normalizedArgs = new Array(3)
-    .fill(undefined)
-    .map((value, index) => args[index] || value)
+  const normalizedArgs = new Array(3).fill(null).map((value, index) => {
+    return args[index] || value
+  })
 
   normalizedArgs.sort((a, b) => {
     // If first element is a function, move it rightwards.
