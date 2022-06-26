@@ -47,9 +47,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       )
 
       this.subscriptions.push(() => {
-        Object.defineProperty(requestModule, IS_PATCHED_MODULE, {
-          value: undefined,
-        })
+        delete requestModule[IS_PATCHED_MODULE]
 
         requestModule.get = pureGet
         requestModule.request = pureRequest
