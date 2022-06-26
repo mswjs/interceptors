@@ -9,7 +9,6 @@ const httpServer = new HttpServer((app) => {
       max: 5,
       windowMs: 100,
       onLimitReached() {
-        console.warn('RATE LIMIT REACHED!')
         handleLimitReached()
       },
     })
