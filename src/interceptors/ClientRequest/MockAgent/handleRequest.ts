@@ -1,5 +1,6 @@
 import * as http from 'http'
 import { Socket } from 'net'
+import { debug } from 'debug'
 import type { HttpMockAgent } from './HttpMockAgent'
 import { toIsomorphicResponse } from '../../../utils/toIsomorphicResponse'
 import { createLazyCallback } from '../../../utils/createLazyCallback'
@@ -7,6 +8,7 @@ import { invariant } from 'outvariant'
 import {
   InteractiveIsomorphicRequest,
   IsomorphicRequest,
+  IsomorphicResponse,
   MockedResponse,
 } from '../../../glossary'
 import { until } from '@open-draft/until'
@@ -19,13 +21,20 @@ import {
   normalizeClientRequestWriteArgs,
 } from '../utils/normalizeClientRequestWriteArgs'
 import { uuidv4 } from '../../../utils/uuid'
-import { Headers } from 'headers-polyfill/lib'
+import { Headers, objectToHeaders } from 'headers-polyfill/lib'
+import { cloneIncomingMessage } from '../utils/cloneIncomingMessage'
+import { getIncomingMessageBody } from '../utils/getIncomingMessageBody'
+
+const log = debug('http')
 
 export async function handleRequest(
   this: HttpMockAgent,
   request: http.ClientRequest,
   options?: http.RequestOptions
 ): Promise<void> {
+  log('%s %s', request.method, this.requestUrl.href)
+
+  const { emitter } = this
   const socket = new Socket()
   Object.defineProperty(request, 'socket', {
     value: socket,
@@ -68,10 +77,14 @@ export async function handleRequest(
     }),
   }
 
-  this.emitter.emit('request', interactiveIsomorphicRequest)
+  log(
+    'emitting "request" event for %d listeners...',
+    emitter.listenerCount('request')
+  )
+  emitter.emit('request', interactiveIsomorphicRequest)
 
   const [resolverException, mockedResponse] = await until(async () => {
-    await this.emitter.untilIdle('request', ({ args: [request] }) => {
+    await emitter.untilIdle('request', ({ args: [request] }) => {
       /**
        * @note Await only the listeners relevant to this request.
        * This prevents extraneous parallel request from blocking the resolution
@@ -85,6 +98,8 @@ export async function handleRequest(
       await interactiveIsomorphicRequest.respondWith.invoked()
     return mockedResponse
   })
+
+  log('request event resolved:', { resolverException, mockedResponse })
 
   if (resolverException) {
     socket.emit('end')
@@ -100,13 +115,63 @@ export async function handleRequest(
     socket.emit('close')
 
     // Let the consumer know about the mocked response.
-    this.emitter.emit(
+    emitter.emit(
       'response',
       isomorphicRequest,
       toIsomorphicResponse(mockedResponse)
     )
     return
   }
+
+  log('perfroming as-is...')
+
+  request.once('error', (error) => {
+    log('original request error:', error)
+  })
+
+  request.once('abort', () => {
+    log('original request aborted')
+  })
+
+  request.emit = new Proxy(request.emit, {
+    async apply(target, thisArg, args) {
+      const [eventName, ...eventArgs] = args
+
+      if (eventName === 'response') {
+        log('original request "response" event, cloning response...')
+
+        const res = eventArgs[0] as http.IncomingMessage
+
+        // Creating two clones of the original response:
+        // - The first one will propagate to the consumer.
+        // - The second one will be read by the interceptor.
+        const preservedResponse = cloneIncomingMessage(res)
+        const clonedResponse = cloneIncomingMessage(res)
+
+        const responseBody = await getIncomingMessageBody(clonedResponse)
+        const isomorphicResponse: IsomorphicResponse = {
+          status: clonedResponse.statusCode || 200,
+          statusText: clonedResponse.statusMessage || 'OK',
+          headers: objectToHeaders(clonedResponse.headers),
+          body: responseBody,
+        }
+
+        log('original response:', isomorphicResponse)
+
+        emitter.emit('response', isomorphicRequest, isomorphicResponse)
+
+        log('emitting the "response" event with clonsed response...')
+
+        return Reflect.apply(target, thisArg, [
+          eventName,
+          preservedResponse,
+          eventArgs.slice(1),
+        ])
+      }
+
+      return Reflect.apply(target, thisArg, args)
+    },
+  })
 
   /**
    * @fixme Handle mock sockets better as this now
@@ -191,7 +256,8 @@ function respondWith(
   }
 
   if (mockedResponse.body) {
-    response.push(Buffer.from(mockedResponse.body))
+    const responseBodyBuffer = Buffer.from(mockedResponse.body)
+    response.push(responseBodyBuffer)
   }
 
   response.push(null)
@@ -250,7 +316,7 @@ function drainRequestBody(request: http.ClientRequest): Promise<Buffer> {
     chunk?: Buffer | string | null,
     encoding?: BufferEncoding | null
   ): void => {
-    if (chunk == null) {
+    if (!chunk) {
       return
     }
 

@@ -21,7 +21,6 @@ interceptor.on('request', resolver)
 
 beforeAll(async () => {
   await httpServer.listen()
-
   interceptor.apply()
 })
 
@@ -41,16 +40,19 @@ test('allows reading the response body after it has been read internally', async
   class RequestTransformer {
     response: IncomingMessage
 
-    constructor(response: IncomingMessage) {
-      this.response = response
+    constructor(res: IncomingMessage) {
+      this.response = res
     }
 
     toText(): Promise<string> {
       return new Promise<string>((resolve, reject) => {
         let responseBody = ''
+
         this.response.setEncoding('utf8')
-        this.response.on('data', (chunk) => (responseBody += chunk))
-        this.response.on('error', reject)
+        this.response.on('data', (chunk) => {
+          responseBody += chunk
+        })
+        this.response.once('error', reject)
         this.response.once('end', () => {
           resolve(responseBody)
         })
@@ -60,24 +62,28 @@ test('allows reading the response body after it has been read internally', async
 
   const makeRequest = (): Promise<RequestTransformer> => {
     return new Promise((resolve, reject) => {
-      const request = http.get(httpServer.http.url('/user'))
-      request.on('response', (response) => {
-        resolve(new RequestTransformer(response))
-      })
-      request.on('error', reject)
+      http
+        .get(httpServer.http.url('/user'))
+        .once('response', (res) => {
+          resolve(new RequestTransformer(res))
+        })
+        .once('error', reject)
     })
   }
-
-  const request = await makeRequest()
-  const capturedResponse = await new Promise<IsomorphicResponse>((resolve) => {
-    interceptor.on('response', (_, response) => resolve(response))
+  const untilCapturedResponse = new Promise<IsomorphicResponse>((resolve) => {
+    interceptor.on('response', (_, res) => {
+      resolve(res)
+    })
   })
 
+  const req = await makeRequest()
+  const capturedResponse = await untilCapturedResponse
+
   // Original response.
-  expect(request.response.statusCode).toEqual(200)
-  expect(request.response.statusMessage).toEqual('OK')
-  expect(request.response.headers).toHaveProperty('x-powered-by', 'Express')
-  const text = await request.toText()
+  expect(req.response.statusCode).toEqual(200)
+  expect(req.response.statusMessage).toEqual('OK')
+  expect(req.response.headers).toHaveProperty('x-powered-by', 'Express')
+  const text = await req.toText()
   expect(text).toEqual('user-body')
 
   // Isomorphic response (callback).
