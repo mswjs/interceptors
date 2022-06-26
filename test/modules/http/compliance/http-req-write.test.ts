@@ -4,7 +4,6 @@
 import * as http from 'http'
 import * as express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { NodeClientRequest } from '../../../../src/interceptors/ClientRequest/NodeClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
@@ -20,10 +19,6 @@ const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
   interceptedRequestBody(request.body)
 })
-
-function getInternalRequestBody(req: http.ClientRequest): Buffer {
-  return Buffer.concat((req as NodeClientRequest).requestBody)
-}
 
 beforeAll(async () => {
   await httpServer.listen()
@@ -57,7 +52,6 @@ test('writes string request body', async () => {
   const expectedBody = 'onetwothree'
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
   expect(await text()).toEqual(expectedBody)
 })
 
@@ -77,7 +71,6 @@ test('writes JSON request body', async () => {
   const expectedBody = JSON.stringify({ key: 'value' })
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
   expect(await text()).toEqual(expectedBody)
 })
 
@@ -97,11 +90,10 @@ test('writes Buffer request body', async () => {
   const expectedBody = JSON.stringify({ key: 'value' })
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
   expect(await text()).toEqual(expectedBody)
 })
 
-test('does not call the write callback when writing an empty string', async () => {
+test('calls write callback once when writing an empty string', async () => {
   const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
@@ -111,19 +103,20 @@ test('does not call the write callback when writing an empty string', async () =
   req.end()
   await waitForClientRequest(req)
 
-  expect(writeCallback).not.toHaveBeenCalled()
+  // Despite the Node.js docs, this is how ClientRequest behaves.
+  expect(writeCallback).toHaveBeenCalledTimes(1)
 })
 
-test('does not call the write callback when writing an empty Buffer', async () => {
+test('calls write callback once when writing an empty Buffer', async () => {
   const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
 
   const writeCallback = jest.fn()
-  req.write(Buffer.from(''), writeCallback)
+  req.write(Buffer.from([]), writeCallback)
   req.end()
 
   await waitForClientRequest(req)
 
-  expect(writeCallback).not.toHaveBeenCalled()
+  expect(writeCallback).toHaveBeenCalledTimes(1)
 })
