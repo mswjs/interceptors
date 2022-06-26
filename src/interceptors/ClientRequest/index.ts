@@ -5,7 +5,7 @@ import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { createHttpApplyHandler } from './createHttpApplyHandler'
-import { NodeClientOptions, Protocol } from './NodeClientRequest'
+import { Protocol } from './NodeClientRequest'
 
 export type MaybePatchedModule<Module> = Module & {
   [IS_PATCHED_MODULE]?: boolean
@@ -57,23 +57,18 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         log('native "%s" module restored!', protocol)
       })
 
-      const options: NodeClientOptions = {
-        emitter: this.emitter,
-        log: this.log,
-      }
-
       requestModule.get = new Proxy(requestModule.get, {
-        apply: createHttpApplyHandler(this.emitter),
+        apply: createHttpApplyHandler(this.emitter).bind(requestModule),
       })
 
       requestModule.request = new Proxy(requestModule.request, {
-        apply: createHttpApplyHandler(this.emitter),
+        apply: createHttpApplyHandler(this.emitter).bind(requestModule),
       })
 
       Object.defineProperty(requestModule, IS_PATCHED_MODULE, {
         value: true,
         configurable: true,
-        enumerable: false,
+        enumerable: true,
       })
 
       log('native "%s" module patched!', protocol)

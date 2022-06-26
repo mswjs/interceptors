@@ -110,6 +110,11 @@ export async function handleRequest(
   }
 
   if (mockedResponse) {
+    /**
+     * @todo Is it possible to write response chunks to the socket?
+     * So that we don't have to meddle with how ClientRequest handles
+     * responses?
+     */
     respondWith(request, mockedResponse)
 
     socket.emit('end')
@@ -124,7 +129,7 @@ export async function handleRequest(
     return
   }
 
-  log('perfroming as-is...')
+  log('perfroming request as-is...')
 
   request.once('error', (error) => {
     log('original request error:', error)
