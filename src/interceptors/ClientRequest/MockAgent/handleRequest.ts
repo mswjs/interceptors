@@ -111,6 +111,7 @@ export async function handleRequest(
 
   if (mockedResponse) {
     respondWith(request, mockedResponse)
+
     socket.emit('end')
     socket.emit('close')
 
@@ -148,17 +149,21 @@ export async function handleRequest(
         const preservedResponse = cloneIncomingMessage(res)
         const clonedResponse = cloneIncomingMessage(res)
 
-        const responseBody = await getIncomingMessageBody(clonedResponse)
-        const isomorphicResponse: IsomorphicResponse = {
-          status: clonedResponse.statusCode || 200,
-          statusText: clonedResponse.statusMessage || 'OK',
-          headers: objectToHeaders(clonedResponse.headers),
-          body: responseBody,
-        }
+        // Read the clone response body on the next tick.
+        // This way the consumer reads the preserved response first.
+        process.nextTick(async () => {
+          const responseBody = await getIncomingMessageBody(clonedResponse)
+          const isomorphicResponse: IsomorphicResponse = {
+            status: clonedResponse.statusCode || 200,
+            statusText: clonedResponse.statusMessage || 'OK',
+            headers: objectToHeaders(clonedResponse.headers),
+            body: responseBody,
+          }
 
-        log('original response:', isomorphicResponse)
+          log('original response:', isomorphicResponse)
 
-        emitter.emit('response', isomorphicRequest, isomorphicResponse)
+          emitter.emit('response', isomorphicRequest, isomorphicResponse)
+        })
 
         log('emitting the "response" event with clonsed response...')
 
@@ -255,6 +260,12 @@ function respondWith(
     }
   }
 
+  // Emit the "response" event immediately so that the consumer
+  // starts reading it while the chunks are pushed. This way
+  // consumer can influence the encoding of the body.
+  request.emit('response', response)
+  request.emit('finish')
+
   if (mockedResponse.body) {
     const responseBodyBuffer = Buffer.from(mockedResponse.body)
     response.push(responseBodyBuffer)
@@ -281,9 +292,6 @@ function respondWith(
       configurable: true,
     },
   })
-
-  request.emit('finish')
-  request.emit('response', response)
 
   terminateRequest(request)
 }
