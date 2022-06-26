@@ -8,6 +8,7 @@ import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 export interface HttpGlobalAgent extends http.Agent {
   defaultPort: 443 | 80
   protocol: 'http:' | 'https:'
+  options: http.AgentOptions
 }
 
 export function createHttpApplyHandler(emitter: ClientRequestEmitter) {
@@ -34,15 +35,22 @@ export function createHttpApplyHandler(emitter: ClientRequestEmitter) {
       emitter,
     })
 
-    const nextOptions: http.RequestOptions = {
-      ...options,
+    const nextOptions: http.RequestOptions = Object.assign({}, options, {
       /**
        * @todo Respect custom "options.agent" settings.
        * Are those relevant to preserve? Inherit them then.
        */
       agent: mockAgent,
-    }
+    })
 
-    return Reflect.apply(target, context, [url, nextOptions, callback])
+    return Reflect.apply(target, context, [
+      /**
+       * @note Always provide the URL string. Certain scenarios
+       * cannot handle `URL` instance as the input.
+       */
+      url.href,
+      nextOptions,
+      callback,
+    ])
   }
 }
