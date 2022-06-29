@@ -25,7 +25,7 @@ import { Headers, objectToHeaders } from 'headers-polyfill/lib'
 import { cloneIncomingMessage } from '../utils/cloneIncomingMessage'
 import { getIncomingMessageBody } from '../utils/getIncomingMessageBody'
 
-const log = debug('http')
+const log = debug('http:mockAgent')
 
 export async function handleRequest(
   this: HttpMockAgent,
