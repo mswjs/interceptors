@@ -8,7 +8,6 @@ import { InteractiveIsomorphicRequest, IsomorphicRequest } from '../../glossary'
 import { Headers } from 'headers-polyfill/lib'
 import { createLazyCallback } from '../../utils/createLazyCallback'
 import { until } from '@open-draft/until'
-import { pushChunk } from './utils/pushChunk'
 
 declare module 'stream' {
   interface Duplex {
@@ -46,35 +45,29 @@ export function alternative(emitter: ClientRequestEmitter) {
       const { clientSide, serverSide } = new DuplexPair()
 
       async function lookupResponse(): Promise<void> {
-        /**
-         * @todo How to know when request is finished sending its body?
-         */
-        let requestBuffer = Buffer.from([])
+        const requestBufferChunks: Buffer[] = []
 
         await new Promise<void>((resolve) => {
           serverSide.on('data', function (this: any, chunk, ...args: any[]) {
             const data = chunk.toString('utf8')
-            requestBuffer = pushChunk(requestBuffer, chunk)
 
-            console.log({ data, args })
-
-            if (data === '0\r\n\r\n') {
-              console.warn(
-                'FINISHED READING REQUEST BODY!',
-                requestBuffer.toString('utf8')
-              )
-              resolve()
+            if (data === '\r\n' || data === '7') {
+              return
             }
+
+            // The request body is finished when "0" is sent.
+            if (data === '0\r\n\r\n') {
+              return resolve()
+            }
+
+            requestBufferChunks.push(chunk)
           })
         })
 
+        let requestBuffer = Buffer.concat(requestBufferChunks.slice(1))
+
         process.nextTick(async () => {
           const request = (clientSide as any)._httpMessage as http.ClientRequest
-
-          /**
-           * @fixme Read request body.
-           */
-          console.log('req body:', requestBuffer.toString())
 
           // Read request headers.
           const outgoingHeaders = request.getHeaders()
@@ -94,10 +87,7 @@ export function alternative(emitter: ClientRequestEmitter) {
             url: new URL(request.path, `${request.protocol}//${request.host}`),
             headers: requestHeaders,
             credentials: 'same-origin',
-            /**
-             * @fixme Read request body.
-             */
-            body: undefined,
+            body: requestBuffer.toString('utf8'),
           }
           const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
             ...isomorphicRequest,
