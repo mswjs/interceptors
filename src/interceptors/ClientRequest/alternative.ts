@@ -4,6 +4,11 @@ import http from 'http'
 import { Duplex } from 'stream'
 import { invariant } from 'outvariant'
 import { ClientRequestEmitter } from '.'
+import { InteractiveIsomorphicRequest, IsomorphicRequest } from '../../glossary'
+import { Headers } from 'headers-polyfill/lib'
+import { createLazyCallback } from '../../utils/createLazyCallback'
+import { until } from '@open-draft/until'
+import { pushChunk } from './utils/pushChunk'
 
 declare module 'stream' {
   interface Duplex {
@@ -41,31 +46,112 @@ export function alternative(emitter: ClientRequestEmitter) {
       const { clientSide, serverSide } = new DuplexPair()
 
       async function lookupResponse(): Promise<void> {
+        /**
+         * @todo How to know when request is finished sending its body?
+         */
         let requestBuffer = Buffer.from([])
 
-        serverSide.on('data', (chunk) => {
-          requestBuffer = Buffer.concat([requestBuffer, chunk])
+        await new Promise<void>((resolve) => {
+          serverSide.on('data', function (this: any, chunk, ...args: any[]) {
+            const data = chunk.toString('utf8')
+            requestBuffer = pushChunk(requestBuffer, chunk)
+
+            console.log({ data, args })
+
+            if (data === '0\r\n\r\n') {
+              console.warn(
+                'FINISHED READING REQUEST BODY!',
+                requestBuffer.toString('utf8')
+              )
+              resolve()
+            }
+          })
         })
 
-        clientSide.on('data', (chunk) =>
-          console.log('[client] data:', chunk.toString('utf8'))
-        )
-        clientSide.once('end', () => console.log('[client] end'))
+        process.nextTick(async () => {
+          const request = (clientSide as any)._httpMessage as http.ClientRequest
 
-        serverSide.on('data', (data) => {
-          console.log('server data:', data.toString())
-        })
-        serverSide.on('end', () => console.error('server end'))
+          /**
+           * @fixme Read request body.
+           */
+          console.log('req body:', requestBuffer.toString())
 
-        // The second tick is when the server should respond.
-        process.nextTick(() => {
-          serverSide.write(`\
-HTTP/1.1 301 Moved Permanently\r
-Content-Type: text/plain\r
-\r
-different-response`)
+          // Read request headers.
+          const outgoingHeaders = request.getHeaders()
+          const requestHeaders = new Headers()
+          for (const [headerName, headerValue] of Object.entries(
+            outgoingHeaders
+          )) {
+            if (!headerValue) {
+              continue
+            }
+            requestHeaders.set(headerName.toLowerCase(), headerValue.toString())
+          }
 
-          serverSide.end()
+          const isomorphicRequest: IsomorphicRequest = {
+            id: 'abc-123',
+            method: request.method,
+            url: new URL(request.path, `${request.protocol}//${request.host}`),
+            headers: requestHeaders,
+            credentials: 'same-origin',
+            /**
+             * @fixme Read request body.
+             */
+            body: undefined,
+          }
+          const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
+            ...isomorphicRequest,
+            respondWith: createLazyCallback({
+              maxCalls: 1,
+              maxCallsCallback() {
+                throw new Error('Already responded to')
+              },
+            }),
+          }
+
+          console.log('request:', isomorphicRequest)
+          emitter.emit('request', interactiveIsomorphicRequest)
+
+          const [resolverException, mockedResponse] = await until(async () => {
+            await emitter.untilIdle('request', ({ args: [request] }) => {
+              return request.id === isomorphicRequest.id
+            })
+
+            const [mockedResponse] =
+              await interactiveIsomorphicRequest.respondWith.invoked()
+            return mockedResponse
+          })
+
+          if (resolverException) {
+            console.error('emulate response error')
+            return
+          }
+
+          if (mockedResponse) {
+            console.warn('respond with mock', mockedResponse)
+
+            serverSide.write(
+              `HTTP/1.1 ${mockedResponse.status} ${mockedResponse.statusText}\r\n`
+            )
+
+            if (mockedResponse.headers) {
+              for (const [headerName, headerValue] of Object.entries(
+                mockedResponse.headers
+              )) {
+                serverSide.write(`${headerName}: ${headerValue}\r\n`)
+              }
+            }
+
+            if (mockedResponse.body) {
+              serverSide.write('\r\n')
+              serverSide.write(mockedResponse.body)
+            }
+            serverSide.end()
+
+            return
+          }
+
+          console.error('should perform as-is')
         })
       }
 
@@ -82,11 +168,20 @@ different-response`)
   //       const [socket] = args
   //       console.warn('client request onSocket')
 
-  //       http._connectionListener.call(
-  //         request,
-  //         // @ts-expect-error
-  //         socket[kOtherSide]
-  //       )
+  //       // http._connectionListener.call(
+  //       //   request,
+  //       //   // @ts-expect-error
+  //       //   socket[kOtherSide]
+  //       // )
+  //       const response = new http.IncomingMessage(socket)
+
+  //       process.nextTick(() => {
+  //         request.emit('response', response)
+  //         response.statusCode = 302
+  //         response.push('hello world')
+  //         response.push(null)
+  //         response.emit('end')
+  //       })
 
   //       return Reflect.apply(target, request, args)
   //     },
