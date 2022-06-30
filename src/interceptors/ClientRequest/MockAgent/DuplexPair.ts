@@ -39,7 +39,7 @@ export class DuplexSocket extends Duplex {
     if (chunk.length === 0) {
       process.nextTick(callback)
     } else {
-      otherSide.push(chunk)
+      otherSide.push(chunk, encoding)
       otherSide[kCallback] = callback
     }
   }
