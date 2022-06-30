@@ -4,7 +4,6 @@ import { invariant } from 'outvariant'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
-import { alternative } from './alternative'
 import { createHttpApplyHandler } from './createHttpApplyHandler'
 import { Protocol } from './NodeClientRequest'
 
@@ -38,14 +37,6 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   protected setup(): void {
     const log = this.log.extend('setup')
 
-    // Patch "http.ClientRequest".
-    // const pureClientRequest = http.ClientRequest
-
-    // patchClientRequest()
-    // this.subscriptions.push(() => {
-    //   http.ClientRequest = pureClientRequest
-    // })
-
     // Patch individual "get" and "request" methods of "http" and "https".
     for (const [protocol, requestModule] of this.modules) {
       const { get: pureGet, request: pureRequest } = requestModule
@@ -59,26 +50,23 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       this.subscriptions.push(() => {
         delete requestModule[IS_PATCHED_MODULE]
 
-        // requestModule.get = pureGet
-        // requestModule.request = pureRequest
+        requestModule.get = pureGet
+        requestModule.request = pureRequest
 
         log('native "%s" module restored!', protocol)
       })
 
-      const dispose = alternative(this.emitter)
-      this.subscriptions.push(dispose)
+      requestModule.get = new Proxy(requestModule.get, {
+        apply: createHttpApplyHandler(this.emitter, this.log).bind(
+          requestModule
+        ),
+      })
 
-      // requestModule.get = new Proxy(requestModule.get, {
-      //   apply: createHttpApplyHandler(this.emitter, this.log).bind(
-      //     requestModule
-      //   ),
-      // })
-
-      // requestModule.request = new Proxy(requestModule.request, {
-      //   apply: createHttpApplyHandler(this.emitter, this.log).bind(
-      //     requestModule
-      //   ),
-      // })
+      requestModule.request = new Proxy(requestModule.request, {
+        apply: createHttpApplyHandler(this.emitter, this.log).bind(
+          requestModule
+        ),
+      })
 
       Object.defineProperty(requestModule, IS_PATCHED_MODULE, {
         value: true,

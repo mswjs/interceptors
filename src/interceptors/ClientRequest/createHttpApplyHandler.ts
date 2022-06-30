@@ -3,15 +3,23 @@ import * as https from 'https'
 import type { ClientRequestEmitter } from '.'
 import { HttpMockAgent } from './MockAgent/HttpMockAgent'
 import { HttpsMockAgent } from './MockAgent/HttpsMockAgent'
+import { MockAgent } from './MockAgent/MockAgent'
+import { NodeClientRequest } from './NodeClientRequest'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 
 export interface HttpGlobalAgent extends http.Agent {
   defaultPort: 443 | 80
   protocol: 'http:' | 'https:'
-  options: http.AgentOptions
 }
 
-export function createHttpApplyHandler(emitter: ClientRequestEmitter) {
+/**
+ * Create the "apply" Proxy handler for the `http.get`/`http.request`
+ * method calls.
+ */
+export function createHttpApplyHandler(
+  emitter: ClientRequestEmitter,
+  log: any
+) {
   return function (
     this: typeof http | typeof https,
     target: typeof http.get,
@@ -27,21 +35,36 @@ export function createHttpApplyHandler(emitter: ClientRequestEmitter) {
       ...args
     )
 
-    const MockAgent =
-      globalAgent.protocol === 'https:' ? HttpsMockAgent : HttpMockAgent
+    // const MockAgent =
+    //   globalAgent.protocol === 'https:' ? HttpsMockAgent : HttpMockAgent
 
-    const mockAgent = new MockAgent({
-      requestUrl: url,
-      emitter,
-    })
+    const customAgentOptions =
+      options.agent instanceof http.Agent
+        ? // @ts-expect-error
+          options.agent.options
+        : undefined
+
+    const agent = new MockAgent(emitter)
+
+    // const mockAgent = new MockAgent(
+    //   {
+    //     requestUrl: url,
+    //     emitter,
+    //   },
+    //   customAgentOptions
+    // )
 
     const nextOptions: http.RequestOptions = Object.assign({}, options, {
-      /**
-       * @todo Respect custom "options.agent" settings.
-       * Are those relevant to preserve? Inherit them then.
-       */
-      agent: mockAgent,
+      agent,
     })
+
+    console.log('called native "%s.%s()"', globalAgent.protocol, target.name)
+
+    // const request = new NodeClientRequest([url, nextOptions, callback], {
+    //   emitter,
+    //   log,
+    // })
+    // return request
 
     return Reflect.apply(target, context, [
       /**
