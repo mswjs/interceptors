@@ -1,6 +1,6 @@
 import * as http from 'http'
 import type { ClientRequestEmitter } from '..'
-import { handleRequest } from './handleRequest'
+import { RequestHandler } from './RequestHandler'
 
 declare module 'http' {
   interface Agent {
@@ -9,31 +9,43 @@ declare module 'http' {
 }
 
 export interface MockAgentOptions {
-  requestUrl: URL
   emitter: ClientRequestEmitter
 }
 
-export class HttpMockAgent extends http.Agent {
-  public requestUrl: URL
-  public emitter: ClientRequestEmitter
+export interface MockAgent {
+  passthrough(request: http.ClientRequest, options?: http.RequestOptions): void
+}
 
-  public next: (
-    request: http.ClientRequest,
-    options?: http.RequestOptions
-  ) => void
+export class HttpMockAgent extends http.Agent implements MockAgent {
+  public emitter: ClientRequestEmitter
 
   constructor(mockOptions: MockAgentOptions, options?: http.AgentOptions) {
     super(options)
-    this.requestUrl = mockOptions.requestUrl
     this.emitter = mockOptions.emitter
+  }
 
-    this.next = http.Agent.prototype.addRequest.bind(this)
+  public passthrough(
+    request: http.ClientRequest,
+    options?: http.RequestOptions
+  ): void {
+    // @ts-expect-error
+    delete request.socket
+
+    console.log('calling native prototype add Request')
+    return http.Agent.prototype.addRequest.apply(this, [request, options])
   }
 
   async addRequest(
     request: http.ClientRequest,
-    options?: http.RequestOptions
+    options: http.RequestOptions
   ): Promise<void> {
-    return handleRequest.call(this, request, options)
+    const handler = new RequestHandler(
+      request,
+      options,
+      this.emitter,
+      () => ({} as any)
+    )
+
+    handler.handle()
   }
 }

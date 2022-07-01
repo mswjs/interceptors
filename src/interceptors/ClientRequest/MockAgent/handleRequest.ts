@@ -24,186 +24,197 @@ import { uuidv4 } from '../../../utils/uuid'
 import { Headers, objectToHeaders } from 'headers-polyfill/lib'
 import { cloneIncomingMessage } from '../utils/cloneIncomingMessage'
 import { getIncomingMessageBody } from '../utils/getIncomingMessageBody'
+import { pushChunk } from '../utils/pushChunk'
 
-const log = debug('http:mockAgent')
+const log = debug('http:agent:addRequest')
 
 export async function handleRequest(
   this: HttpMockAgent,
   request: http.ClientRequest,
   options?: http.RequestOptions
 ): Promise<void> {
-  log('%s %s', request.method, this.requestUrl.href)
+  log(request.method, request.path)
 
-  const { emitter } = this
-  const socket = new Socket()
-  Object.defineProperty(request, 'socket', {
-    value: socket,
-    enumerable: true,
-    configurable: true,
-  })
-  request.emit('socket', socket)
+  // return this.next(request, options)
+  // console.error('[handleRequest]', request.method, this.requestUrl.href)
 
-  socket.emit('connect')
-  socket.emit('resume')
-  socket.emit('lookup')
+  // log('%s %s', request.method, this.requestUrl.href)
 
-  const encoding = getContentEncoding(request)
-  const requestBody = await drainRequestBody(request)
+  // const { emitter } = this
+  // const socket = new Socket()
 
-  /**
-   * @todo Consider handling request bodie as Buffer
-   * to prevent binary content distortion.
-   */
-  const requestBodyString = requestBody.toString(encoding)
+  // Object.defineProperty(request, 'socket', {
+  //   value: socket,
+  //   enumerable: true,
+  //   configurable: true,
+  // })
+  // request.emit('socket', socket)
 
-  // Lookup a mocked response for this request.
-  const isomorphicRequest = toIsomorphicRequest(
-    this.requestUrl,
-    request,
-    requestBodyString
-  )
-  const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
-    ...isomorphicRequest,
-    respondWith: createLazyCallback({
-      maxCalls: 1,
-      maxCallsCallback() {
-        invariant(
-          false,
-          'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
-          isomorphicRequest.method,
-          isomorphicRequest.url.href
-        )
-      },
-    }),
-  }
+  // socket.emit('connect')
+  // socket.emit('resume')
+  // socket.emit('lookup')
 
-  log(
-    'emitting "request" event for %d listeners...',
-    emitter.listenerCount('request')
-  )
-  emitter.emit('request', interactiveIsomorphicRequest)
+  // log('established mock socket connection!')
 
-  const [resolverException, mockedResponse] = await until(async () => {
-    await emitter.untilIdle('request', ({ args: [request] }) => {
-      /**
-       * @note Await only the listeners relevant to this request.
-       * This prevents extraneous parallel request from blocking the resolution
-       * of sibling requests. For example, during response patching,
-       * when request resolution is nested.
-       */
-      return request.id === interactiveIsomorphicRequest.id
-    })
+  // const encoding = getContentEncoding(request)
+  // log('request body encoding:', encoding)
 
-    const [mockedResponse] =
-      await interactiveIsomorphicRequest.respondWith.invoked()
-    return mockedResponse
-  })
+  // const reqIsClosed = new Promise((resolve) => {
+  //   request.on('close', resolve)
+  // })
 
-  log('request event resolved:', { resolverException, mockedResponse })
+  // const requestBodyBuffer = await drainRequestBody(request)
+  // log('read request body:', requestBodyBuffer)
 
-  if (resolverException) {
-    socket.emit('end')
-    socket.emit('close', resolverException)
-    request.emit('error', resolverException)
-    terminateRequest(request)
-    return
-  }
+  // // Lookup a mocked response for this request.
+  // const isomorphicRequest = toIsomorphicRequest(
+  //   this.requestUrl,
+  //   request,
+  //   requestBodyBuffer
+  // )
+  // const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
+  //   ...isomorphicRequest,
+  //   respondWith: createLazyCallback({
+  //     maxCalls: 1,
+  //     maxCallsCallback() {
+  //       invariant(
+  //         false,
+  //         'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
+  //         isomorphicRequest.method,
+  //         isomorphicRequest.url.href
+  //       )
+  //     },
+  //   }),
+  // }
 
-  if (mockedResponse) {
-    /**
-     * @todo Is it possible to write response chunks to the socket?
-     * So that we don't have to meddle with how ClientRequest handles
-     * responses?
-     */
-    respondWith(request, mockedResponse)
+  // log(
+  //   'emitting "request" event for %d listeners...',
+  //   emitter.listenerCount('request')
+  // )
+  // emitter.emit('request', interactiveIsomorphicRequest)
 
-    socket.emit('end')
-    socket.emit('close')
+  // const [resolverException, mockedResponse] = await until(async () => {
+  //   await emitter.untilIdle('request', ({ args: [request] }) => {
+  //     /**
+  //      * @note Await only the listeners relevant to this request.
+  //      * This prevents extraneous parallel request from blocking the resolution
+  //      * of sibling requests. For example, during response patching,
+  //      * when request resolution is nested.
+  //      */
+  //     return request.id === interactiveIsomorphicRequest.id
+  //   })
 
-    // Let the consumer know about the mocked response.
-    emitter.emit(
-      'response',
-      isomorphicRequest,
-      toIsomorphicResponse(mockedResponse)
-    )
-    return
-  }
+  //   const [mockedResponse] =
+  //     await interactiveIsomorphicRequest.respondWith.invoked()
+  //   return mockedResponse
+  // })
 
-  log('perfroming request as-is...')
+  // log('request event resolved:', { resolverException, mockedResponse })
 
-  request.once('error', (error) => {
-    log('original request error:', error)
-  })
+  // if (resolverException) {
+  //   socket.emit('end')
+  //   socket.emit('close', resolverException)
+  //   request.emit('error', resolverException)
+  //   terminateRequest(request)
+  //   return
+  // }
 
-  request.once('abort', () => {
-    log('original request aborted')
-  })
+  // if (mockedResponse) {
+  //   /**
+  //    * @todo Is it possible to write response chunks to the socket?
+  //    * So that we don't have to meddle with how ClientRequest handles
+  //    * responses?
+  //    */
+  //   respondWith(request, mockedResponse)
 
-  request.emit = new Proxy(request.emit, {
-    async apply(target, thisArg, args) {
-      const [eventName, ...eventArgs] = args
+  //   socket.emit('end')
+  //   socket.emit('close')
 
-      if (eventName === 'response') {
-        log('original request "response" event, cloning response...')
+  //   // Let the consumer know about the mocked response.
+  //   emitter.emit(
+  //     'response',
+  //     isomorphicRequest,
+  //     toIsomorphicResponse(mockedResponse)
+  //   )
+  //   return
+  // }
 
-        const res = eventArgs[0] as http.IncomingMessage
+  // log('perfroming request as-is...')
 
-        // Creating two clones of the original response:
-        // - The first one will propagate to the consumer.
-        // - The second one will be read by the interceptor.
-        const preservedResponse = cloneIncomingMessage(res)
-        const clonedResponse = cloneIncomingMessage(res)
+  // request.once('error', (error) => {
+  //   log('original request error:', error)
+  // })
 
-        // Read the clone response body on the next tick.
-        // This way the consumer reads the preserved response first.
-        process.nextTick(async () => {
-          const responseBody = await getIncomingMessageBody(clonedResponse)
-          const isomorphicResponse: IsomorphicResponse = {
-            status: clonedResponse.statusCode || 200,
-            statusText: clonedResponse.statusMessage || 'OK',
-            headers: objectToHeaders(clonedResponse.headers),
-            body: responseBody,
-          }
+  // request.once('abort', () => {
+  //   log('original request aborted')
+  // })
 
-          log('original response:', isomorphicResponse)
+  // request.emit = new Proxy(request.emit, {
+  //   async apply(target, thisArg, args) {
+  //     const [eventName, ...eventArgs] = args
 
-          emitter.emit('response', isomorphicRequest, isomorphicResponse)
-        })
+  //     if (eventName === 'response') {
+  //       log('original request "response" event, cloning response...')
 
-        log('emitting the "response" event with clonsed response...')
+  //       const res = eventArgs[0] as http.IncomingMessage
 
-        return Reflect.apply(target, thisArg, [
-          eventName,
-          preservedResponse,
-          eventArgs.slice(1),
-        ])
-      }
+  //       // Creating two clones of the original response:
+  //       // - The first one will propagate to the consumer.
+  //       // - The second one will be read by the interceptor.
+  //       const preservedResponse = cloneIncomingMessage(res)
+  //       const clonedResponse = cloneIncomingMessage(res)
 
-      return Reflect.apply(target, thisArg, args)
-    },
-  })
+  //       // Read the clone response body on the next tick.
+  //       // This way the consumer reads the preserved response first.
+  //       process.nextTick(async () => {
+  //         const responseBody = await getIncomingMessageBody(clonedResponse)
+  //         const isomorphicResponse: IsomorphicResponse = {
+  //           status: clonedResponse.statusCode || 200,
+  //           statusText: clonedResponse.statusMessage || 'OK',
+  //           headers: objectToHeaders(clonedResponse.headers),
+  //           body: responseBody,
+  //         }
 
-  /**
-   * @fixme Handle mock sockets better as this now
-   * will emit socket events twice:
-   * - once for the mock socket;
-   * - the second time for the actual socket below.
-   */
-  // Perform the request as-is at this point.
-  return this.next(request, options)
+  //         log('original response:', isomorphicResponse)
+
+  //         emitter.emit('response', isomorphicRequest, isomorphicResponse)
+  //       })
+
+  //       log('emitting the "response" event with clonsed response...')
+
+  //       return Reflect.apply(target, thisArg, [
+  //         eventName,
+  //         preservedResponse,
+  //         eventArgs.slice(1),
+  //       ])
+  //     }
+
+  //     return Reflect.apply(target, thisArg, args)
+  //   },
+  // })
+
+  // /**
+  //  * @fixme Handle mock sockets better as this now
+  //  * will emit socket events twice:
+  //  * - once for the mock socket;
+  //  * - the second time for the actual socket below.
+  //  */
+  // // Perform the request as-is at this point.
+  // return this.next(request, options)
 }
 
 function terminateRequest(request: http.ClientRequest): void {
   const agent =
     // @ts-expect-error Accessing private property.
     request.agent as http.Agent
+
   agent.destroy()
 }
 
 function toIsomorphicRequest(
   url: URL,
   request: http.ClientRequest,
-  body: string
+  requestBodyBuffer: Buffer
 ): IsomorphicRequest {
   const outgoingHeaders = request.getHeaders()
   const headers = new Headers()
@@ -225,7 +236,11 @@ function toIsomorphicRequest(
     method: request.method || 'GET',
     credentials: 'same-origin',
     headers,
-    body,
+    /**
+     * @todo Consider handling request body as Buffer
+     * to prevent binary content distortion.
+     */
+    body: requestBodyBuffer.toString('utf8'),
   }
 
   return isomorphicRequest
@@ -323,37 +338,35 @@ function getContentEncoding(
  * Collects chunks from both `write()` and `end()` methods.
  */
 function drainRequestBody(request: http.ClientRequest): Promise<Buffer> {
+  log('reading request body...')
+
   let body = Buffer.from([])
-
-  const pushChunk = (
-    chunk?: Buffer | string | null,
-    encoding?: BufferEncoding | null
-  ): void => {
-    if (!chunk) {
-      return
-    }
-
-    const chunkBuffer = Buffer.isBuffer(chunk)
-      ? chunk
-      : Buffer.from(chunk, encoding || undefined)
-
-    body = Buffer.concat([body, chunkBuffer])
-  }
-
-  request.write = new Proxy(request.write, {
-    apply(target, thisArg, args: ClientRequestWriteArgs) {
-      const [chunk, encoding] = normalizeClientRequestWriteArgs(args)
-      pushChunk(chunk, encoding)
-      return Reflect.apply(target, thisArg, args)
-    },
-  })
+  log('proxying request.write calls...')
 
   return new Promise((resolve, reject) => {
+    request.write = new Proxy(request.write, {
+      apply(target, thisArg, args: ClientRequestWriteArgs) {
+        function readChunk() {}
+
+        const [chunk, encoding] = normalizeClientRequestWriteArgs(args)
+        body = pushChunk(body, chunk, encoding)
+
+        console.log('write:', { chunk })
+        resolve(body)
+        return Reflect.apply(target, thisArg, args)
+      },
+    })
+
+    log('proxying request.end calls...', request)
+
     request.end = new Proxy(request.end, {
       apply(target, thisArg, args: HttpRequestEndArgs) {
         const [chunk, encoding] = normalizeClientRequestEndArgs(...args)
-        pushChunk(chunk, encoding)
+        log('request.end()', { chunk, encoding })
+
+        pushChunk(body, chunk, encoding)
         resolve(body)
+
         return Reflect.apply(target, thisArg, args)
       },
     })

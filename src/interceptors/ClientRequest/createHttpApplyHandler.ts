@@ -4,7 +4,6 @@ import type { ClientRequestEmitter } from '.'
 import { HttpMockAgent } from './MockAgent/HttpMockAgent'
 import { HttpsMockAgent } from './MockAgent/HttpsMockAgent'
 import { MockAgent } from './MockAgent/MockAgent'
-import { NodeClientRequest } from './NodeClientRequest'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 
 export interface HttpGlobalAgent extends http.Agent {
@@ -44,32 +43,27 @@ export function createHttpApplyHandler(
           options.agent.options
         : undefined
 
-    const agent = new MockAgent(emitter)
+    const passthrough = () => {
+      return Reflect.apply(target, context, args)
+    }
+
+    const mockAgent = new MockAgent(emitter, passthrough)
 
     // const mockAgent = new MockAgent(
     //   {
-    //     requestUrl: url,
     //     emitter,
     //   },
     //   customAgentOptions
     // )
 
     const nextOptions: http.RequestOptions = Object.assign({}, options, {
-      agent,
+      agent: mockAgent,
     })
-
-    console.log('called native "%s.%s()"', globalAgent.protocol, target.name)
-
-    // const request = new NodeClientRequest([url, nextOptions, callback], {
-    //   emitter,
-    //   log,
-    // })
-    // return request
 
     return Reflect.apply(target, context, [
       /**
        * @note Always provide the URL string. Certain scenarios
-       * cannot handle `URL` instance as the input.
+       * cannot handle a URL instance as the input.
        */
       url.href,
       nextOptions,
