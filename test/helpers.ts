@@ -308,9 +308,9 @@ export async function waitForClientRequest(req: http.ClientRequest): Promise<{
       })
     })
 
-    req.on('error', reject)
-    req.on('abort', reject)
-    req.on('timeout', reject)
+    req.once('error', reject)
+    req.once('abort', reject)
+    req.once('timeout', reject)
   })
 }
 

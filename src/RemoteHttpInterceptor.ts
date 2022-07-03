@@ -10,7 +10,7 @@ import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
 import { createLazyCallback } from './utils/createLazyCallback'
-import { toIsoResponse } from './utils/toIsoResponse'
+import { toIsomorphicResponse } from './utils/toIsomorphicResponse'
 
 export class RemoteHttpInterceptor extends BatchInterceptor<
   [ClientRequestInterceptor, XMLHttpRequestInterceptor]
@@ -155,7 +155,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
             this.emitter.emit(
               'response',
               isomorphicRequest,
-              toIsoResponse(mockedResponse)
+              toIsomorphicResponse(mockedResponse)
             )
           }
         }

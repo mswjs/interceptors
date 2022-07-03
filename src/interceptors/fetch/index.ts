@@ -13,7 +13,7 @@ import {
 } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { createLazyCallback } from '../../utils/createLazyCallback'
-import { toIsoResponse } from '../../utils/toIsoResponse'
+import { toIsomorphicResponse } from '../../utils/toIsomorphicResponse'
 import { uuidv4 } from '../../utils/uuid'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
@@ -77,7 +77,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       if (mockedResponse) {
         this.log('received mocked response:', mockedResponse)
 
-        const isomorphicResponse = toIsoResponse(mockedResponse)
+        const isomorphicResponse = toIsomorphicResponse(mockedResponse)
         this.log('derived isomorphic response:', isomorphicResponse)
 
         this.emitter.emit('response', isomorphicRequest, isomorphicResponse)

@@ -1,5 +1,5 @@
 import { debug } from 'debug'
-import { IncomingMessage } from 'http'
+import type { IncomingMessage } from 'http'
 import { PassThrough } from 'stream'
 import * as zlib from 'zlib'
 
@@ -25,16 +25,16 @@ export function getIncomingMessageBody(
     stream.setEncoding(encoding)
     log('using encoding:', encoding)
 
-    let body = '';
+    let body = ''
 
     stream.on('data', (responseBody) => {
       log('response body read:', responseBody)
-      body += responseBody;
+      body += responseBody
     })
 
     stream.once('end', () => {
-      log('response body end');
-      resolve(body);
+      log('response body end')
+      resolve(body)
     })
 
     stream.once('error', (error) => {

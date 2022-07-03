@@ -7,7 +7,7 @@ import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientReq
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
-    res.status(200).send('hello world')
+    res.status(200).send('original body')
   })
 })
 
@@ -41,7 +41,6 @@ function readIncomingMessage(res: http.IncomingMessage): any {
 
 beforeAll(async () => {
   await httpServer.listen()
-
   interceptor.apply()
 })
 
@@ -68,10 +67,10 @@ describe('given the original response', () => {
     test(`reads the response body encoded with ${encoding}`, (done) => {
       const req = http.get(httpServer.http.url('/resource'))
 
-      req.on('response', async (res) => {
+      req.once('response', async (res) => {
         res.setEncoding(encoding)
         const text = await readIncomingMessage(res)
-        expect(text).toEqual(encode('hello world', encoding))
+        expect(text).toEqual(encode('original body', encoding))
 
         done()
       })
@@ -84,7 +83,7 @@ describe('given the mocked response', () => {
     test(`reads the response body encoded with ${encoding}`, (done) => {
       const req = http.get(httpServer.http.url('/resource?mock=true'))
 
-      req.on('response', async (res) => {
+      req.once('response', async (res) => {
         res.setEncoding(encoding)
         const text = await readIncomingMessage(res)
         expect(text).toEqual(encode('hello world', encoding))

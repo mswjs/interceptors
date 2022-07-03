@@ -13,7 +13,7 @@ import {
 import { DOMParser } from '@xmldom/xmldom'
 import { InteractiveIsomorphicRequest, IsomorphicRequest } from '../../glossary'
 import { parseJson } from '../../utils/parseJson'
-import { toIsoResponse } from '../../utils/toIsoResponse'
+import { toIsomorphicResponse } from '../../utils/toIsomorphicResponse'
 import { uuidv4 } from '../../utils/uuid'
 import { bufferFrom } from './utils/bufferFrom'
 import { createEvent } from './utils/createEvent'
@@ -356,7 +356,7 @@ export const createXMLHttpRequestOverride = (
           emitter.emit(
             'response',
             isomorphicRequest,
-            toIsoResponse(mockedResponse)
+            toIsomorphicResponse(mockedResponse)
           )
         } else {
           this.log('no mocked response received!')

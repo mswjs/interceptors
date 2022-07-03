@@ -4,9 +4,8 @@ import { invariant } from 'outvariant'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
-import { get } from './http.get'
-import { request } from './http.request'
-import { NodeClientOptions, Protocol } from './NodeClientRequest'
+import { createHttpApplyHandler } from './createHttpApplyHandler'
+import { Protocol } from './NodeClientRequest'
 
 export type MaybePatchedModule<Module> = Module & {
   [IS_PATCHED_MODULE]?: boolean
@@ -38,8 +37,9 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   protected setup(): void {
     const log = this.log.extend('setup')
 
+    // Patch individual "get" and "request" methods of "http" and "https".
     for (const [protocol, requestModule] of this.modules) {
-      const { request: pureRequest, get: pureGet } = requestModule
+      const { get: pureGet, request: pureRequest } = requestModule
 
       invariant(
         !requestModule[IS_PATCHED_MODULE],
@@ -48,35 +48,30 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       )
 
       this.subscriptions.push(() => {
-        Object.defineProperty(requestModule, IS_PATCHED_MODULE, {
-          value: undefined,
-        })
+        delete requestModule[IS_PATCHED_MODULE]
 
-        requestModule.request = pureRequest
         requestModule.get = pureGet
+        requestModule.request = pureRequest
 
         log('native "%s" module restored!', protocol)
       })
 
-      const options: NodeClientOptions = {
-        emitter: this.emitter,
-        log: this.log,
-      }
+      requestModule.get = new Proxy(requestModule.get, {
+        apply: createHttpApplyHandler(this.emitter, this.log).bind(
+          requestModule
+        ),
+      })
 
-      // @ts-ignore
-      requestModule.request =
-        // Force a line break.
-        request(protocol, options)
-
-      // @ts-ignore
-      requestModule.get =
-        // Force a line break.
-        get(protocol, options)
+      requestModule.request = new Proxy(requestModule.request, {
+        apply: createHttpApplyHandler(this.emitter, this.log).bind(
+          requestModule
+        ),
+      })
 
       Object.defineProperty(requestModule, IS_PATCHED_MODULE, {
+        value: true,
         configurable: true,
         enumerable: true,
-        value: true,
       })
 
       log('native "%s" module patched!', protocol)

@@ -1,8 +1,8 @@
 import { Headers } from 'headers-polyfill'
-import { toIsoResponse } from './toIsoResponse'
+import { toIsomorphicResponse } from './toIsomorphicResponse'
 
 test('returns a well-formed empty response', () => {
-  expect(toIsoResponse({})).toEqual({
+  expect(toIsomorphicResponse({})).toEqual({
     status: 200,
     statusText: 'OK',
     headers: new Headers(),
@@ -10,7 +10,7 @@ test('returns a well-formed empty response', () => {
 })
 
 test('uses fallback values for the missing response properties', () => {
-  expect(toIsoResponse({ status: 301, body: 'text-body' })).toEqual({
+  expect(toIsomorphicResponse({ status: 301, body: 'text-body' })).toEqual({
     status: 301,
     statusText: 'OK',
     headers: new Headers(),
@@ -20,7 +20,7 @@ test('uses fallback values for the missing response properties', () => {
 
 test('returns a full response as-is, converting the headers', () => {
   expect(
-    toIsoResponse({
+    toIsomorphicResponse({
       status: 301,
       statusText: 'Custom Status',
       headers: {
