@@ -50,7 +50,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       const bufferedRequest = new BufferedRequest(
         new URL(url, location.origin),
         body,
-        { ...request }
+        request
       )
 
       const isomorphicRequest = new InteractiveIsomorphicRequest(

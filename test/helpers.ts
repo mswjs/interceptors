@@ -6,6 +6,9 @@ import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { IsomorphicRequest, RequestCredentials } from '../src/glossary'
+import { BufferedRequest } from '../src'
+import { bufferFrom } from '../src/interceptors/XMLHttpRequest/utils/bufferFrom'
+import { encodeBuf } from '../src/utils/bufferCodec'
 
 export interface PromisifiedResponse {
   req: ClientRequest
@@ -203,7 +206,7 @@ interface BrowserXMLHttpRequestInit {
 
 export async function extractRequestFromPage(
   page: Page
-): Promise<IsomorphicRequest> {
+): Promise<BufferedRequest> {
   const request = await page.evaluate(() => {
     return new Promise<StringifiedIsomorphicRequest>((resolve, reject) => {
       const timeoutTimer = setTimeout(() => {
@@ -216,22 +219,21 @@ export async function extractRequestFromPage(
 
       window.addEventListener(
         'resolver' as any,
-        (event: CustomEvent<string>) => {
+        (event: CustomEvent<StringifiedIsomorphicRequest>) => {
           clearTimeout(timeoutTimer)
-          resolve(JSON.parse(event.detail))
+          resolve(event.detail)
         }
       )
     })
   })
 
-  return {
-    id: request.id,
-    method: request.method,
-    url: new URL(request.url),
-    headers: new Headers(request.headers),
-    credentials: request.credentials,
-    body: request.body,
-  }
+  const bufferedRequest = new BufferedRequest(
+    new URL(request.url),
+    encodeBuf(request.body || ''),
+    { ...request }
+  )
+  bufferedRequest.id = request.id
+  return bufferedRequest
 }
 
 export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {
@@ -287,7 +289,7 @@ export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {
 export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
   return async (
     requestInit: BrowserXMLHttpRequestInit
-  ): Promise<[IsomorphicRequest, XMLHttpResponse]> => {
+  ): Promise<[BufferedRequest, XMLHttpResponse]> => {
     return Promise.all([
       extractRequestFromPage(scenario.page),
       createRawBrowserXMLHttpRequest(scenario)(requestInit),
