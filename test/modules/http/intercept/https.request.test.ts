@@ -8,7 +8,7 @@ import { waitForClientRequest } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
-import { encodeBuf } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferCodec'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (req, res) => {
@@ -66,7 +66,7 @@ test('intercepts a HEAD request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -96,7 +96,7 @@ test('intercepts a GET request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -127,7 +127,7 @@ test('intercepts a POST request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf('post-payload'),
+      body: encodeBuffer('post-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -158,7 +158,7 @@ test('intercepts a PUT request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf('put-payload'),
+      body: encodeBuffer('put-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -189,7 +189,7 @@ test('intercepts a PATCH request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf('patch-payload'),
+      body: encodeBuffer('patch-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -219,7 +219,7 @@ test('intercepts a DELETE request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -245,7 +245,7 @@ test('intercepts an http.request request given RequestOptions without a protocol
       url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({}),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )

@@ -7,7 +7,7 @@ import { HttpRequestEventMap } from '../../../../src'
 import { fetch } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { encodeBuf } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferCodec'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (_req, res) => {
@@ -62,7 +62,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
         'user-agent': 'interceptors',
       }),
       credentials: 'same-origin',
-      body: encodeBuf('hello world'),
+      body: encodeBuffer('hello world'),
       respondWith: expect.any(Function),
     })
   )

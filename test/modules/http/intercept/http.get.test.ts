@@ -7,7 +7,7 @@ import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientReq
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
-import { encodeBuf } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferCodec'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -55,7 +55,7 @@ test('intercepts an http.get request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -82,7 +82,7 @@ test('intercepts an http.get request given RequestOptions without a protocol', a
       url: new URL(httpServer.http.url('/user?id=123')),
       headers: headersContaining({}),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )

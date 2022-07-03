@@ -6,7 +6,7 @@ import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
 import { extractRequestFromPage } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
-import { encodeBuf } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferCodec'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (_req, res) => {
@@ -52,7 +52,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
       'content-type': 'text/plain',
       'x-origin': 'interceptors',
     }),
-    body: encodeBuf('hello world'),
+    body: encodeBuffer('hello world'),
     credentials: 'same-origin',
   })
 })

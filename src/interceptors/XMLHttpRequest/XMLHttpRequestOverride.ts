@@ -19,7 +19,7 @@ import { createEvent } from './utils/createEvent'
 import type { XMLHttpRequestEmitter } from '.'
 import { createLazyCallback } from '../../utils/createLazyCallback'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
-import { encodeBuf } from '../../utils/bufferCodec'
+import { encodeBuffer } from '../../utils/bufferCodec'
 
 type XMLHttpRequestEventHandler = (
   this: XMLHttpRequest,
@@ -233,7 +233,7 @@ export const createXMLHttpRequestOverride = (
     public send(data?: string | ArrayBuffer) {
       this.log('send %s %s', this.method, this.url)
       if (typeof data === 'string') {
-        this.data = encodeBuf(data)
+        this.data = encodeBuffer(data)
       } else {
         this.data = data || new ArrayBuffer(0)
       }

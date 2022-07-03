@@ -9,7 +9,7 @@ import { anyUuid, headersContaining } from '../../jest.expect'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
-import { encodeBuf } from '../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../src/utils/bufferCodec'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (req, res) => {
@@ -70,7 +70,7 @@ test('ClientRequest: emits the "request" event upon the request', async () => {
         'content-type': 'application/json',
       }),
       credentials: expect.anything(),
-      body: encodeBuf(JSON.stringify({ userId: 'abc-123' })),
+      body: encodeBuffer(JSON.stringify({ userId: 'abc-123' })),
       respondWith: expect.any(Function),
     })
   )
@@ -102,7 +102,7 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
         'content-type': 'application/json',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(JSON.stringify({ userId: 'abc-123' })),
+      body: encodeBuffer(JSON.stringify({ userId: 'abc-123' })),
       respondWith: expect.any(Function),
     })
   )

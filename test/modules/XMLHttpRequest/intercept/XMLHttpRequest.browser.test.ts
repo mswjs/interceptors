@@ -8,7 +8,7 @@ import { RequestHandler } from 'express-serve-static-core'
 import { createBrowserXMLHttpRequest } from '../../../helpers'
 import { IsomorphicRequest, IsomorphicResponse } from '../../../../src'
 import { anyUuid, headersContaining } from '../../../jest.expect'
-import { encodeBuf } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferCodec'
 
 const httpServer = new HttpServer((app) => {
   const requestHandler: RequestHandler = (_req, res) => {
@@ -53,7 +53,7 @@ test('intercepts an HTTP GET request', async () => {
       'x-request-header': 'yes',
     }),
     credentials: 'omit',
-    body: encodeBuf(''),
+    body: encodeBuffer(''),
   })
   expect(response).toEqual<IsomorphicResponse>({
     status: 200,
@@ -83,7 +83,7 @@ test('intercepts an HTTP POST request', async () => {
     url: new URL(url),
     headers: headersContaining({}),
     credentials: 'omit',
-    body: encodeBuf(JSON.stringify({ user: 'john' })),
+    body: encodeBuffer(JSON.stringify({ user: 'john' })),
   })
   expect(response).toEqual<IsomorphicResponse>({
     status: 200,

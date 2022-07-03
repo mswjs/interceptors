@@ -1,10 +1,10 @@
 import { Headers } from 'headers-polyfill/lib'
 import { IsomorphicRequest } from './IsomorphicRequest'
-import { encodeBuf } from './utils/bufferCodec'
+import { encodeBuffer } from './utils/bufferCodec'
 
 describe('Request', () => {
   const url = new URL('http://dummy')
-  const body = encodeBuf(JSON.stringify({ hello: 'world' }))
+  const body = encodeBuffer(JSON.stringify({ hello: 'world' }))
 
   it('returns JSON', async () => {
     const request = new IsomorphicRequest(url, { body })
@@ -18,7 +18,9 @@ describe('Request', () => {
 
   it('returns array buffer', async () => {
     const request = new IsomorphicRequest(url, { body })
-    expect(await request.arrayBuffer()).toEqual(encodeBuf(`{"hello":"world"}`))
+    expect(await request.arrayBuffer()).toEqual(
+      encodeBuffer(`{"hello":"world"}`)
+    )
   })
 
   it('return default method', () => {

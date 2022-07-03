@@ -15,7 +15,7 @@ import { anyUuid, headersContaining } from '../../jest.expect'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
-import { encodeBuf } from '../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../src/utils/bufferCodec'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -102,7 +102,7 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
     }),
     {
       status: 200,
@@ -141,7 +141,7 @@ test('ClientRequest: emits the "response" event upon the original response', asy
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf('request-body'),
+      body: encodeBuffer('request-body'),
     }),
     {
       status: 200,
@@ -175,7 +175,7 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
         'x-request-custom': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
     }),
     {
       status: 200,
@@ -216,7 +216,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
         'x-request-custom': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuf('request-body'),
+      body: encodeBuffer('request-body'),
     }),
     {
       status: 200,
@@ -251,7 +251,7 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
     }),
     {
       status: 200,
@@ -288,7 +288,7 @@ test('fetch: emits the "response" event upon the original response', async () =>
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf('request-body'),
+      body: encodeBuffer('request-body'),
     }),
     {
       status: 200,

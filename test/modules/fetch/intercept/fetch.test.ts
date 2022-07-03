@@ -7,7 +7,7 @@ import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { encodeBuf } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferCodec'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {
@@ -62,7 +62,7 @@ test('intercepts an HTTP HEAD request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -87,7 +87,7 @@ test('intercepts an HTTP GET request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -115,7 +115,7 @@ test('intercepts an HTTP POST request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(JSON.stringify({ body: true })),
+      body: encodeBuffer(JSON.stringify({ body: true })),
       respondWith: expect.any(Function),
     })
   )
@@ -127,7 +127,7 @@ test('intercepts an HTTP PUT request', async () => {
     headers: {
       'x-custom-header': 'yes',
     },
-    body: encodeBuf('request-payload'),
+    body: encodeBuffer('request-payload'),
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
@@ -142,7 +142,7 @@ test('intercepts an HTTP PUT request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf('request-payload'),
+      body: encodeBuffer('request-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -168,7 +168,7 @@ test('intercepts an HTTP DELETE request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -180,7 +180,7 @@ test('intercepts an HTTP PATCH request', async () => {
     headers: {
       'x-custom-header': 'yes',
     },
-    body: encodeBuf('request-payload'),
+    body: encodeBuffer('request-payload'),
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
@@ -195,7 +195,7 @@ test('intercepts an HTTP PATCH request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf('request-payload'),
+      body: encodeBuffer('request-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -222,7 +222,7 @@ test('intercepts an HTTPS HEAD request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -248,7 +248,7 @@ test('intercepts an HTTPS GET request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -276,7 +276,7 @@ test('intercepts an HTTPS POST request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(JSON.stringify({ body: true })),
+      body: encodeBuffer(JSON.stringify({ body: true })),
       respondWith: expect.any(Function),
     })
   )
@@ -289,7 +289,7 @@ test('intercepts an HTTPS PUT request', async () => {
     headers: {
       'x-custom-header': 'yes',
     },
-    body: encodeBuf('request-payload'),
+    body: encodeBuffer('request-payload'),
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
@@ -304,7 +304,7 @@ test('intercepts an HTTPS PUT request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf('request-payload'),
+      body: encodeBuffer('request-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -331,7 +331,7 @@ test('intercepts an HTTPS DELETE request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -358,7 +358,7 @@ test('intercepts an HTTPS PATCH request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuf(''),
+      body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )

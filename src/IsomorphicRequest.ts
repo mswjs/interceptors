@@ -1,5 +1,5 @@
 import { Headers } from 'headers-polyfill/lib'
-import { decodeBuf } from './utils/bufferCodec'
+import { decodeBuffer } from './utils/bufferCodec'
 import { uuidv4 } from './utils/uuid'
 
 export interface RequestInit {
@@ -42,8 +42,8 @@ export class IsomorphicRequest {
   }
 
   public async text(): Promise<string> {
-    const buf = await this.arrayBuffer()
-    return decodeBuf(buf)
+    const buffer = await this.arrayBuffer()
+    return decodeBuffer(buffer)
   }
 
   public async json<T = any>(): Promise<T> {

@@ -6,7 +6,7 @@ import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { RequestCredentials } from '../src/glossary'
 import { IsomorphicRequest } from '../src'
-import { encodeBuf } from '../src/utils/bufferCodec'
+import { encodeBuffer } from '../src/utils/bufferCodec'
 
 export interface PromisifiedResponse {
   req: ClientRequest
@@ -227,7 +227,7 @@ export async function extractRequestFromPage(
 
   const isomorphicRequest = new IsomorphicRequest(new URL(request.url), {
     ...request,
-    body: encodeBuf(request.body || ''),
+    body: encodeBuffer(request.body || ''),
   })
   isomorphicRequest.id = request.id
   return isomorphicRequest
