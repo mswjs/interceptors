@@ -15,6 +15,7 @@ import { anyUuid, headersContaining } from '../../jest.expect'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
+import { encodeBuf } from '../../../src/utils/bufferCodec'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -93,7 +94,7 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
   expect(responseListener).toHaveBeenCalledWith<
     [IsomorphicRequest, IsomorphicResponse]
   >(
-    {
+    expect.objectContaining({
       id: anyUuid(),
       method: 'GET',
       url: new URL(httpServer.https.url('/user')),
@@ -101,8 +102,8 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: '',
-    },
+      body: encodeBuf(''),
+    }),
     {
       status: 200,
       statusText: 'OK',
@@ -132,7 +133,7 @@ test('ClientRequest: emits the "response" event upon the original response', asy
   expect(responseListener).toHaveBeenCalledWith<
     [IsomorphicRequest, IsomorphicResponse]
   >(
-    {
+    expect.objectContaining({
       id: anyUuid(),
       method: 'POST',
       url: new URL(httpServer.https.url('/account')),
@@ -140,8 +141,8 @@ test('ClientRequest: emits the "response" event upon the original response', asy
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: 'request-body',
-    },
+      body: encodeBuf('request-body'),
+    }),
     {
       status: 200,
       statusText: 'OK',
@@ -166,7 +167,7 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
   expect(responseListener).toHaveBeenCalledWith<
     [IsomorphicRequest, IsomorphicResponse]
   >(
-    {
+    expect.objectContaining({
       id: anyUuid(),
       method: 'GET',
       url: new URL(httpServer.https.url('/user')),
@@ -174,8 +175,8 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
         'x-request-custom': 'yes',
       }),
       credentials: 'omit',
-      body: '',
-    },
+      body: encodeBuf(''),
+    }),
     {
       status: 200,
       statusText: 'OK',
@@ -207,7 +208,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   expect(responseListener).toHaveBeenCalledWith<
     [IsomorphicRequest, IsomorphicResponse]
   >(
-    {
+    expect.objectContaining({
       id: anyUuid(),
       method: 'POST',
       url: new URL(httpServer.https.url('/account')),
@@ -215,8 +216,8 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
         'x-request-custom': 'yes',
       }),
       credentials: 'omit',
-      body: 'request-body',
-    },
+      body: encodeBuf('request-body'),
+    }),
     {
       status: 200,
       statusText: 'OK',
@@ -242,7 +243,7 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
   expect(responseListener).toHaveBeenCalledWith<
     [IsomorphicRequest, IsomorphicResponse]
   >(
-    {
+    expect.objectContaining({
       id: anyUuid(),
       method: 'GET',
       url: new URL(httpServer.https.url('/user')),
@@ -250,8 +251,8 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: '',
-    },
+      body: encodeBuf(''),
+    }),
     {
       status: 200,
       statusText: 'OK',
@@ -279,7 +280,7 @@ test('fetch: emits the "response" event upon the original response', async () =>
   expect(responseListener).toHaveBeenCalledWith<
     [IsomorphicRequest, IsomorphicResponse]
   >(
-    {
+    expect.objectContaining({
       id: anyUuid(),
       method: 'POST',
       url: new URL(httpServer.https.url('/account')),
@@ -287,8 +288,8 @@ test('fetch: emits the "response" event upon the original response', async () =>
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: 'request-body',
-    },
+      body: encodeBuf('request-body'),
+    }),
     {
       status: 200,
       statusText: 'OK',
