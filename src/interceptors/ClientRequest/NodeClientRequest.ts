@@ -21,6 +21,7 @@ import {
 import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
 import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
+import { getArrayBuffer } from '../../utils/bufferUtils'
 
 export type Protocol = 'http' | 'https'
 
@@ -374,10 +375,7 @@ export class NodeClientRequest extends ClientRequest {
     const resolvedRequestBody = Buffer.concat(this.requestBody)
     this.log('resolved request body:', resolvedRequestBody)
 
-    return resolvedRequestBody.buffer.slice(
-      resolvedRequestBody.byteOffset,
-      resolvedRequestBody.byteOffset + resolvedRequestBody.byteLength
-    )
+    return getArrayBuffer(resolvedRequestBody)
   }
 
   private toIsomorphicRequest(body: ArrayBuffer): IsomorphicRequest {
