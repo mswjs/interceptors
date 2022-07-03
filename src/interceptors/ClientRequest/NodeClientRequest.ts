@@ -110,20 +110,9 @@ export class NodeClientRequest extends ClientRequest {
     this.log('normalized arguments:', { chunk, encoding, callback })
 
     const requestBody = this.getRequestBody(chunk)
-    const request = this.toIsomorphicResponse(requestBody)
+    const request = this.toIsomorphicRequest(requestBody)
     const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-      request,
-      createLazyCallback({
-        maxCalls: 1,
-        maxCallsCallback() {
-          invariant(
-            false,
-            'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
-            request.method,
-            request.url.href
-          )
-        },
-      })
+      request
     )
 
     // Notify the interceptor about the request.
@@ -392,7 +381,7 @@ export class NodeClientRequest extends ClientRequest {
     )
   }
 
-  private toIsomorphicResponse(body: ArrayBuffer): IsomorphicRequest {
+  private toIsomorphicRequest(body: ArrayBuffer): IsomorphicRequest {
     this.log('creating isomorphic request object...')
 
     const outgoingHeaders = this.getHeaders()

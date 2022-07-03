@@ -121,14 +121,13 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
       const body = requestJson.body ? bufferFrom(requestJson.body) : undefined
 
-      const request = new IsomorphicRequest(requestJson.url, {
+      const isomorphicRequest = new IsomorphicRequest(requestJson.url, {
         ...requestJson,
         body: body?.buffer || new ArrayBuffer(0),
       })
 
       const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-        request,
-        createLazyCallback()
+        isomorphicRequest
       )
 
       this.emitter.emit('request', interactiveIsomorphicRequest)
@@ -155,7 +154,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
             // not to rely on the back-and-forth signaling for the sake of the event.
             this.emitter.emit(
               'response',
-              request,
+              isomorphicRequest,
               toIsoResponse(mockedResponse)
             )
           }

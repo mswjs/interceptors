@@ -21,11 +21,10 @@ export class IsomorphicRequest {
   constructor(url: URL, init: RequestInit)
   constructor(request: IsomorphicRequest)
   constructor(input: IsomorphicRequest | URL, init: RequestInit = {}) {
-    this.id = uuidv4()
-
     const defaultBody = new ArrayBuffer(0)
 
     if (input instanceof IsomorphicRequest) {
+      this.id = input.id
       this.url = input.url
       this.method = input.method
       this.headers = input.headers
@@ -34,6 +33,7 @@ export class IsomorphicRequest {
       return
     }
 
+    this.id = uuidv4()
     this.url = input
     this.method = init.method || 'GET'
     this.headers = new Headers(init.headers)

@@ -252,7 +252,7 @@ export const createXMLHttpRequestOverride = (
       this.log('request headers', this._requestHeaders)
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
-      const request = new IsomorphicRequest(url, {
+      const isomorphicRequest = new IsomorphicRequest(url, {
         body: this.data,
         method: this.method,
         headers: this._requestHeaders,
@@ -260,8 +260,7 @@ export const createXMLHttpRequestOverride = (
       })
 
       const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-        request,
-        createLazyCallback()
+        isomorphicRequest
       )
 
       this.log(
@@ -355,7 +354,11 @@ export const createXMLHttpRequestOverride = (
           // Trigger a loadend event to indicate the fetch has completed.
           this.trigger('loadend')
 
-          emitter.emit('response', request, toIsoResponse(mockedResponse))
+          emitter.emit(
+            'response',
+            isomorphicRequest,
+            toIsoResponse(mockedResponse)
+          )
         } else {
           this.log('no mocked response received!')
 
@@ -408,7 +411,7 @@ export const createXMLHttpRequestOverride = (
 
             this.log('original response finished')
 
-            emitter.emit('response', request, {
+            emitter.emit('response', isomorphicRequest, {
               status: originalRequest.status,
               statusText: originalRequest.statusText,
               headers: this._responseHeaders,
