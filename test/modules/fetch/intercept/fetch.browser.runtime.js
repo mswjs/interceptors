@@ -1,5 +1,4 @@
 import { FetchInterceptor } from '@mswjs/interceptors/lib/interceptors/fetch'
-import { decodeBuf } from '@mswjs/interceptors/lib/utils/bufferCodec'
 
 const interceptor = new FetchInterceptor()
 interceptor.on('request', (request) => {
@@ -11,7 +10,7 @@ interceptor.on('request', (request) => {
         url: request.url.href,
         headers: request.headers.all(),
         credentials: request.credentials,
-        body: decodeBuf(request.body),
+        body: request.text(),
       },
     })
   )
