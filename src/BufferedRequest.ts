@@ -15,16 +15,16 @@ export class BufferedRequest {
     return this.init.method || 'GET'
   }
 
-  public async text(): Promise<string> {
+  public text(): string {
     return decodeBuf(this.body)
   }
 
-  public async json<T = any>(): Promise<T> {
-    const text = await this.text()
+  public json<T = any>(): T {
+    const text = this.text()
     return JSON.parse(text)
   }
 
-  public async arrayBuffer(): Promise<ArrayBuffer> {
+  public arrayBuffer(): ArrayBuffer {
     return this.body
   }
 
