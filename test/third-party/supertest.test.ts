@@ -4,9 +4,9 @@
 import express from 'express'
 import supertest from 'supertest'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
-import { IsomorphicRequest } from '../../src/glossary'
+import { BufferedRequest } from '../../src'
 
-let requests: IsomorphicRequest[] = []
+let requests: BufferedRequest[] = []
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
@@ -44,5 +44,5 @@ test('preserves original POST request JSON body', async () => {
   expect(requests).toHaveLength(1)
   const [request] = requests
   expect(request.method).toBe('POST')
-  expect(request.body).toEqual(JSON.stringify({ query: 'foo' }))
+  expect(request.text()).toEqual(JSON.stringify({ query: 'foo' }))
 })

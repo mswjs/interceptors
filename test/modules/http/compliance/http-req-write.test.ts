@@ -18,7 +18,7 @@ const interceptedRequestBody = jest.fn()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
-  interceptedRequestBody(request.body)
+  interceptedRequestBody(request.text())
 })
 
 function getInternalRequestBody(req: http.ClientRequest): Buffer {

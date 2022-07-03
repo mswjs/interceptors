@@ -9,6 +9,7 @@ import { anyUuid, headersContaining } from '../../jest.expect'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
+import { encodeBuf } from '../../../src/utils/bufferCodec'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (req, res) => {
@@ -60,17 +61,19 @@ test('ClientRequest: emits the "request" event upon the request', async () => {
   expect(requestListener).toHaveBeenCalledTimes(1)
   expect(requestListener).toHaveBeenCalledWith<
     Parameters<HttpRequestEventMap['request']>
-  >({
-    id: anyUuid(),
-    method: 'POST',
-    url: new URL(url),
-    headers: headersContaining({
-      'content-type': 'application/json',
-    }),
-    credentials: expect.anything(),
-    body: JSON.stringify({ userId: 'abc-123' }),
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'POST',
+      url: new URL(url),
+      headers: headersContaining({
+        'content-type': 'application/json',
+      }),
+      credentials: expect.anything(),
+      body: encodeBuf(JSON.stringify({ userId: 'abc-123' })),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('XMLHttpRequest: emits the "request" event upon the request', async () => {
@@ -90,15 +93,17 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
   expect(requestListener).toHaveBeenCalledTimes(2)
   expect(requestListener).toHaveBeenCalledWith<
     Parameters<HttpRequestEventMap['request']>
-  >({
-    id: anyUuid(),
-    method: 'POST',
-    url: new URL(url),
-    headers: headersContaining({
-      'content-type': 'application/json',
-    }),
-    credentials: 'same-origin',
-    body: JSON.stringify({ userId: 'abc-123' }),
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'POST',
+      url: new URL(url),
+      headers: headersContaining({
+        'content-type': 'application/json',
+      }),
+      credentials: 'same-origin',
+      body: encodeBuf(JSON.stringify({ userId: 'abc-123' })),
+      respondWith: expect.any(Function),
+    })
+  )
 })
