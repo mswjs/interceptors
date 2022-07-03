@@ -4,12 +4,15 @@ import { uuidv4 } from './utils/uuid'
 
 export class BufferedRequest {
   public id = uuidv4()
+  public readonly headers: Headers
 
   constructor(
     public readonly url: URL,
     private readonly body: ArrayBuffer,
     private readonly init: RequestInit
-  ) {}
+  ) {
+    this.headers = new Headers(this.init.headers)
+  }
 
   public get method(): string {
     return this.init.method || 'GET'
@@ -30,9 +33,5 @@ export class BufferedRequest {
 
   public get credentials(): RequestCredentials {
     return this.init.credentials || 'same-origin'
-  }
-
-  public get headers(): Headers {
-    return new Headers(this.init.headers)
   }
 }
