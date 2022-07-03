@@ -6,19 +6,12 @@ export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
 
 export type RequestCredentials = 'omit' | 'include' | 'same-origin'
 
-export interface RequestInit {
-  method?: string
-  headers?: Record<string, string | string[]> | Headers
-  credentials?: RequestCredentials
-  body: ArrayBuffer
-}
-
 export class InteractiveIsomorphicRequest extends IsomorphicRequest {
   constructor(
     request: IsomorphicRequest,
     readonly respondWith: LazyCallback<(mockedResponse: MockedResponse) => void>
   ) {
-    super(request.url, request['init'])
+    super(request)
     this.id = request.id
   }
 }
