@@ -138,7 +138,7 @@ test('performs the request as-is given resolver returned no mocked response', (d
 test('emits the ENOTFOUND error connecting to a non-existing hostname given no mocked response', (done) => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
+    normalizeClientRequestArgs('http:', 'http://dummy'),
     {
       emitter,
       log,
@@ -180,7 +180,7 @@ test('does not emit ENOTFOUND error connecting to an inactive server given mocke
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const handleError = jest.fn()
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
+    normalizeClientRequestArgs('http:', 'http://dummy'),
     {
       emitter,
       log,
