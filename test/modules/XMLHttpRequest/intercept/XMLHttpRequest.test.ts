@@ -10,6 +10,7 @@ import {
 } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
+import { encodeBuf } from '../../../../src/utils/bufferCodec'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -64,17 +65,19 @@ test('intercepts an HTTP HEAD request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<XMLHttpRequestEventListener>
-  >({
-    id: anyUuid(),
-    method: 'HEAD',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'omit',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'HEAD',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: encodeBuf(''),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('intercepts an HTTP GET request', async () => {
@@ -88,17 +91,19 @@ test('intercepts an HTTP GET request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<XMLHttpRequestEventListener>
-  >({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'omit',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: encodeBuf(''),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('intercepts an HTTP POST request', async () => {
@@ -112,17 +117,19 @@ test('intercepts an HTTP POST request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<XMLHttpRequestEventListener>
-  >({
-    id: anyUuid(),
-    method: 'POST',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'omit',
-    body: 'post-payload',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'POST',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: encodeBuf('post-payload'),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('intercepts an HTTP PUT request', async () => {
@@ -136,17 +143,19 @@ test('intercepts an HTTP PUT request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<XMLHttpRequestEventListener>
-  >({
-    id: anyUuid(),
-    method: 'PUT',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'omit',
-    body: 'put-payload',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'PUT',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: encodeBuf('put-payload'),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('intercepts an HTTP DELETE request', async () => {
@@ -160,17 +169,19 @@ test('intercepts an HTTP DELETE request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<XMLHttpRequestEventListener>
-  >({
-    id: anyUuid(),
-    method: 'DELETE',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'omit',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'DELETE',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: encodeBuf(''),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('intercepts an HTTPS HEAD request', async () => {
@@ -184,17 +195,19 @@ test('intercepts an HTTPS HEAD request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<XMLHttpRequestEventListener>
-  >({
-    id: anyUuid(),
-    method: 'HEAD',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'omit',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'HEAD',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: encodeBuf(''),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('intercepts an HTTPS GET request', async () => {
@@ -208,17 +221,19 @@ test('intercepts an HTTPS GET request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<XMLHttpRequestEventListener>
-  >({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'omit',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: encodeBuf(''),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('intercepts an HTTPS POST request', async () => {
@@ -232,17 +247,19 @@ test('intercepts an HTTPS POST request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<XMLHttpRequestEventListener>
-  >({
-    id: anyUuid(),
-    method: 'POST',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'omit',
-    body: 'post-payload',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'POST',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: encodeBuf('post-payload'),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('intercepts an HTTPS PUT request', async () => {
@@ -256,17 +273,19 @@ test('intercepts an HTTPS PUT request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<XMLHttpRequestEventListener>
-  >({
-    id: anyUuid(),
-    method: 'PUT',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'omit',
-    body: 'put-payload',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'PUT',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: encodeBuf('put-payload'),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('intercepts an HTTPS DELETE request', async () => {
@@ -280,17 +299,19 @@ test('intercepts an HTTPS DELETE request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<XMLHttpRequestEventListener>
-  >({
-    id: anyUuid(),
-    method: 'DELETE',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'omit',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'DELETE',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'omit',
+      body: encodeBuf(''),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {
