@@ -11,15 +11,14 @@ import {
   headersToString,
 } from 'headers-polyfill'
 import { DOMParser } from '@xmldom/xmldom'
-import { InteractiveIsomorphicRequest, IsomorphicRequest } from '../../glossary'
+import { InteractiveIsomorphicRequest } from '../../glossary'
 import { parseJson } from '../../utils/parseJson'
 import { toIsoResponse } from '../../utils/toIsoResponse'
-import { uuidv4 } from '../../utils/uuid'
 import { bufferFrom } from './utils/bufferFrom'
 import { createEvent } from './utils/createEvent'
 import type { XMLHttpRequestEmitter } from '.'
 import { createLazyCallback } from '../../utils/createLazyCallback'
-import { BufferedRequest } from '../../BufferedRequest'
+import { IsomorphicRequest } from '../../IsomorphicRequest'
 import { encodeBuf } from '../../utils/bufferCodec'
 
 type XMLHttpRequestEventHandler = (
@@ -253,14 +252,15 @@ export const createXMLHttpRequestOverride = (
       this.log('request headers', this._requestHeaders)
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
-      const bufferedRequest = new BufferedRequest(url, this.data, {
+      const request = new IsomorphicRequest(url, {
+        body: this.data,
         method: this.method,
         headers: this._requestHeaders,
         credentials: this.withCredentials ? 'include' : 'omit',
       })
 
       const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-        bufferedRequest,
+        request,
         createLazyCallback()
       )
 
@@ -355,11 +355,7 @@ export const createXMLHttpRequestOverride = (
           // Trigger a loadend event to indicate the fetch has completed.
           this.trigger('loadend')
 
-          emitter.emit(
-            'response',
-            bufferedRequest,
-            toIsoResponse(mockedResponse)
-          )
+          emitter.emit('response', request, toIsoResponse(mockedResponse))
         } else {
           this.log('no mocked response received!')
 
@@ -412,7 +408,7 @@ export const createXMLHttpRequestOverride = (
 
             this.log('original response finished')
 
-            emitter.emit('response', bufferedRequest, {
+            emitter.emit('response', request, {
               status: originalRequest.status,
               statusText: originalRequest.statusText,
               headers: this._responseHeaders,

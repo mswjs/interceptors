@@ -1,17 +1,13 @@
 import { ChildProcess } from 'child_process'
 import { Headers } from 'headers-polyfill'
-import {
-  HttpRequestEventMap,
-  InteractiveIsomorphicRequest,
-  IsomorphicRequest,
-} from './glossary'
+import { HttpRequestEventMap, InteractiveIsomorphicRequest } from './glossary'
 import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
 import { createLazyCallback } from './utils/createLazyCallback'
 import { toIsoResponse } from './utils/toIsoResponse'
-import { BufferedRequest } from './BufferedRequest'
+import { IsomorphicRequest } from './IsomorphicRequest'
 import { bufferFrom } from './interceptors/XMLHttpRequest/utils/bufferFrom'
 
 export class RemoteHttpInterceptor extends BatchInterceptor<
@@ -120,27 +116,18 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
         return
       }
 
-      const isomorphicRequest: IsomorphicRequest = JSON.parse(
-        serializedRequest,
-        requestReviver
-      )
+      const requestJson = JSON.parse(serializedRequest, requestReviver)
+      log('parsed intercepted request', requestJson)
 
-      log('parsed intercepted request', isomorphicRequest)
+      const body = requestJson.body ? bufferFrom(requestJson.body) : undefined
 
-      const body = isomorphicRequest.body
-        ? bufferFrom(isomorphicRequest.body)
-        : undefined
-
-      const bufferedRequest = new BufferedRequest(
-        isomorphicRequest.url,
-        body?.buffer || new ArrayBuffer(0),
-        {
-          ...isomorphicRequest,
-        }
-      )
+      const request = new IsomorphicRequest(requestJson.url, {
+        ...requestJson,
+        body: body?.buffer || new ArrayBuffer(0),
+      })
 
       const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-        bufferedRequest,
+        request,
         createLazyCallback()
       )
 
@@ -157,7 +144,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       const serializedResponse = JSON.stringify(mockedResponse)
 
       this.process.send(
-        `response:${isomorphicRequest.id}:${serializedResponse}`,
+        `response:${requestJson.id}:${serializedResponse}`,
         (error) => {
           if (error) {
             return
@@ -168,7 +155,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
             // not to rely on the back-and-forth signaling for the sake of the event.
             this.emitter.emit(
               'response',
-              bufferedRequest,
+              request,
               toIsoResponse(mockedResponse)
             )
           }

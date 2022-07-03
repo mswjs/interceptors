@@ -11,7 +11,7 @@ interceptor.on('request', async (request) => {
         url: request.url.href,
         headers: request.headers.all(),
         credentials: request.credentials,
-        body: request.text(),
+        body: await request.text(),
       },
     })
   )

@@ -1,7 +1,7 @@
 import { FetchInterceptor } from '@mswjs/interceptors/lib/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', async (request) => {
   window.dispatchEvent(
     new CustomEvent('resolver', {
       detail: {
@@ -10,7 +10,7 @@ interceptor.on('request', (request) => {
         url: request.url.href,
         headers: request.headers.all(),
         credentials: request.credentials,
-        body: request.text(),
+        body: await request.text(),
       },
     })
   )

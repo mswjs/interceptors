@@ -3,12 +3,7 @@ import type { RequestOptions } from 'http'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
 import { Headers, objectToHeaders } from 'headers-polyfill/lib'
-import {
-  InteractiveIsomorphicRequest,
-  IsomorphicRequest,
-  MockedResponse,
-} from '../../glossary'
-import { uuidv4 } from '../../utils/uuid'
+import { InteractiveIsomorphicRequest, MockedResponse } from '../../glossary'
 import type { ClientRequestEmitter } from '.'
 import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
 import {
@@ -21,13 +16,12 @@ import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { bodyBufferToString } from './utils/bodyBufferToString'
 import {
   ClientRequestWriteArgs,
-  ClientRequestWriteCallback,
   normalizeClientRequestWriteArgs,
 } from './utils/normalizeClientRequestWriteArgs'
 import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
 import { createLazyCallback } from '../../utils/createLazyCallback'
 import { invariant } from 'outvariant'
-import { BufferedRequest } from '../../BufferedRequest'
+import { IsomorphicRequest } from '../../IsomorphicRequest'
 
 export type Protocol = 'http' | 'https'
 
@@ -116,17 +110,17 @@ export class NodeClientRequest extends ClientRequest {
     this.log('normalized arguments:', { chunk, encoding, callback })
 
     const requestBody = this.getRequestBody(chunk)
-    const bufferedRequest = this.toBufferedRequest(requestBody)
+    const request = this.toIsomorphicResponse(requestBody)
     const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-      bufferedRequest,
+      request,
       createLazyCallback({
         maxCalls: 1,
         maxCallsCallback() {
           invariant(
             false,
             'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
-            bufferedRequest.method,
-            bufferedRequest.url.href
+            request.method,
+            request.url.href
           )
         },
       })
@@ -190,7 +184,7 @@ export class NodeClientRequest extends ClientRequest {
 
         this.log('emitting the custom "response" event...')
 
-        this.emitter.emit('response', bufferedRequest, isomorphicResponse)
+        this.emitter.emit('response', request, isomorphicResponse)
 
         return this
       }
@@ -236,7 +230,7 @@ export class NodeClientRequest extends ClientRequest {
         this.log('original response headers:', response.headers)
 
         this.log('emitting the custom "response" event...')
-        this.emitter.emit('response', bufferedRequest, {
+        this.emitter.emit('response', request, {
           status: response.statusCode || 200,
           statusText: response.statusMessage || 'OK',
           headers: objectToHeaders(response.headers),
@@ -398,8 +392,8 @@ export class NodeClientRequest extends ClientRequest {
     )
   }
 
-  private toBufferedRequest(body: ArrayBuffer): BufferedRequest {
-    this.log('creating buffered request object...')
+  private toIsomorphicResponse(body: ArrayBuffer): IsomorphicRequest {
+    this.log('creating isomorphic request object...')
 
     const outgoingHeaders = this.getHeaders()
     this.log('request outgoing headers:', outgoingHeaders)
@@ -413,13 +407,14 @@ export class NodeClientRequest extends ClientRequest {
       headers.set(headerName.toLowerCase(), headerValue.toString())
     }
 
-    const request = new BufferedRequest(this.url, body, {
+    const request = new IsomorphicRequest(this.url, {
+      body,
       method: this.options.method || 'GET',
       credentials: 'same-origin',
       headers,
     })
 
-    this.log('successfully created buffered request!', request)
+    this.log('successfully created isomorphic request!', request)
     return request
   }
 }

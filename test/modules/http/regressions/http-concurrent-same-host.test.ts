@@ -3,10 +3,10 @@
  * @see https://github.com/mswjs/interceptors/issues/2
  */
 import * as http from 'http'
-import { BufferedRequest } from '../../../../src'
+import { IsomorphicRequest } from '../../../../src'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let requests: BufferedRequest[] = []
+let requests: IsomorphicRequest[] = []
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {

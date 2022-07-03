@@ -9,7 +9,7 @@ export function encodeBuf(input: string): ArrayBuffer {
   )
 }
 
-export function decodeBuf(input: ArrayBuffer): string {
-  const decoder = new TextDecoder('utf-8')
+export function decodeBuf(input: ArrayBuffer, encoding?: string): string {
+  const decoder = new TextDecoder(encoding)
   return decoder.decode(input)
 }

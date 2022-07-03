@@ -1,13 +1,11 @@
 import https from 'https'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
-import { Headers } from 'headers-polyfill'
 import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { IsomorphicRequest, RequestCredentials } from '../src/glossary'
-import { BufferedRequest } from '../src'
-import { bufferFrom } from '../src/interceptors/XMLHttpRequest/utils/bufferFrom'
+import { RequestCredentials } from '../src/glossary'
+import { IsomorphicRequest } from '../src'
 import { encodeBuf } from '../src/utils/bufferCodec'
 
 export interface PromisifiedResponse {
@@ -206,7 +204,7 @@ interface BrowserXMLHttpRequestInit {
 
 export async function extractRequestFromPage(
   page: Page
-): Promise<BufferedRequest> {
+): Promise<IsomorphicRequest> {
   const request = await page.evaluate(() => {
     return new Promise<StringifiedIsomorphicRequest>((resolve, reject) => {
       const timeoutTimer = setTimeout(() => {
@@ -227,13 +225,12 @@ export async function extractRequestFromPage(
     })
   })
 
-  const bufferedRequest = new BufferedRequest(
-    new URL(request.url),
-    encodeBuf(request.body || ''),
-    { ...request }
-  )
-  bufferedRequest.id = request.id
-  return bufferedRequest
+  const isomorphicRequest = new IsomorphicRequest(new URL(request.url), {
+    ...request,
+    body: encodeBuf(request.body || ''),
+  })
+  isomorphicRequest.id = request.id
+  return isomorphicRequest
 }
 
 export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {
@@ -289,7 +286,7 @@ export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {
 export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
   return async (
     requestInit: BrowserXMLHttpRequestInit
-  ): Promise<[BufferedRequest, XMLHttpResponse]> => {
+  ): Promise<[IsomorphicRequest, XMLHttpResponse]> => {
     return Promise.all([
       extractRequestFromPage(scenario.page),
       createRawBrowserXMLHttpRequest(scenario)(requestInit),

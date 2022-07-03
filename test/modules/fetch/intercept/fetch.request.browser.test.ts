@@ -4,10 +4,8 @@
 import * as path from 'path'
 import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
-import { IsomorphicRequest } from '../../../../src/glossary'
 import { extractRequestFromPage } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
-import { BufferedRequest } from '../../../../src'
 import { encodeBuf } from '../../../../src/utils/bufferCodec'
 
 const httpServer = new HttpServer((app) => {

@@ -1,15 +1,17 @@
 import { Headers } from 'headers-polyfill/lib'
+import { RequestInit } from './glossary'
 import { decodeBuf } from './utils/bufferCodec'
 import { uuidv4 } from './utils/uuid'
 
-export class BufferedRequest {
+export class IsomorphicRequest {
   public id = uuidv4()
   public readonly headers: Headers
 
+  constructor(url: URL)
+  constructor(url: URL, init: RequestInit)
   constructor(
     public readonly url: URL,
-    private readonly body: ArrayBuffer,
-    private readonly init: RequestInit
+    private readonly init: RequestInit = { body: new ArrayBuffer(0) }
   ) {
     this.headers = new Headers(this.init.headers)
   }
@@ -18,17 +20,18 @@ export class BufferedRequest {
     return this.init.method || 'GET'
   }
 
-  public text(): string {
-    return decodeBuf(this.body)
+  public async text(): Promise<string> {
+    const buf = await this.arrayBuffer()
+    return decodeBuf(buf)
   }
 
-  public json<T = any>(): T {
-    const text = this.text()
+  public async json<T = any>(): Promise<T> {
+    const text = await this.text()
     return JSON.parse(text)
   }
 
-  public arrayBuffer(): ArrayBuffer {
-    return this.body
+  public async arrayBuffer(): Promise<ArrayBuffer> {
+    return this.init.body
   }
 
   public get credentials(): RequestCredentials {

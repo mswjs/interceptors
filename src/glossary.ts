@@ -1,32 +1,25 @@
 import type { HeadersObject, Headers } from 'headers-polyfill'
-import { BufferedRequest } from './BufferedRequest'
+import { IsomorphicRequest } from './IsomorphicRequest'
 import type { LazyCallback } from './utils/createLazyCallback'
 
 export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
 
 export type RequestCredentials = 'omit' | 'include' | 'same-origin'
 
-export interface IsomorphicRequest {
-  id: string
-  url: URL
-  method: string
-  headers: Headers
-  /**
-   * The value of the request client's "credentials" option
-   * or a compatible alternative (i.e. `withCredentials` for `XMLHttpRequest`).
-   * Always equals to "omit" in Node.js.
-   */
-  credentials: RequestCredentials
-  body?: string
+export interface RequestInit {
+  method?: string
+  headers?: Record<string, string | string[]> | Headers
+  credentials?: RequestCredentials
+  body: ArrayBuffer
 }
 
-export class InteractiveIsomorphicRequest extends BufferedRequest {
+export class InteractiveIsomorphicRequest extends IsomorphicRequest {
   constructor(
-    buffered: BufferedRequest,
+    request: IsomorphicRequest,
     readonly respondWith: LazyCallback<(mockedResponse: MockedResponse) => void>
   ) {
-    super(buffered.url, buffered['body'], buffered['init'])
-    this.id = buffered.id
+    super(request.url, request['init'])
+    this.id = request.id
   }
 }
 
@@ -45,7 +38,7 @@ export interface MockedResponse
 export type HttpRequestEventMap = {
   request(request: InteractiveIsomorphicRequest): Promise<void> | void
   response(
-    request: BufferedRequest,
+    request: IsomorphicRequest,
     response: IsomorphicResponse
   ): Promise<void> | void
 }
