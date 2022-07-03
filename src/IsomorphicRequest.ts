@@ -1,5 +1,5 @@
 import { Headers } from 'headers-polyfill/lib'
-import { decodeBuffer } from './utils/bufferCodec'
+import { decodeBuffer } from './utils/bufferUtils'
 import { uuidv4 } from './utils/uuid'
 
 export interface RequestInit {

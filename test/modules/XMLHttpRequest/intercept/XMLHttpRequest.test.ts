@@ -10,7 +10,7 @@ import {
 } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
-import { encodeBuffer } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 declare namespace window {
   export const _resourceLoader: {

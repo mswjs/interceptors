@@ -8,7 +8,7 @@ import { RequestHandler } from 'express-serve-static-core'
 import { createBrowserXMLHttpRequest } from '../../../helpers'
 import { IsomorphicRequest, IsomorphicResponse } from '../../../../src'
 import { anyUuid, headersContaining } from '../../../jest.expect'
-import { encodeBuffer } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   const requestHandler: RequestHandler = (_req, res) => {

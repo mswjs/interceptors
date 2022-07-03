@@ -8,7 +8,7 @@ import { waitForClientRequest } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
-import { encodeBuffer } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (req, res) => {

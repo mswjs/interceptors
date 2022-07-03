@@ -15,7 +15,7 @@ import { anyUuid, headersContaining } from '../../jest.expect'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
-import { encodeBuffer } from '../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../src/utils/bufferUtils'
 
 declare namespace window {
   export const _resourceLoader: {

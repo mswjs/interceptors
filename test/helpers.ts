@@ -6,7 +6,7 @@ import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { RequestCredentials } from '../src/glossary'
 import { IsomorphicRequest } from '../src'
-import { encodeBuffer } from '../src/utils/bufferCodec'
+import { encodeBuffer } from '../src/utils/bufferUtils'
 
 export interface PromisifiedResponse {
   req: ClientRequest

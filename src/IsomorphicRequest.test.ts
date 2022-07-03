@@ -1,6 +1,6 @@
 import { Headers } from 'headers-polyfill/lib'
 import { IsomorphicRequest } from './IsomorphicRequest'
-import { encodeBuffer } from './utils/bufferCodec'
+import { encodeBuffer } from './utils/bufferUtils'
 
 describe('Request', () => {
   const url = new URL('http://dummy')

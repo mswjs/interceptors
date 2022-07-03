@@ -17,7 +17,7 @@ import { bufferFrom } from './utils/bufferFrom'
 import { createEvent } from './utils/createEvent'
 import type { XMLHttpRequestEmitter } from '.'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
-import { encodeBuffer } from '../../utils/bufferCodec'
+import { encodeBuffer } from '../../utils/bufferUtils'
 import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 
 type XMLHttpRequestEventHandler = (

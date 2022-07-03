@@ -9,7 +9,7 @@ import { anyUuid, headersContaining } from '../../jest.expect'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
-import { encodeBuffer } from '../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (req, res) => {

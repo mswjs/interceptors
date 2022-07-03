@@ -7,7 +7,7 @@ import { HttpRequestEventMap } from '../../../../src'
 import { fetch } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { encodeBuffer } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (_req, res) => {

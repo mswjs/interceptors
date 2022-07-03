@@ -6,7 +6,7 @@ import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
 import { extractRequestFromPage } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
-import { encodeBuffer } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (_req, res) => {

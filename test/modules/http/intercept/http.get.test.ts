@@ -7,7 +7,7 @@ import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientReq
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
-import { encodeBuffer } from '../../../../src/utils/bufferCodec'
+import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
