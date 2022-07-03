@@ -109,9 +109,9 @@ export class NodeClientRequest extends ClientRequest {
     this.log('normalized arguments:', { chunk, encoding, callback })
 
     const requestBody = this.getRequestBody(chunk)
-    const request = this.toIsomorphicRequest(requestBody)
+    const isomorphicRequest = this.toIsomorphicRequest(requestBody)
     const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-      request
+      isomorphicRequest
     )
 
     // Notify the interceptor about the request.
@@ -172,7 +172,7 @@ export class NodeClientRequest extends ClientRequest {
 
         this.log('emitting the custom "response" event...')
 
-        this.emitter.emit('response', request, isomorphicResponse)
+        this.emitter.emit('response', isomorphicRequest, isomorphicResponse)
 
         return this
       }
@@ -218,7 +218,7 @@ export class NodeClientRequest extends ClientRequest {
         this.log('original response headers:', response.headers)
 
         this.log('emitting the custom "response" event...')
-        this.emitter.emit('response', request, {
+        this.emitter.emit('response', isomorphicRequest, {
           status: response.statusCode || 200,
           statusText: response.statusMessage || 'OK',
           headers: objectToHeaders(response.headers),
@@ -395,14 +395,14 @@ export class NodeClientRequest extends ClientRequest {
       headers.set(headerName.toLowerCase(), headerValue.toString())
     }
 
-    const request = new IsomorphicRequest(this.url, {
+    const isomorphicRequest = new IsomorphicRequest(this.url, {
       body,
       method: this.options.method || 'GET',
       credentials: 'same-origin',
       headers,
     })
 
-    this.log('successfully created isomorphic request!', request)
-    return request
+    this.log('successfully created isomorphic request!', isomorphicRequest)
+    return isomorphicRequest
   }
 }

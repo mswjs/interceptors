@@ -84,7 +84,6 @@ export const createXMLHttpRequestOverride = (
     public statusText: string
     public user?: string
     public password?: string
-    public data: ArrayBuffer
     public async?: boolean
     public response: any
     public responseText: string
@@ -132,7 +131,6 @@ export const createXMLHttpRequestOverride = (
       this.withCredentials = false
       this.status = 200
       this.statusText = 'OK'
-      this.data = new ArrayBuffer(0)
       this.response = ''
       this.responseType = 'text'
       this.responseText = ''
@@ -195,7 +193,6 @@ export const createXMLHttpRequestOverride = (
       this.setReadyState(this.UNSENT)
       this.status = 200
       this.statusText = 'OK'
-      this.data = new ArrayBuffer(0)
       this.response = null as any
       this.responseText = null as any
       this.responseXML = null as any
@@ -231,10 +228,11 @@ export const createXMLHttpRequestOverride = (
 
     public send(data?: string | ArrayBuffer) {
       this.log('send %s %s', this.method, this.url)
+      let buffer: ArrayBuffer
       if (typeof data === 'string') {
-        this.data = encodeBuffer(data)
+        buffer = encodeBuffer(data)
       } else {
-        this.data = data || new ArrayBuffer(0)
+        buffer = data || new ArrayBuffer(0)
       }
 
       let url: URL
@@ -252,7 +250,7 @@ export const createXMLHttpRequestOverride = (
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
       const isomorphicRequest = new IsomorphicRequest(url, {
-        body: this.data,
+        body: buffer,
         method: this.method,
         headers: this._requestHeaders,
         credentials: this.withCredentials ? 'include' : 'omit',
@@ -428,8 +426,8 @@ export const createXMLHttpRequestOverride = (
             originalRequest.timeout = this.timeout
           }
 
-          this.log('send', this.data)
-          originalRequest.send(this.data)
+          this.log('send', data)
+          originalRequest.send(data)
         }
       })
     }

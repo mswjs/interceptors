@@ -119,11 +119,11 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       const requestJson = JSON.parse(serializedRequest, requestReviver)
       log('parsed intercepted request', requestJson)
 
-      const body = requestJson.body ? bufferFrom(requestJson.body) : undefined
+      const body = bufferFrom(requestJson.body)
 
       const isomorphicRequest = new IsomorphicRequest(requestJson.url, {
         ...requestJson,
-        body: body?.buffer || new ArrayBuffer(0),
+        body: body.buffer,
       })
 
       const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
