@@ -1,4 +1,5 @@
 import type { HeadersObject, Headers } from 'headers-polyfill'
+import { BufferedRequest } from './BufferedRequest'
 import type { LazyCallback } from './utils/createLazyCallback'
 
 export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
@@ -19,8 +20,14 @@ export interface IsomorphicRequest {
   body?: string
 }
 
-export interface InteractiveIsomorphicRequest extends IsomorphicRequest {
-  respondWith: LazyCallback<(mockedResponse: MockedResponse) => void>
+export class InteractiveIsomorphicRequest extends BufferedRequest {
+  constructor(
+    buffered: BufferedRequest,
+    readonly respondWith: LazyCallback<(mockedResponse: MockedResponse) => void>
+  ) {
+    super(buffered.url, buffered['body'], buffered['init'])
+    this.id = buffered.id
+  }
 }
 
 export interface IsomorphicResponse {
@@ -38,7 +45,7 @@ export interface MockedResponse
 export type HttpRequestEventMap = {
   request(request: InteractiveIsomorphicRequest): Promise<void> | void
   response(
-    request: IsomorphicRequest,
+    request: BufferedRequest,
     response: IsomorphicResponse
   ): Promise<void> | void
 }

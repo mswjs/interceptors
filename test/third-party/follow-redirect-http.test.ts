@@ -71,9 +71,9 @@ test('intercepts a POST request issued by "follow-redirects"', async () => {
   expect(initialRequest.credentials).toBe('same-origin')
   expect(initialRequest.headers.get('Content-Type')).toBe('application/json')
   expect(initialRequest.headers.get('Content-Length')).toBe('23')
-  expect(initialRequest.body).toBe(JSON.stringify({ todo: 'Buy the milk' }))
+  expect(await initialRequest.text()).toBe(JSON.stringify({ todo: 'Buy the milk' }))
 
-  // Intercepted redirect request (issed by "follow-redirects").
+  // Intercepted redirect request (issued by "follow-redirects").
   const [redirectedRequest] = resolver.mock.calls[1]
 
   expect(redirectedRequest.method).toBe('GET')
@@ -81,7 +81,7 @@ test('intercepts a POST request issued by "follow-redirects"', async () => {
   expect(redirectedRequest.credentials).toBe('same-origin')
   expect(redirectedRequest.headers.get('Content-Type')).toBe('application/json')
   expect(redirectedRequest.headers.get('Content-Length')).toBe('23')
-  expect(redirectedRequest.body).toBe(JSON.stringify({ todo: 'Buy the milk' }))
+  expect(await redirectedRequest.text()).toBe(JSON.stringify({ todo: 'Buy the milk' }))
 
   // Response (original).
   expect(catchResponseUrl).toHaveBeenCalledWith(server.https.url('/user'))

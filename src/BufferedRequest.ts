@@ -1,19 +1,18 @@
 import { Headers } from 'headers-polyfill/lib'
 import { decodeBuf } from './utils/bufferCodec'
+import { uuidv4 } from './utils/uuid'
 
 export class BufferedRequest {
-  public readonly method: string
-  public readonly credentials: RequestCredentials
-  public readonly headers: Headers
+  public id = uuidv4()
 
   constructor(
     public readonly url: URL,
     private readonly body: ArrayBuffer,
-    init: RequestInit
-  ) {
-    this.method = init.method || 'GET'
-    this.credentials = init.credentials || 'same-origin'
-    this.headers = new Headers(init.headers)
+    private readonly init: RequestInit
+  ) {}
+
+  public get method(): string {
+    return this.init.method || 'GET'
   }
 
   public async text(): Promise<string> {
@@ -27,5 +26,13 @@ export class BufferedRequest {
 
   public async arrayBuffer(): Promise<ArrayBuffer> {
     return this.body
+  }
+
+  public get credentials(): RequestCredentials {
+    return this.init.credentials || 'same-origin'
+  }
+
+  public get headers(): Headers {
+    return new Headers(this.init.headers)
   }
 }

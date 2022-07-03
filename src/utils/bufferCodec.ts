@@ -1,3 +1,5 @@
+import { TextDecoder, TextEncoder } from 'web-encoding'
+
 export function encodeBuf(input: string): ArrayBuffer {
   const encoder = new TextEncoder()
   const encoded = encoder.encode(input)

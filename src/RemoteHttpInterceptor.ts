@@ -1,6 +1,6 @@
 import { ChildProcess } from 'child_process'
 import { Headers } from 'headers-polyfill'
-import type {
+import {
   HttpRequestEventMap,
   InteractiveIsomorphicRequest,
   IsomorphicRequest,
@@ -11,6 +11,8 @@ import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
 import { createLazyCallback } from './utils/createLazyCallback'
 import { toIsoResponse } from './utils/toIsoResponse'
+import { BufferedRequest } from './BufferedRequest'
+import { bufferFrom } from './interceptors/XMLHttpRequest/utils/bufferFrom'
 
 export class RemoteHttpInterceptor extends BatchInterceptor<
   [ClientRequestInterceptor, XMLHttpRequestInterceptor]
@@ -59,7 +61,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
         }
       })
 
-      // Listen for the mocked resopnse message from the parent.
+      // Listen for the mocked response message from the parent.
       this.log(
         'add "message" listener to the parent process',
         handleParentMessage
@@ -125,10 +127,22 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
       log('parsed intercepted request', isomorphicRequest)
 
-      const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
-        ...isomorphicRequest,
-        respondWith: createLazyCallback(),
-      }
+      const body = isomorphicRequest.body
+        ? bufferFrom(isomorphicRequest.body)
+        : undefined
+
+      const bufferedRequest = new BufferedRequest(
+        isomorphicRequest.url,
+        body?.buffer || new ArrayBuffer(0),
+        {
+          ...isomorphicRequest,
+        }
+      )
+
+      const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
+        bufferedRequest,
+        createLazyCallback()
+      )
 
       this.emitter.emit('request', interactiveIsomorphicRequest)
       await this.emitter.untilIdle('request', ({ args: [request] }) => {
@@ -150,11 +164,11 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
           }
 
           if (mockedResponse) {
-            // Emit an optimistinc "response" event at this point,
+            // Emit an optimistic "response" event at this point,
             // not to rely on the back-and-forth signaling for the sake of the event.
             this.emitter.emit(
               'response',
-              isomorphicRequest,
+              bufferedRequest,
               toIsoResponse(mockedResponse)
             )
           }

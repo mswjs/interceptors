@@ -5,6 +5,7 @@ import {
   headersToObject,
 } from 'headers-polyfill'
 import { invariant } from 'outvariant'
+import { BufferedRequest } from '../../BufferedRequest'
 import {
   HttpRequestEventMap,
   InteractiveIsomorphicRequest,
@@ -14,7 +15,6 @@ import {
 import { Interceptor } from '../../Interceptor'
 import { createLazyCallback } from '../../utils/createLazyCallback'
 import { toIsoResponse } from '../../utils/toIsoResponse'
-import { uuidv4 } from '../../utils/uuid'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -46,15 +46,17 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.log('[%s] %s', method, url)
 
-      const isomorphicRequest: InteractiveIsomorphicRequest = {
-        id: uuidv4(),
-        url: new URL(url, location.origin),
-        method: method,
-        headers: new Headers(request.headers),
-        credentials: request.credentials,
-        body: await request.clone().text(),
-        respondWith: createLazyCallback(),
-      }
+      const body = await request.clone().arrayBuffer()
+      const bufferedRequest = new BufferedRequest(
+        new URL(url, location.origin),
+        body,
+        { ...request }
+      )
+
+      const isomorphicRequest = new InteractiveIsomorphicRequest(
+        bufferedRequest,
+        createLazyCallback()
+      )
 
       this.log('isomorphic request', isomorphicRequest)
 
