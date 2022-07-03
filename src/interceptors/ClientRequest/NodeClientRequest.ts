@@ -3,7 +3,7 @@ import type { RequestOptions } from 'http'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
 import { Headers, objectToHeaders } from 'headers-polyfill/lib'
-import { InteractiveIsomorphicRequest, MockedResponse } from '../../glossary'
+import { MockedResponse } from '../../glossary'
 import type { ClientRequestEmitter } from '.'
 import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
 import {
@@ -19,9 +19,8 @@ import {
   normalizeClientRequestWriteArgs,
 } from './utils/normalizeClientRequestWriteArgs'
 import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
-import { createLazyCallback } from '../../utils/createLazyCallback'
-import { invariant } from 'outvariant'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
+import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 
 export type Protocol = 'http' | 'https'
 

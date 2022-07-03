@@ -1,31 +1,10 @@
 import type { HeadersObject, Headers } from 'headers-polyfill'
-import { invariant } from 'outvariant'
-import { IsomorphicRequest } from './IsomorphicRequest'
-import { createLazyCallback, LazyCallback } from './utils/createLazyCallback'
+import type { InteractiveIsomorphicRequest } from './InteractiveIsomorphicRequest'
+import type { IsomorphicRequest } from './IsomorphicRequest'
 
 export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
 
 export type RequestCredentials = 'omit' | 'include' | 'same-origin'
-
-export class InteractiveIsomorphicRequest extends IsomorphicRequest {
-  public respondWith: LazyCallback<(response: MockedResponse) => void>
-
-  constructor(request: IsomorphicRequest) {
-    super(request)
-
-    this.respondWith = createLazyCallback({
-      maxCalls: 1,
-      maxCallsCallback: () => {
-        invariant(
-          false,
-          'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
-          this.method,
-          this.url.href
-        )
-      },
-    })
-  }
-}
 
 export interface IsomorphicResponse {
   status: number

@@ -11,15 +11,14 @@ import {
   headersToString,
 } from 'headers-polyfill'
 import { DOMParser } from '@xmldom/xmldom'
-import { InteractiveIsomorphicRequest } from '../../glossary'
 import { parseJson } from '../../utils/parseJson'
 import { toIsoResponse } from '../../utils/toIsoResponse'
 import { bufferFrom } from './utils/bufferFrom'
 import { createEvent } from './utils/createEvent'
 import type { XMLHttpRequestEmitter } from '.'
-import { createLazyCallback } from '../../utils/createLazyCallback'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
 import { encodeBuffer } from '../../utils/bufferCodec'
+import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 
 type XMLHttpRequestEventHandler = (
   this: XMLHttpRequest,

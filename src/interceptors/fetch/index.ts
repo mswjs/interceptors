@@ -8,13 +8,12 @@ import { invariant } from 'outvariant'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
 import {
   HttpRequestEventMap,
-  InteractiveIsomorphicRequest,
   IsomorphicResponse,
   IS_PATCHED_MODULE,
 } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
-import { createLazyCallback } from '../../utils/createLazyCallback'
 import { toIsoResponse } from '../../utils/toIsoResponse'
+import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')

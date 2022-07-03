@@ -1,9 +1,6 @@
 import { invariant } from 'outvariant'
-import {
-  HttpRequestEventMap,
-  InteractiveIsomorphicRequest,
-  IS_PATCHED_MODULE,
-} from '../../glossary'
+import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
+import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { createXMLHttpRequestOverride } from './XMLHttpRequestOverride'

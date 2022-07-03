@@ -1,14 +1,14 @@
 import { ChildProcess } from 'child_process'
 import { Headers } from 'headers-polyfill'
-import { HttpRequestEventMap, InteractiveIsomorphicRequest } from './glossary'
+import { HttpRequestEventMap } from './glossary'
 import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
-import { createLazyCallback } from './utils/createLazyCallback'
 import { toIsoResponse } from './utils/toIsoResponse'
 import { IsomorphicRequest } from './IsomorphicRequest'
 import { bufferFrom } from './interceptors/XMLHttpRequest/utils/bufferFrom'
+import { InteractiveIsomorphicRequest } from './InteractiveIsomorphicRequest'
 
 export class RemoteHttpInterceptor extends BatchInterceptor<
   [ClientRequestInterceptor, XMLHttpRequestInterceptor]
