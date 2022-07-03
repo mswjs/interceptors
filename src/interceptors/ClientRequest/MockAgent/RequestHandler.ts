@@ -132,19 +132,23 @@ export class RequestHandler {
   private _passthrough(): void {
     const request = this.passthrough()
 
-    request.on('socket', (s) => {
-      s.on('data', (chunk) => console.warn('real s data', chunk))
-      s.on('error', console.error)
-      s.on('timeout', console.error)
+    request.once('socket', (socket) => {
+      socket.pipe(this.sockets.serverSide)
 
-      s.on('connect', () => {
-        console.log('S CONNECT')
+      socket.on('data', console.warn)
+
+      socket.once('error', console.error)
+      socket.once('timeout', console.error)
+
+      socket.once('connect', () => {
+        console.log('socket connected', socket.remoteAddress, socket.remotePort)
       })
     })
-    request.on('response', (res) => {
-      console.log('res!', res.statusCode, res.statusMessage)
-      this.request.emit('response', res)
-    })
+
+    // request.on('response', (res) => {
+    //   console.log('res!', res.statusCode, res.statusMessage)
+    //   this.request.emit('response', res)
+    // })
     request.on('error', this.request.emit.bind(this.request, 'error'))
     request.on('timeout', console.error)
   }

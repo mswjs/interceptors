@@ -261,7 +261,7 @@ export class NodeClientRequest extends ClientRequest {
   }
 
   emit(event: string, ...data: any[]) {
-    this.log('event:%s', event)
+    // this.log('event:%s', event)
 
     if (event === 'response') {
       this.log('found "response" event, cloning the response...')
@@ -292,6 +292,8 @@ export class NodeClientRequest extends ClientRequest {
     if (event === 'error') {
       const error = data[0] as NodeJS.ErrnoException
       const errorCode = error.code || ''
+
+      console.error('CAPTURED ERROR', error)
 
       this.log('error:\n', error)
 

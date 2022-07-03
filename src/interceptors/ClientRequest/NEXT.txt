@@ -1,0 +1,30 @@
+
+A mock Socket instance should perform the response lookup.
+
+Benefits:
+
+- No need to override the Agent, as all agents
+  establish a socket connection.
+- No need to mock "http.get"/"http.request"/"ClientRequest" at all.
+- Mock socket can send mock data from itself
+  instead of hijacking request resolution via "respondWith".
+
+Drawbacks:
+
+- Need to emulate that the socket has connected.
+- Need to find a way how to send mock response
+  from the socket.
+- Is quite low-level.
+
+References:
+
+- connectionListener(socket)
+  Presumably ties "ClientRequest" and "Server" together.
+  https://github.com/nodejs/node/blob/ea9943158654bca9432a9a8b53abc97f1ca84bf7/lib/_http_server.js#L553
+
+- Use "handle" option of the Socket class.
+  That's a TCPWrapper for data transfer.
+
+
+- https://github.com/moll/node-mitm/blob/master/lib/internal_socket.js
+- https://github.com/moll/node-mitm/blob/master/index.js

@@ -1,8 +1,6 @@
 import * as http from 'http'
 import * as https from 'https'
 import type { ClientRequestEmitter } from '.'
-import { HttpMockAgent } from './MockAgent/HttpMockAgent'
-import { HttpsMockAgent } from './MockAgent/HttpsMockAgent'
 import { MockAgent } from './MockAgent/MockAgent'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 
@@ -21,7 +19,7 @@ export function createHttpApplyHandler(
 ) {
   return function (
     this: typeof http | typeof https,
-    target: typeof http.get,
+    target: typeof http.get | typeof http.request,
     context: typeof http | typeof https,
     args: Parameters<typeof http.get>
   ) {
@@ -34,27 +32,12 @@ export function createHttpApplyHandler(
       ...args
     )
 
-    // const MockAgent =
-    //   globalAgent.protocol === 'https:' ? HttpsMockAgent : HttpMockAgent
-
-    const customAgentOptions =
-      options.agent instanceof http.Agent
-        ? // @ts-expect-error
-          options.agent.options
-        : undefined
-
     const passthrough = () => {
+      console.log('constructing bypassed reques', { context, args })
       return Reflect.apply(target, context, args)
     }
 
     const mockAgent = new MockAgent(emitter, passthrough)
-
-    // const mockAgent = new MockAgent(
-    //   {
-    //     emitter,
-    //   },
-    //   customAgentOptions
-    // )
 
     const nextOptions: http.RequestOptions = Object.assign({}, options, {
       agent: mockAgent,
