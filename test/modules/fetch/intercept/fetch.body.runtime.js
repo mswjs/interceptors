@@ -2,7 +2,7 @@ import { FetchInterceptor } from '@mswjs/interceptors/lib/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 interceptor.on('request', (request) => {
-  window.requestBody = request.body
+  window.requestBody = request.text()
 })
 
 interceptor.apply()
