@@ -8,6 +8,7 @@ import { RequestHandler } from 'express-serve-static-core'
 import { createBrowserXMLHttpRequest } from '../../../helpers'
 import { IsomorphicRequest, IsomorphicResponse } from '../../../../src'
 import { anyUuid, headersContaining } from '../../../jest.expect'
+import { encodeBuf } from '../../../../src/utils/bufferCodec'
 
 const httpServer = new HttpServer((app) => {
   const requestHandler: RequestHandler = (_req, res) => {
@@ -44,7 +45,7 @@ test('intercepts an HTTP GET request', async () => {
     },
   })
 
-  expect(request).toEqual<IsomorphicRequest>({
+  expect(request).toMatchObject({
     id: anyUuid(),
     method: 'GET',
     url: new URL(url),
@@ -52,7 +53,7 @@ test('intercepts an HTTP GET request', async () => {
       'x-request-header': 'yes',
     }),
     credentials: 'omit',
-    body: '',
+    body: encodeBuf(''),
   })
   expect(response).toEqual<IsomorphicResponse>({
     status: 200,
@@ -76,13 +77,13 @@ test('intercepts an HTTP POST request', async () => {
     body: JSON.stringify({ user: 'john' }),
   })
 
-  expect(request).toEqual<IsomorphicRequest>({
+  expect(request).toMatchObject({
     id: anyUuid(),
     method: 'POST',
     url: new URL(url),
     headers: headersContaining({}),
     credentials: 'omit',
-    body: JSON.stringify({ user: 'john' }),
+    body: encodeBuf(JSON.stringify({ user: 'john' })),
   })
   expect(response).toEqual<IsomorphicResponse>({
     status: 200,
