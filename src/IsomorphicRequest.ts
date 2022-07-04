@@ -17,7 +17,7 @@ export class IsomorphicRequest {
   public readonly headers: Headers
   public readonly credentials: RequestCredentials
 
-  private readonly body: ArrayBuffer
+  private readonly _body: ArrayBuffer
   private _bodyUsed: boolean
 
   constructor(url: URL)
@@ -33,7 +33,7 @@ export class IsomorphicRequest {
       this.method = input.method
       this.headers = input.headers
       this.credentials = input.credentials
-      this.body = input.body || defaultBody
+      this._body = input._body || defaultBody
       return
     }
 
@@ -42,7 +42,7 @@ export class IsomorphicRequest {
     this.method = init.method || 'GET'
     this.headers = new Headers(init.headers)
     this.credentials = init.credentials || 'same-origin'
-    this.body = init.body || defaultBody
+    this._body = init.body || defaultBody
   }
 
   public get bodyUsed(): boolean {
@@ -56,7 +56,7 @@ export class IsomorphicRequest {
     )
 
     this._bodyUsed = true
-    return decodeBuffer(this.body)
+    return decodeBuffer(this._body)
   }
 
   public async json<T = any>(): Promise<T> {
@@ -66,7 +66,7 @@ export class IsomorphicRequest {
     )
 
     this._bodyUsed = true
-    const text = decodeBuffer(this.body)
+    const text = decodeBuffer(this._body)
     return JSON.parse(text)
   }
 
@@ -77,7 +77,7 @@ export class IsomorphicRequest {
     )
 
     this._bodyUsed = true
-    return this.body
+    return this._body
   }
 
   public clone(): IsomorphicRequest {

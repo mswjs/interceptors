@@ -62,7 +62,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
         'user-agent': 'interceptors',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer('hello world'),
+      _body: encodeBuffer('hello world'),
       respondWith: expect.any(Function),
     })
   )

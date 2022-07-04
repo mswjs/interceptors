@@ -66,7 +66,7 @@ test('intercepts a HEAD request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -96,7 +96,7 @@ test('intercepts a GET request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -127,7 +127,7 @@ test('intercepts a POST request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer('post-payload'),
+      _body: encodeBuffer('post-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -158,7 +158,7 @@ test('intercepts a PUT request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer('put-payload'),
+      _body: encodeBuffer('put-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -189,7 +189,7 @@ test('intercepts a PATCH request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer('patch-payload'),
+      _body: encodeBuffer('patch-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -219,7 +219,7 @@ test('intercepts a DELETE request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -245,7 +245,7 @@ test('intercepts an http.request request given RequestOptions without a protocol
       url: new URL(httpServer.https.url('/user?id=123')),
       headers: headersContaining({}),
       credentials: 'same-origin',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )

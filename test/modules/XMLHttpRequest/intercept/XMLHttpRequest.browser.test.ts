@@ -53,7 +53,7 @@ test('intercepts an HTTP GET request', async () => {
       'x-request-header': 'yes',
     }),
     credentials: 'omit',
-    body: encodeBuffer(''),
+    _body: encodeBuffer(''),
   })
   expect(response).toEqual<IsomorphicResponse>({
     status: 200,
@@ -83,7 +83,7 @@ test('intercepts an HTTP POST request', async () => {
     url: new URL(url),
     headers: headersContaining({}),
     credentials: 'omit',
-    body: encodeBuffer(JSON.stringify({ user: 'john' })),
+    _body: encodeBuffer(JSON.stringify({ user: 'john' })),
   })
   expect(response).toEqual<IsomorphicResponse>({
     status: 200,

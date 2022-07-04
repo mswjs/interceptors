@@ -52,7 +52,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
       'content-type': 'text/plain',
       'x-origin': 'interceptors',
     }),
-    body: encodeBuffer('hello world'),
+    _body: encodeBuffer('hello world'),
     credentials: 'same-origin',
   })
 })
