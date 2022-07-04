@@ -73,7 +73,7 @@ it('returns given headers', () => {
   )
 })
 
-it('returns a copy of isomorphic request instance', () => {
+it('returns a copy of isomorphic request instance', async () => {
   const request = new IsomorphicRequest(url, {
     body,
     headers: { foo: 'bar' },
@@ -82,7 +82,7 @@ it('returns a copy of isomorphic request instance', () => {
 
   expect(request.id).toBe(derivedRequest.id)
   expect(request.url.href).toBe(derivedRequest.url.href)
-  expect(request['body']).toEqual(derivedRequest['body'])
+  expect(request['_body']).toEqual(derivedRequest['_body'])
   expect(request.headers).toEqual(derivedRequest.headers)
   expect(request.method).toBe(derivedRequest.method)
   expect(request.credentials).toBe(derivedRequest.credentials)
@@ -103,6 +103,6 @@ it('clones current isomorphic request instance', async () => {
   expect(clonedRequest.url.href).toBe(request.url.href)
   expect(clonedRequest.headers).toEqual(request.headers)
   expect(clonedRequest.credentials).toBe(request.credentials)
-  expect(clonedRequest['body']).toEqual(request['body'])
+  expect(clonedRequest['_body']).toEqual(request['_body'])
   expect(clonedRequest.bodyUsed).toBe(false)
 })
