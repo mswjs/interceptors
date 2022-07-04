@@ -15,7 +15,7 @@ export class IsomorphicRequest {
   public readonly method: string
   public readonly headers: Headers
   public readonly credentials: RequestCredentials
-  public readonly body: ArrayBuffer
+  private readonly body: ArrayBuffer
 
   constructor(url: URL)
   constructor(url: URL, init: RequestInit)
