@@ -145,7 +145,10 @@ import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/
 
 const interceptor = BatchInterceptor({
   name: 'my-interceptor',
-  interceptors: [ClientRequestInterceptor, XMLHttpRequestInterceptor],
+  interceptors: [
+    new ClientRequestInterceptor(),
+    new XMLHttpRequestInterceptor(),
+  ],
 })
 
 // This "request" listener will be called on both
