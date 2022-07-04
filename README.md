@@ -210,6 +210,7 @@ interface IsomorphicRequest {
   method: string
   headers: Headers
   credentials: 'omit' | 'same-origin' | 'include'
+  bodyUsed: boolean
   arrayBuffer(): Promise<ArrayBuffer>
   text(): Promise<string>
   json(): Promise<Record<string, unknown>>
