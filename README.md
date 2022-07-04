@@ -211,6 +211,7 @@ interface IsomorphicRequest {
   headers: Headers
   credentials: 'omit' | 'same-origin' | 'include'
   bodyUsed: boolean
+  clone(): IsomorphicRequest
   arrayBuffer(): Promise<ArrayBuffer>
   text(): Promise<string>
   json(): Promise<Record<string, unknown>>
