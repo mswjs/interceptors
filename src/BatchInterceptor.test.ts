@@ -79,6 +79,47 @@ it('proxies event listeners to the interceptors', () => {
   expect(goodbyeListener).toHaveBeenCalledWith('Kate')
 })
 
+it('batches multiple same events from child interceptors', async () => {
+  type EventsMap = {
+    hello(payload: { id: number; text: string }): void
+  }
+  class PrimaryInterceptor extends Interceptor<EventsMap> {
+    constructor() {
+      super(Symbol('primary'))
+    }
+  }
+
+  class SecondaryInterceptor extends Interceptor<EventsMap> {
+    constructor() {
+      super(Symbol('secondary'))
+    }
+  }
+
+  const instances = {
+    primary: new PrimaryInterceptor(),
+    secondary: new SecondaryInterceptor(),
+  }
+
+  const interceptor = new BatchInterceptor({
+    name: 'batch-proxy',
+    interceptors: [instances.primary, instances.secondary],
+  })
+
+  const helloListener = jest.fn()
+  interceptor.on('hello', helloListener)
+
+  instances.primary['emitter'].emit('hello', { id: 1, text: 'kate' })
+  instances.secondary['emitter'].emit('hello', { id: 1, text: 'kate' })
+
+  // Group the same event from multiple interceptors as long
+  // as its payload "id" is the same.
+  expect(helloListener).toHaveBeenCalledTimes(1)
+
+  // The internal batches queue should be cleared once the listeners are done.
+  await interceptor['emitter'].untilIdle('hello')
+  expect(interceptor['batches']).toEqual(new Set())
+})
+
 it('disposes of child interceptors', async () => {
   class PrimaryInterceptor extends Interceptor<any> {
     constructor() {
