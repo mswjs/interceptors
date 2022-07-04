@@ -10,7 +10,7 @@ Low-level HTTP/HTTPS/XHR/fetch request interception library.
 - `https.get`/`https.request`
 - `XMLHttpRequest`
 - `fetch`
-- Any third-party libraries that use the modules above (i.e. `request`, `node-fetch`, `supertest`, etc.)
+- Any third-party libraries that use the modules above (i.e. `axios`, `request`, `node-fetch`, `supertest`, etc.)
 
 ## Motivation
 
@@ -96,29 +96,194 @@ You can respond to an isomorphic request using an _isomorphic response_. In a si
 npm install @mswjs/interceptors
 ```
 
-## API
+## Interceptors
 
-### Individual interceptors
+To use this library you need to choose one or multiple interceptors to apply. There are different interceptors exported by this library to spy on respective request-issuing modules:
 
-There are multiple individual interceptors exported from this library:
+- `ClientRequestInterceptor` to spy on `http.ClientRequest` (`http.get`/`http.request`);
+- `XMLHttpRequestInterceptor` to spy on `XMLHttpRequest`;
+- `FetchInterceptor` to spy on `fetch`.
 
-- `ClientRequestInterceptor`
-- `XMLHttpRequestInterceptor`
-- `FetchInterceptor`
-
-All aforementioned interceptors implement the same HTTP request interception contract, meaning that they allow you to handle intercepted requests in the same way, regardless of the request origin (`http`/`XMLHttpRequest`/`fetch`).
-
-To use multiple interceptors at once, consider [`BatchInterceptor`](#BatchInterceptor).
+Use an interceptor by constructing it and attaching request/response listeners:
 
 ```js
 import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/ClientRequest'
 
 const interceptor = new ClientRequestInterceptor()
+
+// Listen to any "http.ClientRequest" being dispatched,
+// and log its method and full URL.
 interceptor.on('request', (request) => {
-  // Introspect request or mock its response
-  // via "request.respondWith()".
+  console.log(request.method, request.url.href)
+})
+
+// Listen to any responses sent to "http.ClientRequest".
+// Note that this listener is read-only and cannot affect responses.
+interceptor.on('response', (response, request) => {
+  console.log(
+    'response to %s %s was:',
+    request.method,
+    request.url.href,
+    response
+  )
 })
 ```
+
+All HTTP request interceptors implement the same events:
+
+- `request`, emitted whenever a request has been dispatched;
+- `response`, emitted whenever any request receives a response.
+
+### Using multiple interceptors
+
+You can combine multiple interceptors to capture requests from different request-issuing modules at once.
+
+```js
+import { BatchInterceptor } from '@mswjs/interceptors'
+import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/ClientRequest'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
+
+const interceptor = BatchInterceptor({
+  name: 'my-interceptor',
+  interceptors: [ClientRequestInterceptor, XMLHttpRequestInterceptor],
+})
+
+// This "request" listener will be called on both
+// "http.ClientRequest" and "XMLHttpRequest" being dispatched.
+interceptor.on('request', listener)
+```
+
+> Note that you can use [pre-defined presets](#presets) that cover all the request sources for a given environment type.
+
+## Presets
+
+When using [`BatchInterceptor`](#batchinterceptor), you can provide a pre-defined preset to its "interceptors" option to capture all request for that environment.
+
+### Node.js preset
+
+This preset combines `ClientRequestInterceptor`, `XMLHttpRequestInterceptor` and is meant to be used in Node.js.
+
+```js
+import { BatchInterceptor } from '@mswjs/interceptors'
+import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
+
+const interceptor = BatchInterceptor({
+  name: 'my-interceptor',
+  interceptors: nodeInterceptors,
+})
+
+interceptor.on('request', listener)
+```
+
+### Browser preset
+
+This preset combines `XMLHttpRequestInterceptor` and `FetchInterceptor` and is meant to be used in a browser.
+
+```js
+import { BatchInterceptor } from '@mswjs/interceptors'
+import browserInterceptors from '@mswjs/interceptors/lib/presets/browser'
+
+const interceptor = BatchInterceptor({
+  name: 'my-interceptor',
+  interceptors: browserInterceptors,
+})
+
+interceptor.on('request', listener)
+```
+
+## Introspecting requests
+
+All HTTP request interceptors emit a "request" event. In the listener to this event, they expose an isomorphic `request` instance—a normalized representation of the captured request.
+
+> There are many ways to describe a request in Node.js, that's why this library exposes you a custom request instance that abstracts those details away from you, making request listeners uniform.
+
+```js
+interceptor.on('reqest', (request) => {})
+```
+
+The exposed `request` partially implements Fetch API [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) specification, containing the following properties and methods:
+
+```ts
+interface IsomorphicRequest {
+  id: string
+  url: URL
+  method: string
+  headers: Headers
+  credentials: 'omit' | 'same-origin' | 'include'
+  bodyUsed: boolean
+  clone(): IsomorphicRequest
+  arrayBuffer(): Promise<ArrayBuffer>
+  text(): Promise<string>
+  json(): Promise<Record<string, unknown>>
+}
+```
+
+For example, this is how you would read a JSON request body:
+
+```js
+interceptor.on('request', async (request) => {
+  const json = await request.json()
+})
+```
+
+## Mocking responses
+
+Although this library can be used purely for request introspection purposes, you can also affect request resolution by responding to any intercepted request within the "request" event.
+
+Use the `request.respondWith()` method to respond to a request with a mocked response:
+
+```js
+interceptor.on('request', (request) => {
+  request.respondWith({
+    status: 200,
+    statusText: 'OK',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      firstName: 'John',
+      lastName: 'Maverick',
+    }),
+  })
+})
+```
+
+Note that a single request _can only be handled once_. You may want to introduce conditional logic, like routing, in your request listener but it's generally advised to use a higher-level library like [Mock Service Worker](https://github.com/mswjs/msw) that does request matching for you.
+
+Requests must be responded to within the same tick as the request listener. This means you cannot respond to a request using `setTimeout`, as this will delegate the callback to the next tick. If you wish to introduce asynchronous side-effects in the listener, consider making it an `async` function, awaiting any side-effects you need.
+
+```js
+// Respond to all requests with a 500 response
+// delayed by 500ms.
+interceptor.on('request', async (request) => {
+  await sleep(500)
+  request.respondWith({ status: 500 })
+})
+```
+
+## API
+
+### `Interceptor`
+
+A generic class implemented by all interceptors. You do not interact with this class directly.
+
+```ts
+class Interceptor {
+  // Applies the interceptor, enabling the interception of requests
+  // in the current process.
+  apply(): void
+
+  // Listens to the public interceptor events.
+  // For HTTP requests, these are "request' and "response" events.
+  on(event, listener): void
+
+  // Cleans up any side-effects introduced by the interceptor
+  // and disables the interception of requests.
+  dispose(): void
+}
+```
+
+**For public consumption, use [interceptors](#interceptors) instead**.
 
 ### `BatchInterceptor`
 
@@ -185,50 +350,6 @@ resolver.on('request', (request) => {
   // Optionally, return a mocked response
   // for a request that occurred in the "appProcess".
 })
-```
-
-### Methods
-
-#### `apply`
-
-Applies interceptor, enabling the interception of requests in the current process.
-
-```js
-interceptor.apply()
-```
-
-The same interceptor can be applied multiple times. If that happens, each subsequent interceptor instance will reusing a single running instance instead of applying itself repeatedly. Each interceptor instance should still be disposed individually.
-
-#### `on`
-
-Listens to the interceptor events.
-
-Each interceptor decides what event map to implement. Currently, all exported interceptors implement an HTTP request event map that consists of the following events:
-
-- `request`, signals when a new request happens;
-- `response`, signals when a response was sent.
-
-```js
-interceptor.on('request', (request) => {
-  console.log('[%s] %s', request.method, request.url.toString())
-})
-
-interceptor.on('response', (request, response) => {
-  console.log(
-    'Received response to [%s] %s:',
-    request.method,
-    request.url.href,
-    response
-  )
-})
-```
-
-#### `dispose`
-
-Disposes of the applied interceptor. This cleans up all the side-effects introduced by the interceptor (i.e. restores augmented modules).
-
-```js
-interceptor.dispose()
 ```
 
 ## Special mention

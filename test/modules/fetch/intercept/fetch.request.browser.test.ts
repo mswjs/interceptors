@@ -4,9 +4,9 @@
 import * as path from 'path'
 import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
-import { IsomorphicRequest } from '../../../../src/glossary'
 import { extractRequestFromPage } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
+import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (_req, res) => {
@@ -44,7 +44,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
     }, url),
   ])
 
-  expect(request).toEqual<IsomorphicRequest>({
+  expect(request).toMatchObject({
     id: anyUuid(),
     url: new URL(url),
     method: 'POST',
@@ -52,7 +52,7 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
       'content-type': 'text/plain',
       'x-origin': 'interceptors',
     }),
-    body: 'hello world',
+    body: encodeBuffer('hello world'),
     credentials: 'same-origin',
   })
 })

@@ -3,14 +3,11 @@
  */
 import * as http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
-import {
-  BatchInterceptor,
-  InteractiveIsomorphicRequest,
-  MockedResponse,
-} from '../../../../src'
+import { BatchInterceptor, MockedResponse } from '../../../../src'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { sleep, waitForClientRequest } from '../../../helpers'
+import { InteractiveIsomorphicRequest } from '../../../../src/InteractiveIsomorphicRequest'
 
 const server = new HttpServer((app) => {
   app.get('/original', async (req, res) => {

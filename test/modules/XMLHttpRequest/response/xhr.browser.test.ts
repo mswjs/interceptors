@@ -92,7 +92,7 @@ test('bypasses a request not handled in the resolver', async () => {
 
 test('bypasses any request when the interceptor is restored', async () => {
   const scenario = await prepareRuntime()
-  // Uusing the "createRawBrowserXMLHttpRequest" because when the interceptor
+  // Using the "createRawBrowserXMLHttpRequest" because when the interceptor
   // is restored, it won't dispatch the "resolver" event.
   const callXMLHttpRequest = createRawBrowserXMLHttpRequest(scenario)
 

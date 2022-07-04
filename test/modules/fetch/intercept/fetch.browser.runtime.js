@@ -1,17 +1,17 @@
 import { FetchInterceptor } from '@mswjs/interceptors/lib/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', async (request) => {
   window.dispatchEvent(
     new CustomEvent('resolver', {
-      detail: JSON.stringify({
+      detail: {
         id: request.id,
         method: request.method,
         url: request.url.href,
         headers: request.headers.all(),
         credentials: request.credentials,
-        body: request.body,
-      }),
+        body: await request.text(),
+      },
     })
   )
 })

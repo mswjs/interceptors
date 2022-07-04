@@ -7,6 +7,7 @@ import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientReq
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
+import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -45,17 +46,19 @@ test('intercepts an http.get request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<HttpRequestEventMap['request']>
-  >({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'same-origin',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'same-origin',
+      body: encodeBuffer(''),
+      respondWith: expect.any(Function),
+    })
+  )
   expect(await text()).toEqual('user-body')
 })
 
@@ -72,14 +75,16 @@ test('intercepts an http.get request given RequestOptions without a protocol', a
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<HttpRequestEventMap['request']>
-  >({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(httpServer.http.url('/user?id=123')),
-    headers: headersContaining({}),
-    credentials: 'same-origin',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(httpServer.http.url('/user?id=123')),
+      headers: headersContaining({}),
+      credentials: 'same-origin',
+      body: encodeBuffer(''),
+      respondWith: expect.any(Function),
+    })
+  )
   expect(await text()).toEqual('user-body')
 })
