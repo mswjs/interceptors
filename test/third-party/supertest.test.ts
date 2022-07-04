@@ -44,5 +44,5 @@ test('preserves original POST request JSON body', async () => {
   expect(requests).toHaveLength(1)
   const [request] = requests
   expect(request.method).toBe('POST')
-  expect(await request.text()).toEqual(JSON.stringify({ query: 'foo' }))
+  expect(await request.json()).toEqual({ query: 'foo' })
 })

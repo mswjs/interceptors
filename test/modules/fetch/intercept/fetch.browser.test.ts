@@ -82,7 +82,7 @@ describe('HTTP', () => {
     expect(request.url.href).toEqual(url)
     expect(request.headers.get('x-custom-header')).toEqual('yes')
     expect(request.credentials).toEqual('same-origin')
-    expect(await request.text()).toEqual('{"body":"post"}')
+    expect(await request.json()).toEqual({ body: 'post' })
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -104,7 +104,7 @@ describe('HTTP', () => {
     expect(request.url.href).toEqual(url)
     expect(request.headers.get('x-custom-header')).toEqual('yes')
     expect(request.credentials).toEqual('same-origin')
-    expect(await request.text()).toEqual('{"body":"put"}')
+    expect(await request.json()).toEqual({ body: 'put' })
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -126,7 +126,7 @@ describe('HTTP', () => {
     expect(request.url.href).toEqual(url)
     expect(request.headers.get('x-custom-header')).toEqual('yes')
     expect(request.credentials).toEqual('same-origin')
-    expect(await request.text()).toEqual('{"body":"patch"}')
+    expect(await request.json()).toEqual({ body: 'patch' })
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -148,7 +148,7 @@ describe('HTTP', () => {
     expect(request.url.href).toEqual(url)
     expect(request.headers.get('x-custom-header')).toEqual('yes')
     expect(request.credentials).toEqual('same-origin')
-    expect(await request.text()).toEqual('{"body":"delete"}')
+    expect(await request.json()).toEqual({ body: 'delete' })
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -192,7 +192,7 @@ describe('HTTPS', () => {
     expect(request.url.href).toEqual(url)
     expect(request.headers.get('x-custom-header')).toEqual('yes')
     expect(request.credentials).toEqual('same-origin')
-    expect(await request.text()).toEqual('{"body":"post"}')
+    expect(await request.json()).toEqual({ body: 'post' })
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -214,7 +214,7 @@ describe('HTTPS', () => {
     expect(request.url.href).toEqual(url)
     expect(request.headers.get('x-custom-header')).toEqual('yes')
     expect(request.credentials).toEqual('same-origin')
-    expect(await request.text()).toEqual('{"body":"put"}')
+    expect(await request.json()).toEqual({ body: 'put' })
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -236,7 +236,7 @@ describe('HTTPS', () => {
     expect(request.url.href).toEqual(url)
     expect(request.headers.get('x-custom-header')).toEqual('yes')
     expect(request.credentials).toEqual('same-origin')
-    expect(await request.text()).toEqual('{"body":"patch"}')
+    expect(await request.json()).toEqual({ body: 'patch' })
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')
@@ -258,7 +258,7 @@ describe('HTTPS', () => {
     expect(request.url.href).toEqual(url)
     expect(request.headers.get('x-custom-header')).toEqual('yes')
     expect(request.credentials).toEqual('same-origin')
-    expect(await request.text()).toEqual('{"body":"delete"}')
+    expect(await request.json()).toEqual({ body: 'delete' })
 
     expect(response.status()).toBe(200)
     expect(response.statusText()).toBe('OK')

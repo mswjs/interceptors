@@ -148,10 +148,6 @@ test('emits the ENOTFOUND error connecting to a non-existing hostname given no m
     done()
   })
 
-  request.on('response', () => {
-    done('Expected ENOTFOUND error')
-  })
-
   request.end()
 })
 
