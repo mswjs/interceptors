@@ -11,6 +11,9 @@ it('reads request body as json', async () => {
   expect(request.bodyUsed).toBe(false)
   expect(await request.json()).toEqual({ hello: 'world' })
   expect(request.bodyUsed).toBe(true)
+  expect(() => request.json()).rejects.toThrow(
+    'Failed to execute "json" on "IsomorphicRequest": body buffer already read'
+  )
 })
 
 it('reads request body as text', async () => {
@@ -19,6 +22,9 @@ it('reads request body as text', async () => {
   expect(request.bodyUsed).toBe(false)
   expect(await request.text()).toEqual(JSON.stringify({ hello: 'world' }))
   expect(request.bodyUsed).toBe(true)
+  expect(() => request.text()).rejects.toThrow(
+    'Failed to execute "text" on "IsomorphicRequest": body buffer already read'
+  )
 })
 
 it('reads request body as array buffer', async () => {
@@ -27,6 +33,9 @@ it('reads request body as array buffer', async () => {
   expect(request.bodyUsed).toBe(false)
   expect(await request.arrayBuffer()).toEqual(encodeBuffer(`{"hello":"world"}`))
   expect(request.bodyUsed).toBe(true)
+  expect(() => request.arrayBuffer()).rejects.toThrow(
+    'Failed to execute "arrayBuffer" on "IsomorphicRequest": body buffer already read'
+  )
 })
 
 it('returns default method', () => {
@@ -69,11 +78,13 @@ it('returns a copy of isomorphic request instance', () => {
     body,
     headers: { foo: 'bar' },
   })
-  const request2 = new IsomorphicRequest(request)
-  expect(request.id).toEqual(request2.id)
-  expect(request.url).toEqual(request2.url)
-  expect(request['body']).toEqual(request2['body'])
-  expect(request.headers).toEqual(request2.headers)
-  expect(request.method).toEqual(request2.method)
-  expect(request.credentials).toEqual(request2.credentials)
+  const requestClone = new IsomorphicRequest(request)
+
+  expect(request.id).toBe(requestClone.id)
+  expect(request.url.href).toBe(requestClone.url.href)
+  expect(request['body']).toEqual(requestClone['body'])
+  expect(request.headers).toEqual(requestClone.headers)
+  expect(request.method).toBe(requestClone.method)
+  expect(request.credentials).toBe(requestClone.credentials)
+  expect(request.bodyUsed).toBe(false)
 })

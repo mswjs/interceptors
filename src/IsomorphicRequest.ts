@@ -1,4 +1,5 @@
 import { Headers } from 'headers-polyfill/lib'
+import { invariant } from 'outvariant'
 import { decodeBuffer } from './utils/bufferUtils'
 import { uuidv4 } from './utils/uuid'
 
@@ -24,6 +25,7 @@ export class IsomorphicRequest {
   constructor(request: IsomorphicRequest)
   constructor(input: IsomorphicRequest | URL, init: RequestInit = {}) {
     const defaultBody = new ArrayBuffer(0)
+    this._bodyUsed = false
 
     if (input instanceof IsomorphicRequest) {
       this.id = input.id
@@ -32,7 +34,6 @@ export class IsomorphicRequest {
       this.headers = input.headers
       this.credentials = input.credentials
       this.body = input.body || defaultBody
-      this._bodyUsed = input.bodyUsed
       return
     }
 
@@ -42,7 +43,6 @@ export class IsomorphicRequest {
     this.headers = new Headers(init.headers)
     this.credentials = init.credentials || 'same-origin'
     this.body = init.body || defaultBody
-    this._bodyUsed = false
   }
 
   public get bodyUsed(): boolean {
@@ -50,18 +50,32 @@ export class IsomorphicRequest {
   }
 
   public async text(): Promise<string> {
+    invariant(
+      !this.bodyUsed,
+      'Failed to execute "text" on "IsomorphicRequest": body buffer already read'
+    )
+
     this._bodyUsed = true
-    const buffer = await this.arrayBuffer()
-    return decodeBuffer(buffer)
+    return decodeBuffer(this.body)
   }
 
   public async json<T = any>(): Promise<T> {
+    invariant(
+      !this.bodyUsed,
+      'Failed to execute "json" on "IsomorphicRequest": body buffer already read'
+    )
+
     this._bodyUsed = true
-    const text = await this.text()
+    const text = decodeBuffer(this.body)
     return JSON.parse(text)
   }
 
   public async arrayBuffer(): Promise<ArrayBuffer> {
+    invariant(
+      !this.bodyUsed,
+      'Failed to execute "arrayBuffer" on "IsomorphicRequest": body buffer already read'
+    )
+
     this._bodyUsed = true
     return this.body
   }
