@@ -78,13 +78,31 @@ it('returns a copy of isomorphic request instance', () => {
     body,
     headers: { foo: 'bar' },
   })
-  const requestClone = new IsomorphicRequest(request)
+  const derivedRequest = new IsomorphicRequest(request)
 
-  expect(request.id).toBe(requestClone.id)
-  expect(request.url.href).toBe(requestClone.url.href)
-  expect(request['body']).toEqual(requestClone['body'])
-  expect(request.headers).toEqual(requestClone.headers)
-  expect(request.method).toBe(requestClone.method)
-  expect(request.credentials).toBe(requestClone.credentials)
+  expect(request.id).toBe(derivedRequest.id)
+  expect(request.url.href).toBe(derivedRequest.url.href)
+  expect(request['body']).toEqual(derivedRequest['body'])
+  expect(request.headers).toEqual(derivedRequest.headers)
+  expect(request.method).toBe(derivedRequest.method)
+  expect(request.credentials).toBe(derivedRequest.credentials)
   expect(request.bodyUsed).toBe(false)
+})
+
+it('clones current isomorphic request instance', async () => {
+  const request = new IsomorphicRequest(url, {
+    body,
+    headers: { foo: 'bar' },
+  })
+  await request.text()
+
+  const clonedRequest = request.clone()
+
+  expect(clonedRequest.id).toBe(request.id)
+  expect(clonedRequest.method).toBe(request.method)
+  expect(clonedRequest.url.href).toBe(request.url.href)
+  expect(clonedRequest.headers).toEqual(request.headers)
+  expect(clonedRequest.credentials).toBe(request.credentials)
+  expect(clonedRequest['body']).toEqual(request['body'])
+  expect(clonedRequest.bodyUsed).toBe(false)
 })

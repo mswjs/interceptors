@@ -79,4 +79,8 @@ export class IsomorphicRequest {
     this._bodyUsed = true
     return this.body
   }
+
+  public clone(): IsomorphicRequest {
+    return new IsomorphicRequest(this)
+  }
 }
