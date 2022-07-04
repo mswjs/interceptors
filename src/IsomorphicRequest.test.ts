@@ -66,7 +66,7 @@ describe('IsomorphicRequest', () => {
     const request2 = new IsomorphicRequest(request)
     expect(request.id).toEqual(request2.id)
     expect(request.url).toEqual(request2.url)
-    expect(request.body).toEqual(request2.body)
+    expect(request['body']).toEqual(request2['body'])
     expect(request.headers).toEqual(request2.headers)
     expect(request.method).toEqual(request2.method)
     expect(request.credentials).toEqual(request2.credentials)
