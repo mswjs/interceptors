@@ -70,7 +70,7 @@ test('ClientRequest: emits the "request" event upon the request', async () => {
         'content-type': 'application/json',
       }),
       credentials: expect.anything(),
-      body: encodeBuffer(JSON.stringify({ userId: 'abc-123' })),
+      _body: encodeBuffer(JSON.stringify({ userId: 'abc-123' })),
       respondWith: expect.any(Function),
     })
   )
@@ -102,7 +102,7 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
         'content-type': 'application/json',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer(JSON.stringify({ userId: 'abc-123' })),
+      _body: encodeBuffer(JSON.stringify({ userId: 'abc-123' })),
       respondWith: expect.any(Function),
     })
   )

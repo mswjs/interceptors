@@ -102,7 +102,7 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
     }),
     {
       status: 200,
@@ -141,7 +141,7 @@ test('ClientRequest: emits the "response" event upon the original response', asy
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer('request-body'),
+      _body: encodeBuffer('request-body'),
     }),
     {
       status: 200,
@@ -175,7 +175,7 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
         'x-request-custom': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
     }),
     {
       status: 200,
@@ -216,7 +216,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
         'x-request-custom': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer('request-body'),
+      _body: encodeBuffer('request-body'),
     }),
     {
       status: 200,
@@ -251,7 +251,7 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
     }),
     {
       status: 200,
@@ -288,7 +288,7 @@ test('fetch: emits the "response" event upon the original response', async () =>
         'x-request-custom': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer('request-body'),
+      _body: encodeBuffer('request-body'),
     }),
     {
       status: 200,

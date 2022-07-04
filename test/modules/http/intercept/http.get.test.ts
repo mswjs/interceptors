@@ -55,7 +55,7 @@ test('intercepts an http.get request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'same-origin',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -82,7 +82,7 @@ test('intercepts an http.get request given RequestOptions without a protocol', a
       url: new URL(httpServer.http.url('/user?id=123')),
       headers: headersContaining({}),
       credentials: 'same-origin',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )

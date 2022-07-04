@@ -74,7 +74,7 @@ test('intercepts an HTTP HEAD request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -100,7 +100,7 @@ test('intercepts an HTTP GET request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -126,7 +126,7 @@ test('intercepts an HTTP POST request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer('post-payload'),
+      _body: encodeBuffer('post-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -152,7 +152,7 @@ test('intercepts an HTTP PUT request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer('put-payload'),
+      _body: encodeBuffer('put-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -178,7 +178,7 @@ test('intercepts an HTTP DELETE request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -204,7 +204,7 @@ test('intercepts an HTTPS HEAD request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -230,7 +230,7 @@ test('intercepts an HTTPS GET request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
@@ -256,7 +256,7 @@ test('intercepts an HTTPS POST request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer('post-payload'),
+      _body: encodeBuffer('post-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -282,7 +282,7 @@ test('intercepts an HTTPS PUT request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer('put-payload'),
+      _body: encodeBuffer('put-payload'),
       respondWith: expect.any(Function),
     })
   )
@@ -308,7 +308,7 @@ test('intercepts an HTTPS DELETE request', async () => {
         'x-custom-header': 'yes',
       }),
       credentials: 'omit',
-      body: encodeBuffer(''),
+      _body: encodeBuffer(''),
       respondWith: expect.any(Function),
     })
   )
