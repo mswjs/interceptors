@@ -6,3 +6,4 @@ export * from './InteractiveIsomorphicRequest'
 
 /* Utils */
 export { getCleanUrl } from './utils/getCleanUrl'
+export { encodeBuffer, decodeBuffer } from './utils/bufferUtils'
