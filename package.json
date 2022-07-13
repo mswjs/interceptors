@@ -67,6 +67,7 @@
   },
   "dependencies": {
     "@open-draft/until": "^1.0.3",
+    "@types/debug": "^4.1.7",
     "@xmldom/xmldom": "^0.7.5",
     "debug": "^4.3.3",
     "headers-polyfill": "^3.0.4",
