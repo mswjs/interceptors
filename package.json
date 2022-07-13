@@ -84,7 +84,9 @@
     "xhr",
     "fetch",
     "low-level",
-    "mock"
+    "mock",
+    "spy",
+    "testing"
   ],
   "config": {
     "commitizen": {
