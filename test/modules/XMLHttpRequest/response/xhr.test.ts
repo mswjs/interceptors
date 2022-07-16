@@ -98,6 +98,7 @@ test('responds to an HTTPS request handled in the middleware', async () => {
   expect(req.status).toEqual(301)
   expect(responseHeaders).toContain('content-type: application/hal+json')
   expect(req.response).toEqual('foo')
+  expect(req.responseURL).toEqual(httpServer.https.url('/'))
 })
 
 test('bypasses an HTTPS request not handled in the middleware', async () => {
@@ -108,6 +109,7 @@ test('bypasses an HTTPS request not handled in the middleware', async () => {
 
   expect(req.status).toEqual(200)
   expect(req.response).toEqual('/get')
+  expect(req.responseURL).toEqual(httpServer.https.url('/get'))
 })
 
 test('responds to an HTTP request to a relative URL that is handled in the middleware', async () => {
@@ -120,6 +122,7 @@ test('responds to an HTTP request to a relative URL that is handled in the middl
   expect(req.status).toEqual(301)
   expect(responseHeaders).toContain('content-type: application/hal+json')
   expect(req.response).toEqual('foo')
+  expect(req.responseURL).toEqual(httpServer.https.url('/login'))
 })
 
 test('produces a request error when the middleware throws an exception', async () => {
@@ -153,4 +156,5 @@ test('bypasses any request when the interceptor is restored', async () => {
 
   expect(req.status).toEqual(200)
   expect(req.response).toEqual('/')
+  expect(req.responseURL).toEqual(httpServer.https.url('/'))
 })

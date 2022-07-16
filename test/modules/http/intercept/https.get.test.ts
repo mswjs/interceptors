@@ -7,6 +7,7 @@ import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
+import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -46,17 +47,19 @@ test('intercepts a GET request', async () => {
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<HttpRequestEventMap['request']>
-  >({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-custom-header': 'yes',
-    }),
-    credentials: 'same-origin',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(url),
+      headers: headersContaining({
+        'x-custom-header': 'yes',
+      }),
+      credentials: 'same-origin',
+      _body: encodeBuffer(''),
+      respondWith: expect.any(Function),
+    })
+  )
 })
 
 test('intercepts an https.get request given RequestOptions without a protocol', async () => {
@@ -74,13 +77,15 @@ test('intercepts an https.get request given RequestOptions without a protocol', 
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith<
     Parameters<HttpRequestEventMap['request']>
-  >({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(httpServer.https.url('/user?id=123')),
-    headers: headersContaining({}),
-    credentials: 'same-origin',
-    body: '',
-    respondWith: expect.any(Function),
-  })
+  >(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'GET',
+      url: new URL(httpServer.https.url('/user?id=123')),
+      headers: headersContaining({}),
+      credentials: 'same-origin',
+      _body: encodeBuffer(''),
+      respondWith: expect.any(Function),
+    })
+  )
 })

@@ -1,6 +1,7 @@
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()
+
 interceptor.on('request', async (request) => {
   window.dispatchEvent(
     new CustomEvent('resolver', {
@@ -15,16 +16,24 @@ interceptor.on('request', async (request) => {
     })
   )
 
-  const { serverHttpUrl, serverHttpsUrl } = window
+  if (request.url.pathname === '/mocked') {
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
-  if ([serverHttpUrl, serverHttpsUrl].includes(request.url.href)) {
+    const req = new XMLHttpRequest()
+    req.open('GET', window.originalUrl, true)
+    req.send()
+    await new Promise((resolve, reject) => {
+      req.addEventListener('loadend', resolve)
+      req.addEventListener('error', reject)
+    })
+
     request.respondWith({
-      status: 201,
-      statusText: 'Created',
+      status: req.status,
+      statusText: req.statusText,
       headers: {
-        'Content-Type': 'application/hal+json',
+        'X-Custom-Header': req.getResponseHeader('X-Custom-Header'),
       },
-      body: JSON.stringify({ mocked: true }),
+      body: `${req.responseText} world`,
     })
   }
 })

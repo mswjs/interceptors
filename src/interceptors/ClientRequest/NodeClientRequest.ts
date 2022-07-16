@@ -3,12 +3,7 @@ import type { RequestOptions } from 'http'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
 import { Headers, objectToHeaders } from 'headers-polyfill/lib'
-import type {
-  InteractiveIsomorphicRequest,
-  IsomorphicRequest,
-  MockedResponse,
-} from '../../glossary'
-import { uuidv4 } from '../../utils/uuid'
+import { MockedResponse } from '../../glossary'
 import type { ClientRequestEmitter } from '.'
 import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
 import {
@@ -21,12 +16,12 @@ import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { bodyBufferToString } from './utils/bodyBufferToString'
 import {
   ClientRequestWriteArgs,
-  ClientRequestWriteCallback,
   normalizeClientRequestWriteArgs,
 } from './utils/normalizeClientRequestWriteArgs'
 import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
-import { createLazyCallback } from '../../utils/createLazyCallback'
-import { invariant } from 'outvariant'
+import { IsomorphicRequest } from '../../IsomorphicRequest'
+import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
+import { getArrayBuffer } from '../../utils/bufferUtils'
 
 export type Protocol = 'http' | 'https'
 
@@ -40,7 +35,12 @@ export class NodeClientRequest extends ClientRequest {
    * The list of internal Node.js errors to suppress while
    * using the "mock" response source.
    */
-  static suppressErrorCodes = ['ENOTFOUND', 'ECONNREFUSED', 'ECONNRESET']
+  static suppressErrorCodes = [
+    'ENOTFOUND',
+    'ECONNREFUSED',
+    'ECONNRESET',
+    'EAI_AGAIN',
+  ]
 
   private url: URL
   private options: RequestOptions
@@ -50,7 +50,6 @@ export class NodeClientRequest extends ClientRequest {
   private chunks: Array<{
     chunk?: string | Buffer
     encoding?: BufferEncoding
-    callback?: ClientRequestWriteCallback
   }> = []
   private responseSource: 'mock' | 'bypass' = 'mock'
   private capturedError?: NodeJS.ErrnoException
@@ -84,35 +83,19 @@ export class NodeClientRequest extends ClientRequest {
   write(...args: ClientRequestWriteArgs): boolean {
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
     this.log('write:', { chunk, encoding, callback })
-
-    this.chunks.push({
-      chunk,
-      encoding,
-      callback: (error?: Error | null) => {
-        this.log('executing custom callback...')
-
-        if (error) {
-          this.log('error while writing chunk!', error)
-        } else {
-          this.log('request chunk successfully written!')
-        }
-
-        /**
-         * Prevent invoking the callback if the written chunk is empty.
-         * @see https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
-         */
-        if (!chunk || chunk.length === 0) {
-          this.log('written chunk is empty, skipping callback...')
-          return
-        }
-
-        this.log('executing custom write callback:', callback)
-        callback?.(error)
-      },
-    })
-
+    this.chunks.push({ chunk, encoding })
     this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
     this.log('chunk successfully stored!', this.requestBody)
+
+    /**
+     * Prevent invoking the callback if the written chunk is empty.
+     * @see https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
+     */
+    if (!chunk || chunk.length === 0) {
+      this.log('written chunk is empty, skipping callback...')
+    } else {
+      callback?.()
+    }
 
     // Do not write the request body chunks to prevent
     // the Socket from sending data to a potentially existing
@@ -128,20 +111,9 @@ export class NodeClientRequest extends ClientRequest {
 
     const requestBody = this.getRequestBody(chunk)
     const isomorphicRequest = this.toIsomorphicRequest(requestBody)
-    const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
-      ...isomorphicRequest,
-      respondWith: createLazyCallback({
-        maxCalls: 1,
-        maxCallsCallback() {
-          invariant(
-            false,
-            'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
-            isomorphicRequest.method,
-            isomorphicRequest.url.href
-          )
-        },
-      }),
-    }
+    const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
+      isomorphicRequest
+    )
 
     // Notify the interceptor about the request.
     // This will call any "request" listeners the users have.
@@ -154,8 +126,15 @@ export class NodeClientRequest extends ClientRequest {
     // Execute the resolver Promise like a side-effect.
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
     until(async () => {
-      await this.emitter.untilIdle('request')
-      this.log('all request listeners have been resolved!')
+      await this.emitter.untilIdle('request', ({ args: [request] }) => {
+        /**
+         * @note Await only those listeners that are relevant to this request.
+         * This prevents extraneous parallel request from blocking the resolution
+         * of another, unrelated request. For example, during response patching,
+         * when request resolution is nested.
+         */
+        return request.id === interactiveIsomorphicRequest.id
+      })
 
       const [mockedResponse] =
         await interactiveIsomorphicRequest.respondWith.invoked()
@@ -218,10 +197,12 @@ export class NodeClientRequest extends ClientRequest {
       // existing server.
       this.log('writing request chunks...', this.chunks)
 
-      for (const { chunk, encoding, callback } of this.chunks) {
-        encoding
-          ? super.write(chunk, encoding, callback)
-          : super.write(chunk, callback)
+      for (const { chunk, encoding } of this.chunks) {
+        if (encoding) {
+          super.write(chunk, encoding)
+        } else {
+          super.write(chunk)
+        }
       }
 
       this.once('error', (error) => {
@@ -284,7 +265,7 @@ export class NodeClientRequest extends ClientRequest {
 
         this.emit('response-internal', secondClone)
 
-        this.log('response successfuly cloned, emitting "response" event...')
+        this.log('response successfully cloned, emitting "response" event...')
         return super.emit(event, firstClone, ...data.slice(1))
       } catch (error) {
         this.log('error when cloning response:', error)
@@ -298,7 +279,7 @@ export class NodeClientRequest extends ClientRequest {
 
       this.log('error:\n', error)
 
-      // Supress certain errors while using the "mock" source.
+      // Suppress certain errors while using the "mock" source.
       // For example, no need to destroy this request if it connects
       // to a non-existing hostname but has a mocked response.
       if (
@@ -380,7 +361,7 @@ export class NodeClientRequest extends ClientRequest {
     this.agent.destroy()
   }
 
-  private getRequestBody(chunk: ClientRequestEndChunk | null): string {
+  private getRequestBody(chunk: ClientRequestEndChunk | null): ArrayBuffer {
     const writtenRequestBody = bodyBufferToString(
       Buffer.concat(this.requestBody)
     )
@@ -391,16 +372,13 @@ export class NodeClientRequest extends ClientRequest {
       this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
     }
 
-    const resolvedRequestBody = bodyBufferToString(
-      Buffer.concat(this.requestBody)
-    )
-
+    const resolvedRequestBody = Buffer.concat(this.requestBody)
     this.log('resolved request body:', resolvedRequestBody)
 
-    return resolvedRequestBody
+    return getArrayBuffer(resolvedRequestBody)
   }
 
-  private toIsomorphicRequest(body: string): IsomorphicRequest {
+  private toIsomorphicRequest(body: ArrayBuffer): IsomorphicRequest {
     this.log('creating isomorphic request object...')
 
     const outgoingHeaders = this.getHeaders()
@@ -415,14 +393,12 @@ export class NodeClientRequest extends ClientRequest {
       headers.set(headerName.toLowerCase(), headerValue.toString())
     }
 
-    const isomorphicRequest: IsomorphicRequest = {
-      id: uuidv4(),
-      url: this.url,
+    const isomorphicRequest = new IsomorphicRequest(this.url, {
+      body,
       method: this.options.method || 'GET',
       credentials: 'same-origin',
       headers,
-      body,
-    }
+    })
 
     this.log('successfully created isomorphic request!', isomorphicRequest)
     return isomorphicRequest

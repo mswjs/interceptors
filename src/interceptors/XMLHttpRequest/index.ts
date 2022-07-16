@@ -1,7 +1,6 @@
-import type {
-  HttpRequestEventMap,
-  InteractiveIsomorphicRequest,
-} from '../../glossary'
+import { invariant } from 'outvariant'
+import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
+import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { createXMLHttpRequestOverride } from './XMLHttpRequestOverride'
@@ -33,6 +32,11 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
 
     const PureXMLHttpRequest = window.XMLHttpRequest
 
+    invariant(
+      !(PureXMLHttpRequest as any)[IS_PATCHED_MODULE],
+      'Failed to patch the "XMLHttpRequest" module: already patched.'
+    )
+
     window.XMLHttpRequest = createXMLHttpRequestOverride({
       XMLHttpRequest: PureXMLHttpRequest,
       emitter: this.emitter,
@@ -41,7 +45,17 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
 
     log('native "XMLHttpRequest" module patched!', window.XMLHttpRequest.name)
 
+    Object.defineProperty(window.XMLHttpRequest, IS_PATCHED_MODULE, {
+      enumerable: true,
+      configurable: true,
+      value: true,
+    })
+
     this.subscriptions.push(() => {
+      Object.defineProperty(window.XMLHttpRequest, IS_PATCHED_MODULE, {
+        value: undefined,
+      })
+
       window.XMLHttpRequest = PureXMLHttpRequest
       log(
         'native "XMLHttpRequest" module restored!',

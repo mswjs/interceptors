@@ -15,6 +15,7 @@ declare namespace window {
 }
 
 interface SerializedResponse {
+  url: Response['url']
   type: Response['type']
   status: Response['status']
   statusText: Response['statusText']
@@ -55,119 +56,123 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-describe('HTTP', () => {
-  test('responds to an HTTP request handled in the resolver', async () => {
-    const context = await prepareRuntime()
-    const response: SerializedResponse = await context.page.evaluate((url) => {
-      return fetch(url).then((response) => {
-        return response.json().then((json) => ({
-          type: response.type,
-          status: response.status,
-          statusText: response.statusText,
-          headers: Array.from(
-            // @ts-ignore
-            response.headers.entries()
-          ),
-          json,
-        }))
-      })
-    }, httpServer.http.url('/'))
-    const headers = listToHeaders(response.headers)
-
-    expect(response.type).toBe('default')
-    expect(response.status).toBe(201)
-    expect(response.statusText).toBe('OK')
-    expect(headers.get('content-type')).toBe('application/hal+json')
-    expect(headers).not.toHaveProperty('map')
-    expect(headers.has('map')).toBe(false)
-    expect(response.json).toEqual({
-      mocked: true,
+test('responds to an HTTP request handled in the resolver', async () => {
+  const context = await prepareRuntime()
+  const response: SerializedResponse = await context.page.evaluate((url) => {
+    return fetch(url).then((response) => {
+      return response.json().then((json) => ({
+        url: response.url,
+        type: response.type,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Array.from(
+          // @ts-ignore
+          response.headers.entries()
+        ),
+        json,
+      }))
     })
-  })
+  }, httpServer.http.url('/'))
+  const headers = listToHeaders(response.headers)
 
-  test('bypasses an HTTP request not handled in the resolver', async () => {
-    const context = await prepareRuntime()
-    const response: SerializedResponse = await context.page.evaluate((url) => {
-      return fetch(url).then((response) => {
-        return {
-          type: response.type,
-          status: response.status,
-          statusText: response.statusText,
-          headers: Array.from(
-            // @ts-ignore
-            response.headers.entries()
-          ),
-        }
-      })
-    }, httpServer.http.url('/get'))
-    const headers = listToHeaders(response.headers)
-
-    expect(response.type).toBe('cors')
-    expect(response.status).toBe(200)
-    expect(response.statusText).toBe('OK')
-    expect(headers.get('content-type')).toBe('application/json; charset=utf-8')
-    expect(headers).not.toHaveProperty('map')
-    expect(headers.has('map')).toBe(false)
+  expect(response.url).toBe(httpServer.http.url('/'))
+  expect(response.type).toBe('default')
+  expect(response.status).toBe(201)
+  expect(response.statusText).toBe('OK')
+  expect(headers.get('content-type')).toBe('application/hal+json')
+  expect(headers).not.toHaveProperty('map')
+  expect(headers.has('map')).toBe(false)
+  expect(response.json).toEqual({
+    mocked: true,
   })
 })
 
-describe('HTTPS', () => {
-  test('responds to an HTTPS request handled in the resolver', async () => {
-    const context = await prepareRuntime()
-    const response: SerializedResponse = await context.page.evaluate((url) => {
-      /**
-       * @todo give a custom Agent to allow HTTPS on insecure hosts.
-       */
-      return fetch(url).then((response) => {
-        return response.json().then((json) => ({
-          type: response.type,
-          status: response.status,
-          statusText: response.statusText,
-          headers: Array.from(
-            // @ts-ignore
-            response.headers.entries()
-          ),
-          json,
-        }))
-      })
-    }, httpServer.https.url('/'))
-    const headers = listToHeaders(response.headers)
-
-    expect(response.type).toBe('default')
-    expect(response.status).toBe(201)
-    expect(response.statusText).toBe('OK')
-    expect(headers.get('content-type')).toBe('application/hal+json')
-    expect(headers).not.toHaveProperty('map')
-    expect(headers.has('map')).toBe(false)
-    expect(response.json).toEqual({
-      mocked: true,
+test('bypasses an HTTP request not handled in the resolver', async () => {
+  const context = await prepareRuntime()
+  const response: SerializedResponse = await context.page.evaluate((url) => {
+    return fetch(url).then((response) => {
+      return {
+        url: response.url,
+        type: response.type,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Array.from(
+          // @ts-ignore
+          response.headers.entries()
+        ),
+      }
     })
-  })
+  }, httpServer.http.url('/get'))
+  const headers = listToHeaders(response.headers)
 
-  test('bypasses an HTTPS request not handled in the resolver', async () => {
-    const context = await prepareRuntime()
-    const response: SerializedResponse = await context.page.evaluate((url) => {
-      return fetch(url).then((response) => {
-        return {
-          type: response.type,
-          status: response.status,
-          statusText: response.statusText,
-          headers: Array.from(
-            // @ts-ignore
-            response.headers.entries()
-          ),
-        }
-      })
-    }, httpServer.https.url('/get'))
-    const headers = listToHeaders(response.headers)
+  expect(response.url).toBe(httpServer.http.url('/get'))
+  expect(response.type).toBe('cors')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(headers.get('content-type')).toBe('application/json; charset=utf-8')
+  expect(headers).not.toHaveProperty('map')
+  expect(headers.has('map')).toBe(false)
+})
 
-    expect(response.type).toBe('cors')
-    expect(response.status).toBe(200)
-    expect(response.statusText).toBe('OK')
-    expect(headers.get('content-type')).toBe('application/json; charset=utf-8')
-    expect(headers).not.toHaveProperty('map')
-    expect(headers.has('map')).toBe(false)
+test('responds to an HTTPS request handled in the resolver', async () => {
+  const context = await prepareRuntime()
+  const response: SerializedResponse = await context.page.evaluate((url) => {
+    /**
+     * @todo give a custom Agent to allow HTTPS on insecure hosts.
+     */
+    return fetch(url).then((response) => {
+      return response.json().then((json) => ({
+        url: response.url,
+        type: response.type,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Array.from(
+          // @ts-ignore
+          response.headers.entries()
+        ),
+        json,
+      }))
+    })
+  }, httpServer.https.url('/'))
+  const headers = listToHeaders(response.headers)
+
+  expect(response.url).toBe(httpServer.https.url('/'))
+  expect(response.type).toBe('default')
+  expect(response.status).toBe(201)
+  expect(response.statusText).toBe('OK')
+  expect(headers.get('content-type')).toBe('application/hal+json')
+  expect(headers).not.toHaveProperty('map')
+  expect(headers.has('map')).toBe(false)
+  expect(response.json).toEqual({
+    mocked: true,
   })
+})
+
+test('bypasses an HTTPS request not handled in the resolver', async () => {
+  const context = await prepareRuntime()
+  const response: SerializedResponse = await context.page.evaluate((url) => {
+    return fetch(url).then((response) => {
+      return {
+        url: response.url,
+        type: response.type,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Array.from(
+          // @ts-ignore
+          response.headers.entries()
+        ),
+      }
+    })
+  }, httpServer.https.url('/get'))
+  const headers = listToHeaders(response.headers)
+
+  expect(response.url).toBe(httpServer.https.url('/get'))
+  expect(response.type).toBe('cors')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(headers.get('content-type')).toBe('application/json; charset=utf-8')
+  expect(headers).not.toHaveProperty('map')
+  expect(headers.has('map')).toBe(false)
 })
 
 test('bypasses any request when the interceptor is restored', async () => {
@@ -181,6 +186,7 @@ test('bypasses any request when the interceptor is restored', async () => {
     (url) => {
       return fetch(url).then((response) => {
         return {
+          url: response.url,
           type: response.type,
           status: response.status,
           statusText: response.statusText,
@@ -194,6 +200,7 @@ test('bypasses any request when the interceptor is restored', async () => {
     httpServer.http.url('/')
   )
 
+  expect(httpResponse.url).toBe(httpServer.http.url('/'))
   expect(httpResponse.type).toBe('cors')
   expect(httpResponse.status).toBe(200)
 
@@ -201,6 +208,7 @@ test('bypasses any request when the interceptor is restored', async () => {
     (url) => {
       return fetch(url).then((response) => {
         return {
+          url: response.url,
           type: response.type,
           status: response.status,
           statusText: response.statusText,
@@ -211,9 +219,10 @@ test('bypasses any request when the interceptor is restored', async () => {
         }
       })
     },
-    httpServer.http.url('/get')
+    httpServer.https.url('/get')
   )
 
+  expect(httpsResponse.url).toBe(httpServer.https.url('/get'))
   expect(httpsResponse.type).toBe('cors')
   expect(httpsResponse.status).toBe(200)
 })

@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { spawn } from 'child_process'
-import { RemoteHttpResolver } from '../../../src/RemoteInterceptor'
+import { RemoteHttpResolver } from '../../../src/RemoteHttpInterceptor'
 
 const CHILD_PATH = path.resolve(__dirname, 'child.js')
 

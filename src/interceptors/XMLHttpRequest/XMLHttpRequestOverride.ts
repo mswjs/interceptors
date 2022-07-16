@@ -11,14 +11,14 @@ import {
   headersToString,
 } from 'headers-polyfill'
 import { DOMParser } from '@xmldom/xmldom'
-import { InteractiveIsomorphicRequest, IsomorphicRequest } from '../../glossary'
 import { parseJson } from '../../utils/parseJson'
 import { toIsoResponse } from '../../utils/toIsoResponse'
-import { uuidv4 } from '../../utils/uuid'
 import { bufferFrom } from './utils/bufferFrom'
 import { createEvent } from './utils/createEvent'
 import type { XMLHttpRequestEmitter } from '.'
-import { createLazyCallback } from '../../utils/createLazyCallback'
+import { IsomorphicRequest } from '../../IsomorphicRequest'
+import { encodeBuffer } from '../../utils/bufferUtils'
+import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 
 type XMLHttpRequestEventHandler = (
   this: XMLHttpRequest,
@@ -84,7 +84,6 @@ export const createXMLHttpRequestOverride = (
     public statusText: string
     public user?: string
     public password?: string
-    public data: string
     public async?: boolean
     public response: any
     public responseText: string
@@ -132,7 +131,6 @@ export const createXMLHttpRequestOverride = (
       this.withCredentials = false
       this.status = 200
       this.statusText = 'OK'
-      this.data = ''
       this.response = ''
       this.responseType = 'text'
       this.responseText = ''
@@ -154,7 +152,7 @@ export const createXMLHttpRequestOverride = (
       this.readyState = nextState
 
       if (nextState !== this.UNSENT) {
-        this.log('triggerring readystate change...')
+        this.log('triggering readystate change...')
         this.trigger('readystatechange')
       }
     }
@@ -195,7 +193,6 @@ export const createXMLHttpRequestOverride = (
       this.setReadyState(this.UNSENT)
       this.status = 200
       this.statusText = 'OK'
-      this.data = ''
       this.response = null as any
       this.responseText = null as any
       this.responseXML = null as any
@@ -229,10 +226,14 @@ export const createXMLHttpRequestOverride = (
       }
     }
 
-    public send(data?: string) {
+    public send(data?: string | ArrayBuffer) {
       this.log('send %s %s', this.method, this.url)
-
-      this.data = data || ''
+      let buffer: ArrayBuffer
+      if (typeof data === 'string') {
+        buffer = encodeBuffer(data)
+      } else {
+        buffer = data || new ArrayBuffer(0)
+      }
 
       let url: URL
 
@@ -248,19 +249,16 @@ export const createXMLHttpRequestOverride = (
       this.log('request headers', this._requestHeaders)
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
-      const isomorphicRequest: IsomorphicRequest = {
-        id: uuidv4(),
-        url,
+      const isomorphicRequest = new IsomorphicRequest(url, {
+        body: buffer,
         method: this.method,
         headers: this._requestHeaders,
         credentials: this.withCredentials ? 'include' : 'omit',
-        body: this.data,
-      }
+      })
 
-      const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
-        ...isomorphicRequest,
-        respondWith: createLazyCallback(),
-      }
+      const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
+        isomorphicRequest
+      )
 
       this.log(
         'emitting the "request" event for %d listener(s)...',
@@ -272,7 +270,9 @@ export const createXMLHttpRequestOverride = (
 
       Promise.resolve(
         until(async () => {
-          await emitter.untilIdle('request')
+          await emitter.untilIdle('request', ({ args: [request] }) => {
+            return request.id === interactiveIsomorphicRequest.id
+          })
           this.log('all request listeners have been resolved!')
 
           const [mockedResponse] =
@@ -320,6 +320,7 @@ export const createXMLHttpRequestOverride = (
 
           this.log('response type', this.responseType)
           this.response = this.getResponseBody(mockedResponse.body)
+          this.responseURL = this.url
           this.responseText = mockedResponse.body || ''
           this.responseXML = this.getResponseXML()
 
@@ -328,8 +329,8 @@ export const createXMLHttpRequestOverride = (
           if (mockedResponse.body && this.response) {
             this.setReadyState(this.LOADING)
 
-            // Presense of the mocked response implies a response body (not null).
-            // Presense of the coerced `this.response` implies the mocked body is valid.
+            // Presence of the mocked response implies a response body (not null).
+            // Presence of the coerced `this.response` implies the mocked body is valid.
             const bodyBuffer = bufferFrom(mockedResponse.body)
 
             // Trigger a progress event based on the mocked response body.
@@ -425,8 +426,8 @@ export const createXMLHttpRequestOverride = (
             originalRequest.timeout = this.timeout
           }
 
-          this.log('send', this.data)
-          originalRequest.send(this.data)
+          this.log('send', data)
+          originalRequest.send(data)
         }
       })
     }

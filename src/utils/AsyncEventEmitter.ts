@@ -2,7 +2,10 @@ import { Debugger, debug } from 'debug'
 import { StrictEventEmitter, EventMapType } from 'strict-event-emitter'
 import { nextTick } from './nextTick'
 
-export type QueueItem = Promise<void>
+export interface QueueItem<Args extends any[]> {
+  args: Args
+  done: Promise<void>
+}
 
 export enum AsyncEventEmitterReadyState {
   ACTIVE = 'ACTIVE',
@@ -15,7 +18,10 @@ export class AsyncEventEmitter<
   public readyState: AsyncEventEmitterReadyState
 
   private log: Debugger
-  protected queue: Map<keyof EventMap, QueueItem[]>
+  protected queue: Map<
+    keyof EventMap,
+    QueueItem<Parameters<EventMap[keyof EventMap]>>[]
+  >
 
   constructor() {
     super()
@@ -39,7 +45,7 @@ export class AsyncEventEmitter<
       return this
     }
 
-    return super.on(event, (async (...args: unknown[]) => {
+    return super.on(event, (async (...args: Parameters<EventMap[Event]>) => {
       // Event queue is always established when calling ".emit()".
       const queue = this.openListenerQueue(event)
 
@@ -47,8 +53,9 @@ export class AsyncEventEmitter<
 
       // Whenever a listener is called, create a new Promise
       // that resolves when that listener function completes its execution.
-      queue.push(
-        new Promise<void>(async (resolve, reject) => {
+      queue.push({
+        args,
+        done: new Promise<void>(async (resolve, reject) => {
           try {
             // Treat listeners as potentially asynchronous functions
             // so they could be awaited.
@@ -60,8 +67,8 @@ export class AsyncEventEmitter<
             log('"%s" listener has rejected!', error)
             reject(error)
           }
-        })
-      )
+        }),
+      })
     }) as EventMap[Event])
   }
 
@@ -103,10 +110,15 @@ export class AsyncEventEmitter<
    * If the event has no listeners, resolves immediately.
    */
   public async untilIdle<Event extends keyof EventMap>(
-    event: Event
+    event: Event,
+    filter: (item: QueueItem<Parameters<EventMap[Event]>>) => boolean = () =>
+      true
   ): Promise<void> {
     const listenersQueue = this.queue.get(event) || []
-    await Promise.all(listenersQueue).finally(() => {
+
+    await Promise.all(
+      listenersQueue.filter(filter).map(({ done }) => done)
+    ).finally(() => {
       // Clear the queue one the promise settles
       // so that different events don't share the same queue.
       this.queue.delete(event)
@@ -115,7 +127,7 @@ export class AsyncEventEmitter<
 
   private openListenerQueue<Event extends keyof EventMap>(
     event: Event
-  ): QueueItem[] {
+  ): QueueItem<Parameters<EventMap[Event]>>[] {
     const log = this.log.extend('openListenerQueue')
 
     log('opening "%s" listeners queue...', event)

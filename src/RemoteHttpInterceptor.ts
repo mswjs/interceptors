@@ -1,16 +1,14 @@
 import { ChildProcess } from 'child_process'
 import { Headers } from 'headers-polyfill'
-import type {
-  HttpRequestEventMap,
-  InteractiveIsomorphicRequest,
-  IsomorphicRequest,
-} from './glossary'
+import { HttpRequestEventMap } from './glossary'
 import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
-import { createLazyCallback } from './utils/createLazyCallback'
 import { toIsoResponse } from './utils/toIsoResponse'
+import { IsomorphicRequest } from './IsomorphicRequest'
+import { bufferFrom } from './interceptors/XMLHttpRequest/utils/bufferFrom'
+import { InteractiveIsomorphicRequest } from './InteractiveIsomorphicRequest'
 
 export class RemoteHttpInterceptor extends BatchInterceptor<
   [ClientRequestInterceptor, XMLHttpRequestInterceptor]
@@ -59,7 +57,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
         }
       })
 
-      // Listen for the mocked resopnse message from the parent.
+      // Listen for the mocked response message from the parent.
       this.log(
         'add "message" listener to the parent process',
         handleParentMessage
@@ -118,20 +116,24 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
         return
       }
 
-      const isomorphicRequest: IsomorphicRequest = JSON.parse(
-        serializedRequest,
-        requestReviver
+      const requestJson = JSON.parse(serializedRequest, requestReviver)
+      log('parsed intercepted request', requestJson)
+
+      const body = bufferFrom(requestJson.body)
+
+      const isomorphicRequest = new IsomorphicRequest(requestJson.url, {
+        ...requestJson,
+        body: body.buffer,
+      })
+
+      const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
+        isomorphicRequest
       )
 
-      log('parsed intercepted request', isomorphicRequest)
-
-      const interactiveIsomorphicRequest: InteractiveIsomorphicRequest = {
-        ...isomorphicRequest,
-        respondWith: createLazyCallback(),
-      }
-
       this.emitter.emit('request', interactiveIsomorphicRequest)
-      await this.emitter.untilIdle('request')
+      await this.emitter.untilIdle('request', ({ args: [request] }) => {
+        return request.id === interactiveIsomorphicRequest.id
+      })
       const [mockedResponse] =
         await interactiveIsomorphicRequest.respondWith.invoked()
 
@@ -141,14 +143,14 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       const serializedResponse = JSON.stringify(mockedResponse)
 
       this.process.send(
-        `response:${isomorphicRequest.id}:${serializedResponse}`,
+        `response:${requestJson.id}:${serializedResponse}`,
         (error) => {
           if (error) {
             return
           }
 
           if (mockedResponse) {
-            // Emit an optimistinc "response" event at this point,
+            // Emit an optimistic "response" event at this point,
             // not to rely on the back-and-forth signaling for the sake of the event.
             this.emitter.emit(
               'response',

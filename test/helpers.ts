@@ -1,11 +1,12 @@
 import https from 'https'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
-import { Headers } from 'headers-polyfill'
 import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { IsomorphicRequest, RequestCredentials } from '../src/glossary'
+import { RequestCredentials } from '../src/glossary'
+import { IsomorphicRequest } from '../src'
+import { encodeBuffer } from '../src/utils/bufferUtils'
 
 export interface PromisifiedResponse {
   req: ClientRequest
@@ -205,24 +206,31 @@ export async function extractRequestFromPage(
   page: Page
 ): Promise<IsomorphicRequest> {
   const request = await page.evaluate(() => {
-    return new Promise<StringifiedIsomorphicRequest>((resolve) => {
+    return new Promise<StringifiedIsomorphicRequest>((resolve, reject) => {
+      const timeoutTimer = setTimeout(() => {
+        reject(
+          new Error(
+            'Browser runtime module did not dispatch the custom "resolver" event'
+          )
+        )
+      }, 5000)
+
       window.addEventListener(
         'resolver' as any,
-        (event: CustomEvent<string>) => {
-          resolve(JSON.parse(event.detail))
+        (event: CustomEvent<StringifiedIsomorphicRequest>) => {
+          clearTimeout(timeoutTimer)
+          resolve(event.detail)
         }
       )
     })
   })
 
-  return {
-    id: request.id,
-    method: request.method,
-    url: new URL(request.url),
-    headers: new Headers(request.headers),
-    credentials: request.credentials,
-    body: request.body,
-  }
+  const isomorphicRequest = new IsomorphicRequest(new URL(request.url), {
+    ...request,
+    body: encodeBuffer(request.body || ''),
+  })
+  isomorphicRequest.id = request.id
+  return isomorphicRequest
 }
 
 export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {

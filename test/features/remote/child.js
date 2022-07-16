@@ -1,5 +1,5 @@
 const fetch = require('node-fetch')
-const { RemoteHttpInterceptor } = require('../../../lib')
+const { RemoteHttpInterceptor } = require('../../../lib/RemoteHttpInterceptor')
 
 const interceptor = new RemoteHttpInterceptor()
 interceptor.apply()

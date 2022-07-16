@@ -7,6 +7,7 @@ import { HttpRequestEventMap } from '../../../../src'
 import { fetch } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (_req, res) => {
@@ -51,18 +52,18 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
   expect(await res.text()).toEqual('mocked')
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >({
-    id: anyUuid(),
-    method: 'POST',
-    url: new URL(httpServer.http.url('/user')),
-    headers: headersContaining({
-      'content-type': 'text/plain',
-      'user-agent': 'interceptors',
-    }),
-    credentials: 'same-origin',
-    body: 'hello world',
-    respondWith: expect.any(Function),
-  })
+  expect(resolver).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: anyUuid(),
+      method: 'POST',
+      url: new URL(httpServer.http.url('/user')),
+      headers: headersContaining({
+        'content-type': 'text/plain',
+        'user-agent': 'interceptors',
+      }),
+      credentials: 'same-origin',
+      _body: encodeBuffer('hello world'),
+      respondWith: expect.any(Function),
+    })
+  )
 })

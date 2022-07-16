@@ -80,13 +80,13 @@ it('proxies event listeners to the interceptors', () => {
 })
 
 it('disposes of child interceptors', async () => {
-  class PrimaryInterceptor extends Interceptor<never> {
+  class PrimaryInterceptor extends Interceptor<any> {
     constructor() {
       super(Symbol('primary'))
     }
   }
 
-  class SecondaryInterceptor extends Interceptor<never> {
+  class SecondaryInterceptor extends Interceptor<any> {
     constructor() {
       super(Symbol('secondary'))
     }
