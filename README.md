@@ -111,6 +111,9 @@ import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/C
 
 const interceptor = new ClientRequestInterceptor()
 
+// Enable the interception of requests.
+interceptor.apply()
+
 // Listen to any "http.ClientRequest" being dispatched,
 // and log its method and full URL.
 interceptor.on('request', (request) => {
@@ -151,6 +154,8 @@ const interceptor = BatchInterceptor({
   ],
 })
 
+interceptor.apply()
+
 // This "request" listener will be called on both
 // "http.ClientRequest" and "XMLHttpRequest" being dispatched.
 interceptor.on('request', listener)
@@ -174,6 +179,8 @@ const interceptor = BatchInterceptor({
   name: 'my-interceptor',
   interceptors: nodeInterceptors,
 })
+
+interceptor.apply()
 
 interceptor.on('request', listener)
 ```
@@ -300,6 +307,8 @@ const interceptor = BatchInterceptor({
   name: 'my-interceptor',
   interceptors: nodeInterceptors,
 })
+
+interceptor.apply()
 
 interceptor.on('request', (request) => {
   // Inspect the intercepted "request".
