@@ -6,7 +6,7 @@ import { IsomorphicResponse, MockedResponse } from '../glossary'
  */
 export function toIsoResponse(response: MockedResponse): IsomorphicResponse {
   return {
-    status: response.status || 200,
+    status: response.status ?? 200,
     statusText: response.statusText || 'OK',
     headers: objectToHeaders(response.headers || {}),
     body: response.body,

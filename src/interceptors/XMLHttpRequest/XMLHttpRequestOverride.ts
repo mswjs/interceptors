@@ -304,7 +304,7 @@ export const createXMLHttpRequestOverride = (
           // Trigger a loadstart event to indicate the initialization of the fetch.
           this.trigger('loadstart')
 
-          this.status = mockedResponse.status || 200
+          this.status = mockedResponse.status ?? 200
           this.statusText = mockedResponse.statusText || 'OK'
           this._responseHeaders = mockedResponse.headers
             ? objectToHeaders(mockedResponse.headers)
