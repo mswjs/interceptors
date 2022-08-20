@@ -111,6 +111,9 @@ import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/C
 
 const interceptor = new ClientRequestInterceptor()
 
+// Enable the interception of requests.
+interceptor.apply()
+
 // Listen to any "http.ClientRequest" being dispatched,
 // and log its method and full URL.
 interceptor.on('request', (request) => {
@@ -143,13 +146,15 @@ import { BatchInterceptor } from '@mswjs/interceptors'
 import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
 
-const interceptor = BatchInterceptor({
+const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
   interceptors: [
     new ClientRequestInterceptor(),
     new XMLHttpRequestInterceptor(),
   ],
 })
+
+interceptor.apply()
 
 // This "request" listener will be called on both
 // "http.ClientRequest" and "XMLHttpRequest" being dispatched.
@@ -170,10 +175,12 @@ This preset combines `ClientRequestInterceptor`, `XMLHttpRequestInterceptor` and
 import { BatchInterceptor } from '@mswjs/interceptors'
 import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
 
-const interceptor = BatchInterceptor({
+const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
   interceptors: nodeInterceptors,
 })
+
+interceptor.apply()
 
 interceptor.on('request', listener)
 ```
@@ -186,7 +193,7 @@ This preset combines `XMLHttpRequestInterceptor` and `FetchInterceptor` and is m
 import { BatchInterceptor } from '@mswjs/interceptors'
 import browserInterceptors from '@mswjs/interceptors/lib/presets/browser'
 
-const interceptor = BatchInterceptor({
+const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
   interceptors: browserInterceptors,
 })
@@ -296,10 +303,12 @@ Applies multiple request interceptors at the same time.
 import { BatchInterceptor } from '@mswjs/interceptors'
 import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
 
-const interceptor = BatchInterceptor({
+const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
   interceptors: nodeInterceptors,
 })
+
+interceptor.apply()
 
 interceptor.on('request', (request) => {
   // Inspect the intercepted "request".
