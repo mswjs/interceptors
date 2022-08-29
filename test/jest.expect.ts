@@ -1,5 +1,5 @@
+import { AsymmetricMatcher } from 'expect'
 import { HeadersObject } from 'headers-polyfill'
-import { AsymmetricMatcher } from 'expect/build/asymmetricMatchers'
 
 /**
  * A custom asymetric matcher that asserts the `Headers` object.
