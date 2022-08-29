@@ -40,7 +40,13 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     globalThis.fetch = async (input, init) => {
       const request = new Request(input, init)
 
-      const url = typeof input === 'string' ? input : input.url
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+          ? input.href
+          : input.url
+
       const method = request.method
 
       this.log('[%s] %s', method, url)
