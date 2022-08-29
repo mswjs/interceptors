@@ -164,7 +164,7 @@ test('emits the ECONNREFUSED error connecting to an inactive server given no moc
   request.on('error', (error: ErrorConnectionRefused) => {
     expect(error.code).toEqual('ECONNREFUSED')
     expect(error.syscall).toEqual('connect')
-    expect(error.address).toEqual('127.0.0.1')
+    expect(['127.0.0.1', '::1']).toContain(error.address)
     expect(error.port).toEqual(12345)
 
     done()

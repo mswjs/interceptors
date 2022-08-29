@@ -69,6 +69,15 @@ function getAuthByRequestOptions(options: ResolvedRequestOptions) {
 }
 
 /**
+ * Returns true if host looks like an IPv6 address without surrounding brackets
+ * It assumes any host containing `:` is definitely not IPv4 and probably IPv6,
+ * but note that this could include invalid IPv6 addresses as well.
+ */
+function isRawIPv6Address(host: string) {
+  return host.includes(':') && !host.startsWith('[') && !host.endsWith(']')
+}
+
+/**
  * Creates a `URL` instance from a given `RequestOptions` object.
  */
 export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
@@ -85,7 +94,9 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   debug('port', port)
   debug('path', path)
 
-  const baseUrl = `${protocol}//${host}`
+  // NOTE: as of node >= 17, hosts (including "localhost") can resolve to IPv6
+  // addresses, so construct valid URL by surrounding IPv6 host with brackets
+  const baseUrl = `${protocol}//${isRawIPv6Address(host) ? `[${host}]` : host}`
   debug('base URL:', baseUrl)
 
   const url = options.uri ? new URL(options.uri.href) : new URL(path, baseUrl)
