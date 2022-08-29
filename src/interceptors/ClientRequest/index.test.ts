@@ -1,5 +1,5 @@
 import * as http from 'http'
-import { HttpServer } from '@open-draft/test-server/http'
+import { HttpServer } from '../../../test/patched/OpenDraftTestServer'
 import { ClientRequestInterceptor } from '.'
 
 const httpServer = new HttpServer((app) => {

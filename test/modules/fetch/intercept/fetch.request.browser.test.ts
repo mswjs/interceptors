@@ -3,7 +3,7 @@
  */
 import * as path from 'path'
 import { pageWith } from 'page-with'
-import { HttpServer } from '@open-draft/test-server/http'
+import { HttpServer } from '../../../patched/OpenDraftTestServer'
 import { extractRequestFromPage } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { encodeBuffer } from '../../../../src/utils/bufferUtils'

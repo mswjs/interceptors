@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import * as https from 'https'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer, httpsAgent } from '../../../patched/OpenDraftTestServer'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'

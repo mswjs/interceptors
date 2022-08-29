@@ -4,7 +4,7 @@
 import * as https from 'https'
 import fetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer, httpsAgent } from '../../patched/OpenDraftTestServer'
 import {
   HttpRequestEventMap,
   IsomorphicRequest,

@@ -3,7 +3,7 @@
  */
 import fetch from 'node-fetch'
 import { RequestHandler } from 'express'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer, httpsAgent } from '../../../patched/OpenDraftTestServer'
 import { HttpRequestEventMap } from '../../../../src'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'

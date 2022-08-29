@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import * as http from 'http'
-import { HttpServer } from '@open-draft/test-server/http'
+import { HttpServer } from '../../patched/OpenDraftTestServer'
 import { HttpRequestEventMap } from '../../../src'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 import { anyUuid, headersContaining } from '../../jest.expect'

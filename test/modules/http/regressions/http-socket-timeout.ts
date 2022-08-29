@@ -5,7 +5,7 @@
  * due to the unterminated socket.
  */
 import * as http from 'http'
-import { HttpServer } from '@open-draft/test-server/http'
+import { HttpServer } from '../../../patched/OpenDraftTestServer'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 jest.setTimeout(5000)

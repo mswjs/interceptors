@@ -3,7 +3,7 @@
  */
 import { debug } from 'debug'
 import * as express from 'express'
-import { HttpServer } from '@open-draft/test-server/http'
+import { HttpServer } from '../../../test/patched/OpenDraftTestServer'
 import { NodeClientRequest } from './NodeClientRequest'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'

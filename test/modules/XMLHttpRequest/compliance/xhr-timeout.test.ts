@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  * @see https://github.com/mswjs/interceptors/issues/7
  */
-import { HttpServer } from '@open-draft/test-server/http'
+import { HttpServer } from '../../../patched/OpenDraftTestServer'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { sleep } from '../../../../test/helpers'
 import { createXMLHttpRequest } from '../../../helpers'

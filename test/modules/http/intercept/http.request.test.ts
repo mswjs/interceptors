@@ -3,7 +3,7 @@
  */
 import * as http from 'http'
 import { RequestHandler } from 'express-serve-static-core'
-import { HttpServer } from '@open-draft/test-server/http'
+import { HttpServer } from '../../../patched/OpenDraftTestServer'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'

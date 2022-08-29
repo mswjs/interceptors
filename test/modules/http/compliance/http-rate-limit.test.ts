@@ -1,6 +1,6 @@
 import * as http from 'http'
 import rateLimit from 'express-rate-limit'
-import { HttpServer } from '@open-draft/test-server/http'
+import { HttpServer } from '../../../patched/OpenDraftTestServer'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {

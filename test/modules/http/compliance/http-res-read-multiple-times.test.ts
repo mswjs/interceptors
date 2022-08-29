@@ -4,7 +4,7 @@
  * @see https://github.com/mswjs/interceptors/issues/161
  */
 import http, { IncomingMessage } from 'http'
-import { HttpServer } from '@open-draft/test-server/http'
+import { HttpServer } from '../../../patched/OpenDraftTestServer'
 import { HttpRequestEventMap, IsomorphicResponse } from '../../../../src'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 

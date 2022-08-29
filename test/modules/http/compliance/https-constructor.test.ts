@@ -4,7 +4,7 @@
  */
 import * as https from 'https'
 import { URL } from 'url'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer, httpsAgent } from '../../../patched/OpenDraftTestServer'
 import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
