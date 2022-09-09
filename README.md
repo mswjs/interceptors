@@ -380,12 +380,16 @@ import { SendBeaconInterceptor } from '@mswjs/interceptors/lib/SendBeaconInterce
 const interceptor = new SendBeaconInterceptor()
 
 interceptor.on('request', (request) => {
-  // Block calls to `/blocked` by mocking the response
   if (request.url.pathname === '/blocked') {
+    // The `respondWith()` call will prevent the request from being
+    // passed to the original `sendBeacon`. The response itself does
+    // not matter, since it can not be accessed.
     request.respondWith({ status: 204 })
+    return
   }
   // Call to other paths will be passed on to the original `sendBeacon`
 })
+```
 
 ## Special mention
 
