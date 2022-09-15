@@ -70,7 +70,7 @@
     "@types/debug": "^4.1.7",
     "@xmldom/xmldom": "^0.7.5",
     "debug": "^4.3.3",
-    "headers-polyfill": "^3.0.4",
+    "headers-polyfill": "^3.1.0",
     "outvariant": "^1.2.1",
     "strict-event-emitter": "^0.2.4",
     "web-encoding": "^1.1.5"

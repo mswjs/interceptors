@@ -1,4 +1,4 @@
-import { Headers } from 'headers-polyfill/lib'
+import { Headers } from 'headers-polyfill'
 import { invariant } from 'outvariant'
 import { decodeBuffer } from './utils/bufferUtils'
 import { uuidv4 } from './utils/uuid'
