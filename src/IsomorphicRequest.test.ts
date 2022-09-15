@@ -1,4 +1,4 @@
-import { Headers } from 'headers-polyfill/lib'
+import { Headers } from 'headers-polyfill'
 import { IsomorphicRequest } from './IsomorphicRequest'
 import { encodeBuffer } from './utils/bufferUtils'
 
