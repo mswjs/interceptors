@@ -4361,7 +4361,7 @@ media-typer@0.3.0:
   resolved "https://registry.yarnpkg.com/media-typer/-/media-typer-0.3.0.tgz#8710d7af0aa626f8fffa1ce00168545263255748"
   integrity sha1-hxDXrwqmJvj/+hzgAWhUUmMlV0g=
 
-memfs@^3.3.0, memfs@^3.4.7:
+memfs@^3.4.7:
   version "3.4.7"
   resolved "https://registry.yarnpkg.com/memfs/-/memfs-3.4.7.tgz#e5252ad2242a724f938cb937e3c4f7ceb1f70e5a"
   integrity sha512-ygaiUSNalBX85388uskeCyhSAoOSgzBbtVCr9jA2RROssFL9Q19/ZXFqS+2Th2sr1ewNIWgFdLzLC3Yl1Zv+lw==
@@ -4745,10 +4745,10 @@ p-try@^2.0.0:
   resolved "https://registry.yarnpkg.com/p-try/-/p-try-2.2.0.tgz#cb2868540e313d61de58fafbe35ce9004d5540e6"
   integrity sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==
 
-page-with@^0.5.1:
-  version "0.5.1"
-  resolved "https://registry.yarnpkg.com/page-with/-/page-with-0.5.1.tgz#b1558c205c130218623e491c8302ae501288d782"
-  integrity sha512-830oKHY2kfhPuc3vsaaeqrwCH1FkOhopFQ0JmSPObGI4yVZQLYYpRW4frNP4hYyuxVgC0zbwMqr+Z4ESgDX5Sw==
+page-with@^0.6.0:
+  version "0.6.0"
+  resolved "https://registry.yarnpkg.com/page-with/-/page-with-0.6.0.tgz#d490f637c63ce5b52962ae03510e4f7b49e849e9"
+  integrity sha512-WFniWGzAnQPBJcXJZ06R/xxe5oUCf37k5ZDCTYqfaozugFFJ1MdHFLMjdca0n3E4gthiOH7DjqdMzc8zdRSy4Q==
   dependencies:
     "@open-draft/until" "^1.0.3"
     "@types/debug" "^4.1.7"
@@ -4758,7 +4758,7 @@ page-with@^0.5.1:
     debug "^4.3.2"
     express "^4.17.1"
     headers-polyfill "^3.0.3"
-    memfs "^3.3.0"
+    memfs "^3.4.7"
     mustache "^4.2.0"
     playwright "^1.16.2"
     uuid "^8.3.2"
