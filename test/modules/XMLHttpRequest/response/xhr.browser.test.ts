@@ -57,9 +57,9 @@ test('responds to an HTTP request handled in the resolver', async () => {
     url: httpServer.http.url('/'),
   })
 
-  expect(response.status).toEqual(201)
-  expect(response.statusText).toEqual('Created')
-  expect(response.headers).toEqual('content-type: application/hal+json')
+  expect(response.status).toBe(201)
+  expect(response.statusText).toBe('Created')
+  expect(response.headers).toBe('content-type: application/hal+json')
   expect(response.body).toEqual(JSON.stringify({ mocked: true }))
 })
 
@@ -71,9 +71,9 @@ test('responds to an HTTPS request handled in the resolver', async () => {
     url: httpServer.https.url('/'),
   })
 
-  expect(response.status).toEqual(201)
-  expect(response.statusText).toEqual('Created')
-  expect(response.headers).toEqual('content-type: application/hal+json')
+  expect(response.status).toBe(201)
+  expect(response.statusText).toBe('Created')
+  expect(response.headers).toBe('content-type: application/hal+json')
   expect(response.body).toEqual(JSON.stringify({ mocked: true }))
 })
 
@@ -85,8 +85,8 @@ test('bypasses a request not handled in the resolver', async () => {
     url: httpServer.http.url('/get'),
   })
 
-  expect(response.status).toEqual(200)
-  expect(response.statusText).toEqual('OK')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
   expect(response.body).toEqual(JSON.stringify({ route: '/get' }))
 })
 
@@ -105,15 +105,15 @@ test('bypasses any request when the interceptor is restored', async () => {
     url: httpServer.http.url('/'),
   })
 
-  expect(firstResponse.status).toEqual(200)
-  expect(firstResponse.statusText).toEqual('OK')
+  expect(firstResponse.status).toBe(200)
+  expect(firstResponse.statusText).toBe('OK')
   expect(firstResponse.body).toEqual(JSON.stringify({ route: '/' }))
 
   const secondResponse = await callXMLHttpRequest({
     method: 'GET',
     url: httpServer.http.url('/get'),
   })
-  expect(secondResponse.status).toEqual(200)
-  expect(secondResponse.statusText).toEqual('OK')
+  expect(secondResponse.status).toBe(200)
+  expect(secondResponse.statusText).toBe('OK')
   expect(secondResponse.body).toEqual(JSON.stringify({ route: '/get' }))
 })

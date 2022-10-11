@@ -13,6 +13,7 @@ import { IsomorphicRequest } from '../../IsomorphicRequest'
 import { encodeBuffer } from '../../utils/bufferUtils'
 import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 import { createResponse } from './utils/createResponse'
+import { concatArrayBuffer } from './utils/concatArrayBuffer'
 
 type XMLHttpRequestEventHandler = (
   this: XMLHttpRequest,
@@ -47,9 +48,11 @@ export const createXMLHttpRequestOverride = (
   const { XMLHttpRequest, emitter, log } = options
 
   return class XMLHttpRequestOverride implements XMLHttpRequest {
+    _encoder: TextEncoder
+    _decoder: TextDecoder
     _requestHeaders: Headers
     _responseHeaders: Headers
-    _responseBuffer: Buffer
+    _responseBuffer: Uint8Array
 
     // Collection of events modified by `addEventListener`/`removeEventListener` calls.
     _events: XMLHttpRequestEvent<InternalXMLHttpRequestEventTargetEventMap>[] =
@@ -128,8 +131,10 @@ export const createXMLHttpRequestOverride = (
       this.upload = {} as any
       this.timeout = 0
 
+      this._encoder = new TextEncoder()
+      this._decoder = new TextDecoder()
       this._requestHeaders = new Headers()
-      this._responseBuffer = Buffer.from([])
+      this._responseBuffer = new Uint8Array()
       this._responseHeaders = new Headers()
     }
 
@@ -183,7 +188,7 @@ export const createXMLHttpRequestOverride = (
       this.status = 200
       this.statusText = 'OK'
 
-      this._responseBuffer = Buffer.from([])
+      this._responseBuffer = new Uint8Array()
       this._requestHeaders = new Headers()
       this._responseHeaders = new Headers()
     }
@@ -290,14 +295,12 @@ export const createXMLHttpRequestOverride = (
 
           this.status = mockedResponse.status ?? 200
           this.statusText = mockedResponse.statusText || 'OK'
-          this._responseHeaders = new Headers(mockedResponse.headers || {})
-
           this.log('set response status', this.status, this.statusText)
 
+          this._responseHeaders = new Headers(mockedResponse.headers || {})
           this.log('set response headers', this._responseHeaders)
 
           this.log('response type', this.responseType)
-          // this.response = this.getResponseBody(mockedResponse.body)
           this.responseURL = this.url
 
           const totalLength = this._responseHeaders.has('Content-Length')
@@ -352,10 +355,10 @@ export const createXMLHttpRequestOverride = (
               }
 
               if (value) {
-                this._responseBuffer = Buffer.concat([
+                this._responseBuffer = concatArrayBuffer(
                   this._responseBuffer,
-                  value,
-                ])
+                  value
+                )
 
                 this.trigger('progress', {
                   loaded: this._responseBuffer.byteLength,
@@ -409,10 +412,10 @@ export const createXMLHttpRequestOverride = (
           })
 
           originalRequest.addEventListener('progress', () => {
-            this._responseBuffer = Buffer.concat([
+            this._responseBuffer = concatArrayBuffer(
               this._responseBuffer,
-              Buffer.from(originalRequest.responseText),
-            ])
+              this._encoder.encode(originalRequest.responseText)
+            )
           })
 
           // Update the patched instance on the "loadend" event
@@ -463,13 +466,10 @@ export const createXMLHttpRequestOverride = (
 
     public get responseText(): string {
       this.log('responseText()')
-
-      const encoding =
-        (this.getResponseHeader('content-encoding') as BufferEncoding) || 'utf8'
-      return this._responseBuffer.toString(encoding)
+      return this._decoder.decode(this._responseBuffer)
     }
 
-    public get response(): any {
+    public get response(): unknown {
       switch (this.responseType) {
         case 'json': {
           this.log('resolving response body as JSON')

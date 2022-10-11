@@ -53,6 +53,8 @@ test('responds to an HTTP request handled in the resolver', async () => {
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
-  expect(response.headers).toBe('x-custom-header: yes')
+  expect(response.headers).toBe(
+    'content-type: text/plain;charset=UTF-8\r\nx-custom-header: yes'
+  )
   expect(response.body).toBe('hello world')
 })

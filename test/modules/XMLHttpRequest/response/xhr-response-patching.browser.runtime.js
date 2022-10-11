@@ -27,14 +27,15 @@ interceptor.on('request', async (request) => {
       req.addEventListener('error', reject)
     })
 
-    request.respondWith({
-      status: req.status,
-      statusText: req.statusText,
-      headers: {
-        'X-Custom-Header': req.getResponseHeader('X-Custom-Header'),
-      },
-      body: `${req.responseText} world`,
-    })
+    request.respondWith(
+      new Response(`${req.responseText} world`, {
+        status: req.status,
+        statusText: req.statusText,
+        headers: {
+          'X-Custom-Header': req.getResponseHeader('X-Custom-Header'),
+        },
+      })
+    )
   }
 })
 

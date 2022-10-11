@@ -3,7 +3,7 @@ import { stringToHeaders } from 'headers-polyfill'
 
 export function createResponse(
   request: XMLHttpRequest,
-  responseBody: Buffer
+  responseBody: Uint8Array
 ): Response {
   return new Response(responseBody, {
     status: request.status,
