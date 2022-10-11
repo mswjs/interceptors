@@ -4,6 +4,7 @@
 import fetch from 'node-fetch'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { Response } from '@remix-run/web-fetch'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {
@@ -19,13 +20,14 @@ interceptor.on('request', (request) => {
   if (
     [httpServer.http.url(), httpServer.https.url()].includes(request.url.href)
   ) {
-    request.respondWith({
-      status: 201,
-      headers: {
-        'Content-Type': 'application/hal+json',
-      },
-      body: JSON.stringify({ mocked: true }),
-    })
+    request.respondWith(
+      new Response(JSON.stringify({ mocked: true }), {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/hal+json',
+        },
+      })
+    )
   }
 })
 
