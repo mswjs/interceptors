@@ -4,16 +4,9 @@
  */
 import type { Debugger } from 'debug'
 import { until } from '@open-draft/until'
-import {
-  Headers,
-  stringToHeaders,
-  objectToHeaders,
-  headersToString,
-} from 'headers-polyfill'
+import { Headers, stringToHeaders, headersToString } from 'headers-polyfill'
 import { DOMParser } from '@xmldom/xmldom'
 import { parseJson } from '../../utils/parseJson'
-import { toIsoResponse } from '../../utils/toIsoResponse'
-import { bufferFrom } from './utils/bufferFrom'
 import { createEvent } from './utils/createEvent'
 import type { XMLHttpRequestEmitter } from '.'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
@@ -56,6 +49,7 @@ export const createXMLHttpRequestOverride = (
   return class XMLHttpRequestOverride implements XMLHttpRequest {
     _requestHeaders: Headers
     _responseHeaders: Headers
+    _responseBuffer: Buffer
 
     // Collection of events modified by `addEventListener`/`removeEventListener` calls.
     _events: XMLHttpRequestEvent<InternalXMLHttpRequestEventTargetEventMap>[] =
@@ -86,10 +80,7 @@ export const createXMLHttpRequestOverride = (
     public user?: string
     public password?: string
     public async?: boolean
-    public response: any
-    public responseText: string
     public responseType: XMLHttpRequestResponseType
-    public responseXML: Document | null
     public responseURL: string
     public upload: XMLHttpRequestUpload
     public readyState: number
@@ -132,15 +123,13 @@ export const createXMLHttpRequestOverride = (
       this.withCredentials = false
       this.status = 200
       this.statusText = 'OK'
-      this.response = ''
       this.responseType = 'text'
-      this.responseText = ''
-      this.responseXML = null
       this.responseURL = ''
       this.upload = {} as any
       this.timeout = 0
 
       this._requestHeaders = new Headers()
+      this._responseBuffer = Buffer.from([])
       this._responseHeaders = new Headers()
     }
 
@@ -193,10 +182,8 @@ export const createXMLHttpRequestOverride = (
       this.setReadyState(this.UNSENT)
       this.status = 200
       this.statusText = 'OK'
-      this.response = null as any
-      this.responseText = null as any
-      this.responseXML = null as any
 
+      this._responseBuffer = Buffer.from([])
       this._requestHeaders = new Headers()
       this._responseHeaders = new Headers()
     }
@@ -301,62 +288,88 @@ export const createXMLHttpRequestOverride = (
         if (mockedResponse) {
           this.log('received mocked response', mockedResponse)
 
-          // Trigger a loadstart event to indicate the initialization of the fetch.
-          this.trigger('loadstart')
-
           this.status = mockedResponse.status ?? 200
           this.statusText = mockedResponse.statusText || 'OK'
           this._responseHeaders = new Headers(mockedResponse.headers || {})
 
           this.log('set response status', this.status, this.statusText)
-          this.log('set response headers', this._responseHeaders)
 
-          // Mark that response headers has been received
-          // and trigger a ready state event to reflect received headers
-          // in a custom `onreadystatechange` callback.
-          this.setReadyState(this.HEADERS_RECEIVED)
+          this.log('set response headers', this._responseHeaders)
 
           this.log('response type', this.responseType)
           // this.response = this.getResponseBody(mockedResponse.body)
           this.responseURL = this.url
-          /**
-           * @FIXME @todo Set this value.
-           */
-          this.responseText = ''
-          this.responseXML = this.getResponseXML()
 
-          this.log('set response body', this.response)
+          const totalLength = this._responseHeaders.has('Content-Length')
+            ? Number(this._responseHeaders.get('Content-Length'))
+            : undefined
 
-          // if (mockedResponse.body && this.response) {
-          //   this.setReadyState(this.LOADING)
+          // Trigger a loadstart event to indicate the initialization of the fetch.
+          this.trigger('loadstart', { loaded: 0, total: totalLength })
 
-          //   /**
-          //    * @todo Read mocked response body as stream.
-          //    */
+          // Mark that response headers has been received
+          // and trigger a ready state event to reflect received headers
+          // in a custom "onreadystatechange" callback.
+          this.setReadyState(this.HEADERS_RECEIVED)
 
-          //   // Presence of the mocked response implies a response body (not null).
-          //   // Presence of the coerced `this.response` implies the mocked body is valid.
-          //   const bodyBuffer = bufferFrom(mockedResponse.body)
+          this.setReadyState(this.LOADING)
 
-          //   // Trigger a progress event based on the mocked response body.
-          //   this.trigger('progress', {
-          //     loaded: bodyBuffer.length,
-          //     total: bodyBuffer.length,
-          //   })
-          // }
+          const closeResponseStream = () => {
+            /**
+             * Explicitly mark the request as done so its response never hangs.
+             * @see https://github.com/mswjs/interceptors/issues/13
+             */
+            this.setReadyState(this.DONE)
 
-          /**
-           * Explicitly mark the request as done so its response never hangs.
-           * @see https://github.com/mswjs/interceptors/issues/13
-           */
-          this.setReadyState(this.DONE)
+            /**
+             * @todo We need to check if the request was actually successful.
+             * If it's not, we must not trigger the "load" event.
+             */
+            // Trigger a load event to indicate the fetch has succeeded.
+            this.trigger('load', {
+              loaded: this._responseBuffer.byteLength,
+              total: totalLength,
+            })
 
-          // Trigger a load event to indicate the fetch has succeeded.
-          this.trigger('load')
-          // Trigger a loadend event to indicate the fetch has completed.
-          this.trigger('loadend')
+            // Trigger a loadend event to indicate the fetch has completed.
+            this.trigger('loadend', {
+              loaded: this._responseBuffer.byteLength,
+              total: totalLength,
+            })
 
-          emitter.emit('response', isomorphicRequest, mockedResponse)
+            emitter.emit('response', isomorphicRequest, mockedResponse)
+          }
+
+          if (mockedResponse.body) {
+            const reader = mockedResponse.body.getReader()
+
+            const readNextChunk = async (): Promise<void> => {
+              const { value, done } = await reader.read()
+
+              if (done) {
+                closeResponseStream()
+                return
+              }
+
+              if (value) {
+                this._responseBuffer = Buffer.concat([
+                  this._responseBuffer,
+                  value,
+                ])
+
+                this.trigger('progress', {
+                  loaded: this._responseBuffer.byteLength,
+                  total: totalLength,
+                })
+              }
+
+              readNextChunk()
+            }
+
+            readNextChunk()
+          } else {
+            closeResponseStream()
+          }
         } else {
           this.log('no mocked response received!')
 
@@ -372,20 +385,45 @@ export const createXMLHttpRequestOverride = (
             this.password
           )
 
-          // Reflect a successful state of the original request
-          // on the patched instance.
-          originalRequest.addEventListener('load', () => {
-            this.log('original "onload"')
+          originalRequest.addEventListener('readystatechange', () => {
+            // Forward the original response headers to the patched instance
+            // immediately as they are received.
+            if (
+              originalRequest.readyState === XMLHttpRequest.HEADERS_RECEIVED
+            ) {
+              const responseHeaders = originalRequest.getAllResponseHeaders()
+              this.log('original response headers:\n', responseHeaders)
+
+              this._responseHeaders = stringToHeaders(responseHeaders)
+              this.log(
+                'original response headers (normalized)',
+                this._responseHeaders
+              )
+            }
+          })
+
+          originalRequest.addEventListener('loadstart', () => {
+            // Forward the response type to the patched instance immediately.
+            // Response type affects how response reading properties are resolved.
+            this.responseType = originalRequest.responseType
+          })
+
+          originalRequest.addEventListener('progress', () => {
+            this._responseBuffer = Buffer.concat([
+              this._responseBuffer,
+              Buffer.from(originalRequest.responseText),
+            ])
+          })
+
+          // Update the patched instance on the "loadend" event
+          // because it fires when the request settles (succeeds/errors).
+          originalRequest.addEventListener('loadend', () => {
+            this.log('original "loadend"')
 
             this.status = originalRequest.status
             this.statusText = originalRequest.statusText
             this.responseURL = originalRequest.responseURL
-            this.responseType = originalRequest.responseType
-            this.response = originalRequest.response
-            this.responseText = originalRequest.responseText
-            this.responseXML = originalRequest.responseXML
-
-            this.log('set mock request readyState to DONE')
+            this.log('received original response', this.status, this.statusText)
 
             // Explicitly mark the mocked request instance as done
             // so the response never hangs.
@@ -394,39 +432,24 @@ export const createXMLHttpRequestOverride = (
              * in the case of unhandled request.
              */
             this.setReadyState(this.DONE)
+            this.log('set mock request readyState to DONE')
 
-            this.log('received original response', this.status, this.statusText)
             this.log('original response body:', this.response)
-
-            const responseHeaders = originalRequest.getAllResponseHeaders()
-            this.log('original response headers:\n', responseHeaders)
-
-            this._responseHeaders = stringToHeaders(responseHeaders)
-            this.log(
-              'original response headers (normalized)',
-              this._responseHeaders
-            )
-
-            this.log('original response finished')
+            this.log('original response finished!')
 
             emitter.emit(
               'response',
               isomorphicRequest,
-              createResponse(originalRequest)
-              // {
-              //   status: originalRequest.status,
-              //   statusText: originalRequest.statusText,
-              //   headers: this._responseHeaders,
-              //   body: originalRequest.response,
-              // }
+              createResponse(originalRequest, this._responseBuffer)
             )
           })
+
+          this.propagateHeaders(originalRequest, this._requestHeaders)
 
           // Assign callbacks and event listeners from the intercepted XHR instance
           // to the original XHR instance.
           this.propagateCallbacks(originalRequest)
           this.propagateListeners(originalRequest)
-          this.propagateHeaders(originalRequest, this._requestHeaders)
 
           if (this.async) {
             originalRequest.timeout = this.timeout
@@ -438,8 +461,62 @@ export const createXMLHttpRequestOverride = (
       })
     }
 
+    public get responseText(): string {
+      this.log('responseText()')
+
+      const encoding =
+        (this.getResponseHeader('content-encoding') as BufferEncoding) || 'utf8'
+      return this._responseBuffer.toString(encoding)
+    }
+
+    public get response(): any {
+      switch (this.responseType) {
+        case 'json': {
+          this.log('resolving response body as JSON')
+          return parseJson(this.responseText)
+        }
+
+        case 'arraybuffer': {
+          this.log('resolving response body as ArrayBuffer')
+          return this._responseBuffer
+        }
+
+        case 'blob': {
+          const mimeType =
+            this.getResponseHeader('content-type') || 'text/plain'
+          this.log('resolving response body as blog (%s)', mimeType)
+          return new Blob([this.responseText], { type: mimeType })
+        }
+
+        case 'document': {
+          this.log('resolving response body as XML')
+          return this.responseXML
+        }
+
+        default: {
+          return this.responseText
+        }
+      }
+    }
+
+    public get responseXML(): Document | null {
+      const contentType = this.getResponseHeader('content-type') || ''
+      this.log('responseXML() %s', contentType)
+
+      if (
+        contentType.startsWith('application/xml') ||
+        contentType.startsWith('text/xml')
+      ) {
+        this.log('response content-type is XML, parsing...')
+        return new DOMParser().parseFromString(this.responseText, contentType)
+      }
+
+      this.log('response content type is not XML, returning null...')
+      return null
+    }
+
     public abort() {
-      this.log('abort')
+      this.log('abort()')
 
       if (this.readyState > this.UNSENT && this.readyState < this.DONE) {
         this.setReadyState(this.UNSENT)
@@ -452,12 +529,12 @@ export const createXMLHttpRequestOverride = (
     }
 
     public setRequestHeader(name: string, value: string) {
-      this.log('set request header "%s" to "%s"', name, value)
+      this.log('setRequestHeader() "%s" to "%s"', name, value)
       this._requestHeaders.append(name, value)
     }
 
     public getResponseHeader(name: string): string | null {
-      this.log('get response header "%s"', name)
+      this.log('getResponseHeader() "%s"', name)
 
       if (this.readyState < this.HEADERS_RECEIVED) {
         this.log(
@@ -480,7 +557,7 @@ export const createXMLHttpRequestOverride = (
     }
 
     public getAllResponseHeaders(): string {
-      this.log('get all response headers')
+      this.log('getAllResponseHeaders()')
 
       if (this.readyState < this.HEADERS_RECEIVED) {
         this.log(
@@ -494,69 +571,26 @@ export const createXMLHttpRequestOverride = (
     }
 
     public addEventListener<
-      K extends keyof InternalXMLHttpRequestEventTargetEventMap
-    >(name: K, listener: XMLHttpRequestEventHandler) {
-      this.log('addEventListener', name, listener)
+      Event extends keyof InternalXMLHttpRequestEventTargetEventMap
+    >(event: Event, listener: XMLHttpRequestEventHandler) {
+      this.log('addEventListener', event, listener)
       this._events.push({
-        name,
+        name: event,
         listener,
       })
     }
 
-    public removeEventListener<K extends keyof XMLHttpRequestEventMap>(
-      name: K,
-      listener: (event?: XMLHttpRequestEventMap[K]) => void
+    public removeEventListener<Event extends keyof XMLHttpRequestEventMap>(
+      event: Event,
+      listener: (event?: XMLHttpRequestEventMap[Event]) => void
     ): void {
       this.log('removeEventListener', name, listener)
       this._events = this._events.filter((storedEvent) => {
-        return storedEvent.name !== name && storedEvent.listener !== listener
+        return storedEvent.name !== event && storedEvent.listener !== listener
       })
     }
 
     public overrideMimeType() {}
-
-    /**
-     * Resolves the response based on the `responseType` value.
-     */
-    getResponseBody(body: string | undefined) {
-      // Handle an improperly set "null" value of the mocked response body.
-      const textBody = body ?? ''
-      this.log('coerced response body to', textBody)
-
-      switch (this.responseType) {
-        case 'json': {
-          this.log('resolving response body as JSON')
-          return parseJson(textBody)
-        }
-
-        case 'blob': {
-          const blobType =
-            this.getResponseHeader('content-type') || 'text/plain'
-          this.log('resolving response body as Blob', { type: blobType })
-
-          return new Blob([textBody], {
-            type: blobType,
-          })
-        }
-
-        case 'arraybuffer': {
-          this.log('resolving response body as ArrayBuffer')
-          const arrayBuffer = bufferFrom(textBody)
-          return arrayBuffer
-        }
-
-        default:
-          return textBody
-      }
-    }
-
-    getResponseXML() {
-      const contentType = this.getResponseHeader('Content-Type')
-      if (contentType === 'application/xml' || contentType === 'text/xml') {
-        return new DOMParser().parseFromString(this.responseText, contentType)
-      }
-      return null
-    }
 
     /**
      * Propagates mock XMLHttpRequest instance callbacks

@@ -4,6 +4,7 @@
 import * as https from 'https'
 import fetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
+import { Response } from '@remix-run/web-fetch'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import {
   HttpRequestEventMap,
@@ -46,12 +47,12 @@ const interceptor = new BatchInterceptor({
 })
 interceptor.on('request', (request) => {
   if (request.url.pathname === '/user') {
-    request.respondWith({
+    new Response('mocked-response-text', {
       status: 200,
+      statusText: 'OK',
       headers: {
         'x-response-type': 'mocked',
       },
-      body: 'mocked-response-text',
     })
   }
 })

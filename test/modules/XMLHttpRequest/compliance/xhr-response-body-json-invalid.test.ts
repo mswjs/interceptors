@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
@@ -8,19 +9,18 @@ const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
   switch (request.url.pathname) {
     case '/no-body': {
-      request.respondWith({
-        status: 204,
-      })
+      request.respondWith(new Response(null, { status: 204 }))
       break
     }
 
     case '/invalid-json': {
-      request.respondWith({
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: `{"invalid: js'on`,
-      })
+      request.respondWith(
+        new Response(`{"invalid: js'on`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+      )
       break
     }
   }

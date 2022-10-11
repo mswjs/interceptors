@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
@@ -24,12 +25,14 @@ interceptor.on('request', (request) => {
     return
   }
 
-  request.respondWith({
-    headers: {
-      etag: '123',
-      'x-response-type': 'mock',
-    },
-  })
+  request.respondWith(
+    new Response(null, {
+      headers: {
+        etag: '123',
+        'x-response-type': 'mock',
+      },
+    })
+  )
 })
 
 beforeAll(async () => {

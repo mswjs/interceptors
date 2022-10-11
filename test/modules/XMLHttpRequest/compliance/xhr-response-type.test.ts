@@ -1,20 +1,25 @@
 /**
  * @jest-environment jsdom
  */
+import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest, readBlob } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
-  request.respondWith({
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      firstName: 'John',
-      lastName: 'Maverick',
-    }),
-  })
+  request.respondWith(
+    new Response(
+      JSON.stringify({
+        firstName: 'John',
+        lastName: 'Maverick',
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+  )
 })
 
 beforeAll(() => {

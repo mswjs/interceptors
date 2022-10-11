@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
@@ -36,15 +37,15 @@ interceptor.on('request', (request) => {
     ) || ['/login'].includes(request.url.pathname)
 
   if (shouldMock) {
-    request.respondWith({
-      status: 301,
-      statusText: 'Moved Permantently',
-      headers: {
-        'Content-Type': 'application/hal+json',
-      },
-      body: 'foo',
-    })
-    return
+    request.respondWith(
+      new Response('foo', {
+        status: 301,
+        statusText: 'Moved Permantently',
+        headers: {
+          'Content-Type': 'application/hal+json',
+        },
+      })
+    )
   }
 
   if (request.url.href === 'https://error.me/') {
