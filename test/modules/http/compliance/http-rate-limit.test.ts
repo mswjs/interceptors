@@ -1,6 +1,7 @@
 import * as http from 'http'
 import rateLimit from 'express-rate-limit'
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
@@ -26,11 +27,9 @@ interceptor.on('request', (request) => {
     return
   }
 
-  request.respondWith({
-    status: 403,
-    statusText: 'Forbidden',
-    body: 'mocked-body',
-  })
+  request.respondWith(
+    new Response('mocked-body', { status: 403, statusText: 'Forbidden' })
+  )
 })
 
 const handleLimitReached = jest.fn()

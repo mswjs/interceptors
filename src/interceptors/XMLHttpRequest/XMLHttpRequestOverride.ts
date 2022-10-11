@@ -19,6 +19,7 @@ import type { XMLHttpRequestEmitter } from '.'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
 import { encodeBuffer } from '../../utils/bufferUtils'
 import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
+import { createResponse } from './utils/createResponse'
 
 type XMLHttpRequestEventHandler = (
   this: XMLHttpRequest,
@@ -169,7 +170,6 @@ export const createXMLHttpRequestOverride = (
       this.log('trigger "%s" (%d)', eventName, this.readyState)
       this.log('resolve listener for event "%s"', eventName)
 
-      // @ts-expect-error XMLHttpRequest class has no index signature.
       const callback = this[`on${eventName}`] as XMLHttpRequestEventHandler
       callback?.call(this, createEvent(this, eventName, options))
 
@@ -306,9 +306,7 @@ export const createXMLHttpRequestOverride = (
 
           this.status = mockedResponse.status ?? 200
           this.statusText = mockedResponse.statusText || 'OK'
-          this._responseHeaders = mockedResponse.headers
-            ? objectToHeaders(mockedResponse.headers)
-            : new Headers()
+          this._responseHeaders = new Headers(mockedResponse.headers || {})
 
           this.log('set response status', this.status, this.statusText)
           this.log('set response headers', this._responseHeaders)
@@ -319,26 +317,33 @@ export const createXMLHttpRequestOverride = (
           this.setReadyState(this.HEADERS_RECEIVED)
 
           this.log('response type', this.responseType)
-          this.response = this.getResponseBody(mockedResponse.body)
+          // this.response = this.getResponseBody(mockedResponse.body)
           this.responseURL = this.url
-          this.responseText = mockedResponse.body || ''
+          /**
+           * @FIXME @todo Set this value.
+           */
+          this.responseText = ''
           this.responseXML = this.getResponseXML()
 
           this.log('set response body', this.response)
 
-          if (mockedResponse.body && this.response) {
-            this.setReadyState(this.LOADING)
+          // if (mockedResponse.body && this.response) {
+          //   this.setReadyState(this.LOADING)
 
-            // Presence of the mocked response implies a response body (not null).
-            // Presence of the coerced `this.response` implies the mocked body is valid.
-            const bodyBuffer = bufferFrom(mockedResponse.body)
+          //   /**
+          //    * @todo Read mocked response body as stream.
+          //    */
 
-            // Trigger a progress event based on the mocked response body.
-            this.trigger('progress', {
-              loaded: bodyBuffer.length,
-              total: bodyBuffer.length,
-            })
-          }
+          //   // Presence of the mocked response implies a response body (not null).
+          //   // Presence of the coerced `this.response` implies the mocked body is valid.
+          //   const bodyBuffer = bufferFrom(mockedResponse.body)
+
+          //   // Trigger a progress event based on the mocked response body.
+          //   this.trigger('progress', {
+          //     loaded: bodyBuffer.length,
+          //     total: bodyBuffer.length,
+          //   })
+          // }
 
           /**
            * Explicitly mark the request as done so its response never hangs.
@@ -351,11 +356,7 @@ export const createXMLHttpRequestOverride = (
           // Trigger a loadend event to indicate the fetch has completed.
           this.trigger('loadend')
 
-          emitter.emit(
-            'response',
-            isomorphicRequest,
-            toIsoResponse(mockedResponse)
-          )
+          emitter.emit('response', isomorphicRequest, mockedResponse)
         } else {
           this.log('no mocked response received!')
 
@@ -408,12 +409,17 @@ export const createXMLHttpRequestOverride = (
 
             this.log('original response finished')
 
-            emitter.emit('response', isomorphicRequest, {
-              status: originalRequest.status,
-              statusText: originalRequest.statusText,
-              headers: this._responseHeaders,
-              body: originalRequest.response,
-            })
+            emitter.emit(
+              'response',
+              isomorphicRequest,
+              createResponse(originalRequest)
+              // {
+              //   status: originalRequest.status,
+              //   statusText: originalRequest.statusText,
+              //   headers: this._responseHeaders,
+              //   body: originalRequest.response,
+              // }
+            )
           })
 
           // Assign callbacks and event listeners from the intercepted XHR instance

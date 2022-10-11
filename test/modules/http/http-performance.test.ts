@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 import { httpGet, PromisifiedResponse } from '../../helpers'
 
@@ -33,11 +34,7 @@ const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
   if (request.url.pathname.startsWith('/user')) {
     const id = request.url.searchParams.get('id')
-
-    request.respondWith({
-      status: 200,
-      body: `mocked ${id}`,
-    })
+    request.respondWith(new Response(`mocked ${id}`))
   }
 })
 

@@ -4,6 +4,7 @@
 import { IncomingMessage } from 'http'
 import * as https from 'https'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { getRequestOptionsByUrl } from '../../../../src/utils/getRequestOptionsByUrl'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
@@ -19,11 +20,12 @@ interceptor.on('request', (request) => {
     return
   }
 
-  request.respondWith({
-    status: 403,
-    statusText: 'Forbidden',
-    body: 'mocked-body',
-  })
+  request.respondWith(
+    new Response('mocked-body', {
+      status: 403,
+      statusText: 'Forbidden',
+    })
+  )
 })
 
 beforeAll(async () => {

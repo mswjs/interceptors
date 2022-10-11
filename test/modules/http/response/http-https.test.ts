@@ -3,6 +3,7 @@
  */
 import * as http from 'http'
 import * as https from 'https'
+import { Response } from '@remix-run/web-fetch'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
@@ -19,14 +20,15 @@ const httpServer = new HttpServer((app) => {
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
   if (request.url.pathname === '/non-existing') {
-    request.respondWith({
-      status: 301,
-      statusText: 'Moved Permanently',
-      headers: {
-        'Content-Type': 'text/plain',
-      },
-      body: 'mocked',
-    })
+    request.respondWith(
+      new Response('mocked', {
+        status: 301,
+        statusText: 'Moved Permanently',
+        headers: {
+          'Content-Type': 'text/plain',
+        },
+      })
+    )
   }
 
   if (request.url.href === 'http://error.me/') {

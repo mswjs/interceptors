@@ -1,3 +1,4 @@
+import type { Response } from '@remix-run/web-fetch'
 import type { HeadersObject, Headers } from 'headers-polyfill'
 import type { InteractiveIsomorphicRequest } from './InteractiveIsomorphicRequest'
 import type { IsomorphicRequest } from './IsomorphicRequest'
@@ -20,8 +21,5 @@ export interface MockedResponse
 
 export type HttpRequestEventMap = {
   request(request: InteractiveIsomorphicRequest): Promise<void> | void
-  response(
-    request: IsomorphicRequest,
-    response: IsomorphicResponse
-  ): Promise<void> | void
+  response(request: IsomorphicRequest, response: Response): Promise<void> | void
 }

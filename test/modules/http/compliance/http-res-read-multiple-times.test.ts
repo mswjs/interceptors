@@ -5,7 +5,8 @@
  */
 import http, { IncomingMessage } from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestEventMap, IsomorphicResponse } from '../../../../src'
+import { Response } from '@remix-run/web-fetch'
+import { HttpRequestEventMap } from '../../../../src'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
@@ -68,21 +69,23 @@ test('allows reading the response body after it has been read internally', async
     })
   }
 
-  const request = await makeRequest()
-  const capturedResponse = await new Promise<IsomorphicResponse>((resolve) => {
+  const untilCapturedResponse = new Promise<Response>((resolve) => {
     interceptor.on('response', (_, response) => resolve(response))
   })
+  const request = await makeRequest()
+  const capturedResponse = await untilCapturedResponse
 
   // Original response.
-  expect(request.response.statusCode).toEqual(200)
-  expect(request.response.statusMessage).toEqual('OK')
+  expect(request.response.statusCode).toBe(200)
+  expect(request.response.statusMessage).toBe('OK')
   expect(request.response.headers).toHaveProperty('x-powered-by', 'Express')
   const text = await request.toText()
-  expect(text).toEqual('user-body')
+  expect(text).toBe('user-body')
 
-  // Isomorphic response (callback).
-  expect(capturedResponse.status).toEqual(200)
-  expect(capturedResponse.statusText).toEqual('OK')
-  expect(capturedResponse.headers.get('x-powered-by')).toEqual('Express')
-  expect(capturedResponse.body).toEqual('user-body')
+  // Response from the "response" callback.
+  expect(capturedResponse.status).toBe(200)
+  expect(capturedResponse.statusText).toBe('OK')
+  expect(capturedResponse.headers.get('x-powered-by')).toBe('Express')
+  expect(capturedResponse.bodyUsed).toBe(false)
+  expect(await capturedResponse.text()).toBe('user-body')
 })

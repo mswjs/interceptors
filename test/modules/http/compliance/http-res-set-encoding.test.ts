@@ -3,6 +3,7 @@
  */
 import * as http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
@@ -17,13 +18,14 @@ interceptor.on('request', (request) => {
     return
   }
 
-  request.respondWith({
-    status: 200,
-    headers: {
-      'Content-Type': 'text/plain',
-    },
-    body: 'hello world',
-  })
+  request.respondWith(
+    new Response('hello world', {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+    })
+  )
 })
 
 function encode(text: string, encoding: BufferEncoding): string {

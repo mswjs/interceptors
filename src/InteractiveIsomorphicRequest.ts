@@ -1,10 +1,10 @@
 import { invariant } from 'outvariant'
-import { MockedResponse } from './glossary'
+import { Response } from '@remix-run/web-fetch'
 import { IsomorphicRequest } from './IsomorphicRequest'
 import { createLazyCallback, LazyCallback } from './utils/createLazyCallback'
 
 export class InteractiveIsomorphicRequest extends IsomorphicRequest {
-  public respondWith: LazyCallback<(response: MockedResponse) => void>
+  public respondWith: LazyCallback<(response: Response) => void>
 
   constructor(request: IsomorphicRequest) {
     super(request)

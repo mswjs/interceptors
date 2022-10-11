@@ -1,18 +1,8 @@
-import {
-  Headers,
-  flattenHeadersObject,
-  objectToHeaders,
-  headersToObject,
-} from 'headers-polyfill'
 import { invariant } from 'outvariant'
+import { Headers, flattenHeadersObject } from 'headers-polyfill'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
-import {
-  HttpRequestEventMap,
-  IsomorphicResponse,
-  IS_PATCHED_MODULE,
-} from '../../glossary'
+import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
-import { toIsoResponse } from '../../utils/toIsoResponse'
 import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
@@ -82,22 +72,13 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       if (mockedResponse) {
         this.log('received mocked response:', mockedResponse)
 
-        const isomorphicResponse = toIsoResponse(mockedResponse)
-        this.log('derived isomorphic response:', isomorphicResponse)
-
         this.emitter.emit(
           'response',
           interactiveIsomorphicRequest,
-          isomorphicResponse
+          mockedResponse
         )
 
-        const response = new Response(mockedResponse.body, {
-          ...isomorphicResponse,
-          // `Response.headers` cannot be instantiated with the `Headers` polyfill.
-          // Apparently, it halts if the `Headers` class contains unknown properties
-          // (i.e. the internal `Headers.map`).
-          headers: flattenHeadersObject(mockedResponse.headers || {}),
-        })
+        const response = new Response(mockedResponse.body, mockedResponse)
 
         // Set the "response.url" property to equal the intercepted request URL.
         Object.defineProperty(response, 'url', {
@@ -112,14 +93,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.log('no mocked response received!')
 
-      return pureFetch(request).then(async (response) => {
+      return pureFetch(request).then((response) => {
         const cloneResponse = response.clone()
         this.log('original fetch performed', cloneResponse)
 
         this.emitter.emit(
           'response',
           interactiveIsomorphicRequest,
-          await normalizeFetchResponse(cloneResponse)
+          cloneResponse as any
         )
         return response
       })
@@ -143,13 +124,13 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 }
 
-async function normalizeFetchResponse(
-  response: Response
-): Promise<IsomorphicResponse> {
-  return {
-    status: response.status,
-    statusText: response.statusText,
-    headers: objectToHeaders(headersToObject(response.headers)),
-    body: await response.text(),
-  }
-}
+// async function normalizeFetchResponse(
+//   response: Response
+// ): Promise<IsomorphicResponse> {
+//   return {
+//     status: response.status,
+//     statusText: response.statusText,
+//     headers: objectToHeaders(headersToObject(response.headers)),
+//     body: await response.text(),
+//   }
+// }

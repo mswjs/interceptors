@@ -5,7 +5,6 @@ import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
-import { toIsoResponse } from './utils/toIsoResponse'
 import { IsomorphicRequest } from './IsomorphicRequest'
 import { bufferFrom } from './interceptors/XMLHttpRequest/utils/bufferFrom'
 import { InteractiveIsomorphicRequest } from './InteractiveIsomorphicRequest'
@@ -152,11 +151,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
           if (mockedResponse) {
             // Emit an optimistic "response" event at this point,
             // not to rely on the back-and-forth signaling for the sake of the event.
-            this.emitter.emit(
-              'response',
-              isomorphicRequest,
-              toIsoResponse(mockedResponse)
-            )
+            this.emitter.emit('response', isomorphicRequest, mockedResponse)
           }
         }
       )

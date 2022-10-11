@@ -2,8 +2,8 @@ import type { Debugger } from 'debug'
 import type { RequestOptions } from 'http'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
-import { Headers, objectToHeaders } from 'headers-polyfill'
-import { MockedResponse } from '../../glossary'
+import { Headers } from 'headers-polyfill'
+import { Response } from '@remix-run/web-fetch'
 import type { ClientRequestEmitter } from '.'
 import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
 import {
@@ -11,7 +11,6 @@ import {
   normalizeClientRequestEndArgs,
 } from './utils/normalizeClientRequestEndArgs'
 import { NormalizedClientRequestArgs } from './utils/normalizeClientRequestArgs'
-import { toIsoResponse } from '../../utils/toIsoResponse'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { bodyBufferToString } from './utils/bodyBufferToString'
 import {
@@ -22,6 +21,7 @@ import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
 import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 import { getArrayBuffer } from '../../utils/bufferUtils'
+import { createResponse } from './utils/createResponse'
 
 export type Protocol = 'http' | 'https'
 
@@ -160,20 +160,13 @@ export class NodeClientRequest extends ClientRequest {
         this.log('received mocked response:', mockedResponse)
         this.responseSource = 'mock'
 
-        const isomorphicResponse = toIsoResponse(mockedResponse)
         this.respondWith(mockedResponse)
-        this.log(
-          isomorphicResponse.status,
-          isomorphicResponse.statusText,
-          isomorphicResponse.body,
-          '(MOCKED)'
-        )
+        this.log(mockedResponse.status, mockedResponse.statusText, '(MOCKED)')
 
         callback?.()
 
         this.log('emitting the custom "response" event...')
-
-        this.emitter.emit('response', isomorphicRequest, isomorphicResponse)
+        this.emitter.emit('response', isomorphicRequest, mockedResponse)
 
         return this
       }
@@ -213,18 +206,16 @@ export class NodeClientRequest extends ClientRequest {
         this.log('original request aborted!')
       })
 
-      this.once('response-internal', async (response: IncomingMessage) => {
-        const responseBody = await getIncomingMessageBody(response)
-        this.log(response.statusCode, response.statusMessage, responseBody)
-        this.log('original response headers:', response.headers)
+      this.once('response-internal', (message: IncomingMessage) => {
+        this.log(message.statusCode, message.statusMessage)
+        this.log('original response headers:', message.headers)
 
         this.log('emitting the custom "response" event...')
-        this.emitter.emit('response', isomorphicRequest, {
-          status: response.statusCode || 200,
-          statusText: response.statusMessage || 'OK',
-          headers: objectToHeaders(response.headers),
-          body: responseBody,
-        })
+        this.emitter.emit(
+          'response',
+          isomorphicRequest,
+          createResponse(message)
+        )
       })
 
       this.log('performing original request...')
@@ -299,7 +290,7 @@ export class NodeClientRequest extends ClientRequest {
     return super.emit(event, ...data)
   }
 
-  private respondWith(mockedResponse: MockedResponse): void {
+  private respondWith(mockedResponse: Response): void {
     this.log('responding with a mocked response...', mockedResponse)
 
     const { status, statusText, headers, body } = mockedResponse
@@ -309,29 +300,48 @@ export class NodeClientRequest extends ClientRequest {
     if (headers) {
       this.response.headers = {}
 
-      for (const [headerName, headerValue] of Object.entries(headers)) {
-        this.response.rawHeaders.push(
-          headerName,
-          ...(Array.isArray(headerValue) ? headerValue : [headerValue])
-        )
+      headers.forEach((headerValue, headerName) => {
+        /**
+         * @note Make sure that multi-value headers are appended correctly.
+         */
+        this.response.rawHeaders.push(headerName, headerValue)
 
         const insensitiveHeaderName = headerName.toLowerCase()
         const prevHeaders = this.response.headers[insensitiveHeaderName]
         this.response.headers[insensitiveHeaderName] = prevHeaders
           ? Array.prototype.concat([], prevHeaders, headerValue)
           : headerValue
-      }
+      })
     }
     this.log('mocked response headers ready:', headers)
 
-    if (body) {
-      this.response.push(Buffer.from(body))
+    const closeResponseStream = () => {
+      // Push "null" to indicate that the response body is complete
+      // and shouldn't be written to anymore.
+      this.response.push(null)
+      this.response.complete = true
     }
 
-    // Push "null" to indicate that the response body is complete
-    // and shouldn't be written to anymore.
-    this.response.push(null)
-    this.response.complete = true
+    if (body) {
+      const bodyReader = body.getReader()
+      const readNextChunk = async (): Promise<void> => {
+        const { done, value } = await bodyReader.read()
+
+        if (done) {
+          closeResponseStream()
+          return
+        }
+
+        // this.response.push(Buffer.from(body))
+        this.response.push(value)
+
+        return readNextChunk()
+      }
+
+      readNextChunk()
+    } else {
+      closeResponseStream()
+    }
 
     /**
      * Set the internal "res" property to the mocked "OutgoingMessage"
