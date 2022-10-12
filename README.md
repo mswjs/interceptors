@@ -83,7 +83,7 @@ This library extends (or patches, where applicable) the following native modules
 
 Once extended, it intercepts and normalizes all requests to the _isomorphic request instances_. The isomorphic request is an abstract representation of the request coming from different sources (`ClientRequest`, `XMLHttpRequest`, `window.Request`, etc.) that allows us to handle such requests in the same, unified manner.
 
-You can respond to an isomorphic request using an _isomorphic response_. In a similar way, the isomorphic response is a representation of the response to use for different requests. Responding to requests differs substantially when using modules like `http` or `XMLHttpRequest`. This library takes the responsibility for coercing isomorphic responses into appropriate responses depending on the request module automatically.
+You can respond to an isomorphic request using a Fetch API `Response` instance. Instead of designing custom abstractions, this library respects the Fetch API specification and takes the responsibility to coerce a single response declaration to the appropriate response formats based on the request-issuing modules.
 
 ## What this library doesn't do
 
@@ -244,19 +244,27 @@ Use the `request.respondWith()` method to respond to a request with a mocked res
 
 ```js
 interceptor.on('request', (request) => {
-  request.respondWith({
-    status: 200,
-    statusText: 'OK',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      firstName: 'John',
-      lastName: 'Maverick',
-    }),
-  })
+  request.respondWith(
+    new Response(
+      JSON.stringify({
+        firstName: 'John',
+        lastName: 'Maverick',
+      }),
+      {
+        status: 201,
+        statusText: 'Created',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+  )
 })
 ```
+
+> We use Fetch API `Response` class as the middleground for mocked response definition. This library then coerces the response instance to the appropriate response format (e.g. to `http.OutgoingMessage` in the case of `http.ClientRequest`).
+
+**The `Response` class is built-in in since Node.js 18. Use a Fetch API-compatible polyfill, like `node-fetch`, for older versions of Node.js.`**
 
 Note that a single request _can only be handled once_. You may want to introduce conditional logic, like routing, in your request listener but it's generally advised to use a higher-level library like [Mock Service Worker](https://github.com/mswjs/msw) that does request matching for you.
 
@@ -267,7 +275,7 @@ Requests must be responded to within the same tick as the request listener. This
 // delayed by 500ms.
 interceptor.on('request', async (request) => {
   await sleep(500)
-  request.respondWith({ status: 500 })
+  request.respondWith(new Response(null, { status: 500 }))
 })
 ```
 
