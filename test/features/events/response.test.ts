@@ -6,11 +6,7 @@ import fetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
 import { Response } from '@remix-run/web-fetch'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
-import {
-  HttpRequestEventMap,
-  IsomorphicRequest,
-  IsomorphicResponse,
-} from '../../../src'
+import { HttpRequestEventMap } from '../../../src'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 import { anyUuid, headersContaining } from '../../jest.expect'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
@@ -45,15 +41,18 @@ const interceptor = new BatchInterceptor({
     new XMLHttpRequestInterceptor(),
   ],
 })
+
 interceptor.on('request', (request) => {
   if (request.url.pathname === '/user') {
-    new Response('mocked-response-text', {
-      status: 200,
-      statusText: 'OK',
-      headers: {
-        'x-response-type': 'mocked',
-      },
-    })
+    request.respondWith(
+      new Response('mocked-response-text', {
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          'x-response-type': 'mocked',
+        },
+      })
+    )
   }
 })
 
@@ -68,7 +67,6 @@ beforeAll(async () => {
   window._resourceLoader._strictSSL = false
 
   await httpServer.listen()
-
   interceptor.apply()
 })
 
@@ -81,7 +79,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('ClientRequest: emits the "response" event upon a mocked response', async () => {
+test('ClientRequest: emits the "response" event for a mocked response', async () => {
   const req = https.request(httpServer.https.url('/user'), {
     method: 'GET',
     headers: {
@@ -89,12 +87,13 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
     },
   })
   req.end()
-  const { text } = await waitForClientRequest(req)
+  await waitForClientRequest(req)
 
   expect(responseListener).toHaveBeenCalledTimes(1)
-  expect(responseListener).toHaveBeenCalledWith<
-    [IsomorphicRequest, IsomorphicResponse]
-  >(
+
+  const [request, response] = responseListener.mock.calls[0]
+
+  expect(request).toEqual(
     expect.objectContaining({
       id: anyUuid(),
       method: 'GET',
@@ -104,18 +103,13 @@ test('ClientRequest: emits the "response" event upon a mocked response', async (
       }),
       credentials: 'same-origin',
       _body: encodeBuffer(''),
-    }),
-    {
-      status: 200,
-      statusText: 'OK',
-      headers: headersContaining({
-        'x-response-type': 'mocked',
-      }),
-      body: 'mocked-response-text',
-    }
+    })
   )
 
-  expect(await text()).toEqual('mocked-response-text')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.headers.get('x-response-type')).toBe('mocked')
+  expect(await response.text()).toBe('mocked-response-text')
 })
 
 test('ClientRequest: emits the "response" event upon the original response', async () => {
@@ -128,12 +122,13 @@ test('ClientRequest: emits the "response" event upon the original response', asy
   })
   req.write('request-body')
   req.end()
-  const { text } = await waitForClientRequest(req)
+  await waitForClientRequest(req)
 
   expect(responseListener).toHaveBeenCalledTimes(1)
-  expect(responseListener).toHaveBeenCalledWith<
-    [IsomorphicRequest, IsomorphicResponse]
-  >(
+
+  const [request, response] = responseListener.mock.calls[0]
+
+  expect(request).toEqual(
     expect.objectContaining({
       id: anyUuid(),
       method: 'POST',
@@ -143,18 +138,13 @@ test('ClientRequest: emits the "response" event upon the original response', asy
       }),
       credentials: 'same-origin',
       _body: encodeBuffer('request-body'),
-    }),
-    {
-      status: 200,
-      statusText: 'OK',
-      headers: headersContaining({
-        'x-response-type': 'original',
-      }),
-      body: 'original-response-text',
-    }
+    })
   )
 
-  expect(await text()).toEqual('original-response-text')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.headers.get('x-response-type')).toBe('original')
+  expect(await response.text()).toBe('original-response-text')
 })
 
 test('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
@@ -165,9 +155,12 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
   })
 
   expect(responseListener).toHaveBeenCalledTimes(1)
-  expect(responseListener).toHaveBeenCalledWith<
-    [IsomorphicRequest, IsomorphicResponse]
-  >(
+
+  const [request, response] = responseListener.mock.calls.find((call) => {
+    return call[0].method === 'GET'
+  })!
+
+  expect(request).toEqual(
     expect.objectContaining({
       id: anyUuid(),
       method: 'GET',
@@ -177,16 +170,13 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
       }),
       credentials: 'omit',
       _body: encodeBuffer(''),
-    }),
-    {
-      status: 200,
-      statusText: 'OK',
-      headers: headersContaining({
-        'x-response-type': 'mocked',
-      }),
-      body: 'mocked-response-text',
-    }
+    })
   )
+
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.headers.get('x-response-type')).toBe('mocked')
+  expect(await response.text()).toBe('mocked-response-text')
 
   // Original response.
   expect(originalRequest.responseText).toEqual('mocked-response-text')
@@ -200,15 +190,22 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   })
 
   /**
-   * @note In Node.js "XMLHttpRequest" is often polyfilled by "ClientRequest".
-   * This results in both "XMLHttpRequest" and "ClientRequest" interceptors
-   * emitting the "request" event.
-   * @see https://github.com/mswjs/interceptors/issues/163
+   * @note The "response" event will be emitted twice because XMLHttpRequest
+   * is polyfilled by "http.ClientRequest" in Node.js. When this request will be
+   * passthrough to the ClientRequest, it will perform an "OPTIONS" request first,
+   * thus two request/response events emitted.
    */
   expect(responseListener).toHaveBeenCalledTimes(2)
-  expect(responseListener).toHaveBeenCalledWith<
-    [IsomorphicRequest, IsomorphicResponse]
-  >(
+
+  // Lookup the correct response listener call.
+  const [request, response] = responseListener.mock.calls.find((call) => {
+    return call[0].method === 'POST'
+  })!
+
+  expect(request).toBeDefined()
+  expect(response).toBeDefined()
+
+  expect(request).toEqual(
     expect.objectContaining({
       id: anyUuid(),
       method: 'POST',
@@ -218,16 +215,13 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
       }),
       credentials: 'omit',
       _body: encodeBuffer('request-body'),
-    }),
-    {
-      status: 200,
-      statusText: 'OK',
-      headers: headersContaining({
-        'x-response-type': 'original',
-      }),
-      body: 'original-response-text',
-    }
+    })
   )
+
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.headers.get('x-response-type')).toBe('original')
+  expect(await response.text()).toBe('original-response-text')
 
   // Original response.
   expect(originalRequest.responseText).toEqual('original-response-text')
@@ -241,9 +235,10 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
   })
 
   expect(responseListener).toHaveBeenCalledTimes(1)
-  expect(responseListener).toHaveBeenCalledWith<
-    [IsomorphicRequest, IsomorphicResponse]
-  >(
+
+  const [request, response] = responseListener.mock.calls[0]
+
+  expect(request).toEqual(
     expect.objectContaining({
       id: anyUuid(),
       method: 'GET',
@@ -253,16 +248,13 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
       }),
       credentials: 'same-origin',
       _body: encodeBuffer(''),
-    }),
-    {
-      status: 200,
-      statusText: 'OK',
-      headers: headersContaining({
-        'x-response-type': 'mocked',
-      }),
-      body: 'mocked-response-text',
-    }
+    })
   )
+
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.headers.get('x-response-type')).toBe('mocked')
+  expect(await response.text()).toBe('mocked-response-text')
 })
 
 test('fetch: emits the "response" event upon the original response', async () => {
@@ -278,9 +270,10 @@ test('fetch: emits the "response" event upon the original response', async () =>
   await waitForExpect(() => {
     expect(responseListener).toHaveBeenCalledTimes(1)
   })
-  expect(responseListener).toHaveBeenCalledWith<
-    [IsomorphicRequest, IsomorphicResponse]
-  >(
+
+  const [request, response] = responseListener.mock.calls[0]
+
+  expect(request).toEqual(
     expect.objectContaining({
       id: anyUuid(),
       method: 'POST',
@@ -290,14 +283,11 @@ test('fetch: emits the "response" event upon the original response', async () =>
       }),
       credentials: 'same-origin',
       _body: encodeBuffer('request-body'),
-    }),
-    {
-      status: 200,
-      statusText: 'OK',
-      headers: headersContaining({
-        'x-response-type': 'original',
-      }),
-      body: 'original-response-text',
-    }
+    })
   )
+
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.headers.get('x-response-type')).toBe('original')
+  expect(await response.text()).toBe('original-response-text')
 })

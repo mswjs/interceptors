@@ -1,5 +1,9 @@
+/**
+ * @jest-environment node
+ */
 import * as path from 'path'
 import { spawn } from 'child_process'
+import { Response } from '@remix-run/web-fetch'
 import { RemoteHttpResolver } from '../../../src/RemoteHttpInterceptor'
 
 const CHILD_PATH = path.resolve(__dirname, 'child.js')
@@ -13,15 +17,19 @@ const resolver = new RemoteHttpResolver({
 })
 
 resolver.on('request', (request) => {
-  request.respondWith({
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      mockedFromParent: true,
-    }),
-  })
+  request.respondWith(
+    new Response(
+      JSON.stringify({
+        mockedFromParent: true,
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+  )
 })
 
 beforeAll(() => {

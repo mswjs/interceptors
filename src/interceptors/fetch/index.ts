@@ -1,5 +1,6 @@
 import { invariant } from 'outvariant'
-import { Headers, flattenHeadersObject } from 'headers-polyfill'
+import { Headers } from 'headers-polyfill'
+import type { Response as ResponsePolyfill } from '@remix-run/web-fetch'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
@@ -71,11 +72,12 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       if (mockedResponse) {
         this.log('received mocked response:', mockedResponse)
+        const responseCloine = mockedResponse.clone()
 
         this.emitter.emit(
           'response',
           interactiveIsomorphicRequest,
-          mockedResponse
+          responseCloine
         )
 
         const response = new Response(mockedResponse.body, mockedResponse)
@@ -94,14 +96,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       this.log('no mocked response received!')
 
       return pureFetch(request).then((response) => {
-        const cloneResponse = response.clone()
-        this.log('original fetch performed', cloneResponse)
+        const responseCloine = response.clone() as ResponsePolyfill
+        this.log('original fetch performed', responseCloine)
 
         this.emitter.emit(
           'response',
           interactiveIsomorphicRequest,
-          cloneResponse as any
+          responseCloine
         )
+
         return response
       })
     }

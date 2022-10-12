@@ -1,5 +1,6 @@
 import { ChildProcess } from 'child_process'
-import { Headers } from 'headers-polyfill'
+import { Response } from '@remix-run/web-fetch'
+import { Headers, HeadersObject, headersToObject } from 'headers-polyfill'
 import { HttpRequestEventMap } from './glossary'
 import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
@@ -8,6 +9,13 @@ import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
 import { IsomorphicRequest } from './IsomorphicRequest'
 import { bufferFrom } from './interceptors/XMLHttpRequest/utils/bufferFrom'
 import { InteractiveIsomorphicRequest } from './InteractiveIsomorphicRequest'
+
+export interface SerializedResponse {
+  status: number
+  statusText: string
+  headers: HeadersObject
+  body: string
+}
 
 export class RemoteHttpInterceptor extends BatchInterceptor<
   [ClientRequestInterceptor, XMLHttpRequestInterceptor]
@@ -49,7 +57,16 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
               return resolve()
             }
 
-            const mockedResponse = JSON.parse(serializedResponse)
+            const responseInit = JSON.parse(
+              serializedResponse
+            ) as SerializedResponse
+
+            const mockedResponse = new Response(responseInit.body, {
+              status: responseInit.status,
+              statusText: responseInit.statusText,
+              headers: new Headers(responseInit.headers),
+            })
+
             request.respondWith(mockedResponse)
             resolve()
           }
@@ -110,7 +127,6 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       }
 
       const [, serializedRequest] = message.match(/^request:(.+)$/) || []
-
       if (!serializedRequest) {
         return
       }
@@ -136,10 +152,21 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       const [mockedResponse] =
         await interactiveIsomorphicRequest.respondWith.invoked()
 
+      if (!mockedResponse) {
+        return
+      }
+
       log('event.respondWith called with:', mockedResponse)
+      const responseClone = mockedResponse.clone()
+      const responseText = await mockedResponse.text()
 
       // Send the mocked response to the child process.
-      const serializedResponse = JSON.stringify(mockedResponse)
+      const serializedResponse = JSON.stringify({
+        status: mockedResponse.status,
+        statusText: mockedResponse.statusText,
+        headers: headersToObject(mockedResponse.headers),
+        body: responseText,
+      } as SerializedResponse)
 
       this.process.send(
         `response:${requestJson.id}:${serializedResponse}`,
@@ -148,11 +175,9 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
             return
           }
 
-          if (mockedResponse) {
-            // Emit an optimistic "response" event at this point,
-            // not to rely on the back-and-forth signaling for the sake of the event.
-            this.emitter.emit('response', isomorphicRequest, mockedResponse)
-          }
+          // Emit an optimistic "response" event at this point,
+          // not to rely on the back-and-forth signaling for the sake of the event.
+          this.emitter.emit('response', isomorphicRequest, responseClone)
         }
       )
 

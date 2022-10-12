@@ -85,10 +85,10 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
   })
 
   /**
-   * @note In Node.js "XMLHttpRequest" is often polyfilled by "ClientRequest".
-   * This results in both "XMLHttpRequest" and "ClientRequest" interceptors
-   * emitting the "request" event.
-   * @see https://github.com/mswjs/interceptors/issues/163
+   * @note There are two "request" events emitted because XMLHttpRequest
+   * is polyfilled by "http.ClientRequest" in JSDOM. When this request gets
+   * bypassed by XMLHttpRequest interceptor, JSDOM constructs "http.ClientRequest"
+   * to perform it as-is. This issues an additional OPTIONS request first.
    */
   expect(requestListener).toHaveBeenCalledTimes(2)
   expect(requestListener).toHaveBeenCalledWith<
@@ -101,7 +101,7 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
       headers: headersContaining({
         'content-type': 'application/json',
       }),
-      credentials: 'same-origin',
+      credentials: 'omit',
       _body: encodeBuffer(JSON.stringify({ userId: 'abc-123' })),
       respondWith: expect.any(Function),
     })

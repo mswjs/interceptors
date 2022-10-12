@@ -4,6 +4,7 @@
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
+import { Response } from '@remix-run/web-fetch'
 
 const httpServer = new HttpServer((app) => {
   app.get('/books', (req, res) => {
@@ -23,16 +24,20 @@ const httpServer = new HttpServer((app) => {
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
   if (request.url.pathname === '/user') {
-    request.respondWith({
-      status: 200,
-      headers: {
-        'content-type': 'application/json',
-        'x-header': 'yes',
-      },
-      body: JSON.stringify({
-        mocked: true,
-      }),
-    })
+    request.respondWith(
+      new Response(
+        JSON.stringify({
+          mocked: true,
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+            'x-header': 'yes',
+          },
+        }
+      )
+    )
   }
 })
 
