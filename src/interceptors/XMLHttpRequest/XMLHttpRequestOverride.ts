@@ -291,6 +291,7 @@ export const createXMLHttpRequestOverride = (
 
         // Return a mocked response, if provided in the middleware.
         if (mockedResponse) {
+          const responseClone = mockedResponse.clone()
           this.log('received mocked response', mockedResponse)
 
           this.status = mockedResponse.status ?? 200
@@ -340,7 +341,7 @@ export const createXMLHttpRequestOverride = (
               total: totalLength,
             })
 
-            emitter.emit('response', isomorphicRequest, mockedResponse)
+            emitter.emit('response', isomorphicRequest, responseClone)
           }
 
           if (mockedResponse.body) {
@@ -430,10 +431,6 @@ export const createXMLHttpRequestOverride = (
 
             // Explicitly mark the mocked request instance as done
             // so the response never hangs.
-            /**
-             * @note `readystatechange` listener is called TWICE
-             * in the case of unhandled request.
-             */
             this.setReadyState(this.DONE)
             this.log('set mock request readyState to DONE')
 
@@ -457,6 +454,14 @@ export const createXMLHttpRequestOverride = (
           if (this.async) {
             originalRequest.timeout = this.timeout
           }
+
+          /**
+           * @note Set the intercepted request ID on the original request
+           * so that if it triggers any other interceptors, they don't attempt
+           * to process it once again. This happens when bypassing XMLHttpRequest
+           * because it's polyfilled with "http.ClientRequest" in JSDOM.
+           */
+          originalRequest.setRequestHeader('X-Request-Id', isomorphicRequest.id)
 
           this.log('send', data)
           originalRequest.send(data)

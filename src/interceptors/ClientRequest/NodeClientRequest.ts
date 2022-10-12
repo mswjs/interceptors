@@ -106,6 +106,16 @@ export class NodeClientRequest extends ClientRequest {
   end(...args: any): this {
     this.log('end', args)
 
+    const isNestedRequest = this.getHeader('X-Request-Id') != null
+
+    if (isNestedRequest) {
+      /**
+       * @todo @fixme Abstract the passthrough logic into a method
+       * and use it here as well as below when there's no mocked response.
+       */
+      this.removeHeader('X-Request-Id')
+    }
+
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.log('normalized arguments:', { chunk, encoding, callback })
 
@@ -115,17 +125,23 @@ export class NodeClientRequest extends ClientRequest {
       isomorphicRequest
     )
 
-    // Notify the interceptor about the request.
-    // This will call any "request" listeners the users have.
-    this.log(
-      'emitting the "request" event for %d listener(s)...',
-      this.emitter.listenerCount('request')
-    )
-    this.emitter.emit('request', interactiveIsomorphicRequest)
+    if (!isNestedRequest) {
+      // Notify the interceptor about the request.
+      // This will call any "request" listeners the users have.
+      this.log(
+        'emitting the "request" event for %d listener(s)...',
+        this.emitter.listenerCount('request')
+      )
+      this.emitter.emit('request', interactiveIsomorphicRequest)
+    }
 
     // Execute the resolver Promise like a side-effect.
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
     until(async () => {
+      if (isNestedRequest) {
+        return
+      }
+
       await this.emitter.untilIdle('request', ({ args: [request] }) => {
         /**
          * @note Await only those listeners that are relevant to this request.
@@ -157,6 +173,8 @@ export class NodeClientRequest extends ClientRequest {
       }
 
       if (mockedResponse) {
+        const responseClone = mockedResponse.clone()
+
         this.log('received mocked response:', mockedResponse)
         this.responseSource = 'mock'
 
@@ -166,7 +184,7 @@ export class NodeClientRequest extends ClientRequest {
         callback?.()
 
         this.log('emitting the custom "response" event...')
-        this.emitter.emit('response', isomorphicRequest, mockedResponse)
+        this.emitter.emit('response', isomorphicRequest, responseClone)
 
         return this
       }
@@ -184,12 +202,12 @@ export class NodeClientRequest extends ClientRequest {
         return this
       }
 
+      this.log('writing request chunks...', this.chunks)
+
       // Write the request body chunks in the order of ".write()" calls.
       // Note that no request body has been written prior to this point
       // in order to prevent the Socket to communicate with a potentially
       // existing server.
-      this.log('writing request chunks...', this.chunks)
-
       for (const { chunk, encoding } of this.chunks) {
         if (encoding) {
           super.write(chunk, encoding)
@@ -210,12 +228,14 @@ export class NodeClientRequest extends ClientRequest {
         this.log(message.statusCode, message.statusMessage)
         this.log('original response headers:', message.headers)
 
-        this.log('emitting the custom "response" event...')
-        this.emitter.emit(
-          'response',
-          isomorphicRequest,
-          createResponse(message)
-        )
+        if (!isNestedRequest) {
+          this.log('emitting the custom "response" event...')
+          this.emitter.emit(
+            'response',
+            isomorphicRequest,
+            createResponse(message)
+          )
+        }
       })
 
       this.log('performing original request...')
@@ -236,7 +256,7 @@ export class NodeClientRequest extends ClientRequest {
   }
 
   emit(event: string, ...data: any[]) {
-    this.log('event:%s', event)
+    this.log('emit: %s', event)
 
     if (event === 'response') {
       this.log('found "response" event, cloning the response...')
