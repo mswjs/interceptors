@@ -32,8 +32,10 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
-  if (request.url.pathname.startsWith('/user')) {
-    const id = request.url.searchParams.get('id')
+  const url = new URL(request.url)
+
+  if (url.pathname.startsWith('/user')) {
+    const id = url.searchParams.get('id')
     request.respondWith(new Response(`mocked ${id}`))
   }
 })

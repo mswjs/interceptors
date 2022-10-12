@@ -43,7 +43,9 @@ const interceptor = new BatchInterceptor({
 })
 
 interceptor.on('request', (request) => {
-  if (request.url.pathname === '/user') {
+  const url = new URL(request.url)
+
+  if (url.pathname === '/user') {
     request.respondWith(
       new Response('mocked-response-text', {
         status: 200,

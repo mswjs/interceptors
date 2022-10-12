@@ -29,7 +29,6 @@ interceptor.on('request', resolver)
 
 beforeAll(async () => {
   await httpServer.listen()
-
   interceptor.apply()
 })
 
@@ -55,21 +54,16 @@ test('intercepts a HEAD request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'HEAD',
-      url: new URL(httpServer.https.url('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer(''),
-      respondWith: expect.any(Function),
-    })
-  )
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('HEAD')
+  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
 })
 
 test('intercepts a GET request', async () => {
@@ -85,21 +79,16 @@ test('intercepts a GET request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(httpServer.https.url('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer(''),
-      respondWith: expect.any(Function),
-    })
-  )
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
 })
 
 test('intercepts a POST request', async () => {
@@ -116,21 +105,16 @@ test('intercepts a POST request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'POST',
-      url: new URL(httpServer.https.url('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer('post-payload'),
-      respondWith: expect.any(Function),
-    })
-  )
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('POST')
+  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.credentials).toBe('same-origin')
+  expect(await request.text()).toBe('post-payload')
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
 })
 
 test('intercepts a PUT request', async () => {
@@ -147,21 +131,16 @@ test('intercepts a PUT request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'PUT',
-      url: new URL(httpServer.https.url('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer('put-payload'),
-      respondWith: expect.any(Function),
-    })
-  )
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('PUT')
+  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.credentials).toBe('same-origin')
+  expect(await request.text()).toBe('put-payload')
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
 })
 
 test('intercepts a PATCH request', async () => {
@@ -178,21 +157,16 @@ test('intercepts a PATCH request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'PATCH',
-      url: new URL(httpServer.https.url('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer('patch-payload'),
-      respondWith: expect.any(Function),
-    })
-  )
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('PATCH')
+  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.credentials).toBe('same-origin')
+  expect(await request.text()).toBe('patch-payload')
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
 })
 
 test('intercepts a DELETE request', async () => {
@@ -208,21 +182,16 @@ test('intercepts a DELETE request', async () => {
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'DELETE',
-      url: new URL(httpServer.https.url('/user?id=123')),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer(''),
-      respondWith: expect.any(Function),
-    })
-  )
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('DELETE')
+  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
 })
 
 test('intercepts an http.request request given RequestOptions without a protocol', async () => {
@@ -236,17 +205,14 @@ test('intercepts an http.request request given RequestOptions without a protocol
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(httpServer.https.url('/user?id=123')),
-      headers: headersContaining({}),
-      credentials: 'same-origin',
-      _body: encodeBuffer(''),
-      respondWith: expect.any(Function),
-    })
-  )
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
 })

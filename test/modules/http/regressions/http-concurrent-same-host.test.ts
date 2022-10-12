@@ -4,10 +4,9 @@
  */
 import * as http from 'http'
 import { Response } from '@remix-run/web-fetch'
-import { IsomorphicRequest } from '../../../../src'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let requests: IsomorphicRequest[] = []
+let requests: Array<Request> = []
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
@@ -56,7 +55,8 @@ test('resolves multiple concurrent requests to the same host independently', asy
   ])
 
   for (const request of requests) {
-    const expectedHeaderValue = request.url.searchParams.get('header')
+    const url = new URL(request.url)
+    const expectedHeaderValue = url.searchParams.get('header')
 
     if (expectedHeaderValue) {
       expect(request.headers.get('x-custom-header')).toBe(expectedHeaderValue)

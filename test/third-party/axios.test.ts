@@ -23,7 +23,9 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
-  if (request.url.pathname === '/user') {
+  const url = new URL(request.url)
+
+  if (url.pathname === '/user') {
     request.respondWith(
       new Response(
         JSON.stringify({

@@ -1,14 +1,14 @@
 import { ChildProcess } from 'child_process'
-import { Response } from '@remix-run/web-fetch'
+import { Request, Response } from '@remix-run/web-fetch'
 import { Headers, HeadersObject, headersToObject } from 'headers-polyfill'
 import { HttpRequestEventMap } from './glossary'
 import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
-import { IsomorphicRequest } from './IsomorphicRequest'
 import { bufferFrom } from './interceptors/XMLHttpRequest/utils/bufferFrom'
-import { InteractiveIsomorphicRequest } from './InteractiveIsomorphicRequest'
+import { toInteractiveRequest } from '.'
+import { uuidv4 } from './utils/uuid'
 
 export interface SerializedResponse {
   status: number
@@ -35,7 +35,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
 
     let handleParentMessage: NodeJS.MessageListener
 
-    this.on('request', async (request) => {
+    this.on('request', async (request, requestId) => {
       // Send the stringified intercepted request to
       // the parent process where the remote resolver is established.
       const serializedRequest = JSON.stringify(request)
@@ -49,7 +49,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
             return resolve()
           }
 
-          if (message.startsWith(`response:${request.id}`)) {
+          if (message.startsWith(`response:${requestId}`)) {
             const [, serializedResponse] =
               message.match(/^response:.+?:(.+)$/) || []
 
@@ -131,26 +131,36 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
         return
       }
 
+      const requestId = uuidv4()
       const requestJson = JSON.parse(serializedRequest, requestReviver)
       log('parsed intercepted request', requestJson)
 
       const body = bufferFrom(requestJson.body)
 
-      const isomorphicRequest = new IsomorphicRequest(requestJson.url, {
-        ...requestJson,
-        body: body.buffer,
+      // const isomorphicRequest = new IsomorphicRequest(requestJson.url, {
+      //   ...requestJson,
+      //   body: body.buffer,
+      // })
+
+      const capturedRequest = new Request(requestJson.url, {
+        method: requestJson.method,
+        headers: requestJson.headers,
+        /**
+         * @todo Check if this body is right.
+         */
+        body,
       })
 
-      const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-        isomorphicRequest
+      const interactiveRequest = toInteractiveRequest(capturedRequest)
+
+      this.emitter.emit('request', interactiveRequest, requestId)
+      await this.emitter.untilIdle(
+        'request',
+        ({ args: [, pendingRequestId] }) => {
+          return pendingRequestId === requestId
+        }
       )
-
-      this.emitter.emit('request', interactiveIsomorphicRequest)
-      await this.emitter.untilIdle('request', ({ args: [request] }) => {
-        return request.id === interactiveIsomorphicRequest.id
-      })
-      const [mockedResponse] =
-        await interactiveIsomorphicRequest.respondWith.invoked()
+      const [mockedResponse] = await interactiveRequest.respondWith.invoked()
 
       if (!mockedResponse) {
         return
@@ -177,7 +187,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
           // Emit an optimistic "response" event at this point,
           // not to rely on the back-and-forth signaling for the sake of the event.
-          this.emitter.emit('response', isomorphicRequest, responseClone)
+          this.emitter.emit('response', capturedRequest, responseClone)
         }
       )
 

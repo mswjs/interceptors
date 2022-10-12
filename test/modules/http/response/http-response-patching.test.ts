@@ -8,7 +8,6 @@ import { BatchInterceptor } from '../../../../src'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { sleep, waitForClientRequest } from '../../../helpers'
-import { InteractiveIsomorphicRequest } from '../../../../src/InteractiveIsomorphicRequest'
 
 const server = new HttpServer((app) => {
   app.get('/original', async (req, res) => {
@@ -24,10 +23,10 @@ const interceptor = new BatchInterceptor({
   ],
 })
 
-async function getResponse(
-  request: InteractiveIsomorphicRequest
-): Promise<Response | undefined> {
-  switch (request.url.pathname) {
+async function getResponse(request: Request): Promise<Response | undefined> {
+  const url = new URL(request.url)
+
+  switch (url.pathname) {
     case '/mocked': {
       return new Promise(async (resolve) => {
         // Defer the resolution of the promise to the next tick.

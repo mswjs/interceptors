@@ -2,7 +2,6 @@ import type { Debugger } from 'debug'
 import type { RequestOptions } from 'http'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
-import { Headers } from 'headers-polyfill'
 import type { ClientRequestEmitter } from '.'
 import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
 import {
@@ -16,10 +15,11 @@ import {
   normalizeClientRequestWriteArgs,
 } from './utils/normalizeClientRequestWriteArgs'
 import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
-import { IsomorphicRequest } from '../../IsomorphicRequest'
-import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
 import { getArrayBuffer } from '../../utils/bufferUtils'
 import { createResponse } from './utils/createResponse'
+import { createRequest } from './utils/createRequest'
+import { toInteractiveRequest } from '../..'
+import { uuidv4 } from '../../utils/uuid'
 
 export type Protocol = 'http' | 'https'
 
@@ -40,7 +40,6 @@ export class NodeClientRequest extends ClientRequest {
     'EAI_AGAIN',
   ]
 
-  private url: URL
   private options: RequestOptions
   private response: IncomingMessage
   private emitter: ClientRequestEmitter
@@ -52,7 +51,8 @@ export class NodeClientRequest extends ClientRequest {
   private responseSource: 'mock' | 'bypass' = 'mock'
   private capturedError?: NodeJS.ErrnoException
 
-  public requestBody: Buffer[] = []
+  public url: URL
+  public requestBuffer: Buffer | null
 
   constructor(
     [url, requestOptions, callback]: NormalizedClientRequestArgs,
@@ -74,16 +74,42 @@ export class NodeClientRequest extends ClientRequest {
     this.options = requestOptions
     this.emitter = options.emitter
 
+    // Set request buffer to null by default so that GET/HEAD requests
+    // without a body wouldn't suddenly get one.
+    this.requestBuffer = null
+
     // Construct a mocked response message.
     this.response = new IncomingMessage(this.socket!)
+  }
+
+  private writeRequestBodyChunk(
+    chunk: string | Buffer | null,
+    encoding?: BufferEncoding
+  ): void {
+    if (chunk == null) {
+      return
+    }
+
+    if (this.requestBuffer == null) {
+      this.requestBuffer = Buffer.from([])
+    }
+
+    const resolvedChunk = Buffer.isBuffer(chunk)
+      ? chunk
+      : Buffer.from(chunk, encoding)
+
+    this.requestBuffer = Buffer.concat([this.requestBuffer, resolvedChunk])
   }
 
   write(...args: ClientRequestWriteArgs): boolean {
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
     this.log('write:', { chunk, encoding, callback })
     this.chunks.push({ chunk, encoding })
-    this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
-    this.log('chunk successfully stored!', this.requestBody)
+
+    // Write each request body chunk to the internal buffer.
+    this.writeRequestBodyChunk(chunk, encoding)
+
+    this.log('chunk successfully stored!', this.requestBuffer?.byteLength)
 
     /**
      * Prevent invoking the callback if the written chunk is empty.
@@ -104,6 +130,7 @@ export class NodeClientRequest extends ClientRequest {
   end(...args: any): this {
     this.log('end', args)
 
+    const requestId = uuidv4()
     const isNestedRequest = this.getHeader('X-Request-Id') != null
 
     if (isNestedRequest) {
@@ -117,11 +144,11 @@ export class NodeClientRequest extends ClientRequest {
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.log('normalized arguments:', { chunk, encoding, callback })
 
-    const requestBody = this.getRequestBody(chunk)
-    const isomorphicRequest = this.toIsomorphicRequest(requestBody)
-    const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-      isomorphicRequest
-    )
+    // Write the last request body chunk passed to the "end()" method.
+    this.writeRequestBodyChunk(chunk, encoding || undefined)
+
+    const capturedRequest = createRequest(this)
+    const interactiveRequest = toInteractiveRequest(capturedRequest)
 
     if (!isNestedRequest) {
       // Notify the interceptor about the request.
@@ -130,7 +157,7 @@ export class NodeClientRequest extends ClientRequest {
         'emitting the "request" event for %d listener(s)...',
         this.emitter.listenerCount('request')
       )
-      this.emitter.emit('request', interactiveIsomorphicRequest)
+      this.emitter.emit('request', interactiveRequest, requestId)
     }
 
     // Execute the resolver Promise like a side-effect.
@@ -140,18 +167,20 @@ export class NodeClientRequest extends ClientRequest {
         return
       }
 
-      await this.emitter.untilIdle('request', ({ args: [request] }) => {
-        /**
-         * @note Await only those listeners that are relevant to this request.
-         * This prevents extraneous parallel request from blocking the resolution
-         * of another, unrelated request. For example, during response patching,
-         * when request resolution is nested.
-         */
-        return request.id === interactiveIsomorphicRequest.id
-      })
+      await this.emitter.untilIdle(
+        'request',
+        ({ args: [, pendingRequestId] }) => {
+          /**
+           * @note Await only those listeners that are relevant to this request.
+           * This prevents extraneous parallel request from blocking the resolution
+           * of another, unrelated request. For example, during response patching,
+           * when request resolution is nested.
+           */
+          return pendingRequestId === requestId
+        }
+      )
 
-      const [mockedResponse] =
-        await interactiveIsomorphicRequest.respondWith.invoked()
+      const [mockedResponse] = await interactiveRequest.respondWith.invoked()
       this.log('event.respondWith called with:', mockedResponse)
 
       return mockedResponse
@@ -182,7 +211,7 @@ export class NodeClientRequest extends ClientRequest {
         callback?.()
 
         this.log('emitting the custom "response" event...')
-        this.emitter.emit('response', isomorphicRequest, responseClone)
+        this.emitter.emit('response', capturedRequest, responseClone)
 
         return this
       }
@@ -230,7 +259,7 @@ export class NodeClientRequest extends ClientRequest {
           this.log('emitting the custom "response" event...')
           this.emitter.emit(
             'response',
-            isomorphicRequest,
+            capturedRequest,
             createResponse(message)
           )
         }
@@ -389,46 +418,46 @@ export class NodeClientRequest extends ClientRequest {
     this.agent.destroy()
   }
 
-  private getRequestBody(chunk: ClientRequestEndChunk | null): ArrayBuffer {
-    const writtenRequestBody = bodyBufferToString(
-      Buffer.concat(this.requestBody)
-    )
-    this.log('written request body:', writtenRequestBody)
+  // private getRequestBody(chunk: ClientRequestEndChunk | null): ArrayBuffer {
+  //   const writtenRequestBody = bodyBufferToString(
+  //     Buffer.concat(this.requestBody)
+  //   )
+  //   this.log('written request body:', writtenRequestBody)
 
-    // Write the last request body chunk to the internal request body buffer.
-    if (chunk) {
-      this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
-    }
+  //   // Write the last request body chunk to the internal request body buffer.
+  //   if (chunk) {
+  //     this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
+  //   }
 
-    const resolvedRequestBody = Buffer.concat(this.requestBody)
-    this.log('resolved request body:', resolvedRequestBody)
+  //   const resolvedRequestBody = Buffer.concat(this.requestBody)
+  //   this.log('resolved request body:', resolvedRequestBody)
 
-    return getArrayBuffer(resolvedRequestBody)
-  }
+  //   return getArrayBuffer(resolvedRequestBody)
+  // }
 
-  private toIsomorphicRequest(body: ArrayBuffer): IsomorphicRequest {
-    this.log('creating isomorphic request object...')
+  // private toIsomorphicRequest(body: ArrayBuffer): IsomorphicRequest {
+  //   this.log('creating isomorphic request object...')
 
-    const outgoingHeaders = this.getHeaders()
-    this.log('request outgoing headers:', outgoingHeaders)
+  //   const outgoingHeaders = this.getHeaders()
+  //   this.log('request outgoing headers:', outgoingHeaders)
 
-    const headers = new Headers()
-    for (const [headerName, headerValue] of Object.entries(outgoingHeaders)) {
-      if (!headerValue) {
-        continue
-      }
+  //   const headers = new Headers()
+  //   for (const [headerName, headerValue] of Object.entries(outgoingHeaders)) {
+  //     if (!headerValue) {
+  //       continue
+  //     }
 
-      headers.set(headerName.toLowerCase(), headerValue.toString())
-    }
+  //     headers.set(headerName.toLowerCase(), headerValue.toString())
+  //   }
 
-    const isomorphicRequest = new IsomorphicRequest(this.url, {
-      body,
-      method: this.options.method || 'GET',
-      credentials: 'same-origin',
-      headers,
-    })
+  //   const isomorphicRequest = new IsomorphicRequest(this.url, {
+  //     body,
+  //     method: this.options.method || 'GET',
+  //     credentials: 'same-origin',
+  //     headers,
+  //   })
 
-    this.log('successfully created isomorphic request!', isomorphicRequest)
-    return isomorphicRequest
-  }
+  //   this.log('successfully created isomorphic request!', isomorphicRequest)
+  //   return isomorphicRequest
+  // }
 }

@@ -22,7 +22,7 @@ interceptor.on('request', async (request) => {
 })
 
 function getInternalRequestBody(req: http.ClientRequest): Buffer {
-  return Buffer.concat((req as NodeClientRequest).requestBody)
+  return Buffer.from((req as NodeClientRequest).requestBuffer || '')
 }
 
 beforeAll(async () => {

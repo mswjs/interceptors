@@ -19,7 +19,9 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
-  if (request.url.pathname === '/non-existing') {
+  const url = new URL(request.url)
+
+  if (url.pathname === '/non-existing') {
     request.respondWith(
       new Response('mocked', {
         status: 301,
@@ -31,7 +33,7 @@ interceptor.on('request', (request) => {
     )
   }
 
-  if (request.url.href === 'http://error.me/') {
+  if (url.href === 'http://error.me/') {
     throw new Error('Custom exception message')
   }
 })
