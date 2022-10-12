@@ -5,7 +5,6 @@
  */
 import http, { IncomingMessage } from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { Response } from '@remix-run/web-fetch'
 import { HttpRequestEventMap } from '../../../../src'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 

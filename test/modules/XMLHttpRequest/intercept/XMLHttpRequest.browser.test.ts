@@ -5,8 +5,8 @@ import * as path from 'path'
 import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
 import { RequestHandler } from 'express-serve-static-core'
-import { createBrowserXMLHttpRequest } from '../../../helpers'
-import { IsomorphicRequest, IsomorphicResponse } from '../../../../src'
+import { createBrowserXMLHttpRequest, XMLHttpResponse } from '../../../helpers'
+import { IsomorphicRequest } from '../../../../src'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
@@ -55,7 +55,8 @@ test('intercepts an HTTP GET request', async () => {
     credentials: 'omit',
     _body: encodeBuffer(''),
   })
-  expect(response).toEqual<IsomorphicResponse>({
+
+  expect(response).toEqual<XMLHttpResponse>({
     status: 200,
     statusText: 'OK',
     headers: headersContaining({}),
@@ -85,7 +86,7 @@ test('intercepts an HTTP POST request', async () => {
     credentials: 'omit',
     _body: encodeBuffer(JSON.stringify({ user: 'john' })),
   })
-  expect(response).toEqual<IsomorphicResponse>({
+  expect(response).toEqual<XMLHttpResponse>({
     status: 200,
     statusText: 'OK',
     headers: headersContaining({}),

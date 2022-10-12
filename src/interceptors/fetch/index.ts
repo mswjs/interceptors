@@ -126,14 +126,3 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     })
   }
 }
-
-// async function normalizeFetchResponse(
-//   response: Response
-// ): Promise<IsomorphicResponse> {
-//   return {
-//     status: response.status,
-//     statusText: response.statusText,
-//     headers: objectToHeaders(headersToObject(response.headers)),
-//     body: await response.text(),
-//   }
-// }

@@ -1,5 +1,4 @@
 import { invariant } from 'outvariant'
-import { Response } from '@remix-run/web-fetch'
 import { IsomorphicRequest } from './IsomorphicRequest'
 import { createLazyCallback, LazyCallback } from './utils/createLazyCallback'
 

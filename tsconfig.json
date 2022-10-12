@@ -8,7 +8,8 @@
     "moduleResolution": "node",
     "removeComments": false,
     "esModuleInterop": true,
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "lib": ["dom", "dom.iterable"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "**/*.test.*"]

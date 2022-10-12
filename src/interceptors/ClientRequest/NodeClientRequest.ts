@@ -3,7 +3,6 @@ import type { RequestOptions } from 'http'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
 import { Headers } from 'headers-polyfill'
-import { Response } from '@remix-run/web-fetch'
 import type { ClientRequestEmitter } from '.'
 import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
 import {
@@ -11,7 +10,6 @@ import {
   normalizeClientRequestEndArgs,
 } from './utils/normalizeClientRequestEndArgs'
 import { NormalizedClientRequestArgs } from './utils/normalizeClientRequestArgs'
-import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { bodyBufferToString } from './utils/bodyBufferToString'
 import {
   ClientRequestWriteArgs,

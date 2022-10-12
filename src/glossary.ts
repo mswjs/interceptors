@@ -1,4 +1,3 @@
-import type { Response } from '@remix-run/web-fetch'
 import type { HeadersObject, Headers } from 'headers-polyfill'
 import type { InteractiveIsomorphicRequest } from './InteractiveIsomorphicRequest'
 import type { IsomorphicRequest } from './IsomorphicRequest'
