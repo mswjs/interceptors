@@ -5,11 +5,10 @@ import * as http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
-import { anyUuid, headersContaining } from '../../jest.expect'
+import { anyUuid } from '../../jest.expect'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
-import { encodeBuffer } from '../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (req, res) => {
@@ -59,21 +58,17 @@ test('ClientRequest: emits the "request" event upon the request', async () => {
   await waitForClientRequest(req)
 
   expect(requestListener).toHaveBeenCalledTimes(1)
-  expect(requestListener).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'POST',
-      url: new URL(url),
-      headers: headersContaining({
-        'content-type': 'application/json',
-      }),
-      credentials: expect.anything(),
-      _body: encodeBuffer(JSON.stringify({ userId: 'abc-123' })),
-      respondWith: expect.any(Function),
-    })
-  )
+
+  const [request, requestId] = requestListener.mock.calls[0]
+
+  expect(request.method).toBe('POST')
+  expect(request.url).toBe(url)
+  expect(request.headers.get('content-type')).toBe('application/json')
+  expect(request.credentials).toBe('omit')
+  expect(await request.json()).toEqual({ userId: 'abc-123' })
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
 })
 
 test('XMLHttpRequest: emits the "request" event upon the request', async () => {
@@ -91,19 +86,15 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
    * to perform it as-is. This issues an additional OPTIONS request first.
    */
   expect(requestListener).toHaveBeenCalledTimes(2)
-  expect(requestListener).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'POST',
-      url: new URL(url),
-      headers: headersContaining({
-        'content-type': 'application/json',
-      }),
-      credentials: 'omit',
-      _body: encodeBuffer(JSON.stringify({ userId: 'abc-123' })),
-      respondWith: expect.any(Function),
-    })
-  )
+
+  const [request, requestId] = requestListener.mock.calls[0]
+
+  expect(request.method).toBe('POST')
+  expect(request.url).toBe(url)
+  expect(request.headers.get('content-type')).toBe('application/json')
+  expect(request.credentials).toBe('omit')
+  expect(await request.json()).toEqual({ userId: 'abc-123' })
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
 })

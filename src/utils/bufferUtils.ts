@@ -1,9 +1,9 @@
 import { TextDecoder, TextEncoder } from 'web-encoding'
 
-export function encodeBuffer(text: string): ArrayBuffer {
-  const encoder = new TextEncoder()
-  const encoded = encoder.encode(text)
-  return getArrayBuffer(encoded)
+const encoder = new TextEncoder()
+
+export function encodeBuffer(text: string): Uint8Array {
+  return encoder.encode(text)
 }
 
 export function decodeBuffer(buffer: ArrayBuffer, encoding?: string): string {

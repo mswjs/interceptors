@@ -31,10 +31,11 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
+  const url = new URL(request.url)
+
   const shouldMock =
-    [httpServer.http.url(), httpServer.https.url()].includes(
-      request.url.href
-    ) || ['/login'].includes(request.url.pathname)
+    [httpServer.http.url(), httpServer.https.url()].includes(request.url) ||
+    ['/login'].includes(url.pathname)
 
   if (shouldMock) {
     request.respondWith(
@@ -48,7 +49,7 @@ interceptor.on('request', (request) => {
     )
   }
 
-  if (request.url.href === 'https://error.me/') {
+  if (request.url === 'https://error.me/') {
     throw new Error('Custom exception message')
   }
 })

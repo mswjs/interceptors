@@ -1,4 +1,4 @@
-import type { InteractiveRequest } from '.'
+import type { InteractiveRequest } from './InteractiveIsomorphicRequest'
 
 export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
 

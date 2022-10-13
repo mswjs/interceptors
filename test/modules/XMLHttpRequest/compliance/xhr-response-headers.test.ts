@@ -21,7 +21,9 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
-  if (!request.url.searchParams.has('mock')) {
+  const url = new URL(request.url)
+
+  if (!url.searchParams.has('mock')) {
     return
   }
 

@@ -17,9 +17,7 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
-  if (
-    [httpServer.http.url(), httpServer.https.url()].includes(request.url.href)
-  ) {
+  if ([httpServer.http.url(), httpServer.https.url()].includes(request.url)) {
     request.respondWith(
       new Response(JSON.stringify({ mocked: true }), {
         status: 201,

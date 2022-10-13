@@ -18,7 +18,9 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
-  switch (request.url.pathname) {
+  const url = new URL(request.url)
+
+  switch (url.pathname) {
     case '/user': {
       request.respondWith(new Response())
       break

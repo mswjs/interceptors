@@ -1,10 +1,9 @@
 import { invariant } from 'outvariant'
-import { Headers } from 'headers-polyfill'
 import type { Response as ResponsePolyfill } from '@remix-run/web-fetch'
-import { IsomorphicRequest } from '../../IsomorphicRequest'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
-import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
+import { uuidv4 } from '../../utils/uuid'
+import { toInteractiveRequest } from '../..'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -29,56 +28,37 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     )
 
     globalThis.fetch = async (input, init) => {
+      const requestId = uuidv4()
       const request = new Request(input, init)
 
-      const url = typeof input === 'string' ? input : input.url
-      const method = request.method
+      this.log('[%s] %s', request.method, request.url)
 
-      this.log('[%s] %s', method, url)
-
-      const body = await request.clone().arrayBuffer()
-      const isomorphicRequest = new IsomorphicRequest(
-        new URL(url, location.origin),
-        {
-          body,
-          method,
-          headers: new Headers(request.headers),
-          credentials: request.credentials,
-        }
-      )
-
-      const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-        isomorphicRequest
-      )
-
-      this.log('isomorphic request', interactiveIsomorphicRequest)
+      const interactiveRequest = toInteractiveRequest(request)
 
       this.log(
         'emitting the "request" event for %d listener(s)...',
         this.emitter.listenerCount('request')
       )
-      this.emitter.emit('request', interactiveIsomorphicRequest)
+      this.emitter.emit('request', interactiveRequest, requestId)
 
       this.log('awaiting for the mocked response...')
 
-      await this.emitter.untilIdle('request', ({ args: [request] }) => {
-        return request.id === interactiveIsomorphicRequest.id
-      })
+      await this.emitter.untilIdle(
+        'request',
+        ({ args: [request, pendingRequestId] }) => {
+          return pendingRequestId === requestId
+        }
+      )
       this.log('all request listeners have been resolved!')
 
-      const [mockedResponse] =
-        await interactiveIsomorphicRequest.respondWith.invoked()
+      const [mockedResponse] = await interactiveRequest.respondWith.invoked()
       this.log('event.respondWith called with:', mockedResponse)
 
       if (mockedResponse) {
         this.log('received mocked response:', mockedResponse)
         const responseCloine = mockedResponse.clone()
 
-        this.emitter.emit(
-          'response',
-          interactiveIsomorphicRequest,
-          responseCloine
-        )
+        this.emitter.emit('response', interactiveRequest, responseCloine)
 
         const response = new Response(mockedResponse.body, mockedResponse)
 
@@ -87,7 +67,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           writable: false,
           enumerable: true,
           configurable: false,
-          value: interactiveIsomorphicRequest.url.href,
+          value: request.url,
         })
 
         return response
@@ -99,11 +79,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         const responseCloine = response.clone() as ResponsePolyfill
         this.log('original fetch performed', responseCloine)
 
-        this.emitter.emit(
-          'response',
-          interactiveIsomorphicRequest,
-          responseCloine
-        )
+        this.emitter.emit('response', interactiveRequest, responseCloine)
 
         return response
       })

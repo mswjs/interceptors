@@ -8,11 +8,9 @@ import { Response } from '@remix-run/web-fetch'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
-import { anyUuid, headersContaining } from '../../jest.expect'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
-import { encodeBuffer } from '../../../src/utils/bufferUtils'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -95,18 +93,11 @@ test('ClientRequest: emits the "response" event for a mocked response', async ()
 
   const [request, response] = responseListener.mock.calls[0]
 
-  expect(request).toEqual(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(httpServer.https.url('/user')),
-      headers: headersContaining({
-        'x-request-custom': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer(''),
-    })
-  )
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.https.url('/user'))
+  expect(request.headers.get('x-request-custom')).toBe('yes')
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
@@ -130,18 +121,11 @@ test('ClientRequest: emits the "response" event upon the original response', asy
 
   const [request, response] = responseListener.mock.calls[0]
 
-  expect(request).toEqual(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'POST',
-      url: new URL(httpServer.https.url('/account')),
-      headers: headersContaining({
-        'x-request-custom': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer('request-body'),
-    })
-  )
+  expect(request.method).toBe('POST')
+  expect(request.url).toBe(httpServer.https.url('/account'))
+  expect(request.headers.get('x-request-custom')).toBe('yes')
+  expect(request.credentials).toBe('same-origin')
+  expect(await request.text()).toBe('request-body')
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
@@ -162,18 +146,11 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
     return call[0].method === 'GET'
   })!
 
-  expect(request).toEqual(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(httpServer.https.url('/user')),
-      headers: headersContaining({
-        'x-request-custom': 'yes',
-      }),
-      credentials: 'omit',
-      _body: encodeBuffer(''),
-    })
-  )
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.https.url('/user'))
+  expect(request.headers.get('x-request-custom')).toBe('yes')
+  expect(request.credentials).toBe('omit')
+  expect(request.body).toBe(null)
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
@@ -207,18 +184,11 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   expect(request).toBeDefined()
   expect(response).toBeDefined()
 
-  expect(request).toEqual(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'POST',
-      url: new URL(httpServer.https.url('/account')),
-      headers: headersContaining({
-        'x-request-custom': 'yes',
-      }),
-      credentials: 'omit',
-      _body: encodeBuffer('request-body'),
-    })
-  )
+  expect(request.method).toBe('POST')
+  expect(request.url).toBe(httpServer.https.url('/account'))
+  expect(request.headers.get('x-request-custom')).toBe('yes')
+  expect(request.credentials).toBe('omit')
+  expect(await request.text()).toBe('request-body')
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
@@ -240,18 +210,11 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
 
   const [request, response] = responseListener.mock.calls[0]
 
-  expect(request).toEqual(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(httpServer.https.url('/user')),
-      headers: headersContaining({
-        'x-request-custom': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer(''),
-    })
-  )
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.https.url('/user'))
+  expect(request.headers.get('x-request-custom')).toBe('yes')
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
@@ -275,18 +238,11 @@ test('fetch: emits the "response" event upon the original response', async () =>
 
   const [request, response] = responseListener.mock.calls[0]
 
-  expect(request).toEqual(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'POST',
-      url: new URL(httpServer.https.url('/account')),
-      headers: headersContaining({
-        'x-request-custom': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer('request-body'),
-    })
-  )
+  expect(request.method).toBe('POST')
+  expect(request.url).toBe(httpServer.https.url('/account'))
+  expect(request.headers.get('x-request-custom')).toBe('yes')
+  expect(request.credentials).toBe('same-origin')
+  expect(await request.text()).toBe('request-body')
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')

@@ -6,9 +6,21 @@ import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
-import { bufferFrom } from './interceptors/XMLHttpRequest/utils/bufferFrom'
 import { toInteractiveRequest } from '.'
-import { uuidv4 } from './utils/uuid'
+
+export interface SerializedRequest {
+  id: string
+  url: string
+  method: string
+  headers: HeadersObject
+  credentials: RequestCredentials
+  body: string
+}
+
+interface RevivedRequest extends Omit<SerializedRequest, 'url' | 'headers'> {
+  url: URL
+  headers: Headers
+}
 
 export interface SerializedResponse {
   status: number
@@ -38,7 +50,16 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
     this.on('request', async (request, requestId) => {
       // Send the stringified intercepted request to
       // the parent process where the remote resolver is established.
-      const serializedRequest = JSON.stringify(request)
+      const serializedRequest = JSON.stringify({
+        id: requestId,
+        method: request.method,
+        url: request.url,
+        headers: headersToObject(request.headers),
+        credentials: request.credentials,
+        body: ['GET', 'HEAD'].includes(request.method)
+          ? null
+          : await request.text(),
+      } as SerializedRequest)
 
       this.log('sent serialized request to the child:', serializedRequest)
       process.send?.(`request:${serializedRequest}`)
@@ -131,33 +152,26 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
         return
       }
 
-      const requestId = uuidv4()
-      const requestJson = JSON.parse(serializedRequest, requestReviver)
+      const requestJson = JSON.parse(
+        serializedRequest,
+        requestReviver
+      ) as RevivedRequest
       log('parsed intercepted request', requestJson)
-
-      const body = bufferFrom(requestJson.body)
-
-      // const isomorphicRequest = new IsomorphicRequest(requestJson.url, {
-      //   ...requestJson,
-      //   body: body.buffer,
-      // })
 
       const capturedRequest = new Request(requestJson.url, {
         method: requestJson.method,
-        headers: requestJson.headers,
-        /**
-         * @todo Check if this body is right.
-         */
-        body,
+        headers: new Headers(requestJson.headers),
+        credentials: requestJson.credentials,
+        body: requestJson.body,
       })
 
       const interactiveRequest = toInteractiveRequest(capturedRequest)
 
-      this.emitter.emit('request', interactiveRequest, requestId)
+      this.emitter.emit('request', interactiveRequest, requestJson.id)
       await this.emitter.untilIdle(
         'request',
         ({ args: [, pendingRequestId] }) => {
-          return pendingRequestId === requestId
+          return pendingRequestId === requestJson.id
         }
       )
       const [mockedResponse] = await interactiveRequest.respondWith.invoked()

@@ -6,14 +6,15 @@ import type { Debugger } from 'debug'
 import { until } from '@open-draft/until'
 import { Headers, stringToHeaders, headersToString } from 'headers-polyfill'
 import { DOMParser } from '@xmldom/xmldom'
+import { Request } from '@remix-run/web-fetch'
 import { parseJson } from '../../utils/parseJson'
 import { createEvent } from './utils/createEvent'
 import type { XMLHttpRequestEmitter } from '.'
-import { IsomorphicRequest } from '../../IsomorphicRequest'
-import { encodeBuffer } from '../../utils/bufferUtils'
-import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
+import { encodeBuffer, decodeBuffer } from '../../utils/bufferUtils'
 import { createResponse } from './utils/createResponse'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
+import { toInteractiveRequest } from '../../InteractiveIsomorphicRequest'
+import { uuidv4 } from '../../utils/uuid'
 
 type XMLHttpRequestEventHandler = (
   this: XMLHttpRequest,
@@ -48,8 +49,6 @@ export const createXMLHttpRequestOverride = (
   const { XMLHttpRequest, emitter, log } = options
 
   return class XMLHttpRequestOverride implements XMLHttpRequest {
-    _encoder: TextEncoder
-    _decoder: TextDecoder
     _requestHeaders: Headers
     _responseHeaders: Headers
     _responseBuffer: Uint8Array
@@ -131,8 +130,6 @@ export const createXMLHttpRequestOverride = (
       this.upload = {} as any
       this.timeout = 0
 
-      this._encoder = new TextEncoder()
-      this._decoder = new TextDecoder()
       this._requestHeaders = new Headers()
       this._responseBuffer = new Uint8Array()
       this._responseHeaders = new Headers()
@@ -220,12 +217,9 @@ export const createXMLHttpRequestOverride = (
 
     public send(data?: string | ArrayBuffer) {
       this.log('send %s %s', this.method, this.url)
-      let buffer: ArrayBuffer
-      if (typeof data === 'string') {
-        buffer = encodeBuffer(data)
-      } else {
-        buffer = data || new ArrayBuffer(0)
-      }
+
+      const requestBuffer: ArrayBuffer | undefined =
+        typeof data === 'string' ? encodeBuffer(data) : data
 
       let url: URL
 
@@ -241,34 +235,36 @@ export const createXMLHttpRequestOverride = (
       this.log('request headers', this._requestHeaders)
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
-      const isomorphicRequest = new IsomorphicRequest(url, {
-        body: buffer,
+      const requestId = uuidv4()
+      const capturedRequest = new Request(url, {
         method: this.method,
         headers: this._requestHeaders,
         credentials: this.withCredentials ? 'include' : 'omit',
+        body: requestBuffer,
       })
 
-      const interactiveIsomorphicRequest = new InteractiveIsomorphicRequest(
-        isomorphicRequest
-      )
+      const interactiveRequest = toInteractiveRequest(capturedRequest)
 
       this.log(
         'emitting the "request" event for %d listener(s)...',
         emitter.listenerCount('request')
       )
-      emitter.emit('request', interactiveIsomorphicRequest)
+      emitter.emit('request', interactiveRequest, requestId)
 
       this.log('awaiting mocked response...')
 
       Promise.resolve(
         until(async () => {
-          await emitter.untilIdle('request', ({ args: [request] }) => {
-            return request.id === interactiveIsomorphicRequest.id
-          })
+          await emitter.untilIdle(
+            'request',
+            ({ args: [, pendingRequestId] }) => {
+              return pendingRequestId === requestId
+            }
+          )
           this.log('all request listeners have been resolved!')
 
           const [mockedResponse] =
-            await interactiveIsomorphicRequest.respondWith.invoked()
+            await interactiveRequest.respondWith.invoked()
           this.log('event.respondWith called with:', mockedResponse)
 
           return mockedResponse
@@ -341,7 +337,7 @@ export const createXMLHttpRequestOverride = (
               total: totalLength,
             })
 
-            emitter.emit('response', isomorphicRequest, responseClone)
+            emitter.emit('response', capturedRequest, responseClone)
           }
 
           if (mockedResponse.body) {
@@ -415,7 +411,7 @@ export const createXMLHttpRequestOverride = (
           originalRequest.addEventListener('progress', () => {
             this._responseBuffer = concatArrayBuffer(
               this._responseBuffer,
-              this._encoder.encode(originalRequest.responseText)
+              encodeBuffer(originalRequest.responseText)
             )
           })
 
@@ -439,7 +435,7 @@ export const createXMLHttpRequestOverride = (
 
             emitter.emit(
               'response',
-              isomorphicRequest,
+              capturedRequest,
               createResponse(originalRequest, this._responseBuffer)
             )
           })
@@ -461,7 +457,7 @@ export const createXMLHttpRequestOverride = (
            * to process it once again. This happens when bypassing XMLHttpRequest
            * because it's polyfilled with "http.ClientRequest" in JSDOM.
            */
-          originalRequest.setRequestHeader('X-Request-Id', isomorphicRequest.id)
+          originalRequest.setRequestHeader('X-Request-Id', requestId)
 
           this.log('send', data)
           originalRequest.send(data)
@@ -471,7 +467,12 @@ export const createXMLHttpRequestOverride = (
 
     public get responseText(): string {
       this.log('responseText()')
-      return this._decoder.decode(this._responseBuffer)
+
+      const encoding = this.getResponseHeader('Content-Encoding') as
+        | BufferEncoding
+        | undefined
+
+      return decodeBuffer(this._responseBuffer, encoding || undefined)
     }
 
     public get response(): unknown {

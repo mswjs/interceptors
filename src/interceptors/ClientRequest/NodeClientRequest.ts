@@ -40,7 +40,6 @@ export class NodeClientRequest extends ClientRequest {
     'EAI_AGAIN',
   ]
 
-  private options: RequestOptions
   private response: IncomingMessage
   private emitter: ClientRequestEmitter
   private log: Debugger
@@ -71,7 +70,6 @@ export class NodeClientRequest extends ClientRequest {
     })
 
     this.url = url
-    this.options = requestOptions
     this.emitter = options.emitter
 
     // Set request buffer to null by default so that GET/HEAD requests
@@ -213,6 +211,8 @@ export class NodeClientRequest extends ClientRequest {
         this.log('emitting the custom "response" event...')
         this.emitter.emit('response', capturedRequest, responseClone)
 
+        this.log('request (mock) is completed')
+
         return this
       }
 
@@ -272,7 +272,7 @@ export class NodeClientRequest extends ClientRequest {
           chunk,
           encoding as any,
           () => {
-            this.log('original request end!')
+            this.log('request (original) is completed')
             callback?.()
           },
         ].filter(Boolean)

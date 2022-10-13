@@ -7,7 +7,9 @@ import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
-  switch (request.url.pathname) {
+  const url = new URL(request.url)
+
+  switch (url.pathname) {
     case '/no-body': {
       request.respondWith(new Response(null, { status: 204 }))
       break

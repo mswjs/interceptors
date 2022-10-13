@@ -1,8 +1,7 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "target": "es6",
-    "skipLibCheck": true
+    "target": "es6"
   },
   "include": ["**/*.test.ts"],
   "exclude": ["node_modules"]
