@@ -53,7 +53,7 @@ class NodeClientRequest extends ClientRequest {
   async end(...args) {
     // Check if there's a mocked response for this request.
     // You control this in the "resolver" function.
-    const mockedResponse = await resolver(isomorphicRequest)
+    const mockedResponse = await resolver(request)
 
     // If there is a mocked response, use it to respond to this
     // request, finalizing it afterward as if it received that
@@ -81,9 +81,9 @@ This library extends (or patches, where applicable) the following native modules
 - `XMLHttpRequest`
 - `fetch`
 
-Once extended, it intercepts and normalizes all requests to the _isomorphic request instances_. The isomorphic request is an abstract representation of the request coming from different sources (`ClientRequest`, `XMLHttpRequest`, `window.Request`, etc.) that allows us to handle such requests in the same, unified manner.
+Once extended, it intercepts and normalizes all requests to the Fetch API `Request` instances. This way, no matter the request source (`http.ClientRequest`, `XMLHttpRequest`, `window.Request`, etc), you always get a specification-compliant request instance to work with.
 
-You can respond to an isomorphic request using a Fetch API `Response` instance. Instead of designing custom abstractions, this library respects the Fetch API specification and takes the responsibility to coerce a single response declaration to the appropriate response formats based on the request-issuing modules.
+You can respond to the intercepted request by constructing a Fetch API Response instance. Instead of designing custom abstractions, this library respects the Fetch API specification and takes the responsibility to coerce a single response declaration to the appropriate response formats based on the request-issuing modules (like `http.OutgoingMessage` to respond to `http.ClientRequest`, or updating `XMLHttpRequest` response-related properties).
 
 ## What this library doesn't do
 
@@ -203,32 +203,17 @@ interceptor.on('request', listener)
 
 ## Introspecting requests
 
-All HTTP request interceptors emit a "request" event. In the listener to this event, they expose an isomorphic `request` instance—a normalized representation of the captured request.
+All HTTP request interceptors emit a "request" event. In the listener to this event, they expose a `request` reference, which is a [Fetch API Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) instance.
 
-> There are many ways to describe a request in Node.js, that's why this library exposes you a custom request instance that abstracts those details away from you, making request listeners uniform.
+> There are many ways to describe a request in Node.js but this library coerces different request definitions to a single specification-compliant `Request` instance to make the handling consistent.
 
 ```js
-interceptor.on('reqest', (request) => {})
+interceptor.on('reqest', (request) => {
+  console.log(request.method, request.url)
+})
 ```
 
-The exposed `request` partially implements Fetch API [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) specification, containing the following properties and methods:
-
-```ts
-interface IsomorphicRequest {
-  id: string
-  url: URL
-  method: string
-  headers: Headers
-  credentials: 'omit' | 'same-origin' | 'include'
-  bodyUsed: boolean
-  clone(): IsomorphicRequest
-  arrayBuffer(): Promise<ArrayBuffer>
-  text(): Promise<string>
-  json(): Promise<Record<string, unknown>>
-}
-```
-
-For example, this is how you would read a JSON request body:
+Since the exposed `request` instance implements the Fetch API specification, you can operate with it just as you do with the regular browser request. For example, this is how you would read the request body as JSON:
 
 ```js
 interceptor.on('request', async (request) => {
