@@ -3,14 +3,12 @@
  */
 import type { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { IsomorphicRequest } from '../../../../src'
 import {
   XMLHttpRequestEventListener,
   XMLHttpRequestInterceptor,
 } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
-import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -184,135 +182,135 @@ test('intercepts an HTTP DELETE request', async () => {
   expect(requestId).toEqual(anyUuid())
 })
 
-// test('intercepts an HTTPS HEAD request', async () => {
-//   const url = httpServer.https.url('/user?id=123')
-//   await createXMLHttpRequest((req) => {
-//     req.open('HEAD', url)
-//     req.setRequestHeader('x-custom-header', 'yes')
-//     req.send()
-//   })
+test('intercepts an HTTPS HEAD request', async () => {
+  const url = httpServer.https.url('/user?id=123')
+  await createXMLHttpRequest((req) => {
+    req.open('HEAD', url)
+    req.setRequestHeader('x-custom-header', 'yes')
+    req.send()
+  })
 
-//   expect(resolver).toHaveBeenCalledTimes(1)
-//   expect(resolver).toHaveBeenCalledWith<
-//     Parameters<XMLHttpRequestEventListener>
-//   >(
-//     expect.objectContaining({
-//       id: anyUuid(),
-//       method: 'HEAD',
-//       url: new URL(url),
-//       headers: headersContaining({
-//         'x-custom-header': 'yes',
-//       }),
-//       credentials: 'omit',
-//       _body: encodeBuffer(''),
-//       respondWith: expect.any(Function),
-//     })
-//   )
-// })
+  expect(resolver).toHaveBeenCalledTimes(1)
 
-// test('intercepts an HTTPS GET request', async () => {
-//   const url = httpServer.https.url('/user?id=123')
-//   await createXMLHttpRequest((req) => {
-//     req.open('GET', url)
-//     req.setRequestHeader('x-custom-header', 'yes')
-//     req.send()
-//   })
+  const [request, requestId] = resolver.mock.calls[0]
 
-//   expect(resolver).toHaveBeenCalledTimes(1)
-//   expect(resolver).toHaveBeenCalledWith<
-//     Parameters<XMLHttpRequestEventListener>
-//   >(
-//     expect.objectContaining({
-//       id: anyUuid(),
-//       method: 'GET',
-//       url: new URL(url),
-//       headers: headersContaining({
-//         'x-custom-header': 'yes',
-//       }),
-//       credentials: 'omit',
-//       _body: encodeBuffer(''),
-//       respondWith: expect.any(Function),
-//     })
-//   )
-// })
+  expect(request.method).toBe('HEAD')
+  expect(request.url).toBe(url)
+  expect(request.headers).toEqual(
+    headersContaining({
+      'x-custom-header': 'yes',
+    })
+  )
+  expect(request.credentials).toBe('omit')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
 
-// test('intercepts an HTTPS POST request', async () => {
-//   const url = httpServer.https.url('/user?id=123')
-//   await createXMLHttpRequest((req) => {
-//     req.open('POST', url)
-//     req.setRequestHeader('x-custom-header', 'yes')
-//     req.send('post-payload')
-//   })
+  expect(requestId).toEqual(anyUuid())
+})
 
-//   expect(resolver).toHaveBeenCalledTimes(1)
-//   expect(resolver).toHaveBeenCalledWith<
-//     Parameters<XMLHttpRequestEventListener>
-//   >(
-//     expect.objectContaining({
-//       id: anyUuid(),
-//       method: 'POST',
-//       url: new URL(url),
-//       headers: headersContaining({
-//         'x-custom-header': 'yes',
-//       }),
-//       credentials: 'omit',
-//       _body: encodeBuffer('post-payload'),
-//       respondWith: expect.any(Function),
-//     })
-//   )
-// })
+test('intercepts an HTTPS GET request', async () => {
+  const url = httpServer.https.url('/user?id=123')
+  await createXMLHttpRequest((req) => {
+    req.open('GET', url)
+    req.setRequestHeader('x-custom-header', 'yes')
+    req.send()
+  })
 
-// test('intercepts an HTTPS PUT request', async () => {
-//   const url = httpServer.https.url('/user?id=123')
-//   await createXMLHttpRequest((req) => {
-//     req.open('PUT', url)
-//     req.setRequestHeader('x-custom-header', 'yes')
-//     req.send('put-payload')
-//   })
+  expect(resolver).toHaveBeenCalledTimes(1)
 
-//   expect(resolver).toHaveBeenCalledTimes(1)
-//   expect(resolver).toHaveBeenCalledWith<
-//     Parameters<XMLHttpRequestEventListener>
-//   >(
-//     expect.objectContaining({
-//       id: anyUuid(),
-//       method: 'PUT',
-//       url: new URL(url),
-//       headers: headersContaining({
-//         'x-custom-header': 'yes',
-//       }),
-//       credentials: 'omit',
-//       _body: encodeBuffer('put-payload'),
-//       respondWith: expect.any(Function),
-//     })
-//   )
-// })
+  const [request, requestId] = resolver.mock.calls[0]
 
-// test('intercepts an HTTPS DELETE request', async () => {
-//   const url = httpServer.https.url('/user?id=123')
-//   await createXMLHttpRequest((req) => {
-//     req.open('DELETE', url)
-//     req.setRequestHeader('x-custom-header', 'yes')
-//     req.send()
-//   })
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(url)
+  expect(request.headers).toEqual(
+    headersContaining({
+      'x-custom-header': 'yes',
+    })
+  )
+  expect(request.credentials).toBe('omit')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
 
-//   expect(resolver).toHaveBeenCalledTimes(1)
-//   expect(resolver).toHaveBeenCalledWith<
-//     Parameters<XMLHttpRequestEventListener>
-//   >(
-//     expect.objectContaining({
-//       id: anyUuid(),
-//       method: 'DELETE',
-//       url: new URL(url),
-//       headers: headersContaining({
-//         'x-custom-header': 'yes',
-//       }),
-//       credentials: 'omit',
-//       _body: encodeBuffer(''),
-//       respondWith: expect.any(Function),
-//     })
-//   )
-// })
+  expect(requestId).toEqual(anyUuid())
+})
+
+test('intercepts an HTTPS POST request', async () => {
+  const url = httpServer.https.url('/user?id=123')
+  await createXMLHttpRequest((req) => {
+    req.open('POST', url)
+    req.setRequestHeader('x-custom-header', 'yes')
+    req.send('post-payload')
+  })
+
+  expect(resolver).toHaveBeenCalledTimes(1)
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('POST')
+  expect(request.url).toBe(url)
+  expect(request.headers).toEqual(
+    headersContaining({
+      'x-custom-header': 'yes',
+    })
+  )
+  expect(request.credentials).toBe('omit')
+  expect(await request.text()).toBe('post-payload')
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
+})
+
+test('intercepts an HTTPS PUT request', async () => {
+  const url = httpServer.https.url('/user?id=123')
+  await createXMLHttpRequest((req) => {
+    req.open('PUT', url)
+    req.setRequestHeader('x-custom-header', 'yes')
+    req.send('put-payload')
+  })
+
+  expect(resolver).toHaveBeenCalledTimes(1)
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('PUT')
+  expect(request.url).toBe(url)
+  expect(request.headers).toEqual(
+    headersContaining({
+      'x-custom-header': 'yes',
+    })
+  )
+  expect(request.credentials).toBe('omit')
+  expect(await request.text()).toBe('put-payload')
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
+})
+
+test('intercepts an HTTPS DELETE request', async () => {
+  const url = httpServer.https.url('/user?id=123')
+  await createXMLHttpRequest((req) => {
+    req.open('DELETE', url)
+    req.setRequestHeader('x-custom-header', 'yes')
+    req.send()
+  })
+
+  expect(resolver).toHaveBeenCalledTimes(1)
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('DELETE')
+  expect(request.url).toBe(url)
+  expect(request.headers).toEqual(
+    headersContaining({
+      'x-custom-header': 'yes',
+    })
+  )
+  expect(request.credentials).toBe('omit')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
+})
 
 test('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {
   await createXMLHttpRequest((req) => {
@@ -323,7 +321,7 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
 
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith(
-    expect.objectContaining<Partial<IsomorphicRequest>>({
+    expect.objectContaining<Partial<Request>>({
       credentials: 'include',
     })
   )
@@ -337,7 +335,7 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
 
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith(
-    expect.objectContaining<Partial<IsomorphicRequest>>({
+    expect.objectContaining<Partial<Request>>({
       credentials: 'omit',
     })
   )
@@ -352,7 +350,7 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
 
   expect(resolver).toHaveBeenCalledTimes(1)
   expect(resolver).toHaveBeenCalledWith(
-    expect.objectContaining<Partial<IsomorphicRequest>>({
+    expect.objectContaining<Partial<Request>>({
       credentials: 'omit',
     })
   )

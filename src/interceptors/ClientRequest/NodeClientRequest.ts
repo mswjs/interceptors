@@ -1,24 +1,17 @@
 import type { Debugger } from 'debug'
-import type { RequestOptions } from 'http'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
 import type { ClientRequestEmitter } from '.'
-import { concatChunkToBuffer } from './utils/concatChunkToBuffer'
-import {
-  ClientRequestEndChunk,
-  normalizeClientRequestEndArgs,
-} from './utils/normalizeClientRequestEndArgs'
+import { normalizeClientRequestEndArgs } from './utils/normalizeClientRequestEndArgs'
 import { NormalizedClientRequestArgs } from './utils/normalizeClientRequestArgs'
-import { bodyBufferToString } from './utils/bodyBufferToString'
 import {
   ClientRequestWriteArgs,
   normalizeClientRequestWriteArgs,
 } from './utils/normalizeClientRequestWriteArgs'
 import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
-import { getArrayBuffer } from '../../utils/bufferUtils'
 import { createResponse } from './utils/createResponse'
 import { createRequest } from './utils/createRequest'
-import { toInteractiveRequest } from '../..'
+import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
 
 export type Protocol = 'http' | 'https'
@@ -417,47 +410,4 @@ export class NodeClientRequest extends ClientRequest {
     // @ts-ignore
     this.agent.destroy()
   }
-
-  // private getRequestBody(chunk: ClientRequestEndChunk | null): ArrayBuffer {
-  //   const writtenRequestBody = bodyBufferToString(
-  //     Buffer.concat(this.requestBody)
-  //   )
-  //   this.log('written request body:', writtenRequestBody)
-
-  //   // Write the last request body chunk to the internal request body buffer.
-  //   if (chunk) {
-  //     this.requestBody = concatChunkToBuffer(chunk, this.requestBody)
-  //   }
-
-  //   const resolvedRequestBody = Buffer.concat(this.requestBody)
-  //   this.log('resolved request body:', resolvedRequestBody)
-
-  //   return getArrayBuffer(resolvedRequestBody)
-  // }
-
-  // private toIsomorphicRequest(body: ArrayBuffer): IsomorphicRequest {
-  //   this.log('creating isomorphic request object...')
-
-  //   const outgoingHeaders = this.getHeaders()
-  //   this.log('request outgoing headers:', outgoingHeaders)
-
-  //   const headers = new Headers()
-  //   for (const [headerName, headerValue] of Object.entries(outgoingHeaders)) {
-  //     if (!headerValue) {
-  //       continue
-  //     }
-
-  //     headers.set(headerName.toLowerCase(), headerValue.toString())
-  //   }
-
-  //   const isomorphicRequest = new IsomorphicRequest(this.url, {
-  //     body,
-  //     method: this.options.method || 'GET',
-  //     credentials: 'same-origin',
-  //     headers,
-  //   })
-
-  //   this.log('successfully created isomorphic request!', isomorphicRequest)
-  //   return isomorphicRequest
-  // }
 }

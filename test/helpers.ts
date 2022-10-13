@@ -4,9 +4,8 @@ import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { RequestCredentials } from '../src/glossary'
-import { IsomorphicRequest } from '../src'
-import { encodeBuffer } from '../src/utils/bufferUtils'
+import { SerializedRequest } from '../src/RemoteHttpInterceptor'
+import { objectToHeaders } from 'headers-polyfill'
 
 export interface PromisifiedResponse {
   req: ClientRequest
@@ -185,15 +184,6 @@ export interface XMLHttpResponse {
   body: string
 }
 
-export interface StringifiedIsomorphicRequest {
-  id: string
-  method: string
-  url: string
-  headers: Record<string, string>
-  credentials: RequestCredentials
-  body?: string
-}
-
 interface BrowserXMLHttpRequestInit {
   method: string
   url: string
@@ -202,11 +192,9 @@ interface BrowserXMLHttpRequestInit {
   withCredentials?: boolean
 }
 
-export async function extractRequestFromPage(
-  page: Page
-): Promise<IsomorphicRequest> {
-  const request = await page.evaluate(() => {
-    return new Promise<StringifiedIsomorphicRequest>((resolve, reject) => {
+export async function extractRequestFromPage(page: Page): Promise<Request> {
+  const requestJson = await page.evaluate(() => {
+    return new Promise<SerializedRequest>((resolve, reject) => {
       const timeoutTimer = setTimeout(() => {
         reject(
           new Error(
@@ -217,7 +205,7 @@ export async function extractRequestFromPage(
 
       window.addEventListener(
         'resolver' as any,
-        (event: CustomEvent<StringifiedIsomorphicRequest>) => {
+        (event: CustomEvent<SerializedRequest>) => {
           clearTimeout(timeoutTimer)
           resolve(event.detail)
         }
@@ -225,12 +213,13 @@ export async function extractRequestFromPage(
     })
   })
 
-  const isomorphicRequest = new IsomorphicRequest(new URL(request.url), {
-    ...request,
-    body: encodeBuffer(request.body || ''),
+  const request = new Request(requestJson.url, {
+    method: requestJson.method,
+    headers: objectToHeaders(requestJson.headers),
+    body: requestJson.body,
   })
-  isomorphicRequest.id = request.id
-  return isomorphicRequest
+
+  return request
 }
 
 export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {
@@ -286,7 +275,7 @@ export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {
 export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
   return async (
     requestInit: BrowserXMLHttpRequestInit
-  ): Promise<[IsomorphicRequest, XMLHttpResponse]> => {
+  ): Promise<[Request, XMLHttpResponse]> => {
     return Promise.all([
       extractRequestFromPage(scenario.page),
       createRawBrowserXMLHttpRequest(scenario)(requestInit),

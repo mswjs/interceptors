@@ -1,6 +1,5 @@
 import { format } from 'outvariant'
-import { IsomorphicRequest } from './IsomorphicRequest'
-import { createLazyCallback, LazyCallback } from './utils/createLazyCallback'
+import { createLazyCallback, LazyCallback } from './createLazyCallback'
 
 type LazyResponseCallback = (response: Response) => void
 
@@ -27,17 +26,4 @@ export function toInteractiveRequest(request: Request): InteractiveRequest {
   })
 
   return request as InteractiveRequest
-}
-
-export class InteractiveIsomorphicRequest extends IsomorphicRequest {
-  public respondWith: LazyCallback<(response: Response) => void>
-
-  constructor(request: IsomorphicRequest) {
-    super(request)
-
-    this.respondWith = createLazyCallback({
-      maxCalls: 1,
-      maxCallsCallback: () => {},
-    })
-  }
 }

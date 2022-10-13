@@ -3,7 +3,7 @@ import type { Response as ResponsePolyfill } from '@remix-run/web-fetch'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { uuidv4 } from '../../utils/uuid'
-import { toInteractiveRequest } from '../..'
+import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')

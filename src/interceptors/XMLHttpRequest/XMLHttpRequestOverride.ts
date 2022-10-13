@@ -13,7 +13,7 @@ import type { XMLHttpRequestEmitter } from '.'
 import { encodeBuffer, decodeBuffer } from '../../utils/bufferUtils'
 import { createResponse } from './utils/createResponse'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
-import { toInteractiveRequest } from '../../InteractiveIsomorphicRequest'
+import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
 
 type XMLHttpRequestEventHandler = (

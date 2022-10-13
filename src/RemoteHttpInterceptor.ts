@@ -6,7 +6,7 @@ import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
-import { toInteractiveRequest } from '.'
+import { toInteractiveRequest } from './utils/toInteractiveRequest'
 
 export interface SerializedRequest {
   id: string
