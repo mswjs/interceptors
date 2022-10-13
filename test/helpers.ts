@@ -216,6 +216,7 @@ export async function extractRequestFromPage(page: Page): Promise<Request> {
   const request = new Request(requestJson.url, {
     method: requestJson.method,
     headers: objectToHeaders(requestJson.headers),
+    credentials: requestJson.credentials,
     body: ['GET', 'HEAD'].includes(requestJson.method)
       ? null
       : requestJson.body,

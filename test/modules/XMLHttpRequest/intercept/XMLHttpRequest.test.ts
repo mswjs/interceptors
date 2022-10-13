@@ -52,7 +52,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test.only('intercepts an HTTP HEAD request', async () => {
+test('intercepts an HTTP HEAD request', async () => {
   const url = httpServer.http.url('/user?id=123')
   await createXMLHttpRequest((req) => {
     req.open('HEAD', url)
