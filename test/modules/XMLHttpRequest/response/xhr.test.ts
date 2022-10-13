@@ -59,13 +59,13 @@ beforeAll(async () => {
   window._resourceLoader._strictSSL = false
 
   await httpServer.listen()
-
   interceptor.apply()
 })
 
 afterAll(async () => {
   interceptor.dispose()
   await httpServer.close()
+  jest.restoreAllMocks()
 })
 
 test('responds to an HTTP request handled in the middleware', async () => {
@@ -128,15 +128,21 @@ test('responds to an HTTP request to a relative URL that is handled in the middl
 })
 
 test('produces a request error when the middleware throws an exception', async () => {
-  const getResponse = () => {
-    return createXMLHttpRequest((req) => {
-      req.open('GET', 'https://error.me')
-      req.send()
-    })
-  }
+  const errorListener = jest.fn()
+  const req = await createXMLHttpRequest((req) => {
+    req.open('GET', 'https://error.me')
+    req.addEventListener('error', errorListener)
+    req.send()
+  })
 
-  // No way to assert the rejection error, because XMLHttpRequest doesn't propagate it.
-  await expect(getResponse()).rejects.toBeTruthy()
+  expect(errorListener).toHaveBeenCalledTimes(1)
+
+  // XMLHttpRequest request exception propagates as "ProgressEvent".
+  const [progressEvent] = errorListener.mock.calls[0]
+  expect(progressEvent).toBeInstanceOf(ProgressEvent)
+
+  // Request must still exist.
+  expect(req.status).toBe(0)
 })
 
 test('does not propagate the forbidden "cookie" header on the bypassed response', async () => {

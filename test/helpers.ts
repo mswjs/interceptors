@@ -173,7 +173,6 @@ export function createXMLHttpRequest(
       resolve(req)
     })
 
-    req.addEventListener('error', reject)
     req.addEventListener('abort', reject)
   })
 }

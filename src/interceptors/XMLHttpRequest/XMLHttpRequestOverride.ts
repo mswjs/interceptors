@@ -127,8 +127,8 @@ export const createXMLHttpRequestOverride = (
       this.method = 'GET'
       this.readyState = this.UNSENT
       this.withCredentials = false
-      this.status = 200
-      this.statusText = 'OK'
+      this.status = 0
+      this.statusText = ''
       this.responseType = 'text'
       this.responseURL = ''
       this.upload = {} as any
@@ -186,8 +186,8 @@ export const createXMLHttpRequestOverride = (
       this.log('reset')
 
       this.setReadyState(this.UNSENT)
-      this.status = 200
-      this.statusText = 'OK'
+      this.status = 0
+      this.statusText = ''
 
       this._responseBuffer = new Uint8Array()
       this._requestHeaders = new Headers()
@@ -293,7 +293,8 @@ export const createXMLHttpRequestOverride = (
           // we must not emit the "load" event.
           this.trigger('loadend')
 
-          this.abort()
+          // Abort is not called when request fails!
+          // this.abort()
 
           return
         }
@@ -535,7 +536,7 @@ export const createXMLHttpRequestOverride = (
       this.log('abort()')
 
       if (this.readyState > this.UNSENT && this.readyState < this.DONE) {
-        this.setReadyState(this.UNSENT)
+        this.reset()
         this.trigger('abort')
       }
     }
