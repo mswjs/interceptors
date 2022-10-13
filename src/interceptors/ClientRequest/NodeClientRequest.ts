@@ -2,7 +2,11 @@ import type { Debugger } from 'debug'
 import { ClientRequest, IncomingMessage } from 'http'
 import { until } from '@open-draft/until'
 import type { ClientRequestEmitter } from '.'
-import { normalizeClientRequestEndArgs } from './utils/normalizeClientRequestEndArgs'
+import {
+  ClientRequestEndCallback,
+  ClientRequestEndChunk,
+  normalizeClientRequestEndArgs,
+} from './utils/normalizeClientRequestEndArgs'
 import { NormalizedClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import {
   ClientRequestWriteArgs,
@@ -124,14 +128,6 @@ export class NodeClientRequest extends ClientRequest {
     const requestId = uuidv4()
     const isNestedRequest = this.getHeader('X-Request-Id') != null
 
-    if (isNestedRequest) {
-      /**
-       * @todo @fixme Abstract the passthrough logic into a method
-       * and use it here as well as below when there's no mocked response.
-       */
-      this.removeHeader('X-Request-Id')
-    }
-
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.log('normalized arguments:', { chunk, encoding, callback })
 
@@ -141,23 +137,26 @@ export class NodeClientRequest extends ClientRequest {
     const capturedRequest = createRequest(this)
     const interactiveRequest = toInteractiveRequest(capturedRequest)
 
-    if (!isNestedRequest) {
-      // Notify the interceptor about the request.
-      // This will call any "request" listeners the users have.
-      this.log(
-        'emitting the "request" event for %d listener(s)...',
-        this.emitter.listenerCount('request')
-      )
-      this.emitter.emit('request', interactiveRequest, requestId)
+    // Prevent handling this request if it has already been handled
+    // in another (parent) interceptor (like XMLHttpRequest -> ClientRequest).
+    // That means some interceptor up the chain has concluded that
+    // this request must be performed as-is.
+    if (isNestedRequest) {
+      this.removeHeader('X-Request-Id')
+      return this.passthrough(chunk, encoding, callback)
     }
+
+    // Notify the interceptor about the request.
+    // This will call any "request" listeners the users have.
+    this.log(
+      'emitting the "request" event for %d listener(s)...',
+      this.emitter.listenerCount('request')
+    )
+    this.emitter.emit('request', interactiveRequest, requestId)
 
     // Execute the resolver Promise like a side-effect.
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
     until(async () => {
-      if (isNestedRequest) {
-        return
-      }
-
       await this.emitter.untilIdle(
         'request',
         ({ args: [, pendingRequestId] }) => {
@@ -211,65 +210,15 @@ export class NodeClientRequest extends ClientRequest {
 
       this.log('no mocked response received!')
 
-      // Set the response source to "bypass".
-      // Any errors emitted past this point are not suppressed.
-      this.responseSource = 'bypass'
-
-      // Propagate previously captured errors.
-      // For example, a ECONNREFUSED error when connecting to a non-existing host.
-      if (this.capturedError) {
-        this.emit('error', this.capturedError)
-        return this
-      }
-
-      this.log('writing request chunks...', this.chunks)
-
-      // Write the request body chunks in the order of ".write()" calls.
-      // Note that no request body has been written prior to this point
-      // in order to prevent the Socket to communicate with a potentially
-      // existing server.
-      for (const { chunk, encoding } of this.chunks) {
-        if (encoding) {
-          super.write(chunk, encoding)
-        } else {
-          super.write(chunk)
-        }
-      }
-
-      this.once('error', (error) => {
-        this.log('original request error:', error)
-      })
-
-      this.once('abort', () => {
-        this.log('original request aborted!')
-      })
-
       this.once('response-internal', (message: IncomingMessage) => {
         this.log(message.statusCode, message.statusMessage)
         this.log('original response headers:', message.headers)
 
-        if (!isNestedRequest) {
-          this.log('emitting the custom "response" event...')
-          this.emitter.emit(
-            'response',
-            capturedRequest,
-            createResponse(message)
-          )
-        }
+        this.log('emitting the custom "response" event...')
+        this.emitter.emit('response', capturedRequest, createResponse(message))
       })
 
-      this.log('performing original request...')
-
-      return super.end(
-        ...[
-          chunk,
-          encoding as any,
-          () => {
-            this.log('request (original) is completed')
-            callback?.()
-          },
-        ].filter(Boolean)
-      )
+      return this.passthrough(chunk, encoding, callback)
     })
 
     return this
@@ -330,6 +279,64 @@ export class NodeClientRequest extends ClientRequest {
     return super.emit(event, ...data)
   }
 
+  /**
+   * Performs the intercepted request as-is.
+   * Replays the captured request body chunks,
+   * still emits the internal events, and wraps
+   * up the request with `super.end()`.
+   */
+  private passthrough(
+    chunk: ClientRequestEndChunk | null,
+    encoding?: BufferEncoding | null,
+    callback?: ClientRequestEndCallback | null
+  ): this {
+    // Set the response source to "bypass".
+    // Any errors emitted past this point are not suppressed.
+    this.responseSource = 'bypass'
+
+    // Propagate previously captured errors.
+    // For example, a ECONNREFUSED error when connecting to a non-existing host.
+    if (this.capturedError) {
+      this.emit('error', this.capturedError)
+      return this
+    }
+
+    this.log('writing request chunks...', this.chunks)
+
+    // Write the request body chunks in the order of ".write()" calls.
+    // Note that no request body has been written prior to this point
+    // in order to prevent the Socket to communicate with a potentially
+    // existing server.
+    for (const { chunk, encoding } of this.chunks) {
+      if (encoding) {
+        super.write(chunk, encoding)
+      } else {
+        super.write(chunk)
+      }
+    }
+
+    this.once('error', (error) => {
+      this.log('original request error:', error)
+    })
+
+    this.once('abort', () => {
+      this.log('original request aborted!')
+    })
+
+    this.once('response-internal', (message: IncomingMessage) => {
+      this.log(message.statusCode, message.statusMessage)
+      this.log('original response headers:', message.headers)
+    })
+
+    this.log('performing original request...')
+
+    // This call signature is way too dynamic.
+    return super.end(...[chunk, encoding as any, callback].filter(Boolean))
+  }
+
+  /**
+   * Responds to this request instance using a mocked response.
+   */
   private respondWith(mockedResponse: Response): void {
     this.log('responding with a mocked response...', mockedResponse)
 
