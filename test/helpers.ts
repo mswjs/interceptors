@@ -1,6 +1,7 @@
 import https from 'https'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
+import { Request } from '@remix-run/web-fetch'
 import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
@@ -216,7 +217,9 @@ export async function extractRequestFromPage(page: Page): Promise<Request> {
   const request = new Request(requestJson.url, {
     method: requestJson.method,
     headers: objectToHeaders(requestJson.headers),
-    body: requestJson.body,
+    body: ['GET', 'HEAD'].includes(requestJson.method)
+      ? null
+      : requestJson.body,
   })
 
   return request
@@ -259,8 +262,8 @@ export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {
             resolve({
               status: this.status,
               statusText: this.statusText,
-              body: this.response,
               headers: this.getAllResponseHeaders(),
+              body: this.response,
             })
           })
           request.addEventListener('error', reject)

@@ -45,7 +45,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       await this.emitter.untilIdle(
         'request',
-        ({ args: [request, pendingRequestId] }) => {
+        ({ args: [, pendingRequestId] }) => {
           return pendingRequestId === requestId
         }
       )

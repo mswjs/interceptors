@@ -320,11 +320,9 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith(
-    expect.objectContaining<Partial<Request>>({
-      credentials: 'include',
-    })
-  )
+
+  const [request] = resolver.mock.calls[0]
+  expect(request.credentials).toBe('include')
 })
 
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is not set', async () => {
@@ -334,11 +332,8 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith(
-    expect.objectContaining<Partial<Request>>({
-      credentials: 'omit',
-    })
-  )
+  const [request] = resolver.mock.calls[0]
+  expect(request.credentials).toBe('omit')
 })
 
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is false', async () => {
@@ -349,9 +344,6 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
   })
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith(
-    expect.objectContaining<Partial<Request>>({
-      credentials: 'omit',
-    })
-  )
+  const [request] = resolver.mock.calls[0]
+  expect(request.credentials).toBe('omit')
 })

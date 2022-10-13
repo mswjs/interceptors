@@ -5,7 +5,7 @@ const interceptor = new FetchInterceptor()
 interceptor.on('request', (request) => {
   const { serverHttpUrl, serverHttpsUrl } = window
 
-  if ([serverHttpUrl, serverHttpsUrl].includes(request.url.href)) {
+  if ([serverHttpUrl, serverHttpsUrl].includes(request.url)) {
     request.respondWith(
       new Response(JSON.stringify({ mocked: true }), {
         status: 201,

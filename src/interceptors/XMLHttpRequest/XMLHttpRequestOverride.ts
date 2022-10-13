@@ -278,8 +278,17 @@ export const createXMLHttpRequestOverride = (
             middlewareException
           )
 
+          // Mark the request as complete.
+          this.setReadyState(this.DONE)
+
           // No way to propagate the actual error message.
           this.trigger('error')
+
+          // Emit the "loadend" event to notify that the request has settled.
+          // In this case, there's been an error with the request so
+          // we must not emit the "load" event.
+          this.trigger('loadend')
+
           this.abort()
 
           return
@@ -321,11 +330,8 @@ export const createXMLHttpRequestOverride = (
              */
             this.setReadyState(this.DONE)
 
-            /**
-             * @todo We need to check if the request was actually successful.
-             * If it's not, we must not trigger the "load" event.
-             */
-            // Trigger a load event to indicate the fetch has succeeded.
+            // Always trigger the "load" event because at this point
+            // the request has been performed successfully.
             this.trigger('load', {
               loaded: this._responseBuffer.byteLength,
               total: totalLength,
