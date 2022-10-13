@@ -10,7 +10,11 @@ import { Request } from '@remix-run/web-fetch'
 import { parseJson } from '../../utils/parseJson'
 import { createEvent } from './utils/createEvent'
 import type { XMLHttpRequestEmitter } from '.'
-import { encodeBuffer, decodeBuffer } from '../../utils/bufferUtils'
+import {
+  encodeBuffer,
+  decodeBuffer,
+  toArrayBuffer,
+} from '../../utils/bufferUtils'
 import { createResponse } from './utils/createResponse'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
@@ -490,7 +494,7 @@ export const createXMLHttpRequestOverride = (
 
         case 'arraybuffer': {
           this.log('resolving response body as ArrayBuffer')
-          return this._responseBuffer
+          return toArrayBuffer(this._responseBuffer)
         }
 
         case 'blob': {
