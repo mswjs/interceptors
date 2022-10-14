@@ -201,7 +201,7 @@ export class NodeClientRequest extends ClientRequest {
         callback?.()
 
         this.log('emitting the custom "response" event...')
-        this.emitter.emit('response', capturedRequest, responseClone)
+        this.emitter.emit('response', responseClone, capturedRequest, requestId)
 
         this.log('request (mock) is completed')
 
@@ -215,7 +215,12 @@ export class NodeClientRequest extends ClientRequest {
         this.log('original response headers:', message.headers)
 
         this.log('emitting the custom "response" event...')
-        this.emitter.emit('response', capturedRequest, createResponse(message))
+        this.emitter.emit(
+          'response',
+          createResponse(message),
+          capturedRequest,
+          requestId
+        )
       })
 
       return this.passthrough(chunk, encoding, callback)

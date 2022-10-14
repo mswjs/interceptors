@@ -348,7 +348,7 @@ export const createXMLHttpRequestOverride = (
               total: totalLength,
             })
 
-            emitter.emit('response', capturedRequest, responseClone)
+            emitter.emit('response', responseClone, capturedRequest, requestId)
           }
 
           if (mockedResponse.body) {
@@ -446,8 +446,9 @@ export const createXMLHttpRequestOverride = (
 
             emitter.emit(
               'response',
+              createResponse(originalRequest, this._responseBuffer),
               capturedRequest,
-              createResponse(originalRequest, this._responseBuffer)
+              requestId
             )
           })
 

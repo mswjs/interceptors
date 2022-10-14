@@ -58,7 +58,12 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         this.log('received mocked response:', mockedResponse)
         const responseCloine = mockedResponse.clone()
 
-        this.emitter.emit('response', interactiveRequest, responseCloine)
+        this.emitter.emit(
+          'response',
+          responseCloine,
+          interactiveRequest,
+          requestId
+        )
 
         const response = new Response(mockedResponse.body, mockedResponse)
 
@@ -76,10 +81,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       this.log('no mocked response received!')
 
       return pureFetch(request).then((response) => {
-        const responseCloine = response.clone() as ResponsePolyfill
-        this.log('original fetch performed', responseCloine)
+        const responseClone = response.clone() as ResponsePolyfill
+        this.log('original fetch performed', responseClone)
 
-        this.emitter.emit('response', interactiveRequest, responseCloine)
+        this.emitter.emit(
+          'response',
+          responseClone,
+          interactiveRequest,
+          requestId
+        )
 
         return response
       })

@@ -201,7 +201,12 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
           // Emit an optimistic "response" event at this point,
           // not to rely on the back-and-forth signaling for the sake of the event.
-          this.emitter.emit('response', capturedRequest, responseClone)
+          this.emitter.emit(
+            'response',
+            responseClone,
+            capturedRequest,
+            requestJson.id
+          )
         }
       )
 
