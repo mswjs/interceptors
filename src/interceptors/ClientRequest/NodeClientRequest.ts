@@ -126,7 +126,6 @@ export class NodeClientRequest extends ClientRequest {
     this.log('end', args)
 
     const requestId = uuidv4()
-    const isNestedRequest = this.getHeader('X-Request-Id') != null
 
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.log('normalized arguments:', { chunk, encoding, callback })
@@ -141,7 +140,7 @@ export class NodeClientRequest extends ClientRequest {
     // in another (parent) interceptor (like XMLHttpRequest -> ClientRequest).
     // That means some interceptor up the chain has concluded that
     // this request must be performed as-is.
-    if (isNestedRequest) {
+    if (this.getHeader('X-Request-Id') != null) {
       this.removeHeader('X-Request-Id')
       return this.passthrough(chunk, encoding, callback)
     }
