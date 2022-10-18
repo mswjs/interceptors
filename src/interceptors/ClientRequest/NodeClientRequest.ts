@@ -188,6 +188,12 @@ export class NodeClientRequest extends ClientRequest {
         return this
       }
 
+      // Forward any request headers that the "request" listener
+      // may have modified before proceeding with this request.
+      for (const [headerName, headerValue] of capturedRequest.headers) {
+        this.setHeader(headerName, headerValue)
+      }
+
       if (mockedResponse) {
         const responseClone = mockedResponse.clone()
 

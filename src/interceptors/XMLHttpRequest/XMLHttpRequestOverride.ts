@@ -299,6 +299,11 @@ export const createXMLHttpRequestOverride = (
           return
         }
 
+        // Forward request headers modified in the "request" listener.
+        for (const [headerName, headerValue] of capturedRequest.headers) {
+          this.setRequestHeader(headerName, headerValue)
+        }
+
         // Return a mocked response, if provided in the middleware.
         if (mockedResponse) {
           const responseClone = mockedResponse.clone()
@@ -666,15 +671,14 @@ export const createXMLHttpRequestOverride = (
     propagateHeaders(request: XMLHttpRequest, headers: Headers) {
       this.log('propagating request headers to the original request', headers)
 
-      // Preserve the request headers casing.
-      Object.entries(headers.raw()).forEach(([name, value]) => {
+      for (const [headerName, headerValue] of headers) {
         this.log(
           'setting "%s" (%s) header on the original request',
-          name,
-          value
+          headerName,
+          headerValue
         )
-        request.setRequestHeader(name, value)
-      })
+        request.setRequestHeader(headerName, headerValue)
+      }
     }
   }
 }

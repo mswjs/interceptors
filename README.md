@@ -218,21 +218,17 @@ interceptor.on('request', async (request, requestId) => {
 
 > **Do not forget to clone the request before reading its body!**
 
-## Mutating requests
+## Modifying requests
 
-You can mutate intercepted requests through the `request` instance.
+Request representations are readonly. You can, however, mutate the intercepted request's headers in the "request" listener:
 
 ```js
 interceptor.on('request', (request) => {
-  const url = new URL(request.url)
-
-  if (request.method === 'GET' && url.pathname === '/user') {
-    // Conditionally set a custom header on the
-    // intercepted "GET /user" request.
-    request.headers.set('X-My-Header', 'true')
-  }
+  request.headers.set('X-My-Header', 'true')
 })
 ```
+
+> This restriction is done so that the library wouldn't have to unnecessarily synchronize the actual request instance and its Fetch API request representation. As of now, this library is not meant to be used as a full-scale proxy.
 
 ## Mocking responses
 
