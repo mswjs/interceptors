@@ -10,6 +10,7 @@ Low-level HTTP/HTTPS/XHR/fetch request interception library.
 - `https.get`/`https.request`
 - `XMLHttpRequest`
 - `window.fetch`
+- `navigator.sendBeacon`
 - Any third-party libraries that use the modules above (i.e. `axios`, `request`, `node-fetch`, `supertest`, etc.)
 
 ## Motivation
@@ -80,6 +81,7 @@ This library extends (or patches, where applicable) the following native modules
 - `https.get`/`https.request`
 - `XMLHttpRequest`
 - `fetch`
+- `navigator.sendBeacon`
 
 Once extended, it intercepts and normalizes all requests to the _isomorphic request instances_. The isomorphic request is an abstract representation of the request coming from different sources (`ClientRequest`, `XMLHttpRequest`, `window.Request`, etc.) that allows us to handle such requests in the same, unified manner.
 
@@ -103,6 +105,7 @@ To use this library you need to choose one or multiple interceptors to apply. Th
 - `ClientRequestInterceptor` to spy on `http.ClientRequest` (`http.get`/`http.request`);
 - `XMLHttpRequestInterceptor` to spy on `XMLHttpRequest`;
 - `FetchInterceptor` to spy on `fetch`.
+- `SendBeaconInterceptor` to spy on `navigator.sendBeacon`.
 
 Use an interceptor by constructing it and attaching request/response listeners:
 
@@ -187,7 +190,7 @@ interceptor.on('request', listener)
 
 ### Browser preset
 
-This preset combines `XMLHttpRequestInterceptor` and `FetchInterceptor` and is meant to be used in a browser.
+This preset combines `XMLHttpRequestInterceptor`, `FetchInterceptor` and `SendBeaconInterceptor` and is meant to be used in a browser.
 
 ```js
 import { BatchInterceptor } from '@mswjs/interceptors'
@@ -361,6 +364,30 @@ const resolver = new RemoteHttpResolver({
 resolver.on('request', (request) => {
   // Optionally, return a mocked response
   // for a request that occurred in the "appProcess".
+})
+```
+
+### `SendBeaconInterceptor`
+
+Intercepts requests to `navigator.sendBeacon`. Once the interceptor is applied, `sendBeacon` always returns `true`.
+This is necessary, because it is impossible to check if the requirements for the user-agent to queue the send beacon call from JavaScript.
+
+Another difference to other interceptors like the `FetchInterceptor` is the response handling. `sendBeacon` run synchronously and does not provide a way to access the response. That means the response to the `sendBeacon` call does not matter, but you can still use `request.respondWith()` to prevent calling the original `sendBeacon`.
+
+```js
+import { SendBeaconInterceptor } from '@mswjs/interceptors/lib/SendBeaconInterceptor'
+
+const interceptor = new SendBeaconInterceptor()
+
+interceptor.on('request', (request) => {
+  if (request.url.pathname === '/blocked') {
+    // The `respondWith()` call will prevent the request from being
+    // passed to the original `sendBeacon`. The response itself does
+    // not matter, since it can not be accessed.
+    request.respondWith({ status: 204 })
+    return
+  }
+  // Call to other paths will be passed on to the original `sendBeacon`
 })
 ```
 

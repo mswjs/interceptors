@@ -202,6 +202,27 @@ interface BrowserXMLHttpRequestInit {
   withCredentials?: boolean
 }
 
+export async function extractPureBeaconEventDetails(
+  page: Page,
+  timeout = 5000,
+) {
+  return page.evaluate((timeout) => {
+    return new Promise<null | {url: string, data?: BodyInit | null}>((resolve) => {
+      const timeoutTimer = setTimeout(() => {
+        return resolve(null)
+      }, timeout)
+
+      window.addEventListener(
+        'pure-beacon' as any,
+        (event: CustomEvent<{url: string, data?: BodyInit | null}>) => {
+          clearTimeout(timeoutTimer)
+          resolve(event.detail)
+        }
+      )
+    })
+  }, timeout)
+}
+
 export async function extractRequestFromPage(
   page: Page
 ): Promise<IsomorphicRequest> {
