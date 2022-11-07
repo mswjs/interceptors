@@ -7,7 +7,7 @@ import axios from 'axios'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', () => {
   throw new Error('Custom error message')
 })
 

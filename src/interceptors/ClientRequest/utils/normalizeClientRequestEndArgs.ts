@@ -1,7 +1,7 @@
 const debug = require('debug')('http normalizeClientRequestEndArgs')
 
 export type ClientRequestEndChunk = string | Buffer
-type ClientRequestEndCallback = () => void
+export type ClientRequestEndCallback = () => void
 
 type HttpRequestEndArgs =
   | []

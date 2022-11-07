@@ -1,7 +1,9 @@
 /**
  * @jest-environment jsdom
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest#instance_methods
  */
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
@@ -16,19 +18,16 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
-  switch (request.url.pathname) {
+  const url = new URL(request.url)
+
+  switch (url.pathname) {
     case '/user': {
-      request.respondWith({
-        status: 200,
-      })
+      request.respondWith(new Response())
       break
     }
 
     case '/numbers-mock': {
-      request.respondWith({
-        status: 200,
-        body: JSON.stringify([1, 2, 3]),
-      })
+      request.respondWith(new Response(JSON.stringify([1, 2, 3])))
       break
     }
   }
@@ -65,22 +64,23 @@ test('emits correct events sequence for an unhandled request with no response bo
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url())
     spyOnEvents(req, listener)
+    req.open('GET', httpServer.http.url())
     req.send()
   })
 
   expect(listener.mock.calls).toEqual([
+    ['readystatechange', 1], // OPEN
     ['loadstart', 1],
-    ['readystatechange', 2],
-    ['readystatechange', 4],
+    ['readystatechange', 2], // HEADERS_RECEIVED
+    ['readystatechange', 4], // DONE
+    ['load', 4],
     /**
      * @note XMLHttpRequest polyfill from JSDOM dispatches the "readystatechange" listener.
      * XMLHttpRequest override also dispatches the "readystatechange" listener for the original
-     * request explicitly to it never hangs. This results in the listener being called twice.
+     * request explicitly so it never hangs. This results in the listener being called twice.
      */
     ['readystatechange', 4],
-    ['load', 4],
     ['loadend', 4],
   ])
   expect(req.readyState).toEqual(4)
@@ -90,15 +90,17 @@ test('emits correct events sequence for a handled request with no response body'
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/user'))
     spyOnEvents(req, listener)
+    req.open('GET', httpServer.http.url('/user'))
     req.send()
   })
 
   expect(listener.mock.calls).toEqual([
+    ['readystatechange', 1], // OPEN
     ['loadstart', 1],
-    ['readystatechange', 2],
-    ['readystatechange', 4],
+    ['readystatechange', 2], // HEADERS_RECEIVED
+    ['readystatechange', 3], // LOADING
+    ['readystatechange', 4], // DONE
     ['load', 4],
     ['loadend', 4],
   ])
@@ -109,22 +111,23 @@ test('emits correct events sequence for an unhandled request with a response bod
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/numbers'))
     spyOnEvents(req, listener)
+    req.open('GET', httpServer.http.url('/numbers'))
     req.send()
   })
 
   expect(listener.mock.calls).toEqual([
+    ['readystatechange', 1], // OPEN
     ['loadstart', 1],
-    ['readystatechange', 2],
-    ['readystatechange', 3],
+    ['readystatechange', 2], // HEADERS_RECEIVED
+    ['readystatechange', 3], // LOADING
     ['progress', 3],
     ['readystatechange', 4],
+    ['load', 4],
     /**
      * @note The same issue with the "readystatechange" callback being called twice.
      */
     ['readystatechange', 4],
-    ['load', 4],
     ['loadend', 4],
   ])
   expect(req.readyState).toBe(4)
@@ -134,17 +137,18 @@ test('emits correct events sequence for a handled request with a response body',
   interceptor.apply()
   const listener = jest.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/numbers-mock'))
     spyOnEvents(req, listener)
+    req.open('GET', httpServer.http.url('/numbers-mock'))
     req.send()
   })
 
   expect(listener.mock.calls).toEqual([
+    ['readystatechange', 1], // OPEN
     ['loadstart', 1],
-    ['readystatechange', 2],
-    ['readystatechange', 3],
+    ['readystatechange', 2], // HEADERS_RECEIVED
+    ['readystatechange', 3], // LOADING
     ['progress', 3],
-    ['readystatechange', 4],
+    ['readystatechange', 4], // DONE
     ['load', 4],
     ['loadend', 4],
   ])

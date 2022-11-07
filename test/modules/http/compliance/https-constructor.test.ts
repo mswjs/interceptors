@@ -17,7 +17,6 @@ const interceptor = new ClientRequestInterceptor()
 
 beforeAll(async () => {
   await httpServer.listen()
-
   interceptor.apply()
 })
 

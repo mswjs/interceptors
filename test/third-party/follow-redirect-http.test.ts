@@ -13,11 +13,16 @@ const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 const server = new HttpServer((app) => {
-  app.get('/resource', (req, res) => {
-    res.status(301).set('Location', server.https.url('/user')).end()
+  app.post('/resource', (req, res) => {
+    /**
+     * @note Respond with the 307 status code so the redirect
+     * request would use the same method as the original request.
+     * @see https://github.com/follow-redirects/follow-redirects/issues/121
+     */
+    res.status(307).set('Location', server.https.url('/user')).end()
   })
 
-  app.get('/user', (req, res) => {
+  app.post('/user', (req, res) => {
     res.status(200).send('hello from the server')
   })
 })
@@ -43,7 +48,7 @@ test('intercepts a POST request issued by "follow-redirects"', async () => {
   const catchResponseUrl = jest.fn()
   const req = https.request(
     {
-      method: 'GET',
+      method: 'POST',
       hostname: address.host,
       port: address.port,
       path: '/resource',
@@ -60,14 +65,15 @@ test('intercepts a POST request issued by "follow-redirects"', async () => {
 
   req.end(payload)
 
-  const { res, text } = await waitForClientRequest(req as any)
+  const { text } = await waitForClientRequest(req as any)
+
   expect(resolver).toHaveBeenCalledTimes(2)
 
   // Intercepted initial request.
   const [initialRequest] = resolver.mock.calls[0]
 
-  expect(initialRequest.method).toBe('GET')
-  expect(initialRequest.url.href).toBe(server.https.url('/resource'))
+  expect(initialRequest.method).toBe('POST')
+  expect(initialRequest.url).toBe(server.https.url('/resource'))
   expect(initialRequest.credentials).toBe('same-origin')
   expect(initialRequest.headers.get('Content-Type')).toBe('application/json')
   expect(initialRequest.headers.get('Content-Length')).toBe('23')
@@ -76,8 +82,8 @@ test('intercepts a POST request issued by "follow-redirects"', async () => {
   // Intercepted redirect request (issued by "follow-redirects").
   const [redirectedRequest] = resolver.mock.calls[1]
 
-  expect(redirectedRequest.method).toBe('GET')
-  expect(redirectedRequest.url.href).toBe(server.https.url('/user'))
+  expect(redirectedRequest.method).toBe('POST')
+  expect(redirectedRequest.url).toBe(server.https.url('/user'))
   expect(redirectedRequest.credentials).toBe('same-origin')
   expect(redirectedRequest.headers.get('Content-Type')).toBe('application/json')
   expect(redirectedRequest.headers.get('Content-Length')).toBe('23')

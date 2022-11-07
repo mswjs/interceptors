@@ -5,14 +5,16 @@ const interceptor = new FetchInterceptor()
 interceptor.on('request', (request) => {
   const { serverHttpUrl, serverHttpsUrl } = window
 
-  if ([serverHttpUrl, serverHttpsUrl].includes(request.url.href)) {
-    request.respondWith({
-      status: 201,
-      headers: {
-        'Content-Type': 'application/hal+json',
-      },
-      body: JSON.stringify({ mocked: true }),
-    })
+  if ([serverHttpUrl, serverHttpsUrl].includes(request.url)) {
+    request.respondWith(
+      new Response(JSON.stringify({ mocked: true }), {
+        status: 201,
+        statusText: 'Created',
+        headers: {
+          'Content-Type': 'application/hal+json',
+        },
+      })
+    )
   }
 })
 

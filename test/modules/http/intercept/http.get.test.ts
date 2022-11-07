@@ -7,7 +7,6 @@ import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientReq
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
-import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -44,22 +43,24 @@ test('intercepts an http.get request', async () => {
   const { text } = await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(url),
-      headers: headersContaining({
-        'x-custom-header': 'yes',
-      }),
-      credentials: 'same-origin',
-      _body: encodeBuffer(''),
-      respondWith: expect.any(Function),
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(url)
+  expect(request.headers).toEqual(
+    headersContaining({
+      'x-custom-header': 'yes',
     })
   )
-  expect(await text()).toEqual('user-body')
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
+
+  // Must receive the original response.
+  expect(await text()).toBe('user-body')
 })
 
 test('intercepts an http.get request given RequestOptions without a protocol', async () => {
@@ -73,18 +74,20 @@ test('intercepts an http.get request given RequestOptions without a protocol', a
   const { text } = await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
-  expect(resolver).toHaveBeenCalledWith<
-    Parameters<HttpRequestEventMap['request']>
-  >(
-    expect.objectContaining({
-      id: anyUuid(),
-      method: 'GET',
-      url: new URL(httpServer.http.url('/user?id=123')),
-      headers: headersContaining({}),
-      credentials: 'same-origin',
-      _body: encodeBuffer(''),
-      respondWith: expect.any(Function),
-    })
+
+  const [request, requestId] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.http.url('/user?id=123'))
+  expect(request.headers.get('host')).toBe(
+    `${httpServer.http.address.host}:${httpServer.http.address.port}`
   )
-  expect(await text()).toEqual('user-body')
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toEqual(anyUuid())
+
+  // Must receive the original response.
+  expect(await text()).toBe('user-body')
 })

@@ -4,9 +4,8 @@
 import express from 'express'
 import supertest from 'supertest'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
-import { IsomorphicRequest } from '../../src'
 
-let requests: IsomorphicRequest[] = []
+let requests: Array<Request> = []
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {

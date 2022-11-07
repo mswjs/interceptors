@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { httpGet } from '../../../helpers'
 import { sleep } from '../../../../test/helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
@@ -21,10 +22,7 @@ interceptor.on('request', async (request) => {
 
   await sleep(250)
 
-  request.respondWith({
-    status: 201,
-    body: 'mocked-response',
-  })
+  request.respondWith(new Response('mocked-response', { status: 201 }))
 })
 
 beforeAll(async () => {
