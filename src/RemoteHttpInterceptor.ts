@@ -1,5 +1,5 @@
 import { ChildProcess } from 'child_process'
-import { Request, Response } from '@remix-run/web-fetch'
+import { Response } from '@remix-run/web-fetch'
 import { Headers, HeadersObject, headersToObject } from 'headers-polyfill'
 import { HttpRequestEventMap } from './glossary'
 import { Interceptor } from './Interceptor'
@@ -7,6 +7,7 @@ import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
 import { toInteractiveRequest } from './utils/toInteractiveRequest'
+import { createRequestWithCredentials } from './utils/RequestWithCredentials'
 
 export interface SerializedRequest {
   id: string
@@ -158,7 +159,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       ) as RevivedRequest
       log('parsed intercepted request', requestJson)
 
-      const capturedRequest = new Request(requestJson.url, {
+      const capturedRequest = createRequestWithCredentials(requestJson.url, {
         method: requestJson.method,
         headers: new Headers(requestJson.headers),
         credentials: requestJson.credentials,

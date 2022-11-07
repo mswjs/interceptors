@@ -67,7 +67,7 @@
   },
   "dependencies": {
     "@open-draft/until": "^1.0.3",
-    "@remix-run/web-fetch": "^4.3.0",
+    "@remix-run/web-fetch": "^4.3.1",
     "@types/debug": "^4.1.7",
     "@xmldom/xmldom": "^0.8.3",
     "debug": "^4.3.3",

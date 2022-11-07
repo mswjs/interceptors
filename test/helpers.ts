@@ -1,12 +1,13 @@
 import https from 'https'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
-import { Request } from '@remix-run/web-fetch'
+import { objectToHeaders } from 'headers-polyfill'
+import type { Request } from '@remix-run/web-fetch'
 import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
-import { objectToHeaders } from 'headers-polyfill'
+import { createRequestWithCredentials } from '../src/utils/RequestWithCredentials'
 
 export interface PromisifiedResponse {
   req: ClientRequest
@@ -213,7 +214,7 @@ export async function extractRequestFromPage(page: Page): Promise<Request> {
     })
   })
 
-  const request = new Request(requestJson.url, {
+  const request = createRequestWithCredentials(requestJson.url, {
     method: requestJson.method,
     headers: objectToHeaders(requestJson.headers),
     credentials: requestJson.credentials,
