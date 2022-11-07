@@ -293,16 +293,14 @@ export const createXMLHttpRequestOverride = (
           // we must not emit the "load" event.
           this.trigger('loadend')
 
-          // Abort is not called when request fails!
+          // Abort must not be called when request fails!
           // this.abort()
 
           return
         }
 
         // Forward request headers modified in the "request" listener.
-        for (const [headerName, headerValue] of capturedRequest.headers) {
-          this.setRequestHeader(headerName, headerValue)
-        }
+        this._requestHeaders = new Headers(capturedRequest.headers)
 
         // Return a mocked response, if provided in the middleware.
         if (mockedResponse) {

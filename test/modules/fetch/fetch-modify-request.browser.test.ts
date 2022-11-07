@@ -7,8 +7,6 @@ import { FetchInterceptor } from '../../../src/interceptors/fetch'
 
 const server = new HttpServer((app) => {
   app.get('/user', (req, res) => {
-    console.log(req.headers)
-
     res.set('X-Appended-Header', req.headers['x-appended-header']).end()
   })
 })
