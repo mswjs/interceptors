@@ -4,6 +4,7 @@
 import got from 'got'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
+import { Response } from '@remix-run/web-fetch'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -14,10 +15,7 @@ const httpServer = new HttpServer((app) => {
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
   if (request.url.toString() === httpServer.http.url('/test')) {
-    request.respondWith({
-      status: 200,
-      body: 'mocked-body',
-    })
+    request.respondWith(new Response('mocked-body'))
   }
 })
 

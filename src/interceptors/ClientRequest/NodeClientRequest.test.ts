@@ -4,6 +4,7 @@
 import { debug } from 'debug'
 import * as express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { NodeClientRequest } from './NodeClientRequest'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
@@ -49,13 +50,14 @@ test('gracefully finishes the request when it has a mocked response', (done) => 
   )
 
   emitter.on('request', (request) => {
-    request.respondWith({
-      status: 301,
-      headers: {
-        'x-custom-header': 'yes',
-      },
-      body: 'mocked-response',
-    })
+    request.respondWith(
+      new Response('mocked-response', {
+        status: 301,
+        headers: {
+          'x-custom-header': 'yes',
+        },
+      })
+    )
   })
 
   request.on('response', async (response) => {
@@ -88,10 +90,7 @@ test('responds with a mocked response when requesting an existing hostname', (do
   )
 
   emitter.on('request', (request) => {
-    request.respondWith({
-      status: 201,
-      body: 'mocked-response',
-    })
+    request.respondWith(new Response('mocked-response', { status: 201 }))
   })
 
   request.on('response', async (response) => {
@@ -183,10 +182,9 @@ test('does not emit ENOTFOUND error connecting to an inactive server given mocke
 
   emitter.on('request', async (request) => {
     await sleep(250)
-    request.respondWith({
-      status: 200,
-      statusText: 'Works',
-    })
+    request.respondWith(
+      new Response(null, { status: 200, statusText: 'Works' })
+    )
   })
 
   request.on('error', handleError)
@@ -212,10 +210,9 @@ test('does not emit ECONNREFUSED error connecting to an inactive server given mo
 
   emitter.on('request', async (request) => {
     await sleep(250)
-    request.respondWith({
-      status: 200,
-      statusText: 'Works',
-    })
+    request.respondWith(
+      new Response(null, { status: 200, statusText: 'Works' })
+    )
   })
 
   request.on('error', handleError)
@@ -272,10 +269,7 @@ test('does not send request body to the original server given mocked response', 
 
   emitter.on('request', async (request) => {
     await sleep(200)
-    request.respondWith({
-      status: 301,
-      body: 'mock created!',
-    })
+    request.respondWith(new Response('mock created!', { status: 301 }))
   })
 
   request.write('one')

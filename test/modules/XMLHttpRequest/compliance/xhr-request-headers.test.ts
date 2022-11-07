@@ -6,7 +6,7 @@ import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpR
 import { createXMLHttpRequest } from '../../../helpers'
 
 interface ResponseType {
-  requestRawHeaders: string[]
+  requestRawHeaders: Array<string>
 }
 
 const httpServer = new HttpServer((app) => {
@@ -19,9 +19,7 @@ const httpServer = new HttpServer((app) => {
         'X-Client-Header': req.get('x-client-header'),
         'X-Multi-Value': req.get('x-multi-value'),
       })
-      .json({
-        requestRawHeaders: req.rawHeaders,
-      })
+      .end()
   })
 })
 
@@ -45,11 +43,6 @@ test('sends the request headers to the server', async () => {
     req.setRequestHeader('X-Multi-Value', 'value1; value2')
     req.send()
   })
-  const res = JSON.parse(req.responseText) as ResponseType
-
-  // Request headers casing is preserved in the raw headers.
-  expect(res.requestRawHeaders).toContain('X-ClienT-HeadeR')
-  expect(res.requestRawHeaders).toContain('X-Multi-Value')
 
   // Normalized request headers list all headers in lower-case.
   expect(req.getResponseHeader('x-client-header')).toEqual('abc-123')

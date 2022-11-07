@@ -5,10 +5,8 @@ import * as path from 'path'
 import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
 import { RequestHandler } from 'express-serve-static-core'
-import { createBrowserXMLHttpRequest } from '../../../helpers'
-import { IsomorphicRequest, IsomorphicResponse } from '../../../../src'
-import { anyUuid, headersContaining } from '../../../jest.expect'
-import { encodeBuffer } from '../../../../src/utils/bufferUtils'
+import { createBrowserXMLHttpRequest, XMLHttpResponse } from '../../../helpers'
+import { headersContaining } from '../../../jest.expect'
 
 const httpServer = new HttpServer((app) => {
   const requestHandler: RequestHandler = (_req, res) => {
@@ -45,17 +43,13 @@ test('intercepts an HTTP GET request', async () => {
     },
   })
 
-  expect(request).toMatchObject({
-    id: anyUuid(),
-    method: 'GET',
-    url: new URL(url),
-    headers: headersContaining({
-      'x-request-header': 'yes',
-    }),
-    credentials: 'omit',
-    _body: encodeBuffer(''),
-  })
-  expect(response).toEqual<IsomorphicResponse>({
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(url)
+  expect(request.headers.get('x-request-header')).toBe('yes')
+  expect(request.credentials).toBe('omit')
+  expect(request.body).toBe(null)
+
+  expect(response).toEqual<XMLHttpResponse>({
     status: 200,
     statusText: 'OK',
     headers: headersContaining({}),
@@ -77,15 +71,12 @@ test('intercepts an HTTP POST request', async () => {
     body: JSON.stringify({ user: 'john' }),
   })
 
-  expect(request).toMatchObject({
-    id: anyUuid(),
-    method: 'POST',
-    url: new URL(url),
-    headers: headersContaining({}),
-    credentials: 'omit',
-    _body: encodeBuffer(JSON.stringify({ user: 'john' })),
-  })
-  expect(response).toEqual<IsomorphicResponse>({
+  expect(request.method).toBe('POST')
+  expect(request.url).toBe(url)
+  expect(request.credentials).toBe('omit')
+  expect(await request.json()).toEqual({ user: 'john' })
+
+  expect(response).toEqual<XMLHttpResponse>({
     status: 200,
     statusText: 'OK',
     headers: headersContaining({}),
@@ -103,9 +94,7 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
     withCredentials: true,
   })
 
-  expect(request).toMatchObject<Partial<IsomorphicRequest>>({
-    credentials: 'include',
-  })
+  expect(request.credentials).toBe('include')
 })
 
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is false', async () => {
@@ -118,9 +107,7 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
     withCredentials: false,
   })
 
-  expect(request).toMatchObject<Partial<IsomorphicRequest>>({
-    credentials: 'omit',
-  })
+  expect(request.credentials).toBe('omit')
 })
 
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is not set', async () => {
@@ -132,7 +119,5 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
     url,
   })
 
-  expect(request).toMatchObject<Partial<IsomorphicRequest>>({
-    credentials: 'omit',
-  })
+  expect(request.credentials).toBe('omit')
 })

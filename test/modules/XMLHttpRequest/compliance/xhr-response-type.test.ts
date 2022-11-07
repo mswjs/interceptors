@@ -1,20 +1,27 @@
 /**
  * @jest-environment jsdom
  */
+import { Response } from '@remix-run/web-fetch'
+import { encodeBuffer } from '../../../../src'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
+import { toArrayBuffer } from '../../../../src/utils/bufferUtils'
 import { createXMLHttpRequest, readBlob } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
-  request.respondWith({
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      firstName: 'John',
-      lastName: 'Maverick',
-    }),
-  })
+  request.respondWith(
+    new Response(
+      JSON.stringify({
+        firstName: 'John',
+        lastName: 'Maverick',
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+  )
 })
 
 beforeAll(() => {
@@ -80,8 +87,8 @@ test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', as
     req.send()
   })
 
-  const expectedArrayBuffer = new Uint8Array(
-    Buffer.from(
+  const expectedArrayBuffer = toArrayBuffer(
+    encodeBuffer(
       JSON.stringify({
         firstName: 'John',
         lastName: 'Maverick',
@@ -89,7 +96,16 @@ test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', as
     )
   )
 
-  const responseBuffer: Uint8Array = req.response
+  const responseBuffer = req.response as ArrayBuffer
 
-  expect(Buffer.compare(responseBuffer, expectedArrayBuffer)).toBe(0)
+  const isBufferEqual = (left: ArrayBuffer, right: ArrayBuffer): boolean => {
+    const first = new Uint8Array(left)
+    const last = new Uint8Array(right)
+    return first.every((value, index) => last[index] === value)
+  }
+
+  // Must return an "ArrayBuffer" instance for "arraybuffer" response type.
+  expect(responseBuffer).toBeInstanceOf(ArrayBuffer)
+  expect(responseBuffer.byteLength).toBe(expectedArrayBuffer.byteLength)
+  expect(isBufferEqual(responseBuffer, expectedArrayBuffer)).toBe(true)
 })

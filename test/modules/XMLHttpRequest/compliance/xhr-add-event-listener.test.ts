@@ -2,23 +2,23 @@
  * @jest-environment jsdom
  * @see https://github.com/mswjs/msw/issues/273
  */
+import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
-  if (request.url.href === 'https://test.mswjs.io/user') {
-    request.respondWith({
-      status: 200,
-      statusText: 'OK',
-      headers: {
-        'content-type': 'application/json',
-        'x-header': 'yes',
-      },
-      body: JSON.stringify({
-        mocked: true,
-      }),
-    })
+  if (request.url === 'https://test.mswjs.io/user') {
+    request.respondWith(
+      new Response(JSON.stringify({ mocked: true }), {
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          'content-type': 'application/json',
+          'x-header': 'yes',
+        },
+      })
+    )
   }
 })
 

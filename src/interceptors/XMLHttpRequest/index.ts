@@ -1,12 +1,13 @@
 import { invariant } from 'outvariant'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
-import { InteractiveIsomorphicRequest } from '../../InteractiveIsomorphicRequest'
+import { InteractiveRequest } from '../../utils/toInteractiveRequest'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { createXMLHttpRequestOverride } from './XMLHttpRequestOverride'
 
 export type XMLHttpRequestEventListener = (
-  request: InteractiveIsomorphicRequest
+  request: InteractiveRequest,
+  requestId: string
 ) => Promise<void> | void
 
 export type XMLHttpRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>

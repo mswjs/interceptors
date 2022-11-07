@@ -3,17 +3,15 @@
  * @see https://github.com/mswjs/interceptors/issues/2
  */
 import * as http from 'http'
-import { IsomorphicRequest } from '../../../../src'
+import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-let requests: IsomorphicRequest[] = []
+let requests: Array<Request> = []
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
   requests.push(request)
-  request.respondWith({
-    status: 200,
-  })
+  request.respondWith(new Response())
 })
 
 beforeAll(() => {
@@ -57,14 +55,13 @@ test('resolves multiple concurrent requests to the same host independently', asy
   ])
 
   for (const request of requests) {
-    const expectedHeaderValue = request.url.searchParams.get('header')
+    const url = new URL(request.url)
+    const expectedHeaderValue = url.searchParams.get('header')
 
     if (expectedHeaderValue) {
-      expect(request.headers.get('x-custom-header')).toEqual(
-        expectedHeaderValue
-      )
+      expect(request.headers.get('x-custom-header')).toBe(expectedHeaderValue)
     } else {
-      expect(request.headers.has('x-custom-header')).toEqual(false)
+      expect(request.headers.has('x-custom-header')).toBe(false)
     }
   }
 })

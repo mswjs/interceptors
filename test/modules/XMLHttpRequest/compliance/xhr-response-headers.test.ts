@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
@@ -20,16 +21,20 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', (request) => {
-  if (!request.url.searchParams.has('mock')) {
+  const url = new URL(request.url)
+
+  if (!url.searchParams.has('mock')) {
     return
   }
 
-  request.respondWith({
-    headers: {
-      etag: '123',
-      'x-response-type': 'mock',
-    },
-  })
+  request.respondWith(
+    new Response(null, {
+      headers: {
+        etag: '123',
+        'x-response-type': 'mock',
+      },
+    })
+  )
 })
 
 beforeAll(async () => {

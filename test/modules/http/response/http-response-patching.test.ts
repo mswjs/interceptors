@@ -3,11 +3,11 @@
  */
 import * as http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { BatchInterceptor, MockedResponse } from '../../../../src'
+import { Response } from '@remix-run/web-fetch'
+import { BatchInterceptor } from '../../../../src'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { sleep, waitForClientRequest } from '../../../helpers'
-import { InteractiveIsomorphicRequest } from '../../../../src/InteractiveIsomorphicRequest'
 
 const server = new HttpServer((app) => {
   app.get('/original', async (req, res) => {
@@ -23,10 +23,10 @@ const interceptor = new BatchInterceptor({
   ],
 })
 
-async function getResponse(
-  request: InteractiveIsomorphicRequest
-): Promise<MockedResponse | undefined> {
-  switch (request.url.pathname) {
+async function getResponse(request: Request): Promise<Response | undefined> {
+  const url = new URL(request.url)
+
+  switch (url.pathname) {
     case '/mocked': {
       return new Promise(async (resolve) => {
         // Defer the resolution of the promise to the next tick.
@@ -36,14 +36,22 @@ async function getResponse(
         const originalRequest = http.get(server.http.url('/original'))
         const { res, text } = await waitForClientRequest(originalRequest)
 
-        resolve({
-          status: res.statusCode,
-          statusText: res.statusMessage,
-          headers: {
-            'X-Custom-Header': res.headers['x-custom-header'] || '',
-          },
-          body: (await text()) + ' world',
-        })
+        const getHeader = (name: string): string | undefined => {
+          const value = res.headers[name]
+          return Array.isArray(value) ? value.join(', ') : value
+        }
+
+        const responseText = (await text()) + ' world'
+
+        resolve(
+          new Response(responseText, {
+            status: res.statusCode,
+            statusText: res.statusMessage,
+            headers: {
+              'X-Custom-Header': getHeader('x-custom-header') || '',
+            },
+          })
+        )
       })
     }
   }

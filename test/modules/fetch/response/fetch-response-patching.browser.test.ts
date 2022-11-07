@@ -4,8 +4,8 @@
 import * as path from 'path'
 import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
+import { listToHeaders } from 'headers-polyfill'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
-import { listToHeaders } from 'headers-polyfill/lib'
 
 declare namespace window {
   export const interceptor: FetchInterceptor

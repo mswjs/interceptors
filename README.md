@@ -53,7 +53,7 @@ class NodeClientRequest extends ClientRequest {
   async end(...args) {
     // Check if there's a mocked response for this request.
     // You control this in the "resolver" function.
-    const mockedResponse = await resolver(isomorphicRequest)
+    const mockedResponse = await resolver(request)
 
     // If there is a mocked response, use it to respond to this
     // request, finalizing it afterward as if it received that
@@ -81,9 +81,9 @@ This library extends (or patches, where applicable) the following native modules
 - `XMLHttpRequest`
 - `fetch`
 
-Once extended, it intercepts and normalizes all requests to the _isomorphic request instances_. The isomorphic request is an abstract representation of the request coming from different sources (`ClientRequest`, `XMLHttpRequest`, `window.Request`, etc.) that allows us to handle such requests in the same, unified manner.
+Once extended, it intercepts and normalizes all requests to the Fetch API `Request` instances. This way, no matter the request source (`http.ClientRequest`, `XMLHttpRequest`, `window.Request`, etc), you always get a specification-compliant request instance to work with.
 
-You can respond to an isomorphic request using an _isomorphic response_. In a similar way, the isomorphic response is a representation of the response to use for different requests. Responding to requests differs substantially when using modules like `http` or `XMLHttpRequest`. This library takes the responsibility for coercing isomorphic responses into appropriate responses depending on the request module automatically.
+You can respond to the intercepted request by constructing a Fetch API Response instance. Instead of designing custom abstractions, this library respects the Fetch API specification and takes the responsibility to coerce a single response declaration to the appropriate response formats based on the request-issuing modules (like `http.OutgoingMessage` to respond to `http.ClientRequest`, or updating `XMLHttpRequest` response-related properties).
 
 ## What this library doesn't do
 
@@ -116,19 +116,14 @@ interceptor.apply()
 
 // Listen to any "http.ClientRequest" being dispatched,
 // and log its method and full URL.
-interceptor.on('request', (request) => {
-  console.log(request.method, request.url.href)
+interceptor.on('request', (request, requestId) => {
+  console.log(request.method, request.url)
 })
 
 // Listen to any responses sent to "http.ClientRequest".
 // Note that this listener is read-only and cannot affect responses.
 interceptor.on('response', (response, request) => {
-  console.log(
-    'response to %s %s was:',
-    request.method,
-    request.url.href,
-    response
-  )
+  console.log('response to %s %s was:', request.method, request.url, response)
 })
 ```
 
@@ -146,7 +141,7 @@ import { BatchInterceptor } from '@mswjs/interceptors'
 import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
 
-const interceptor = BatchInterceptor({
+const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
   interceptors: [
     new ClientRequestInterceptor(),
@@ -175,7 +170,7 @@ This preset combines `ClientRequestInterceptor`, `XMLHttpRequestInterceptor` and
 import { BatchInterceptor } from '@mswjs/interceptors'
 import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
 
-const interceptor = BatchInterceptor({
+const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
   interceptors: nodeInterceptors,
 })
@@ -193,7 +188,7 @@ This preset combines `XMLHttpRequestInterceptor` and `FetchInterceptor` and is m
 import { BatchInterceptor } from '@mswjs/interceptors'
 import browserInterceptors from '@mswjs/interceptors/lib/presets/browser'
 
-const interceptor = BatchInterceptor({
+const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
   interceptors: browserInterceptors,
 })
@@ -203,38 +198,37 @@ interceptor.on('request', listener)
 
 ## Introspecting requests
 
-All HTTP request interceptors emit a "request" event. In the listener to this event, they expose an isomorphic `request` instance—a normalized representation of the captured request.
+All HTTP request interceptors emit a "request" event. In the listener to this event, they expose a `request` reference, which is a [Fetch API Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) instance.
 
-> There are many ways to describe a request in Node.js, that's why this library exposes you a custom request instance that abstracts those details away from you, making request listeners uniform.
-
-```js
-interceptor.on('reqest', (request) => {})
-```
-
-The exposed `request` partially implements Fetch API [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) specification, containing the following properties and methods:
-
-```ts
-interface IsomorphicRequest {
-  id: string
-  url: URL
-  method: string
-  headers: Headers
-  credentials: 'omit' | 'same-origin' | 'include'
-  bodyUsed: boolean
-  clone(): IsomorphicRequest
-  arrayBuffer(): Promise<ArrayBuffer>
-  text(): Promise<string>
-  json(): Promise<Record<string, unknown>>
-}
-```
-
-For example, this is how you would read a JSON request body:
+> There are many ways to describe a request in Node.js but this library coerces different request definitions to a single specification-compliant `Request` instance to make the handling consistent.
 
 ```js
-interceptor.on('request', async (request) => {
-  const json = await request.json()
+interceptor.on('reqest', (request, requestId) => {
+  console.log(request.method, request.url)
 })
 ```
+
+Since the exposed `request` instance implements the Fetch API specification, you can operate with it just as you do with the regular browser request. For example, this is how you would read the request body as JSON:
+
+```js
+interceptor.on('request', async (request, requestId) => {
+  const json = await request.clone().json()
+})
+```
+
+> **Do not forget to clone the request before reading its body!**
+
+## Modifying requests
+
+Request representations are readonly. You can, however, mutate the intercepted request's headers in the "request" listener:
+
+```js
+interceptor.on('request', (request) => {
+  request.headers.set('X-My-Header', 'true')
+})
+```
+
+> This restriction is done so that the library wouldn't have to unnecessarily synchronize the actual request instance and its Fetch API request representation. As of now, this library is not meant to be used as a full-scale proxy.
 
 ## Mocking responses
 
@@ -243,20 +237,28 @@ Although this library can be used purely for request introspection purposes, you
 Use the `request.respondWith()` method to respond to a request with a mocked response:
 
 ```js
-interceptor.on('request', (request) => {
-  request.respondWith({
-    status: 200,
-    statusText: 'OK',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      firstName: 'John',
-      lastName: 'Maverick',
-    }),
-  })
+interceptor.on('request', (request, requestId) => {
+  request.respondWith(
+    new Response(
+      JSON.stringify({
+        firstName: 'John',
+        lastName: 'Maverick',
+      }),
+      {
+        status: 201,
+        statusText: 'Created',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+  )
 })
 ```
+
+> We use Fetch API `Response` class as the middleground for mocked response definition. This library then coerces the response instance to the appropriate response format (e.g. to `http.OutgoingMessage` in the case of `http.ClientRequest`).
+
+**The `Response` class is built-in in since Node.js 18. Use a Fetch API-compatible polyfill, like `node-fetch`, for older versions of Node.js.`**
 
 Note that a single request _can only be handled once_. You may want to introduce conditional logic, like routing, in your request listener but it's generally advised to use a higher-level library like [Mock Service Worker](https://github.com/mswjs/msw) that does request matching for you.
 
@@ -265,9 +267,9 @@ Requests must be responded to within the same tick as the request listener. This
 ```js
 // Respond to all requests with a 500 response
 // delayed by 500ms.
-interceptor.on('request', async (request) => {
+interceptor.on('request', async (request, requestId) => {
   await sleep(500)
-  request.respondWith({ status: 500 })
+  request.respondWith(new Response(null, { status: 500 }))
 })
 ```
 
@@ -303,14 +305,14 @@ Applies multiple request interceptors at the same time.
 import { BatchInterceptor } from '@mswjs/interceptors'
 import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
 
-const interceptor = BatchInterceptor({
+const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
   interceptors: nodeInterceptors,
 })
 
 interceptor.apply()
 
-interceptor.on('request', (request) => {
+interceptor.on('request', (request, requestId) => {
   // Inspect the intercepted "request".
   // Optionally, return a mocked response.
 })
@@ -358,7 +360,7 @@ const resolver = new RemoteHttpResolver({
   process: appProcess,
 })
 
-resolver.on('request', (request) => {
+resolver.on('request', (request, requestId) => {
   // Optionally, return a mocked response
   // for a request that occurred in the "appProcess".
 })

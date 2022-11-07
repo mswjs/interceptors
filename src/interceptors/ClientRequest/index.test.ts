@@ -1,5 +1,6 @@
 import * as http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '.'
 
 const httpServer = new HttpServer((app) => {
@@ -15,7 +16,6 @@ const interceptor = new ClientRequestInterceptor()
 
 beforeAll(async () => {
   await httpServer.listen()
-
   interceptor.apply()
 })
 
@@ -28,11 +28,13 @@ it('forbids calling "respondWith" multiple times for the same request', (done) =
   const requestUrl = httpServer.http.url('/')
 
   interceptor.on('request', (request) => {
-    request.respondWith({ status: 200 })
+    request.respondWith(new Response())
   })
 
   interceptor.on('request', (request) => {
-    expect(() => request.respondWith({ status: 301 })).toThrow(
+    expect(() =>
+      request.respondWith(new Response(null, { status: 301 }))
+    ).toThrow(
       `Failed to respond to "GET ${requestUrl}" request: the "request" event has already been responded to.`
     )
 

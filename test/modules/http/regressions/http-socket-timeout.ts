@@ -6,6 +6,7 @@
  */
 import * as http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 jest.setTimeout(5000)
@@ -18,10 +19,7 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
-  request.respondWith({
-    status: 301,
-    body: 'Hello world',
-  })
+  request.respondWith(new Response('hello world', { status: 301 }))
 })
 
 beforeAll(async () => {

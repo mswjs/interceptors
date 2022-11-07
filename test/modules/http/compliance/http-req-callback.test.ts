@@ -4,6 +4,7 @@
 import { IncomingMessage } from 'http'
 import * as https from 'https'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { Response } from '@remix-run/web-fetch'
 import { getRequestOptionsByUrl } from '../../../../src/utils/getRequestOptionsByUrl'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
@@ -15,15 +16,16 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', (request) => {
-  if ([httpServer.https.url('/get')].includes(request.url.href)) {
+  if ([httpServer.https.url('/get')].includes(request.url)) {
     return
   }
 
-  request.respondWith({
-    status: 403,
-    statusText: 'Forbidden',
-    body: 'mocked-body',
-  })
+  request.respondWith(
+    new Response('mocked-body', {
+      status: 403,
+      statusText: 'Forbidden',
+    })
+  )
 })
 
 beforeAll(async () => {
