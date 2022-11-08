@@ -13,7 +13,7 @@ function RequestOverride(
 
   Object.defineProperty(request, 'credentials', {
     value: init?.credentials || 'same-origin',
-    enumerable: true,
+    enumerable: false,
     writable: false,
   })
 
