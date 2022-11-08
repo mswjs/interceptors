@@ -5,17 +5,20 @@ import { Request } from '@remix-run/web-fetch'
  * supports "credentials" correctly.
  * @see https://github.com/remix-run/web-std-io/pull/21
  */
-export function createRequestWithCredentials(
+function RequestOverride(
   input: string | URL | Request,
   init?: RequestInit
 ): Request {
   const request = new Request(input, init)
 
   Object.defineProperty(request, 'credentials', {
+    value: init?.credentials || 'same-origin',
     enumerable: true,
     writable: false,
-    value: init?.credentials || 'include',
   })
 
   return request
 }
+
+export const RequestWithCredentials =
+  RequestOverride as unknown as typeof Request

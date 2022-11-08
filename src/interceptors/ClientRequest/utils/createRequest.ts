@@ -1,6 +1,6 @@
 import type { Request } from '@remix-run/web-fetch'
 import { Headers } from 'headers-polyfill'
-import { createRequestWithCredentials } from '../../../utils/RequestWithCredentials'
+import { RequestWithCredentials } from '../../../utils/RequestWithCredentials'
 import type { NodeClientRequest } from '../NodeClientRequest'
 
 /**
@@ -23,7 +23,7 @@ export function createRequest(clientRequest: NodeClientRequest): Request {
     }
   }
 
-  return createRequestWithCredentials(clientRequest.url, {
+  return new RequestWithCredentials(clientRequest.url, {
     method: clientRequest.method || 'GET',
     headers,
     credentials: 'same-origin',

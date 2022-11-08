@@ -7,7 +7,7 @@ import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
-import { createRequestWithCredentials } from '../src/utils/RequestWithCredentials'
+import { RequestWithCredentials } from '../src/utils/RequestWithCredentials'
 
 export interface PromisifiedResponse {
   req: ClientRequest
@@ -214,7 +214,7 @@ export async function extractRequestFromPage(page: Page): Promise<Request> {
     })
   })
 
-  const request = createRequestWithCredentials(requestJson.url, {
+  const request = new RequestWithCredentials(requestJson.url, {
     method: requestJson.method,
     headers: objectToHeaders(requestJson.headers),
     credentials: requestJson.credentials,

@@ -7,7 +7,7 @@ import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
 import { toInteractiveRequest } from './utils/toInteractiveRequest'
-import { createRequestWithCredentials } from './utils/RequestWithCredentials'
+import { RequestWithCredentials } from './utils/RequestWithCredentials'
 
 export interface SerializedRequest {
   id: string
@@ -159,7 +159,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       ) as RevivedRequest
       log('parsed intercepted request', requestJson)
 
-      const capturedRequest = createRequestWithCredentials(requestJson.url, {
+      const capturedRequest = new RequestWithCredentials(requestJson.url, {
         method: requestJson.method,
         headers: new Headers(requestJson.headers),
         credentials: requestJson.credentials,
