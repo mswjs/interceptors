@@ -1,7 +1,7 @@
 {
   "name": "@mswjs/interceptors",
   "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "author": "Artem Zakharchenko",
