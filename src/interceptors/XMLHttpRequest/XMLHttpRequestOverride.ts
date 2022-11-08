@@ -18,7 +18,7 @@ import { createResponse } from './utils/createResponse'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
-import { createRequestWithCredentials } from '../../utils/RequestWithCredentials'
+import { RequestWithCredentials } from '../../utils/RequestWithCredentials'
 
 type XMLHttpRequestEventHandler = (
   this: XMLHttpRequest,
@@ -240,7 +240,7 @@ export const createXMLHttpRequestOverride = (
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
       const requestId = uuidv4()
-      const capturedRequest = createRequestWithCredentials(url, {
+      const capturedRequest = new RequestWithCredentials(url, {
         method: this.method,
         headers: this._requestHeaders,
         credentials: this.withCredentials ? 'include' : 'omit',
