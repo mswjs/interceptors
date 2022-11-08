@@ -5,7 +5,6 @@
 import type { Debugger } from 'debug'
 import { until } from '@open-draft/until'
 import { Headers, stringToHeaders, headersToString } from 'headers-polyfill'
-import { DOMParser } from '@xmldom/xmldom'
 import { parseJson } from '../../utils/parseJson'
 import { createEvent } from './utils/createEvent'
 import type { XMLHttpRequestEmitter } from '.'
@@ -19,6 +18,7 @@ import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
 import { RequestWithCredentials } from '../../utils/RequestWithCredentials'
+import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 
 type XMLHttpRequestEventHandler = (
   this: XMLHttpRequest,
@@ -524,10 +524,14 @@ export const createXMLHttpRequestOverride = (
       const contentType = this.getResponseHeader('content-type') || ''
       this.log('responseXML() %s', contentType)
 
-      if (
-        contentType.startsWith('application/xml') ||
-        contentType.startsWith('text/xml')
-      ) {
+      if (typeof DOMParser === 'undefined') {
+        console.warn(
+          'Cannot retrieve XMLHttpRequest response body as XML: DOMParser is not defined. You are likely using an environment that is not browser or does not polyfill browser globals correctly.'
+        )
+        return null
+      }
+
+      if (isDomParserSupportedType(contentType)) {
         this.log('response content-type is XML, parsing...')
         return new DOMParser().parseFromString(this.responseText, contentType)
       }
@@ -545,7 +549,7 @@ export const createXMLHttpRequestOverride = (
       }
     }
 
-    dispatchEvent() {
+    public dispatchEvent() {
       return false
     }
 

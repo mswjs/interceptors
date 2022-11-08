@@ -2,7 +2,6 @@
  * @jest-environment jsdom
  */
 import { Response } from '@remix-run/web-fetch'
-import { DOMParser } from '@xmldom/xmldom'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
@@ -28,12 +27,12 @@ describe('Content-Type: application/xml', () => {
   })
 
   test('supports a mocked response with an XML response body', async () => {
-    const req = await createXMLHttpRequest((req) => {
-      req.open('GET', '/arbitrary-url')
-      req.send()
+    const request = await createXMLHttpRequest((request) => {
+      request.open('GET', '/arbitrary-url')
+      request.send()
     })
 
-    expect(req.responseXML).toStrictEqual(
+    expect(request.responseXML).toStrictEqual(
       new DOMParser().parseFromString(XML_STRING, 'application/xml')
     )
   })
@@ -59,12 +58,12 @@ describe('Content-Type: text/xml', () => {
   })
 
   test('supports a mocked response with an XML response body', async () => {
-    const req = await createXMLHttpRequest((req) => {
-      req.open('GET', '/arbitrary-url')
-      req.send()
+    const request = await createXMLHttpRequest((request) => {
+      request.open('GET', '/arbitrary-url')
+      request.send()
     })
 
-    expect(req.responseXML).toStrictEqual(
+    expect(request.responseXML).toStrictEqual(
       new DOMParser().parseFromString(XML_STRING, 'text/xml')
     )
   })
