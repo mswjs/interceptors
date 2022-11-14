@@ -36,12 +36,12 @@ describe('persistence', () => {
 })
 
 describe('readyState', () => {
-  it('sets the state to "IDLE" when the interceptor is created', () => {
+  it('sets the state to "INACTIVE" when the interceptor is created', () => {
     const interceptor = new Interceptor(symbol)
-    expect(interceptor.readyState).toBe(InterceptorReadyState.IDLE)
+    expect(interceptor.readyState).toBe(InterceptorReadyState.INACTIVE)
   })
 
-  it('leaves state as "IDLE" if the interceptor failed the environment check', async () => {
+  it('leaves state as "INACTIVE" if the interceptor failed the environment check', async () => {
     class MyInterceptor extends Interceptor<any> {
       protected checkEnvironment(): boolean {
         return false
@@ -50,10 +50,10 @@ describe('readyState', () => {
     const interceptor = new MyInterceptor(symbol)
     interceptor.apply()
 
-    expect(interceptor.readyState).toBe(InterceptorReadyState.IDLE)
+    expect(interceptor.readyState).toBe(InterceptorReadyState.INACTIVE)
 
     await nextTickAsync(() => {
-      expect(interceptor.readyState).toBe(InterceptorReadyState.IDLE)
+      expect(interceptor.readyState).toBe(InterceptorReadyState.INACTIVE)
     })
   })
 

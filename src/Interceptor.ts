@@ -23,7 +23,7 @@ export function deleteGlobalSymbol(symbol: Symbol): void {
 }
 
 export enum InterceptorReadyState {
-  IDLE = 'IDLE',
+  INACTIVE = 'INACTIVE',
   APPLYING = 'APPLYING',
   APPLIED = 'APPLIED',
   DISPOSING = 'DISPOSING',
@@ -41,7 +41,7 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
   public readyState: InterceptorReadyState
 
   constructor(private readonly symbol: Symbol) {
-    this.readyState = InterceptorReadyState.IDLE
+    this.readyState = InterceptorReadyState.INACTIVE
 
     this.emitter = new AsyncEventEmitter()
     this.subscriptions = []
