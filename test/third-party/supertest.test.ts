@@ -3,16 +3,24 @@
  */
 import express from 'express'
 import supertest from 'supertest'
+import { HttpRequestEventMap } from '../../src'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 
-let requests: Array<Request> = []
+const requestListener = jest.fn<
+  ReturnType<HttpRequestEventMap['request']>,
+  Parameters<HttpRequestEventMap['request']>
+>()
+const responseListener = jest.fn<
+  ReturnType<HttpRequestEventMap['response']>,
+  Parameters<HttpRequestEventMap['response']>
+>()
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', (request) => {
-  requests.push(request)
-})
+interceptor.on('request', requestListener)
+interceptor.on('response', responseListener)
 
 const app = express()
+
 app.use(express.json())
 app.post('/', (req, res) => {
   res.status(200).json(req.body)
@@ -23,7 +31,7 @@ beforeAll(() => {
 })
 
 afterEach(() => {
-  requests = []
+  jest.resetAllMocks()
 })
 
 afterAll(() => {
@@ -31,17 +39,28 @@ afterAll(() => {
 })
 
 test('preserves original POST request JSON body', async () => {
-  const res = await supertest(app)
+  const response = await supertest(app)
     .post('/')
     .set('Content-Type', 'application/json')
     .send({ query: 'foo' })
 
-  expect(res.error).toBeFalsy()
-  expect(res.status).toBe(200)
-  expect(res.body).toEqual({ query: 'foo' })
+  expect(response.error).toBeFalsy()
+  expect(response.status).toBe(200)
+  expect(response.body).toEqual({ query: 'foo' })
 
-  expect(requests).toHaveLength(1)
-  const [request] = requests
+  // Must call the "request" listener.
+  expect(requestListener).toHaveBeenCalledTimes(1)
+  const [request] = requestListener.mock.calls[0]
   expect(request.method).toBe('POST')
   expect(await request.json()).toEqual({ query: 'foo' })
+
+  // Must call the "response" listener.
+  expect(responseListener).toHaveBeenCalledTimes(1)
+  const [responseFromListener] = responseListener.mock.calls[0]
+  expect(responseFromListener.status).toBe(200)
+  expect(responseFromListener.statusText).toBe('OK')
+  expect(responseFromListener.headers.get('content-type')).toBe(
+    'application/json; charset=utf-8'
+  )
+  expect(await responseFromListener.json()).toEqual({ query: 'foo' })
 })
