@@ -108,4 +108,5 @@ test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', as
   expect(responseBuffer).toBeInstanceOf(ArrayBuffer)
   expect(responseBuffer.byteLength).toBe(expectedArrayBuffer.byteLength)
   expect(isBufferEqual(responseBuffer, expectedArrayBuffer)).toBe(true)
+  expect(req.responseType).toBe('arraybuffer')
 })

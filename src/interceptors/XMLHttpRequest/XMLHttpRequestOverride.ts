@@ -416,12 +416,6 @@ export const createXMLHttpRequestOverride = (
             }
           })
 
-          originalRequest.addEventListener('loadstart', () => {
-            // Forward the response type to the patched instance immediately.
-            // Response type affects how response reading properties are resolved.
-            this.responseType = originalRequest.responseType
-          })
-
           originalRequest.addEventListener('progress', () => {
             this._responseBuffer = concatArrayBuffer(
               this._responseBuffer,
@@ -462,9 +456,13 @@ export const createXMLHttpRequestOverride = (
           this.propagateCallbacks(originalRequest)
           this.propagateListeners(originalRequest)
 
+          // Infer properties from the intercepted XHR instance to the original XHR
+          // instance.
           if (this.async) {
             originalRequest.timeout = this.timeout
           }
+          originalRequest.withCredentials = this.withCredentials;
+          originalRequest.responseType = this.responseType;
 
           /**
            * @note Set the intercepted request ID on the original request

@@ -3,10 +3,12 @@
  */
 import type { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
+import { encodeBuffer } from '../../../../src'
 import {
   XMLHttpRequestEventListener,
   XMLHttpRequestInterceptor,
 } from '../../../../src/interceptors/XMLHttpRequest'
+import { toArrayBuffer } from '../../../../src/utils/bufferUtils'
 import { createXMLHttpRequest } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 
@@ -346,4 +348,30 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
   expect(resolver).toHaveBeenCalledTimes(1)
   const [request] = resolver.mock.calls[0]
   expect(request.credentials).toBe('omit')
+})
+
+test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
+  const req = await createXMLHttpRequest((req) => {
+    req.responseType = 'arraybuffer'
+    req.open('GET', httpServer.https.url('/user'))
+    req.send()
+  })
+
+  const expectedArrayBuffer = toArrayBuffer(
+    encodeBuffer('user-body')
+  )
+
+  const responseBuffer = req.response as ArrayBuffer
+
+  const isBufferEqual = (left: ArrayBuffer, right: ArrayBuffer): boolean => {
+    const first = new Uint8Array(left)
+    const last = new Uint8Array(right)
+    return first.every((value, index) => last[index] === value)
+  }
+
+  // Must return an "ArrayBuffer" instance for "arraybuffer" response type.
+  expect(responseBuffer).toBeInstanceOf(ArrayBuffer)
+  expect(responseBuffer.byteLength).toBe(expectedArrayBuffer.byteLength)
+  expect(isBufferEqual(responseBuffer, expectedArrayBuffer)).toBe(true)
+  expect(req.responseType).toBe('arraybuffer')
 })
