@@ -20,15 +20,28 @@ declare namespace window {
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {
-    res.status(200).send('user-body').end()
+    res.status(200).send('user-body')
   }
 
-  app.get('/user', handleUserRequest)
-  app.post('/user', handleUserRequest)
-  app.put('/user', handleUserRequest)
-  app.delete('/user', handleUserRequest)
-  app.patch('/user', handleUserRequest)
+  app.use((req, res, next) => {
+    res.set('Access-Control-Allow-Origin', '*')
+    res.set('Access-Control-Allow-Credentials', 'true')
+
+    next()
+  })
+
+  // @ts-ignore
   app.head('/user', handleUserRequest)
+  // @ts-ignore
+  app.get('/user', handleUserRequest)
+  // @ts-ignore
+  app.post('/user', handleUserRequest)
+  // @ts-ignore
+  app.put('/user', handleUserRequest)
+  // @ts-ignore
+  app.patch('/user', handleUserRequest)
+  // @ts-ignore
+  app.delete('/user', handleUserRequest)
 })
 
 const resolver = jest.fn<never, Parameters<XMLHttpRequestEventListener>>()
@@ -51,7 +64,7 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.dispose()
-  await httpServer.close()
+  // await httpServer.close()
 })
 
 test('intercepts an HTTP HEAD request', async () => {
@@ -351,27 +364,20 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
 })
 
 test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.responseType = 'arraybuffer'
-    req.open('GET', httpServer.https.url('/user'))
-    req.send()
+  const request = await createXMLHttpRequest((request) => {
+    request.open('GET', httpServer.https.url('/user'))
+    request.responseType = 'arraybuffer'
+    request.send()
   })
 
-  const expectedArrayBuffer = toArrayBuffer(
-    encodeBuffer('user-body')
-  )
-
-  const responseBuffer = req.response as ArrayBuffer
-
-  const isBufferEqual = (left: ArrayBuffer, right: ArrayBuffer): boolean => {
-    const first = new Uint8Array(left)
-    const last = new Uint8Array(right)
-    return first.every((value, index) => last[index] === value)
-  }
+  const expectedArrayBuffer = toArrayBuffer(encodeBuffer('user-body'))
+  const responseBuffer = request.response as ArrayBuffer
 
   // Must return an "ArrayBuffer" instance for "arraybuffer" response type.
+  expect(request.responseType).toBe('arraybuffer')
   expect(responseBuffer).toBeInstanceOf(ArrayBuffer)
   expect(responseBuffer.byteLength).toBe(expectedArrayBuffer.byteLength)
-  expect(isBufferEqual(responseBuffer, expectedArrayBuffer)).toBe(true)
-  expect(req.responseType).toBe('arraybuffer')
+  expect(
+    Buffer.from(responseBuffer).compare(Buffer.from(expectedArrayBuffer))
+  ).toBe(0)
 })

@@ -61,6 +61,7 @@ export const createXMLHttpRequestOverride = (
     _events: XMLHttpRequestEvent<InternalXMLHttpRequestEventTargetEventMap>[] =
       []
 
+    id: string
     log: Debugger = log
 
     /* Request state */
@@ -123,6 +124,7 @@ export const createXMLHttpRequestOverride = (
     ) => any = null as any
 
     constructor() {
+      this.id = uuidv4()
       this.url = ''
       this.method = 'GET'
       this.readyState = this.UNSENT
@@ -239,7 +241,6 @@ export const createXMLHttpRequestOverride = (
       this.log('request headers', this._requestHeaders)
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
-      const requestId = uuidv4()
       const capturedRequest = new RequestWithCredentials(url, {
         method: this.method,
         headers: this._requestHeaders,
@@ -253,7 +254,7 @@ export const createXMLHttpRequestOverride = (
         'emitting the "request" event for %d listener(s)...',
         emitter.listenerCount('request')
       )
-      emitter.emit('request', interactiveRequest, requestId)
+      emitter.emit('request', interactiveRequest, this.id)
 
       this.log('awaiting mocked response...')
 
@@ -262,7 +263,7 @@ export const createXMLHttpRequestOverride = (
           await emitter.untilIdle(
             'request',
             ({ args: [, pendingRequestId] }) => {
-              return pendingRequestId === requestId
+              return pendingRequestId === this.id
             }
           )
           this.log('all request listeners have been resolved!')
@@ -351,7 +352,7 @@ export const createXMLHttpRequestOverride = (
               total: totalLength,
             })
 
-            emitter.emit('response', responseClone, capturedRequest, requestId)
+            emitter.emit('response', responseClone, capturedRequest, this.id)
           }
 
           if (mockedResponse.body) {
@@ -386,94 +387,22 @@ export const createXMLHttpRequestOverride = (
           }
         } else {
           this.log('no mocked response received!')
-
-          // Perform an original request, when the request middleware returned no mocked response.
-          const originalRequest = new XMLHttpRequest()
-
           this.log('opening an original request %s %s', this.method, this.url)
-          originalRequest.open(
-            this.method,
-            this.url,
-            this.async ?? true,
-            this.user,
-            this.password
-          )
 
-          originalRequest.addEventListener('readystatechange', () => {
-            // Forward the original response headers to the patched instance
-            // immediately as they are received.
-            if (
-              originalRequest.readyState === XMLHttpRequest.HEADERS_RECEIVED
-            ) {
-              const responseHeaders = originalRequest.getAllResponseHeaders()
-              this.log('original response headers:\n', responseHeaders)
+          const request = this.toPassthroughRequest()
 
-              this._responseHeaders = stringToHeaders(responseHeaders)
-              this.log(
-                'original response headers (normalized)',
-                this._responseHeaders
-              )
-            }
-          })
-
-          originalRequest.addEventListener('progress', () => {
-            this._responseBuffer = concatArrayBuffer(
-              this._responseBuffer,
-              encodeBuffer(originalRequest.responseText)
-            )
-          })
-
-          // Update the patched instance on the "loadend" event
-          // because it fires when the request settles (succeeds/errors).
-          originalRequest.addEventListener('loadend', () => {
-            this.log('original "loadend"')
-
-            this.status = originalRequest.status
-            this.statusText = originalRequest.statusText
-            this.responseURL = originalRequest.responseURL
-            this.log('received original response', this.status, this.statusText)
-
-            // Explicitly mark the mocked request instance as done
-            // so the response never hangs.
-            this.setReadyState(this.DONE)
-            this.log('set mock request readyState to DONE')
-
-            this.log('original response body:', this.response)
-            this.log('original response finished!')
-
+          request.addEventListener('loadend', () => {
+            // Notify the interceptor about the original response.
             emitter.emit(
               'response',
-              createResponse(originalRequest, this._responseBuffer),
+              createResponse(request, this._responseBuffer),
               capturedRequest,
-              requestId
+              this.id
             )
           })
 
-          this.propagateHeaders(originalRequest, this._requestHeaders)
-
-          // Assign callbacks and event listeners from the intercepted XHR instance
-          // to the original XHR instance.
-          this.propagateCallbacks(originalRequest)
-          this.propagateListeners(originalRequest)
-
-          // Infer properties from the intercepted XHR instance to the original XHR
-          // instance.
-          if (this.async) {
-            originalRequest.timeout = this.timeout
-          }
-          originalRequest.withCredentials = this.withCredentials;
-          originalRequest.responseType = this.responseType;
-
-          /**
-           * @note Set the intercepted request ID on the original request
-           * so that if it triggers any other interceptors, they don't attempt
-           * to process it once again. This happens when bypassing XMLHttpRequest
-           * because it's polyfilled with "http.ClientRequest" in JSDOM.
-           */
-          originalRequest.setRequestHeader('X-Request-Id', requestId)
-
           this.log('send', data)
-          originalRequest.send(data)
+          request.send(data)
         }
       })
     }
@@ -679,6 +608,89 @@ export const createXMLHttpRequestOverride = (
         )
         request.setRequestHeader(headerName, headerValue)
       }
+    }
+
+    toPassthroughRequest(): XMLHttpRequest {
+      const request = new XMLHttpRequest()
+
+      request.open(
+        this.method,
+        this.url,
+        this.async ?? true,
+        this.user,
+        this.password
+      )
+
+      request.addEventListener('readystatechange', () => {
+        // Set original response headers as soon as they are received.
+        if (request.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+          const responseHeaders = request.getAllResponseHeaders()
+          this.log('original response headers (raw):\n', responseHeaders)
+
+          this._responseHeaders = stringToHeaders(responseHeaders)
+
+          this.log(
+            'original response headers (normalized)',
+            this._responseHeaders
+          )
+        }
+      })
+
+      request.addEventListener('progress', () => {
+        const chunk = request.response
+        const nextChunk =
+          chunk instanceof ArrayBuffer
+            ? new Uint8Array(chunk)
+            : encodeBuffer(chunk)
+
+        this._responseBuffer = concatArrayBuffer(
+          this._responseBuffer,
+          nextChunk
+        )
+      })
+
+      request.addEventListener('loadend', () => {
+        this.log('original request "loadend"')
+
+        this.status = request.status
+        this.statusText = request.statusText
+        this.responseURL = request.responseURL
+
+        this.setReadyState(this.DONE)
+        this.log(
+          'original request DONE!',
+          this.status,
+          this.statusText,
+          this.response
+        )
+      })
+
+      // Forward request headers.
+      for (const [headerName, headerValue] of this._requestHeaders) {
+        request.setRequestHeader(headerName, headerValue)
+      }
+
+      // Forward request properties.
+      request.responseType = this.responseType
+      request.withCredentials = this.withCredentials
+
+      if (this.async) {
+        request.timeout = this.timeout
+      }
+
+      /**
+       * @note Set the intercepted request ID on the original request
+       * so that if it triggers any other interceptors, they don't attempt
+       * to process it once again. This happens when bypassing XMLHttpRequest
+       * because it's polyfilled with "http.ClientRequest" in JSDOM.
+       */
+      request.setRequestHeader('X-Request-Id', this.id)
+
+      // Forward event handlers.
+      this.propagateCallbacks(request)
+      this.propagateListeners(request)
+
+      return request
     }
   }
 }
