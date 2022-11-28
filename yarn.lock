@@ -858,10 +858,10 @@
     "@jridgewell/resolve-uri" "^3.0.3"
     "@jridgewell/sourcemap-codec" "^1.4.10"
 
-"@open-draft/test-server@^0.4.2":
-  version "0.4.2"
-  resolved "https://registry.yarnpkg.com/@open-draft/test-server/-/test-server-0.4.2.tgz#45bef308e72209cccd2778c821834621d99db790"
-  integrity sha512-J9wbdQkPx5WKcDNtgfnXsx5ew4UJd6BZyGr89YlHeaUkOShkO2iO5QIyCCsG4qpjIvr2ZTkEYJA9ujOXXyO6Pg==
+"@open-draft/test-server@^0.5.0":
+  version "0.5.0"
+  resolved "https://registry.yarnpkg.com/@open-draft/test-server/-/test-server-0.5.0.tgz#e67a9f3db00bb163c66b2e5b1b6ef06b1c576e24"
+  integrity sha512-E0cWfWsWR3MqpyO2tBWYmPoTMe7Xlsa2X8+IDs7TGHWspn7ryLa9OQmVnUdeDgNRlTOMyVJGhAwQSrP9yKzH2Q==
   dependencies:
     "@types/body-parser" "^1.19.0"
     "@types/cors" "^2.8.9"
