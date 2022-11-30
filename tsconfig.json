@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "strict": true,
-    "target": "ES5",
+    "target": "esnext",
     "sourceMap": true,
     "outDir": "lib",
     "declaration": true,
