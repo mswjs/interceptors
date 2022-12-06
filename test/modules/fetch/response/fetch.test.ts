@@ -16,18 +16,6 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', (request) => {
-  if ([httpServer.http.url(), httpServer.https.url()].includes(request.url)) {
-    request.respondWith(
-      new Response(JSON.stringify({ mocked: true }), {
-        status: 201,
-        headers: {
-          'Content-Type': 'application/hal+json',
-        },
-      })
-    )
-  }
-})
 
 beforeAll(async () => {
   await httpServer.listen()
@@ -35,6 +23,18 @@ beforeAll(async () => {
 
 beforeEach(() => {
   interceptor.apply()
+  interceptor.on('request', (request) => {
+    if ([httpServer.http.url(), httpServer.https.url()].includes(request.url)) {
+      request.respondWith(
+        new Response(JSON.stringify({ mocked: true }), {
+          status: 201,
+          headers: {
+            'Content-Type': 'application/hal+json',
+          },
+        })
+      )
+    }
+  })
 })
 
 afterEach(() => {
