@@ -222,7 +222,9 @@ export const createXMLHttpRequestOverride = (
     }
 
     public send(data?: string | ArrayBuffer) {
-      this.log('send %s %s', this.method, this.url)
+      const requestId = this.id
+
+      this.log('send %s %s', this.method, this.url, requestId)
 
       const requestBuffer: ArrayBuffer | undefined =
         typeof data === 'string' ? encodeBuffer(data) : data
@@ -254,7 +256,7 @@ export const createXMLHttpRequestOverride = (
         'emitting the "request" event for %d listener(s)...',
         emitter.listenerCount('request')
       )
-      emitter.emit('request', interactiveRequest, this.id)
+      emitter.emit('request', interactiveRequest, requestId)
 
       this.log('awaiting mocked response...')
 
@@ -263,14 +265,19 @@ export const createXMLHttpRequestOverride = (
           await emitter.untilIdle(
             'request',
             ({ args: [, pendingRequestId] }) => {
-              return pendingRequestId === this.id
+              return pendingRequestId === requestId
             }
           )
           this.log('all request listeners have been resolved!')
 
           const [mockedResponse] =
             await interactiveRequest.respondWith.invoked()
-          this.log('event.respondWith called with:', mockedResponse)
+
+          if (!mockedResponse) {
+            this.log('event.respondWith() was not called!')
+          } else {
+            this.log('event.respondWith() was called with:', mockedResponse)
+          }
 
           return mockedResponse
         })
@@ -352,7 +359,7 @@ export const createXMLHttpRequestOverride = (
               total: totalLength,
             })
 
-            emitter.emit('response', responseClone, capturedRequest, this.id)
+            emitter.emit('response', responseClone, capturedRequest, requestId)
           }
 
           if (mockedResponse.body) {
@@ -397,7 +404,7 @@ export const createXMLHttpRequestOverride = (
               'response',
               createResponse(request, this._responseBuffer),
               capturedRequest,
-              this.id
+              requestId
             )
           })
 
@@ -550,6 +557,7 @@ export const createXMLHttpRequestOverride = (
      */
     propagateCallbacks(request: XMLHttpRequest) {
       this.log('propagating request callbacks to the original request')
+
       const callbackNames: Array<ExtractCallbacks<keyof XMLHttpRequest>> = [
         'abort',
         'onerror',
@@ -566,7 +574,6 @@ export const createXMLHttpRequestOverride = (
 
         if (callback) {
           request[callbackName] = this[callbackName] as any
-
           this.log('propagated the "%s" callback', callbackName, callback)
         }
       }
@@ -595,19 +602,6 @@ export const createXMLHttpRequestOverride = (
       this._events.forEach(({ name, listener }) => {
         request.addEventListener(name, listener)
       })
-    }
-
-    propagateHeaders(request: XMLHttpRequest, headers: Headers) {
-      this.log('propagating request headers to the original request', headers)
-
-      for (const [headerName, headerValue] of headers) {
-        this.log(
-          'setting "%s" (%s) header on the original request',
-          headerName,
-          headerValue
-        )
-        request.setRequestHeader(headerName, headerValue)
-      }
     }
 
     toPassthroughRequest(): XMLHttpRequest {
