@@ -64,7 +64,7 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.dispose()
-  // await httpServer.close()
+  await httpServer.close()
 })
 
 test('intercepts an HTTP HEAD request', async () => {
