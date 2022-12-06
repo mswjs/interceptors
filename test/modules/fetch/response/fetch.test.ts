@@ -21,7 +21,7 @@ beforeAll(async () => {
   await httpServer.listen()
 })
 
-beforeEach(() => {
+beforeAll(() => {
   interceptor.apply()
   interceptor.on('request', (request) => {
     if ([httpServer.http.url(), httpServer.https.url()].includes(request.url)) {
@@ -35,10 +35,6 @@ beforeEach(() => {
       )
     }
   })
-})
-
-afterEach(() => {
-  interceptor.dispose()
 })
 
 afterAll(async () => {
