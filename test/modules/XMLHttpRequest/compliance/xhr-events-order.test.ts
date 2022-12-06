@@ -18,7 +18,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new XMLHttpRequestInterceptor()
-const handleRequest: HttpRequestEventMap['request'] = (request) => {
+interceptor.on('request', (request) => {
   const url = new URL(request.url)
 
   switch (url.pathname) {
@@ -32,7 +32,7 @@ const handleRequest: HttpRequestEventMap['request'] = (request) => {
       break
     }
   }
-}
+})
 
 function spyOnEvents(request: XMLHttpRequest, listener: jest.Mock) {
   function wrapListener(this: XMLHttpRequest, event: Event) {
@@ -50,21 +50,16 @@ function spyOnEvents(request: XMLHttpRequest, listener: jest.Mock) {
 }
 
 beforeAll(async () => {
+  interceptor.apply()
   await httpServer.listen()
 })
 
-afterEach(() => {
-  interceptor.dispose()
-})
-
 afterAll(async () => {
+  interceptor.dispose()
   await httpServer.close()
 })
 
 test('emits correct events sequence for an unhandled request with no response body', async () => {
-  interceptor.apply()
-  interceptor.on('request', handleRequest)
-
   const listener = jest.fn()
   const request = await createXMLHttpRequest((request) => {
     spyOnEvents(request, listener)
@@ -90,9 +85,6 @@ test('emits correct events sequence for an unhandled request with no response bo
 })
 
 test('emits correct events sequence for a handled request with no response body', async () => {
-  interceptor.apply()
-  interceptor.on('request', handleRequest)
-
   const listener = jest.fn()
   const request = await createXMLHttpRequest((request) => {
     spyOnEvents(request, listener)
@@ -113,9 +105,6 @@ test('emits correct events sequence for a handled request with no response body'
 })
 
 test('emits correct events sequence for an unhandled request with a response body', async () => {
-  interceptor.apply()
-  interceptor.on('request', handleRequest)
-
   const listener = jest.fn()
   const request = await createXMLHttpRequest((request) => {
     spyOnEvents(request, listener)
@@ -141,9 +130,6 @@ test('emits correct events sequence for an unhandled request with a response bod
 })
 
 test('emits correct events sequence for a handled request with a response body', async () => {
-  interceptor.apply()
-  interceptor.on('request', handleRequest)
-
   const listener = jest.fn()
   const request = await createXMLHttpRequest((request) => {
     spyOnEvents(request, listener)
