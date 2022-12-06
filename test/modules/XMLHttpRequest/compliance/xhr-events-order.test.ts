@@ -4,6 +4,7 @@
  */
 import { HttpServer } from '@open-draft/test-server/http'
 import { Response } from '@remix-run/web-fetch'
+import { HttpRequestEventMap } from '../../../../src'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
@@ -17,7 +18,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new XMLHttpRequestInterceptor()
-interceptor.on('request', (request) => {
+const handleRequest: HttpRequestEventMap['request'] = (request) => {
   const url = new URL(request.url)
 
   switch (url.pathname) {
@@ -31,21 +32,21 @@ interceptor.on('request', (request) => {
       break
     }
   }
-})
+}
 
-function spyOnEvents(req: XMLHttpRequest, listener: jest.Mock) {
+function spyOnEvents(request: XMLHttpRequest, listener: jest.Mock) {
   function wrapListener(this: XMLHttpRequest, event: Event) {
     listener(event.type, this.readyState)
   }
 
-  req.addEventListener('readystatechange', wrapListener)
-  req.addEventListener('loadstart', wrapListener)
-  req.addEventListener('progress', wrapListener)
-  req.addEventListener('timeout', wrapListener)
-  req.addEventListener('load', wrapListener)
-  req.addEventListener('loadend', wrapListener)
-  req.addEventListener('abort', wrapListener)
-  req.addEventListener('error', wrapListener)
+  request.addEventListener('readystatechange', wrapListener)
+  request.addEventListener('loadstart', wrapListener)
+  request.addEventListener('progress', wrapListener)
+  request.addEventListener('timeout', wrapListener)
+  request.addEventListener('load', wrapListener)
+  request.addEventListener('loadend', wrapListener)
+  request.addEventListener('abort', wrapListener)
+  request.addEventListener('error', wrapListener)
 }
 
 beforeAll(async () => {
@@ -62,11 +63,13 @@ afterAll(async () => {
 
 test('emits correct events sequence for an unhandled request with no response body', async () => {
   interceptor.apply()
+  interceptor.on('request', handleRequest)
+
   const listener = jest.fn()
-  const req = await createXMLHttpRequest((req) => {
-    spyOnEvents(req, listener)
-    req.open('GET', httpServer.http.url())
-    req.send()
+  const request = await createXMLHttpRequest((request) => {
+    spyOnEvents(request, listener)
+    request.open('GET', httpServer.http.url())
+    request.send()
   })
 
   expect(listener.mock.calls).toEqual([
@@ -83,16 +86,18 @@ test('emits correct events sequence for an unhandled request with no response bo
     ['readystatechange', 4],
     ['loadend', 4],
   ])
-  expect(req.readyState).toEqual(4)
+  expect(request.readyState).toEqual(4)
 })
 
 test('emits correct events sequence for a handled request with no response body', async () => {
   interceptor.apply()
+  interceptor.on('request', handleRequest)
+
   const listener = jest.fn()
-  const req = await createXMLHttpRequest((req) => {
-    spyOnEvents(req, listener)
-    req.open('GET', httpServer.http.url('/user'))
-    req.send()
+  const request = await createXMLHttpRequest((request) => {
+    spyOnEvents(request, listener)
+    request.open('GET', httpServer.http.url('/user'))
+    request.send()
   })
 
   expect(listener.mock.calls).toEqual([
@@ -104,16 +109,18 @@ test('emits correct events sequence for a handled request with no response body'
     ['load', 4],
     ['loadend', 4],
   ])
-  expect(req.readyState).toBe(4)
+  expect(request.readyState).toBe(4)
 })
 
 test('emits correct events sequence for an unhandled request with a response body', async () => {
   interceptor.apply()
+  interceptor.on('request', handleRequest)
+
   const listener = jest.fn()
-  const req = await createXMLHttpRequest((req) => {
-    spyOnEvents(req, listener)
-    req.open('GET', httpServer.http.url('/numbers'))
-    req.send()
+  const request = await createXMLHttpRequest((request) => {
+    spyOnEvents(request, listener)
+    request.open('GET', httpServer.http.url('/numbers'))
+    request.send()
   })
 
   expect(listener.mock.calls).toEqual([
@@ -130,16 +137,18 @@ test('emits correct events sequence for an unhandled request with a response bod
     ['readystatechange', 4],
     ['loadend', 4],
   ])
-  expect(req.readyState).toBe(4)
+  expect(request.readyState).toBe(4)
 })
 
 test('emits correct events sequence for a handled request with a response body', async () => {
   interceptor.apply()
+  interceptor.on('request', handleRequest)
+
   const listener = jest.fn()
-  const req = await createXMLHttpRequest((req) => {
-    spyOnEvents(req, listener)
-    req.open('GET', httpServer.http.url('/numbers-mock'))
-    req.send()
+  const request = await createXMLHttpRequest((request) => {
+    spyOnEvents(request, listener)
+    request.open('GET', httpServer.http.url('/numbers-mock'))
+    request.send()
   })
 
   expect(listener.mock.calls).toEqual([
@@ -152,5 +161,5 @@ test('emits correct events sequence for a handled request with a response body',
     ['load', 4],
     ['loadend', 4],
   ])
-  expect(req.readyState).toBe(4)
+  expect(request.readyState).toBe(4)
 })
