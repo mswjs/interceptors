@@ -80,8 +80,6 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.log('no mocked response received!')
 
-      console.log('or req headers', Array.from(request.headers.entries()))
-
       return pureFetch(request).then((response) => {
         const responseClone = response.clone() as ResponsePolyfill
         this.log('original fetch performed', responseClone)
