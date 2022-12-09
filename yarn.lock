@@ -881,10 +881,10 @@
   resolved "https://registry.yarnpkg.com/@open-draft/until/-/until-2.0.0.tgz#13d79bb827eb1be21cea4d29cdc60ca3312ec02f"
   integrity sha512-0zJhDjNR0aH1d68TiD6GnYr18dcuOiyTx8xV/I7fp9+z/VQ20e305aObW1/DO5/fiCOztscmvJsCjJDYDhFW6w==
 
-"@ossjs/release@^0.3.0":
-  version "0.3.0"
-  resolved "https://registry.yarnpkg.com/@ossjs/release/-/release-0.3.0.tgz#9032711b05a718389d7d8c34db07816428c6dc15"
-  integrity sha512-ULz99duErTwwOnyNdijt/wPY1o89Cpo3BPDIbCV/uGm56cFDEsjvaFaFxj1Bk057/NRf/FzcVWzTchguQHZpfg==
+"@ossjs/release@^0.4.0":
+  version "0.4.0"
+  resolved "https://registry.yarnpkg.com/@ossjs/release/-/release-0.4.0.tgz#3c4412f2b19fb845b1099815b164bdea0a4da74f"
+  integrity sha512-cfW+gk3GdVqjrawkAG8q6MXPmTJouwwPegmBAVNvYvKq/tKQHgluxiueTlNTdJRryI76rpe6y5+EXlHdisrwdg==
   dependencies:
     "@open-draft/until" "^2.0.0"
     "@types/conventional-commits-parser" "^3.0.2"
@@ -1797,9 +1797,9 @@ babel-preset-jest@^27.4.0:
     babel-preset-current-node-syntax "^1.0.0"
 
 balanced-match@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/balanced-match/-/balanced-match-1.0.0.tgz#89b4d199ab2bee49de164ea02b89ce462d71b767"
-  integrity sha1-ibTRmasr7kneFk6gK4nORi1xt2c=
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/balanced-match/-/balanced-match-1.0.2.tgz#e83e3a7e3f300b34cb9d87f615fa0cbf357690ee"
+  integrity sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==
 
 base64id@2.0.0, base64id@~2.0.0:
   version "2.0.0"
@@ -2167,7 +2167,7 @@ component-emitter@^1.3.0, component-emitter@~1.3.0:
 concat-map@0.0.1:
   version "0.0.1"
   resolved "https://registry.yarnpkg.com/concat-map/-/concat-map-0.0.1.tgz#d8a96bd77fd68df7793a73036a3ba0d5405d477b"
-  integrity sha1-2Klr13/Wjfd5OnMDajug1UBdR3s=
+  integrity sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==
 
 content-disposition@0.5.3:
   version "0.5.3"
@@ -4543,9 +4543,9 @@ min-indent@^1.0.0:
   integrity sha512-I9jwMn07Sy/IwOj3zVkVik2JTvgpaykDZEigL6Rx6N9LbMywwUSMtxET+7lVoDLLd3O3IXwJwvuuns8UB/HeAg==
 
 minimatch@^3.0.4:
-  version "3.0.4"
-  resolved "https://registry.yarnpkg.com/minimatch/-/minimatch-3.0.4.tgz#5166e286457f03306064be5497e8dbb0c3d32083"
-  integrity sha512-yJHVQEhyqPLUTgt9B83PXu6W3rx4MvvHvSUvToogpwoGDOUQ+yDrR0HRot+yOCdCO7u4hX3pWft6kWBBcqh0UA==
+  version "3.1.2"
+  resolved "https://registry.yarnpkg.com/minimatch/-/minimatch-3.1.2.tgz#19cd194bfd3e428f049a70817c038d89ab4be35b"
+  integrity sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==
   dependencies:
     brace-expansion "^1.1.7"
 
