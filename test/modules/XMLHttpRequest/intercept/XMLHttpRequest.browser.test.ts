@@ -7,7 +7,6 @@ import { HttpServer } from '@open-draft/test-server/http'
 import { RequestHandler } from 'express-serve-static-core'
 import { createBrowserXMLHttpRequest, XMLHttpResponse } from '../../../helpers'
 import { headersContaining } from '../../../jest.expect'
-import zlib from 'zlib'
 
 const httpServer = new HttpServer((app) => {
   const requestHandler: RequestHandler = (_req, res) => {
@@ -16,15 +15,6 @@ const httpServer = new HttpServer((app) => {
 
   app.get('/user', requestHandler)
   app.post('/user', requestHandler)
-
-  const handleCompressedRequest: RequestHandler = (_req, res) => {
-    res
-      .status(200)
-      .setHeader("Content-Encoding", "gzip")
-      .send(zlib.gzipSync(Buffer.from('compressed-body'))).end()
-  }
-
-  app.get('/compressed', handleCompressedRequest)
 })
 
 function prepareRuntime() {
@@ -64,28 +54,6 @@ test('intercepts an HTTP GET request', async () => {
     statusText: 'OK',
     headers: headersContaining({}),
     body: 'user-body',
-  })
-})
-
-test('intercepts a compressed HTTP GET request', async () => {
-  const context = await prepareRuntime()
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
-  const url = httpServer.http.url('/compressed')
-  const [request, response] = await callXMLHttpRequest({
-    method: 'GET',
-    url,
-  })
-
-  expect(request.method).toBe('GET')
-  expect(request.url).toBe(url)
-  expect(request.credentials).toBe('omit')
-  expect(request.body).toBe(null)
-
-  expect(response).toEqual<XMLHttpResponse>({
-    status: 200,
-    statusText: 'OK',
-    headers: headersContaining({}),
-    body: 'compressed-body',
   })
 })
 
