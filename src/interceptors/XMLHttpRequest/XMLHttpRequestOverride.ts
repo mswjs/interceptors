@@ -483,11 +483,7 @@ export const createXMLHttpRequestOverride = (
     public get responseText(): string {
       this.log('responseText()')
 
-      const encoding = this.getResponseHeader('Content-Encoding') as
-        | BufferEncoding
-        | undefined
-
-      return decodeBuffer(this._responseBuffer, encoding || undefined)
+      return decodeBuffer(this._responseBuffer)
     }
 
     public get response(): unknown {
