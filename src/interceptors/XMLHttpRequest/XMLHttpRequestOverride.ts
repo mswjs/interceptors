@@ -399,6 +399,8 @@ export const createXMLHttpRequestOverride = (
             this.password
           )
 
+          let finalized = false;
+
           originalRequest.addEventListener('readystatechange', () => {
             // Forward the original response headers to the patched instance
             // immediately as they are received.
@@ -413,6 +415,25 @@ export const createXMLHttpRequestOverride = (
                 'original response headers (normalized)',
                 this._responseHeaders
               )
+            } else if (originalRequest.readyState === XMLHttpRequest.DONE) {
+              if (finalized) {
+                return;
+              }
+
+              finalized = true;
+
+              this.status = originalRequest.status
+              this.statusText = originalRequest.statusText
+              this.responseURL = originalRequest.responseURL
+              this.log('received original response', this.status, this.statusText)
+
+              // Explicitly mark the mocked request instance as done
+              // so the response never hangs.
+              this.setReadyState(this.DONE)
+              this.log('set mock request readyState to DONE')
+
+              this.log('original response body:', this.response)
+              this.log('original response finished!')
             }
           })
 
@@ -432,21 +453,6 @@ export const createXMLHttpRequestOverride = (
           // Update the patched instance on the "loadend" event
           // because it fires when the request settles (succeeds/errors).
           originalRequest.addEventListener('loadend', () => {
-            this.log('original "loadend"')
-
-            this.status = originalRequest.status
-            this.statusText = originalRequest.statusText
-            this.responseURL = originalRequest.responseURL
-            this.log('received original response', this.status, this.statusText)
-
-            // Explicitly mark the mocked request instance as done
-            // so the response never hangs.
-            this.setReadyState(this.DONE)
-            this.log('set mock request readyState to DONE')
-
-            this.log('original response body:', this.response)
-            this.log('original response finished!')
-
             emitter.emit(
               'response',
               createResponse(originalRequest, this._responseBuffer),
