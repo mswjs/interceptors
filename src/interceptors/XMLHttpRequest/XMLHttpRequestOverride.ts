@@ -447,6 +447,8 @@ export const createXMLHttpRequestOverride = (
           // Update the patched instance on the "loadend" event
           // because it fires when the request settles (succeeds/errors).
           originalRequest.addEventListener('loadend', () => {
+            this.log('original "loadend"')
+
             emitter.emit(
               'response',
               createResponse(originalRequest, this._responseBuffer),
