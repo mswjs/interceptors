@@ -159,7 +159,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
       return
     }
 
-    log('adding "%s" event listener:', event, listener.name)
+    log('adding "%s" event listener:', eventName, listener.name)
 
     this.emitter.on(eventName, listener)
   }

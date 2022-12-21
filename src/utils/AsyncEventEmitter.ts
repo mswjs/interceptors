@@ -82,6 +82,12 @@ export class AsyncEventEmitter<
       return false
     }
 
+    // Skip establishing event queues for internal listeners.
+    // Those are not meant to be awaited.
+    if (this.isInternalEventName(eventName)) {
+      return super.emit(eventName, ...data)
+    }
+
     // Establish the Promise queue for this particular event.
     this.openListenerQueue(eventName)
 
@@ -125,7 +131,6 @@ export class AsyncEventEmitter<
     eventName: EventName
   ): Array<QueueItem<Events[EventName]>> {
     const log = this.log.extend('openListenerQueue')
-
     log('opening "%s" listeners queue...', eventName)
 
     const queue = this.queue.get(eventName)
@@ -180,5 +185,9 @@ export class AsyncEventEmitter<
 
     this.readyState = AsyncEventEmitterReadyState.DEACTIVATED
     log('set state to:', this.readyState)
+  }
+
+  private isInternalEventName(eventName: string | number | symbol): boolean {
+    return eventName === 'newListener' || eventName === 'removeListener'
   }
 }
