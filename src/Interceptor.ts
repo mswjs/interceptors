@@ -1,8 +1,9 @@
 import { Debugger, debug } from 'debug'
+import { Listener } from 'strict-event-emitter'
 import { AsyncEventEmitter } from './utils/AsyncEventEmitter'
 import { nextTick } from './utils/nextTick'
 
-export type InterceptorEventMap = Record<string, (...args: any[]) => void>
+export type InterceptorEventMap = Record<string, any>
 export type InterceptorSubscription = () => void
 
 export function getGlobalSymbol<V>(symbol: Symbol): V | undefined {
@@ -30,12 +31,12 @@ export enum InterceptorReadyState {
   DISPOSED = 'DISPOSED',
 }
 
-export type ExtractEventNames<EventMap extends Record<string, any>> =
-  EventMap extends Record<infer EventName, any> ? EventName : never
+export type ExtractEventNames<Events extends Record<string, any>> =
+  Events extends Record<infer EventName, any> ? EventName : never
 
-export class Interceptor<EventMap extends InterceptorEventMap> {
-  protected emitter: AsyncEventEmitter<EventMap>
-  protected subscriptions: InterceptorSubscription[]
+export class Interceptor<Events extends InterceptorEventMap> {
+  protected emitter: AsyncEventEmitter<Events>
+  protected subscriptions: Array<InterceptorSubscription>
   protected log: Debugger
 
   public readyState: InterceptorReadyState
@@ -144,9 +145,9 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
   /**
    * Listen to the interceptor's public events.
    */
-  public on<Event extends ExtractEventNames<EventMap>>(
-    event: Event,
-    listener: EventMap[Event]
+  public on<EventName extends ExtractEventNames<Events>>(
+    eventName: EventName,
+    listener: Listener<Events[EventName]>
   ): void {
     const log = this.log.extend('on')
 
@@ -160,7 +161,7 @@ export class Interceptor<EventMap extends InterceptorEventMap> {
 
     log('adding "%s" event listener:', event, listener.name)
 
-    this.emitter.on(event, listener)
+    this.emitter.on(eventName, listener)
   }
 
   /**
