@@ -56,10 +56,7 @@ interceptor.on('request', (request) => {
   }
 })
 
-const responseListener = jest.fn<
-  ReturnType<HttpRequestEventMap['response']>,
-  Parameters<HttpRequestEventMap['response']>
->()
+const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
 interceptor.on('response', responseListener)
 
 beforeAll(async () => {
