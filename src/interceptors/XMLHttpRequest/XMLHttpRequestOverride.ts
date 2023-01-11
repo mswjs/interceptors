@@ -4,6 +4,7 @@
  */
 import type { Debugger } from 'debug'
 import { until } from '@open-draft/until'
+import { Request } from '@remix-run/web-fetch'
 import { Headers, stringToHeaders, headersToString } from 'headers-polyfill'
 import { parseJson } from '../../utils/parseJson'
 import { createEvent } from './utils/createEvent'
@@ -17,7 +18,6 @@ import { createResponse } from './utils/createResponse'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
-import { RequestWithCredentials } from '../../utils/RequestWithCredentials'
 import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 
 type XMLHttpRequestEventHandler = (
@@ -240,7 +240,7 @@ export const createXMLHttpRequestOverride = (
 
       // Create an intercepted request instance exposed to the request intercepting middleware.
       const requestId = uuidv4()
-      const capturedRequest = new RequestWithCredentials(url, {
+      const capturedRequest = new Request(url, {
         method: this.method,
         headers: this._requestHeaders,
         credentials: this.withCredentials ? 'include' : 'omit',
