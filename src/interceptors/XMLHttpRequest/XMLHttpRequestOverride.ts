@@ -429,11 +429,7 @@ export const createXMLHttpRequestOverride = (
             )
           })
 
-          // Update the patched instance on the "loadend" event
-          // because it fires when the request settles (succeeds/errors).
-          originalRequest.addEventListener('loadend', () => {
-            this.log('original "loadend"')
-
+          originalRequest.addEventListener('load', () => {
             this.status = originalRequest.status
             this.statusText = originalRequest.statusText
             this.responseURL = originalRequest.responseURL
@@ -446,6 +442,12 @@ export const createXMLHttpRequestOverride = (
 
             this.log('original response body:', this.response)
             this.log('original response finished!')
+          });
+
+          // Update the patched instance on the "loadend" event
+          // because it fires when the request settles (succeeds/errors).
+          originalRequest.addEventListener('loadend', () => {
+            this.log('original "loadend"')
 
             emitter.emit(
               'response',
