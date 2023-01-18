@@ -3,6 +3,7 @@
   "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
   "version": "0.19.3",
   "main": "lib/index.js",
+  "module": "lib/index.mjs",
   "typings": "lib/index.d.ts",
   "author": "Artem Zakharchenko",
   "license": "MIT",
