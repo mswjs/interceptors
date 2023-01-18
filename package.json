@@ -2,9 +2,50 @@
   "name": "@mswjs/interceptors",
   "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
   "version": "0.19.3",
-  "main": "lib/index.js",
-  "module": "lib/index.mjs",
-  "typings": "lib/index.d.ts",
+  "main": "./lib/node/index.js",
+  "types": "./lib/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/node/index.d.ts",
+      "node": "./lib/node/index.cjs",
+      "require": "./lib/node/index.cjs",
+      "default": "./lib/node/index.js"
+    },
+    "./ClientRequest": {
+      "types": "./lib/node/interceptors/ClientRequest/index.d.ts",
+      "node": "./lib/node/interceptors/ClientRequest/index.cjs",
+      "require": "./lib/node/interceptors/ClientRequest/index.cjs",
+      "default": "./lib/node/interceptors/ClientRequest/index.js",
+      "browser": null
+    },
+    "./XMLHttpRequest": {
+      "types": "./lib/node/interceptors/XMLHttpRequest/index.d.ts",
+      "node": "./lib/node/interceptors/XMLHttpRequest/index.cjs",
+      "require": "./lib/node/interceptors/XMLHttpRequest/index.cjs",
+      "browser": {
+        "default": "./lib/browser/interceptors/XMLHttpRequest/index.js",
+        "require": "./lib/browser/interceptors/XMLHttpRequest/index.cjs",
+        "node": null
+      }
+    },
+    "./fetch": {
+      "types": "./lib/node/interceptors/fetch/index.d.ts",
+      "node": "./lib/node/interceptors/fetch/index.cjs",
+      "require": "./lib/node/interceptors/fetch/index.cjs",
+      "browser": {
+        "require": "./lib/browser/interceptors/fetch/index.cjs",
+        "default": "./lib/browser/interceptors/fetch/index.js",
+        "node": null
+      }
+    },
+    "./RemoteHttpInterceptor": {
+      "types": "./lib/node/interceptors/RemoteHttpInterceptor.d.ts",
+      "node": "./lib/node/interceptors/RemoteHttpInterceptor.cjs",
+      "require": "./lib/node/interceptors/RemoteHttpInterceptor.cjs",
+      "default": "./lib/node/interceptors/RemoteHttpInterceptor.js",
+      "browser": null
+    }
+  },
   "author": "Artem Zakharchenko",
   "license": "MIT",
   "engines": {
@@ -65,7 +106,7 @@
     "supertest": "^6.1.6",
     "ts-jest": "^27.1.1",
     "tsup": "^6.5.0",
-    "typescript": "4.4.4",
+    "typescript": "^4.9.4",
     "wait-for-expect": "^3.0.2",
     "web-encoding": "^1.1.5"
   },

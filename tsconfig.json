@@ -2,6 +2,7 @@
   "compilerOptions": {
     "strict": true,
     "target": "esnext",
+    "module": "NodeNext",
     "sourceMap": true,
     "outDir": "lib",
     "declaration": true,

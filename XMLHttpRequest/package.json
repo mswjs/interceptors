@@ -1,0 +1,5 @@
+{
+  "main": "../lib/node/interceptors/XMLHttpRequest.cjs",
+  "module": "../lib/node/interceptors/XMLHttpRequest.js",
+  "types": "../lib/node/interceptors/XMLHttpRequest/index.d.ts"
+}

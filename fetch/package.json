@@ -1,0 +1,5 @@
+{
+  "main": "../lib/node/interceptors/fetch/index.cjs",
+  "module": "../lib/node/interceptors/fetch/index.js",
+  "types": "../lib/node/interceptors/fetch/index.d.ts"
+}

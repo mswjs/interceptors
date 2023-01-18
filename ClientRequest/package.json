@@ -1,0 +1,5 @@
+{
+  "main": "../lib/node/interceptors/ClientRequest.cjs",
+  "module": "../lib/node/interceptors/ClientRequest.js",
+  "types": "../lib/node/interceptors/ClientRequest/index.d.ts"
+}
