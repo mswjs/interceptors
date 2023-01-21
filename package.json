@@ -2,47 +2,47 @@
   "name": "@mswjs/interceptors",
   "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
   "version": "0.19.3",
-  "main": "./lib/node/index.js",
+  "main": "./lib/node/index.mjs",
   "types": "./lib/node/index.d.ts",
   "exports": {
     ".": {
       "types": "./lib/node/index.d.ts",
-      "node": "./lib/node/index.cjs",
-      "require": "./lib/node/index.cjs",
-      "default": "./lib/node/index.js"
+      "node": "./lib/node/index.js",
+      "require": "./lib/node/index.js",
+      "default": "./lib/node/index.mjs"
     },
     "./ClientRequest": {
       "types": "./lib/node/interceptors/ClientRequest/index.d.ts",
-      "node": "./lib/node/interceptors/ClientRequest/index.cjs",
-      "require": "./lib/node/interceptors/ClientRequest/index.cjs",
-      "default": "./lib/node/interceptors/ClientRequest/index.js",
+      "node": "./lib/node/interceptors/ClientRequest/index.js",
+      "require": "./lib/node/interceptors/ClientRequest/index.js",
+      "default": "./lib/node/interceptors/ClientRequest/index.mjs",
       "browser": null
     },
     "./XMLHttpRequest": {
       "types": "./lib/node/interceptors/XMLHttpRequest/index.d.ts",
-      "node": "./lib/node/interceptors/XMLHttpRequest/index.cjs",
-      "require": "./lib/node/interceptors/XMLHttpRequest/index.cjs",
+      "node": "./lib/node/interceptors/XMLHttpRequest/index.js",
+      "require": "./lib/node/interceptors/XMLHttpRequest/index.js",
       "browser": {
-        "default": "./lib/browser/interceptors/XMLHttpRequest/index.js",
-        "require": "./lib/browser/interceptors/XMLHttpRequest/index.cjs",
-        "node": null
+        "types": "./lib/browser/interceptors/XMLHttpRequest/index.d.ts",
+        "require": "./lib/browser/interceptors/XMLHttpRequest/index.js",
+        "default": "./lib/browser/interceptors/XMLHttpRequest/index.mjs"
       }
     },
     "./fetch": {
       "types": "./lib/node/interceptors/fetch/index.d.ts",
-      "node": "./lib/node/interceptors/fetch/index.cjs",
-      "require": "./lib/node/interceptors/fetch/index.cjs",
+      "node": "./lib/node/interceptors/fetch/index.js",
+      "require": "./lib/node/interceptors/fetch/index.js",
       "browser": {
-        "require": "./lib/browser/interceptors/fetch/index.cjs",
-        "default": "./lib/browser/interceptors/fetch/index.js",
-        "node": null
+        "types": "./lib/browser/interceptors/fetch/index.d.ts",
+        "require": "./lib/browser/interceptors/fetch/index.js",
+        "default": "./lib/browser/interceptors/fetch/index.mjs"
       }
     },
     "./RemoteHttpInterceptor": {
       "types": "./lib/node/interceptors/RemoteHttpInterceptor.d.ts",
-      "node": "./lib/node/interceptors/RemoteHttpInterceptor.cjs",
-      "require": "./lib/node/interceptors/RemoteHttpInterceptor.cjs",
-      "default": "./lib/node/interceptors/RemoteHttpInterceptor.js",
+      "node": "./lib/node/interceptors/RemoteHttpInterceptor.js",
+      "require": "./lib/node/interceptors/RemoteHttpInterceptor.js",
+      "default": "./lib/node/interceptors/RemoteHttpInterceptor.mjs",
       "browser": null
     }
   },

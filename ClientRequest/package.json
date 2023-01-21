@@ -1,5 +1,6 @@
 {
-  "main": "../lib/node/interceptors/ClientRequest.cjs",
-  "module": "../lib/node/interceptors/ClientRequest.js",
+  "main": "../lib/node/interceptors/ClientRequest.js",
+  "module": "../lib/node/interceptors/ClientRequest.mjs",
+  "browser": null,
   "types": "../lib/node/interceptors/ClientRequest/index.d.ts"
 }
