@@ -358,7 +358,7 @@ export class NodeClientRequest extends ClientRequest {
    */
   private terminate(): void {
     // @ts-ignore
-    this.agent.destroy()
+    this.agent?.destroy()
   }
 
   private getRequestBody(chunk: ClientRequestEndChunk | null): ArrayBuffer {
