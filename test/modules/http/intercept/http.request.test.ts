@@ -20,7 +20,7 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = jest.fn<never, Parameters<HttpRequestEventMap['request']>>()
+const resolver = jest.fn<never, HttpRequestEventMap['request']>()
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 

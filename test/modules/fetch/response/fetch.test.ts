@@ -16,7 +16,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', function testListener(request) {
   if ([httpServer.http.url(), httpServer.https.url()].includes(request.url)) {
     request.respondWith(
       new Response(JSON.stringify({ mocked: true }), {
@@ -30,16 +30,15 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
+  interceptor.apply()
   await httpServer.listen()
 })
 
-beforeEach(() => {
-  interceptor.apply()
-})
+beforeEach(() => {})
 
-afterEach(() => {
-  interceptor.dispose()
-})
+// afterEach(() => {
+//   interceptor.dispose()
+// })
 
 afterAll(async () => {
   interceptor.dispose()

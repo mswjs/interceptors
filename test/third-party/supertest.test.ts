@@ -6,14 +6,8 @@ import supertest from 'supertest'
 import { HttpRequestEventMap } from '../../src'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 
-const requestListener = jest.fn<
-  ReturnType<HttpRequestEventMap['request']>,
-  Parameters<HttpRequestEventMap['request']>
->()
-const responseListener = jest.fn<
-  ReturnType<HttpRequestEventMap['response']>,
-  Parameters<HttpRequestEventMap['response']>
->()
+const requestListener = jest.fn<never, HttpRequestEventMap['request']>()
+const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', requestListener)

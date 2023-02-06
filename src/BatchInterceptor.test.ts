@@ -38,14 +38,14 @@ it('applies child interceptors', () => {
 })
 
 it('proxies event listeners to the interceptors', () => {
-  class PrimaryInterceptor extends Interceptor<{ hello(name: string): void }> {
+  class PrimaryInterceptor extends Interceptor<{ hello: [string] }> {
     constructor() {
       super(Symbol('primary'))
     }
   }
 
   class SecondaryInterceptor extends Interceptor<{
-    goodbye(name: string): void
+    goodbye: [string]
   }> {
     constructor() {
       super(Symbol('secondary'))
