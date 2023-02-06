@@ -1,4 +1,4 @@
-import { TextDecoder, TextEncoder } from 'web-encoding'
+import { TextEncoder, TextDecoder } from '../shims/webEncoding'
 
 const encoder = new TextEncoder()
 

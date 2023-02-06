@@ -442,7 +442,7 @@ export const createXMLHttpRequestOverride = (
 
             this.log('original response body:', this.response)
             this.log('original response finished!')
-          });
+          })
 
           // Update the patched instance on the "loadend" event
           // because it fires when the request settles (succeeds/errors).
