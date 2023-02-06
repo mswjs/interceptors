@@ -5718,10 +5718,10 @@ stream-shift@^1.0.0:
   resolved "https://registry.yarnpkg.com/stream-shift/-/stream-shift-1.0.1.tgz#d7088281559ab2778424279b0877da3c392d5a3d"
   integrity sha512-AiisoFqQ0vbGcZgQPY1cdP2I76glaVA/RauYR4G4thNFgkTqr90yXTo4LYX60Jl+sIlPNHHdGSwo01AvbKUSVQ==
 
-strict-event-emitter@^0.4.3:
-  version "0.4.3"
-  resolved "https://registry.yarnpkg.com/strict-event-emitter/-/strict-event-emitter-0.4.3.tgz#45d0f75e1dc071eeb7cfbdff864fd2b9172bc257"
-  integrity sha512-uD0y7Wp3+ifPyfzIS+JrMvSnxFExHytmD5gTkndF1fi8Vrk2uiOY/2At73AwzLHz+RwrchegD8tHdowsfG7raQ==
+strict-event-emitter@^0.4.6:
+  version "0.4.6"
+  resolved "https://registry.yarnpkg.com/strict-event-emitter/-/strict-event-emitter-0.4.6.tgz#ff347c8162b3e931e3ff5f02cfce6772c3b07eb3"
+  integrity sha512-12KWeb+wixJohmnwNFerbyiBrAlq5qJLwIt38etRtKtmmHyDSoGlIqFE9wx+4IwG0aDjI7GV8tc8ZccjWZZtTg==
 
 string-length@^4.0.1:
   version "4.0.2"
