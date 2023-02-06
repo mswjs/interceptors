@@ -5,10 +5,9 @@ import * as https from 'https'
 import { RequestHandler } from 'express'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { waitForClientRequest } from '../../../helpers'
-import { anyUuid, headersContaining } from '../../../jest.expect'
+import { anyUuid } from '../../../jest.expect'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
-import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (req, res) => {
@@ -23,7 +22,7 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = jest.fn<never, Parameters<HttpRequestEventMap['request']>>()
+const resolver = jest.fn<never, HttpRequestEventMap['request']>()
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 

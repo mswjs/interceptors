@@ -16,10 +16,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const requestListener = jest.fn<
-  ReturnType<HttpRequestEventMap['request']>,
-  Parameters<HttpRequestEventMap['request']>
->()
+const requestListener = jest.fn<never, HttpRequestEventMap['request']>()
 
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',
