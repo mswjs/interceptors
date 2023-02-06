@@ -6,7 +6,7 @@ afterEach(() => {
 })
 
 it('emits and listens to events', () => {
-  const emitter = new AsyncEventEmitter<{ hello(name: string): void }>()
+  const emitter = new AsyncEventEmitter<{ hello: [string] }>()
   const listener = jest.fn()
   emitter.on('hello', listener)
   emitter.emit('hello', 'John')
@@ -16,7 +16,7 @@ it('emits and listens to events', () => {
 })
 
 it('resolves "untilIdle" when all the event listeners are done', async () => {
-  const emitter = new AsyncEventEmitter<{ speak(word: string): void }>()
+  const emitter = new AsyncEventEmitter<{ speak: [string] }>()
 
   const results: string[] = []
   const firstListener = jest.fn(() => results.push('first'))
@@ -40,7 +40,7 @@ it('resolves "untilIdle" when all the event listeners are done', async () => {
 })
 
 it('resolves "untilIdle" only for the relevant listeners', async () => {
-  const emitter = new AsyncEventEmitter<{ signal(code: number): void }>()
+  const emitter = new AsyncEventEmitter<{ signal: [number] }>()
 
   const results: number[] = []
   const listener = jest.fn(async (code: number) => {
@@ -69,14 +69,14 @@ it('resolves "untilIdle" only for the relevant listeners', async () => {
 })
 
 it('resolves "untilIdle" immediately if there are no pending listeners', async () => {
-  const emitter = new AsyncEventEmitter<{ ping(): void }>()
+  const emitter = new AsyncEventEmitter<{ ping: never }>()
   emitter.emit('ping')
 
   await expect(emitter.untilIdle('ping')).resolves.toBeUndefined()
 })
 
 it('propagates listener exceptions to "untilIdle" promise', async () => {
-  const emitter = new AsyncEventEmitter<{ ping(): void }>()
+  const emitter = new AsyncEventEmitter<{ ping: never }>()
 
   const error = new Error('oops')
   const listener = jest.fn(() => {
@@ -89,7 +89,7 @@ it('propagates listener exceptions to "untilIdle" promise', async () => {
 })
 
 it('does not emit events once the emitter was deactivated', () => {
-  const emitter = new AsyncEventEmitter<{ ping(): void }>()
+  const emitter = new AsyncEventEmitter<{ ping: never }>()
 
   const listener = jest.fn()
   emitter.on('ping', listener)

@@ -1,28 +1,29 @@
-import { EventMapType } from 'strict-event-emitter'
+import { EventMap, Listener } from 'strict-event-emitter'
 import { ExtractEventNames, Interceptor } from './Interceptor'
 
 export interface BatchInterceptorOptions<
-  InterceptorList extends Interceptor<any>[]
+  InterceptorList extends Array<Interceptor<any>>
 > {
   name: string
   interceptors: InterceptorList
 }
 
-export type ExtractEventMapType<InterceptorList extends Interceptor<any>[]> =
-  InterceptorList extends Array<infer InterceptorType>
-    ? InterceptorType extends Interceptor<infer EventMap>
-      ? EventMap
-      : never
+export type ExtractEventMapType<
+  InterceptorList extends Array<Interceptor<any>>
+> = InterceptorList extends Array<infer InterceptorType>
+  ? InterceptorType extends Interceptor<infer EventMap>
+    ? EventMap
     : never
+  : never
 
 /**
  * A batch interceptor that exposes a single interface
  * to apply and operate with multiple interceptors at once.
  */
 export class BatchInterceptor<
-  InterceptorList extends Interceptor<any>[],
-  EventMap extends EventMapType = ExtractEventMapType<InterceptorList>
-> extends Interceptor<EventMap> {
+  InterceptorList extends Array<Interceptor<any>>,
+  Events extends EventMap = ExtractEventMapType<InterceptorList>
+> extends Interceptor<Events> {
   static symbol: Symbol
 
   private interceptors: InterceptorList
@@ -47,9 +48,9 @@ export class BatchInterceptor<
     }
   }
 
-  public on<Event extends ExtractEventNames<EventMap>>(
-    event: Event,
-    listener: EventMap[Event]
+  public on<EventName extends ExtractEventNames<Events>>(
+    event: EventName,
+    listener: Listener<Events[EventName]>
   ) {
     // Instead of adding a listener to the batch interceptor,
     // propagate the listener to each of the individual interceptors.
