@@ -7,7 +7,7 @@ export function createResponse(
   // this fix will help to return Error when status is 0
   const {status} = request;
   const body = status === 0 ? 'Error' : responseBody;
-  const req = status === 0 ? {...request, status: 500, statusText: 'Internal Server Error'} : request;
+  const req = status === 0 ? {status: 500, statusText: 'Internal Server Error'} : request;
   return new Response(body, {
     status: req.status,
     statusText: req.statusText,
