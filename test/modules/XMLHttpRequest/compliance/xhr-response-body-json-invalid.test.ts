@@ -46,8 +46,8 @@ test('handles response of type "json" and missing response JSON body', async () 
   // When XHR fails to parse a given response JSON body,
   // fall back to null, as the failed JSON parsing result.
   expect(req.response).toBe(null)
-  expect(req.responseText).toBe('')
   expect(req.responseType).toBe('json')
+  expect(req.responseText).toBe('')
 })
 
 test('handles response of type "json" and invalid response JSON body', async () => {
@@ -58,6 +58,6 @@ test('handles response of type "json" and invalid response JSON body', async () 
   })
 
   expect(req.response).toBe(null)
-  expect(req.responseText).toBe(`{"invalid: js'on`)
   expect(req.responseType).toEqual('json')
+  expect(req.responseText).toBe(`{"invalid: js'on`)
 })

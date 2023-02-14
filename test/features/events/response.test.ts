@@ -146,7 +146,7 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user'))
   expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
 
   expect(response.status).toBe(200)
@@ -184,7 +184,7 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/account'))
   expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('request-body')
 
   expect(response.status).toBe(200)

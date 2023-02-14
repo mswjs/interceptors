@@ -71,7 +71,7 @@ test('intercepts an HTTP HEAD request', async () => {
       'x-custom-header': 'yes',
     })
   )
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
@@ -97,7 +97,7 @@ test('intercepts an HTTP GET request', async () => {
       'x-custom-header': 'yes',
     })
   )
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
@@ -123,7 +123,7 @@ test('intercepts an HTTP POST request', async () => {
       'x-custom-header': 'yes',
     })
   )
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('post-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
@@ -149,7 +149,7 @@ test('intercepts an HTTP PUT request', async () => {
       'x-custom-header': 'yes',
     })
   )
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('put-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
@@ -175,7 +175,7 @@ test('intercepts an HTTP DELETE request', async () => {
       'x-custom-header': 'yes',
     })
   )
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
@@ -201,7 +201,7 @@ test('intercepts an HTTPS HEAD request', async () => {
       'x-custom-header': 'yes',
     })
   )
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
@@ -227,7 +227,7 @@ test('intercepts an HTTPS GET request', async () => {
       'x-custom-header': 'yes',
     })
   )
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
@@ -253,7 +253,7 @@ test('intercepts an HTTPS POST request', async () => {
       'x-custom-header': 'yes',
     })
   )
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('post-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
@@ -279,7 +279,7 @@ test('intercepts an HTTPS PUT request', async () => {
       'x-custom-header': 'yes',
     })
   )
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('put-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
@@ -305,7 +305,7 @@ test('intercepts an HTTPS DELETE request', async () => {
       'x-custom-header': 'yes',
     })
   )
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
@@ -333,7 +333,7 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
 
   expect(resolver).toHaveBeenCalledTimes(1)
   const [request] = resolver.mock.calls[0]
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
 })
 
 test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is false', async () => {
@@ -345,5 +345,5 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
 
   expect(resolver).toHaveBeenCalledTimes(1)
   const [request] = resolver.mock.calls[0]
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
 })

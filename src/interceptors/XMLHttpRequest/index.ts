@@ -3,7 +3,7 @@ import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { InteractiveRequest } from '../../utils/toInteractiveRequest'
 import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
-import { createXMLHttpRequestOverride } from './XMLHttpRequestOverride'
+import { createXMLHttpRequestProxy } from './XMLHttpRequestProxy'
 
 export type XMLHttpRequestEventListener = (
   request: InteractiveRequest,
@@ -20,10 +20,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
   }
 
   protected checkEnvironment() {
-    return (
-      typeof window !== 'undefined' &&
-      typeof window.XMLHttpRequest !== 'undefined'
-    )
+    return typeof globalThis.XMLHttpRequest !== 'undefined'
   }
 
   protected setup() {
@@ -31,36 +28,35 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
 
     log('patching "XMLHttpRequest" module...')
 
-    const PureXMLHttpRequest = window.XMLHttpRequest
+    const PureXMLHttpRequest = globalThis.XMLHttpRequest
 
     invariant(
       !(PureXMLHttpRequest as any)[IS_PATCHED_MODULE],
       'Failed to patch the "XMLHttpRequest" module: already patched.'
     )
 
-    window.XMLHttpRequest = createXMLHttpRequestOverride({
-      XMLHttpRequest: PureXMLHttpRequest,
-      emitter: this.emitter,
-      log: this.log,
-    })
+    globalThis.XMLHttpRequest = createXMLHttpRequestProxy(this.emitter)
 
-    log('native "XMLHttpRequest" module patched!', window.XMLHttpRequest.name)
+    log(
+      'native "XMLHttpRequest" module patched!',
+      globalThis.XMLHttpRequest.name
+    )
 
-    Object.defineProperty(window.XMLHttpRequest, IS_PATCHED_MODULE, {
+    Object.defineProperty(globalThis.XMLHttpRequest, IS_PATCHED_MODULE, {
       enumerable: true,
       configurable: true,
       value: true,
     })
 
     this.subscriptions.push(() => {
-      Object.defineProperty(window.XMLHttpRequest, IS_PATCHED_MODULE, {
+      Object.defineProperty(globalThis.XMLHttpRequest, IS_PATCHED_MODULE, {
         value: undefined,
       })
 
-      window.XMLHttpRequest = PureXMLHttpRequest
+      globalThis.XMLHttpRequest = PureXMLHttpRequest
       log(
         'native "XMLHttpRequest" module restored!',
-        window.XMLHttpRequest.name
+        globalThis.XMLHttpRequest.name
       )
     })
   }

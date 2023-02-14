@@ -1,9 +1,16 @@
-import { Response, Headers, Request } from '@remix-run/web-fetch'
+import { Headers, Request } from '@remix-run/web-fetch'
 import { headersToString } from 'headers-polyfill'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { createEvent } from './utils/createEvent'
-import { encodeBuffer } from '../../utils/bufferUtils'
+import {
+  decodeBuffer,
+  encodeBuffer,
+  toArrayBuffer,
+} from '../../utils/bufferUtils'
 import { createProxy } from '../../utils/createProxy'
+import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
+import { parseJson } from '../../utils/parseJson'
+import { nextTick } from '../../utils/nextTick'
 
 export class XMLHttpRequestController {
   public request: XMLHttpRequest
@@ -25,10 +32,16 @@ export class XMLHttpRequestController {
       methodCall: ([methodName, args], invoke) => {
         switch (methodName) {
           case 'open': {
-            const [method, url] = args as [string, string]
-            this.method = method
-            this.url = new URL(url)
-            this.reset()
+            const [method, url] = args as [string, string | undefined]
+
+            if (typeof url === 'undefined') {
+              this.method = 'GET'
+              this.url = toAbsoluteUrl(method)
+            } else {
+              this.method = method
+              this.url = toAbsoluteUrl(url)
+            }
+
             return invoke()
           }
 
@@ -58,14 +71,15 @@ export class XMLHttpRequestController {
             }
 
             // Delegate request handling to the consumer.
+            const fetchRequest = this.toFetchApiRequest()
             const onceRequestSettled =
-              this.onRequest?.call(this, this.toFetchApiRequest()) ||
-              Promise.resolve()
+              this.onRequest?.call(this, fetchRequest) || Promise.resolve()
 
             onceRequestSettled.finally(() => {
-              // If the consumer didn't handle the request
-              // perform it as-is.
-              if (this.request.readyState !== this.request.DONE) {
+              // If the consumer didn't handle the request perform it as-is.
+              // Note that the request may not yet be DONE and may, in fact,
+              // be LOADING while the "respondWith" method does its magic.
+              if (this.request.readyState < this.request.LOADING) {
                 return invoke()
               }
             })
@@ -88,6 +102,10 @@ export class XMLHttpRequestController {
             )
             return invoke()
           }
+
+          default: {
+            return invoke()
+          }
         }
       },
     })
@@ -102,15 +120,6 @@ export class XMLHttpRequestController {
     this.events.set(eventName, nextEvents)
   }
 
-  public reset(): void {
-    this.setReadyState(this.request.UNSENT)
-    define(this.request, 'status', 0)
-    define(this.request, 'statusText', '')
-
-    this.requestHeaders = new Headers()
-    this.responseBuffer = new Uint8Array()
-  }
-
   /**
    * Responds to the current request with the given
    * Fetch API `Response` instance.
@@ -118,7 +127,7 @@ export class XMLHttpRequestController {
   public respondWith(response: Response): void {
     define(this.request, 'status', response.status)
     define(this.request, 'statusText', response.statusText)
-    define(this.request, 'responseURL', response.url)
+    define(this.request, 'responseURL', this.url.href)
 
     this.request.getResponseHeader = new Proxy(this.request.getResponseHeader, {
       apply: (_, __, args: [name: string]) => {
@@ -145,9 +154,19 @@ export class XMLHttpRequestController {
       }
     )
 
+    // Update the response getters to resolve against the mocked response.
+    Object.defineProperties(this.request, {
+      response: { enumerable: true, get: this.getResponse.bind(this) },
+      responseText: { enumerable: true, get: this.getResponseText.bind(this) },
+      responseXML: { enumerable: true, get: this.getResponseXML.bind(this) },
+    })
+
     const totalResponseBodyLength = response.headers.has('Content-Length')
       ? Number(response.headers.get('Content-Length'))
-      : undefined
+      : /**
+         * @todo Infer the response body length from the response body.
+         */
+        undefined
 
     this.trigger('loadstart', {
       loaded: 0,
@@ -193,9 +212,63 @@ export class XMLHttpRequestController {
 
         readNextResponseBodyChunk()
       }
+
+      readNextResponseBodyChunk()
     } else {
       finalizeResponse()
     }
+  }
+
+  private getResponse(): unknown {
+    switch (this.request.responseType) {
+      case 'json': {
+        return parseJson(this.getResponseText())
+      }
+
+      case 'arraybuffer': {
+        return toArrayBuffer(this.responseBuffer)
+      }
+
+      case 'blob': {
+        const mimeType =
+          this.request.getResponseHeader('Content-Type') || 'text/plain'
+        return new Blob([this.getResponseText()], { type: mimeType })
+      }
+
+      default: {
+        return this.getResponseText()
+      }
+    }
+  }
+
+  private getResponseText(): string {
+    return decodeBuffer(this.responseBuffer)
+  }
+
+  private getResponseXML(): Document | null {
+    const contentType = this.request.getResponseHeader('Content-Type') || ''
+
+    if (typeof DOMParser === 'undefined') {
+      console.warn(
+        'Cannot retrieve XMLHttpRequest response body as XML: DOMParser is not defined. You are likely using an environment that is not browser or does not polyfill browser globals correctly.'
+      )
+      return null
+    }
+
+    if (isDomParserSupportedType(contentType)) {
+      return new DOMParser().parseFromString(
+        this.getResponseText(),
+        contentType
+      )
+    }
+
+    return null
+  }
+
+  public errorWith(error: Error): void {
+    this.setReadyState(this.request.DONE)
+    this.trigger('error')
+    this.trigger('loadend')
   }
 
   /**
@@ -241,17 +314,56 @@ export class XMLHttpRequestController {
    * Converts this `XMLHttpRequest` instance into a Fetch API `Request` instance.
    */
   public toFetchApiRequest(): Request {
-    return new Request(this.url, {
+    const fetchRequest = new Request(this.url, {
       method: this.method,
       headers: this.requestHeaders,
-      credentials: this.request.withCredentials ? 'include' : 'omit',
+      /**
+       * @see https://xhr.spec.whatwg.org/#cross-origin-credentials
+       */
+      credentials: this.request.withCredentials ? 'include' : 'same-origin',
       body: this.requestBody as any,
     })
+
+    const proxyHeaders = createProxy(fetchRequest.headers, {
+      methodCall: ([methodName, args], invoke) => {
+        // Forward the latest state of the internal request headers
+        // because the interceptor might have modified them
+        // without responding to the request.
+        switch (methodName) {
+          case 'append':
+          case 'set': {
+            // @ts-ignore
+            this.request.setRequestHeader(args[0], args[1])
+            break
+          }
+
+          case 'delete': {
+            const [headerName] = args as [string]
+            console.warn(
+              `XMLHttpRequest: Cannot remove a "${headerName}" header from the Fetch API representation of the "${fetchRequest.method} ${fetchRequest.url}" request. XMLHttpRequest headers cannot be removed.`
+            )
+            break
+          }
+        }
+
+        return invoke()
+      },
+    })
+    define(fetchRequest, 'headers', proxyHeaders)
+
+    return fetchRequest
   }
+}
+
+function toAbsoluteUrl(url: string | URL): URL {
+  return new URL(url.toString(), location.href)
 }
 
 function define(target: object, property: string, value: unknown): void {
   Reflect.defineProperty(target, property, {
+    // Ensure writable properties to allow redefining readonly properties.
+    writable: true,
+    enumerable: true,
     value,
   })
 }
