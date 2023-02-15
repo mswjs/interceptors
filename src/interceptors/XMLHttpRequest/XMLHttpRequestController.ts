@@ -1,3 +1,4 @@
+import type { Debugger } from 'debug'
 import { Headers, Request } from '@remix-run/web-fetch'
 import { headersToString } from 'headers-polyfill'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
@@ -13,7 +14,10 @@ import { parseJson } from '../../utils/parseJson'
 
 export class XMLHttpRequestController {
   public request: XMLHttpRequest
-  public onRequest?: (request: Request) => Promise<void>
+  public onRequest?: (
+    this: XMLHttpRequestController,
+    request: Request
+  ) => Promise<void>
 
   private method: string = 'GET'
   private url: URL = null as any
@@ -22,7 +26,7 @@ export class XMLHttpRequestController {
   private responseBuffer: Uint8Array
   private events: Map<keyof XMLHttpRequestEventTargetEventMap, Array<Function>>
 
-  constructor(readonly initialRequest: XMLHttpRequest) {
+  constructor(readonly initialRequest: XMLHttpRequest, public log: Debugger) {
     this.events = new Map()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
@@ -54,6 +58,9 @@ export class XMLHttpRequestController {
               this.url = toAbsoluteUrl(url)
             }
 
+            this.log = this.log.extend(`${this.method} ${this.url.href}`)
+            this.log('open', this.method, this.url.href)
+
             return invoke()
           }
 
@@ -63,12 +70,18 @@ export class XMLHttpRequestController {
               Function
             ]
             this.registerEvent(eventName, listener)
+
+            this.log('addEventListener', eventName, listener.name)
+
             return invoke()
           }
 
           case 'setRequestHeader': {
             const [name, value] = args as [string, string]
             this.requestHeaders.set(name, value)
+
+            this.log('setRequestHeader', name, value)
+
             return invoke()
           }
 
@@ -92,6 +105,11 @@ export class XMLHttpRequestController {
               // Note that the request may not yet be DONE and may, in fact,
               // be LOADING while the "respondWith" method does its magic.
               if (this.request.readyState < this.request.LOADING) {
+                this.log(
+                  'request callback settled but request has not been handled (readystate %d), performing as-is...',
+                  this.request.readyState
+                )
+
                 return invoke()
               }
             })
@@ -130,6 +148,8 @@ export class XMLHttpRequestController {
     const prevEvents = this.events.get(eventName) || []
     const nextEvents = prevEvents.concat(listener)
     this.events.set(eventName, nextEvents)
+
+    this.log('registered event "%s"', eventName, listener.name)
   }
 
   /**
@@ -137,18 +157,31 @@ export class XMLHttpRequestController {
    * Fetch API `Response` instance.
    */
   public respondWith(response: Response): void {
+    this.log(
+      'responding with a mocked response: %d %s',
+      response.status,
+      response.statusText
+    )
+
     define(this.request, 'status', response.status)
     define(this.request, 'statusText', response.statusText)
     define(this.request, 'responseURL', this.url.href)
 
     this.request.getResponseHeader = new Proxy(this.request.getResponseHeader, {
       apply: (_, __, args: [name: string]) => {
+        this.log('getResponseHeader', args[0])
+
         if (this.request.readyState < this.request.HEADERS_RECEIVED) {
+          this.log('headers not received yet, returning null')
+
           // Headers not received yet, nothing to return.
           return null
         }
 
-        return response.headers.get(args[0])
+        const headerValue = response.headers.get(args[0])
+        this.log('resolved response header "%s" to', args[0], headerValue)
+
+        return headerValue
       },
     })
 
@@ -156,12 +189,19 @@ export class XMLHttpRequestController {
       this.request.getAllResponseHeaders,
       {
         apply: () => {
+          this.log('getAllResponseHeaders')
+
           if (this.request.readyState < this.request.HEADERS_RECEIVED) {
+            this.log('headers not received yet, returning empty string')
+
             // Headers not received yet, nothing to return.
             return ''
           }
 
-          return headersToString(response.headers)
+          const allHeaders = headersToString(response.headers)
+          this.log('resolved all response headers to', allHeaders)
+
+          return allHeaders
         },
       }
     )
@@ -180,6 +220,8 @@ export class XMLHttpRequestController {
          */
         undefined
 
+    this.log('calculated response body length', totalResponseBodyLength)
+
     this.trigger('loadstart', {
       loaded: 0,
       total: totalResponseBodyLength,
@@ -189,6 +231,8 @@ export class XMLHttpRequestController {
     this.setReadyState(this.request.LOADING)
 
     const finalizeResponse = () => {
+      this.log('finalizing the mocked response...')
+
       this.setReadyState(this.request.DONE)
 
       this.trigger('load', {
@@ -203,17 +247,21 @@ export class XMLHttpRequestController {
     }
 
     if (response.body) {
+      this.log('mocked response has body, streaming...')
+
       const reader = response.body.getReader()
 
       const readNextResponseBodyChunk = async () => {
         const { value, done } = await reader.read()
 
         if (done) {
+          this.log('response body stream done!')
           finalizeResponse()
           return
         }
 
         if (value) {
+          this.log('read response body chunk:', value)
           this.responseBuffer = concatArrayBuffer(this.responseBuffer, value)
 
           this.trigger('progress', {
@@ -232,29 +280,57 @@ export class XMLHttpRequestController {
   }
 
   private getResponse(): unknown {
+    this.log('getResponse (responseType: %s)', this.request.responseType)
+
     switch (this.request.responseType) {
       case 'json': {
-        return parseJson(this.getResponseText())
+        const responseJson = parseJson(this.getResponseText())
+        this.log('resolved response JSON', responseJson)
+
+        return responseJson
       }
 
       case 'arraybuffer': {
-        return toArrayBuffer(this.responseBuffer)
+        const arrayBuffer = toArrayBuffer(this.responseBuffer)
+        this.log('resolved response ArrayBuffer', arrayBuffer)
+
+        return arrayBuffer
       }
 
       case 'blob': {
         const mimeType =
           this.request.getResponseHeader('Content-Type') || 'text/plain'
-        return new Blob([this.getResponseText()], { type: mimeType })
+        const responseBlob = new Blob([this.getResponseText()], {
+          type: mimeType,
+        })
+
+        this.log(
+          'resolved response Blob (mime type: %s)',
+          responseBlob,
+          mimeType
+        )
+
+        return responseBlob
       }
 
       default: {
-        return this.getResponseText()
+        const responseText = this.getResponseText()
+        this.log(
+          'resolving "%s" response type as text',
+          this.request.responseType,
+          responseText
+        )
+
+        return responseText
       }
     }
   }
 
   private getResponseText(): string {
-    return decodeBuffer(this.responseBuffer)
+    const responseText = decodeBuffer(this.responseBuffer)
+    this.log('getResponseText: "%s"', responseText)
+
+    return responseText
   }
 
   private getResponseXML(): Document | null {
@@ -278,6 +354,8 @@ export class XMLHttpRequestController {
   }
 
   public errorWith(error: Error): void {
+    this.log('responding with an error')
+
     this.setReadyState(this.request.DONE)
     this.trigger('error')
     this.trigger('loadend')
@@ -287,13 +365,20 @@ export class XMLHttpRequestController {
    * Transitions this request's `readyState` to the given one.
    */
   private setReadyState(nextReadyState: number): void {
+    this.log('setReadyState: %d -> %d', this.request.readyState, nextReadyState)
+
     if (this.request.readyState === nextReadyState) {
+      this.log('ready state identical, skipping transition...')
       return
     }
 
     define(this.request, 'readyState', nextReadyState)
 
+    this.log('set readyState to: %d', nextReadyState)
+
     if (nextReadyState !== this.request.UNSENT) {
+      this.log('triggerring "readystatechange" event...')
+
       this.trigger('readystatechange')
     }
   }
@@ -309,14 +394,23 @@ export class XMLHttpRequestController {
     const callback = this.request[`on${eventName}`]
     const event = createEvent(this.request, eventName, options)
 
+    this.log('trigger "%s"', eventName, options || '')
+
     // Invoke direct callbacks.
     if (typeof callback === 'function') {
+      this.log('found a direct "%s" callback, calling...', eventName)
       callback.call(this.request, event)
     }
 
     // Invoke event listeners.
     for (const [registeredEventName, listeners] of this.events) {
       if (registeredEventName === eventName) {
+        this.log(
+          'found %d listener(s) for "%s" event, calling...',
+          listeners.length,
+          eventName
+        )
+
         listeners.forEach((listener) => listener.call(this.request, event))
       }
     }
@@ -326,6 +420,8 @@ export class XMLHttpRequestController {
    * Converts this `XMLHttpRequest` instance into a Fetch API `Request` instance.
    */
   public toFetchApiRequest(): Request {
+    this.log('converting request to a Fetch API Request...')
+
     const fetchRequest = new Request(this.url.href, {
       method: this.method,
       headers: this.requestHeaders,
@@ -362,6 +458,8 @@ export class XMLHttpRequestController {
       },
     })
     define(fetchRequest, 'headers', proxyHeaders)
+
+    this.log('converted request to a Fetch API Request!', fetchRequest)
 
     return fetchRequest
   }

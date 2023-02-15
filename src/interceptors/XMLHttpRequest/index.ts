@@ -35,7 +35,10 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
       'Failed to patch the "XMLHttpRequest" module: already patched.'
     )
 
-    globalThis.XMLHttpRequest = createXMLHttpRequestProxy(this.emitter)
+    globalThis.XMLHttpRequest = createXMLHttpRequestProxy({
+      emitter: this.emitter,
+      log: this.log,
+    })
 
     log(
       'native "XMLHttpRequest" module patched!',
