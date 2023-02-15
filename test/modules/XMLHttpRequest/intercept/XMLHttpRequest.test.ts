@@ -9,6 +9,7 @@ import {
 } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 import { anyUuid, headersContaining } from '../../../jest.expect'
+import { toArrayBuffer, encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -346,4 +347,23 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
   expect(resolver).toHaveBeenCalledTimes(1)
   const [request] = resolver.mock.calls[0]
   expect(request.credentials).toBe('same-origin')
+})
+
+test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
+  const request = await createXMLHttpRequest((request) => {
+    request.open('GET', httpServer.https.url('/user'))
+    request.responseType = 'arraybuffer'
+    request.send()
+  })
+
+  const expectedArrayBuffer = toArrayBuffer(encodeBuffer('user-body'))
+  const responseBuffer = request.response as ArrayBuffer
+
+  // Must return an "ArrayBuffer" instance for "arraybuffer" response type.
+  expect(request.responseType).toBe('arraybuffer')
+  expect(responseBuffer).toBeInstanceOf(ArrayBuffer)
+  expect(responseBuffer.byteLength).toBe(expectedArrayBuffer.byteLength)
+  expect(
+    Buffer.from(responseBuffer).compare(Buffer.from(expectedArrayBuffer))
+  ).toBe(0)
 })
