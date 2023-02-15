@@ -10,7 +10,6 @@ import {
 import { createProxy } from '../../utils/createProxy'
 import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
-import { nextTick } from '../../utils/nextTick'
 
 export class XMLHttpRequestController {
   public request: XMLHttpRequest
@@ -29,6 +28,19 @@ export class XMLHttpRequestController {
     this.responseBuffer = new Uint8Array()
 
     this.request = createProxy(initialRequest, {
+      setProperty: ([propertyName, nextValue], invoke) => {
+        /**
+         * @note Setting the "withCredentials" property on the XHR proxy
+         * causes the "TypeError: Illegal invocation" error. Instead,
+         * define the property on the original XHR instance itself.
+         */
+        if (propertyName === 'withCredentials') {
+          define(this.request, 'withCredentials', nextValue)
+          return true
+        }
+
+        return invoke()
+      },
       methodCall: ([methodName, args], invoke) => {
         switch (methodName) {
           case 'open': {
@@ -314,7 +326,7 @@ export class XMLHttpRequestController {
    * Converts this `XMLHttpRequest` instance into a Fetch API `Request` instance.
    */
   public toFetchApiRequest(): Request {
-    const fetchRequest = new Request(this.url, {
+    const fetchRequest = new Request(this.url.href, {
       method: this.method,
       headers: this.requestHeaders,
       /**
@@ -332,8 +344,8 @@ export class XMLHttpRequestController {
         switch (methodName) {
           case 'append':
           case 'set': {
-            // @ts-ignore
-            this.request.setRequestHeader(args[0], args[1])
+            const [headerName, headerValue] = args as [string, string]
+            this.request.setRequestHeader(headerName, headerValue)
             break
           }
 

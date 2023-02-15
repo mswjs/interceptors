@@ -7,7 +7,10 @@ export interface ProxyOptions<Target extends Record<string, any>> {
     next: NextFunction<void>
   ): void
 
-  setProperty?(): void
+  setProperty?(
+    data: [propertyName: string | symbol, nextValue: unknown],
+    next: NextFunction<void>
+  ): void
 
   getProperty?(
     data: [propertyName: string | symbol, receiver: Target],
@@ -28,7 +31,7 @@ export function createProxy<Target extends object>(
 function optionsToProxyHandler<T extends Record<string, any>>(
   options: ProxyOptions<T>
 ): ProxyHandler<T> {
-  const { constructorCall, methodCall, getProperty } = options
+  const { constructorCall, methodCall, getProperty, setProperty } = options
   const handler: ProxyHandler<T> = {}
 
   if (typeof constructorCall !== 'undefined') {
@@ -38,8 +41,18 @@ function optionsToProxyHandler<T extends Record<string, any>>(
     }
   }
 
+  if (typeof setProperty !== 'undefined') {
+    handler.set = function (target, propertyName, nextValue, receiver) {
+      const next = () => Reflect.set(target, propertyName, nextValue, receiver)
+      return setProperty.call(target, [propertyName, nextValue], next) as any
+    }
+  }
+
   handler.get = function (target, propertyName, receiver) {
-    const next = Reflect.get.bind(target, target, propertyName, receiver)
+    /**
+     * @note Using `Reflect.get()` here causes "TypeError: Illegal invocation".
+     */
+    const next = () => target[propertyName as any]
 
     const value =
       typeof getProperty !== 'undefined'
@@ -48,7 +61,7 @@ function optionsToProxyHandler<T extends Record<string, any>>(
 
     if (typeof value === 'function') {
       return (...args: Array<any>) => {
-        const next = Reflect.apply.bind(target, value, target, args)
+        const next = value.bind(target, ...args)
 
         if (typeof methodCall !== 'undefined') {
           return methodCall.call(target, [propertyName as any, args], next)
