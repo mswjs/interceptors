@@ -15,6 +15,10 @@ import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
 import { invariant } from 'outvariant'
 
+/**
+ * An `XMLHttpRequest` instance controller that allows us
+ * to handle any given request instance (e.g. responding to it).
+ */
 export class XMLHttpRequestController {
   public request: XMLHttpRequest
   public requestId?: string

@@ -9,6 +9,11 @@ export interface XMLHttpRequestProxyOptions {
   log: Debugger
 }
 
+/**
+ * Create a proxied `XMLHttpRequest` class.
+ * The proxied class establishes spies on certain methods,
+ * allowing us to intercept requests and respond to them.
+ */
 export function createXMLHttpRequestProxy({
   emitter,
   log,
