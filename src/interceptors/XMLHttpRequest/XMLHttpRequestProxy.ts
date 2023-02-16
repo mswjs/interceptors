@@ -2,7 +2,6 @@ import type { Debugger } from 'debug'
 import { until } from '@open-draft/until'
 import { XMLHttpRequestEmitter } from '.'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
-import { uuidv4 } from '../../utils/uuid'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
 
 export interface XMLHttpRequestProxyOptions {
@@ -25,11 +24,7 @@ export function createXMLHttpRequestProxy({
         log
       )
 
-      requestController.onRequest = async function (request) {
-        const requestId = uuidv4()
-
-        this.log('onRequest', { request, requestId })
-
+      requestController.onRequest = async function (request, requestId) {
         // Notify the consumer about a new request.
         const interactiveRequest = toInteractiveRequest(request)
 
@@ -65,6 +60,11 @@ export function createXMLHttpRequestProxy({
             middlewareException
           )
 
+          /**
+           * @todo Consider forwarding this error to the stderr as well
+           * since not all consumers are expecting to handle errors.
+           * If they don't, this error will be swallowed.
+           */
           requestController.errorWith(middlewareException)
           return
         }
@@ -76,18 +76,23 @@ export function createXMLHttpRequestProxy({
             mockedResponse.statusText
           )
 
-          const responseClone = mockedResponse.clone()
-
-          requestController.respondWith(mockedResponse)
-
-          emitter.emit('response', responseClone, interactiveRequest, requestId)
+          return requestController.respondWith(mockedResponse)
         }
 
         this.log('no mocked response received, performing request as-is...')
+      }
 
-        /**
-         * @todo Also get the original response here and emit "response" event.
-         */
+      requestController.onResponse = async function (
+        response,
+        request,
+        requestId
+      ) {
+        this.log(
+          'emitting the "response" event for %s listener(s)...',
+          emitter.listenerCount('response')
+        )
+
+        emitter.emit('response', response, request, requestId)
       }
 
       // Return the proxied request from the controller

@@ -11,13 +11,24 @@ import {
 import { createProxy } from '../../utils/createProxy'
 import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
+import { uuidv4 } from '../../utils/uuid'
+import { createResponse } from './utils/createResponse'
+import { nextTick } from '../../utils/nextTick'
 
 export class XMLHttpRequestController {
   public request: XMLHttpRequest
+  public requestId?: string
   public onRequest?: (
     this: XMLHttpRequestController,
-    request: Request
+    request: Request,
+    requestId: string
   ) => Promise<void>
+  public onResponse?: (
+    this: XMLHttpRequestController,
+    response: Response,
+    request: Request,
+    requestId: string
+  ) => void
 
   private method: string = 'GET'
   private url: URL = null as any
@@ -49,6 +60,8 @@ export class XMLHttpRequestController {
         switch (methodName) {
           case 'open': {
             const [method, url] = args as [string, string | undefined]
+
+            this.requestId = uuidv4()
 
             if (typeof url === 'undefined') {
               this.method = 'GET'
@@ -95,10 +108,37 @@ export class XMLHttpRequestController {
                 typeof body === 'string' ? encodeBuffer(body) : body
             }
 
+            this.request.addEventListener('load', () => {
+              if (typeof this.onResponse !== 'undefined') {
+                // Create a Fetch API Response representation of whichever
+                // response this XMLHttpRequest received. Note those may
+                // be either a mocked and the original response.
+                const fetchResponse = createResponse(
+                  this.request,
+                  /**
+                   * The `response` property is the right way to read
+                   * the ambiguous response body, as the request's "responseTyoe"
+                   * may differ.
+                   * @see https://xhr.spec.whatwg.org/#the-response-attribute
+                   */
+                  this.request.response
+                )
+
+                // Notify the consumer about the response.
+                this.onResponse.call(
+                  this,
+                  fetchResponse,
+                  fetchRequest,
+                  this.requestId!
+                )
+              }
+            })
+
             // Delegate request handling to the consumer.
             const fetchRequest = this.toFetchApiRequest()
             const onceRequestSettled =
-              this.onRequest?.call(this, fetchRequest) || Promise.resolve()
+              this.onRequest?.call(this, fetchRequest, this.requestId!) ||
+              Promise.resolve()
 
             onceRequestSettled.finally(() => {
               // If the consumer didn't handle the request perform it as-is.
