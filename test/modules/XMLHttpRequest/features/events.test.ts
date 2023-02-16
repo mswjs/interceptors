@@ -6,6 +6,7 @@ import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 import { AnyUuid, anyUuid, headersContaining } from '../../../jest.expect'
+import { HttpRequestEventMap } from '../../../../src'
 
 const server = new HttpServer((app) => {
   app.get('/bypassed', (req, res) => {
@@ -37,8 +38,8 @@ afterAll(async () => {
 })
 
 it('emits events for a handled request', async () => {
-  const requestListener = jest.fn()
-  const responseListener = jest.fn()
+  const requestListener = jest.fn<never, HttpRequestEventMap['request']>()
+  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
   interceptor.on('request', requestListener)
   interceptor.on('response', responseListener)
 
@@ -82,8 +83,8 @@ it('emits events for a handled request', async () => {
 })
 
 it('emits events for a bypassed request', async () => {
-  const requestListener = jest.fn()
-  const responseListener = jest.fn()
+  const requestListener = jest.fn<never, HttpRequestEventMap['request']>()
+  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
   interceptor.on('request', requestListener)
   interceptor.on('response', responseListener)
 

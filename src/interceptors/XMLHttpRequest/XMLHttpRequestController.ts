@@ -13,7 +13,6 @@ import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
 import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
-import { nextTick } from '../../utils/nextTick'
 import { invariant } from 'outvariant'
 
 export class XMLHttpRequestController {
@@ -150,6 +149,17 @@ export class XMLHttpRequestController {
                   'request callback settled but request has not been handled (readystate %d), performing as-is...',
                   this.request.readyState
                 )
+
+                /**
+                 * @note Set the intercepted request ID on the original request
+                 * so that if it triggers any other interceptors, they don't attempt
+                 * to process it once again.
+                 *
+                 * For instance, XMLHttpRequest is often implemented via "http.ClientRequest"
+                 * and we don't want for both XHR and ClientRequest interceptors to
+                 * handle the same request at the same time (e.g. emit the "response" event twice).
+                 */
+                this.request.setRequestHeader('X-Request-Id', this.requestId!)
 
                 return invoke()
               }

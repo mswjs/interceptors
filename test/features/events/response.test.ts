@@ -56,9 +56,6 @@ interceptor.on('request', (request) => {
   }
 })
 
-const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
-interceptor.on('response', responseListener)
-
 beforeAll(async () => {
   // Allow XHR requests to the local HTTPS server with a self-signed certificate.
   window._resourceLoader._strictSSL = false
@@ -77,6 +74,9 @@ afterAll(async () => {
 })
 
 test('ClientRequest: emits the "response" event for a mocked response', async () => {
+  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+  interceptor.on('response', responseListener)
+
   const req = https.request(httpServer.https.url('/user'), {
     method: 'GET',
     headers: {
@@ -103,6 +103,9 @@ test('ClientRequest: emits the "response" event for a mocked response', async ()
 })
 
 test('ClientRequest: emits the "response" event upon the original response', async () => {
+  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+  interceptor.on('response', responseListener)
+
   const req = https.request(httpServer.https.url('/account'), {
     method: 'POST',
     headers: {
@@ -131,6 +134,9 @@ test('ClientRequest: emits the "response" event upon the original response', asy
 })
 
 test('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
+  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+  interceptor.on('response', responseListener)
+
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.https.url('/user'))
     req.setRequestHeader('x-request-custom', 'yes')
@@ -139,9 +145,12 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
-  const [response, request] = responseListener.mock.calls.find((call) => {
-    return call[1].method === 'GET'
-  })!
+  const [response, request] = responseListener.mock.calls.find(
+    ([_, request]) => {
+      // The first response event will be from the "OPTIONS" preflight request.
+      return request.method === 'GET'
+    }
+  )!
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user'))
@@ -159,6 +168,9 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
 })
 
 test('XMLHttpRequest: emits the "response" event upon the original response', async () => {
+  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+  interceptor.on('response', responseListener)
+
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('POST', httpServer.https.url('/account'))
     req.setRequestHeader('x-request-custom', 'yes')
@@ -174,9 +186,11 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   expect(responseListener).toHaveBeenCalledTimes(2)
 
   // Lookup the correct response listener call.
-  const [response, request] = responseListener.mock.calls.find((call) => {
-    return call[1].method === 'POST'
-  })!
+  const [response, request] = responseListener.mock.calls.find(
+    ([_, request]) => {
+      return request.method === 'POST'
+    }
+  )!
 
   expect(request).toBeDefined()
   expect(response).toBeDefined()
@@ -197,6 +211,9 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
 })
 
 test('fetch: emits the "response" event upon a mocked response', async () => {
+  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+  interceptor.on('response', responseListener)
+
   await fetch(httpServer.https.url('/user'), {
     headers: {
       'x-request-custom': 'yes',
@@ -220,6 +237,9 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
 })
 
 test('fetch: emits the "response" event upon the original response', async () => {
+  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+  interceptor.on('response', responseListener)
+
   await fetch(httpServer.https.url('/account'), {
     agent: httpsAgent,
     method: 'POST',
