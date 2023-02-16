@@ -14,6 +14,7 @@ import { parseJson } from '../../utils/parseJson'
 import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
 import { nextTick } from '../../utils/nextTick'
+import { invariant } from 'outvariant'
 
 export class XMLHttpRequestController {
   public request: XMLHttpRequest
@@ -367,6 +368,16 @@ export class XMLHttpRequestController {
   }
 
   private getResponseText(): string {
+    /**
+     * Throw when trying to read the response body as text when the
+     * "responseType" doesn't expect text. This just respects the spec better.
+     * @see https://xhr.spec.whatwg.org/#the-responsetext-attribute
+     */
+    invariant(
+      this.request.responseType === '' || this.request.responseType === 'text',
+      'InvalidStateError: The object is in invalid state.'
+    )
+
     const responseText = decodeBuffer(this.responseBuffer)
     this.log('getResponseText: "%s"', responseText)
 
@@ -374,6 +385,12 @@ export class XMLHttpRequestController {
   }
 
   private getResponseXML(): Document | null {
+    invariant(
+      this.request.responseType === '' ||
+        this.request.responseType === 'document',
+      'InvalidStateError: The object is in invalid state.'
+    )
+
     const contentType = this.request.getResponseHeader('Content-Type') || ''
 
     if (typeof DOMParser === 'undefined') {
