@@ -33,13 +33,15 @@ afterAll(() => {
 test('calls the "load" event attached via "addEventListener" with a mocked response', async () => {
   await createXMLHttpRequest((req) => {
     req.open('GET', 'https://test.mswjs.io/user')
+    req.responseType = 'json'
+
     req.addEventListener('load', function () {
-      const { status, responseText } = this
+      const { status, response } = this
       const headers = this.getAllResponseHeaders()
 
       expect(status).toBe(200)
       expect(headers).toContain('x-header: yes')
-      expect(responseText).toBe(`{"mocked":true}`)
+      expect(response).toEqual({ mocked: true })
     })
     req.send()
   })

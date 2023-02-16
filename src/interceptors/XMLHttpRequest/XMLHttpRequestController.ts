@@ -249,9 +249,18 @@ export class XMLHttpRequestController {
 
     // Update the response getters to resolve against the mocked response.
     Object.defineProperties(this.request, {
-      response: { enumerable: true, get: this.getResponse.bind(this) },
-      responseText: { enumerable: true, get: this.getResponseText.bind(this) },
-      responseXML: { enumerable: true, get: this.getResponseXML.bind(this) },
+      response: {
+        enumerable: true,
+        get: () => this.response,
+      },
+      responseText: {
+        enumerable: true,
+        get: () => this.responseText,
+      },
+      responseXML: {
+        enumerable: true,
+        get: () => this.responseXML,
+      },
     })
 
     const totalResponseBodyLength = response.headers.has('Content-Length')
@@ -320,12 +329,20 @@ export class XMLHttpRequestController {
     }
   }
 
-  private getResponse(): unknown {
+  private responseBufferToText(): string {
+    return decodeBuffer(this.responseBuffer)
+  }
+
+  get response(): unknown {
     this.log('getResponse (responseType: %s)', this.request.responseType)
+
+    if (this.request.readyState !== this.request.DONE) {
+      return null
+    }
 
     switch (this.request.responseType) {
       case 'json': {
-        const responseJson = parseJson(this.getResponseText())
+        const responseJson = parseJson(this.responseBufferToText())
         this.log('resolved response JSON', responseJson)
 
         return responseJson
@@ -341,7 +358,7 @@ export class XMLHttpRequestController {
       case 'blob': {
         const mimeType =
           this.request.getResponseHeader('Content-Type') || 'text/plain'
-        const responseBlob = new Blob([this.getResponseText()], {
+        const responseBlob = new Blob([this.responseBufferToText()], {
           type: mimeType,
         })
 
@@ -355,7 +372,7 @@ export class XMLHttpRequestController {
       }
 
       default: {
-        const responseText = this.getResponseText()
+        const responseText = this.responseBufferToText()
         this.log(
           'resolving "%s" response type as text',
           this.request.responseType,
@@ -367,7 +384,7 @@ export class XMLHttpRequestController {
     }
   }
 
-  private getResponseText(): string {
+  get responseText(): string {
     /**
      * Throw when trying to read the response body as text when the
      * "responseType" doesn't expect text. This just respects the spec better.
@@ -378,18 +395,29 @@ export class XMLHttpRequestController {
       'InvalidStateError: The object is in invalid state.'
     )
 
-    const responseText = decodeBuffer(this.responseBuffer)
+    if (
+      this.request.readyState !== this.request.LOADING &&
+      this.request.readyState !== this.request.DONE
+    ) {
+      return ''
+    }
+
+    const responseText = this.responseBufferToText()
     this.log('getResponseText: "%s"', responseText)
 
     return responseText
   }
 
-  private getResponseXML(): Document | null {
+  get responseXML(): Document | null {
     invariant(
       this.request.responseType === '' ||
         this.request.responseType === 'document',
       'InvalidStateError: The object is in invalid state.'
     )
+
+    if (this.request.readyState !== this.request.DONE) {
+      return null
+    }
 
     const contentType = this.request.getResponseHeader('Content-Type') || ''
 
@@ -402,7 +430,7 @@ export class XMLHttpRequestController {
 
     if (isDomParserSupportedType(contentType)) {
       return new DOMParser().parseFromString(
-        this.getResponseText(),
+        this.responseBufferToText(),
         contentType
       )
     }
