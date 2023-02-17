@@ -28,8 +28,8 @@ class HeadersContaining extends AsymmetricMatcher<Record<string, unknown>> {
   }
 }
 
-class AnyUuid extends AsymmetricMatcher<string> {
-  private uuidRegExp =
+export class AnyUuid extends AsymmetricMatcher<string> {
+  static uuidRegExp =
     /\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b/
 
   constructor() {
@@ -37,7 +37,7 @@ class AnyUuid extends AsymmetricMatcher<string> {
   }
 
   asymmetricMatch(other: string) {
-    return this.uuidRegExp.test(other)
+    return AnyUuid.uuidRegExp.test(other)
   }
 
   toString() {
@@ -45,7 +45,7 @@ class AnyUuid extends AsymmetricMatcher<string> {
   }
 
   toAsymmetricMatcher() {
-    return String(this.uuidRegExp)
+    return String(AnyUuid.uuidRegExp)
   }
 }
 
