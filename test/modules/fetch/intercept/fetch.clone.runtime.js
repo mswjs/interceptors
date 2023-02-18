@@ -1,4 +1,4 @@
-import { FetchInterceptor } from '@mswjs/interceptors/lib/interceptors/fetch'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 // Intentionally don't mock any responses
 // so that the original responses are sent.

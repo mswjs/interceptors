@@ -16,7 +16,7 @@ const server = new HttpServer((app) => {
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-interceptor.on('request', (request, requestId) => {
+interceptor.on('request', (request) => {
   if (request.url.endsWith('/user')) {
     return request.respondWith(
       new Response('mocked response', {

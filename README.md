@@ -107,7 +107,7 @@ To use this library you need to choose one or multiple interceptors to apply. Th
 Use an interceptor by constructing it and attaching request/response listeners:
 
 ```js
-import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/ClientRequest'
+import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
 
 const interceptor = new ClientRequestInterceptor()
 
@@ -138,8 +138,8 @@ You can combine multiple interceptors to capture requests from different request
 
 ```js
 import { BatchInterceptor } from '@mswjs/interceptors'
-import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/ClientRequest'
-import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
+import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
@@ -256,7 +256,7 @@ interceptor.on('request', (request, requestId) => {
 })
 ```
 
-> We use Fetch API `Response` class as the middleground for mocked response definition. This library then coerces the response instance to the appropriate response format (e.g. to `http.OutgoingMessage` in the case of `http.ClientRequest`).
+> We use Fetch API `Response` class as the middle-ground for mocked response definition. This library then coerces the response instance to the appropriate response format (e.g. to `http.OutgoingMessage` in the case of `http.ClientRequest`).
 
 **The `Response` class is built-in in since Node.js 18. Use a Fetch API-compatible polyfill, like `node-fetch`, for older versions of Node.js.`**
 
@@ -326,8 +326,8 @@ Enables request interception in the current process while delegating the respons
 
 ```js
 // child.js
-import { RemoteHttpInterceptor } from '@mswjs/interceptors/lib/RemoteHttpInterceptor'
-import { ClientRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/ClientRequest'
+import { RemoteHttpInterceptor } from '@mswjs/interceptors/RemoteHttpInterceptor'
+import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
 
 const interceptor = new RemoteHttpInterceptor({
   // Alternatively, you can use presets.
@@ -350,7 +350,7 @@ Resolves an intercepted request in the given child `process`. Requires for that 
 ```js
 // parent.js
 import { spawn } from 'child_process'
-import { RemoteHttpResolver } from '@mswjs/interceptors/lib/RemoteHttpInterceptor'
+import { RemoteHttpResolver } from '@mswjs/interceptors/RemoteHttpInterceptor'
 
 const appProcess = spawn('node', ['app.js'], {
   stdio: ['inherit', 'inherit', 'inherit', 'ipc'],

@@ -1,4 +1,4 @@
-import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/lib/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', async (request, requestId) => {
