@@ -1,6 +1,6 @@
 /**
  * @jest-environment jsdom
- * @see https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest#instance_methods
+ * @see https://xhr.spec.whatwg.org/#events
  */
 import { HttpServer } from '@open-draft/test-server/http'
 import { Response } from '@remix-run/web-fetch'
@@ -71,12 +71,7 @@ test('emits correct events sequence for an unhandled request with no response bo
     ['loadstart', 1],
     ['readystatechange', 2], // HEADERS_RECEIVED
     ['readystatechange', 4], // DONE
-    /**
-     * @note XMLHttpRequest polyfill from JSDOM dispatches the "readystatechange" listener.
-     * XMLHttpRequest override also dispatches the "readystatechange" listener for the original
-     * request explicitly so it never hangs. This results in the listener being called twice.
-     */
-    ['readystatechange', 4],
+
     ['load', 4],
     ['loadend', 4],
   ])
@@ -117,10 +112,6 @@ test('emits correct events sequence for an unhandled request with a response bod
     ['readystatechange', 2], // HEADERS_RECEIVED
     ['readystatechange', 3], // LOADING
     ['progress', 3],
-    ['readystatechange', 4],
-    /**
-     * @note The same issue with the "readystatechange" callback being called twice.
-     */
     ['readystatechange', 4],
     ['load', 4],
     ['loadend', 4],

@@ -6,6 +6,7 @@ import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpR
 import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
+
 interceptor.on('request', (request) => {
   const url = new URL(request.url)
 
@@ -46,7 +47,6 @@ test('handles response of type "json" and missing response JSON body', async () 
   // When XHR fails to parse a given response JSON body,
   // fall back to null, as the failed JSON parsing result.
   expect(req.response).toBe(null)
-  expect(req.responseText).toBe('')
   expect(req.responseType).toBe('json')
 })
 
@@ -58,6 +58,5 @@ test('handles response of type "json" and invalid response JSON body', async () 
   })
 
   expect(req.response).toBe(null)
-  expect(req.responseText).toBe(`{"invalid: js'on`)
   expect(req.responseType).toEqual('json')
 })

@@ -46,7 +46,7 @@ test('intercepts an HTTP GET request', async () => {
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url)
   expect(request.headers.get('x-request-header')).toBe('yes')
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
 
   expect(response).toEqual<XMLHttpResponse>({
@@ -73,7 +73,7 @@ test('intercepts an HTTP POST request', async () => {
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(await request.json()).toEqual({ user: 'john' })
 
   expect(response).toEqual<XMLHttpResponse>({
@@ -97,7 +97,7 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
   expect(request.credentials).toBe('include')
 })
 
-test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is false', async () => {
+test('sets "credentials" to "same-origin" on isomorphic request when "withCredentials" is false', async () => {
   const context = await prepareRuntime()
   const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
   const url = httpServer.http.url('/user')
@@ -107,10 +107,10 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
     withCredentials: false,
   })
 
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
 })
 
-test('sets "credentials" to "omit" on isomorphic request when "withCredentials" is not set', async () => {
+test('sets "credentials" to "same-origin" on isomorphic request when "withCredentials" is not set', async () => {
   const context = await prepareRuntime()
   const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
   const url = httpServer.http.url('/user')
@@ -119,5 +119,5 @@ test('sets "credentials" to "omit" on isomorphic request when "withCredentials" 
     url,
   })
 
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
 })

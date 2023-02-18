@@ -89,7 +89,7 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
   expect(request.headers.get('content-type')).toBe('application/json')
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(await request.json()).toEqual({ userId: 'abc-123' })
   expect(request.respondWith).toBeInstanceOf(Function)
 

@@ -38,7 +38,7 @@ interceptor.on('request', (request) => {
     ['/login'].includes(url.pathname)
 
   if (shouldMock) {
-    request.respondWith(
+    return request.respondWith(
       new Response('foo', {
         status: 301,
         statusText: 'Moved Permantently',
