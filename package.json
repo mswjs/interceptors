@@ -35,8 +35,8 @@
       "browser": {
         "types": "./lib/browser/interceptors/fetch/index.d.ts",
         "require": "./lib/browser/interceptors/fetch/index.js",
-        "default": "./lib/browser/interceptors/fetch/index.js",
-        "import": "./lib/browser/interceptors/fetch/index.mjs"
+        "import": "./lib/browser/interceptors/fetch/index.mjs",
+        "default": "./lib/browser/interceptors/fetch/index.js"
       },
       "types": "./lib/node/interceptors/fetch/index.d.ts",
       "require": "./lib/node/interceptors/fetch/index.js",
