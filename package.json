@@ -124,6 +124,9 @@
     "outvariant": "^1.2.1",
     "strict-event-emitter": "^0.4.6"
   },
+  "resolutions": {
+    "memfs": "^3.4.13"
+  },
   "keywords": [
     "request",
     "intercept",
