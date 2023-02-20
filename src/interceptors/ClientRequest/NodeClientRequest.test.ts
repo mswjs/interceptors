@@ -153,7 +153,7 @@ test('emits the ENOTFOUND error connecting to a non-existing hostname given no m
 test('emits the ECONNREFUSED error connecting to an inactive server given no mocked response', (done) => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', 'http://localhost:12345'),
+    normalizeClientRequestArgs('http:', 'http://127.0.0.1:12345'),
     {
       emitter,
       log,
