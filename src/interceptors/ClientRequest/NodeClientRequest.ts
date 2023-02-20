@@ -17,6 +17,7 @@ import { createResponse } from './utils/createResponse'
 import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 
 export type Protocol = 'http' | 'https'
 
@@ -372,11 +373,18 @@ export class NodeClientRequest extends ClientRequest {
     }
     this.log('mocked response headers ready:', headers)
 
+    const isResponseStreamRead = new DeferredPromise<void>()
+
     const closeResponseStream = () => {
+      this.log('closing response stream...')
+
       // Push "null" to indicate that the response body is complete
       // and shouldn't be written to anymore.
       this.response.push(null)
       this.response.complete = true
+
+      isResponseStreamRead.resolve()
+      this.log('closed response stream!')
     }
 
     if (body) {
@@ -400,24 +408,26 @@ export class NodeClientRequest extends ClientRequest {
       closeResponseStream()
     }
 
-    /**
-     * Set the internal "res" property to the mocked "OutgoingMessage"
-     * to make the "ClientRequest" instance think there's data received
-     * from the socket.
-     * @see https://github.com/nodejs/node/blob/9c405f2591f5833d0247ed0fafdcd68c5b14ce7a/lib/_http_client.js#L501
-     */
-    // @ts-ignore
-    this.res = this.response
+    isResponseStreamRead.then(() => {
+      /**
+       * Set the internal "res" property to the mocked "OutgoingMessage"
+       * to make the "ClientRequest" instance think there's data received
+       * from the socket.
+       * @see https://github.com/nodejs/node/blob/9c405f2591f5833d0247ed0fafdcd68c5b14ce7a/lib/_http_client.js#L501
+       */
+      // @ts-ignore
+      this.res = this.response
 
-    this.finished = true
-    Object.defineProperty(this, 'writableEnded', {
-      value: true,
+      this.finished = true
+      Object.defineProperty(this, 'writableEnded', {
+        value: true,
+      })
+
+      this.emit('finish')
+      this.emit('response', this.response)
+
+      this.terminate()
     })
-
-    this.emit('finish')
-    this.emit('response', this.response)
-
-    this.terminate()
   }
 
   /**
