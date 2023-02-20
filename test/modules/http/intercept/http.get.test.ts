@@ -1,7 +1,5 @@
-/**
- * @jest-environment node
- */
-import * as http from 'http'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { anyUuid, headersContaining } from '../../../jest.expect'
@@ -14,7 +12,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = jest.fn<never, HttpRequestEventMap['request']>()
+const resolver = vi.fn<HttpRequestEventMap['request']>()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
@@ -25,7 +23,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -33,7 +31,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('intercepts an http.get request', async () => {
+it('intercepts an http.get request', async () => {
   const url = httpServer.http.url('/user?id=123')
   const req = http.get(url, {
     headers: {
@@ -63,7 +61,7 @@ test('intercepts an http.get request', async () => {
   expect(await text()).toBe('user-body')
 })
 
-test('intercepts an http.get request given RequestOptions without a protocol', async () => {
+it('intercepts an http.get request given RequestOptions without a protocol', async () => {
   // Create a request with `RequestOptions` without an explicit "protocol".
   // Since request is done via `http.get`, the "http:" protocol must be inferred.
   const req = http.get({

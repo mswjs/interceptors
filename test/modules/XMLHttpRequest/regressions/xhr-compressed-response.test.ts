@@ -1,7 +1,8 @@
+// @vitest-environment jsdom
 /**
- * @jest-environment jsdom
  * @see https://github.com/mswjs/interceptors/issues/308
  */
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import zlib from 'zlib'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
@@ -28,7 +29,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('bypasses a compressed HTTP request', async () => {
+it('bypasses a compressed HTTP request', async () => {
   const request = await createXMLHttpRequest((request) => {
     request.open('GET', httpServer.http.url('/compressed'))
     request.send()

@@ -1,6 +1,5 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { Response } from '@remix-run/web-fetch'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'

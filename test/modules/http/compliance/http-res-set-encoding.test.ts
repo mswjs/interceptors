@@ -1,13 +1,12 @@
-/**
- * @jest-environment node
- */
-import * as http from 'http'
+import { it, expect, describe, beforeAll, afterAll } from 'vitest'
+import http, { IncomingMessage } from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => {
+  app.get('/resource', (request, res) => {
     res.status(200).send('hello world')
   })
 })
@@ -44,9 +43,8 @@ function readIncomingMessage(res: http.IncomingMessage): any {
 }
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -69,32 +67,36 @@ const encodings: BufferEncoding[] = [
 
 describe('given the original response', () => {
   encodings.forEach((encoding) => {
-    test(`reads the response body encoded with ${encoding}`, (done) => {
-      const req = http.get(httpServer.http.url('/resource'))
+    it(`reads the response body encoded with ${encoding}`, async () => {
+      const request = http.get(httpServer.http.url('/resource'))
 
-      req.on('response', async (res) => {
-        res.setEncoding(encoding)
-        const text = await readIncomingMessage(res)
-        expect(text).toEqual(encode('hello world', encoding))
-
-        done()
+      const responseTextReceived = new DeferredPromise<IncomingMessage>()
+      request.on('response', async (response) => {
+        response.setEncoding(encoding)
+        const text = await readIncomingMessage(response)
+        responseTextReceived.resolve(text)
       })
+
+      const responseText = await responseTextReceived
+      expect(responseText).toEqual(encode('hello world', encoding))
     })
   })
 })
 
 describe('given the mocked response', () => {
   encodings.forEach((encoding) => {
-    test(`reads the response body encoded with ${encoding}`, (done) => {
-      const req = http.get(httpServer.http.url('/resource?mock=true'))
+    it(`reads the response body encoded with ${encoding}`, async () => {
+      const request = http.get(httpServer.http.url('/resource?mock=true'))
 
-      req.on('response', async (res) => {
-        res.setEncoding(encoding)
-        const text = await readIncomingMessage(res)
-        expect(text).toEqual(encode('hello world', encoding))
-
-        done()
+      const responseTextReceived = new DeferredPromise<IncomingMessage>()
+      request.on('response', async (response) => {
+        response.setEncoding(encoding)
+        const text = await readIncomingMessage(response)
+        responseTextReceived.resolve(text)
       })
+
+      const responseText = await responseTextReceived
+      expect(responseText).toEqual(encode('hello world', encoding))
     })
   })
 })

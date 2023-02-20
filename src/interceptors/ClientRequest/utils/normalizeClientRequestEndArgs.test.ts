@@ -1,6 +1,7 @@
+import { it, expect } from 'vitest'
 import { normalizeClientRequestEndArgs } from './normalizeClientRequestEndArgs'
 
-test('returns [null, null, cb] given only the callback', () => {
+it('returns [null, null, cb] given only the callback', () => {
   const callback = () => {}
   expect(normalizeClientRequestEndArgs(callback)).toEqual([
     null,
@@ -9,11 +10,11 @@ test('returns [null, null, cb] given only the callback', () => {
   ])
 })
 
-test('returns [chunk, null, null] given only the chunk', () => {
+it('returns [chunk, null, null] given only the chunk', () => {
   expect(normalizeClientRequestEndArgs('chunk')).toEqual(['chunk', null, null])
 })
 
-test('returns [chunk, cb] given the chunk and the callback', () => {
+it('returns [chunk, cb] given the chunk and the callback', () => {
   const callback = () => {}
   expect(normalizeClientRequestEndArgs('chunk', callback)).toEqual([
     'chunk',
@@ -22,7 +23,7 @@ test('returns [chunk, cb] given the chunk and the callback', () => {
   ])
 })
 
-test('returns [chunk, encoding] given the chunk with the encoding', () => {
+it('returns [chunk, encoding] given the chunk with the encoding', () => {
   expect(normalizeClientRequestEndArgs('chunk', 'utf8')).toEqual([
     'chunk',
     'utf8',
@@ -30,7 +31,7 @@ test('returns [chunk, encoding] given the chunk with the encoding', () => {
   ])
 })
 
-test('returns [chunk, encoding, cb] given all three arguments', () => {
+it('returns [chunk, encoding, cb] given all three arguments', () => {
   const callback = () => {}
   expect(normalizeClientRequestEndArgs('chunk', 'utf8', callback)).toEqual([
     'chunk',

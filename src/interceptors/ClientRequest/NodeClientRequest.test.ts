@@ -1,9 +1,9 @@
-/**
- * @jest-environment node
- */
+import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { debug } from 'debug'
 import * as express from 'express'
+import { IncomingMessage } from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { Response } from '@remix-run/web-fetch'
 import { NodeClientRequest } from './NodeClientRequest'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
@@ -37,7 +37,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('gracefully finishes the request when it has a mocked response', (done) => {
+it.only('gracefully finishes the request when it has a mocked response', async () => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://any.thing', {
@@ -60,26 +60,28 @@ test('gracefully finishes the request when it has a mocked response', (done) => 
     )
   })
 
-  request.on('response', async (response) => {
-    // Request must be marked as finished.
-    expect(request.finished).toEqual(true)
-    expect(request.writableEnded).toEqual(true)
-    expect(request.writableFinished).toEqual(true)
-    expect(request.writableCorked).toEqual(0)
-
-    expect(response.statusCode).toEqual(301)
-    expect(response.headers).toHaveProperty('x-custom-header', 'yes')
-
-    const text = await getIncomingMessageBody(response)
-    expect(text).toEqual('mocked-response')
-
-    done()
-  })
-
   request.end()
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', async (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  // Request must be marked as finished.
+  expect(request.finished).toEqual(true)
+  expect(request.writableEnded).toEqual(true)
+  expect(request.writableFinished).toEqual(true)
+  expect(request.writableCorked).toEqual(0)
+
+  expect(response.statusCode).toEqual(301)
+  expect(response.headers).toHaveProperty('x-custom-header', 'yes')
+
+  const text = await getIncomingMessageBody(response)
+  expect(text).toEqual('mocked-response')
 })
 
-test('responds with a mocked response when requesting an existing hostname', (done) => {
+it('responds with a mocked response when requesting an existing hostname', async () => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.url('/comment')),
@@ -93,19 +95,21 @@ test('responds with a mocked response when requesting an existing hostname', (do
     request.respondWith(new Response('mocked-response', { status: 201 }))
   })
 
-  request.on('response', async (response) => {
-    expect(response.statusCode).toEqual(201)
-
-    const text = await getIncomingMessageBody(response)
-    expect(text).toEqual('mocked-response')
-
-    done()
-  })
-
   request.end()
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', async (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(response.statusCode).toEqual(201)
+
+  const text = await getIncomingMessageBody(response)
+  expect(text).toEqual('mocked-response')
 })
 
-test('performs the request as-is given resolver returned no mocked response', (done) => {
+it('performs the request as-is given resolver returned no mocked response', async () => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.url('/comment'), {
@@ -117,40 +121,44 @@ test('performs the request as-is given resolver returned no mocked response', (d
     }
   )
 
-  request.on('response', async (response) => {
-    expect(request.finished).toEqual(true)
-    expect(request.writableEnded).toEqual(true)
-
-    expect(response.statusCode).toEqual(200)
-    expect(response.statusMessage).toEqual('OK')
-    expect(response.headers).toHaveProperty('x-powered-by', 'Express')
-
-    const text = await getIncomingMessageBody(response)
-    expect(text).toEqual('original-response')
-
-    done()
-  })
-
   request.end()
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', async (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(request.finished).toEqual(true)
+  expect(request.writableEnded).toEqual(true)
+
+  expect(response.statusCode).toEqual(200)
+  expect(response.statusMessage).toEqual('OK')
+  expect(response.headers).toHaveProperty('x-powered-by', 'Express')
+
+  const text = await getIncomingMessageBody(response)
+  expect(text).toEqual('original-response')
 })
 
-test('emits the ENOTFOUND error connecting to a non-existing hostname given no mocked response', (done) => {
+it('emits the ENOTFOUND error connecting to a non-existing hostname given no mocked response', async () => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
     { emitter, log }
   )
-
-  request.on('error', (error: NodeJS.ErrnoException) => {
-    expect(error.code).toEqual('ENOTFOUND')
-    expect(error.syscall).toEqual('getaddrinfo')
-    done()
-  })
-
   request.end()
+
+  const errorReceived = new DeferredPromise<NodeJS.ErrnoException>()
+  request.on('error', async (error) => {
+    errorReceived.resolve(error)
+  })
+  const error = await errorReceived
+
+  expect(error.code).toEqual('ENOTFOUND')
+  expect(error.syscall).toEqual('getaddrinfo')
 })
 
-test('emits the ECONNREFUSED error connecting to an inactive server given no mocked response', (done) => {
+it('emits the ECONNREFUSED error connecting to an inactive server given no mocked response', async () => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://127.0.0.1:12345'),
@@ -160,21 +168,25 @@ test('emits the ECONNREFUSED error connecting to an inactive server given no moc
     }
   )
 
-  request.on('error', (error: ErrorConnectionRefused) => {
-    expect(error.code).toEqual('ECONNREFUSED')
-    expect(error.syscall).toEqual('connect')
-    expect(error.address).toEqual('127.0.0.1')
-    expect(error.port).toEqual(12345)
-
-    done()
-  })
-
   request.end()
+
+  const errorReceived = new DeferredPromise<ErrorConnectionRefused>()
+  request.on('error', async (error: ErrorConnectionRefused) => {
+    errorReceived.resolve(error)
+  })
+  request.end()
+
+  const error = await errorReceived
+
+  expect(error.code).toEqual('ECONNREFUSED')
+  expect(error.syscall).toEqual('connect')
+  expect(error.address).toEqual('127.0.0.1')
+  expect(error.port).toEqual(12345)
 })
 
-test('does not emit ENOTFOUND error connecting to an inactive server given mocked response', (done) => {
+it('does not emit ENOTFOUND error connecting to an inactive server given mocked response', async () => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
-  const handleError = jest.fn()
+  const handleError = vi.fn()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
     { emitter, log }
@@ -187,19 +199,24 @@ test('does not emit ENOTFOUND error connecting to an inactive server given mocke
     )
   })
 
-  request.on('error', handleError)
-  request.on('response', (response) => {
-    expect(handleError).not.toHaveBeenCalled()
-    expect(response.statusCode).toEqual(200)
-    expect(response.statusMessage).toEqual('Works')
-    done()
-  })
   request.end()
+
+  request.on('error', handleError)
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(handleError).not.toHaveBeenCalled()
+  expect(response.statusCode).toEqual(200)
+  expect(response.statusMessage).toEqual('Works')
 })
 
-test('does not emit ECONNREFUSED error connecting to an inactive server given mocked response', (done) => {
+it('does not emit ECONNREFUSED error connecting to an inactive server given mocked response', async () => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
-  const handleError = jest.fn()
+  const handleError = vi.fn()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://localhost:9876'),
     {
@@ -216,16 +233,21 @@ test('does not emit ECONNREFUSED error connecting to an inactive server given mo
   })
 
   request.on('error', handleError)
-  request.on('response', (response) => {
-    expect(handleError).not.toHaveBeenCalled()
-    expect(response.statusCode).toEqual(200)
-    expect(response.statusMessage).toEqual('Works')
-    done()
-  })
+
   request.end()
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(handleError).not.toHaveBeenCalled()
+  expect(response.statusCode).toEqual(200)
+  expect(response.statusMessage).toEqual('Works')
 })
 
-test('sends the request body to the server given no mocked response', (done) => {
+it('sends the request body to the server given no mocked response', async () => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
@@ -242,20 +264,21 @@ test('sends the request body to the server given no mocked response', (done) => 
 
   request.write('one')
   request.write('two')
-
-  request.on('response', async (response) => {
-    expect(response.statusCode).toEqual(200)
-
-    const text = await getIncomingMessageBody(response)
-    expect(text).toEqual('onetwothree')
-
-    done()
-  })
-
   request.end('three')
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(response.statusCode).toEqual(200)
+
+  const text = await getIncomingMessageBody(response)
+  expect(text).toEqual('onetwothree')
 })
 
-test('does not send request body to the original server given mocked response', (done) => {
+it('does not send request body to the original server given mocked response', async () => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
@@ -274,15 +297,16 @@ test('does not send request body to the original server given mocked response', 
 
   request.write('one')
   request.write('two')
-
-  request.on('response', async (response) => {
-    expect(response.statusCode).toEqual(301)
-
-    const text = await getIncomingMessageBody(response)
-    expect(text).toEqual('mock created!')
-
-    done()
-  })
-
   request.end()
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(response.statusCode).toEqual(301)
+
+  const text = await getIncomingMessageBody(response)
+  expect(text).toEqual('mock created!')
 })

@@ -1,7 +1,5 @@
-/**
- * @jest-environment node
- */
-import * as http from 'http'
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { Response } from '@remix-run/web-fetch'
 import { BatchInterceptor } from '../../../../src'
@@ -75,7 +73,7 @@ afterAll(async () => {
   await server.close()
 })
 
-test('supports response patching', async () => {
+it('supports response patching', async () => {
   const req = http.get('http://localhost/mocked')
   const { res, text } = await waitForClientRequest(req)
 

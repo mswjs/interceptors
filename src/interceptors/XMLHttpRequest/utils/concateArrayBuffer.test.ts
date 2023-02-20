@@ -1,6 +1,4 @@
-/**
- * @jest-environment node
- */
+import { it, expect } from 'vitest'
 import { concatArrayBuffer } from './concatArrayBuffer'
 
 const encoder = new TextEncoder()

@@ -1,7 +1,8 @@
+// @vitest-environment jsdom
 /**
- * @jest-environment jsdom
  * @see https://xhr.spec.whatwg.org/#events
  */
+import { Mock, vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
@@ -33,7 +34,7 @@ interceptor.on('request', (request) => {
   }
 })
 
-function spyOnEvents(req: XMLHttpRequest, listener: jest.Mock) {
+function spyOnEvents(req: XMLHttpRequest, listener: Mock) {
   function wrapListener(this: XMLHttpRequest, event: Event) {
     listener(event.type, this.readyState)
   }
@@ -58,8 +59,8 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('emits correct events sequence for an unhandled request with no response body', async () => {
-  const listener = jest.fn()
+it('emits correct events sequence for an unhandled request with no response body', async () => {
+  const listener = vi.fn()
   const req = await createXMLHttpRequest((req) => {
     spyOnEvents(req, listener)
     req.open('GET', httpServer.http.url())
@@ -78,8 +79,8 @@ test('emits correct events sequence for an unhandled request with no response bo
   expect(req.readyState).toEqual(4)
 })
 
-test('emits correct events sequence for a handled request with no response body', async () => {
-  const listener = jest.fn()
+it('emits correct events sequence for a handled request with no response body', async () => {
+  const listener = vi.fn()
   const req = await createXMLHttpRequest((req) => {
     spyOnEvents(req, listener)
     req.open('GET', httpServer.http.url('/user'))
@@ -98,8 +99,8 @@ test('emits correct events sequence for a handled request with no response body'
   expect(req.readyState).toBe(4)
 })
 
-test('emits correct events sequence for an unhandled request with a response body', async () => {
-  const listener = jest.fn()
+it('emits correct events sequence for an unhandled request with a response body', async () => {
+  const listener = vi.fn()
   const req = await createXMLHttpRequest((req) => {
     spyOnEvents(req, listener)
     req.open('GET', httpServer.http.url('/numbers'))
@@ -119,8 +120,8 @@ test('emits correct events sequence for an unhandled request with a response bod
   expect(req.readyState).toBe(4)
 })
 
-test('emits correct events sequence for a handled request with a response body', async () => {
-  const listener = jest.fn()
+it('emits correct events sequence for a handled request with a response body', async () => {
+  const listener = vi.fn()
   const req = await createXMLHttpRequest((req) => {
     spyOnEvents(req, listener)
     req.open('GET', httpServer.http.url('/numbers-mock'))

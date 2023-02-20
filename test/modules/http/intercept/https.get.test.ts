@@ -1,7 +1,5 @@
-/**
- * @jest-environment node
- */
-import * as https from 'https'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import https from 'https'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { anyUuid, headersContaining } from '../../../jest.expect'
 import { waitForClientRequest } from '../../../helpers'

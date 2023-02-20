@@ -1,11 +1,13 @@
+// @vitest-environment jsdom
 /**
- * @jest-environment jsdom
  * @see https://github.com/mswjs/interceptors/issues/7
  */
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { sleep } from '../../../../test/helpers'
 import { createXMLHttpRequest } from '../../../helpers'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (_req, res) => {
@@ -17,9 +19,8 @@ const httpServer = new HttpServer((app) => {
 const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -27,26 +28,35 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('handles request timeout via the "ontimeout" callback', (done) => {
+it('handles request timeout via the "ontimeout" callback', async () => {
+  const timeoutCalled = new DeferredPromise<number>()
+
   createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/'), true)
     req.timeout = 1
     req.ontimeout = function customTimeoutCallback() {
-      expect(this.readyState).toBe(4)
-      done()
+      timeoutCalled.resolve(this.readyState)
     }
     req.send()
   })
+
+  const nextReadyState = await timeoutCalled
+  expect(nextReadyState).toBe(4)
 })
 
-test('handles request timeout via the "timeout" event listener', (done) => {
+it('handles request timeout via the "timeout" event listener', async () => {
+  const timeoutCalled = new DeferredPromise<number>()
+
   createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/'), true)
     req.timeout = 1
     req.addEventListener('timeout', function customTimeoutListener() {
       expect(this.readyState).toBe(4)
-      done()
+      timeoutCalled.resolve(this.readyState)
     })
     req.send()
   })
+
+  const nextReadyState = await timeoutCalled
+  expect(nextReadyState).toBe(4)
 })

@@ -1,8 +1,9 @@
+import { vi, it, expect, afterEach } from 'vitest'
 import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 it('applies child interceptors', () => {
@@ -28,8 +29,8 @@ it('applies child interceptors', () => {
     interceptors: [instances.primary, instances.secondary],
   })
 
-  const primaryApplySpy = jest.spyOn(instances.primary, 'apply')
-  const secondaryApplySpy = jest.spyOn(instances.secondary, 'apply')
+  const primaryApplySpy = vi.spyOn(instances.primary, 'apply')
+  const secondaryApplySpy = vi.spyOn(instances.secondary, 'apply')
 
   interceptor.apply()
 
@@ -62,10 +63,10 @@ it('proxies event listeners to the interceptors', () => {
     interceptors: [instances.primary, instances.secondary],
   })
 
-  const helloListener = jest.fn()
+  const helloListener = vi.fn()
   interceptor.on('hello', helloListener)
 
-  const goodbyeListener = jest.fn()
+  const goodbyeListener = vi.fn()
   interceptor.on('goodbye', goodbyeListener)
 
   // Emulate the child interceptor emitting events.
@@ -102,8 +103,8 @@ it('disposes of child interceptors', async () => {
     interceptors: [instances.primary, instances.secondary],
   })
 
-  const primaryDisposeSpy = jest.spyOn(instances.primary, 'dispose')
-  const secondaryDisposeSpy = jest.spyOn(instances.secondary, 'dispose')
+  const primaryDisposeSpy = vi.spyOn(instances.primary, 'dispose')
+  const secondaryDisposeSpy = vi.spyOn(instances.secondary, 'dispose')
 
   interceptor.apply()
   interceptor.dispose()

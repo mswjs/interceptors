@@ -1,6 +1,5 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
@@ -36,7 +35,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('sends the request headers to the server', async () => {
+it('sends the request headers to the server', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/'))
     req.setRequestHeader('X-ClienT-HeadeR', 'abc-123')

@@ -1,6 +1,5 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
@@ -65,10 +64,10 @@ beforeAll(async () => {
 afterAll(async () => {
   interceptor.dispose()
   await httpServer.close()
-  jest.restoreAllMocks()
+  vi.restoreAllMocks()
 })
 
-test('responds to an HTTP request handled in the middleware', async () => {
+it('responds to an HTTP request handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/'))
     req.send()
@@ -80,7 +79,7 @@ test('responds to an HTTP request handled in the middleware', async () => {
   expect(req.response).toEqual('foo')
 })
 
-test('bypasses an HTTP request not handled in the middleware', async () => {
+it('bypasses an HTTP request not handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/get'))
     req.send()
@@ -90,7 +89,7 @@ test('bypasses an HTTP request not handled in the middleware', async () => {
   expect(req.response).toEqual('/get')
 })
 
-test('responds to an HTTPS request handled in the middleware', async () => {
+it('responds to an HTTPS request handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.https.url('/'))
     req.send()
@@ -103,7 +102,7 @@ test('responds to an HTTPS request handled in the middleware', async () => {
   expect(req.responseURL).toEqual(httpServer.https.url('/'))
 })
 
-test('bypasses an HTTPS request not handled in the middleware', async () => {
+it('bypasses an HTTPS request not handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.https.url('/get'))
     req.send()
@@ -114,7 +113,7 @@ test('bypasses an HTTPS request not handled in the middleware', async () => {
   expect(req.responseURL).toEqual(httpServer.https.url('/get'))
 })
 
-test('responds to an HTTP request to a relative URL that is handled in the middleware', async () => {
+it('responds to an HTTP request to a relative URL that is handled in the middleware', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('POST', httpServer.https.url('/login'))
     req.send()
@@ -127,8 +126,8 @@ test('responds to an HTTP request to a relative URL that is handled in the middl
   expect(req.responseURL).toEqual(httpServer.https.url('/login'))
 })
 
-test('produces a request error when the middleware throws an exception', async () => {
-  const errorListener = jest.fn()
+it('produces a request error when the middleware throws an exception', async () => {
+  const errorListener = vi.fn()
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', 'https://error.me')
     req.addEventListener('error', errorListener)
@@ -145,7 +144,7 @@ test('produces a request error when the middleware throws an exception', async (
   expect(req.status).toBe(0)
 })
 
-test('does not propagate the forbidden "cookie" header on the bypassed response', async () => {
+it('does not propagate the forbidden "cookie" header on the bypassed response', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('POST', httpServer.https.url('/cookies'))
     req.send()
@@ -154,7 +153,7 @@ test('does not propagate the forbidden "cookie" header on the bypassed response'
   expect(responseHeaders).not.toMatch(/cookie/)
 })
 
-test('bypasses any request when the interceptor is restored', async () => {
+it('bypasses any request when the interceptor is restored', async () => {
   interceptor.dispose()
 
   const req = await createXMLHttpRequest((req) => {

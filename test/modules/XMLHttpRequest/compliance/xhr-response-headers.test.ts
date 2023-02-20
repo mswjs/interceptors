@@ -1,6 +1,5 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
@@ -38,9 +37,8 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -48,7 +46,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('retrieves the mocked response headers when called ".getAllResponseHeaders()"', async () => {
+it('retrieves the mocked response headers when called ".getAllResponseHeaders()"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/?mock=true')
     req.send()
@@ -58,7 +56,7 @@ test('retrieves the mocked response headers when called ".getAllResponseHeaders(
   expect(responseHeaders).toEqual('etag: 123\r\nx-response-type: mock')
 })
 
-test('returns the bypass response headers when called ".getAllResponseHeaders()"', async () => {
+it('returns the bypass response headers when called ".getAllResponseHeaders()"', async () => {
   const req = await createXMLHttpRequest((req) => {
     // Perform a HEAD request so that the response has no "Content-Type" header
     // always appended by Express.

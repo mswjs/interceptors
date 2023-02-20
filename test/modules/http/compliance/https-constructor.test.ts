@@ -1,12 +1,14 @@
 /**
- * @jest-environment node
  * @see https://github.com/mswjs/interceptors/issues/131
  */
-import * as https from 'https'
+import { it, expect, beforeAll, afterAll } from 'vitest'
+import { IncomingMessage } from 'http'
+import https from 'https'
 import { URL } from 'url'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
@@ -25,7 +27,8 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('performs the original HTTPS request', (done) => {
+it('performs the original HTTPS request', async () => {
+  const responseReceived = new DeferredPromise<IncomingMessage>()
   https
     .request(
       new URL(httpServer.https.url('/resource')),
@@ -33,11 +36,15 @@ test('performs the original HTTPS request', (done) => {
         method: 'GET',
         agent: httpsAgent,
       },
-      async (res) => {
-        const responseText = await getIncomingMessageBody(res)
-        expect(responseText).toEqual('hello')
-        done()
+      async (response) => {
+        responseReceived.resolve(response)
       }
     )
     .end()
+
+  const response = await responseReceived
+  expect(response.statusCode).toBe(200)
+
+  const responseText = await getIncomingMessageBody(response)
+  expect(responseText).toEqual('hello')
 })

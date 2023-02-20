@@ -1,6 +1,5 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
@@ -27,13 +26,13 @@ const server = new HttpServer((app) => {
 const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(async () => {
-  jest.spyOn(console, 'warn').mockImplementation(() => void 0)
+  vi.spyOn(console, 'warn').mockImplementation(() => void 0)
   await server.listen()
   interceptor.apply()
 })
 
 afterAll(async () => {
-  jest.restoreAllMocks()
+  vi.restoreAllMocks()
   await server.close()
   interceptor.dispose()
 })

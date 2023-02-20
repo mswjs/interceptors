@@ -1,10 +1,6 @@
-/**
- * @jest-environment node
- */
-import * as path from 'path'
+import { it, expect, beforeAll, afterAll } from 'vitest'
+import path from 'path'
 import { ChildProcess, spawn } from 'child_process'
-
-jest.setTimeout(20000)
 
 let child: ChildProcess
 let stderr = Buffer.from('')
@@ -27,14 +23,18 @@ afterAll(() => {
   child.kill()
 })
 
-test('does not leave the test process hanging due to the custom socket timeout', async () => {
-  const exitCode = await new Promise<number>((resolve) => {
-    child.on('exit', (code: number) => resolve(code))
-  })
-  expect(exitCode).toEqual(0)
+it(
+  'does not leave the test process hanging due to the custom socket timeout',
+  async () => {
+    const exitCode = await new Promise<number>((resolve) => {
+      child.on('exit', (code: number) => resolve(code))
+    })
+    expect(exitCode).toEqual(0)
 
-  const testResult = stderr.toString('utf-8')
-  expect(testResult).not.toContain(
-    'Jest did not exit one second after the test run has completed'
-  )
-})
+    const testResult = stderr.toString('utf-8')
+    expect(testResult).not.toContain(
+      'Jest did not exit one second after the test run has completed'
+    )
+  },
+  { timeout: 20_000 }
+)

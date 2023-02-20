@@ -1,6 +1,4 @@
-/**
- * @jest-environment node
- */
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import got from 'got'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
@@ -20,8 +18,8 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
-  await httpServer.listen()
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -29,14 +27,14 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('mocks response to a request made with "got"', async () => {
+it('mocks response to a request made with "got"', async () => {
   const res = await got(httpServer.http.url('/test'))
 
   expect(res.statusCode).toBe(200)
   expect(res.body).toBe('mocked-body')
 })
 
-test('bypasses an unhandled request made with "got"', async () => {
+it('bypasses an unhandled request made with "got"', async () => {
   const res = await got(httpServer.http.url('/user'))
 
   expect(res.statusCode).toBe(200)

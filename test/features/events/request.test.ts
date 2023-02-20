@@ -1,7 +1,5 @@
-/**
- * @jest-environment jsdom
- */
-import * as http from 'http'
+// @vitest-environment jsdom
+import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'

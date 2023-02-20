@@ -1,6 +1,5 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
@@ -53,7 +52,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('responds with a mocked response to an "axios()" request', async () => {
+it('responds with a mocked response to an "axios()" request', async () => {
   const res = await axios('/user')
 
   expect(res.status).toEqual(200)
@@ -61,7 +60,7 @@ test('responds with a mocked response to an "axios()" request', async () => {
   expect(res.data).toEqual({ mocked: true })
 })
 
-test('responds with a mocked response to an "axios.get()" request', async () => {
+it('responds with a mocked response to an "axios.get()" request', async () => {
   const res = await axios.get('/user')
 
   expect(res.status).toEqual(200)
@@ -69,7 +68,7 @@ test('responds with a mocked response to an "axios.get()" request', async () => 
   expect(res.data).toEqual({ mocked: true })
 })
 
-test('responds with a mocked response to an "axios.post()" request', async () => {
+it('responds with a mocked response to an "axios.post()" request', async () => {
   const res = await axios.post('/user')
 
   expect(res.status).toEqual(200)
@@ -77,7 +76,7 @@ test('responds with a mocked response to an "axios.post()" request', async () =>
   expect(res.data).toEqual({ mocked: true })
 })
 
-test('bypass the interceptor and return the original response', async () => {
+it('bypass the interceptor and return the original response', async () => {
   const res = await axios.get(httpServer.http.url('/books'))
 
   expect(res.status).toEqual(200)

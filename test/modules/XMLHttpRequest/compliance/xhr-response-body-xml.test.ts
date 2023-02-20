@@ -1,6 +1,5 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { it, expect, describe, beforeAll, afterAll } from 'vitest'
 import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
@@ -26,7 +25,7 @@ describe('Content-Type: application/xml', () => {
     interceptor.dispose()
   })
 
-  test('supports a mocked response with an XML response body', async () => {
+  it('supports a mocked response with an XML response body', async () => {
     const request = await createXMLHttpRequest((request) => {
       request.open('GET', '/arbitrary-url')
       request.send()
@@ -57,7 +56,7 @@ describe('Content-Type: text/xml', () => {
     interceptor.dispose()
   })
 
-  test('supports a mocked response with an XML response body', async () => {
+  it('supports a mocked response with an XML response body', async () => {
     const request = await createXMLHttpRequest((request) => {
       request.open('GET', '/arbitrary-url')
       request.send()

@@ -1,7 +1,5 @@
-/**
- * @jest-environment node
- */
-import * as http from 'http'
+import { it, expect, beforeAll, afterAll } from 'vitest'
+import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'

@@ -1,6 +1,5 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
@@ -23,7 +22,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-test('sends a mocked response with an empty response body', async () => {
+it('sends a mocked response with an empty response body', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
     req.send()

@@ -1,13 +1,12 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { https } from 'follow-redirects'
 import { httpsAgent, HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 import type { HttpRequestEventMap } from '../../src/glossary'
 import { waitForClientRequest } from '../helpers'
 
-const resolver = jest.fn<never, HttpRequestEventMap['request']>()
+const resolver = vi.fn<HttpRequestEventMap['request']>()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
@@ -28,12 +27,12 @@ const server = new HttpServer((app) => {
 })
 
 beforeAll(async () => {
-  await server.listen()
   interceptor.apply()
+  await server.listen()
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -41,11 +40,11 @@ afterAll(async () => {
   await server.close()
 })
 
-test('intercepts a POST request issued by "follow-redirects"', async () => {
+it('intercepts a POST request issued by "follow-redirects"', async () => {
   const { address } = server.https
   const payload = JSON.stringify({ todo: 'Buy the milk' })
 
-  const catchResponseUrl = jest.fn()
+  const catchResponseUrl = vi.fn()
   const req = https.request(
     {
       method: 'POST',

@@ -1,4 +1,5 @@
-import * as http from 'http'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import http from 'http'
 import rateLimit from 'express-rate-limit'
 import { HttpServer } from '@open-draft/test-server/http'
 import { Response } from '@remix-run/web-fetch'
@@ -34,15 +35,15 @@ interceptor.on('request', (request) => {
   )
 })
 
-const handleLimitReached = jest.fn()
+const handleLimitReached = vi.fn()
 
 beforeAll(async () => {
-  await httpServer.listen()
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -50,7 +51,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('does not reach the rate preforming more mocked requests than allowed', async () => {
+it('does not reach the rate preforming more mocked requests than allowed', async () => {
   const requests: Promise<http.IncomingMessage>[] = []
 
   // Perform more requests than allowed by rate limiting.
@@ -72,7 +73,7 @@ test('does not reach the rate preforming more mocked requests than allowed', asy
   expect(handleLimitReached).not.toHaveBeenCalled()
 })
 
-test('does not reach the rate limiting performing allowed number of bypassed requests', async () => {
+it('does not reach the rate limiting performing allowed number of bypassed requests', async () => {
   const requests: Promise<http.IncomingMessage>[] = []
 
   // Perform allowed number of requests according to rate limiting.

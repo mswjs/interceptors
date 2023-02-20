@@ -1,7 +1,6 @@
-/**
- * @jest-environment jsdom
- */
-import * as https from 'https'
+// @vitest-environment jsdom
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import https from 'https'
 import fetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
 import { Response } from '@remix-run/web-fetch'
@@ -20,7 +19,7 @@ declare namespace window {
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (_req, res) => {
-    res.status(500).send('must-use-mocks')
+    res.status(509).send('must-use-mocks')
   })
 
   app.post('/account', (_req, res) => {
@@ -65,7 +64,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -73,8 +72,8 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('ClientRequest: emits the "response" event for a mocked response', async () => {
-  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+it('ClientRequest: emits the "response" event for a mocked response', async () => {
+  const responseListener = vi.fn<HttpRequestEventMap['response']>()
   interceptor.on('response', responseListener)
 
   const req = https.request(httpServer.https.url('/user'), {
@@ -84,7 +83,12 @@ test('ClientRequest: emits the "response" event for a mocked response', async ()
     },
   })
   req.end()
-  await waitForClientRequest(req)
+
+  const { res } = await waitForClientRequest(req)
+
+  // Must receive a mocked response.
+  expect(res.statusCode).toBe(200)
+  expect(res.statusMessage).toBe('OK')
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
@@ -102,8 +106,8 @@ test('ClientRequest: emits the "response" event for a mocked response', async ()
   expect(await response.text()).toBe('mocked-response-text')
 })
 
-test('ClientRequest: emits the "response" event upon the original response', async () => {
-  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+it('ClientRequest: emits the "response" event upon the original response', async () => {
+  const responseListener = vi.fn<HttpRequestEventMap['response']>()
   interceptor.on('response', responseListener)
 
   const req = https.request(httpServer.https.url('/account'), {
@@ -133,8 +137,8 @@ test('ClientRequest: emits the "response" event upon the original response', asy
   expect(await response.text()).toBe('original-response-text')
 })
 
-test('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
-  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+it('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
+  const responseListener = vi.fn<HttpRequestEventMap['response']>()
   interceptor.on('response', responseListener)
 
   const originalRequest = await createXMLHttpRequest((req) => {
@@ -167,8 +171,8 @@ test('XMLHttpRequest: emits the "response" event upon a mocked response', async 
   expect(originalRequest.responseText).toEqual('mocked-response-text')
 })
 
-test('XMLHttpRequest: emits the "response" event upon the original response', async () => {
-  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+it('XMLHttpRequest: emits the "response" event upon the original response', async () => {
+  const responseListener = vi.fn<HttpRequestEventMap['response']>()
   interceptor.on('response', responseListener)
 
   const originalRequest = await createXMLHttpRequest((req) => {
@@ -210,8 +214,8 @@ test('XMLHttpRequest: emits the "response" event upon the original response', as
   expect(originalRequest.responseText).toEqual('original-response-text')
 })
 
-test('fetch: emits the "response" event upon a mocked response', async () => {
-  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+it('fetch: emits the "response" event upon a mocked response', async () => {
+  const responseListener = vi.fn<HttpRequestEventMap['response']>()
   interceptor.on('response', responseListener)
 
   await fetch(httpServer.https.url('/user'), {
@@ -236,8 +240,8 @@ test('fetch: emits the "response" event upon a mocked response', async () => {
   expect(await response.text()).toBe('mocked-response-text')
 })
 
-test('fetch: emits the "response" event upon the original response', async () => {
-  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+it('fetch: emits the "response" event upon the original response', async () => {
+  const responseListener = vi.fn<HttpRequestEventMap['response']>()
   interceptor.on('response', responseListener)
 
   await fetch(httpServer.https.url('/account'), {

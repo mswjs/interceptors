@@ -1,12 +1,11 @@
-/**
- * @jest-environment node
- */
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { IncomingMessage } from 'http'
-import * as https from 'https'
+import https from 'https'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { Response } from '@remix-run/web-fetch'
 import { getRequestOptionsByUrl } from '../../../../src/utils/getRequestOptionsByUrl'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const httpServer = new HttpServer((app) => {
   app.get('/get', (req, res) => {
@@ -29,13 +28,12 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
-  jest.restoreAllMocks()
+  vi.restoreAllMocks()
 })
 
 afterAll(async () => {
@@ -43,19 +41,14 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('calls a custom callback once when the request is bypassed', (done) => {
+it('calls a custom callback once when the request is bypassed', async () => {
   let text: string = ''
 
-  const responseCallback = jest.fn<void, [IncomingMessage]>((res) => {
+  const responseReceived = new DeferredPromise<void>()
+  const responseCallback = vi.fn<[IncomingMessage]>((res) => {
     res.on('data', (chunk) => (text += chunk))
-    res.on('end', () => {
-      // Check that the request was bypassed.
-      expect(text).toEqual('/')
-
-      // Custom callback to "https.get" must be called once.
-      expect(responseCallback).toBeCalledTimes(1)
-      done()
-    })
+    res.on('end', () => responseReceived.resolve())
+    res.on('error', (error) => responseReceived.reject(error))
   })
 
   https.get(
@@ -65,21 +58,24 @@ test('calls a custom callback once when the request is bypassed', (done) => {
     },
     responseCallback
   )
+
+  await responseReceived
+
+  // Check that the request was bypassed.
+  expect(text).toEqual('/')
+
+  // Custom callback to "https.get" must be called once.
+  expect(responseCallback).toBeCalledTimes(1)
 })
 
-test('calls a custom callback once when the response is mocked', (done) => {
+it('calls a custom callback once when the response is mocked', async () => {
   let text: string = ''
 
-  const responseCallback = jest.fn<void, [IncomingMessage]>((res) => {
+  const responseReceived = new DeferredPromise<void>()
+  const responseCallback = vi.fn<[IncomingMessage]>((res) => {
     res.on('data', (chunk) => (text += chunk))
-    res.on('end', () => {
-      // Check that the response was mocked.
-      expect(text).toEqual('mocked-body')
-
-      // Custom callback to `https.get` must be called once.
-      expect(responseCallback).toBeCalledTimes(1)
-      done()
-    })
+    res.on('end', () => responseReceived.resolve())
+    res.on('error', (error) => responseReceived.reject(error))
   })
 
   https.get(
@@ -89,4 +85,12 @@ test('calls a custom callback once when the response is mocked', (done) => {
     },
     responseCallback
   )
+
+  await responseReceived
+
+  // Check that the response was mocked.
+  expect(text).toEqual('mocked-body')
+
+  // Custom callback to `https.get` must be called once.
+  expect(responseCallback).toBeCalledTimes(1)
 })
