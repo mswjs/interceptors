@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { Response } from '@remix-run/web-fetch'
+import { Response } from 'undici'
 import { encodeBuffer } from '../../../../src'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { toArrayBuffer } from '../../../../src/utils/bufferUtils'

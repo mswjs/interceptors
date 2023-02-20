@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { Response } from '@remix-run/web-fetch'
+import { Response } from 'undici'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'

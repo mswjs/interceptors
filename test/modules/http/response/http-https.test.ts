@@ -3,7 +3,7 @@
  */
 import * as http from 'http'
 import * as https from 'https'
-import { Response } from '@remix-run/web-fetch'
+import { Response } from 'undici'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'

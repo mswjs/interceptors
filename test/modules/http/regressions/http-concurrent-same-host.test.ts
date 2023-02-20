@@ -3,7 +3,7 @@
  * @see https://github.com/mswjs/interceptors/issues/2
  */
 import * as http from 'http'
-import { Response } from '@remix-run/web-fetch'
+import { Response } from 'undici'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let requests: Array<Request> = []

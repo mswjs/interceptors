@@ -1,5 +1,5 @@
 import type { Debugger } from 'debug'
-import { Headers, Request } from '@remix-run/web-fetch'
+import { Headers, Request } from 'undici'
 import { headersToString } from 'headers-polyfill'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { createEvent } from './utils/createEvent'

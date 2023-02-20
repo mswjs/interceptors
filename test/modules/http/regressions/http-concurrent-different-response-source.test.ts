@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { HttpServer } from '@open-draft/test-server/http'
-import { Response } from '@remix-run/web-fetch'
+import { Response } from 'undici'
 import { httpGet } from '../../../helpers'
 import { sleep } from '../../../../test/helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'

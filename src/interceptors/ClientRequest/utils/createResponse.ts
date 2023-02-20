@@ -1,5 +1,5 @@
 import type { IncomingMessage } from 'http'
-import { Response, ReadableStream } from '@remix-run/web-fetch'
+import { Response, ReadableStream } from 'undici'
 import { objectToHeaders } from 'headers-polyfill'
 
 /**

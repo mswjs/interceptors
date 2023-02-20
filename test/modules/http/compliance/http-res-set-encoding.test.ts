@@ -3,7 +3,7 @@
  */
 import * as http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { Response } from '@remix-run/web-fetch'
+import { Response } from 'undici'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {

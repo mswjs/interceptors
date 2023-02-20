@@ -1,13 +1,15 @@
 import { format } from 'outvariant'
 import { createLazyCallback, LazyCallback } from './createLazyCallback'
 
-type LazyResponseCallback = (response: Response) => void
+type LazyResponseCallback = (response: globalThis.Response) => void
 
 export type InteractiveRequest = globalThis.Request & {
   respondWith: LazyCallback<LazyResponseCallback>
 }
 
-export function toInteractiveRequest(request: Request): InteractiveRequest {
+export function toInteractiveRequest(
+  request: globalThis.Request
+): InteractiveRequest {
   Object.defineProperty(request, 'respondWith', {
     writable: false,
     enumerable: true,

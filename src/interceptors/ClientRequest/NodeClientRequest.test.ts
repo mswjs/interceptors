@@ -4,7 +4,7 @@
 import { debug } from 'debug'
 import * as express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { Response } from '@remix-run/web-fetch'
+import { Response } from 'undici'
 import { NodeClientRequest } from './NodeClientRequest'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'

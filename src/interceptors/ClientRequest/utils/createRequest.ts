@@ -1,4 +1,4 @@
-import { Request } from '@remix-run/web-fetch'
+import { Request } from 'undici'
 import { Headers } from 'headers-polyfill'
 import type { NodeClientRequest } from '../NodeClientRequest'
 

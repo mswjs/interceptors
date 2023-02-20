@@ -1,5 +1,5 @@
 import { invariant } from 'outvariant'
-import type { Response as ResponsePolyfill } from '@remix-run/web-fetch'
+import type { Response as ResponsePolyfill } from 'undici'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { uuidv4 } from '../../utils/uuid'

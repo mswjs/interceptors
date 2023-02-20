@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  * @see https://github.com/mswjs/interceptors/issues/281
  */
-import { Response } from '@remix-run/web-fetch'
+import { Response } from 'undici'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 

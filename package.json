@@ -83,7 +83,6 @@
     "@commitlint/config-conventional": "^16.0.0",
     "@open-draft/test-server": "^0.4.2",
     "@ossjs/release": "^0.4.0",
-    "@remix-run/web-fetch": "^4.3.1",
     "@types/cors": "^2.8.12",
     "@types/express": "^4.17.13",
     "@types/express-rate-limit": "^6.0.0",
@@ -112,6 +111,7 @@
     "ts-jest": "^27.1.1",
     "tsup": "^6.5.0",
     "typescript": "^4.9.4",
+    "undici": "^5.20.0",
     "wait-for-expect": "^3.0.2",
     "web-encoding": "^1.1.5"
   },

@@ -4,7 +4,7 @@
 import fetch from 'node-fetch'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { Response } from '@remix-run/web-fetch'
+import { Response } from 'undici'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {

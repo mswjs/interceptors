@@ -4,7 +4,7 @@
 import { IncomingMessage } from 'http'
 import * as https from 'https'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
-import { Response } from '@remix-run/web-fetch'
+import { Response } from 'undici'
 import { getRequestOptionsByUrl } from '../../../../src/utils/getRequestOptionsByUrl'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
