@@ -59,9 +59,9 @@
   "scripts": {
     "start": "tsc --build -w",
     "test": "yarn test:internal && yarn test:integration",
-    "test:internal": "vitest",
+    "test:internal": "vitest run",
     "test:integration": "yarn test:integration:node && yarn test:integration:browser",
-    "test:integration:node": "vitest -c test/vitest.config.js",
+    "test:integration:node": "vitest run -c test/vitest.config.js",
     "test:integration:browser": "playwright test -c test/playwright.config.ts",
     "clean": "rimraf lib",
     "build": "yarn clean && cross-env NODE_ENV=production tsup --splitting",
