@@ -1,48 +1,70 @@
 // @vitest-environment jsdom
+// Change the JSDOM origin URL to prevent "Cross origin forbidden" errors.
+// @vitest-environment-options { "url": "http://127.0.0.1:55003" }
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import { HttpServer } from '@open-draft/test-server/http'
+import { Server } from 'http'
+import express from 'express'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/user', (_req, res) => {
-    // Respond with a message that has no headers.
-    res.socket?.end(`\
-HTTP/1.1 200 OK
+let httpServer: Server
+const serevrUrl = new URL('http://127.0.0.1:55003')
+const app = express()
+
+app.use('/user', (_req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  next()
+})
+
+app.get('/user', (_req, res) => {
+  if (!res.socket) {
+    throw new Error('Something is terribly wrong with the socket')
+  }
+
+  // Respond with a message that has no headers.
+  res.socket.end(`HTTP/1.1 200 OK
 
 hello world`)
-  })
 })
 
 const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
 
-  /**
-   * @note Stub the internal JSDOM property to prevent the following error:
-   * Error: Cross origin http://127.0.0.1:XXXXX/ forbidden
-   */
-  const { protocol, host, port } = httpServer.http.address
-  // @ts-expect-error
-  window._origin = `${protocol}//${host}:${port}`
+  await new Promise<void>((resolve) => {
+    /**
+     * @todo Replace this with a newer version of "test-serever" that
+     * supports custom port/hostname. Note that the new version also
+     * changes how the default middleware, like CORS, are applied.
+     */
+    httpServer = app.listen(+serevrUrl.port, serevrUrl.hostname, resolve)
+  })
 })
 
 afterAll(async () => {
   interceptor.dispose()
-  await httpServer.close()
+
+  await new Promise<void>((resolve, reject) => {
+    httpServer?.close((error) => {
+      if (error) {
+        return reject(error)
+      }
+      resolve()
+    })
+  })
 })
 
 it('handles an original response without any headers', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/user'))
-    req.send()
+  const request = await createXMLHttpRequest((request) => {
+    request.open('GET', new URL('/user', serevrUrl))
+    request.setRequestHeader('Accept', 'plain/text')
+    request.send()
   })
 
-  expect(req.status).toEqual(200)
-  expect(req.statusText).toEqual('OK')
-  expect(req.responseText).toEqual('hello world')
-  expect(req.getAllResponseHeaders()).toEqual('')
+  expect(request.getAllResponseHeaders()).toEqual('')
+  expect(request.status).toEqual(200)
+  expect(request.statusText).toEqual('OK')
+  expect(request.responseText).toEqual('hello world')
+  expect(request.getAllResponseHeaders()).toEqual('')
 })
