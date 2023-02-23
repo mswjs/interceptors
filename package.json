@@ -1,7 +1,7 @@
 {
   "name": "@mswjs/interceptors",
   "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
-  "version": "0.21.0",
+  "version": "0.21.1",
   "main": "./lib/node/index.js",
   "module": "./lib/node/index.mjs",
   "types": "./lib/node/index.d.ts",
@@ -35,8 +35,8 @@
       "browser": {
         "types": "./lib/browser/interceptors/fetch/index.d.ts",
         "require": "./lib/browser/interceptors/fetch/index.js",
-        "default": "./lib/browser/interceptors/fetch/index.js",
-        "import": "./lib/browser/interceptors/fetch/index.mjs"
+        "import": "./lib/browser/interceptors/fetch/index.mjs",
+        "default": "./lib/browser/interceptors/fetch/index.js"
       },
       "types": "./lib/node/interceptors/fetch/index.d.ts",
       "require": "./lib/node/interceptors/fetch/index.js",
