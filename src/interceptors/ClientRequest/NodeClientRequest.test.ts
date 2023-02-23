@@ -1,6 +1,6 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { debug } from 'debug'
-import * as express from 'express'
+import express from 'express'
 import { IncomingMessage } from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
@@ -233,7 +233,6 @@ it('does not emit ECONNREFUSED error connecting to an inactive server given mock
   })
 
   request.on('error', handleError)
-
   request.end()
 
   const responseReceived = new DeferredPromise<IncomingMessage>()
@@ -245,6 +244,8 @@ it('does not emit ECONNREFUSED error connecting to an inactive server given mock
   expect(handleError).not.toHaveBeenCalled()
   expect(response.statusCode).toEqual(200)
   expect(response.statusMessage).toEqual('Works')
+
+  console.log('TEST DONE')
 })
 
 it('sends the request body to the server given no mocked response', async () => {
