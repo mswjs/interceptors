@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
-import { it, expect, beforeAll, afterAll } from 'vitest'
-import { Response } from '@remix-run/web-fetch'
+import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
+import { Request, Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
-import { AnyUuid, anyUuid, headersContaining } from '../../../jest.expect'
+import { createXMLHttpRequest, UUID_REGEXP } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
 
 const server = new HttpServer((app) => {
@@ -37,8 +36,8 @@ afterAll(async () => {
 })
 
 it('emits events for a handled request', async () => {
-  const requestListener = jest.fn<never, HttpRequestEventMap['request']>()
-  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+  const requestListener = vi.fn<HttpRequestEventMap['request']>()
+  const responseListener = vi.fn<HttpRequestEventMap['response']>()
   interceptor.on('request', requestListener)
   interceptor.on('response', responseListener)
 
@@ -49,41 +48,37 @@ it('emits events for a handled request', async () => {
 
   // Must call the "request" event listener.
   expect(requestListener).toHaveBeenCalledTimes(1)
-  expect(requestListener).toHaveBeenCalledWith(
-    expect.objectContaining({
-      method: 'GET',
-      url: server.http.url('/user'),
-      headers: headersContaining({}),
-      respondWith: expect.any(Function),
-    }),
-    anyUuid()
-  )
+  const requestParams = requestListener.mock.calls[0]
+
+  expect(requestParams[0]).toBeInstanceOf(Request)
+  expect(requestParams[0].method).toBe('GET')
+  expect(requestParams[0].url).toBe(server.http.url('/user'))
+
+  expect(requestParams[1]).toMatch(UUID_REGEXP)
 
   // Must call the "response" event listener.
   expect(responseListener).toHaveBeenCalledTimes(1)
-  const [response, request, requestId] = responseListener.mock.calls[0]
+  const responseParams = responseListener.mock.calls[0]
 
-  expect(response).toBeInstanceOf(Response)
-  expect(response.status).toBe(200)
-  expect(response.statusText).toBe('OK')
-  expect(response.headers.get('Content-Type')).toBe('text/plain;charset=UTF-8')
-  expect(response.bodyUsed).toBe(false)
-  expect(await response.text()).toBe('mocked response')
-
-  expect(request).toEqual(
-    expect.objectContaining({
-      method: 'GET',
-      url: server.http.url('/user'),
-      headers: headersContaining({}),
-    })
+  expect(responseParams[0]).toBeInstanceOf(Response)
+  expect(responseParams[0].status).toBe(200)
+  expect(responseParams[0].statusText).toBe('OK')
+  expect(responseParams[0].headers.get('Content-Type')).toBe(
+    'text/plain;charset=UTF-8'
   )
+  expect(responseParams[0].bodyUsed).toBe(false)
+  expect(await responseParams[0].text()).toBe('mocked response')
 
-  expect(requestId).toMatch(AnyUuid.uuidRegExp)
+  expect(responseParams[1]).toBeInstanceOf(Request)
+  expect(responseParams[1].method).toBe('GET')
+  expect(responseParams[1].url).toBe(server.http.url('/user'))
+
+  expect(responseParams[2]).toMatch(UUID_REGEXP)
 })
 
 it('emits events for a bypassed request', async () => {
-  const requestListener = jest.fn<never, HttpRequestEventMap['request']>()
-  const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+  const requestListener = vi.fn<HttpRequestEventMap['request']>()
+  const responseListener = vi.fn<HttpRequestEventMap['response']>()
   interceptor.on('request', requestListener)
   interceptor.on('response', responseListener)
 
@@ -94,36 +89,36 @@ it('emits events for a bypassed request', async () => {
 
   // Must call the "request" event listener.
   expect(requestListener).toHaveBeenCalledTimes(1)
-  expect(requestListener).toHaveBeenCalledWith(
-    expect.objectContaining({
-      method: 'GET',
-      url: server.http.url('/bypassed'),
-      headers: headersContaining({}),
-      respondWith: expect.any(Function),
-    }),
-    anyUuid()
-  )
+  const requestParams = requestListener.mock.calls[0]
+
+  expect(requestParams[0]).toBeInstanceOf(Request)
+  expect(requestParams[0].method).toBe('GET')
+  expect(requestParams[0].url).toBe(server.http.url('/bypassed'))
+  expect(requestParams[0]).toHaveProperty('respondWith', expect.any(Function))
+
+  // The last argument of the request listener is the request ID.
+  expect(requestParams[1]).toMatch(UUID_REGEXP)
 
   // Must call the "response" event listener.
   expect(responseListener).toHaveBeenCalledTimes(1)
-  const [response, request, requestId] = responseListener.mock.calls[0]
+  const responseParams = responseListener.mock.calls[0]
 
-  expect(response).toBeInstanceOf(Response)
-  expect(response.status).toBe(201)
+  expect(responseParams[0]).toBeInstanceOf(Response)
+  expect(responseParams[0].status).toBe(201)
   // Note that Express infers status texts from the code.
-  expect(response.statusText).toBe('Created')
+  expect(responseParams[0].statusText).toBe('Created')
   // Express also adds whitespace between the header pairs.
-  expect(response.headers.get('Content-Type')).toBe('text/plain; charset=utf-8')
-  expect(response.bodyUsed).toBe(false)
-  expect(await response.text()).toBe('original response')
-
-  expect(request).toEqual(
-    expect.objectContaining({
-      method: 'GET',
-      url: server.http.url('/bypassed'),
-      headers: headersContaining({}),
-    })
+  expect(responseParams[0].headers.get('Content-Type')).toBe(
+    'text/plain; charset=utf-8'
   )
+  expect(responseParams[0].bodyUsed).toBe(false)
+  expect(await responseParams[0].text()).toBe('original response')
 
-  expect(requestId).toMatch(AnyUuid.uuidRegExp)
+  // Response listener must provide a relevant request.
+  expect(responseParams[1]).toBeInstanceOf(Request)
+  expect(responseParams[1].method).toBe('GET')
+  expect(responseParams[1].url).toBe(server.http.url('/bypassed'))
+
+  // The last argument of the response listener is the request ID.
+  expect(responseParams[2]).toMatch(UUID_REGEXP)
 })

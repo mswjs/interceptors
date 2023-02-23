@@ -1,5 +1,6 @@
 import { HeadersObject } from 'headers-polyfill'
 import { AsymmetricMatcher } from 'expect/build/asymmetricMatchers'
+import { UUID_REGEXP } from './helpers'
 
 /**
  * A custom asymetric matcher that asserts the `Headers` object.
@@ -29,15 +30,12 @@ class HeadersContaining extends AsymmetricMatcher<Record<string, unknown>> {
 }
 
 export class AnyUuid extends AsymmetricMatcher<string> {
-  static uuidRegExp =
-    /\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b/
-
   constructor() {
     super('', false)
   }
 
   asymmetricMatch(other: string) {
-    return AnyUuid.uuidRegExp.test(other)
+    return UUID_REGEXP.test(other)
   }
 
   toString() {
@@ -45,7 +43,7 @@ export class AnyUuid extends AsymmetricMatcher<string> {
   }
 
   toAsymmetricMatcher() {
-    return String(AnyUuid.uuidRegExp)
+    return String(UUID_REGEXP)
   }
 }
 

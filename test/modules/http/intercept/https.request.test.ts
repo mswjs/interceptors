@@ -2,8 +2,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'https'
 import { RequestHandler } from 'express'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
-import { waitForClientRequest } from '../../../helpers'
-import { anyUuid } from '../../../jest.expect'
+import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
 
@@ -60,7 +59,7 @@ it('intercepts a HEAD request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
 it('intercepts a GET request', async () => {
@@ -85,7 +84,7 @@ it('intercepts a GET request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
 it('intercepts a POST request', async () => {
@@ -111,7 +110,7 @@ it('intercepts a POST request', async () => {
   expect(await request.text()).toBe('post-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
 it('intercepts a PUT request', async () => {
@@ -137,7 +136,7 @@ it('intercepts a PUT request', async () => {
   expect(await request.text()).toBe('put-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
 it('intercepts a PATCH request', async () => {
@@ -163,7 +162,7 @@ it('intercepts a PATCH request', async () => {
   expect(await request.text()).toBe('patch-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
 it('intercepts a DELETE request', async () => {
@@ -188,7 +187,7 @@ it('intercepts a DELETE request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
 it('intercepts an http.request request given RequestOptions without a protocol', async () => {
@@ -211,5 +210,5 @@ it('intercepts an http.request request given RequestOptions without a protocol',
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })

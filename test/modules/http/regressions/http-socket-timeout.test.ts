@@ -1,17 +1,23 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import path from 'path'
 import { ChildProcess, spawn } from 'child_process'
 
 let child: ChildProcess
 let stderr = Buffer.from('')
 
 beforeAll(() => {
-  const testModulePath = path.resolve(__dirname, 'http-socket-timeout.ts')
-  child = spawn('yarn', [
-    'test:integration:node',
-    testModulePath,
-    `--testRegex=${testModulePath}$`,
-  ])
+  child = spawn(
+    'yarn',
+    [
+      'test:integration:node',
+      `-c=${require.resolve('./http-socket-timeout.vitest.config.js')}`,
+      '--run',
+    ],
+    {
+      cwd: process.cwd(),
+    }
+  )
+
+  console.log(child.spawnargs.join(' '))
 
   // Jest writes its output into "stderr".
   child.stderr?.on('data', (buffer: Buffer) => {
@@ -26,15 +32,14 @@ afterAll(() => {
 it(
   'does not leave the test process hanging due to the custom socket timeout',
   async () => {
-    const exitCode = await new Promise<number>((resolve) => {
-      child.on('exit', (code: number) => resolve(code))
+    const exitCode = await new Promise<number | null>((resolve) => {
+      child.on('exit', (code) => resolve(code))
     })
-    expect(exitCode).toEqual(0)
 
-    const testResult = stderr.toString('utf-8')
-    expect(testResult).not.toContain(
-      'Jest did not exit one second after the test run has completed'
-    )
+    const testErrors = stderr.toString('utf-8')
+    expect(testErrors).toBe(null)
+
+    expect(exitCode).toEqual(0)
   },
   { timeout: 20_000 }
 )

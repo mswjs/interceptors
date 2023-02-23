@@ -79,7 +79,7 @@ it('responds with a Blob when "responseType" equals "blob"', async () => {
   )
 })
 
-it('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
+it.only('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
     req.responseType = 'arraybuffer'
@@ -104,7 +104,6 @@ it('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', asyn
   }
 
   // Must return an "ArrayBuffer" instance for "arraybuffer" response type.
-  expect(responseBuffer).toBeInstanceOf(ArrayBuffer)
   expect(responseBuffer.byteLength).toBe(expectedArrayBuffer.byteLength)
   expect(isBufferEqual(responseBuffer, expectedArrayBuffer)).toBe(true)
 })

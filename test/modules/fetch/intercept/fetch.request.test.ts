@@ -1,11 +1,8 @@
-/**
- * @jest-environment node
- */
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { Request } from 'node-fetch'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
-import { fetch } from '../../../helpers'
-import { anyUuid, headersContaining } from '../../../jest.expect'
+import { fetch, UUID_REGEXP } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
@@ -14,19 +11,18 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = jest.fn<never, HttpRequestEventMap['request']>()
+const resolver = vi.fn<HttpRequestEventMap['request']>()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -34,7 +30,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('intercepts fetch requests constructed via a "Request" instance', async () => {
+it('intercepts fetch requests constructed via a "Request" instance', async () => {
   const request = new Request(httpServer.http.url('/user'), {
     method: 'POST',
     headers: {
@@ -56,15 +52,13 @@ test('intercepts fetch requests constructed via a "Request" instance', async () 
 
   expect(capturedRequest.method).toBe('POST')
   expect(capturedRequest.url).toBe(httpServer.http.url('/user'))
-  expect(capturedRequest.headers).toEqual(
-    headersContaining({
-      'content-type': 'text/plain',
-      'user-agent': 'interceptors',
-    })
-  )
+  expect(Object.fromEntries(capturedRequest.headers.entries())).toContain({
+    'content-type': 'text/plain',
+    'user-agent': 'interceptors',
+  })
   expect(capturedRequest.credentials).toBe('same-origin')
   expect(await capturedRequest.text()).toBe('hello world')
   expect(capturedRequest.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
