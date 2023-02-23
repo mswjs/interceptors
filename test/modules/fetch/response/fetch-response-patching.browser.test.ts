@@ -1,10 +1,7 @@
-/**
- * @jest-environment node
- */
-import * as path from 'path'
-import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
+import { Page } from '@playwright/test'
 import { listToHeaders } from 'headers-polyfill'
+import { test, expect } from '../../../playwright.extend'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 
 declare namespace window {
@@ -21,30 +18,25 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-async function prepareRuntime() {
-  const context = await pageWith({
-    example: path.resolve(__dirname, 'fetch-response-patching.runtime.js'),
-  })
-
-  await context.page.evaluate((url) => {
+async function forwardServerUrl(page: Page): Promise<void> {
+  await page.evaluate((url) => {
     window.originalUrl = url
   }, httpServer.http.url('/original'))
-
-  return context
 }
 
-beforeAll(async () => {
+test.beforeAll(async () => {
   await httpServer.listen()
 })
 
-afterAll(async () => {
+test.afterAll(async () => {
   await httpServer.close()
 })
 
-it('supports response patching', async () => {
-  const runtime = await prepareRuntime()
+test('supports response patching', async ({ loadExample, page }) => {
+  await loadExample(require.resolve('./fetch-response-patching.runtime.js'))
+  await forwardServerUrl(page)
 
-  const res = await runtime.page.evaluate(() => {
+  const res = await page.evaluate(() => {
     return fetch('http://localhost/mocked').then((res) => {
       return res.text().then((text) => {
         return {
