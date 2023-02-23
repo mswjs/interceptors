@@ -79,7 +79,7 @@ it('responds with a Blob when "responseType" equals "blob"', async () => {
   )
 })
 
-it.only('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
+it('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
     req.responseType = 'arraybuffer'

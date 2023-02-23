@@ -37,7 +37,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it.only('gracefully finishes the request when it has a mocked response', async () => {
+it('gracefully finishes the request when it has a mocked response', async () => {
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://any.thing', {
