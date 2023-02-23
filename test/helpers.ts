@@ -2,8 +2,8 @@ import https from 'https'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { objectToHeaders } from 'headers-polyfill'
+import { Page } from '@playwright/test'
 import { Request } from '@remix-run/web-fetch'
-import { Page, ScenarioApi } from 'page-with'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
@@ -187,7 +187,7 @@ export interface XMLHttpResponse {
   body: string
 }
 
-interface BrowserXMLHttpRequestInit {
+export interface BrowserXMLHttpRequestInit {
   method: string
   url: string
   headers?: Record<string, string>
@@ -228,11 +228,11 @@ export async function extractRequestFromPage(page: Page): Promise<Request> {
   return request
 }
 
-export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {
+export function createRawBrowserXMLHttpRequest(page: Page) {
   return (requestInit: BrowserXMLHttpRequestInit) => {
     const { method, url, headers, body, withCredentials } = requestInit
 
-    return scenario.page.evaluate<
+    return page.evaluate<
       XMLHttpResponse,
       [
         string,
@@ -278,13 +278,13 @@ export function createRawBrowserXMLHttpRequest(scenario: ScenarioApi) {
   }
 }
 
-export function createBrowserXMLHttpRequest(scenario: ScenarioApi) {
+export function createBrowserXMLHttpRequest(page: Page) {
   return async (
     requestInit: BrowserXMLHttpRequestInit
   ): Promise<[Request, XMLHttpResponse]> => {
     return Promise.all([
-      extractRequestFromPage(scenario.page),
-      createRawBrowserXMLHttpRequest(scenario)(requestInit),
+      extractRequestFromPage(page),
+      createRawBrowserXMLHttpRequest(page)(requestInit),
     ])
   }
 }

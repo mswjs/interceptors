@@ -1,12 +1,6 @@
-/**
- * @jest-environment node
- */
-import * as path from 'path'
-import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
 import { RequestHandler } from 'express-serve-static-core'
-import { createBrowserXMLHttpRequest, XMLHttpResponse } from '../../../helpers'
-import { headersContaining } from '../../../jest.expect'
+import { test, expect } from '../../../playwright.extend'
 
 const httpServer = new HttpServer((app) => {
   const requestHandler: RequestHandler = (_req, res) => {
@@ -17,23 +11,20 @@ const httpServer = new HttpServer((app) => {
   app.post('/user', requestHandler)
 })
 
-function prepareRuntime() {
-  return pageWith({
-    example: path.resolve(__dirname, 'XMLHttpRequest.browser.runtime.js'),
-  })
-}
-
-beforeAll(async () => {
+test.beforeAll(async () => {
   await httpServer.listen()
 })
 
-afterAll(async () => {
+test.afterAll(async () => {
   await httpServer.close()
 })
 
-test('intercepts an HTTP GET request', async () => {
-  const context = await prepareRuntime()
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
+test('intercepts an HTTP GET request', async ({
+  loadExample,
+  callXMLHttpRequest,
+}) => {
+  await loadExample(require.resolve('./XMLHttpRequest.browser.runtime.js'))
+
   const url = httpServer.http.url('/user')
   const [request, response] = await callXMLHttpRequest({
     method: 'GET',
@@ -49,17 +40,17 @@ test('intercepts an HTTP GET request', async () => {
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
 
-  expect(response).toEqual<XMLHttpResponse>({
-    status: 200,
-    statusText: 'OK',
-    headers: headersContaining({}),
-    body: 'user-body',
-  })
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.body).toBe('user-body')
 })
 
-test('intercepts an HTTP POST request', async () => {
-  const context = await prepareRuntime()
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
+test('intercepts an HTTP POST request', async ({
+  loadExample,
+  callXMLHttpRequest,
+}) => {
+  await loadExample(require.resolve('./XMLHttpRequest.browser.runtime.js'))
+
   const url = httpServer.http.url('/user')
   const [request, response] = await callXMLHttpRequest({
     method: 'POST',
@@ -76,17 +67,17 @@ test('intercepts an HTTP POST request', async () => {
   expect(request.credentials).toBe('same-origin')
   expect(await request.json()).toEqual({ user: 'john' })
 
-  expect(response).toEqual<XMLHttpResponse>({
-    status: 200,
-    statusText: 'OK',
-    headers: headersContaining({}),
-    body: 'user-body',
-  })
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.body).toBe('user-body')
 })
 
-test('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {
-  const context = await prepareRuntime()
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
+test('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async ({
+  loadExample,
+  callXMLHttpRequest,
+}) => {
+  await loadExample(require.resolve('./XMLHttpRequest.browser.runtime.js'))
+
   const url = httpServer.http.url('/user')
   const [request] = await callXMLHttpRequest({
     method: 'POST',
@@ -97,9 +88,12 @@ test('sets "credentials" to "include" on isomorphic request when "withCredential
   expect(request.credentials).toBe('include')
 })
 
-test('sets "credentials" to "same-origin" on isomorphic request when "withCredentials" is false', async () => {
-  const context = await prepareRuntime()
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
+test('sets "credentials" to "same-origin" on isomorphic request when "withCredentials" is false', async ({
+  loadExample,
+  callXMLHttpRequest,
+}) => {
+  await loadExample(require.resolve('./XMLHttpRequest.browser.runtime.js'))
+
   const url = httpServer.http.url('/user')
   const [request] = await callXMLHttpRequest({
     method: 'POST',
@@ -110,9 +104,12 @@ test('sets "credentials" to "same-origin" on isomorphic request when "withCreden
   expect(request.credentials).toBe('same-origin')
 })
 
-test('sets "credentials" to "same-origin" on isomorphic request when "withCredentials" is not set', async () => {
-  const context = await prepareRuntime()
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
+test('sets "credentials" to "same-origin" on isomorphic request when "withCredentials" is not set', async ({
+  loadExample,
+  callXMLHttpRequest,
+}) => {
+  await loadExample(require.resolve('./XMLHttpRequest.browser.runtime.js'))
+
   const url = httpServer.http.url('/user')
   const [request] = await callXMLHttpRequest({
     method: 'POST',
