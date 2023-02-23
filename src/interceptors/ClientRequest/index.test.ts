@@ -30,8 +30,6 @@ it('forbids calling "respondWith" multiple times for the same request', async ()
   const requestUrl = httpServer.http.url('/')
 
   interceptor.on('request', function firstRequestListener(request) {
-    console.log('first request event...')
-
     request.respondWith(new Response())
   })
 

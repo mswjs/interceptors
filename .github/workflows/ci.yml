@@ -22,7 +22,7 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Unit tests
-        run: yarn test:internal
+        run: yarn test:unit
 
       - name: Build
         run: yarn build
