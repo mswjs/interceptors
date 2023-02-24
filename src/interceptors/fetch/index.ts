@@ -46,8 +46,17 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       this.log('[%s] %s', method, url)
 
       const body = await request.clone().arrayBuffer()
+
+      let requestUrl
+      if (window.location) {
+        requestUrl = new URL(url, location.origin)
+      } else {
+        console.debug('window.location is not available')
+        requestUrl = new URL(url)
+      }
+
       const isomorphicRequest = new IsomorphicRequest(
-        new URL(url, location.origin),
+        requestUrl,
         {
           body,
           method,
