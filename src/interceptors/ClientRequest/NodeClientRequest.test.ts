@@ -243,8 +243,6 @@ it('does not emit ECONNREFUSED error connecting to an inactive server given mock
   expect(handleError).not.toHaveBeenCalled()
   expect(response.statusCode).toEqual(200)
   expect(response.statusMessage).toEqual('Works')
-
-  console.log('TEST DONE')
 })
 
 it('sends the request body to the server given no mocked response', async () => {
