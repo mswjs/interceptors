@@ -1,6 +1,7 @@
+import { it, expect } from 'vitest'
 import { normalizeClientRequestWriteArgs } from './normalizeClientRequestWriteArgs'
 
-test('returns a triplet of null given no chunk, encoding, or callback', () => {
+it('returns a triplet of null given no chunk, encoding, or callback', () => {
   expect(
     normalizeClientRequestWriteArgs([
       // @ts-ignore
@@ -11,7 +12,7 @@ test('returns a triplet of null given no chunk, encoding, or callback', () => {
   ).toEqual([undefined, undefined, undefined])
 })
 
-test('returns [chunk, null, null] given only a chunk', () => {
+it('returns [chunk, null, null] given only a chunk', () => {
   expect(normalizeClientRequestWriteArgs(['chunk', undefined])).toEqual([
     'chunk',
     undefined,
@@ -19,7 +20,7 @@ test('returns [chunk, null, null] given only a chunk', () => {
   ])
 })
 
-test('returns [chunk, encoding] given only chunk and encoding', () => {
+it('returns [chunk, encoding] given only chunk and encoding', () => {
   expect(normalizeClientRequestWriteArgs(['chunk', 'utf8'])).toEqual([
     'chunk',
     'utf8',
@@ -27,7 +28,7 @@ test('returns [chunk, encoding] given only chunk and encoding', () => {
   ])
 })
 
-test('returns [chunk, encoding, cb] given all three arguments', () => {
+it('returns [chunk, encoding, cb] given all three arguments', () => {
   const callbackFn = () => {}
   expect(
     normalizeClientRequestWriteArgs(['chunk', 'utf8', callbackFn])

@@ -1,10 +1,7 @@
-/**
- * @jest-environment node
- */
-import * as path from 'path'
-import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
+import { Page } from '@playwright/test'
 import { listToHeaders } from 'headers-polyfill'
+import { test, expect } from '../../../playwright.extend'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 
 declare namespace window {
@@ -32,43 +29,39 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-async function prepareRuntime() {
-  const context = await pageWith({
-    example: path.resolve(__dirname, 'fetch.browser.runtime.js'),
-  })
-
-  await context.page.evaluate((httpUrl) => {
+async function forwardServerUrls(page: Page): Promise<void> {
+  await page.evaluate((httpUrl) => {
     window.serverHttpUrl = httpUrl
   }, httpServer.http.url('/'))
 
-  await context.page.evaluate((httpsUrl) => {
+  await page.evaluate((httpsUrl) => {
     window.serverHttpsUrl = httpsUrl
   }, httpServer.https.url('/'))
-
-  return context
 }
 
-beforeAll(async () => {
+test.beforeAll(async () => {
   await httpServer.listen()
 })
 
-afterAll(async () => {
+test.afterAll(async () => {
   await httpServer.close()
 })
 
-test('responds to an HTTP request handled in the resolver', async () => {
-  const context = await prepareRuntime()
-  const response: SerializedResponse = await context.page.evaluate((url) => {
+test('responds to an HTTP request handled in the resolver', async ({
+  loadExample,
+  page,
+}) => {
+  await loadExample(require.resolve('./fetch.browser.runtime.js'))
+  await forwardServerUrls(page)
+
+  const response: SerializedResponse = await page.evaluate((url) => {
     return fetch(url).then((response) => {
       return response.json().then((json) => ({
         url: response.url,
         type: response.type,
         status: response.status,
         statusText: response.statusText,
-        headers: Array.from(
-          // @ts-ignore
-          response.headers.entries()
-        ),
+        headers: Array.from(response.headers.entries()),
         json,
       }))
     })
@@ -87,19 +80,21 @@ test('responds to an HTTP request handled in the resolver', async () => {
   })
 })
 
-test('bypasses an HTTP request not handled in the resolver', async () => {
-  const context = await prepareRuntime()
-  const response: SerializedResponse = await context.page.evaluate((url) => {
+test('bypasses an HTTP request not handled in the resolver', async ({
+  loadExample,
+  page,
+}) => {
+  await loadExample(require.resolve('./fetch.browser.runtime.js'))
+  await forwardServerUrls(page)
+
+  const response: SerializedResponse = await page.evaluate((url) => {
     return fetch(url).then((response) => {
       return {
         url: response.url,
         type: response.type,
         status: response.status,
         statusText: response.statusText,
-        headers: Array.from(
-          // @ts-ignore
-          response.headers.entries()
-        ),
+        headers: Array.from(response.headers.entries()),
       }
     })
   }, httpServer.http.url('/get'))
@@ -114,9 +109,14 @@ test('bypasses an HTTP request not handled in the resolver', async () => {
   expect(headers.has('map')).toBe(false)
 })
 
-test('responds to an HTTPS request handled in the resolver', async () => {
-  const context = await prepareRuntime()
-  const response: SerializedResponse = await context.page.evaluate((url) => {
+test('responds to an HTTPS request handled in the resolver', async ({
+  loadExample,
+  page,
+}) => {
+  await loadExample(require.resolve('./fetch.browser.runtime.js'))
+  await forwardServerUrls(page)
+
+  const response: SerializedResponse = await page.evaluate((url) => {
     /**
      * @todo give a custom Agent to allow HTTPS on insecure hosts.
      */
@@ -126,10 +126,7 @@ test('responds to an HTTPS request handled in the resolver', async () => {
         type: response.type,
         status: response.status,
         statusText: response.statusText,
-        headers: Array.from(
-          // @ts-ignore
-          response.headers.entries()
-        ),
+        headers: Array.from(response.headers.entries()),
         json,
       }))
     })
@@ -148,19 +145,21 @@ test('responds to an HTTPS request handled in the resolver', async () => {
   })
 })
 
-test('bypasses an HTTPS request not handled in the resolver', async () => {
-  const context = await prepareRuntime()
-  const response: SerializedResponse = await context.page.evaluate((url) => {
+test('bypasses an HTTPS request not handled in the resolver', async ({
+  loadExample,
+  page,
+}) => {
+  await loadExample(require.resolve('./fetch.browser.runtime.js'))
+  await forwardServerUrls(page)
+
+  const response: SerializedResponse = await page.evaluate((url) => {
     return fetch(url).then((response) => {
       return {
         url: response.url,
         type: response.type,
         status: response.status,
         statusText: response.statusText,
-        headers: Array.from(
-          // @ts-ignore
-          response.headers.entries()
-        ),
+        headers: Array.from(response.headers.entries()),
       }
     })
   }, httpServer.https.url('/get'))
@@ -175,52 +174,44 @@ test('bypasses an HTTPS request not handled in the resolver', async () => {
   expect(headers.has('map')).toBe(false)
 })
 
-test('bypasses any request when the interceptor is restored', async () => {
-  const context = await prepareRuntime()
+test('bypasses any request when the interceptor is restored', async ({
+  loadExample,
+  page,
+}) => {
+  await loadExample(require.resolve('./fetch.browser.runtime.js'))
+  await forwardServerUrls(page)
 
-  await context.page.evaluate(() => {
+  await page.evaluate(() => {
     window.interceptor.dispose()
   })
 
-  const httpResponse: SerializedResponse = await context.page.evaluate(
-    (url) => {
-      return fetch(url).then((response) => {
-        return {
-          url: response.url,
-          type: response.type,
-          status: response.status,
-          statusText: response.statusText,
-          headers: Array.from(
-            // @ts-ignore
-            response.headers.entries()
-          ),
-        }
-      })
-    },
-    httpServer.http.url('/')
-  )
+  const httpResponse: SerializedResponse = await page.evaluate((url) => {
+    return fetch(url).then((response) => {
+      return {
+        url: response.url,
+        type: response.type,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Array.from(response.headers.entries()),
+      }
+    })
+  }, httpServer.http.url('/'))
 
   expect(httpResponse.url).toBe(httpServer.http.url('/'))
   expect(httpResponse.type).toBe('cors')
   expect(httpResponse.status).toBe(200)
 
-  const httpsResponse: SerializedResponse = await context.page.evaluate(
-    (url) => {
-      return fetch(url).then((response) => {
-        return {
-          url: response.url,
-          type: response.type,
-          status: response.status,
-          statusText: response.statusText,
-          headers: Array.from(
-            // @ts-ignore
-            response.headers.entries()
-          ),
-        }
-      })
-    },
-    httpServer.https.url('/get')
-  )
+  const httpsResponse: SerializedResponse = await page.evaluate((url) => {
+    return fetch(url).then((response) => {
+      return {
+        url: response.url,
+        type: response.type,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Array.from(response.headers.entries()),
+      }
+    })
+  }, httpServer.https.url('/get'))
 
   expect(httpsResponse.url).toBe(httpServer.https.url('/get'))
   expect(httpsResponse.type).toBe('cors')

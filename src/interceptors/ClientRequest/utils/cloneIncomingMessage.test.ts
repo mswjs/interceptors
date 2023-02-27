@@ -1,9 +1,10 @@
+import { it, expect } from 'vitest'
 import { Socket } from 'net'
 import { IncomingMessage } from 'http'
 import { Stream, Readable, EventEmitter } from 'stream'
 import { cloneIncomingMessage, IS_CLONE } from './cloneIncomingMessage'
 
-test('clones a given IncomingMessage', () => {
+it('clones a given IncomingMessage', () => {
   const message = new IncomingMessage(new Socket())
   message.statusCode = 200
   message.statusMessage = 'OK'

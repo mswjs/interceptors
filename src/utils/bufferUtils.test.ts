@@ -1,3 +1,4 @@
+import { it, expect } from 'vitest'
 import { decodeBuffer, encodeBuffer } from './bufferUtils'
 
 it('encodes utf-8 string', () => {

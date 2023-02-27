@@ -1,6 +1,5 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
@@ -37,7 +36,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-test('handles response of type "json" and missing response JSON body', async () => {
+it('handles response of type "json" and missing response JSON body', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('PUT', '/no-body')
     req.responseType = 'json'
@@ -50,7 +49,7 @@ test('handles response of type "json" and missing response JSON body', async () 
   expect(req.responseType).toBe('json')
 })
 
-test('handles response of type "json" and invalid response JSON body', async () => {
+it('handles response of type "json" and invalid response JSON body', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/invalid-json')
     req.responseType = 'json'

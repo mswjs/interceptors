@@ -1,8 +1,8 @@
 /**
- * @jest-environment node
  * @see https://github.com/mswjs/interceptors/issues/2
  */
-import * as http from 'http'
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import http from 'http'
 import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
@@ -37,7 +37,7 @@ function promisifyClientRequest(
   })
 }
 
-test('resolves multiple concurrent requests to the same host independently', async () => {
+it('resolves multiple concurrent requests to the same host independently', async () => {
   await Promise.all([
     promisifyClientRequest(() => {
       return http.get('http://httpbin.org/get')

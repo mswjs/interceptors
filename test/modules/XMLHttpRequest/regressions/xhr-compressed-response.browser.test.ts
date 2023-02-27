@@ -1,12 +1,9 @@
 /**
- * @jest-environment node
  * @see https://github.com/mswjs/interceptors/issues/308
  */
 import { HttpServer } from '@open-draft/test-server/http'
-import { pageWith } from 'page-with'
 import zlib from 'zlib'
-import { createBrowserXMLHttpRequest, XMLHttpResponse } from '../../../helpers'
-import { anyUuid, headersContaining } from '../../../jest.expect'
+import { test, expect } from '../../../playwright.extend'
 
 const httpServer = new HttpServer((app) => {
   app.get('/compressed', (_req, res) => {
@@ -17,41 +14,45 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-beforeAll(async () => {
+test.beforeAll(async () => {
   await httpServer.listen()
 })
 
-afterAll(async () => {
+test.afterAll(async () => {
   await httpServer.close()
 })
 
-test('intercepts a compressed HTTP request', async () => {
-  const context = await pageWith({
-    example: require.resolve('../intercept/XMLHttpRequest.browser.runtime.js'),
-  })
+test('intercepts a compressed HTTP request', async ({
+  loadExample,
+  callXMLHttpRequest,
+  page,
+}) => {
+  await loadExample(
+    require.resolve('../intercept/XMLHttpRequest.browser.runtime.js')
+  )
 
-  const pageErrorCallback = jest.fn()
-  context.page.on('pageerror', pageErrorCallback).on('console', (message) => {
-    if (message.type() === 'error') {
-      pageErrorCallback(message.text())
-    }
-  })
+  const pageErrors: Array<string> = []
+  page
+    .on('pageerror', (error) => {
+      pageErrors.push(error.message)
+    })
+    .on('console', (message) => {
+      if (message.type() === 'error') {
+        pageErrors.push(message.text())
+      }
+    })
 
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(context)
   const url = httpServer.http.url('/compressed')
   const [, response] = await callXMLHttpRequest({
     method: 'GET',
     url,
   })
 
-  expect(response).toEqual<XMLHttpResponse>({
-    status: 200,
-    statusText: 'OK',
-    headers: headersContaining({}),
-    body: 'compressed-body',
-  })
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.body).toBe('compressed-body')
 
   // Playwright prints console errors on the next tick.
-  await context.page.waitForTimeout(0)
-  expect(pageErrorCallback).not.toHaveBeenCalled()
+  await page.waitForTimeout(0)
+  expect(pageErrors).toEqual([])
 })

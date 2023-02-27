@@ -4,12 +4,12 @@
  * that asserts that this one doesn't leave the Jest runner hanging
  * due to the unterminated socket.
  */
-import * as http from 'http'
+import { it, expect, beforeAll, afterAll } from 'vitest'
+import http, { IncomingMessage } from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { Response } from '@remix-run/web-fetch'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-
-jest.setTimeout(5000)
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (_req, res) => {
@@ -23,9 +23,8 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -33,16 +32,17 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('supports custom socket timeout on the HTTP request', (done) => {
-  const req = http.request(httpServer.http.url('/resource'), (res) => {
-    res.on('data', () => null)
-    res.on('end', () => {
-      expect(res.statusCode).toEqual(301)
-      done()
-    })
+it('supports custom socket timeout on the HTTP request', async () => {
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  const request = http.request(httpServer.http.url('/resource'), (response) => {
+    response.on('data', () => null)
+    response.on('end', () => responseReceived.resolve(response))
   })
 
   // Intentionally large request timeout.
-  req.setTimeout(10000)
-  req.end()
+  request.setTimeout(10_000)
+  request.end()
+
+  const response = await responseReceived
+  expect(response.statusCode).toBe(301)
 })

@@ -1,13 +1,12 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import express from 'express'
 import supertest from 'supertest'
 import { HttpRequestEventMap } from '../../src'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 
-const requestListener = jest.fn<never, HttpRequestEventMap['request']>()
-const responseListener = jest.fn<never, HttpRequestEventMap['response']>()
+const requestListener = vi.fn<HttpRequestEventMap['request']>()
+const responseListener = vi.fn<HttpRequestEventMap['response']>()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', requestListener)
@@ -28,14 +27,14 @@ beforeAll(() => {
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(() => {
   interceptor.dispose()
 })
 
-test('intercepts a GET request', async () => {
+it('intercepts a GET request', async () => {
   const response = await supertest(app).get('/resource')
 
   expect(response.error).toBeFalsy()
@@ -59,7 +58,7 @@ test('intercepts a GET request', async () => {
   expect(await responseFromListener.text()).toBe('get-request-body')
 })
 
-test('intercepts a POST request', async () => {
+it('intercepts a POST request', async () => {
   const response = await supertest(app)
     .post('/resource')
     .set('Content-Type', 'application/json')

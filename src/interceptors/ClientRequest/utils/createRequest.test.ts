@@ -1,3 +1,4 @@
+import { it, expect } from 'vitest'
 import { debug } from 'debug'
 import { HttpRequestEventMap } from '../../..'
 import { AsyncEventEmitter } from '../../../utils/AsyncEventEmitter'

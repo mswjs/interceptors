@@ -1,6 +1,7 @@
+import { it, expect } from 'vitest'
 import { cloneObject } from './cloneObject'
 
-test('clones a shallow object', () => {
+it('clones a shallow object', () => {
   const original = { a: 1, b: 2, c: [1, 2, 3] }
   const clone = cloneObject(original)
 
@@ -18,7 +19,7 @@ test('clones a shallow object', () => {
   expect(original).toHaveProperty('c', [1, 2, 3])
 })
 
-test('clones a nested object', () => {
+it('clones a nested object', () => {
   const original = { a: { b: 1 }, c: { d: { e: 2 } } }
   const clone = cloneObject(original)
 
@@ -33,7 +34,7 @@ test('clones a nested object', () => {
   expect(original).toHaveProperty(['c', 'd', 'e'], 2)
 })
 
-test('clones a class instance', () => {
+it('clones a class instance', () => {
   class Car {
     public manufacturer: string
     constructor() {
@@ -53,7 +54,7 @@ test('clones a class instance', () => {
   expect(clone.getManufacturer()).toEqual('Audi')
 })
 
-test('ignores nested class instances', () => {
+it('ignores nested class instances', () => {
   class Car {
     name: string
     constructor(name: string) {
@@ -81,7 +82,7 @@ test('ignores nested class instances', () => {
   expect(original.car.getName()).toEqual('Audi')
 })
 
-test('clones an object with null prototype', () => {
+it('clones an object with null prototype', () => {
   const original = {
     key: Object.create(null),
   }

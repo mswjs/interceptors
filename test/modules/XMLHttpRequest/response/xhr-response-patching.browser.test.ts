@@ -1,10 +1,5 @@
-/**
- * @jest-environment node
- */
-import * as path from 'path'
-import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
-import { createBrowserXMLHttpRequest } from '../../../helpers'
+import { test, expect } from '../../../playwright.extend'
 
 declare namespace window {
   export let originalUrl: string
@@ -19,32 +14,25 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-async function prepareRuntime() {
-  const runtime = await pageWith({
-    example: path.resolve(
-      __dirname,
-      'xhr-response-patching.browser.runtime.js'
-    ),
-  })
-
-  await runtime.page.evaluate((url) => {
-    window.originalUrl = url
-  }, httpServer.http.url('/original'))
-
-  return runtime
-}
-
-beforeAll(async () => {
+test.beforeAll(async () => {
   await httpServer.listen()
 })
 
-afterAll(async () => {
+test.afterAll(async () => {
   await httpServer.close()
 })
 
-test('responds to an HTTP request handled in the resolver', async () => {
-  const runtime = await prepareRuntime()
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(runtime)
+test('responds to an HTTP request handled in the resolver', async ({
+  loadExample,
+  callXMLHttpRequest,
+  page,
+}) => {
+  await loadExample(
+    require.resolve('./xhr-response-patching.browser.runtime.js')
+  )
+  await page.evaluate((url) => {
+    window.originalUrl = url
+  }, httpServer.http.url('/original'))
 
   const [, response] = await callXMLHttpRequest({
     method: 'GET',

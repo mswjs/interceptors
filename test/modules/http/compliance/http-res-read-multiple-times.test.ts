@@ -3,6 +3,7 @@
  * event does not lock that stream for any further reading.
  * @see https://github.com/mswjs/interceptors/issues/161
  */
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http, { IncomingMessage } from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
@@ -14,19 +15,18 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = jest.fn<never, HttpRequestEventMap['request']>()
+const resolver = vi.fn<HttpRequestEventMap['request']>()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -34,7 +34,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('allows reading the response body after it has been read internally', async () => {
+it('allows reading the response body after it has been read internally', async () => {
   /**
    * @note This is a deliberate setup that replicates Stripe's Node.js client internals.
    */

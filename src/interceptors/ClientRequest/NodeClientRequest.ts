@@ -177,6 +177,20 @@ export class NodeClientRequest extends ClientRequest {
     }).then(([resolverException, mockedResponse]) => {
       this.log('the listeners promise awaited!')
 
+      /**
+       * @fixme We are in the "end()" method that still executes in parallel
+       * to our mocking logic here. This can be solved by migrating to the
+       * Proxy-based approach and deferring the passthrough "end()" properly.
+       * @see https://github.com/mswjs/interceptors/issues/346
+       */
+      if (!this.headersSent) {
+        // Forward any request headers that the "request" listener
+        // may have modified before proceeding with this request.
+        for (const [headerName, headerValue] of capturedRequest.headers) {
+          this.setHeader(headerName, headerValue)
+        }
+      }
+
       // Halt the request whenever the resolver throws an exception.
       if (resolverException) {
         this.log(
@@ -187,12 +201,6 @@ export class NodeClientRequest extends ClientRequest {
         this.terminate()
 
         return this
-      }
-
-      // Forward any request headers that the "request" listener
-      // may have modified before proceeding with this request.
-      for (const [headerName, headerValue] of capturedRequest.headers) {
-        this.setHeader(headerName, headerValue)
       }
 
       if (mockedResponse) {

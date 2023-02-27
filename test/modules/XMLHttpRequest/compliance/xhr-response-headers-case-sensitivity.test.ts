@@ -1,6 +1,5 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { createXMLHttpRequest } from '../../../helpers'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
@@ -28,7 +27,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('ignores casing when retrieving response headers via "getResponseHeader"', async () => {
+it('ignores casing when retrieving response headers via "getResponseHeader"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/account'))
     req.send()

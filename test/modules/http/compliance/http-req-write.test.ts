@@ -1,8 +1,6 @@
-/**
- * @jest-environment node
- */
-import * as http from 'http'
-import * as express from 'express'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import http from 'http'
+import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { NodeClientRequest } from '../../../../src/interceptors/ClientRequest/NodeClientRequest'
 import { waitForClientRequest } from '../../../helpers'
@@ -14,7 +12,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptedRequestBody = jest.fn()
+const interceptedRequestBody = vi.fn()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', async (request) => {
@@ -26,22 +24,21 @@ function getInternalRequestBody(req: http.ClientRequest): Buffer {
 }
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
   interceptor.dispose()
-  jest.restoreAllMocks()
+  vi.restoreAllMocks()
   await httpServer.close()
 })
 
-test('writes string request body', async () => {
+it('writes string request body', async () => {
   const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
@@ -61,7 +58,7 @@ test('writes string request body', async () => {
   expect(await text()).toEqual(expectedBody)
 })
 
-test('writes JSON request body', async () => {
+it('writes JSON request body', async () => {
   const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
@@ -81,7 +78,7 @@ test('writes JSON request body', async () => {
   expect(await text()).toEqual(expectedBody)
 })
 
-test('writes Buffer request body', async () => {
+it('writes Buffer request body', async () => {
   const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
@@ -101,12 +98,12 @@ test('writes Buffer request body', async () => {
   expect(await text()).toEqual(expectedBody)
 })
 
-test('does not call the write callback when writing an empty string', async () => {
+it('does not call the write callback when writing an empty string', async () => {
   const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
 
-  const writeCallback = jest.fn()
+  const writeCallback = vi.fn()
   req.write('', writeCallback)
   req.end()
   await waitForClientRequest(req)
@@ -114,12 +111,12 @@ test('does not call the write callback when writing an empty string', async () =
   expect(writeCallback).not.toHaveBeenCalled()
 })
 
-test('does not call the write callback when writing an empty Buffer', async () => {
+it('does not call the write callback when writing an empty Buffer', async () => {
   const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
 
-  const writeCallback = jest.fn()
+  const writeCallback = vi.fn()
   req.write(Buffer.from(''), writeCallback)
   req.end()
 
