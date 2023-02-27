@@ -7,7 +7,6 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http, { IncomingMessage } from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { Response } from '@remix-run/web-fetch'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 

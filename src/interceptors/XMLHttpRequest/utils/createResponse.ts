@@ -1,4 +1,3 @@
-import { Response } from '@remix-run/web-fetch'
 import { stringToHeaders } from 'headers-polyfill'
 
 export function createResponse(

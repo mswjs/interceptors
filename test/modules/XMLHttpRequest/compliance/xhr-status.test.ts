@@ -3,7 +3,6 @@
  * @see https://github.com/mswjs/interceptors/issues/281
  */
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 

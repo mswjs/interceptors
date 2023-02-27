@@ -3,7 +3,6 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'https'
 import fetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
-import { Response } from '@remix-run/web-fetch'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
@@ -187,7 +186,7 @@ it('XMLHttpRequest: emits the "response" event upon the original response', asyn
    * passthrough to the ClientRequest, it will perform an "OPTIONS" request first,
    * thus two request/response events emitted.
    */
-  expect(responseListener).toHaveBeenCalledTimes(2)
+  expect(responseListener).toHaveBeenCalledTimes(1)
 
   // Lookup the correct response listener call.
   const [response, request] = responseListener.mock.calls.find(

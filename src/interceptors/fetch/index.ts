@@ -1,5 +1,4 @@
 import { invariant } from 'outvariant'
-import type { Response as ResponsePolyfill } from '@remix-run/web-fetch'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { uuidv4 } from '../../utils/uuid'
@@ -81,7 +80,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       this.log('no mocked response received!')
 
       return pureFetch(request).then((response) => {
-        const responseClone = response.clone() as ResponsePolyfill
+        const responseClone = response.clone()
         this.log('original fetch performed', responseClone)
 
         this.emitter.emit(
