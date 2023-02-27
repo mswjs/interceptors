@@ -54,7 +54,7 @@
   "author": "Artem Zakharchenko",
   "license": "MIT",
   "engines": {
-    "node": ">=14"
+    "node": ">=18"
   },
   "scripts": {
     "start": "tsc --build -w",
