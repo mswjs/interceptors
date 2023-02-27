@@ -72,7 +72,11 @@
   "files": [
     "lib",
     "README.md",
-    "src"
+    "src",
+    "ClientRequest",
+    "fetch",
+    "RemoteHttpInterceptor",
+    "XMLHttpRequest"
   ],
   "repository": {
     "type": "git",
