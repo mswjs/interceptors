@@ -1,7 +1,6 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import https from 'https'
-import { Response } from '@remix-run/web-fetch'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'

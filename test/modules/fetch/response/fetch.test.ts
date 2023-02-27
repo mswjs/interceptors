@@ -1,6 +1,5 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import fetch from 'node-fetch'
-import { Response } from '@remix-run/web-fetch'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 

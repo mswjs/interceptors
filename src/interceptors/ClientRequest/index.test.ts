@@ -2,7 +2,6 @@ import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '.'
 
 const httpServer = new HttpServer((app) => {

@@ -1,5 +1,4 @@
 import { ChildProcess } from 'child_process'
-import { Request, Response } from '@remix-run/web-fetch'
 import { Headers, HeadersObject, headersToObject } from 'headers-polyfill'
 import { HttpRequestEventMap } from './glossary'
 import { Interceptor } from './Interceptor'

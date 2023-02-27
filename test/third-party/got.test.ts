@@ -2,7 +2,6 @@ import { it, expect, beforeAll, afterAll } from 'vitest'
 import got from 'got'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
-import { Response } from '@remix-run/web-fetch'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {

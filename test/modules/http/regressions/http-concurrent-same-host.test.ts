@@ -3,7 +3,6 @@
  */
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'http'
-import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let requests: Array<Request> = []

@@ -3,7 +3,6 @@ import { it, expect, beforeAll, afterAll } from 'vitest'
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
-import { Response } from '@remix-run/web-fetch'
 
 const httpServer = new HttpServer((app) => {
   app.get('/books', (req, res) => {

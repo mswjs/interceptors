@@ -1,7 +1,6 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import * as path from 'path'
 import { spawn } from 'child_process'
-import { Response } from '@remix-run/web-fetch'
 import { RemoteHttpResolver } from '../../../src/RemoteHttpInterceptor'
 
 const CHILD_PATH = path.resolve(__dirname, 'child.js')

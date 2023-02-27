@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { Request, Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest, UUID_REGEXP } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'

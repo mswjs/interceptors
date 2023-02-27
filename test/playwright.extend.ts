@@ -1,5 +1,4 @@
 import { test as base, expect } from '@playwright/test'
-import { Request } from '@remix-run/web-fetch'
 import { Compilation, WebpackHttpServer } from 'webpack-http-server'
 import {
   BrowserXMLHttpRequestInit,
