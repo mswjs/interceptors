@@ -41,28 +41,21 @@ function optionsToProxyHandler<T extends Record<string, any>>(
     }
   }
 
-  if (typeof setProperty !== 'undefined') {
-    handler.set = function (target, propertyName, nextValue, receiver) {
-      const next = () => {
-        const targetDescriptors = Object.getOwnPropertyDescriptor(
-          target,
-          propertyName
-        )
+  handler.set = function (target, propertyName, nextValue) {
+    const next = () => {
+      return Reflect.defineProperty(target, propertyName, {
+        writable: true,
+        enumerable: true,
+        configurable: true,
+        value: nextValue,
+      })
+    }
 
-        const resolvedTarget =
-          typeof targetDescriptors?.set == 'undefined' ? receiver : target
-
-        Object.defineProperty(resolvedTarget, propertyName, {
-          enumerable: true,
-          configurable: true,
-          value: nextValue,
-        })
-
-        return true
-      }
-
+    if (typeof setProperty !== 'undefined') {
       return setProperty.call(target, [propertyName, nextValue], next)
     }
+
+    return next()
   }
 
   handler.get = function (target, propertyName, receiver) {

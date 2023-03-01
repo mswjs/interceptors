@@ -46,19 +46,6 @@ export class XMLHttpRequestController {
     this.responseBuffer = new Uint8Array()
 
     this.request = createProxy(initialRequest, {
-      setProperty: ([propertyName, nextValue], invoke) => {
-        /**
-         * @note Setting the "withCredentials" property on the XHR proxy
-         * causes the "TypeError: Illegal invocation" error. Instead,
-         * define the property on the original XHR instance itself.
-         */
-        if (propertyName === 'withCredentials') {
-          define(this.request, 'withCredentials', nextValue)
-          return true
-        }
-
-        return invoke()
-      },
       methodCall: ([methodName, args], invoke) => {
         switch (methodName) {
           case 'open': {
@@ -264,14 +251,17 @@ export class XMLHttpRequestController {
     Object.defineProperties(this.request, {
       response: {
         enumerable: true,
+        configurable: false,
         get: () => this.response,
       },
       responseText: {
         enumerable: true,
+        configurable: false,
         get: () => this.responseText,
       },
       responseXML: {
         enumerable: true,
+        configurable: false,
         get: () => this.responseXML,
       },
     })
