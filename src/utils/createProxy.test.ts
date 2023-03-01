@@ -31,15 +31,18 @@ it('does not interfere with default methods', () => {
 })
 
 it('spies on the constructor', () => {
-  const constructorCall = vi.fn((args, next) => next())
-  const ProxyClass = createProxy(
-    class {
-      constructor(public name: string, public age: number) {}
-    },
-    {
-      constructorCall,
-    }
-  )
+  const OriginalClass = class {
+    constructor(public name: string, public age: number) {}
+  }
+
+  const constructorCall = vi.fn<
+    [ConstructorParameters<typeof OriginalClass>, Function],
+    typeof OriginalClass
+  >((args, next) => next())
+
+  const ProxyClass = createProxy(OriginalClass, {
+    constructorCall,
+  })
 
   new ProxyClass('John', 32)
 
