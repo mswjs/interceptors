@@ -152,10 +152,17 @@ function getBaseUrl(options: ResolvedRequestOptions): URL {
 export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   debug('request options', options)
 
-  const baseUrl = getBaseUrl(options)
-  debug('base url:', baseUrl)
+  if (options.uri) {
+    debug(
+      'constructing url from explicitly provided "options.uri": %s',
+      options.uri
+    )
+    return new URL(options.uri.href)
+  }
 
-  const url = options.uri ? new URL(options.uri.href) : baseUrl
+  debug('figuring out url from request options...')
+
+  const url = getBaseUrl(options)
   debug('created url:', url)
 
   return url
