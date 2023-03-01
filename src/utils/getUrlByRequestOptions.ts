@@ -45,20 +45,45 @@ function getProtocolByRequestOptions(options: ResolvedRequestOptions): string {
 function getPortByRequestOptions(
   options: ResolvedRequestOptions
 ): number | undefined {
-  const agent = getAgent(options)
-  const agentPort =
-    (agent as HttpsAgent)?.options.port ||
-    (agent as RequestOptions)?.defaultPort
-  const optionsPort = options.port
-
-  if (optionsPort || agentPort) {
-    const explicitPort = optionsPort || agentPort || DEFAULT_PORT
-    return Number(explicitPort)
+  // Use the explicitly provided port.
+  if (options.port) {
+    return Number(options.port)
   }
+
+  // Extract the port from the hostname.
+  if (options.hostname != null) {
+    const [, extractedPort] = options.hostname.match(/:(\d+)$/) || []
+
+    if (extractedPort != null) {
+      return Number(extractedPort)
+    }
+  }
+
+  // Otherwise, try to resolve port from the agent.
+  const agent = getAgent(options)
+
+  if ((agent as HttpsAgent)?.options.port) {
+    return Number((agent as HttpsAgent).options.port)
+  }
+
+  if ((agent as RequestOptions)?.defaultPort) {
+    return Number((agent as RequestOptions).port)
+  }
+
+  // Lastly, return undefined indicating that the port
+  // must inferred from the protocol. Do not infer it here.
+  return undefined
 }
 
 function getHostByRequestOptions(options: ResolvedRequestOptions): string {
-  return options.hostname || options.host || DEFAULT_HOST
+  const { hostname, host } = options
+
+  // If the hostname is specified, resolve the host from the "host:port" string.
+  if (hostname != null) {
+    return hostname.replace(/:\d+$/, '')
+  }
+
+  return host || DEFAULT_HOST
 }
 
 function getAuthByRequestOptions(options: ResolvedRequestOptions) {
