@@ -9,8 +9,8 @@ export interface ProxyOptions<Target extends Record<string, any>> {
 
   setProperty?(
     data: [propertyName: string | symbol, nextValue: unknown],
-    next: NextFunction<void>
-  ): void
+    next: NextFunction<boolean>
+  ): boolean
 
   getProperty?(
     data: [propertyName: string | symbol, receiver: Target],
@@ -43,8 +43,25 @@ function optionsToProxyHandler<T extends Record<string, any>>(
 
   if (typeof setProperty !== 'undefined') {
     handler.set = function (target, propertyName, nextValue, receiver) {
-      const next = () => Reflect.set(target, propertyName, nextValue, receiver)
-      return setProperty.call(target, [propertyName, nextValue], next) as any
+      const next = () => {
+        const targetDescriptors = Object.getOwnPropertyDescriptor(
+          target,
+          propertyName
+        )
+
+        const resolvedTarget =
+          typeof targetDescriptors?.set == 'undefined' ? receiver : target
+
+        Object.defineProperty(resolvedTarget, propertyName, {
+          enumerable: true,
+          configurable: true,
+          value: nextValue,
+        })
+
+        return true
+      }
+
+      return setProperty.call(target, [propertyName, nextValue], next)
     }
   }
 
