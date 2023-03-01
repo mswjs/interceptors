@@ -67,7 +67,7 @@ function getPortByRequestOptions(
   }
 
   if ((agent as RequestOptions)?.defaultPort) {
-    return Number((agent as RequestOptions).port)
+    return Number((agent as RequestOptions).defaultPort)
   }
 
   // Lastly, return undefined indicating that the port
@@ -102,45 +102,62 @@ function isRawIPv6Address(host: string): boolean {
   return host.includes(':') && !host.startsWith('[') && !host.endsWith(']')
 }
 
+function getHostname(host: string, port?: number): string {
+  const portString = typeof port !== 'undefined' ? `:${port}` : ''
+
+  /**
+   * @note As of Node >= 17, hosts (including "localhost") can resolve to IPv6
+   * addresses, so construct valid URL by surrounding the IPv6 host with brackets.
+   */
+  if (isRawIPv6Address(host)) {
+    return `[${host}]${portString}`
+  }
+
+  if (typeof port === 'undefined') {
+    return host
+  }
+
+  return `${host}${portString}`
+}
+
+function getBaseUrl(options: ResolvedRequestOptions): URL {
+  const protocol = getProtocolByRequestOptions(options)
+  debug('protocol', protocol)
+
+  const host = getHostByRequestOptions(options)
+  debug('host', host)
+
+  const port = getPortByRequestOptions(options)
+  debug('port', port)
+
+  const hostname = getHostname(host, port)
+  debug('hostname', hostname)
+
+  const path = options.path || DEFAULT_PATH
+  debug('path', path)
+
+  const credentials = getAuthByRequestOptions(options)
+  debug('credentials', credentials)
+
+  const authString = credentials
+    ? `${credentials.username}:${credentials.password}@`
+    : ''
+  debug('auth string:', authString)
+
+  return new URL(`${protocol}//${authString}${hostname}${path}`)
+}
+
 /**
  * Creates a `URL` instance from a given `RequestOptions` object.
  */
 export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   debug('request options', options)
 
-  const protocol = getProtocolByRequestOptions(options)
-  const host = getHostByRequestOptions(options)
-  const port = getPortByRequestOptions(options)
-  const path = options.path || DEFAULT_PATH
-  const auth = getAuthByRequestOptions(options)
+  const baseUrl = getBaseUrl(options)
+  debug('base url:', baseUrl)
 
-  debug('protocol', protocol)
-  debug('host', host)
-  debug('port', port)
-  debug('path', path)
-
-  /**
-   * @note As of Node >= 17, hosts (including "localhost") can resolve to IPv6
-   * addresses, so construct valid URL by surrounding the IPv6 host with brackets.
-   */
-  const baseUrl = `${protocol}//${isRawIPv6Address(host) ? `[${host}]` : host}`
-  debug('base URL:', baseUrl)
-
-  const url = options.uri ? new URL(options.uri.href) : new URL(path, baseUrl)
-
-  if (port) {
-    debug('detected explicit port', port)
-    url.port = port.toString()
-  }
-
-  if (auth) {
-    debug('resolved auth', auth)
-
-    url.username = auth.username
-    url.password = auth.password
-  }
-
-  debug('created URL:', url)
+  const url = options.uri ? new URL(options.uri.href) : baseUrl
+  debug('created url:', url)
 
   return url
 }

@@ -116,3 +116,20 @@ it('supports "hostname" instead of "host" and "port"', () => {
     'https://127.0.0.1:1234/resource'
   )
 })
+
+it('handles IPv6 hostnames', () => {
+  expect(
+    getUrlByRequestOptions({
+      host: '::1',
+      path: '/resource',
+    }).href
+  ).toBe('http://[::1]/resource')
+
+  expect(
+    getUrlByRequestOptions({
+      host: '::1',
+      port: 3001,
+      path: '/resource',
+    }).href
+  ).toBe('http://[::1]:3001/resource')
+})
