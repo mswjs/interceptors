@@ -119,7 +119,22 @@ function getHostname(host: string, port?: number): string {
   return `${host}${portString}`
 }
 
-function getBaseUrl(options: ResolvedRequestOptions): URL {
+/**
+ * Creates a `URL` instance from a given `RequestOptions` object.
+ */
+export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
+  debug('request options', options)
+
+  if (options.uri) {
+    debug(
+      'constructing url from explicitly provided "options.uri": %s',
+      options.uri
+    )
+    return new URL(options.uri.href)
+  }
+
+  debug('figuring out url from request options...')
+
   const protocol = getProtocolByRequestOptions(options)
   debug('protocol', protocol)
 
@@ -143,26 +158,7 @@ function getBaseUrl(options: ResolvedRequestOptions): URL {
     : ''
   debug('auth string:', authString)
 
-  return new URL(`${protocol}//${authString}${hostname}${path}`)
-}
-
-/**
- * Creates a `URL` instance from a given `RequestOptions` object.
- */
-export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
-  debug('request options', options)
-
-  if (options.uri) {
-    debug(
-      'constructing url from explicitly provided "options.uri": %s',
-      options.uri
-    )
-    return new URL(options.uri.href)
-  }
-
-  debug('figuring out url from request options...')
-
-  const url = getBaseUrl(options)
+  const url = new URL(`${protocol}//${authString}${hostname}${path}`)
   debug('created url:', url)
 
   return url
