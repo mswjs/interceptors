@@ -2,6 +2,7 @@ import { HttpServer } from '@open-draft/test-server/http'
 import { Page } from '@playwright/test'
 import { listToHeaders } from 'headers-polyfill'
 import { test, expect } from '../../../playwright.extend'
+import { useCors } from '../../../helpers'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 
 declare namespace window {
@@ -21,6 +22,7 @@ interface SerializedResponse {
 }
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/', (req, res) => {
     res.status(200).json({ route: '/' }).end()
   })

@@ -1,7 +1,7 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
-import { httpGet, PromisifiedResponse } from '../../helpers'
+import { httpGet, PromisifiedResponse, useCors } from '../../helpers'
 
 function arrayWith<V>(length: number, mapFn: (index: number) => V): V[] {
   return new Array(length).fill(null).map((_, index) => mapFn(index))
@@ -22,6 +22,7 @@ function parallelRequests(
 }
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get<{ index: number }>('/number/:index', (req, res) => {
     return res.send(`real ${req.params.index}`)
   })

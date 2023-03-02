@@ -31,6 +31,11 @@ export const test = base.extend<TestFixutures>({
       )
 
       page.on('pageerror', console.error)
+      page.on('console', (msg) => {
+        if (msg.type() === 'error') {
+          console.error('[RUNTIME ERROR]:', msg.text())
+        }
+      })
 
       await page.goto(compilation.previewUrl, { waitUntil: 'networkidle' })
 

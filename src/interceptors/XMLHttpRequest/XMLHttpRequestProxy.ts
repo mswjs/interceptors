@@ -19,10 +19,28 @@ export function createXMLHttpRequestProxy({
   log,
 }: XMLHttpRequestProxyOptions) {
   const XMLHttpRequestProxy = new Proxy(globalThis.XMLHttpRequest, {
-    construct(target, args) {
+    construct(target, args, newTarget) {
       log('constructed new XMLHttpRequest')
 
-      const originalRequest = Reflect.construct(target, args)
+      const originalRequest = Reflect.construct(target, args, newTarget)
+
+      /**
+       * @note Forward prototype descriptors onto the proxied object.
+       * XMLHttpRequest is implemented in JSDOM in a way that assigns
+       * a bunch of descriptors, like "set responseType()" on the prototype.
+       * With this propagation, we make sure that those descriptors trigger
+       * when the user operates with the proxied request instance.
+       */
+      const prototypeDescriptors = Object.getOwnPropertyDescriptors(
+        target.prototype
+      )
+      for (const propertyName in prototypeDescriptors) {
+        Reflect.defineProperty(
+          originalRequest,
+          propertyName,
+          prototypeDescriptors[propertyName]
+        )
+      }
 
       const requestController = new XMLHttpRequestController(
         originalRequest,

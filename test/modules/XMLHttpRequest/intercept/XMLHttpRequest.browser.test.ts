@@ -3,12 +3,28 @@ import { RequestHandler } from 'express-serve-static-core'
 import { test, expect } from '../../../playwright.extend'
 
 const httpServer = new HttpServer((app) => {
-  const requestHandler: RequestHandler = (_req, res) => {
+  const strictCorsMiddleware: RequestHandler = (req, res, next) => {
+    res
+      .set('Access-Control-Allow-Origin', req.headers.origin)
+      .set('Access-Control-Allow-Methods', 'GET, POST')
+      .set('Access-Control-Allow-Headers', [
+        'content-type',
+        'x-request-id',
+        'x-request-header',
+      ])
+      .set('Access-Control-Allow-Credentials', 'true')
+    return next()
+  }
+
+  const requestHandler: RequestHandler = (req, res) => {
     res.status(200).send('user-body')
   }
 
-  app.get('/user', requestHandler)
-  app.post('/user', requestHandler)
+  app.options('/user', strictCorsMiddleware, (req, res) =>
+    res.status(200).end()
+  )
+  app.get('/user', strictCorsMiddleware, requestHandler)
+  app.post('/user', strictCorsMiddleware, requestHandler)
 })
 
 test.beforeAll(async () => {

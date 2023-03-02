@@ -1,8 +1,9 @@
 import { HttpServer } from '@open-draft/test-server/http'
-import { extractRequestFromPage } from '../../../helpers'
+import { extractRequestFromPage, useCors } from '../../../helpers'
 import { test, expect } from '../../../playwright.extend'
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.post('/user', (_req, res) => {
     res.status(200).send('mocked')
   })

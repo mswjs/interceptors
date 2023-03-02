@@ -1,4 +1,5 @@
 import { HttpServer } from '@open-draft/test-server/http'
+import { useCors } from '../../../helpers'
 import { test, expect } from '../../../playwright.extend'
 
 declare namespace window {
@@ -6,6 +7,7 @@ declare namespace window {
 }
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/', (req, res) => {
     res.send('hello world')
   })

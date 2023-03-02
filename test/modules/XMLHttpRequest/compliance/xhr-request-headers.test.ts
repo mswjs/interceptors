@@ -2,13 +2,14 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+import { createXMLHttpRequest, useCors } from '../../../helpers'
 
 interface ResponseType {
   requestRawHeaders: Array<string>
 }
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get<never, ResponseType>('/', (req, res) => {
     res
       .set({

@@ -38,7 +38,7 @@ it('handles request timeout via the "ontimeout" callback', async () => {
       timeoutCalled.resolve(this.readyState)
     }
     req.send()
-  })
+  }).catch(console.error)
 
   const nextReadyState = await timeoutCalled
   expect(nextReadyState).toBe(4)
@@ -55,7 +55,7 @@ it('handles request timeout via the "timeout" event listener', async () => {
       timeoutCalled.resolve(this.readyState)
     })
     req.send()
-  })
+  }).catch(console.error)
 
   const nextReadyState = await timeoutCalled
   expect(nextReadyState).toBe(4)

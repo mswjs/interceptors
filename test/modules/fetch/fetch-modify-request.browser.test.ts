@@ -1,7 +1,9 @@
 import { HttpServer } from '@open-draft/test-server/http'
+import { useCors } from '../../helpers'
 import { test, expect } from '../../playwright.extend'
 
 const server = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/user', (req, res) => {
     res.set('X-Appended-Header', req.headers['x-appended-header']).end()
   })
