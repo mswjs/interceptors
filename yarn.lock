@@ -1004,10 +1004,10 @@
   resolved "https://registry.yarnpkg.com/@open-draft/deferred-promise/-/deferred-promise-2.1.0.tgz#4fb33ebdf5c05a0e47a26490ed9037ca36275a66"
   integrity sha512-Rzd5JrXZX8zErHzgcGyngh4fmEbSHqTETdGj9rXtejlqMIgXFlyKBA7Jn1Xp0Ls0M0Y22+xHcWiEzbmdWl0BOA==
 
-"@open-draft/test-server@^0.4.2":
-  version "0.4.2"
-  resolved "https://registry.yarnpkg.com/@open-draft/test-server/-/test-server-0.4.2.tgz#45bef308e72209cccd2778c821834621d99db790"
-  integrity sha512-J9wbdQkPx5WKcDNtgfnXsx5ew4UJd6BZyGr89YlHeaUkOShkO2iO5QIyCCsG4qpjIvr2ZTkEYJA9ujOXXyO6Pg==
+"@open-draft/test-server@^0.5.1":
+  version "0.5.1"
+  resolved "https://registry.yarnpkg.com/@open-draft/test-server/-/test-server-0.5.1.tgz#e9aa5ae61b16185a8893e36f80b133b74ccbb5fb"
+  integrity sha512-RYyjRVfddPMmVWePP49OQ/zmJL5D0kr+/LsLILYftC067LDPdZwUm75s9h+2+gqyVHU8qcWiWPXwYouDHUmVNw==
   dependencies:
     "@types/body-parser" "^1.19.0"
     "@types/cors" "^2.8.9"

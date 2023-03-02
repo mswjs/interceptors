@@ -9,8 +9,8 @@ export interface ProxyOptions<Target extends Record<string, any>> {
 
   setProperty?(
     data: [propertyName: string | symbol, nextValue: unknown],
-    next: NextFunction<void>
-  ): void
+    next: NextFunction<boolean>
+  ): boolean
 
   getProperty?(
     data: [propertyName: string | symbol, receiver: Target],
@@ -25,6 +25,7 @@ export function createProxy<Target extends object>(
   options: ProxyOptions<Target>
 ): Target {
   const proxy = new Proxy(target, optionsToProxyHandler(options))
+
   return proxy
 }
 
@@ -41,11 +42,31 @@ function optionsToProxyHandler<T extends Record<string, any>>(
     }
   }
 
-  if (typeof setProperty !== 'undefined') {
-    handler.set = function (target, propertyName, nextValue, receiver) {
-      const next = () => Reflect.set(target, propertyName, nextValue, receiver)
-      return setProperty.call(target, [propertyName, nextValue], next) as any
+  handler.set = function (target, propertyName, nextValue, receiver) {
+    const next = () => {
+      const ownDescriptors = Reflect.getOwnPropertyDescriptor(
+        target,
+        propertyName
+      )
+
+      if (typeof ownDescriptors?.set !== 'undefined') {
+        ownDescriptors.set.apply(target, [nextValue])
+        return true
+      }
+
+      return Reflect.defineProperty(target, propertyName, {
+        writable: true,
+        enumerable: true,
+        configurable: true,
+        value: nextValue,
+      })
     }
+
+    if (typeof setProperty !== 'undefined') {
+      return setProperty.call(target, [propertyName, nextValue], next)
+    }
+
+    return next()
   }
 
   handler.get = function (target, propertyName, receiver) {

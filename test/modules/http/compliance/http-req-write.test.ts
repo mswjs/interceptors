@@ -7,7 +7,8 @@ import { waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
-  app.post('/resource', express.text(), (req, res) => {
+  app.post('/resource', express.text({ type: '*/*' }), (req, res) => {
+    console.log('POST /resource', req.body)
     res.send(req.body)
   })
 })
@@ -70,8 +71,10 @@ it('writes JSON request body', async () => {
   req.write(':"value"')
   req.end('}')
 
-  const { text } = await waitForClientRequest(req)
-  const expectedBody = JSON.stringify({ key: 'value' })
+  const { res, text } = await waitForClientRequest(req)
+  const expectedBody = `{"key":"value"}`
+
+  console.log(res.statusCode, res.statusMessage)
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
   expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
@@ -91,7 +94,7 @@ it('writes Buffer request body', async () => {
   req.end(Buffer.from('}'))
 
   const { text } = await waitForClientRequest(req)
-  const expectedBody = JSON.stringify({ key: 'value' })
+  const expectedBody = `{"key":"value"}`
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
   expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)

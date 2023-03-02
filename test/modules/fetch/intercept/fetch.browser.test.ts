@@ -2,11 +2,13 @@ import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { Page, Response } from '@playwright/test'
 import { test, expect } from '../../../playwright.extend'
-import { extractRequestFromPage } from '../../../helpers'
+import { extractRequestFromPage, useCors } from '../../../helpers'
 
 const EXAMPLE_PATH = require.resolve('./fetch.browser.runtime.js')
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
+
   const handleRequest: RequestHandler = (_req, res) => {
     res.status(200).send('user-body').end()
   }

@@ -2,9 +2,10 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+import { createXMLHttpRequest, useCors } from '../../../helpers'
 
 const server = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/user', (req, res) => {
     res
       .set({

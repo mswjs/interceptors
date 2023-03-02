@@ -47,17 +47,32 @@ export class XMLHttpRequestController {
 
     this.request = createProxy(initialRequest, {
       setProperty: ([propertyName, nextValue], invoke) => {
-        /**
-         * @note Setting the "withCredentials" property on the XHR proxy
-         * causes the "TypeError: Illegal invocation" error. Instead,
-         * define the property on the original XHR instance itself.
-         */
-        if (propertyName === 'withCredentials') {
-          define(this.request, 'withCredentials', nextValue)
-          return true
-        }
+        switch (propertyName) {
+          case 'onabort':
+          case 'onerror':
+          case 'onload':
+          case 'onloadend':
+          case 'onloadstart':
+          case 'onprogress':
+          case 'ontimeout':
+          case 'onreadystatechange': {
+            const eventName = propertyName.slice(
+              2
+            ) as keyof XMLHttpRequestEventTargetEventMap
 
-        return invoke()
+            /**
+             * @note Proxy callbacks to event listeners because JSDOM has trouble
+             * translating these properties to callbacks. It seemed to be operating
+             * on events exclusively.
+             */
+            this.request.addEventListener(eventName, nextValue as any)
+            return invoke()
+          }
+
+          default: {
+            return invoke()
+          }
+        }
       },
       methodCall: ([methodName, args], invoke) => {
         switch (methodName) {
@@ -85,8 +100,8 @@ export class XMLHttpRequestController {
               keyof XMLHttpRequestEventTargetEventMap,
               Function
             ]
-            this.registerEvent(eventName, listener)
 
+            this.registerEvent(eventName, listener)
             this.log('addEventListener', eventName, listener.name)
 
             return invoke()
@@ -120,8 +135,7 @@ export class XMLHttpRequestController {
                   this.request,
                   /**
                    * The `response` property is the right way to read
-                   * the ambiguous response body, as the request's "responseTyoe"
-                   * may differ.
+                   * the ambiguous response body, as the request's "responseType" may differ.
                    * @see https://xhr.spec.whatwg.org/#the-response-attribute
                    */
                   this.request.response
@@ -169,22 +183,6 @@ export class XMLHttpRequestController {
             })
 
             break
-          }
-
-          case 'onabort':
-          case 'onerror':
-          case 'onload':
-          case 'onloadend':
-          case 'onloadstart':
-          case 'onprogress':
-          case 'ontimeout':
-          case 'onreadystatechange': {
-            const [listener] = args as [Function]
-            this.registerEvent(
-              methodName as keyof XMLHttpRequestEventTargetEventMap,
-              listener
-            )
-            return invoke()
           }
 
           default: {
@@ -264,14 +262,17 @@ export class XMLHttpRequestController {
     Object.defineProperties(this.request, {
       response: {
         enumerable: true,
+        configurable: false,
         get: () => this.response,
       },
       responseText: {
         enumerable: true,
+        configurable: false,
         get: () => this.responseText,
       },
       responseXML: {
         enumerable: true,
+        configurable: false,
         get: () => this.responseXML,
       },
     })

@@ -2,6 +2,7 @@ import { Page } from '@playwright/test'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { test, expect } from '../../../playwright.extend'
+import { useCors } from '../../../helpers'
 
 declare namespace window {
   export const interceptor: XMLHttpRequestInterceptor
@@ -10,6 +11,7 @@ declare namespace window {
 }
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/', (req, res) => {
     res.status(200).json({ route: '/' })
   })

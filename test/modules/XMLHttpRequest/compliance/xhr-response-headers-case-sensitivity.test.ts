@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { createXMLHttpRequest } from '../../../helpers'
+import { createXMLHttpRequest, useCors } from '../../../helpers'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/account', (req, res) => {
     return res
       .status(200)

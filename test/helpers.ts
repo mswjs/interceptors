@@ -6,6 +6,7 @@ import { Page } from '@playwright/test'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
+import { RequestHandler } from 'express'
 
 export const UUID_REGEXP =
   /\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b/
@@ -252,7 +253,8 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
 
           const request = new XMLHttpRequest()
           if (typeof withCredentials !== 'undefined') {
-            request.withCredentials = withCredentials
+            Reflect.set(request, 'withCredentials', withCredentials)
+            // request.withCredentials = withCredentials
           }
           request.open(method, url)
 
@@ -311,4 +313,11 @@ export function sleep(duration: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, duration)
   })
+}
+
+export const useCors: RequestHandler = (req, res, next) => {
+  res.set({
+    'Access-Control-Allow-Origin': '*',
+  })
+  return next()
 }

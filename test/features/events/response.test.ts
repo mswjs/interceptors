@@ -5,7 +5,11 @@ import fetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
-import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
+import {
+  createXMLHttpRequest,
+  useCors,
+  waitForClientRequest,
+} from '../../helpers'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
@@ -17,6 +21,8 @@ declare namespace window {
 }
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
+
   app.get('/user', (_req, res) => {
     res.status(509).send('must-use-mocks')
   })

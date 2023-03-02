@@ -5,6 +5,7 @@ import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
 import {
   createXMLHttpRequest,
+  useCors,
   UUID_REGEXP,
   waitForClientRequest,
 } from '../../helpers'
@@ -13,6 +14,7 @@ import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.post('/user', (req, res) => {
     res.status(201).end()
   })
