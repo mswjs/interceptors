@@ -2,7 +2,7 @@ import { stringToHeaders } from 'headers-polyfill'
 
 export function createResponse(
   request: XMLHttpRequest,
-  responseBody: Uint8Array
+  responseBody: BodyInit | null
 ): Response {
   return new Response(responseBody, {
     status: request.status,
