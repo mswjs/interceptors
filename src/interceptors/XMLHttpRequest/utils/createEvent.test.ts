@@ -1,13 +1,12 @@
-/**
- * @jest-environment jsdom
- */
+// @vitest-environment jsdom
+import { it, expect } from 'vitest'
 import { createEvent } from './createEvent'
 import { EventPolyfill } from '../polyfills/EventPolyfill'
 
 const request = new XMLHttpRequest()
 request.open('POST', '/user')
 
-test('returns an EventPolyfill instance with the given target set', () => {
+it('returns an EventPolyfill instance with the given target set', () => {
   const event = createEvent(request, 'my-event')
   const target = event.target as XMLHttpRequest
 
@@ -15,7 +14,7 @@ test('returns an EventPolyfill instance with the given target set', () => {
   expect(target).toBeInstanceOf(XMLHttpRequest)
 })
 
-test('returns the ProgressEvent instance', () => {
+it('returns the ProgressEvent instance', () => {
   const event = createEvent(request, 'load', {
     loaded: 100,
     total: 500,

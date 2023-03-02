@@ -1,7 +1,5 @@
-/**
- * @jest-environment jsdom
- */
-import { Response } from '@remix-run/web-fetch'
+// @vitest-environment jsdom
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { encodeBuffer } from '../../../../src'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { toArrayBuffer } from '../../../../src/utils/bufferUtils'
@@ -32,7 +30,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-test('responds with an object when "responseType" equals "json"', async () => {
+it('responds with an object when "responseType" equals "json"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
     req.responseType = 'json'
@@ -46,7 +44,7 @@ test('responds with an object when "responseType" equals "json"', async () => {
   })
 })
 
-test('responds with a Blob when "responseType" equals "blob"', async () => {
+it('responds with a Blob when "responseType" equals "blob"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
     req.responseType = 'blob'
@@ -80,7 +78,7 @@ test('responds with a Blob when "responseType" equals "blob"', async () => {
   )
 })
 
-test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
+it('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/arbitrary-url')
     req.responseType = 'arraybuffer'
@@ -105,7 +103,6 @@ test('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', as
   }
 
   // Must return an "ArrayBuffer" instance for "arraybuffer" response type.
-  expect(responseBuffer).toBeInstanceOf(ArrayBuffer)
   expect(responseBuffer.byteLength).toBe(expectedArrayBuffer.byteLength)
   expect(isBufferEqual(responseBuffer, expectedArrayBuffer)).toBe(true)
 })

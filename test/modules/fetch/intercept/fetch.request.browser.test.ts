@@ -1,34 +1,33 @@
-/**
- * @jest-environment node
- */
-import * as path from 'path'
-import { pageWith } from 'page-with'
 import { HttpServer } from '@open-draft/test-server/http'
-import { extractRequestFromPage } from '../../../helpers'
+import { extractRequestFromPage, useCors } from '../../../helpers'
+import { test, expect } from '../../../playwright.extend'
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.post('/user', (_req, res) => {
     res.status(200).send('mocked')
   })
 })
 
-beforeAll(async () => {
+test.beforeAll(async () => {
   await httpServer.listen()
 })
 
-afterAll(async () => {
+test.afterAll(async () => {
   httpServer.close()
 })
 
-test('intercepts fetch requests constructed via a "Request" instance', async () => {
-  const context = await pageWith({
-    example: path.resolve(__dirname, 'fetch.browser.runtime.js'),
-  })
+test('intercepts fetch requests constructed via a "Request" instance', async ({
+  loadExample,
+  page,
+}) => {
+  await loadExample(require.resolve('./fetch.browser.runtime.js'))
+
   const url = httpServer.http.url('/user')
 
   const [request] = await Promise.all([
-    extractRequestFromPage(context.page),
-    context.page.evaluate((url) => {
+    extractRequestFromPage(page),
+    page.evaluate((url) => {
       const request = new Request(url, {
         method: 'POST',
         headers: {

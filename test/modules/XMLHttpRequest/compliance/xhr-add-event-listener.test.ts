@@ -1,8 +1,8 @@
+// @vitest-environment jsdom
 /**
- * @jest-environment jsdom
  * @see https://github.com/mswjs/msw/issues/273
  */
-import { Response } from '@remix-run/web-fetch'
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
@@ -30,16 +30,18 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-test('calls the "load" event attached via "addEventListener" with a mocked response', async () => {
+it('calls the "load" event attached via "addEventListener" with a mocked response', async () => {
   await createXMLHttpRequest((req) => {
     req.open('GET', 'https://test.mswjs.io/user')
+    req.responseType = 'json'
+
     req.addEventListener('load', function () {
-      const { status, responseText } = this
+      const { status, response } = this
       const headers = this.getAllResponseHeaders()
 
       expect(status).toBe(200)
       expect(headers).toContain('x-header: yes')
-      expect(responseText).toBe(`{"mocked":true}`)
+      expect(response).toEqual({ mocked: true })
     })
     req.send()
   })

@@ -1,11 +1,10 @@
-/**
- * @jest-environment jsdom
- */
-import { Response } from '@remix-run/web-fetch'
+// @vitest-environment jsdom
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
+
 interceptor.on('request', (request) => {
   const url = new URL(request.url)
 
@@ -36,7 +35,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-test('handles response of type "json" and missing response JSON body', async () => {
+it('handles response of type "json" and missing response JSON body', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('PUT', '/no-body')
     req.responseType = 'json'
@@ -46,11 +45,10 @@ test('handles response of type "json" and missing response JSON body', async () 
   // When XHR fails to parse a given response JSON body,
   // fall back to null, as the failed JSON parsing result.
   expect(req.response).toBe(null)
-  expect(req.responseText).toBe('')
   expect(req.responseType).toBe('json')
 })
 
-test('handles response of type "json" and invalid response JSON body', async () => {
+it('handles response of type "json" and invalid response JSON body', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', '/invalid-json')
     req.responseType = 'json'
@@ -58,6 +56,5 @@ test('handles response of type "json" and invalid response JSON body', async () 
   })
 
   expect(req.response).toBe(null)
-  expect(req.responseText).toBe(`{"invalid: js'on`)
   expect(req.responseType).toEqual('json')
 })

@@ -1,10 +1,7 @@
-/**
- * @jest-environment node
- */
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { Response } from '@remix-run/web-fetch'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
-import { httpGet, PromisifiedResponse } from '../../helpers'
+import { httpGet, PromisifiedResponse, useCors } from '../../helpers'
 
 function arrayWith<V>(length: number, mapFn: (index: number) => V): V[] {
   return new Array(length).fill(null).map((_, index) => mapFn(index))
@@ -25,6 +22,7 @@ function parallelRequests(
 }
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get<{ index: number }>('/number/:index', (req, res) => {
     return res.send(`real ${req.params.index}`)
   })
@@ -41,9 +39,8 @@ interceptor.on('request', (request) => {
 })
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -51,7 +48,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('returns responses for 500 matching parallel requests', async () => {
+it('returns responses for 500 matching parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
@@ -64,7 +61,7 @@ test('returns responses for 500 matching parallel requests', async () => {
   expect(bodies).toEqual(expectedBodies)
 })
 
-test('returns responses for 500 bypassed parallel requests', async () => {
+it('returns responses for 500 bypassed parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,

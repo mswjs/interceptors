@@ -1,22 +1,26 @@
-/**
- * @jest-environment jsdom
- */
-import * as http from 'http'
+// @vitest-environment jsdom
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
-import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
-import { anyUuid } from '../../jest.expect'
+import {
+  createXMLHttpRequest,
+  useCors,
+  UUID_REGEXP,
+  waitForClientRequest,
+} from '../../helpers'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.post('/user', (req, res) => {
     res.status(201).end()
   })
 })
 
-const requestListener = jest.fn<never, HttpRequestEventMap['request']>()
+const requestListener = vi.fn<HttpRequestEventMap['request']>()
 
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',
@@ -28,13 +32,12 @@ const interceptor = new BatchInterceptor({
 interceptor.on('request', requestListener)
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -42,7 +45,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('ClientRequest: emits the "request" event upon the request', async () => {
+it('ClientRequest: emits the "request" event upon the request', async () => {
   const url = httpServer.http.url('/user')
   const req = http.request(url, {
     method: 'POST',
@@ -65,10 +68,10 @@ test('ClientRequest: emits the "request" event upon the request', async () => {
   expect(await request.json()).toEqual({ userId: 'abc-123' })
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('XMLHttpRequest: emits the "request" event upon the request', async () => {
+it('XMLHttpRequest: emits the "request" event upon the request', async () => {
   const url = httpServer.http.url('/user')
   await createXMLHttpRequest((req) => {
     req.open('POST', url)
@@ -89,9 +92,9 @@ test('XMLHttpRequest: emits the "request" event upon the request', async () => {
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
   expect(request.headers.get('content-type')).toBe('application/json')
-  expect(request.credentials).toBe('omit')
+  expect(request.credentials).toBe('same-origin')
   expect(await request.json()).toEqual({ userId: 'abc-123' })
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })

@@ -1,10 +1,11 @@
+import { it, expect } from 'vitest'
 import { parse } from 'url'
 import { globalAgent as httpGlobalAgent, RequestOptions } from 'http'
 import { Agent as HttpsAgent, globalAgent as httpsGlobalAgent } from 'https'
 import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions'
 import { normalizeClientRequestArgs } from './normalizeClientRequestArgs'
 
-test('handles [string, callback] input', () => {
+it('handles [string, callback] input', () => {
   const [url, options, callback] = normalizeClientRequestArgs(
     'https:',
     'https://mswjs.io/resource',
@@ -24,7 +25,7 @@ test('handles [string, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
-test('handles [string, RequestOptions, callback] input', () => {
+it('handles [string, RequestOptions, callback] input', () => {
   const initialOptions = {
     headers: {
       'Content-Type': 'text/plain',
@@ -47,7 +48,7 @@ test('handles [string, RequestOptions, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
-test('handles [URL, callback] input', () => {
+it('handles [URL, callback] input', () => {
   const [url, options, callback] = normalizeClientRequestArgs(
     'https:',
     new URL('https://mswjs.io/resource'),
@@ -67,7 +68,7 @@ test('handles [URL, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
-test('handles [Absolute Legacy URL, callback] input', () => {
+it('handles [Absolute Legacy URL, callback] input', () => {
   const [url, options, callback] = normalizeClientRequestArgs(
     'https:',
     parse('https://cherry:durian@mswjs.io:12345/resource?apple=banana'),
@@ -93,7 +94,7 @@ test('handles [Absolute Legacy URL, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
-test('handles [Relative Legacy URL, RequestOptions without path set, callback] input', () => {
+it('handles [Relative Legacy URL, RequestOptions without path set, callback] input', () => {
   const [url, options, callback] = normalizeClientRequestArgs(
     'http:',
     parse('/resource?apple=banana'),
@@ -115,7 +116,7 @@ test('handles [Relative Legacy URL, RequestOptions without path set, callback] i
   expect(callback?.name).toEqual('cb')
 })
 
-test('handles [Relative Legacy URL, RequestOptions with path set, callback] input', () => {
+it('handles [Relative Legacy URL, RequestOptions with path set, callback] input', () => {
   const [url, options, callback] = normalizeClientRequestArgs(
     'http:',
     parse('/resource?apple=banana'),
@@ -137,7 +138,7 @@ test('handles [Relative Legacy URL, RequestOptions with path set, callback] inpu
   expect(callback?.name).toEqual('cb')
 })
 
-test('handles [Relative Legacy URL, callback] input', () => {
+it('handles [Relative Legacy URL, callback] input', () => {
   const [url, options, callback] = normalizeClientRequestArgs(
     'http:',
     parse('/resource?apple=banana'),
@@ -157,7 +158,7 @@ test('handles [Relative Legacy URL, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
-test('handles [Relative Legacy URL] input', () => {
+it('handles [Relative Legacy URL] input', () => {
   const [url, options, callback] = normalizeClientRequestArgs(
     'http:',
     parse('/resource?apple=banana')
@@ -176,7 +177,7 @@ test('handles [Relative Legacy URL] input', () => {
   expect(callback).toBeUndefined()
 })
 
-test('handles [URL, RequestOptions, callback] input', () => {
+it('handles [URL, RequestOptions, callback] input', () => {
   const [url, options, callback] = normalizeClientRequestArgs(
     'https:',
     new URL('https://mswjs.io/resource'),
@@ -211,7 +212,7 @@ test('handles [URL, RequestOptions, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
-test('handles [RequestOptions, callback] input', () => {
+it('handles [RequestOptions, callback] input', () => {
   const initialOptions = {
     method: 'POST',
     protocol: 'https:',
@@ -241,7 +242,7 @@ test('handles [RequestOptions, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
-test('handles [Empty RequestOptions, callback] input', () => {
+it('handles [Empty RequestOptions, callback] input', () => {
   const [_, options, callback] = normalizeClientRequestArgs(
     'https:',
     {},
@@ -257,7 +258,7 @@ test('handles [Empty RequestOptions, callback] input', () => {
 /**
  * @see https://github.com/mswjs/interceptors/issues/19
  */
-test('handles [PartialRequestOptions, callback] input', () => {
+it('handles [PartialRequestOptions, callback] input', () => {
   const initialOptions = {
     method: 'GET',
     port: '50176',
@@ -291,7 +292,7 @@ test('handles [PartialRequestOptions, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
-test('sets fallback Agent based on the URL protocol', () => {
+it('sets fallback Agent based on the URL protocol', () => {
   const [url, options] = normalizeClientRequestArgs(
     'https:',
     'https://github.com'
@@ -303,7 +304,7 @@ test('sets fallback Agent based on the URL protocol', () => {
   expect(agent).toHaveProperty('protocol', url.protocol)
 })
 
-test('does not set any fallback Agent given "agent: false" option', () => {
+it('does not set any fallback Agent given "agent: false" option', () => {
   const [, options] = normalizeClientRequestArgs(
     'https:',
     'https://github.com',
@@ -313,7 +314,7 @@ test('does not set any fallback Agent given "agent: false" option', () => {
   expect(options.agent).toEqual(false)
 })
 
-test('sets the default Agent for HTTP request', () => {
+it('sets the default Agent for HTTP request', () => {
   const [, options] = normalizeClientRequestArgs(
     'http:',
     'http://github.com',
@@ -323,7 +324,7 @@ test('sets the default Agent for HTTP request', () => {
   expect(options._defaultAgent).toEqual(httpGlobalAgent)
 })
 
-test('sets the default Agent for HTTPS request', () => {
+it('sets the default Agent for HTTPS request', () => {
   const [, options] = normalizeClientRequestArgs(
     'https:',
     'https://github.com',
@@ -333,7 +334,7 @@ test('sets the default Agent for HTTPS request', () => {
   expect(options._defaultAgent).toEqual(httpsGlobalAgent)
 })
 
-test('preserves a custom default Agent when set', () => {
+it('preserves a custom default Agent when set', () => {
   const [, options] = normalizeClientRequestArgs(
     'https:',
     'https://github.com',
@@ -348,7 +349,7 @@ test('preserves a custom default Agent when set', () => {
   expect(options._defaultAgent).toEqual(httpGlobalAgent)
 })
 
-test('merges URL-based RequestOptions with the custom RequestOptions', () => {
+it('merges URL-based RequestOptions with the custom RequestOptions', () => {
   const [url, options] = normalizeClientRequestArgs(
     'https:',
     'https://github.com/graphql',

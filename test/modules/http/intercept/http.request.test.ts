@@ -1,11 +1,8 @@
-/**
- * @jest-environment node
- */
-import * as http from 'http'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import http from 'http'
 import { RequestHandler } from 'express-serve-static-core'
 import { HttpServer } from '@open-draft/test-server/http'
-import { anyUuid, headersContaining } from '../../../jest.expect'
-import { waitForClientRequest } from '../../../helpers'
+import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
 
@@ -20,7 +17,7 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = jest.fn<never, HttpRequestEventMap['request']>()
+const resolver = vi.fn<HttpRequestEventMap['request']>()
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
@@ -30,7 +27,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -38,7 +35,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('intercepts a HEAD request', async () => {
+it('intercepts a HEAD request', async () => {
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'HEAD',
@@ -55,19 +52,18 @@ test('intercepts a HEAD request', async () => {
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(url)
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toEqual({
+    host: new URL(url).host,
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts a GET request', async () => {
+it('intercepts a GET request', async () => {
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'GET',
@@ -84,19 +80,18 @@ test('intercepts a GET request', async () => {
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url)
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toEqual({
+    host: new URL(url).host,
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts a POST request', async () => {
+it('intercepts a POST request', async () => {
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'POST',
@@ -114,19 +109,18 @@ test('intercepts a POST request', async () => {
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toEqual({
+    host: new URL(url).host,
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('post-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts a PUT request', async () => {
+it('intercepts a PUT request', async () => {
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'PUT',
@@ -144,19 +138,18 @@ test('intercepts a PUT request', async () => {
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(url)
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toEqual({
+    host: new URL(url).host,
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('put-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts a PATCH request', async () => {
+it('intercepts a PATCH request', async () => {
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'PATCH',
@@ -174,19 +167,18 @@ test('intercepts a PATCH request', async () => {
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(url)
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toEqual({
+    host: new URL(url).host,
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('patch-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts a DELETE request', async () => {
+it('intercepts a DELETE request', async () => {
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'DELETE',
@@ -203,19 +195,18 @@ test('intercepts a DELETE request', async () => {
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(url)
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toEqual({
+    host: new URL(url).host,
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an http.request given RequestOptions without a protocol', async () => {
+it('intercepts an http.request given RequestOptions without a protocol', async () => {
   // Create a request with `RequestOptions` without an explicit "protocol".
   // Since request is done via `http.get`, the "http:" protocol must be inferred.
   const req = http.request({
@@ -236,5 +227,5 @@ test('intercepts an http.request given RequestOptions without a protocol', async
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })

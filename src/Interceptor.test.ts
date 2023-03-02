@@ -1,3 +1,4 @@
+import { describe, vi, it, expect, afterEach } from 'vitest'
 import {
   Interceptor,
   getGlobalSymbol,
@@ -84,7 +85,7 @@ describe('readyState', () => {
 describe('apply', () => {
   it('does not apply the same interceptor multiple times', () => {
     const interceptor = new Interceptor(symbol)
-    const setupSpy = jest.spyOn(
+    const setupSpy = vi.spyOn(
       interceptor,
       // @ts-expect-error Protected property spy.
       'setup'
@@ -109,7 +110,7 @@ describe('apply', () => {
     }
 
     const interceptor = new MyInterceptor(Symbol('test'))
-    const setupSpy = jest.spyOn(
+    const setupSpy = vi.spyOn(
       interceptor,
       // @ts-expect-error Protected property spy.
       'setup'
@@ -124,11 +125,11 @@ describe('apply', () => {
     const secondInterceptor = new Interceptor(symbol)
 
     firstInterceptor.apply()
-    const firstListener = jest.fn()
+    const firstListener = vi.fn()
     firstInterceptor.on('test', firstListener)
 
     secondInterceptor.apply()
-    const secondListener = jest.fn()
+    const secondListener = vi.fn()
     secondInterceptor.on('test', secondListener)
 
     // Emitting event in the first interceptor will bubble to the second one.
@@ -149,7 +150,7 @@ describe('dispose', () => {
     const interceptor = new Interceptor(symbol)
 
     interceptor.apply()
-    const listener = jest.fn()
+    const listener = vi.fn()
     interceptor.on('test', listener)
     interceptor.dispose()
 

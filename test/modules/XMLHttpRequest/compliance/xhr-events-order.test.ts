@@ -1,13 +1,14 @@
+// @vitest-environment jsdom
 /**
- * @jest-environment jsdom
- * @see https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest#instance_methods
+ * @see https://xhr.spec.whatwg.org/#events
  */
+import { Mock, vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { Response } from '@remix-run/web-fetch'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+import { createXMLHttpRequest, useCors } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/', (_req, res) => {
     res.status(200).end()
   })
@@ -33,7 +34,7 @@ interceptor.on('request', (request) => {
   }
 })
 
-function spyOnEvents(req: XMLHttpRequest, listener: jest.Mock) {
+function spyOnEvents(req: XMLHttpRequest, listener: Mock) {
   function wrapListener(this: XMLHttpRequest, event: Event) {
     listener(event.type, this.readyState)
   }
@@ -58,8 +59,8 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('emits correct events sequence for an unhandled request with no response body', async () => {
-  const listener = jest.fn()
+it('emits correct events sequence for an unhandled request with no response body', async () => {
+  const listener = vi.fn()
   const req = await createXMLHttpRequest((req) => {
     spyOnEvents(req, listener)
     req.open('GET', httpServer.http.url())
@@ -71,20 +72,15 @@ test('emits correct events sequence for an unhandled request with no response bo
     ['loadstart', 1],
     ['readystatechange', 2], // HEADERS_RECEIVED
     ['readystatechange', 4], // DONE
-    /**
-     * @note XMLHttpRequest polyfill from JSDOM dispatches the "readystatechange" listener.
-     * XMLHttpRequest override also dispatches the "readystatechange" listener for the original
-     * request explicitly so it never hangs. This results in the listener being called twice.
-     */
-    ['readystatechange', 4],
+
     ['load', 4],
     ['loadend', 4],
   ])
   expect(req.readyState).toEqual(4)
 })
 
-test('emits correct events sequence for a handled request with no response body', async () => {
-  const listener = jest.fn()
+it('emits correct events sequence for a handled request with no response body', async () => {
+  const listener = vi.fn()
   const req = await createXMLHttpRequest((req) => {
     spyOnEvents(req, listener)
     req.open('GET', httpServer.http.url('/user'))
@@ -103,8 +99,8 @@ test('emits correct events sequence for a handled request with no response body'
   expect(req.readyState).toBe(4)
 })
 
-test('emits correct events sequence for an unhandled request with a response body', async () => {
-  const listener = jest.fn()
+it('emits correct events sequence for an unhandled request with a response body', async () => {
+  const listener = vi.fn()
   const req = await createXMLHttpRequest((req) => {
     spyOnEvents(req, listener)
     req.open('GET', httpServer.http.url('/numbers'))
@@ -118,18 +114,14 @@ test('emits correct events sequence for an unhandled request with a response bod
     ['readystatechange', 3], // LOADING
     ['progress', 3],
     ['readystatechange', 4],
-    /**
-     * @note The same issue with the "readystatechange" callback being called twice.
-     */
-    ['readystatechange', 4],
     ['load', 4],
     ['loadend', 4],
   ])
   expect(req.readyState).toBe(4)
 })
 
-test('emits correct events sequence for a handled request with a response body', async () => {
-  const listener = jest.fn()
+it('emits correct events sequence for a handled request with a response body', async () => {
+  const listener = vi.fn()
   const req = await createXMLHttpRequest((req) => {
     spyOnEvents(req, listener)
     req.open('GET', httpServer.http.url('/numbers-mock'))

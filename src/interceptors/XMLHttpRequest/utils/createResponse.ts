@@ -1,9 +1,8 @@
-import { Response } from '@remix-run/web-fetch'
 import { stringToHeaders } from 'headers-polyfill'
 
 export function createResponse(
   request: XMLHttpRequest,
-  responseBody: Uint8Array
+  responseBody: BodyInit | null
 ): Response {
   // this fix will help to return Error when status is 0
   const {status} = request;

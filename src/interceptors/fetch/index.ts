@@ -1,9 +1,9 @@
 import { invariant } from 'outvariant'
-import type { Response as ResponsePolyfill } from '@remix-run/web-fetch'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { uuidv4 } from '../../utils/uuid'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
+import { until } from '@open-draft/until'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -43,16 +43,28 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.log('awaiting for the mocked response...')
 
-      await this.emitter.untilIdle(
-        'request',
-        ({ args: [, pendingRequestId] }) => {
-          return pendingRequestId === requestId
-        }
-      )
-      this.log('all request listeners have been resolved!')
+      const [middlewareException, mockedResponse] = await until(async () => {
+        await this.emitter.untilIdle(
+          'request',
+          ({ args: [, pendingRequestId] }) => {
+            return pendingRequestId === requestId
+          }
+        )
+        this.log('all request listeners have been resolved!')
 
-      const [mockedResponse] = await interactiveRequest.respondWith.invoked()
-      this.log('event.respondWith called with:', mockedResponse)
+        const [mockedResponse] = await interactiveRequest.respondWith.invoked()
+        this.log('event.respondWith called with:', mockedResponse)
+
+        return mockedResponse
+      })
+
+      if (middlewareException) {
+        console.error(`${request.method} ${request.url} net::ERR_FAILED`)
+        const error = Object.assign(new TypeError('Failed to fetch'), {
+          cause: middlewareException,
+        })
+        return Promise.reject(error)
+      }
 
       if (mockedResponse) {
         this.log('received mocked response:', mockedResponse)
@@ -81,7 +93,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       this.log('no mocked response received!')
 
       return pureFetch(request).then((response) => {
-        const responseClone = response.clone() as ResponsePolyfill
+        const responseClone = response.clone()
         this.log('original fetch performed', responseClone)
 
         this.emitter.emit(

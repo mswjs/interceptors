@@ -1,8 +1,5 @@
-/**
- * @jest-environment node
- */
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { Response } from '@remix-run/web-fetch'
 import { httpGet } from '../../../helpers'
 import { sleep } from '../../../../test/helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
@@ -26,9 +23,8 @@ interceptor.on('request', async (request) => {
 })
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -36,7 +32,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('handles concurrent requests with different response sources', async () => {
+it('handles concurrent requests with different response sources', async () => {
   const requests = await Promise.all([
     httpGet(httpServer.http.url('/')),
     httpGet(httpServer.http.url('/'), {

@@ -1,13 +1,14 @@
+import { vi, it, expect, afterEach } from 'vitest'
 import { AsyncEventEmitter } from './AsyncEventEmitter'
 import { sleep } from '../../test/helpers'
 
 afterEach(() => {
-  jest.useRealTimers()
+  vi.useRealTimers()
 })
 
 it('emits and listens to events', () => {
   const emitter = new AsyncEventEmitter<{ hello: [string] }>()
-  const listener = jest.fn()
+  const listener = vi.fn()
   emitter.on('hello', listener)
   emitter.emit('hello', 'John')
 
@@ -19,10 +20,10 @@ it('resolves "untilIdle" when all the event listeners are done', async () => {
   const emitter = new AsyncEventEmitter<{ speak: [string] }>()
 
   const results: string[] = []
-  const firstListener = jest.fn(() => results.push('first'))
+  const firstListener = vi.fn(() => results.push('first'))
   emitter.on('speak', firstListener)
 
-  const secondListener = jest.fn(async () => {
+  const secondListener = vi.fn(async () => {
     await sleep(150)
     results.push('second')
   })
@@ -43,7 +44,7 @@ it('resolves "untilIdle" only for the relevant listeners', async () => {
   const emitter = new AsyncEventEmitter<{ signal: [number] }>()
 
   const results: number[] = []
-  const listener = jest.fn(async (code: number) => {
+  const listener = vi.fn(async (code: number) => {
     if (code !== 1) {
       // Delay listener based on the signal code.
       await sleep(150)
@@ -79,7 +80,7 @@ it('propagates listener exceptions to "untilIdle" promise', async () => {
   const emitter = new AsyncEventEmitter<{ ping: never }>()
 
   const error = new Error('oops')
-  const listener = jest.fn(() => {
+  const listener = vi.fn(() => {
     throw error
   })
   emitter.on('ping', listener)
@@ -91,7 +92,7 @@ it('propagates listener exceptions to "untilIdle" promise', async () => {
 it('does not emit events once the emitter was deactivated', () => {
   const emitter = new AsyncEventEmitter<{ ping: never }>()
 
-  const listener = jest.fn()
+  const listener = vi.fn()
   emitter.on('ping', listener)
   emitter.deactivate()
 

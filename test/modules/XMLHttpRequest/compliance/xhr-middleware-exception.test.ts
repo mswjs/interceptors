@@ -1,7 +1,8 @@
+// @vitest-environment jsdom
 /**
- * @jest-environment jsdom
  * @see https://github.com/mswjs/msw/issues/355
  */
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import fetch from 'node-fetch'
 import axios from 'axios'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
@@ -19,7 +20,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-test('propagates a custom error message to the fetch request error', () => {
+it('propagates a custom error message to the fetch request error', () => {
   fetch('https://test.mswjs.io').catch((error) => {
     expect(error).toHaveProperty(
       'message',
@@ -28,7 +29,7 @@ test('propagates a custom error message to the fetch request error', () => {
   })
 })
 
-test('causes a Network Error when using axios', () => {
+it('causes a Network Error when using axios', () => {
   axios.get('https://test.mswjs.io').catch((error) => {
     /**
      * axios always treats request exceptions with the fixed "Network Error" message.

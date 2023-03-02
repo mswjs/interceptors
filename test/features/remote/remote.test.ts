@@ -1,9 +1,6 @@
-/**
- * @jest-environment node
- */
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import * as path from 'path'
 import { spawn } from 'child_process'
-import { Response } from '@remix-run/web-fetch'
 import { RemoteHttpResolver } from '../../../src/RemoteHttpInterceptor'
 
 const CHILD_PATH = path.resolve(__dirname, 'child.js')
@@ -44,7 +41,7 @@ afterAll(() => {
   resolver.dispose()
 })
 
-test('intercepts an HTTP request made in a child process', async () => {
+it('intercepts an HTTP request made in a child process', async () => {
   child.send('make:request')
 
   const response = await new Promise((resolve, reject) => {

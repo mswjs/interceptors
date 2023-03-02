@@ -1,6 +1,4 @@
-/**
- * @jest-environment node
- */
+import { it, expect } from 'vitest'
 import { Socket } from 'net'
 import * as http from 'http'
 import { createResponse } from './createResponse'

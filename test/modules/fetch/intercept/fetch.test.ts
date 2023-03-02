@@ -1,11 +1,9 @@
-/**
- * @jest-environment node
- */
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import fetch from 'node-fetch'
 import { RequestHandler } from 'express'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
-import { anyUuid, headersContaining } from '../../../jest.expect'
+import { UUID_REGEXP } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
@@ -22,19 +20,18 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = jest.fn<never, HttpRequestEventMap['request']>()
+const resolver = vi.fn<HttpRequestEventMap['request']>()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -42,7 +39,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('intercepts an HTTP HEAD request', async () => {
+it('intercepts an HTTP HEAD request', async () => {
   await fetch(httpServer.http.url('/user?id=123'), {
     method: 'HEAD',
     headers: {
@@ -61,10 +58,10 @@ test('intercepts an HTTP HEAD request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTP GET request', async () => {
+it('intercepts an HTTP GET request', async () => {
   await fetch(httpServer.http.url('/user?id=123'), {
     headers: {
       'x-custom-header': 'yes',
@@ -82,10 +79,10 @@ test('intercepts an HTTP GET request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTP POST request', async () => {
+it('intercepts an HTTP POST request', async () => {
   await fetch(httpServer.http.url('/user?id=123'), {
     method: 'POST',
     headers: {
@@ -100,20 +97,18 @@ test('intercepts an HTTP POST request', async () => {
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
-  expect(request.headers).toEqual(
-    headersContaining({
-      accept: '*/*',
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toContain({
+    accept: '*/*',
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(await request.json()).toEqual({ body: true })
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTP PUT request', async () => {
+it('intercepts an HTTP PUT request', async () => {
   await fetch(httpServer.http.url('/user?id=123'), {
     method: 'PUT',
     headers: {
@@ -128,19 +123,17 @@ test('intercepts an HTTP PUT request', async () => {
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toContain({
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('request-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTP DELETE request', async () => {
+it('intercepts an HTTP DELETE request', async () => {
   await fetch(httpServer.http.url('/user?id=123'), {
     method: 'DELETE',
     headers: {
@@ -154,19 +147,17 @@ test('intercepts an HTTP DELETE request', async () => {
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toContain({
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTP PATCH request', async () => {
+it('intercepts an HTTP PATCH request', async () => {
   await fetch(httpServer.http.url('/user?id=123'), {
     method: 'PATCH',
     headers: {
@@ -181,19 +172,17 @@ test('intercepts an HTTP PATCH request', async () => {
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toContain({
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('request-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTPS HEAD request', async () => {
+it('intercepts an HTTPS HEAD request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     method: 'HEAD',
@@ -208,19 +197,17 @@ test('intercepts an HTTPS HEAD request', async () => {
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toContain({
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTPS GET request', async () => {
+it('intercepts an HTTPS GET request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     headers: {
@@ -234,19 +221,17 @@ test('intercepts an HTTPS GET request', async () => {
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toContain({
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTPS POST request', async () => {
+it('intercepts an HTTPS POST request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     method: 'POST',
@@ -262,19 +247,17 @@ test('intercepts an HTTPS POST request', async () => {
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toContain({
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(await request.json()).toEqual({ body: true })
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTPS PUT request', async () => {
+it('intercepts an HTTPS PUT request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     method: 'PUT',
@@ -290,19 +273,17 @@ test('intercepts an HTTPS PUT request', async () => {
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toContain({
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('request-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTPS DELETE request', async () => {
+it('intercepts an HTTPS DELETE request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     method: 'DELETE',
@@ -317,19 +298,17 @@ test('intercepts an HTTPS DELETE request', async () => {
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toContain({
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an HTTPS PATCH request', async () => {
+it('intercepts an HTTPS PATCH request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
     agent: httpsAgent,
     method: 'PATCH',
@@ -344,14 +323,12 @@ test('intercepts an HTTPS PATCH request', async () => {
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.headers).toEqual(
-    headersContaining({
-      'x-custom-header': 'yes',
-    })
-  )
+  expect(Object.fromEntries(request.headers.entries())).toContain({
+    'x-custom-header': 'yes',
+  })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })

@@ -1,13 +1,14 @@
-/**
- * @jest-environment node
- */
-import * as path from 'path'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { Response, pageWith, ScenarioApi } from 'page-with'
-import { extractRequestFromPage } from '../../../helpers'
+import { Page, Response } from '@playwright/test'
+import { test, expect } from '../../../playwright.extend'
+import { extractRequestFromPage, useCors } from '../../../helpers'
+
+const EXAMPLE_PATH = require.resolve('./fetch.browser.runtime.js')
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
+
   const handleRequest: RequestHandler = (_req, res) => {
     res.status(200).send('user-body').end()
   }
@@ -20,36 +21,38 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleRequest)
 })
 
-function prepareRuntime() {
-  return pageWith({
-    example: path.resolve(__dirname, 'fetch.browser.runtime.js'),
-  })
-}
-
 async function callFetch(
-  context: ScenarioApi,
+  page: Page,
   url: string,
   init: RequestInit = {}
 ): Promise<[Request, Response]> {
   return Promise.all([
-    extractRequestFromPage(context.page),
-    context.request(url, init),
+    extractRequestFromPage(page),
+    new Promise<Response>(async (resolve) => {
+      page.evaluate(([url, init]) => fetch(url, init), [url, init] as [
+        string,
+        RequestInit
+      ])
+
+      resolve(page.waitForResponse(url))
+    }),
   ])
 }
 
-beforeAll(async () => {
+test.beforeAll(async () => {
   await httpServer.listen()
 })
 
-afterAll(async () => {
+test.afterAll(async () => {
   await httpServer.close()
 })
 
-describe('HTTP', () => {
-  test('intercepts an HTTP GET request', async () => {
-    const context = await prepareRuntime()
+test.describe('HTTP', () => {
+  test('intercepts an HTTP GET request', async ({ loadExample, page }) => {
+    await loadExample(EXAMPLE_PATH)
+
     const url = httpServer.http.url('/user?id=123')
-    const [request, response] = await callFetch(context, url, {
+    const [request, response] = await callFetch(page, url, {
       headers: {
         'x-custom-header': 'yes',
       },
@@ -66,10 +69,11 @@ describe('HTTP', () => {
     expect(await response.text()).toBe('user-body')
   })
 
-  test('intercepts an HTTP POST request', async () => {
-    const context = await prepareRuntime()
+  test('intercepts an HTTP POST request', async ({ loadExample, page }) => {
+    await loadExample(EXAMPLE_PATH)
+
     const url = httpServer.http.url('/user?id=123')
-    const [request, response] = await callFetch(context, url, {
+    const [request, response] = await callFetch(page, url, {
       method: 'POST',
       headers: {
         'x-custom-header': 'yes',
@@ -88,10 +92,11 @@ describe('HTTP', () => {
     expect(await response.text()).toBe('user-body')
   })
 
-  test('intercepts an HTTP PUT request', async () => {
-    const context = await prepareRuntime()
+  test('intercepts an HTTP PUT request', async ({ loadExample, page }) => {
+    await loadExample(EXAMPLE_PATH)
+
     const url = httpServer.http.url('/user?id=123')
-    const [request, response] = await callFetch(context, url, {
+    const [request, response] = await callFetch(page, url, {
       method: 'PUT',
       headers: {
         'x-custom-header': 'yes',
@@ -110,10 +115,11 @@ describe('HTTP', () => {
     expect(await response.text()).toBe('user-body')
   })
 
-  test('intercepts an HTTP PATCH request', async () => {
-    const context = await prepareRuntime()
+  test('intercepts an HTTP PATCH request', async ({ loadExample, page }) => {
+    await loadExample(EXAMPLE_PATH)
+
     const url = httpServer.http.url('/user?id=123')
-    const [request, response] = await callFetch(context, url, {
+    const [request, response] = await callFetch(page, url, {
       method: 'PATCH',
       headers: {
         'x-custom-header': 'yes',
@@ -132,10 +138,11 @@ describe('HTTP', () => {
     expect(await response.text()).toBe('user-body')
   })
 
-  test('intercepts an HTTP DELETE request', async () => {
-    const context = await prepareRuntime()
+  test('intercepts an HTTP DELETE request', async ({ loadExample, page }) => {
+    await loadExample(EXAMPLE_PATH)
+
     const url = httpServer.http.url('/user?id=123')
-    const [request, response] = await callFetch(context, url, {
+    const [request, response] = await callFetch(page, url, {
       method: 'DELETE',
       headers: {
         'x-custom-header': 'yes',
@@ -155,11 +162,12 @@ describe('HTTP', () => {
   })
 })
 
-describe('HTTPS', () => {
-  test('intercepts an HTTPS GET request', async () => {
-    const context = await prepareRuntime()
+test.describe('HTTPS', () => {
+  test('intercepts an HTTPS GET request', async ({ loadExample, page }) => {
+    await loadExample(EXAMPLE_PATH)
+
     const url = httpServer.https.url('/user?id=123')
-    const [request, response] = await callFetch(context, url, {
+    const [request, response] = await callFetch(page, url, {
       headers: {
         'x-custom-header': 'yes',
       },
@@ -176,10 +184,11 @@ describe('HTTPS', () => {
     expect(await response.text()).toBe('user-body')
   })
 
-  test('intercepts an HTTPS POST request', async () => {
-    const context = await prepareRuntime()
+  test('intercepts an HTTPS POST request', async ({ loadExample, page }) => {
+    await loadExample(EXAMPLE_PATH)
+
     const url = httpServer.https.url('/user?id=123')
-    const [request, response] = await callFetch(context, url, {
+    const [request, response] = await callFetch(page, url, {
       method: 'POST',
       headers: {
         'x-custom-header': 'yes',
@@ -198,10 +207,11 @@ describe('HTTPS', () => {
     expect(await response.text()).toBe('user-body')
   })
 
-  test('intercepts an HTTPS PUT request', async () => {
-    const context = await prepareRuntime()
+  test('intercepts an HTTPS PUT request', async ({ loadExample, page }) => {
+    await loadExample(EXAMPLE_PATH)
+
     const url = httpServer.https.url('/user?id=123')
-    const [request, response] = await callFetch(context, url, {
+    const [request, response] = await callFetch(page, url, {
       method: 'PUT',
       headers: {
         'x-custom-header': 'yes',
@@ -220,10 +230,11 @@ describe('HTTPS', () => {
     expect(await response.text()).toBe('user-body')
   })
 
-  test('intercepts an HTTPS PATCH request', async () => {
-    const context = await prepareRuntime()
+  test('intercepts an HTTPS PATCH request', async ({ loadExample, page }) => {
+    await loadExample(EXAMPLE_PATH)
+
     const url = httpServer.https.url('/user?id=123')
-    const [request, response] = await callFetch(context, url, {
+    const [request, response] = await callFetch(page, url, {
       method: 'PATCH',
       headers: {
         'x-custom-header': 'yes',
@@ -242,10 +253,11 @@ describe('HTTPS', () => {
     expect(await response.text()).toBe('user-body')
   })
 
-  test('intercepts an HTTPS DELETE request', async () => {
-    const context = await prepareRuntime()
+  test('intercepts an HTTPS DELETE request', async ({ loadExample, page }) => {
+    await loadExample(EXAMPLE_PATH)
+
     const url = httpServer.https.url('/user?id=123')
-    const [request, response] = await callFetch(context, url, {
+    const [request, response] = await callFetch(page, url, {
       method: 'DELETE',
       headers: {
         'x-custom-header': 'yes',
@@ -265,10 +277,14 @@ describe('HTTPS', () => {
   })
 })
 
-test('sets "credentials" to "include" on the isomorphic request when fetch sets it to "include"', async () => {
-  const context = await prepareRuntime()
+test('sets "credentials" to "include" on the isomorphic request when fetch sets it to "include"', async ({
+  loadExample,
+  page,
+}) => {
+  await loadExample(EXAMPLE_PATH)
+
   const url = httpServer.https.url('/user')
-  const [request] = await callFetch(context, url, {
+  const [request] = await callFetch(page, url, {
     mode: 'no-cors',
     credentials: 'include',
   })
@@ -276,10 +292,14 @@ test('sets "credentials" to "include" on the isomorphic request when fetch sets 
   expect(request.credentials).toBe('include')
 })
 
-test('sets "credentials" to "omit" on the isomorphic request when fetch sets it to "omit"', async () => {
-  const context = await prepareRuntime()
+test('sets "credentials" to "omit" on the isomorphic request when fetch sets it to "omit"', async ({
+  loadExample,
+  page,
+}) => {
+  await loadExample(EXAMPLE_PATH)
+
   const url = httpServer.http.url('/user')
-  const [request] = await callFetch(context, url, {
+  const [request] = await callFetch(page, url, {
     credentials: 'omit',
   })
 

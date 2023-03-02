@@ -1,14 +1,8 @@
-/**
- * @jest-environment node
- */
-import * as path from 'path'
-import { pageWith } from 'page-with'
+import { Page } from '@playwright/test'
 import { HttpServer } from '@open-draft/test-server/http'
-import {
-  createBrowserXMLHttpRequest,
-  createRawBrowserXMLHttpRequest,
-} from '../../../helpers'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
+import { test, expect } from '../../../playwright.extend'
+import { useCors } from '../../../helpers'
 
 declare namespace window {
   export const interceptor: XMLHttpRequestInterceptor
@@ -17,6 +11,7 @@ declare namespace window {
 }
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/', (req, res) => {
     res.status(200).json({ route: '/' })
   })
@@ -25,33 +20,32 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-async function prepareRuntime() {
-  const scenario = await pageWith({
-    example: path.resolve(__dirname, 'xhr.browser.runtime.js'),
-  })
-
-  await scenario.page.evaluate((httpUrl) => {
+async function forwardServerUrls(page: Page): Promise<void> {
+  await page.evaluate((httpUrl) => {
     window.serverHttpUrl = httpUrl
   }, httpServer.http.url('/'))
 
-  await scenario.page.evaluate((httpsUrl) => {
+  await page.evaluate((httpsUrl) => {
     window.serverHttpsUrl = httpsUrl
   }, httpServer.https.url('/'))
-
-  return scenario
 }
 
-beforeAll(async () => {
+test.beforeAll(async () => {
   await httpServer.listen()
 })
 
-afterAll(async () => {
+test.afterAll(async () => {
   await httpServer.close()
 })
 
-test('responds to an HTTP request handled in the resolver', async () => {
-  const scenario = await prepareRuntime()
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(scenario)
+test('responds to an HTTP request handled in the resolver', async ({
+  loadExample,
+  callXMLHttpRequest,
+  page,
+}) => {
+  await loadExample(require.resolve('./xhr.browser.runtime.js'))
+  await forwardServerUrls(page)
+
   const [, response] = await callXMLHttpRequest({
     method: 'GET',
     url: httpServer.http.url('/'),
@@ -63,9 +57,14 @@ test('responds to an HTTP request handled in the resolver', async () => {
   expect(response.body).toEqual(JSON.stringify({ mocked: true }))
 })
 
-test('responds to an HTTPS request handled in the resolver', async () => {
-  const scenario = await prepareRuntime()
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(scenario)
+test('responds to an HTTPS request handled in the resolver', async ({
+  loadExample,
+  callXMLHttpRequest,
+  page,
+}) => {
+  await loadExample(require.resolve('./xhr.browser.runtime.js'))
+  await forwardServerUrls(page)
+
   const [, response] = await callXMLHttpRequest({
     method: 'GET',
     url: httpServer.https.url('/'),
@@ -77,9 +76,14 @@ test('responds to an HTTPS request handled in the resolver', async () => {
   expect(response.body).toEqual(JSON.stringify({ mocked: true }))
 })
 
-test('bypasses a request not handled in the resolver', async () => {
-  const scenario = await prepareRuntime()
-  const callXMLHttpRequest = createBrowserXMLHttpRequest(scenario)
+test('bypasses a request not handled in the resolver', async ({
+  loadExample,
+  callXMLHttpRequest,
+  page,
+}) => {
+  await loadExample(require.resolve('./xhr.browser.runtime.js'))
+  await forwardServerUrls(page)
+
   const [, response] = await callXMLHttpRequest({
     method: 'GET',
     url: httpServer.http.url('/get'),
@@ -90,17 +94,21 @@ test('bypasses a request not handled in the resolver', async () => {
   expect(response.body).toEqual(JSON.stringify({ route: '/get' }))
 })
 
-test('bypasses any request when the interceptor is restored', async () => {
-  const scenario = await prepareRuntime()
-  // Using the "createRawBrowserXMLHttpRequest" because when the interceptor
-  // is restored, it won't dispatch the "resolver" event.
-  const callXMLHttpRequest = createRawBrowserXMLHttpRequest(scenario)
+test('bypasses any request when the interceptor is restored', async ({
+  loadExample,
+  callRawXMLHttpRequest,
+  page,
+}) => {
+  await loadExample(require.resolve('./xhr.browser.runtime.js'))
+  await forwardServerUrls(page)
 
-  await scenario.page.evaluate(() => {
+  await page.evaluate(() => {
     window.interceptor.dispose()
   })
 
-  const firstResponse = await callXMLHttpRequest({
+  // Using the "createRawBrowserXMLHttpRequest" because when the interceptor
+  // is restored, it won't dispatch the "resolver" event.
+  const firstResponse = await callRawXMLHttpRequest({
     method: 'GET',
     url: httpServer.http.url('/'),
   })
@@ -109,7 +117,7 @@ test('bypasses any request when the interceptor is restored', async () => {
   expect(firstResponse.statusText).toBe('OK')
   expect(firstResponse.body).toEqual(JSON.stringify({ route: '/' }))
 
-  const secondResponse = await callXMLHttpRequest({
+  const secondResponse = await callRawXMLHttpRequest({
     method: 'GET',
     url: httpServer.http.url('/get'),
   })

@@ -1,11 +1,8 @@
-/**
- * @jest-environment node
- */
-import * as https from 'https'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import https from 'https'
 import { RequestHandler } from 'express'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
-import { waitForClientRequest } from '../../../helpers'
-import { anyUuid } from '../../../jest.expect'
+import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
 
@@ -22,7 +19,7 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = jest.fn<never, HttpRequestEventMap['request']>()
+const resolver = vi.fn<HttpRequestEventMap['request']>()
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
@@ -32,7 +29,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
 })
 
 afterAll(async () => {
@@ -40,7 +37,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-test('intercepts a HEAD request', async () => {
+it('intercepts a HEAD request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
@@ -62,10 +59,10 @@ test('intercepts a HEAD request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts a GET request', async () => {
+it('intercepts a GET request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
@@ -87,10 +84,10 @@ test('intercepts a GET request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts a POST request', async () => {
+it('intercepts a POST request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
@@ -113,10 +110,10 @@ test('intercepts a POST request', async () => {
   expect(await request.text()).toBe('post-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts a PUT request', async () => {
+it('intercepts a PUT request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
@@ -139,10 +136,10 @@ test('intercepts a PUT request', async () => {
   expect(await request.text()).toBe('put-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts a PATCH request', async () => {
+it('intercepts a PATCH request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
@@ -165,10 +162,10 @@ test('intercepts a PATCH request', async () => {
   expect(await request.text()).toBe('patch-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts a DELETE request', async () => {
+it('intercepts a DELETE request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
     agent: httpsAgent,
@@ -190,10 +187,10 @@ test('intercepts a DELETE request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
 
-test('intercepts an http.request request given RequestOptions without a protocol', async () => {
+it('intercepts an http.request request given RequestOptions without a protocol', async () => {
   const req = https.request({
     agent: httpsAgent,
     host: httpServer.https.address.host,
@@ -213,5 +210,5 @@ test('intercepts an http.request request given RequestOptions without a protocol
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toEqual(anyUuid())
+  expect(requestId).toMatch(UUID_REGEXP)
 })
