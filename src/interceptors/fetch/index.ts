@@ -5,6 +5,7 @@ import {
   headersToObject,
 } from 'headers-polyfill'
 import { invariant } from 'outvariant'
+import { until } from '@open-draft/until'
 import { IsomorphicRequest } from '../../IsomorphicRequest'
 import {
   HttpRequestEventMap,
@@ -73,14 +74,26 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.log('awaiting for the mocked response...')
 
-      await this.emitter.untilIdle('request', ({ args: [request] }) => {
-        return request.id === interactiveIsomorphicRequest.id
-      })
-      this.log('all request listeners have been resolved!')
+      const [middlewareException, mockedResponse] = await until(async () => {
+        await this.emitter.untilIdle('request', ({ args: [request] }) => {
+          return request.id === interactiveIsomorphicRequest.id
+        })
+        this.log('all request listeners have been resolved!')
 
-      const [mockedResponse] =
-        await interactiveIsomorphicRequest.respondWith.invoked()
-      this.log('event.respondWith called with:', mockedResponse)
+        const [mockedResponse] =
+          await interactiveIsomorphicRequest.respondWith.invoked()
+        this.log('event.respondWith called with:', mockedResponse)
+
+        return mockedResponse
+      })
+
+      if (middlewareException) {
+        console.error(`${request.method} ${request.url} net::ERR_FAILED`)
+        const error = Object.assign(new TypeError('Failed to fetch'), {
+          cause: middlewareException,
+        })
+        return Promise.reject(error)
+      }
 
       if (mockedResponse) {
         this.log('received mocked response:', mockedResponse)
