@@ -25,6 +25,7 @@ export function createProxy<Target extends object>(
   options: ProxyOptions<Target>
 ): Target {
   const proxy = new Proxy(target, optionsToProxyHandler(options))
+
   return proxy
 }
 
@@ -41,8 +42,18 @@ function optionsToProxyHandler<T extends Record<string, any>>(
     }
   }
 
-  handler.set = function (target, propertyName, nextValue) {
+  handler.set = function (target, propertyName, nextValue, receiver) {
     const next = () => {
+      const ownDescriptors = Reflect.getOwnPropertyDescriptor(
+        target,
+        propertyName
+      )
+
+      if (typeof ownDescriptors?.set !== 'undefined') {
+        ownDescriptors.set.apply(target, [nextValue])
+        return true
+      }
+
       return Reflect.defineProperty(target, propertyName, {
         writable: true,
         enumerable: true,

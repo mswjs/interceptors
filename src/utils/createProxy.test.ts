@@ -30,6 +30,60 @@ it('does not interfere with default methods', () => {
   expect(proxy.getValue()).toBe('initial')
 })
 
+it('does not interfere with existing descriptors', () => {
+  const target = {} as { foo: string; bar: number }
+  let internalBar = 0
+
+  Object.defineProperties(target, {
+    foo: {
+      get: () => 'initial',
+    },
+    bar: {
+      set: (value) => {
+        internalBar = value + 10
+      },
+    },
+  })
+
+  const proxy = createProxy(target, {
+    getProperty(data, next) {
+      return next()
+    },
+  })
+  expect(proxy.foo).toBe('initial')
+
+  proxy.bar = 5
+  expect(proxy.bar).toBeUndefined()
+  expect(internalBar).toBe(15)
+})
+
+it('infer prototype descriptors', () => {
+  class Child {
+    ok: boolean
+
+    set status(nextStatus: number) {
+      this.ok = nextStatus >= 200 && nextStatus < 300
+    }
+  }
+
+  Object.defineProperties(Child.prototype, {
+    status: { enumerable: true },
+  })
+
+  const scope = {} as { child: typeof Child }
+
+  Object.defineProperty(scope, 'child', {
+    enumerable: true,
+    value: Child,
+  })
+
+  const ProxyClass = createProxy(scope.child, {})
+  const instance = new ProxyClass()
+
+  instance.status = 201
+  expect(instance.ok).toBe(true)
+})
+
 it('spies on the constructor', () => {
   const OriginalClass = class {
     constructor(public name: string, public age: number) {}
