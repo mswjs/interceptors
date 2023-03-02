@@ -1,7 +1,7 @@
-import { debug } from 'debug'
 import { IncomingMessage } from 'http'
 import { PassThrough } from 'stream'
 import * as zlib from 'zlib'
+import { debug } from '../../../utils/debug'
 
 const log = debug('http getIncomingMessageBody')
 

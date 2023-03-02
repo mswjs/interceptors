@@ -1,13 +1,10 @@
-import type { Debugger } from 'debug'
-import pkg from 'debug'
 import { Listener } from 'strict-event-emitter'
 import { AsyncEventEmitter } from './utils/AsyncEventEmitter'
 import { nextTick } from './utils/nextTick'
+import { debug, Debugger } from './utils/debug'
 
 export type InterceptorEventMap = Record<string, any>
 export type InterceptorSubscription = () => void
-
-const debug = pkg
 
 export function getGlobalSymbol<V>(symbol: Symbol): V | undefined {
   return (

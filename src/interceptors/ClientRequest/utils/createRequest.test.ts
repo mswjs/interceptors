@@ -1,9 +1,9 @@
 import { it, expect } from 'vitest'
-import { debug } from 'debug'
 import { HttpRequestEventMap } from '../../..'
 import { AsyncEventEmitter } from '../../../utils/AsyncEventEmitter'
 import { NodeClientRequest } from '../NodeClientRequest'
 import { createRequest } from './createRequest'
+import { debug } from '../../../utils/debug'
 
 const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
 const log = debug('test')

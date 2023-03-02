@@ -1,4 +1,3 @@
-import { debug } from 'debug'
 import { ClientRequest } from 'http'
 import {
   NodeClientOptions,
@@ -9,6 +8,7 @@ import {
   normalizeClientRequestArgs,
   ClientRequestArgs,
 } from './utils/normalizeClientRequestArgs'
+import { debug } from '../../utils/debug'
 
 const log = debug('http request')
 

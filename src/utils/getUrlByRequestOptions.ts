@@ -1,7 +1,8 @@
 import { Agent } from 'http'
 import { RequestOptions, Agent as HttpsAgent } from 'https'
+import { debug } from './debug'
 
-const debug = require('debug')('utils getUrlByRequestOptions')
+const log = debug('utils getUrlByRequestOptions')
 
 // Request instance constructed by the "request" library
 // has a "self" property that has a "uri" field. This is
@@ -81,7 +82,7 @@ function isRawIPv6Address(host: string): boolean {
  * Creates a `URL` instance from a given `RequestOptions` object.
  */
 export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
-  debug('request options', options)
+  log('request options', options)
 
   const protocol = getProtocolByRequestOptions(options)
   const host = getHostByRequestOptions(options)
@@ -89,33 +90,33 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   const path = options.path || DEFAULT_PATH
   const auth = getAuthByRequestOptions(options)
 
-  debug('protocol', protocol)
-  debug('host', host)
-  debug('port', port)
-  debug('path', path)
+  log('protocol', protocol)
+  log('host', host)
+  log('port', port)
+  log('path', path)
 
   /**
    * @note As of Node >= 17, hosts (including "localhost") can resolve to IPv6
    * addresses, so construct valid URL by surrounding the IPv6 host with brackets.
    */
   const baseUrl = `${protocol}//${isRawIPv6Address(host) ? `[${host}]` : host}`
-  debug('base URL:', baseUrl)
+  log('base URL:', baseUrl)
 
   const url = options.uri ? new URL(options.uri.href) : new URL(path, baseUrl)
 
   if (port) {
-    debug('detected explicit port', port)
+    log('detected explicit port', port)
     url.port = port.toString()
   }
 
   if (auth) {
-    debug('resolved auth', auth)
+    log('resolved auth', auth)
 
     url.username = auth.username
     url.password = auth.password
   }
 
-  debug('created URL:', url)
+  log('created URL:', url)
 
   return url
 }

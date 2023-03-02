@@ -1,5 +1,4 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
-import { debug } from 'debug'
 import express from 'express'
 import { IncomingMessage } from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
@@ -10,6 +9,7 @@ import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { sleep } from '../../../test/helpers'
 import { HttpRequestEventMap } from '../../glossary'
+import { debug } from '../../utils/debug'
 
 interface ErrorConnectionRefused extends NodeJS.ErrnoException {
   address: string

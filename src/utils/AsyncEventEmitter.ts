@@ -1,9 +1,6 @@
-import type { Debugger } from 'debug'
 import { Emitter, EventMap, Listener } from 'strict-event-emitter'
 import { nextTick } from './nextTick'
-
-import pkg from 'debug'
-const debug = pkg
+import { debug, Debugger } from './debug'
 
 export interface QueueItem<Args extends Array<unknown>> {
   args: Args

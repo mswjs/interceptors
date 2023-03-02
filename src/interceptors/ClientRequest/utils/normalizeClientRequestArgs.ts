@@ -1,4 +1,3 @@
-import { debug } from 'debug'
 import {
   Agent as HttpAgent,
   globalAgent as httpGlobalAgent,
@@ -17,6 +16,7 @@ import {
 } from '../../../utils/getUrlByRequestOptions'
 import { cloneObject } from '../../../utils/cloneObject'
 import { isObject } from '../../../utils/isObject'
+import { debug } from '../../../utils/debug'
 
 const log = debug('http normalizeClientRequestArgs')
 
