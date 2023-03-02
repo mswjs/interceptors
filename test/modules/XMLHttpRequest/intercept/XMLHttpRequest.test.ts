@@ -6,7 +6,7 @@ import {
   XMLHttpRequestEventListener,
   XMLHttpRequestInterceptor,
 } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, UUID_REGEXP } from '../../../helpers'
+import { createXMLHttpRequest, useCors, UUID_REGEXP } from '../../../helpers'
 import { toArrayBuffer, encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 declare namespace window {
@@ -16,6 +16,8 @@ declare namespace window {
 }
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
+
   const handleUserRequest: RequestHandler = (_req, res) => {
     res.status(200).send('user-body').end()
   }

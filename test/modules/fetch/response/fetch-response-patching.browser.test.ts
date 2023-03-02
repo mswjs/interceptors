@@ -3,6 +3,7 @@ import { Page } from '@playwright/test'
 import { listToHeaders } from 'headers-polyfill'
 import { test, expect } from '../../../playwright.extend'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+import { useCors } from '../../../helpers'
 
 declare namespace window {
   export const interceptor: FetchInterceptor
@@ -10,6 +11,7 @@ declare namespace window {
 }
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/original', (req, res) => {
     res
       .set('access-control-expose-headers', 'x-custom-header')

@@ -2,10 +2,11 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, UUID_REGEXP } from '../../../helpers'
+import { createXMLHttpRequest, useCors, UUID_REGEXP } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
 
 const server = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/bypassed', (req, res) => {
     res.status(201).set('Content-Type', 'text/plain').send('original response')
   })

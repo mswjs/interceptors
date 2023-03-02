@@ -3,9 +3,11 @@
  */
 import { HttpServer } from '@open-draft/test-server/http'
 import zlib from 'zlib'
+import { useCors } from '../../../helpers'
 import { test, expect } from '../../../playwright.extend'
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/compressed', (_req, res) => {
     res
       .status(200)

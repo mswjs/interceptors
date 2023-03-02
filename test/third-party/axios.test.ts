@@ -3,8 +3,10 @@ import { it, expect, beforeAll, afterAll } from 'vitest'
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
+import { useCors } from '../helpers'
 
 const httpServer = new HttpServer((app) => {
+  app.use(useCors)
   app.get('/books', (req, res) => {
     res.status(200).json([
       {
