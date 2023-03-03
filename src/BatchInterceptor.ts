@@ -2,15 +2,15 @@ import { EventMap, Listener } from 'strict-event-emitter'
 import { ExtractEventNames, Interceptor } from './Interceptor'
 
 export interface BatchInterceptorOptions<
-  InterceptorList extends Array<Interceptor<any>>
+  InterceptorList extends ReadonlyArray<Interceptor<any>>
 > {
   name: string
   interceptors: InterceptorList
 }
 
 export type ExtractEventMapType<
-  InterceptorList extends Array<Interceptor<any>>
-> = InterceptorList extends Array<infer InterceptorType>
+  InterceptorList extends ReadonlyArray<Interceptor<any>>
+> = InterceptorList extends ReadonlyArray<infer InterceptorType>
   ? InterceptorType extends Interceptor<infer EventMap>
     ? EventMap
     : never
@@ -21,7 +21,7 @@ export type ExtractEventMapType<
  * to apply and operate with multiple interceptors at once.
  */
 export class BatchInterceptor<
-  InterceptorList extends Array<Interceptor<any>>,
+  InterceptorList extends ReadonlyArray<Interceptor<any>>,
   Events extends EventMap = ExtractEventMapType<InterceptorList>
 > extends Interceptor<Events> {
   static symbol: Symbol
