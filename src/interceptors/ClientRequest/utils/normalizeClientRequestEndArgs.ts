@@ -1,4 +1,6 @@
-const debug = require('debug')('http normalizeClientRequestEndArgs')
+import { debug } from '../../../utils/debug'
+
+const log = debug('utils getUrlByRequestOptions')
 
 export type ClientRequestEndChunk = string | Buffer
 export type ClientRequestEndCallback = () => void
@@ -22,7 +24,7 @@ type NormalizedHttpRequestEndParams = [
 export function normalizeClientRequestEndArgs(
   ...args: HttpRequestEndArgs
 ): NormalizedHttpRequestEndParams {
-  debug('arguments', args)
+  log('arguments', args)
   const normalizedArgs = new Array(3)
     .fill(null)
     .map((value, index) => args[index] || value)
@@ -46,6 +48,6 @@ export function normalizeClientRequestEndArgs(
     return 0
   })
 
-  debug('normalized args', normalizedArgs)
+  log('normalized args', normalizedArgs)
   return normalizedArgs as NormalizedHttpRequestEndParams
 }

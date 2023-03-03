@@ -1,7 +1,8 @@
 import { Agent } from 'http'
 import { RequestOptions, Agent as HttpsAgent } from 'https'
+import { debug } from './debug'
 
-const debug = require('debug')('utils getUrlByRequestOptions')
+const log = debug('utils getUrlByRequestOptions')
 
 // Request instance constructed by the "request" library
 // has a "self" property that has a "uri" field. This is
@@ -123,43 +124,43 @@ function getHostname(host: string, port?: number): string {
  * Creates a `URL` instance from a given `RequestOptions` object.
  */
 export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
-  debug('request options', options)
+  log('request options', options)
 
   if (options.uri) {
-    debug(
+    log(
       'constructing url from explicitly provided "options.uri": %s',
       options.uri
     )
     return new URL(options.uri.href)
   }
 
-  debug('figuring out url from request options...')
+  log('figuring out url from request options...')
 
   const protocol = getProtocolByRequestOptions(options)
-  debug('protocol', protocol)
+  log('protocol', protocol)
 
   const host = getHostByRequestOptions(options)
-  debug('host', host)
+  log('host', host)
 
   const port = getPortByRequestOptions(options)
-  debug('port', port)
+  log('port', port)
 
   const hostname = getHostname(host, port)
-  debug('hostname', hostname)
+  log('hostname', hostname)
 
   const path = options.path || DEFAULT_PATH
-  debug('path', path)
+  log('path', path)
 
   const credentials = getAuthByRequestOptions(options)
-  debug('credentials', credentials)
+  log('credentials', credentials)
 
   const authString = credentials
     ? `${credentials.username}:${credentials.password}@`
     : ''
-  debug('auth string:', authString)
+  log('auth string:', authString)
 
   const url = new URL(`${protocol}//${authString}${hostname}${path}`)
-  debug('created url:', url)
+  log('created url:', url)
 
   return url
 }

@@ -1,4 +1,4 @@
-import { debug } from 'debug'
+import { debug } from '../../../utils/debug'
 
 const log = debug('http normalizeWriteArgs')
 
