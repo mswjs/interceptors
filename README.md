@@ -168,7 +168,7 @@ This preset combines `ClientRequestInterceptor`, `XMLHttpRequestInterceptor` and
 
 ```js
 import { BatchInterceptor } from '@mswjs/interceptors'
-import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
+import nodeInterceptors from '@mswjs/interceptors/presets/node'
 
 const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
@@ -186,7 +186,7 @@ This preset combines `XMLHttpRequestInterceptor` and `FetchInterceptor` and is m
 
 ```js
 import { BatchInterceptor } from '@mswjs/interceptors'
-import browserInterceptors from '@mswjs/interceptors/lib/presets/browser'
+import browserInterceptors from '@mswjs/interceptors/presets/browser'
 
 const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
@@ -303,7 +303,7 @@ Applies multiple request interceptors at the same time.
 
 ```js
 import { BatchInterceptor } from '@mswjs/interceptors'
-import nodeInterceptors from '@mswjs/interceptors/lib/presets/node'
+import nodeInterceptors from '@mswjs/interceptors/presets/node'
 
 const interceptor = new BatchInterceptor({
   name: 'my-interceptor',
