@@ -26,4 +26,25 @@ const browserConfig: Options = {
   dts: true,
 }
 
-export default defineConfig([nodeConfig, browserConfig])
+const nodePreset: Options = {
+  entry: { index: './src/presets/node.ts' },
+  outDir: './lib/node/preset',
+  platform: 'node',
+  format: ['cjs', 'esm'],
+  dts: true,
+}
+
+const browserPreset: Options = {
+  entry: { index: './src/presets/browser.ts' },
+  outDir: './lib/browser/preset',
+  platform: 'browser',
+  format: ['cjs', 'esm'],
+  dts: true,
+}
+
+export default defineConfig([
+  nodeConfig,
+  browserConfig,
+  nodePreset,
+  browserPreset,
+])

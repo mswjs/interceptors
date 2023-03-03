@@ -1,0 +1,6 @@
+{
+  "main": "../lib/node/preset/index.js",
+  "module": "../lib/node/preset/index.mjs",
+  "browser": null,
+  "types": "../lib/node/preset/index.d.ts"
+}
