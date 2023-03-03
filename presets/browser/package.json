@@ -1,6 +1,6 @@
 {
-  "main": "../../lib/browser/preset/index.js",
-  "module": "../../lib/browser/preset/index.mjs",
-  "browser": "../../lib/browser/preset/index.js",
-  "types": "../../lib/browser/preset/index.d.ts"
+  "main": "../../lib/browser/presets/browser.js",
+  "module": "../../lib/browser/presets/browser.mjs",
+  "browser": "../../lib/browser/presets/browser.js",
+  "types": "../../lib/browser/presets/browser.d.ts"
 }

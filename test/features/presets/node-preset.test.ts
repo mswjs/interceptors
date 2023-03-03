@@ -2,7 +2,7 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'http'
 import { BatchInterceptor } from '../../../lib/node'
-import nodeInterceptors from '../../../lib/node/preset'
+import nodeInterceptors from '../../../lib/node/presets/node'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
 
 const interceptor = new BatchInterceptor({

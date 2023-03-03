@@ -24,7 +24,7 @@ export class BatchInterceptor<
   InterceptorList extends ReadonlyArray<Interceptor<any>>,
   Events extends EventMap = ExtractEventMapType<InterceptorList>
 > extends Interceptor<Events> {
-  static symbol: Symbol
+  static symbol: symbol
 
   private interceptors: InterceptorList
 

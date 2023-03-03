@@ -16,11 +16,11 @@ export type ClientRequestModules = Map<Protocol, typeof http | typeof https>
  * Such requests include `http.get`, `https.request`, etc.
  */
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static symbol = Symbol('http')
+  static interceptorSymbol = Symbol('http')
   private modules: ClientRequestModules
 
   constructor() {
-    super(ClientRequestInterceptor.symbol)
+    super(ClientRequestInterceptor.interceptorSymbol)
 
     this.modules = new Map()
     this.modules.set('http', http)
