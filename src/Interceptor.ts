@@ -41,7 +41,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
   public readyState: InterceptorReadyState
 
-  constructor(private readonly symbol: Symbol) {
+  constructor(private readonly symbol: symbol) {
     this.readyState = InterceptorReadyState.INACTIVE
 
     this.emitter = new AsyncEventEmitter()

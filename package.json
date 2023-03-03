@@ -1,7 +1,7 @@
 {
   "name": "@mswjs/interceptors",
   "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
-  "version": "0.22.3",
+  "version": "0.22.4",
   "main": "./lib/node/index.js",
   "module": "./lib/node/index.mjs",
   "types": "./lib/node/index.d.ts",
@@ -49,6 +49,21 @@
       "require": "./lib/node/interceptors/RemoteHttpInterceptor.js",
       "import": "./lib/node/interceptors/RemoteHttpInterceptor.mjs",
       "default": "./lib/node/interceptors/RemoteHttpInterceptor.js"
+    },
+    "./presets/node": {
+      "browser": null,
+      "types": "./lib/node/preset/index.d.ts",
+      "require": "./lib/node/preset/index.js",
+      "import": "./lib/node/preset/index.mjs",
+      "default": "./lib/node/preset/index.js"
+    },
+    "./presets/browser": {
+      "browser": {
+        "types": "./lib/browser/preset/index.d.ts",
+        "require": "./lib/browser/preset/index.js",
+        "import": "./lib/browser/preset/index.mjs",
+        "default": "./lib/browser/preset/index.js"
+      }
     }
   },
   "author": "Artem Zakharchenko",

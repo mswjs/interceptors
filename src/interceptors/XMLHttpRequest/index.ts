@@ -13,10 +13,10 @@ export type XMLHttpRequestEventListener = (
 export type XMLHttpRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static symbol = Symbol('xhr')
+  static interceptorSymbol = Symbol('xhr')
 
   constructor() {
-    super(XMLHttpRequestInterceptor.symbol)
+    super(XMLHttpRequestInterceptor.interceptorSymbol)
   }
 
   protected checkEnvironment() {
