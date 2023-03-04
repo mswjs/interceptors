@@ -48,14 +48,7 @@ export class XMLHttpRequestController {
     this.request = createProxy(initialRequest, {
       setProperty: ([propertyName, nextValue], invoke) => {
         switch (propertyName) {
-          case 'onabort':
-          case 'onerror':
-          case 'onload':
-          case 'onloadend':
-          case 'onloadstart':
-          case 'onprogress':
-          case 'ontimeout':
-          case 'onreadystatechange': {
+          case 'ontimeout': {
             const eventName = propertyName.slice(
               2
             ) as keyof XMLHttpRequestEventTargetEventMap
@@ -66,6 +59,7 @@ export class XMLHttpRequestController {
              * on events exclusively.
              */
             this.request.addEventListener(eventName, nextValue as any)
+
             return invoke()
           }
 

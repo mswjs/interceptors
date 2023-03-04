@@ -32,7 +32,7 @@ it('handles request timeout via the "ontimeout" callback', async () => {
   const timeoutCalled = new DeferredPromise<number>()
 
   createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/'), true)
+    req.open('GET', httpServer.http.url('/'))
     req.timeout = 1
     req.ontimeout = function customTimeoutCallback() {
       timeoutCalled.resolve(this.readyState)
@@ -48,7 +48,7 @@ it('handles request timeout via the "timeout" event listener', async () => {
   const timeoutCalled = new DeferredPromise<number>()
 
   createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/'), true)
+    req.open('GET', httpServer.http.url('/'))
     req.timeout = 1
     req.addEventListener('timeout', function customTimeoutListener() {
       expect(this.readyState).toBe(4)
