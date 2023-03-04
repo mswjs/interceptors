@@ -56,11 +56,17 @@ it.each<[name: string, getUrl: () => string]>([
   async (_, getUrl) => {
     const url = getUrl()
 
+    const onReadyStateChangeHandler = vi.fn(function (this: XMLHttpRequest) {
+      return this.readyState
+    })
     const onLoadStartHandler = vi.fn()
     const onProgressHandler = vi.fn()
     const onLoadHandler = vi.fn()
     const onLoadEndHandler = vi.fn()
 
+    const onReadyStateChangeListener = vi.fn(function (this: XMLHttpRequest) {
+      return this.readyState
+    })
     const loadStartListener = vi.fn()
     const progressListener = vi.fn()
     const loadListener = vi.fn()
@@ -69,11 +75,13 @@ it.each<[name: string, getUrl: () => string]>([
     const request = await createXMLHttpRequest((request) => {
       request.open('GET', url)
 
+      request.onreadystatechange = onReadyStateChangeHandler
       request.onloadstart = onLoadStartHandler
       request.onprogress = onProgressHandler
       request.onload = onLoadHandler
       request.onloadend = onLoadEndHandler
 
+      request.addEventListener('readystatechange', onReadyStateChangeListener)
       request.addEventListener('loadstart', loadStartListener)
       request.addEventListener('progress', progressListener)
       request.addEventListener('load', loadListener)
@@ -86,11 +94,19 @@ it.each<[name: string, getUrl: () => string]>([
     expect(request.status).toBe(200)
     expect(request.responseText).toBe('hello')
 
+    expect(onReadyStateChangeHandler).toHaveBeenCalledTimes(3)
+    expect(onReadyStateChangeHandler).toHaveNthReturnedWith(1, 2)
+    expect(onReadyStateChangeHandler).toHaveNthReturnedWith(2, 3)
+    expect(onReadyStateChangeHandler).toHaveNthReturnedWith(3, 4)
     expect(onLoadStartHandler).toHaveBeenCalledTimes(1)
     expect(onProgressHandler).toHaveBeenCalledTimes(1)
     expect(onLoadHandler).toHaveBeenCalledTimes(1)
     expect(onLoadEndHandler).toHaveBeenCalledTimes(1)
 
+    expect(onReadyStateChangeListener).toHaveBeenCalledTimes(3)
+    expect(onReadyStateChangeListener).toHaveNthReturnedWith(1, 2)
+    expect(onReadyStateChangeListener).toHaveNthReturnedWith(2, 3)
+    expect(onReadyStateChangeListener).toHaveNthReturnedWith(3, 4)
     expect(loadStartListener).toHaveBeenCalledTimes(1)
     expect(progressListener).toHaveBeenCalledTimes(1)
     expect(loadListener).toHaveBeenCalledTimes(1)
@@ -104,11 +120,17 @@ it.each<[name: string, getUrl: () => string]>([
 ])(`dispatches relevant events upon a %s error response`, async (_, getUrl) => {
   const url = getUrl()
 
+  const onReadyStateChangeHandler = vi.fn(function (this: XMLHttpRequest) {
+    return this.readyState
+  })
   const onLoadStartHandler = vi.fn()
   const onProgressHandler = vi.fn()
   const onLoadHandler = vi.fn()
   const onLoadEndHandler = vi.fn()
 
+  const onReadyStateChangeListener = vi.fn(function (this: XMLHttpRequest) {
+    return this.readyState
+  })
   const loadStartListener = vi.fn()
   const progressListener = vi.fn()
   const loadListener = vi.fn()
@@ -117,11 +139,13 @@ it.each<[name: string, getUrl: () => string]>([
   const request = await createXMLHttpRequest((request) => {
     request.open('GET', url)
 
+    request.onreadystatechange = onReadyStateChangeHandler
     request.onloadstart = onLoadStartHandler
     request.onprogress = onProgressHandler
     request.onload = onLoadHandler
     request.onloadend = onLoadEndHandler
 
+    request.addEventListener('readystatechange', onReadyStateChangeListener)
     request.addEventListener('loadstart', loadStartListener)
     request.addEventListener('progress', progressListener)
     request.addEventListener('load', loadListener)
@@ -134,11 +158,19 @@ it.each<[name: string, getUrl: () => string]>([
   expect(request.status).toBe(500)
   expect(request.responseText).toBe('Internal Server Error')
 
+  expect(onReadyStateChangeHandler).toHaveBeenCalledTimes(3)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(1, 2)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(2, 3)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(3, 4)
   expect(onLoadStartHandler).toHaveBeenCalledTimes(1)
   expect(onProgressHandler).toHaveBeenCalledTimes(1)
   expect(onLoadHandler).toHaveBeenCalledTimes(1)
   expect(onLoadEndHandler).toHaveBeenCalledTimes(1)
 
+  expect(onReadyStateChangeListener).toHaveBeenCalledTimes(3)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(1, 2)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(2, 3)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(3, 4)
   expect(loadStartListener).toHaveBeenCalledTimes(1)
   expect(progressListener).toHaveBeenCalledTimes(1)
   expect(loadListener).toHaveBeenCalledTimes(1)
@@ -151,11 +183,17 @@ it.each<[name: string, getUrl: () => string]>([
 ])(`dispatches relevant events upon a %s request error`, async (_, getUrl) => {
   const url = getUrl()
 
+  const onReadyStateChangeHandler = vi.fn(function (this: XMLHttpRequest) {
+    return this.readyState
+  })
   const onLoadStartHandler = vi.fn()
   const onProgressHandler = vi.fn()
   const onLoadHandler = vi.fn()
   const onLoadEndHandler = vi.fn()
 
+  const onReadyStateChangeListener = vi.fn(function (this: XMLHttpRequest) {
+    return this.readyState
+  })
   const loadStartListener = vi.fn()
   const progressListener = vi.fn()
   const loadListener = vi.fn()
@@ -164,11 +202,13 @@ it.each<[name: string, getUrl: () => string]>([
   const request = await createXMLHttpRequest((request) => {
     request.open('GET', url)
 
+    request.onreadystatechange = onReadyStateChangeHandler
     request.onloadstart = onLoadStartHandler
     request.onprogress = onProgressHandler
     request.onload = onLoadHandler
     request.onloadend = onLoadEndHandler
 
+    request.addEventListener('readystatechange', onReadyStateChangeListener)
     request.addEventListener('loadstart', loadStartListener)
     request.addEventListener('progress', progressListener)
     request.addEventListener('load', loadListener)
@@ -181,11 +221,15 @@ it.each<[name: string, getUrl: () => string]>([
   expect(request.status).toBe(0)
   expect(request.responseText).toBe('')
 
+  expect(onReadyStateChangeHandler).toHaveBeenCalledTimes(1)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(1, 4)
   expect(onLoadStartHandler).not.toHaveBeenCalled()
   expect(onProgressHandler).not.toHaveBeenCalled()
   expect(onLoadHandler).not.toHaveBeenCalled()
   expect(onLoadEndHandler).toHaveBeenCalledTimes(1)
 
+  expect(onReadyStateChangeListener).toHaveBeenCalledTimes(1)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(1, 4)
   expect(loadStartListener).not.toHaveBeenCalled()
   expect(progressListener).not.toHaveBeenCalled()
   expect(loadListener).not.toHaveBeenCalled()
