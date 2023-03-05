@@ -1,6 +1,6 @@
 {
-  "main": "../../lib/node/preset/node.js",
-  "module": "../../lib/node/preset/node.mjs",
+  "main": "../../lib/node/presets/node.js",
+  "module": "../../lib/node/presets/node.mjs",
   "browser": null,
-  "types": "../../lib/node/preset/node.d.ts"
+  "types": "../../lib/node/presets/node.d.ts"
 }

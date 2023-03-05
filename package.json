@@ -52,17 +52,17 @@
     },
     "./presets/node": {
       "browser": null,
-      "types": "./lib/node/preset/index.d.ts",
-      "require": "./lib/node/preset/index.js",
-      "import": "./lib/node/preset/index.mjs",
-      "default": "./lib/node/preset/index.js"
+      "types": "./lib/node/presets/index.d.ts",
+      "require": "./lib/node/presets/index.js",
+      "import": "./lib/node/presets/index.mjs",
+      "default": "./lib/node/presets/index.js"
     },
     "./presets/browser": {
       "browser": {
-        "types": "./lib/browser/preset/index.d.ts",
-        "require": "./lib/browser/preset/index.js",
-        "import": "./lib/browser/preset/index.mjs",
-        "default": "./lib/browser/preset/index.js"
+        "types": "./lib/browser/presets/index.d.ts",
+        "require": "./lib/browser/presets/index.js",
+        "import": "./lib/browser/presets/index.mjs",
+        "default": "./lib/browser/presets/index.js"
       }
     }
   },
