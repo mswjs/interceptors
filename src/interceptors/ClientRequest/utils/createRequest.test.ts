@@ -60,3 +60,26 @@ it('creates a fetch Request with an empty body', async () => {
   expect(request.headers.get('Accept')).toBe('application/json')
   expect(request.body).toBe(null)
 })
+
+it('creates a fetch Request with an empty string body', async () => {
+  const clientRequest = new NodeClientRequest(
+    [
+      new URL('https://api.github.com'),
+      {
+        method: 'HEAD',
+      },
+      () => {},
+    ],
+    {
+      emitter,
+      log,
+    }
+  )
+  clientRequest.write('')
+
+  const request = createRequest(clientRequest)
+
+  expect(request.method).toBe('HEAD')
+  expect(request.url).toBe('https://api.github.com/')
+  expect(request.body).toBe(null)
+})

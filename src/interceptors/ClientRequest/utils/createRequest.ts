@@ -21,10 +21,15 @@ export function createRequest(clientRequest: NodeClientRequest): Request {
     }
   }
 
+  const method = clientRequest.method || 'GET'
+
   return new Request(clientRequest.url, {
-    method: clientRequest.method || 'GET',
+    method,
     headers,
     credentials: 'same-origin',
-    body: clientRequest.requestBuffer,
+    body:
+      method === 'HEAD' || method === 'GET'
+        ? null
+        : clientRequest.requestBuffer,
   })
 }
