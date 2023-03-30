@@ -174,7 +174,7 @@ export class NodeClientRequest extends ClientRequest {
       this.log('event.respondWith called with:', mockedResponse)
 
       return mockedResponse
-    }).then(([resolverException, mockedResponse]) => {
+    }).then((resolverResult) => {
       this.log('the listeners promise awaited!')
 
       /**
@@ -192,16 +192,18 @@ export class NodeClientRequest extends ClientRequest {
       }
 
       // Halt the request whenever the resolver throws an exception.
-      if (resolverException) {
+      if (resolverResult.error) {
         this.log(
           'encountered resolver exception, aborting request...',
-          resolverException
+          resolverResult.error
         )
-        this.emit('error', resolverException)
+        this.emit('error', resolverResult.error)
         this.terminate()
 
         return this
       }
+
+      const mockedResponse = resolverResult.data
 
       if (mockedResponse) {
         const responseClone = mockedResponse.clone()

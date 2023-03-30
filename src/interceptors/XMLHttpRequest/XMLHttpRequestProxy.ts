@@ -59,7 +59,7 @@ export function createXMLHttpRequestProxy({
 
         this.log('awaiting mocked response...')
 
-        const [middlewareException, mockedResponse] = await until(async () => {
+        const resolverResult = await until(async () => {
           await emitter.untilIdle(
             'request',
             ({ args: [, pendingRequestId] }) => {
@@ -77,10 +77,10 @@ export function createXMLHttpRequestProxy({
           return mockedResponse
         })
 
-        if (middlewareException) {
+        if (resolverResult.error) {
           this.log(
             'request listener threw an exception, aborting request...',
-            middlewareException
+            resolverResult.error
           )
 
           /**
@@ -88,9 +88,11 @@ export function createXMLHttpRequestProxy({
            * since not all consumers are expecting to handle errors.
            * If they don't, this error will be swallowed.
            */
-          requestController.errorWith(middlewareException)
+          requestController.errorWith(resolverResult.error)
           return
         }
+
+        const mockedResponse = resolverResult.data
 
         if (typeof mockedResponse !== 'undefined') {
           this.log(

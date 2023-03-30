@@ -43,7 +43,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.log('awaiting for the mocked response...')
 
-      const [middlewareException, mockedResponse] = await until(async () => {
+      const resolverResult = await until(async () => {
         await this.emitter.untilIdle(
           'request',
           ({ args: [, pendingRequestId] }) => {
@@ -58,13 +58,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         return mockedResponse
       })
 
-      if (middlewareException) {
+      if (resolverResult.error) {
         console.error(`${request.method} ${request.url} net::ERR_FAILED`)
         const error = Object.assign(new TypeError('Failed to fetch'), {
-          cause: middlewareException,
+          cause: resolverResult.error,
         })
         return Promise.reject(error)
       }
+
+      const mockedResponse = resolverResult.data
 
       if (mockedResponse) {
         this.log('received mocked response:', mockedResponse)
