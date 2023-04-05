@@ -70,6 +70,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       if (mockedResponse) {
         this.log('received mocked response:', mockedResponse)
+        
+        if (request.signal.aborted) {
+          this.log('request aborted, ignoring mocked response');
+
+          // Throws an "AbortError" DOMException
+          await pureFetch(request)
+        }
+
         const responseCloine = mockedResponse.clone()
 
         this.emitter.emit(
