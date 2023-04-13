@@ -1,5 +1,5 @@
-import type { Debugger } from 'debug'
 import { ClientRequest, IncomingMessage } from 'http'
+import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
 import type { ClientRequestEmitter } from '.'
 import {
@@ -23,7 +23,7 @@ export type Protocol = 'http' | 'https'
 
 export interface NodeClientOptions {
   emitter: ClientRequestEmitter
-  log: Debugger
+  logger: Logger
 }
 
 export class NodeClientRequest extends ClientRequest {
@@ -40,7 +40,7 @@ export class NodeClientRequest extends ClientRequest {
 
   private response: IncomingMessage
   private emitter: ClientRequestEmitter
-  private log: Debugger
+  private logger: Logger
   private chunks: Array<{
     chunk?: string | Buffer
     encoding?: BufferEncoding
@@ -57,11 +57,11 @@ export class NodeClientRequest extends ClientRequest {
   ) {
     super(requestOptions, callback)
 
-    this.log = options.log.extend(
+    this.logger = options.logger.extend(
       `request ${requestOptions.method} ${url.href}`
     )
 
-    this.log('constructing ClientRequest using options:', {
+    this.logger.info('constructing ClientRequest using options:', {
       url,
       requestOptions,
       callback,
@@ -99,20 +99,23 @@ export class NodeClientRequest extends ClientRequest {
 
   write(...args: ClientRequestWriteArgs): boolean {
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
-    this.log('write:', { chunk, encoding, callback })
+    this.logger.info('write:', { chunk, encoding, callback })
     this.chunks.push({ chunk, encoding })
 
     // Write each request body chunk to the internal buffer.
     this.writeRequestBodyChunk(chunk, encoding)
 
-    this.log('chunk successfully stored!', this.requestBuffer?.byteLength)
+    this.logger.info(
+      'chunk successfully stored!',
+      this.requestBuffer?.byteLength
+    )
 
     /**
      * Prevent invoking the callback if the written chunk is empty.
      * @see https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
      */
     if (!chunk || chunk.length === 0) {
-      this.log('written chunk is empty, skipping callback...')
+      this.logger.info('written chunk is empty, skipping callback...')
     } else {
       callback?.()
     }
@@ -124,12 +127,12 @@ export class NodeClientRequest extends ClientRequest {
   }
 
   end(...args: any): this {
-    this.log('end', args)
+    this.logger.info('end', args)
 
     const requestId = uuidv4()
 
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
-    this.log('normalized arguments:', { chunk, encoding, callback })
+    this.logger.info('normalized arguments:', { chunk, encoding, callback })
 
     // Write the last request body chunk passed to the "end()" method.
     this.writeRequestBodyChunk(chunk, encoding || undefined)
@@ -148,7 +151,7 @@ export class NodeClientRequest extends ClientRequest {
 
     // Notify the interceptor about the request.
     // This will call any "request" listeners the users have.
-    this.log(
+    this.logger.info(
       'emitting the "request" event for %d listener(s)...',
       this.emitter.listenerCount('request')
     )
@@ -171,11 +174,11 @@ export class NodeClientRequest extends ClientRequest {
       )
 
       const [mockedResponse] = await interactiveRequest.respondWith.invoked()
-      this.log('event.respondWith called with:', mockedResponse)
+      this.logger.info('event.respondWith called with:', mockedResponse)
 
       return mockedResponse
     }).then((resolverResult) => {
-      this.log('the listeners promise awaited!')
+      this.logger.info('the listeners promise awaited!')
 
       /**
        * @fixme We are in the "end()" method that still executes in parallel
@@ -193,7 +196,7 @@ export class NodeClientRequest extends ClientRequest {
 
       // Halt the request whenever the resolver throws an exception.
       if (resolverResult.error) {
-        this.log(
+        this.logger.info(
           'encountered resolver exception, aborting request...',
           resolverResult.error
         )
@@ -208,29 +211,33 @@ export class NodeClientRequest extends ClientRequest {
       if (mockedResponse) {
         const responseClone = mockedResponse.clone()
 
-        this.log('received mocked response:', mockedResponse)
+        this.logger.info('received mocked response:', mockedResponse)
         this.responseSource = 'mock'
 
         this.respondWith(mockedResponse)
-        this.log(mockedResponse.status, mockedResponse.statusText, '(MOCKED)')
+        this.logger.info(
+          mockedResponse.status,
+          mockedResponse.statusText,
+          '(MOCKED)'
+        )
 
         callback?.()
 
-        this.log('emitting the custom "response" event...')
+        this.logger.info('emitting the custom "response" event...')
         this.emitter.emit('response', responseClone, capturedRequest, requestId)
 
-        this.log('request (mock) is completed')
+        this.logger.info('request (mock) is completed')
 
         return this
       }
 
-      this.log('no mocked response received!')
+      this.logger.info('no mocked response received!')
 
       this.once('response-internal', (message: IncomingMessage) => {
-        this.log(message.statusCode, message.statusMessage)
-        this.log('original response headers:', message.headers)
+        this.logger.info(message.statusCode, message.statusMessage)
+        this.logger.info('original response headers:', message.headers)
 
-        this.log('emitting the custom "response" event...')
+        this.logger.info('emitting the custom "response" event...')
         this.emitter.emit(
           'response',
           createResponse(message),
@@ -246,10 +253,10 @@ export class NodeClientRequest extends ClientRequest {
   }
 
   emit(event: string, ...data: any[]) {
-    this.log('emit: %s', event)
+    this.logger.info('emit: %s', event)
 
     if (event === 'response') {
-      this.log('found "response" event, cloning the response...')
+      this.logger.info('found "response" event, cloning the response...')
 
       try {
         /**
@@ -266,10 +273,12 @@ export class NodeClientRequest extends ClientRequest {
 
         this.emit('response-internal', secondClone)
 
-        this.log('response successfully cloned, emitting "response" event...')
+        this.logger.info(
+          'response successfully cloned, emitting "response" event...'
+        )
         return super.emit(event, firstClone, ...data.slice(1))
       } catch (error) {
-        this.log('error when cloning response:', error)
+        this.logger.info('error when cloning response:', error)
         return super.emit(event, ...data)
       }
     }
@@ -278,7 +287,7 @@ export class NodeClientRequest extends ClientRequest {
       const error = data[0] as NodeJS.ErrnoException
       const errorCode = error.code || ''
 
-      this.log('error:\n', error)
+      this.logger.info('error:\n', error)
 
       // Suppress certain errors while using the "mock" source.
       // For example, no need to destroy this request if it connects
@@ -291,7 +300,7 @@ export class NodeClientRequest extends ClientRequest {
         // it later if this request won't have any mocked response.
         if (!this.capturedError) {
           this.capturedError = error
-          this.log('captured the first error:', this.capturedError)
+          this.logger.info('captured the first error:', this.capturedError)
         }
         return false
       }
@@ -322,7 +331,7 @@ export class NodeClientRequest extends ClientRequest {
       return this
     }
 
-    this.log('writing request chunks...', this.chunks)
+    this.logger.info('writing request chunks...', this.chunks)
 
     // Write the request body chunks in the order of ".write()" calls.
     // Note that no request body has been written prior to this point
@@ -337,19 +346,19 @@ export class NodeClientRequest extends ClientRequest {
     }
 
     this.once('error', (error) => {
-      this.log('original request error:', error)
+      this.logger.info('original request error:', error)
     })
 
     this.once('abort', () => {
-      this.log('original request aborted!')
+      this.logger.info('original request aborted!')
     })
 
     this.once('response-internal', (message: IncomingMessage) => {
-      this.log(message.statusCode, message.statusMessage)
-      this.log('original response headers:', message.headers)
+      this.logger.info(message.statusCode, message.statusMessage)
+      this.logger.info('original response headers:', message.headers)
     })
 
-    this.log('performing original request...')
+    this.logger.info('performing original request...')
 
     // This call signature is way too dynamic.
     return super.end(...[chunk, encoding as any, callback].filter(Boolean))
@@ -359,7 +368,7 @@ export class NodeClientRequest extends ClientRequest {
    * Responds to this request instance using a mocked response.
    */
   private respondWith(mockedResponse: Response): void {
-    this.log('responding with a mocked response...', mockedResponse)
+    this.logger.info('responding with a mocked response...', mockedResponse)
 
     const { status, statusText, headers, body } = mockedResponse
     this.response.statusCode = status
@@ -381,12 +390,12 @@ export class NodeClientRequest extends ClientRequest {
           : headerValue
       })
     }
-    this.log('mocked response headers ready:', headers)
+    this.logger.info('mocked response headers ready:', headers)
 
     const isResponseStreamRead = new DeferredPromise<void>()
 
     const closeResponseStream = () => {
-      this.log('closing response stream...')
+      this.logger.info('closing response stream...')
 
       // Push "null" to indicate that the response body is complete
       // and shouldn't be written to anymore.
@@ -394,7 +403,7 @@ export class NodeClientRequest extends ClientRequest {
       this.response.complete = true
 
       isResponseStreamRead.resolve()
-      this.log('closed response stream!')
+      this.logger.info('closed response stream!')
     }
 
     if (body) {

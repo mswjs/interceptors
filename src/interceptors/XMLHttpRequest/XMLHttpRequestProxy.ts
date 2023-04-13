@@ -1,12 +1,12 @@
-import type { Debugger } from 'debug'
 import { until } from '@open-draft/until'
+import type { Logger } from '@open-draft/logger'
 import { XMLHttpRequestEmitter } from '.'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
 
 export interface XMLHttpRequestProxyOptions {
   emitter: XMLHttpRequestEmitter
-  log: Debugger
+  logger: Logger
 }
 
 /**
@@ -16,11 +16,11 @@ export interface XMLHttpRequestProxyOptions {
  */
 export function createXMLHttpRequestProxy({
   emitter,
-  log,
+  logger,
 }: XMLHttpRequestProxyOptions) {
   const XMLHttpRequestProxy = new Proxy(globalThis.XMLHttpRequest, {
     construct(target, args, newTarget) {
-      log('constructed new XMLHttpRequest')
+      logger.info('constructed new XMLHttpRequest')
 
       const originalRequest = Reflect.construct(target, args, newTarget)
 
@@ -44,20 +44,20 @@ export function createXMLHttpRequestProxy({
 
       const requestController = new XMLHttpRequestController(
         originalRequest,
-        log
+        logger
       )
 
       requestController.onRequest = async function (request, requestId) {
         // Notify the consumer about a new request.
         const interactiveRequest = toInteractiveRequest(request)
 
-        this.log(
+        this.logger.info(
           'emitting the "request" event for %s listener(s)...',
           emitter.listenerCount('request')
         )
         emitter.emit('request', interactiveRequest, requestId)
 
-        this.log('awaiting mocked response...')
+        this.logger.info('awaiting mocked response...')
 
         const resolverResult = await until(async () => {
           await emitter.untilIdle(
@@ -67,18 +67,18 @@ export function createXMLHttpRequestProxy({
             }
           )
 
-          this.log('all "request" listeners settled!')
+          this.logger.info('all "request" listeners settled!')
 
           const [mockedResponse] =
             await interactiveRequest.respondWith.invoked()
 
-          this.log('event.respondWith called with:', mockedResponse)
+          this.logger.info('event.respondWith called with:', mockedResponse)
 
           return mockedResponse
         })
 
         if (resolverResult.error) {
-          this.log(
+          this.logger.info(
             'request listener threw an exception, aborting request...',
             resolverResult.error
           )
@@ -95,7 +95,7 @@ export function createXMLHttpRequestProxy({
         const mockedResponse = resolverResult.data
 
         if (typeof mockedResponse !== 'undefined') {
-          this.log(
+          this.logger.info(
             'received mocked response: %d %s',
             mockedResponse.status,
             mockedResponse.statusText
@@ -104,7 +104,9 @@ export function createXMLHttpRequestProxy({
           return requestController.respondWith(mockedResponse)
         }
 
-        this.log('no mocked response received, performing request as-is...')
+        this.logger.info(
+          'no mocked response received, performing request as-is...'
+        )
       }
 
       requestController.onResponse = async function (
@@ -112,7 +114,7 @@ export function createXMLHttpRequestProxy({
         request,
         requestId
       ) {
-        this.log(
+        this.logger.info(
           'emitting the "response" event for %s listener(s)...',
           emitter.listenerCount('response')
         )

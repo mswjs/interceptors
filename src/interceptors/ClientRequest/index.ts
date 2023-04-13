@@ -28,7 +28,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected setup(): void {
-    const log = this.log.extend('setup')
+    const logger = this.logger.extend('setup')
 
     for (const [protocol, requestModule] of this.modules) {
       const { request: pureRequest, get: pureGet } = requestModule
@@ -37,12 +37,12 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         requestModule.request = pureRequest
         requestModule.get = pureGet
 
-        log('native "%s" module restored!', protocol)
+        logger.info('native "%s" module restored!', protocol)
       })
 
       const options: NodeClientOptions = {
         emitter: this.emitter,
-        log: this.log,
+        logger: this.logger,
       }
 
       // @ts-ignore
@@ -55,7 +55,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         // Force a line break.
         get(protocol, options)
 
-      log('native "%s" module patched!', protocol)
+      logger.info('native "%s" module patched!', protocol)
     }
   }
 }

@@ -24,9 +24,9 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
   }
 
   protected setup() {
-    const log = this.log.extend('setup')
+    const logger = this.logger.extend('setup')
 
-    log('patching "XMLHttpRequest" module...')
+    logger.info('patching "XMLHttpRequest" module...')
 
     const PureXMLHttpRequest = globalThis.XMLHttpRequest
 
@@ -37,10 +37,10 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
 
     globalThis.XMLHttpRequest = createXMLHttpRequestProxy({
       emitter: this.emitter,
-      log: this.log,
+      logger: this.logger,
     })
 
-    log(
+    logger.info(
       'native "XMLHttpRequest" module patched!',
       globalThis.XMLHttpRequest.name
     )
@@ -57,7 +57,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
       })
 
       globalThis.XMLHttpRequest = PureXMLHttpRequest
-      log(
+      logger.info(
         'native "XMLHttpRequest" module restored!',
         globalThis.XMLHttpRequest.name
       )

@@ -1,27 +1,27 @@
-import { debug } from './debug'
+import { Logger } from '@open-draft/logger'
 
-const log = debug('cloneObject')
+const logger = new Logger('cloneObject')
 
 function isPlainObject(obj?: Record<string, any>): boolean {
-  log('is plain object?', obj)
+  logger.info('is plain object?', obj)
 
   if (obj == null || !obj.constructor?.name) {
-    log('given object is undefined, not a plain object...')
+    logger.info('given object is undefined, not a plain object...')
     return false
   }
 
-  log('checking the object constructor:', obj.constructor.name)
+  logger.info('checking the object constructor:', obj.constructor.name)
   return obj.constructor.name === 'Object'
 }
 
 export function cloneObject<ObjectType extends Record<string, any>>(
   obj: ObjectType
 ): ObjectType {
-  log('cloning object:', obj)
+  logger.info('cloning object:', obj)
 
   const enumerableProperties = Object.entries(obj).reduce<Record<string, any>>(
     (acc, [key, value]) => {
-      log('analyzing key-value pair:', key, value)
+      logger.info('analyzing key-value pair:', key, value)
 
       // Recursively clone only plain objects, omitting class instances.
       acc[key] = isPlainObject(value) ? cloneObject(value) : value
