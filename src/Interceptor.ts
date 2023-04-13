@@ -1,7 +1,7 @@
+import { Logger } from '@open-draft/logger'
 import { Listener } from 'strict-event-emitter'
 import { AsyncEventEmitter } from './utils/AsyncEventEmitter'
 import { nextTick } from './utils/nextTick'
-import { debug, Debugger } from './utils/debug'
 
 export type InterceptorEventMap = Record<string, any>
 export type InterceptorSubscription = () => void
@@ -37,7 +37,7 @@ export type ExtractEventNames<Events extends Record<string, any>> =
 export class Interceptor<Events extends InterceptorEventMap> {
   protected emitter: AsyncEventEmitter<Events>
   protected subscriptions: Array<InterceptorSubscription>
-  protected log: Debugger
+  protected logger: Logger
 
   public readyState: InterceptorReadyState
 
@@ -46,13 +46,13 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
     this.emitter = new AsyncEventEmitter()
     this.subscriptions = []
-    this.log = debug(symbol.description!)
+    this.logger = new Logger(symbol.description!)
 
     // Do not limit the maximum number of listeners
     // so not to limit the maximum amount of parallel events emitted.
     this.emitter.setMaxListeners(0)
 
-    this.log('constructing the interceptor...')
+    this.logger.info('constructing the interceptor...')
   }
 
   /**
@@ -68,18 +68,18 @@ export class Interceptor<Events extends InterceptorEventMap> {
    * Returns an already running interceptor instance if it's present.
    */
   public apply(): void {
-    const log = this.log.extend('apply')
-    log('applying the interceptor...')
+    const logger = this.logger.extend('apply')
+    logger.info('applying the interceptor...')
 
     if (this.readyState === InterceptorReadyState.APPLIED) {
-      log('intercepted already applied!')
+      logger.info('intercepted already applied!')
       return
     }
 
     const shouldApply = this.checkEnvironment()
 
     if (!shouldApply) {
-      log('the interceptor cannot be applied in this environment!')
+      logger.info('the interceptor cannot be applied in this environment!')
       return
     }
 
@@ -89,7 +89,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
     // This will ensure the interceptor can process events after it's
     // been disposed and re-applied again (it may be a singleton).
     this.emitter.activate()
-    log('activated the emiter!', this.emitter.readyState)
+    logger.info('activated the emiter!', this.emitter.readyState)
 
     // Whenever applying a new interceptor, check if it hasn't been applied already.
     // This enables to apply the same interceptor multiple times, for example from a different
@@ -97,11 +97,11 @@ export class Interceptor<Events extends InterceptorEventMap> {
     const runningInstance = this.getInstance()
 
     if (runningInstance) {
-      log('found a running instance, reusing...')
+      logger.info('found a running instance, reusing...')
 
       // Proxy any listeners you set on this instance to the running instance.
       this.on = (event, listener) => {
-        log('proxying the "%s" listener', event)
+        logger.info('proxying the "%s" listener', event)
 
         // Add listeners to the running instance so they appear
         // at the top of the event listeners list and are executed first.
@@ -111,7 +111,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
         // it removes all listeners it has appended to the running interceptor instance.
         this.subscriptions.push(() => {
           runningInstance.emitter.removeListener(event, listener)
-          log('removed proxied "%s" listener!', event)
+          logger.info('removed proxied "%s" listener!', event)
         })
       }
 
@@ -122,7 +122,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
       return
     }
 
-    log('no running instance found, setting up a new instance...')
+    logger.info('no running instance found, setting up a new instance...')
 
     // Setup the interceptor.
     this.setup()
@@ -149,17 +149,17 @@ export class Interceptor<Events extends InterceptorEventMap> {
     eventName: EventName,
     listener: Listener<Events[EventName]>
   ): void {
-    const log = this.log.extend('on')
+    const logger = this.logger.extend('on')
 
     if (
       this.readyState === InterceptorReadyState.DISPOSING ||
       this.readyState === InterceptorReadyState.DISPOSED
     ) {
-      log('cannot listen to events, already disposed!')
+      logger.info('cannot listen to events, already disposed!')
       return
     }
 
-    log('adding "%s" event listener:', eventName, listener.name)
+    logger.info('adding "%s" event listener:', eventName, listener.name)
 
     this.emitter.on(eventName, listener)
   }
@@ -168,18 +168,18 @@ export class Interceptor<Events extends InterceptorEventMap> {
    * Disposes of any side-effects this interceptor has introduced.
    */
   public dispose(): void {
-    const log = this.log.extend('dispose')
+    const logger = this.logger.extend('dispose')
 
     if (this.readyState === InterceptorReadyState.DISPOSED) {
-      log('cannot dispose, already disposed!')
+      logger.info('cannot dispose, already disposed!')
       return
     }
 
-    log('disposing the interceptor...')
+    logger.info('disposing the interceptor...')
     this.readyState = InterceptorReadyState.DISPOSING
 
     if (!this.getInstance()) {
-      log('no interceptors running, skipping dispose...')
+      logger.info('no interceptors running, skipping dispose...')
       return
     }
 
@@ -187,10 +187,10 @@ export class Interceptor<Events extends InterceptorEventMap> {
     // indicating that the interceptor is no longer running.
     this.clearInstance()
 
-    log('global symbol deleted:', getGlobalSymbol(this.symbol))
+    logger.info('global symbol deleted:', getGlobalSymbol(this.symbol))
 
     if (this.subscriptions.length > 0) {
-      log('disposing of %d subscriptions...', this.subscriptions.length)
+      logger.info('disposing of %d subscriptions...', this.subscriptions.length)
 
       for (const dispose of this.subscriptions) {
         dispose()
@@ -198,11 +198,11 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
       this.subscriptions = []
 
-      log('disposed of all subscriptions!', this.subscriptions.length)
+      logger.info('disposed of all subscriptions!', this.subscriptions.length)
     }
 
     this.emitter.deactivate()
-    log('destroyed the listener!')
+    logger.info('destroyed the listener!')
 
     nextTick(() => {
       this.readyState = InterceptorReadyState.DISPOSED
@@ -211,17 +211,17 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
   private getInstance(): this | undefined {
     const instance = getGlobalSymbol<this>(this.symbol)
-    this.log('retrieved global instance:', instance?.constructor?.name)
+    this.logger.info('retrieved global instance:', instance?.constructor?.name)
     return instance
   }
 
   private setInstance(): void {
     setGlobalSymbol(this.symbol, this)
-    this.log('set global instance!', this.symbol.description)
+    this.logger.info('set global instance!', this.symbol.description)
   }
 
   private clearInstance(): void {
     deleteGlobalSymbol(this.symbol)
-    this.log('cleared global instance!', this.symbol.description)
+    this.logger.info('cleared global instance!', this.symbol.description)
   }
 }

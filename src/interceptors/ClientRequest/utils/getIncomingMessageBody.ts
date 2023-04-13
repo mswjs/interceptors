@@ -1,15 +1,15 @@
 import { IncomingMessage } from 'http'
 import { PassThrough } from 'stream'
 import * as zlib from 'zlib'
-import { debug } from '../../../utils/debug'
+import { Logger } from '@open-draft/logger'
 
-const log = debug('http getIncomingMessageBody')
+const logger = new Logger('http getIncomingMessageBody')
 
 export function getIncomingMessageBody(
   response: IncomingMessage
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    log('cloning the original response...')
+    logger.info('cloning the original response...')
 
     // Pipe the original response to support non-clone
     // "response" input. No need to clone the response,
@@ -23,22 +23,22 @@ export function getIncomingMessageBody(
 
     const encoding = response.readableEncoding || 'utf8'
     stream.setEncoding(encoding)
-    log('using encoding:', encoding)
+    logger.info('using encoding:', encoding)
 
     let body = ''
 
     stream.on('data', (responseBody) => {
-      log('response body read:', responseBody)
+      logger.info('response body read:', responseBody)
       body += responseBody
     })
 
     stream.once('end', () => {
-      log('response body end')
+      logger.info('response body end')
       resolve(body)
     })
 
     stream.once('error', (error) => {
-      log('error while reading response body:', error)
+      logger.info('error while reading response body:', error)
       reject(error)
     })
   })

@@ -1,6 +1,6 @@
-import { debug } from '../../../utils/debug'
+import { Logger } from '@open-draft/logger'
 
-const log = debug('utils getUrlByRequestOptions')
+const logger = new Logger('utils getUrlByRequestOptions')
 
 export type ClientRequestEndChunk = string | Buffer
 export type ClientRequestEndCallback = () => void
@@ -24,7 +24,7 @@ type NormalizedHttpRequestEndParams = [
 export function normalizeClientRequestEndArgs(
   ...args: HttpRequestEndArgs
 ): NormalizedHttpRequestEndParams {
-  log('arguments', args)
+  logger.info('arguments', args)
   const normalizedArgs = new Array(3)
     .fill(null)
     .map((value, index) => args[index] || value)
@@ -48,6 +48,6 @@ export function normalizeClientRequestEndArgs(
     return 0
   })
 
-  log('normalized args', normalizedArgs)
+  logger.info('normalized args', normalizedArgs)
   return normalizedArgs as NormalizedHttpRequestEndParams
 }

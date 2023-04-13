@@ -1,9 +1,9 @@
 import { invariant } from 'outvariant'
+import { until } from '@open-draft/until'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { uuidv4 } from '../../utils/uuid'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
-import { until } from '@open-draft/until'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -31,17 +31,17 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       const requestId = uuidv4()
       const request = new Request(input, init)
 
-      this.log('[%s] %s', request.method, request.url)
+      this.logger.info('[%s] %s', request.method, request.url)
 
       const interactiveRequest = toInteractiveRequest(request)
 
-      this.log(
+      this.logger.info(
         'emitting the "request" event for %d listener(s)...',
         this.emitter.listenerCount('request')
       )
       this.emitter.emit('request', interactiveRequest, requestId)
 
-      this.log('awaiting for the mocked response...')
+      this.logger.info('awaiting for the mocked response...')
 
       const resolverResult = await until(async () => {
         await this.emitter.untilIdle(
@@ -50,10 +50,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             return pendingRequestId === requestId
           }
         )
-        this.log('all request listeners have been resolved!')
+        this.logger.info('all request listeners have been resolved!')
 
         const [mockedResponse] = await interactiveRequest.respondWith.invoked()
-        this.log('event.respondWith called with:', mockedResponse)
+        this.logger.info('event.respondWith called with:', mockedResponse)
 
         return mockedResponse
       })
@@ -69,7 +69,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       const mockedResponse = resolverResult.data
 
       if (mockedResponse) {
-        this.log('received mocked response:', mockedResponse)
+        this.logger.info('received mocked response:', mockedResponse)
         const responseCloine = mockedResponse.clone()
 
         this.emitter.emit(
@@ -92,11 +92,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         return response
       }
 
-      this.log('no mocked response received!')
+      this.logger.info('no mocked response received!')
 
       return pureFetch(request).then((response) => {
         const responseClone = response.clone()
-        this.log('original fetch performed', responseClone)
+        this.logger.info('original fetch performed', responseClone)
 
         this.emitter.emit(
           'response',
@@ -122,7 +122,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       globalThis.fetch = pureFetch
 
-      this.log('restored native "globalThis.fetch"!', globalThis.fetch.name)
+      this.logger.info(
+        'restored native "globalThis.fetch"!',
+        globalThis.fetch.name
+      )
     })
   }
 }

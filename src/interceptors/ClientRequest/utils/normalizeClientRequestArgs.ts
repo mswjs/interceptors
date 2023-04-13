@@ -9,6 +9,7 @@ import {
   globalAgent as httpsGlobalAgent,
 } from 'https'
 import { Url as LegacyURL } from 'url'
+import { Logger } from '@open-draft/logger'
 import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
 import {
   ResolvedRequestOptions,
@@ -16,9 +17,8 @@ import {
 } from '../../../utils/getUrlByRequestOptions'
 import { cloneObject } from '../../../utils/cloneObject'
 import { isObject } from '../../../utils/isObject'
-import { debug } from '../../../utils/debug'
 
-const log = debug('http normalizeClientRequestArgs')
+const logger = new Logger('http normalizeClientRequestArgs')
 
 export type HttpRequestCallback = (response: IncomingMessage) => void
 
@@ -34,24 +34,24 @@ function resolveRequestOptions(
   // Calling `fetch` provides only URL to `ClientRequest`
   // without any `RequestOptions` or callback.
   if (typeof args[1] === 'undefined' || typeof args[1] === 'function') {
-    log('request options not provided, deriving from the url', url)
+    logger.info('request options not provided, deriving from the url', url)
     return getRequestOptionsByUrl(url)
   }
 
   if (args[1]) {
-    log('has custom RequestOptions!', args[1])
+    logger.info('has custom RequestOptions!', args[1])
     const requestOptionsFromUrl = getRequestOptionsByUrl(url)
 
-    log('derived RequestOptions from the URL:', requestOptionsFromUrl)
+    logger.info('derived RequestOptions from the URL:', requestOptionsFromUrl)
 
     /**
      * Clone the request options to lock their state
      * at the moment they are provided to `ClientRequest`.
      * @see https://github.com/mswjs/interceptors/issues/86
      */
-    log('cloning RequestOptions...')
+    logger.info('cloning RequestOptions...')
     const clonedRequestOptions = cloneObject(args[1])
-    log('successfully cloned RequestOptions!', clonedRequestOptions)
+    logger.info('successfully cloned RequestOptions!', clonedRequestOptions)
 
     return {
       ...requestOptionsFromUrl,
@@ -59,7 +59,7 @@ function resolveRequestOptions(
     }
   }
 
-  log('using an empty object as request options')
+  logger.info('using an empty object as request options')
   return {} as RequestOptions
 }
 
@@ -87,22 +87,22 @@ export function normalizeClientRequestArgs(
   let options: ResolvedRequestOptions
   let callback: HttpRequestCallback | undefined
 
-  log('arguments', args)
-  log('using default protocol:', defaultProtocol)
+  logger.info('arguments', args)
+  logger.info('using default protocol:', defaultProtocol)
 
   // Convert a url string into a URL instance
   // and derive request options from it.
   if (typeof args[0] === 'string') {
-    log('first argument is a location string:', args[0])
+    logger.info('first argument is a location string:', args[0])
 
     url = new URL(args[0])
-    log('created a url:', url)
+    logger.info('created a url:', url)
 
     const requestOptionsFromUrl = getRequestOptionsByUrl(url)
-    log('request options from url:', requestOptionsFromUrl)
+    logger.info('request options from url:', requestOptionsFromUrl)
 
     options = resolveRequestOptions(args, url)
-    log('resolved request options:', options)
+    logger.info('resolved request options:', options)
 
     callback = resolveCallback(args)
   }
@@ -110,10 +110,10 @@ export function normalizeClientRequestArgs(
   // and derive request options from it.
   else if (args[0] instanceof URL) {
     url = args[0]
-    log('first argument is a URL:', url)
+    logger.info('first argument is a URL:', url)
 
     options = resolveRequestOptions(args, url)
-    log('derived request options:', options)
+    logger.info('derived request options:', options)
 
     callback = resolveCallback(args)
   }
@@ -121,7 +121,7 @@ export function normalizeClientRequestArgs(
   // or a WHATWG URL.
   else if ('hash' in args[0] && !('method' in args[0])) {
     const [legacyUrl] = args
-    log('first argument is a legacy URL:', legacyUrl)
+    logger.info('first argument is a legacy URL:', legacyUrl)
 
     if (legacyUrl.hostname === null) {
       /**
@@ -131,7 +131,7 @@ export function normalizeClientRequestArgs(
        * with the behaviour in ClientRequest.
        * @see https://github.com/nodejs/node/blob/d84f1312915fe45fe0febe888db692c74894c382/lib/_http_client.js#L122
        */
-      log('given legacy URL is relative (no hostname)')
+      logger.info('given legacy URL is relative (no hostname)')
 
       return isObject(args[1])
         ? normalizeClientRequestArgs(
@@ -146,7 +146,7 @@ export function normalizeClientRequestArgs(
           )
     }
 
-    log('given legacy url is absolute')
+    logger.info('given legacy url is absolute')
 
     // We are dealing with an absolute URL, so convert to WHATWG and try again.
     const resolvedUrl = new URL(legacyUrl.href)
@@ -166,15 +166,15 @@ export function normalizeClientRequestArgs(
   // and derive the URL instance from it.
   else if (isObject(args[0])) {
     options = args[0] as any
-    log('first argument is RequestOptions:', options)
+    logger.info('first argument is RequestOptions:', options)
 
     // When handling a "RequestOptions" object without an explicit "protocol",
     // infer the protocol from the request issuing module (http/https).
     options.protocol = options.protocol || defaultProtocol
-    log('normalized request options:', options)
+    logger.info('normalized request options:', options)
 
     url = getUrlByRequestOptions(options)
-    log('created a URL from RequestOptions:', url.href)
+    logger.info('created a URL from RequestOptions:', url.href)
 
     callback = resolveCallback(args)
   } else {
@@ -203,7 +203,7 @@ export function normalizeClientRequestArgs(
         : new HttpAgent()
 
     options.agent = agent
-    log('resolved fallback agent:', agent)
+    logger.info('resolved fallback agent:', agent)
   }
 
   /**
@@ -215,7 +215,7 @@ export function normalizeClientRequestArgs(
    * @see https://github.com/nodejs/node/blob/418ff70b810f0e7112d48baaa72932a56cfa213b/lib/_http_client.js#L157-L159
    */
   if (!options._defaultAgent) {
-    log(
+    logger.info(
       'has no default agent, setting the default agent for "%s"',
       options.protocol
     )
@@ -224,9 +224,9 @@ export function normalizeClientRequestArgs(
       options.protocol === 'https:' ? httpsGlobalAgent : httpGlobalAgent
   }
 
-  log('successfully resolved url:', url.href)
-  log('successfully resolved options:', options)
-  log('successfully resolved callback:', callback)
+  logger.info('successfully resolved url:', url.href)
+  logger.info('successfully resolved options:', options)
+  logger.info('successfully resolved callback:', callback)
 
   return [url, options, callback]
 }

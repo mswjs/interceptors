@@ -1,6 +1,6 @@
+import { Logger } from '@open-draft/logger'
 import { Emitter, EventMap, Listener } from 'strict-event-emitter'
 import { nextTick } from './nextTick'
-import { debug, Debugger } from './debug'
 
 export interface QueueItem<Args extends Array<unknown>> {
   args: Args
@@ -17,13 +17,13 @@ export class AsyncEventEmitter<
 > extends Emitter<Events> {
   public readyState: AsyncEventEmitterReadyState
 
-  private log: Debugger
+  private logger: Logger
   protected queue: Map<keyof Events, Array<QueueItem<Events[any]>>>
 
   constructor() {
     super()
 
-    this.log = debug('async-event-emitter')
+    this.logger = new Logger('async-event-emitter')
     this.queue = new Map()
 
     this.readyState = AsyncEventEmitterReadyState.ACTIVE
@@ -33,12 +33,12 @@ export class AsyncEventEmitter<
     eventName: EventName,
     listener: Listener<any>
   ) {
-    const log = this.log.extend('on')
+    const logger = this.logger.extend('on')
 
-    log('adding "%s" listener...', eventName)
+    logger.info('adding "%s" listener...', eventName)
 
     if (this.readyState === AsyncEventEmitterReadyState.DEACTIVATED) {
-      log('the emitter is destroyed, skipping!')
+      logger.info('the emitter is destroyed, skipping!')
       return this
     }
 
@@ -46,7 +46,7 @@ export class AsyncEventEmitter<
       // Event queue is always established when calling ".emit()".
       const queue = this.openListenerQueue(eventName)
 
-      log('awaiting the "%s" listener...', eventName)
+      logger.info('awaiting the "%s" listener...', eventName)
 
       // Whenever a listener is called, create a new Promise
       // that resolves when that listener function completes its execution.
@@ -59,9 +59,9 @@ export class AsyncEventEmitter<
             await listener(...args)
             resolve()
 
-            log('"%s" listener has resolved!', eventName)
+            logger.info('"%s" listener has resolved!', eventName)
           } catch (error) {
-            log('"%s" listener has rejected!', error)
+            logger.info('"%s" listener has rejected!', error)
             reject(error)
           }
         }),
@@ -73,12 +73,12 @@ export class AsyncEventEmitter<
     eventName: EventName,
     ...data: Events[EventName]
   ): boolean {
-    const log = this.log.extend('emit')
+    const logger = this.logger.extend('emit')
 
-    log('emitting "%s" event...', eventName)
+    logger.info('emitting "%s" event...', eventName)
 
     if (this.readyState === AsyncEventEmitterReadyState.DEACTIVATED) {
-      log('the emitter is destroyed, skipping!')
+      logger.info('the emitter is destroyed, skipping!')
       return false
     }
 
@@ -91,7 +91,7 @@ export class AsyncEventEmitter<
     // Establish the Promise queue for this particular event.
     this.openListenerQueue(eventName)
 
-    log('appending a one-time cleanup "%s" listener...', eventName)
+    logger.info('appending a one-time cleanup "%s" listener...', eventName)
 
     // Append a one-time clean up listener.
     this.once(eventName, () => {
@@ -100,7 +100,7 @@ export class AsyncEventEmitter<
       // the time to properly resolve.
       nextTick(() => {
         this.queue.delete(eventName)
-        log('cleaned up "%s" listeners queue!', eventName)
+        logger.info('cleaned up "%s" listeners queue!', eventName)
       })
     })
 
@@ -130,46 +130,46 @@ export class AsyncEventEmitter<
   private openListenerQueue<EventName extends keyof Events>(
     eventName: EventName
   ): Array<QueueItem<Events[EventName]>> {
-    const log = this.log.extend('openListenerQueue')
-    log('opening "%s" listeners queue...', eventName)
+    const logger = this.logger.extend('openListenerQueue')
+    logger.info('opening "%s" listeners queue...', eventName)
 
     const queue = this.queue.get(eventName)
 
     if (!queue) {
-      log('no queue found, creating one...')
+      logger.info('no queue found, creating one...')
       this.queue.set(eventName, [])
       return []
     }
 
-    log('returning an exising queue:', queue)
+    logger.info('returning an exising queue:', queue)
     return queue
   }
 
   public removeAllListeners<EventName extends keyof Events>(
     eventName?: EventName
   ) {
-    const log = this.log.extend('removeAllListeners')
-    log('event:', eventName)
+    const logger = this.logger.extend('removeAllListeners')
+    logger.info('event:', eventName)
 
     if (eventName) {
       this.queue.delete(eventName)
-      log(
+      logger.info(
         'cleared the "%s" listeners queue!',
         eventName,
         this.queue.get(eventName)
       )
     } else {
       this.queue.clear()
-      log('cleared the listeners queue!', this.queue)
+      logger.info('cleared the listeners queue!', this.queue)
     }
 
     return super.removeAllListeners(eventName)
   }
 
   public activate(): void {
-    const log = this.log.extend('activate')
+    const logger = this.logger.extend('activate')
     this.readyState = AsyncEventEmitterReadyState.ACTIVE
-    log('set state to:', this.readyState)
+    logger.info('set state to:', this.readyState)
   }
 
   /**
@@ -178,13 +178,13 @@ export class AsyncEventEmitter<
    * and needs to be activated again in order to do so.
    */
   public deactivate(): void {
-    const log = this.log.extend('deactivate')
+    const logger = this.logger.extend('deactivate')
 
-    log('removing all listeners...')
+    logger.info('removing all listeners...')
     this.removeAllListeners()
 
     this.readyState = AsyncEventEmitterReadyState.DEACTIVATED
-    log('set state to:', this.readyState)
+    logger.info('set state to:', this.readyState)
   }
 
   private isInternalEventName(eventName: string | number | symbol): boolean {

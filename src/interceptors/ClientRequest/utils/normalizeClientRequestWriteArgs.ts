@@ -1,6 +1,6 @@
-import { debug } from '../../../utils/debug'
+import { Logger } from '@open-draft/logger'
 
-const log = debug('http normalizeWriteArgs')
+const logger = new Logger('http normalizeWriteArgs')
 
 export type ClientRequestWriteCallback = (error?: Error | null) => void
 export type ClientRequestWriteArgs = [
@@ -18,7 +18,7 @@ export type NormalizedClientRequestWriteArgs = [
 export function normalizeClientRequestWriteArgs(
   args: ClientRequestWriteArgs
 ): NormalizedClientRequestWriteArgs {
-  log('normalizing ClientRequest.write arguments...', args)
+  logger.info('normalizing ClientRequest.write arguments...', args)
 
   const chunk = args[0]
   const encoding =
@@ -30,7 +30,10 @@ export function normalizeClientRequestWriteArgs(
     encoding,
     callback,
   ]
-  log('successfully normalized ClientRequest.write arguments:', writeArgs)
+  logger.info(
+    'successfully normalized ClientRequest.write arguments:',
+    writeArgs
+  )
 
   return writeArgs
 }
