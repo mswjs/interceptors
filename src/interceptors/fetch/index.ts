@@ -68,7 +68,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       const mockedResponse = resolverResult.data
 
-      if (mockedResponse) {
+      if (mockedResponse && !request.signal?.aborted) {
         this.logger.info('received mocked response:', mockedResponse)
         const responseCloine = mockedResponse.clone()
 

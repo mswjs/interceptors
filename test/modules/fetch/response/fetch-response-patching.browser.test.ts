@@ -57,3 +57,22 @@ test('supports response patching', async ({ loadExample, page }) => {
   expect(headers.get('x-custom-header')).toBe('yes')
   expect(res.text).toBe('hello world')
 })
+
+test('throws an AbortError, when the request has been aborted', async ({ loadExample, page}) => {
+  await loadExample(require.resolve('./fetch-response-patching.runtime.js'))
+  await forwardServerUrl(page)
+
+  const result = await page.evaluate(async () => {
+    const controller = new AbortController();
+    const response = fetch('http://localhost/mocked', {signal: controller.signal})
+      .then(
+        () => { throw new Error("Fetch did not reject") },
+        (error) => ({ isDomException: error instanceof DOMException, name: error.name })
+      );
+    controller.abort()
+    return await response
+  });
+
+  expect(result.name).toBe("AbortError")
+  expect(result.isDomException).toBe(true)
+})
