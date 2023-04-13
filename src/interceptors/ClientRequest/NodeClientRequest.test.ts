@@ -1,6 +1,7 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import express from 'express'
 import { IncomingMessage } from 'http'
+import { Logger } from '@open-draft/logger'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { NodeClientRequest } from './NodeClientRequest'
@@ -9,7 +10,6 @@ import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { sleep } from '../../../test/helpers'
 import { HttpRequestEventMap } from '../../glossary'
-import { debug } from '../../utils/debug'
 
 interface ErrorConnectionRefused extends NodeJS.ErrnoException {
   address: string
@@ -26,7 +26,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const log = debug('test')
+const logger = new Logger('test')
 
 beforeAll(async () => {
   await httpServer.listen()
@@ -44,7 +44,7 @@ it('gracefully finishes the request when it has a mocked response', async () => 
     }),
     {
       emitter,
-      log,
+      logger,
     }
   )
 
@@ -86,7 +86,7 @@ it('responds with a mocked response when requesting an existing hostname', async
     normalizeClientRequestArgs('http:', httpServer.http.url('/comment')),
     {
       emitter,
-      log,
+      logger,
     }
   )
 
@@ -116,7 +116,7 @@ it('performs the request as-is given resolver returned no mocked response', asyn
     }),
     {
       emitter,
-      log,
+      logger,
     }
   )
 
@@ -143,7 +143,7 @@ it('emits the ENOTFOUND error connecting to a non-existing hostname given no moc
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
-    { emitter, log }
+    { emitter, logger }
   )
   request.end()
 
@@ -163,7 +163,7 @@ it('emits the ECONNREFUSED error connecting to an inactive server given no mocke
     normalizeClientRequestArgs('http:', 'http://127.0.0.1:12345'),
     {
       emitter,
-      log,
+      logger,
     }
   )
 
@@ -188,7 +188,7 @@ it('does not emit ENOTFOUND error connecting to an inactive server given mocked 
   const handleError = vi.fn()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
-    { emitter, log }
+    { emitter, logger }
   )
 
   emitter.on('request', async (request) => {
@@ -220,7 +220,7 @@ it('does not emit ECONNREFUSED error connecting to an inactive server given mock
     normalizeClientRequestArgs('http:', 'http://localhost:9876'),
     {
       emitter,
-      log,
+      logger,
     }
   )
 
@@ -256,7 +256,7 @@ it('sends the request body to the server given no mocked response', async () => 
     }),
     {
       emitter,
-      log,
+      logger,
     }
   )
 
@@ -284,7 +284,7 @@ it('does not send request body to the original server given mocked response', as
     }),
     {
       emitter,
-      log,
+      logger,
     }
   )
 

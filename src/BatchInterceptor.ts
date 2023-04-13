@@ -35,15 +35,15 @@ export class BatchInterceptor<
   }
 
   protected setup() {
-    const log = this.log.extend('setup')
+    const logger = this.logger.extend('setup')
 
-    log('applying all %d interceptors...', this.interceptors.length)
+    logger.info('applying all %d interceptors...', this.interceptors.length)
 
     for (const interceptor of this.interceptors) {
-      log('applying "%s" interceptor...', interceptor.constructor.name)
+      logger.info('applying "%s" interceptor...', interceptor.constructor.name)
       interceptor.apply()
 
-      log('adding interceptor dispose subscription')
+      logger.info('adding interceptor dispose subscription')
       this.subscriptions.push(() => interceptor.dispose())
     }
   }
