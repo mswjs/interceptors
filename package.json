@@ -138,7 +138,7 @@
   },
   "dependencies": {
     "@open-draft/deferred-promise": "^2.1.0",
-    "@open-draft/logger": "^0.2.0",
+    "@open-draft/logger": "^0.3.0",
     "@open-draft/until": "^2.0.0",
     "headers-polyfill": "^3.1.0",
     "outvariant": "^1.2.1",
