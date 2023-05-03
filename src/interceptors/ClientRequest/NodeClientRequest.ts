@@ -401,6 +401,7 @@ export class NodeClientRequest extends ClientRequest {
       // and shouldn't be written to anymore.
       this.response.push(null)
       this.response.complete = true
+      this.response.emit('end')
 
       isResponseStreamRead.resolve()
       this.logger.info('closed response stream!')
@@ -416,8 +417,7 @@ export class NodeClientRequest extends ClientRequest {
           return
         }
 
-        // this.response.push(Buffer.from(body))
-        this.response.push(value)
+        this.response.emit('data', value)
 
         return readNextChunk()
       }
@@ -427,24 +427,26 @@ export class NodeClientRequest extends ClientRequest {
       closeResponseStream()
     }
 
-    isResponseStreamRead.then(() => {
-      /**
-       * Set the internal "res" property to the mocked "OutgoingMessage"
-       * to make the "ClientRequest" instance think there's data received
-       * from the socket.
-       * @see https://github.com/nodejs/node/blob/9c405f2591f5833d0247ed0fafdcd68c5b14ce7a/lib/_http_client.js#L501
-       */
-      // @ts-ignore
-      this.res = this.response
+    /**
+     * Set the internal "res" property to the mocked "OutgoingMessage"
+     * to make the "ClientRequest" instance think there's data received
+     * from the socket.
+     * @see https://github.com/nodejs/node/blob/9c405f2591f5833d0247ed0fafdcd68c5b14ce7a/lib/_http_client.js#L501
+     *
+     * Set the response immediately so the interceptor could stream data
+     * chunks to the request client as they come in.
+     */
+    // @ts-ignore
+    this.res = this.response
+    this.emit('response', this.response)
 
+    isResponseStreamRead.then(() => {
       this.finished = true
       Object.defineProperty(this, 'writableEnded', {
         value: true,
       })
 
       this.emit('finish')
-      this.emit('response', this.response)
-
       this.terminate()
     })
   }
