@@ -8,7 +8,6 @@ import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientReq
 
 const httpServer = new HttpServer((app) => {
   app.post('/resource', express.text({ type: '*/*' }), (req, res) => {
-    console.log('POST /resource', req.body)
     res.send(req.body)
   })
 })
