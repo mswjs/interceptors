@@ -370,6 +370,20 @@ export class NodeClientRequest extends ClientRequest {
   private respondWith(mockedResponse: Response): void {
     this.logger.info('responding with a mocked response...', mockedResponse)
 
+    /**
+     * Mark the request as finished right before streaming back the response.
+     * This is not entirely conventional but this will allow the consumer to
+     * modify the outoging request in the interceptor.
+     *
+     * The request is finished when its headers and bodies have been sent.
+     * @see https://nodejs.org/api/http.html#event-finish
+     */
+    Object.defineProperties(this, {
+      writableFinished: { value: true },
+      writableEnded: { value: true },
+    })
+    this.emit('finish')
+
     const { status, statusText, headers, body } = mockedResponse
     this.response.statusCode = status
     this.response.statusMessage = statusText
@@ -392,19 +406,11 @@ export class NodeClientRequest extends ClientRequest {
     }
     this.logger.info('mocked response headers ready:', headers)
 
-    const isResponseStreamRead = new DeferredPromise<void>()
+    const isResponseStreamFinished = new DeferredPromise<void>()
 
-    const closeResponseStream = () => {
-      this.logger.info('closing response stream...')
-
-      // Push "null" to indicate that the response body is complete
-      // and shouldn't be written to anymore.
-      this.response.push(null)
-      this.response.complete = true
-      this.response.emit('end')
-
-      isResponseStreamRead.resolve()
-      this.logger.info('closed response stream!')
+    const finishResponseStream = () => {
+      this.logger.info('finished response stream!')
+      isResponseStreamFinished.resolve()
     }
 
     if (body) {
@@ -413,7 +419,7 @@ export class NodeClientRequest extends ClientRequest {
         const { done, value } = await bodyReader.read()
 
         if (done) {
-          closeResponseStream()
+          finishResponseStream()
           return
         }
 
@@ -424,7 +430,7 @@ export class NodeClientRequest extends ClientRequest {
 
       readNextChunk()
     } else {
-      closeResponseStream()
+      finishResponseStream()
     }
 
     /**
@@ -440,13 +446,15 @@ export class NodeClientRequest extends ClientRequest {
     this.res = this.response
     this.emit('response', this.response)
 
-    isResponseStreamRead.then(() => {
-      this.finished = true
-      Object.defineProperty(this, 'writableEnded', {
-        value: true,
-      })
+    isResponseStreamFinished.then(() => {
+      this.logger.info('finalizing response...')
 
-      this.emit('finish')
+      // Push "null" to indicate that the response body is complete
+      // and shouldn't be written to anymore.
+      this.response.push(null)
+      this.response.complete = true
+      this.response.emit('end')
+
       this.terminate()
     })
   }

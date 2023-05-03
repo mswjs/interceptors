@@ -62,22 +62,29 @@ it('gracefully finishes the request when it has a mocked response', async () => 
   request.end()
 
   const responseReceived = new DeferredPromise<IncomingMessage>()
+
   request.on('response', async (response) => {
     responseReceived.resolve(response)
   })
   const response = await responseReceived
 
-  // Request must be marked as finished.
-  expect(request.finished).toEqual(true)
-  expect(request.writableEnded).toEqual(true)
-  expect(request.writableFinished).toEqual(true)
-  expect(request.writableCorked).toEqual(0)
+  // Request must be marked as finished as soon as it's sent.
+  expect(request.writableEnded).toBe(true)
+  expect(request.writableFinished).toBe(true)
+  expect(request.writableCorked).toBe(0)
 
-  expect(response.statusCode).toEqual(301)
-  expect(response.headers).toHaveProperty('x-custom-header', 'yes')
-
+  /**
+   * Consume the response body, which will handle the "data" and "end"
+   * events of the incoming message. After this point, the response is finished.
+   */
   const text = await getIncomingMessageBody(response)
-  expect(text).toEqual('mocked-response')
+
+  // Response must be marked as finished as soon as its done.
+  expect(request['response'].complete).toBe(true)
+
+  expect(response.statusCode).toBe(301)
+  expect(response.headers).toHaveProperty('x-custom-header', 'yes')
+  expect(text).toBe('mocked-response')
 })
 
 it('responds with a mocked response when requesting an existing hostname', async () => {
@@ -102,10 +109,10 @@ it('responds with a mocked response when requesting an existing hostname', async
   })
   const response = await responseReceived
 
-  expect(response.statusCode).toEqual(201)
+  expect(response.statusCode).toBe(201)
 
   const text = await getIncomingMessageBody(response)
-  expect(text).toEqual('mocked-response')
+  expect(text).toBe('mocked-response')
 })
 
 it('performs the request as-is given resolver returned no mocked response', async () => {
@@ -128,15 +135,15 @@ it('performs the request as-is given resolver returned no mocked response', asyn
   })
   const response = await responseReceived
 
-  expect(request.finished).toEqual(true)
-  expect(request.writableEnded).toEqual(true)
+  expect(request.finished).toBe(true)
+  expect(request.writableEnded).toBe(true)
 
-  expect(response.statusCode).toEqual(200)
-  expect(response.statusMessage).toEqual('OK')
+  expect(response.statusCode).toBe(200)
+  expect(response.statusMessage).toBe('OK')
   expect(response.headers).toHaveProperty('x-powered-by', 'Express')
 
   const text = await getIncomingMessageBody(response)
-  expect(text).toEqual('original-response')
+  expect(text).toBe('original-response')
 })
 
 it('emits the ENOTFOUND error connecting to a non-existing hostname given no mocked response', async () => {
@@ -153,8 +160,8 @@ it('emits the ENOTFOUND error connecting to a non-existing hostname given no moc
   })
   const error = await errorReceived
 
-  expect(error.code).toEqual('ENOTFOUND')
-  expect(error.syscall).toEqual('getaddrinfo')
+  expect(error.code).toBe('ENOTFOUND')
+  expect(error.syscall).toBe('getaddrinfo')
 })
 
 it('emits the ECONNREFUSED error connecting to an inactive server given no mocked response', async () => {
@@ -177,10 +184,10 @@ it('emits the ECONNREFUSED error connecting to an inactive server given no mocke
 
   const error = await errorReceived
 
-  expect(error.code).toEqual('ECONNREFUSED')
-  expect(error.syscall).toEqual('connect')
-  expect(error.address).toEqual('127.0.0.1')
-  expect(error.port).toEqual(12345)
+  expect(error.code).toBe('ECONNREFUSED')
+  expect(error.syscall).toBe('connect')
+  expect(error.address).toBe('127.0.0.1')
+  expect(error.port).toBe(12345)
 })
 
 it('does not emit ENOTFOUND error connecting to an inactive server given mocked response', async () => {
@@ -209,8 +216,8 @@ it('does not emit ENOTFOUND error connecting to an inactive server given mocked 
   const response = await responseReceived
 
   expect(handleError).not.toHaveBeenCalled()
-  expect(response.statusCode).toEqual(200)
-  expect(response.statusMessage).toEqual('Works')
+  expect(response.statusCode).toBe(200)
+  expect(response.statusMessage).toBe('Works')
 })
 
 it('does not emit ECONNREFUSED error connecting to an inactive server given mocked response', async () => {
@@ -241,8 +248,8 @@ it('does not emit ECONNREFUSED error connecting to an inactive server given mock
   const response = await responseReceived
 
   expect(handleError).not.toHaveBeenCalled()
-  expect(response.statusCode).toEqual(200)
-  expect(response.statusMessage).toEqual('Works')
+  expect(response.statusCode).toBe(200)
+  expect(response.statusMessage).toBe('Works')
 })
 
 it('sends the request body to the server given no mocked response', async () => {
@@ -270,10 +277,10 @@ it('sends the request body to the server given no mocked response', async () => 
   })
   const response = await responseReceived
 
-  expect(response.statusCode).toEqual(200)
+  expect(response.statusCode).toBe(200)
 
   const text = await getIncomingMessageBody(response)
-  expect(text).toEqual('onetwothree')
+  expect(text).toBe('onetwothree')
 })
 
 it('does not send request body to the original server given mocked response', async () => {
@@ -303,8 +310,8 @@ it('does not send request body to the original server given mocked response', as
   })
   const response = await responseReceived
 
-  expect(response.statusCode).toEqual(301)
+  expect(response.statusCode).toBe(301)
 
   const text = await getIncomingMessageBody(response)
-  expect(text).toEqual('mock created!')
+  expect(text).toBe('mock created!')
 })
