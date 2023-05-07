@@ -21,8 +21,6 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
   }
 
   protected setup(): void {
-    console.log('setting up the interceptor...')
-
     const pureNetCreateConnection = net.createConnection
     this.subscriptions.push(() => {
       net.createConnection = pureNetCreateConnection
@@ -35,14 +33,7 @@ class MockSocket extends net.Socket {
 
   constructor(options?: net.SocketConstructorOpts) {
     super(options)
-
-    console.log('MockSocket.constructor')
-
-    this.connect({
-      port: 80,
-      path: '/resource',
-      host: 'api.example.com',
-    })
+    this.connect(options)
   }
 
   connect(...args: unknown[]): this {
