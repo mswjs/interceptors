@@ -33,8 +33,8 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 class MockSocket extends net.Socket {
   private _handle?: SocketHandle
 
-  constructor(...args) {
-    super(...args)
+  constructor(options?: net.SocketConstructorOpts) {
+    super(options)
 
     console.log('MockSocket.constructor')
 
@@ -45,29 +45,8 @@ class MockSocket extends net.Socket {
     })
   }
 
-  normalizeConnectArgs(
-    ...args:
-      | [options: net.NetConnectOpts, callback?: () => void]
-      | [port: number, host?: string, callback?: () => void]
-      | [path: string, callback?: () => void]
-  ): [options: net.NetConnectOpts, callback?: () => void] {
-    if (typeof args[0] === 'number') {
-      if (typeof args[1] === 'string') {
-        return [{ port: args[0], host: args[1] }, args[2]]
-      }
-
-      return [{ port: args[0] }, args[1]]
-    }
-
-    if (typeof args[0] === 'string') {
-      return [{ path: args[0] }, args[1]]
-    }
-
-    return args
-  }
-
   connect(...args: unknown[]): this {
-    const [options, callback] = this.normalizeConnectArgs(...args)
+    const [_, callback] = normalizeCreateConnectionArgs(...args)
 
     /**
      * @note Setting "_handle" is mandatory. Without it,
@@ -201,6 +180,10 @@ class SocketHandle {
     return 0
   }
 
+  writeUtf8String() {
+    return 0
+  }
+
   close() {}
 
   shutdown() {
@@ -208,8 +191,30 @@ class SocketHandle {
   }
 }
 
+function normalizeCreateConnectionArgs(
+  ...args:
+    | [options: net.NetConnectOpts, callback?: () => void]
+    | [port: number, host?: string, callback?: () => void]
+    | [path: string, callback?: () => void]
+): [options: net.NetConnectOpts, callback?: () => void] {
+  if (typeof args[0] === 'number') {
+    if (typeof args[1] === 'string') {
+      return [{ port: args[0], host: args[1] }, args[2]]
+    }
+
+    return [{ port: args[0] }, args[1]]
+  }
+
+  if (typeof args[0] === 'string') {
+    return [{ path: args[0] }, args[1]]
+  }
+
+  return args
+}
+
 net.createConnection = new Proxy(net.createConnection, {
-  apply(target, thisArg, args) {
+  apply(target, thisArg, args: any[]) {
+    const [options] = normalizeCreateConnectionArgs(...args)
     console.log('net.createConnection()', args)
 
     /**
@@ -223,6 +228,6 @@ net.createConnection = new Proxy(net.createConnection, {
     //   // emitLookup(null, '127.0.0.1', 4)
     // }
 
-    return new MockSocket(...args)
+    return new MockSocket(options)
   },
 })
