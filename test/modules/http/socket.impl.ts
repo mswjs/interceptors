@@ -85,59 +85,6 @@ class MockSocket extends net.Socket {
   }
 }
 
-function createSocketProxy(socket: net.Socket): net.Socket {
-  socket.connect = new Proxy(socket.connect, {
-    apply(target, thisArg, args) {
-      console.warn('Socket.connect', args)
-
-      // Returns this Socket instance.
-      // Also performs the DNS lookup for the supplied host if called directly.
-      // Doesn't get called directly when using "net.createConnection()".
-      return Reflect.apply(target, thisArg, args)
-    },
-  })
-
-  socket.write = new Proxy(socket.write, {
-    apply(target, thisArg, args) {
-      const [chunk, encoding, callback] = args
-      console.log('Socket.write', args)
-      // return Reflect.apply(target, thisArg, args)
-    },
-  })
-
-  socket.on('connect', () => {
-    console.log('Socket.connect!')
-  })
-
-  socket.on('lookup', (error, address, family, host) => {
-    console.log('Socket.lookup', { error, address, family, host })
-  })
-
-  socket.on('ready', () => {
-    socket.push('HTTP/1.1 301 Moved Permanently\r\nConnection:close\r\n\r\n')
-
-    // socket.emit('readable')
-    socket.emit('end')
-    socket.emit('close')
-  })
-
-  socket.on('data', (chunk) => {
-    console.log('Socket.data:', chunk.toString('utf8'))
-  })
-
-  // 1. resume
-  // 2. write (request message)
-  // 3. emit lookup
-  // 4. emit connect
-  // 5. emit ready.
-  // 6. emit data (response message)
-  // 7. emit readable
-  // 8. emit end
-  // 9. emit close
-
-  return socket
-}
-
 interface TcpWrap {
   address: string
   port: number
