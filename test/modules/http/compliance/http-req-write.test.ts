@@ -73,8 +73,6 @@ it('writes JSON request body', async () => {
   const { res, text } = await waitForClientRequest(req)
   const expectedBody = `{"key":"value"}`
 
-  console.log(res.statusCode, res.statusMessage)
-
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
   expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
   expect(await text()).toEqual(expectedBody)
