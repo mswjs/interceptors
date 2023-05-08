@@ -52,21 +52,15 @@ describe('readyState', () => {
     interceptor.apply()
 
     expect(interceptor.readyState).toBe(InterceptorReadyState.INACTIVE)
-
-    await nextTickAsync(() => {
-      expect(interceptor.readyState).toBe(InterceptorReadyState.INACTIVE)
-    })
   })
 
   it('perfroms state transition when the interceptor is applying', async () => {
     const interceptor = new Interceptor(symbol)
     interceptor.apply()
 
-    expect(interceptor.readyState).toBe(InterceptorReadyState.APPLYING)
-
-    await nextTickAsync(() => {
-      expect(interceptor.readyState).toBe(InterceptorReadyState.APPLIED)
-    })
+    // The interceptor's state transitions to APPLIED immediately.
+    // The only exception is if something throws during the setup.
+    expect(interceptor.readyState).toBe(InterceptorReadyState.APPLIED)
   })
 
   it('perfroms state transition when disposing of the interceptor', async () => {
@@ -74,11 +68,9 @@ describe('readyState', () => {
     interceptor.apply()
     interceptor.dispose()
 
-    expect(interceptor.readyState).toBe(InterceptorReadyState.DISPOSING)
-
-    await nextTickAsync(() => {
-      expect(interceptor.readyState).toBe(InterceptorReadyState.DISPOSED)
-    })
+    // The interceptor's state transitions to DISPOSED immediately.
+    // The only exception is if something throws during the teardown.
+    expect(interceptor.readyState).toBe(InterceptorReadyState.DISPOSED)
   })
 })
 

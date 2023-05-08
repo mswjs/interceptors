@@ -1,7 +1,6 @@
 import { Logger } from '@open-draft/logger'
 import { Listener } from 'strict-event-emitter'
 import { AsyncEventEmitter } from './utils/AsyncEventEmitter'
-import { nextTick } from './utils/nextTick'
 
 export type InterceptorEventMap = Record<string, any>
 export type InterceptorSubscription = () => void
@@ -115,9 +114,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
         })
       }
 
-      nextTick(() => {
-        this.readyState = InterceptorReadyState.APPLIED
-      })
+      this.readyState = InterceptorReadyState.APPLIED
 
       return
     }
@@ -130,9 +127,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
     // Store the newly applied interceptor instance globally.
     this.setInstance()
 
-    nextTick(() => {
-      this.readyState = InterceptorReadyState.APPLIED
-    })
+    this.readyState = InterceptorReadyState.APPLIED
   }
 
   /**
@@ -204,9 +199,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
     this.emitter.deactivate()
     logger.info('destroyed the listener!')
 
-    nextTick(() => {
-      this.readyState = InterceptorReadyState.DISPOSED
-    })
+    this.readyState = InterceptorReadyState.DISPOSED
   }
 
   private getInstance(): this | undefined {
