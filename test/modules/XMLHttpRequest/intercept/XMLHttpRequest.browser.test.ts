@@ -134,3 +134,35 @@ test('sets "credentials" to "same-origin" on isomorphic request when "withCreden
 
   expect(request.credentials).toBe('same-origin')
 })
+
+test('ignores the body for HEAD requests', async ({ loadExample, callXMLHttpRequest}) => {
+  await loadExample(require.resolve('./XMLHttpRequest.browser.runtime.js'))
+
+  const url = httpServer.http.url('/user')
+  const call = callXMLHttpRequest({
+    method: 'HEAD',
+    url,
+    body: "test"
+  });
+
+  await expect(call).resolves.not.toThrowError()
+
+  const [request] = await call
+  expect(request.body).toBe(null)
+})
+
+test('ignores the body for GET requests', async ({ loadExample, callXMLHttpRequest}) => {
+  await loadExample(require.resolve('./XMLHttpRequest.browser.runtime.js'))
+
+  const url = httpServer.http.url('/user')
+  const call = callXMLHttpRequest({
+    method: 'GET',
+    url,
+    body: "test"
+  });
+
+  await expect(call).resolves.not.toThrowError()
+
+  const [request] = await call
+  expect(request.body).toBe(null)
+})
