@@ -533,7 +533,7 @@ export class XMLHttpRequestController {
        * @see https://xhr.spec.whatwg.org/#cross-origin-credentials
        */
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
-      body: this.requestBody as any,
+      body: ['GET', 'HEAD'].includes(this.method) ? null : this.requestBody as any,
     })
 
     const proxyHeaders = createProxy(fetchRequest.headers, {
