@@ -80,6 +80,11 @@ export class AsyncEventEmitter<Events extends FunctionEventMap> extends Emitter<
     event: Event,
     ...args: Parameters<Events[Event]>
   ): boolean {
+    // Ignore internal emitter events.
+    if (['newListener', 'removeListener'].includes(event as string)) {
+      return super.emit(event, ...args)
+    }
+
     const log = this.log.extend('emit')
 
     log('emitting "%s" event...', event)
