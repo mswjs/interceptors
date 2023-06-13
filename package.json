@@ -10,14 +10,14 @@
     "node": ">=14"
   },
   "scripts": {
-    "start": "tsc --build -w",
+    "start": "tsc -p ./tsconfig.build.json -w",
     "test": "yarn test:internal && yarn test:integration",
     "test:internal": "jest",
     "test:integration": "yarn test:integration:node && yarn test:integration:browser",
     "test:integration:node": "jest --c test/jest.node.config.js --runInBand",
     "test:integration:browser": "jest --c test/jest.browser.config.js",
     "clean": "rimraf lib",
-    "build": "yarn clean && tsc --build",
+    "build": "yarn clean && tsc -p ./tsconfig.build.json",
     "prepare": "yarn simple-git-hooks init",
     "release": "release publish",
     "prepublishOnly": "yarn build && yarn test"
