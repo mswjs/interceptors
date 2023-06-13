@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES5",
+    "sourceMap": true,
+    "outDir": "lib",
+    "declaration": true,
+    "moduleResolution": "node",
+    "removeComments": false,
+    "esModuleInterop": true,
+    "downlevelIteration": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.*"]
+}

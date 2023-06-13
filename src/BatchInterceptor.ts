@@ -1,5 +1,5 @@
-import { EventMapType } from 'strict-event-emitter'
 import { ExtractEventNames, Interceptor } from './Interceptor'
+import { FunctionEventMap } from './utils/AsyncEventEmitter'
 
 export interface BatchInterceptorOptions<
   InterceptorList extends Interceptor<any>[]
@@ -8,10 +8,10 @@ export interface BatchInterceptorOptions<
   interceptors: InterceptorList
 }
 
-export type ExtractEventMapType<InterceptorList extends Interceptor<any>[]> =
+export type ExtractEventsType<InterceptorList extends Interceptor<any>[]> =
   InterceptorList extends Array<infer InterceptorType>
-    ? InterceptorType extends Interceptor<infer EventMap>
-      ? EventMap
+    ? InterceptorType extends Interceptor<infer Events>
+      ? Events
       : never
     : never
 
@@ -21,8 +21,8 @@ export type ExtractEventMapType<InterceptorList extends Interceptor<any>[]> =
  */
 export class BatchInterceptor<
   InterceptorList extends Interceptor<any>[],
-  EventMap extends EventMapType = ExtractEventMapType<InterceptorList>
-> extends Interceptor<EventMap> {
+  Events extends FunctionEventMap = ExtractEventsType<InterceptorList>
+> extends Interceptor<Events> {
   static symbol: Symbol
 
   private interceptors: InterceptorList
@@ -47,9 +47,9 @@ export class BatchInterceptor<
     }
   }
 
-  public on<Event extends ExtractEventNames<EventMap>>(
+  public on<Event extends ExtractEventNames<Events>>(
     event: Event,
-    listener: EventMap[Event]
+    listener: Events[Event]
   ) {
     // Instead of adding a listener to the batch interceptor,
     // propagate the listener to each of the individual interceptors.
