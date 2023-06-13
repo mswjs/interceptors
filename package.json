@@ -72,7 +72,7 @@
     "debug": "^4.3.3",
     "headers-polyfill": "^3.1.0",
     "outvariant": "^1.2.1",
-    "strict-event-emitter": "^0.2.4",
+    "strict-event-emitter": "^0.5.0",
     "web-encoding": "^1.1.5"
   },
   "keywords": [

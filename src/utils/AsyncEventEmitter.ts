@@ -1,6 +1,13 @@
 import { Debugger, debug } from 'debug'
-import { StrictEventEmitter, EventMapType } from 'strict-event-emitter'
+import { Emitter } from 'strict-event-emitter'
 import { nextTick } from './nextTick'
+
+export type FunctionEventMap = Record<string, (...args: Array<any>) => any>
+export type FunctionEventMapToStrictEventEmitterMap<
+  Functions extends FunctionEventMap
+> = {
+  [K in keyof Functions]: Parameters<Functions[K]>
+}
 
 export interface QueueItem<Args extends any[]> {
   args: Args
@@ -12,15 +19,15 @@ export enum AsyncEventEmitterReadyState {
   DEACTIVATED = 'DEACTIVATED',
 }
 
-export class AsyncEventEmitter<
-  EventMap extends EventMapType
-> extends StrictEventEmitter<EventMap> {
+export class AsyncEventEmitter<Events extends FunctionEventMap> extends Emitter<
+  FunctionEventMapToStrictEventEmitterMap<Events>
+> {
   public readyState: AsyncEventEmitterReadyState
 
   private log: Debugger
   protected queue: Map<
-    keyof EventMap,
-    QueueItem<Parameters<EventMap[keyof EventMap]>>[]
+    keyof Events,
+    QueueItem<Parameters<Events[keyof Events]>>[]
   >
 
   constructor() {
@@ -32,10 +39,7 @@ export class AsyncEventEmitter<
     this.readyState = AsyncEventEmitterReadyState.ACTIVE
   }
 
-  public on<Event extends keyof EventMap>(
-    event: Event,
-    listener: EventMap[Event]
-  ) {
+  public on<Event extends keyof Events>(event: Event, listener: Events[Event]) {
     const log = this.log.extend('on')
 
     log('adding "%s" listener...', event)
@@ -45,7 +49,7 @@ export class AsyncEventEmitter<
       return this
     }
 
-    return super.on(event, (async (...args: Parameters<EventMap[Event]>) => {
+    return super.on(event, (async (...args: Parameters<Events[Event]>) => {
       // Event queue is always established when calling ".emit()".
       const queue = this.openListenerQueue(event)
 
@@ -69,12 +73,12 @@ export class AsyncEventEmitter<
           }
         }),
       })
-    }) as EventMap[Event])
+    }) as Events[Event])
   }
 
-  public emit<Event extends keyof EventMap>(
+  public emit<Event extends keyof Events>(
     event: Event,
-    ...args: Parameters<EventMap[Event]>
+    ...args: Parameters<Events[Event]>
   ): boolean {
     const log = this.log.extend('emit')
 
@@ -99,7 +103,7 @@ export class AsyncEventEmitter<
         this.queue.delete(event)
         log('cleaned up "%s" listeners queue!', event)
       })
-    }) as EventMap[Event])
+    }) as Events[Event])
 
     return super.emit(event, ...args)
   }
@@ -109,10 +113,9 @@ export class AsyncEventEmitter<
    * has been called. Awaits asynchronous listeners.
    * If the event has no listeners, resolves immediately.
    */
-  public async untilIdle<Event extends keyof EventMap>(
+  public async untilIdle<Event extends keyof Events>(
     event: Event,
-    filter: (item: QueueItem<Parameters<EventMap[Event]>>) => boolean = () =>
-      true
+    filter: (item: QueueItem<Parameters<Events[Event]>>) => boolean = () => true
   ): Promise<void> {
     const listenersQueue = this.queue.get(event) || []
 
@@ -125,9 +128,9 @@ export class AsyncEventEmitter<
     })
   }
 
-  private openListenerQueue<Event extends keyof EventMap>(
+  private openListenerQueue<Event extends keyof Events>(
     event: Event
-  ): QueueItem<Parameters<EventMap[Event]>>[] {
+  ): QueueItem<Parameters<Events[Event]>>[] {
     const log = this.log.extend('openListenerQueue')
 
     log('opening "%s" listeners queue...', event)
@@ -145,7 +148,7 @@ export class AsyncEventEmitter<
     return queue
   }
 
-  public removeAllListeners<Event extends keyof EventMap>(event?: Event) {
+  public removeAllListeners<Event extends keyof Events>(event?: Event) {
     const log = this.log.extend('removeAllListeners')
     log('event:', event)
 
