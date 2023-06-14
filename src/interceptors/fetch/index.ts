@@ -59,7 +59,6 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       })
 
       if (resolverResult.error) {
-        console.error(`${request.method} ${request.url} net::ERR_FAILED`)
         const error = Object.assign(new TypeError('Failed to fetch'), {
           cause: resolverResult.error,
         })
