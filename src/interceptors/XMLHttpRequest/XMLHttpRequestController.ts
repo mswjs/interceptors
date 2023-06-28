@@ -48,7 +48,6 @@ export class XMLHttpRequestController {
     this.request = createProxy(initialRequest, {
       setProperty: ([propertyName, nextValue], invoke) => {
         switch (propertyName) {
-          case 'onloadend':
           case 'ontimeout': {
             const eventName = propertyName.slice(
               2
@@ -61,15 +60,7 @@ export class XMLHttpRequestController {
              */
             this.request.addEventListener(eventName, nextValue as any)
 
-            /**
-             * @note Calling invoke for the `onloadend` event does not have an effect
-             * in browsers. The `onloadend` handler will never be called. It will be
-             * called in node though, which is why we never call `invoke` for `onloadend`
-             * to ensure a similar behavior in node and the browser.
-             */
-            return propertyName === "onloadend"
-              ? true
-              : invoke();
+            return invoke()
           }
 
           default: {
@@ -542,7 +533,9 @@ export class XMLHttpRequestController {
        * @see https://xhr.spec.whatwg.org/#cross-origin-credentials
        */
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
-      body: ['GET', 'HEAD'].includes(this.method) ? null : this.requestBody as any,
+      body: ['GET', 'HEAD'].includes(this.method)
+        ? null
+        : (this.requestBody as any),
     })
 
     const proxyHeaders = createProxy(fetchRequest.headers, {
