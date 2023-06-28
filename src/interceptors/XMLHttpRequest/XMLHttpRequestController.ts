@@ -61,7 +61,15 @@ export class XMLHttpRequestController {
              */
             this.request.addEventListener(eventName, nextValue as any)
 
-            return invoke()
+            /**
+             * @note Calling invoke for the `onloadend` event does not have an effect
+             * in browsers. The `onloadend` handler will never be called. It will be
+             * called in node though, which is why we never call `invoke` for `onloadend`
+             * to ensure a similar behavior in node and the browser.
+             */
+            if (propertyName !== "onloadend") {
+              return invoke()
+            }
           }
 
           default: {
