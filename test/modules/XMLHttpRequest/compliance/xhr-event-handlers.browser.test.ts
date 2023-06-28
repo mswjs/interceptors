@@ -17,7 +17,7 @@ test.afterAll(async () => {
   await httpServer.close()
 })
 
-test.only('onloadend handler is called', async ({ page, loadExample }) => {
+test('onloadend handler is called', async ({ page, loadExample }) => {
   await loadExample(require.resolve('./xhr-event-handlers.browser.runtime.js'))
 
   const { request, calls } = await page.evaluate(async (url) => {
