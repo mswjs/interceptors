@@ -67,9 +67,9 @@ export class XMLHttpRequestController {
              * called in node though, which is why we never call `invoke` for `onloadend`
              * to ensure a similar behavior in node and the browser.
              */
-            if (propertyName !== "onloadend") {
-              return invoke()
-            }
+            return propertyName === "onloadend"
+              ? true
+              : invoke();
           }
 
           default: {
