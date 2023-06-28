@@ -1,3 +1,5 @@
+import { findPropertySource } from './findPropertySource'
+
 export interface ProxyOptions<Target extends Record<string, any>> {
   constructorCall?(args: Array<unknown>, next: NextFunction<Target>): Target
 
@@ -44,8 +46,11 @@ function optionsToProxyHandler<T extends Record<string, any>>(
 
   handler.set = function (target, propertyName, nextValue, receiver) {
     const next = () => {
+      const propertySource = findPropertySource(target, propertyName)
+      if (propertySource === null) return false
+
       const ownDescriptors = Reflect.getOwnPropertyDescriptor(
-        target,
+        propertySource,
         propertyName
       )
 
@@ -54,7 +59,7 @@ function optionsToProxyHandler<T extends Record<string, any>>(
         return true
       }
 
-      return Reflect.defineProperty(target, propertyName, {
+      return Reflect.defineProperty(propertySource, propertyName, {
         writable: true,
         enumerable: true,
         configurable: true,
