@@ -17,7 +17,7 @@ test.afterAll(async () => {
   await httpServer.close()
 })
 
-test('onloadend handler is called', async ({ page, loadExample }) => {
+test('onloadend handler is called when not returning a mocked response', async ({ page, loadExample }) => {
   await loadExample(require.resolve('./xhr-event-handlers.browser.runtime.js'))
 
   const { request, calls } = await page.evaluate(async (url) => {
@@ -30,15 +30,13 @@ test('onloadend handler is called', async ({ page, loadExample }) => {
     xhr.open('GET', url)
     xhr.onloadend = () => calls.loadEndHandler++
     xhr.addEventListener('loadend', () => calls.loadEndListener++)
+    xhr.send(null)
 
-    await Promise.all([
-      new Promise((resolve) => {
-        const resolveDelayed = () => setTimeout(resolve, 1000)
-        xhr.addEventListener('error', resolveDelayed)
-        xhr.addEventListener('load', resolveDelayed)
-      }),
-      xhr.send(null),
-    ])
+    await new Promise((resolve) => {
+      const resolveDelayed = () => setTimeout(resolve, 1000)
+      xhr.addEventListener('error', resolveDelayed)
+      xhr.addEventListener('load', resolveDelayed)
+    })
 
     return {
       request: xhr,
