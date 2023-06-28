@@ -48,6 +48,7 @@ export class XMLHttpRequestController {
     this.request = createProxy(initialRequest, {
       setProperty: ([propertyName, nextValue], invoke) => {
         switch (propertyName) {
+          case 'onloadend':
           case 'ontimeout': {
             const eventName = propertyName.slice(
               2
