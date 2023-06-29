@@ -116,15 +116,18 @@ interceptor.apply()
 
 // Listen to any "http.ClientRequest" being dispatched,
 // and log its method and full URL.
-interceptor.on('request', (request, requestId) => {
+interceptor.on('request', ({ request, requestId }) => {
   console.log(request.method, request.url)
 })
 
 // Listen to any responses sent to "http.ClientRequest".
 // Note that this listener is read-only and cannot affect responses.
-interceptor.on('response', (response, request) => {
-  console.log('response to %s %s was:', request.method, request.url, response)
-})
+interceptor.on(
+  'response',
+  ({ response, isMockedResponse, request, requestId }) => {
+    console.log('response to %s %s was:', request.method, request.url, response)
+  }
+)
 ```
 
 All HTTP request interceptors implement the same events:
@@ -203,7 +206,7 @@ All HTTP request interceptors emit a "request" event. In the listener to this ev
 > There are many ways to describe a request in Node.js but this library coerces different request definitions to a single specification-compliant `Request` instance to make the handling consistent.
 
 ```js
-interceptor.on('reqest', (request, requestId) => {
+interceptor.on('reqest', ({ request, requestId }) => {
   console.log(request.method, request.url)
 })
 ```
@@ -211,7 +214,7 @@ interceptor.on('reqest', (request, requestId) => {
 Since the exposed `request` instance implements the Fetch API specification, you can operate with it just as you do with the regular browser request. For example, this is how you would read the request body as JSON:
 
 ```js
-interceptor.on('request', async (request, requestId) => {
+interceptor.on('request', async ({ request, requestId }) => {
   const json = await request.clone().json()
 })
 ```
@@ -223,7 +226,7 @@ interceptor.on('request', async (request, requestId) => {
 Request representations are readonly. You can, however, mutate the intercepted request's headers in the "request" listener:
 
 ```js
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   request.headers.set('X-My-Header', 'true')
 })
 ```
@@ -237,7 +240,7 @@ Although this library can be used purely for request introspection purposes, you
 Use the `request.respondWith()` method to respond to a request with a mocked response:
 
 ```js
-interceptor.on('request', (request, requestId) => {
+interceptor.on('request', ({ request, requestId }) => {
   request.respondWith(
     new Response(
       JSON.stringify({
@@ -267,11 +270,26 @@ Requests must be responded to within the same tick as the request listener. This
 ```js
 // Respond to all requests with a 500 response
 // delayed by 500ms.
-interceptor.on('request', async (request, requestId) => {
+interceptor.on('request', async ({ request, requestId }) => {
   await sleep(500)
   request.respondWith(new Response(null, { status: 500 }))
 })
 ```
+
+## Observing responses
+
+You can use the "response" event to transparently observe any incoming responses in your Node.js process.
+
+```js
+interceptor.on(
+  'response',
+  ({ response, isMockedResponse, request, requestId }) => {
+    // react to the incoming response...
+  }
+)
+```
+
+> Note that the `isMockedResponse` property will only be set to `true` if you resolved this request in the "request" event listener using the `request.respondWith()` method and providing a mocked `Response` instance.
 
 ## API
 
@@ -312,7 +330,7 @@ const interceptor = new BatchInterceptor({
 
 interceptor.apply()
 
-interceptor.on('request', (request, requestId) => {
+interceptor.on('request', ({ request, requestId }) => {
   // Inspect the intercepted "request".
   // Optionally, return a mocked response.
 })
@@ -360,7 +378,7 @@ const resolver = new RemoteHttpResolver({
   process: appProcess,
 })
 
-resolver.on('request', (request, requestId) => {
+resolver.on('request', ({ request, requestId }) => {
   // Optionally, return a mocked response
   // for a request that occurred in the "appProcess".
 })

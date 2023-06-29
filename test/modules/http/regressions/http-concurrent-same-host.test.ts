@@ -8,7 +8,7 @@ import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientReq
 let requests: Array<Request> = []
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   requests.push(request)
   request.respondWith(new Response())
 })

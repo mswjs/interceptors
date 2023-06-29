@@ -69,7 +69,7 @@ it('allows reading the response body after it has been read internally', async (
   }
 
   const untilCapturedResponse = new Promise<Response>((resolve) => {
-    interceptor.on('response', (response) => resolve(response))
+    interceptor.on('response', ({ response }) => resolve(response))
   })
   const request = await makeRequest()
   const capturedResponse = await untilCapturedResponse

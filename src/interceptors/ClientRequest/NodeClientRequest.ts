@@ -155,14 +155,17 @@ export class NodeClientRequest extends ClientRequest {
       'emitting the "request" event for %d listener(s)...',
       this.emitter.listenerCount('request')
     )
-    this.emitter.emit('request', interactiveRequest, requestId)
+    this.emitter.emit('request', {
+      request: interactiveRequest,
+      requestId,
+    })
 
     // Execute the resolver Promise like a side-effect.
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
     until(async () => {
       await this.emitter.untilIdle(
         'request',
-        ({ args: [, pendingRequestId] }) => {
+        ({ args: [{ requestId: pendingRequestId }] }) => {
           /**
            * @note Await only those listeners that are relevant to this request.
            * This prevents extraneous parallel request from blocking the resolution
@@ -224,7 +227,12 @@ export class NodeClientRequest extends ClientRequest {
         callback?.()
 
         this.logger.info('emitting the custom "response" event...')
-        this.emitter.emit('response', responseClone, capturedRequest, requestId)
+        this.emitter.emit('response', {
+          response: responseClone,
+          isMockedResponse: true,
+          request: capturedRequest,
+          requestId,
+        })
 
         this.logger.info('request (mock) is completed')
 
@@ -238,12 +246,12 @@ export class NodeClientRequest extends ClientRequest {
         this.logger.info('original response headers:', message.headers)
 
         this.logger.info('emitting the custom "response" event...')
-        this.emitter.emit(
-          'response',
-          createResponse(message),
-          capturedRequest,
-          requestId
-        )
+        this.emitter.emit('response', {
+          response: createResponse(message),
+          isMockedResponse: false,
+          request: capturedRequest,
+          requestId,
+        })
       })
 
       return this.passthrough(chunk, encoding, callback)

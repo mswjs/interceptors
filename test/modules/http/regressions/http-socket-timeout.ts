@@ -17,7 +17,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   request.respondWith(new Response('hello world', { status: 301 }))
 })
 

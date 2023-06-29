@@ -13,7 +13,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', function testListener(request) {
+interceptor.on('request', function testListener({ request }) {
   if ([httpServer.http.url(), httpServer.https.url()].includes(request.url)) {
     request.respondWith(
       new Response(JSON.stringify({ mocked: true }), {

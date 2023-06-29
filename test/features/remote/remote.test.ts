@@ -13,7 +13,7 @@ const resolver = new RemoteHttpResolver({
   process: child,
 })
 
-resolver.on('request', (request) => {
+resolver.on('request', ({ request }) => {
   request.respondWith(
     new Response(
       JSON.stringify({

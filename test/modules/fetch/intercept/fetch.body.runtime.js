@@ -1,7 +1,7 @@
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   window.requestBody = request.clone().text()
 })
 

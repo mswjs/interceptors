@@ -51,7 +51,7 @@ it('intercepts a HEAD request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [request, requestId] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -76,7 +76,7 @@ it('intercepts a GET request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [request, requestId] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -102,7 +102,7 @@ it('intercepts a POST request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [request, requestId] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -128,7 +128,7 @@ it('intercepts a PUT request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [request, requestId] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -154,7 +154,7 @@ it('intercepts a PATCH request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [request, requestId] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -179,7 +179,7 @@ it('intercepts a DELETE request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [request, requestId] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -202,7 +202,7 @@ it('intercepts an http.request request given RequestOptions without a protocol',
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [request, requestId] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))

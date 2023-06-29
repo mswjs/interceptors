@@ -2,7 +2,7 @@ import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-interceptor.on('request', async (request, requestId) => {
+interceptor.on('request', async ({ request, requestId }) => {
   window.dispatchEvent(
     new CustomEvent('resolver', {
       detail: {

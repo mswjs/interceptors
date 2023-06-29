@@ -8,7 +8,7 @@ const interceptor = new BatchInterceptor({
 
 interceptor.apply()
 
-interceptor.on('request', async (request, requestId) => {
+interceptor.on('request', async ({ request, requestId }) => {
   window.dispatchEvent(
     new CustomEvent('resolver', {
       detail: {

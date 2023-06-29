@@ -54,7 +54,7 @@ async function getResponse(request: Request): Promise<Response | undefined> {
   }
 }
 
-interceptor.on('request', async (request) => {
+interceptor.on('request', async ({ request }) => {
   const response = await getResponse(request)
 
   if (response) {

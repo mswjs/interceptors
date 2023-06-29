@@ -44,7 +44,7 @@ const interceptor = new BatchInterceptor({
   ],
 })
 
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   const url = new URL(request.url)
 
   if (url.pathname === '/user') {
@@ -97,7 +97,8 @@ it('ClientRequest: emits the "response" event for a mocked response', async () =
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
-  const [response, request] = responseListener.mock.calls[0]
+  const [{ response, request, isMockedResponse }] =
+    responseListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user'))
@@ -109,6 +110,8 @@ it('ClientRequest: emits the "response" event for a mocked response', async () =
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('mocked')
   expect(await response.text()).toBe('mocked-response-text')
+
+  expect(isMockedResponse).toBe(true)
 })
 
 it('ClientRequest: emits the "response" event upon the original response', async () => {
@@ -128,7 +131,8 @@ it('ClientRequest: emits the "response" event upon the original response', async
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
-  const [response, request] = responseListener.mock.calls[0]
+  const [{ response, request, isMockedResponse }] =
+    responseListener.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/account'))
@@ -140,6 +144,8 @@ it('ClientRequest: emits the "response" event upon the original response', async
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('original')
   expect(await response.text()).toBe('original-response-text')
+
+  expect(isMockedResponse).toBe(false)
 })
 
 it('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
@@ -154,12 +160,11 @@ it('XMLHttpRequest: emits the "response" event upon a mocked response', async ()
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
-  const [response, request] = responseListener.mock.calls.find(
-    ([_, request]) => {
+  const [{ response, request, isMockedResponse }] =
+    responseListener.mock.calls.find(([{ request }]) => {
       // The first response event will be from the "OPTIONS" preflight request.
       return request.method === 'GET'
-    }
-  )!
+    })!
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user'))
@@ -171,6 +176,7 @@ it('XMLHttpRequest: emits the "response" event upon a mocked response', async ()
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('mocked')
   expect(await response.text()).toBe('mocked-response-text')
+  expect(isMockedResponse).toBe(true)
 
   // Original response.
   expect(originalRequest.responseText).toEqual('mocked-response-text')
@@ -195,11 +201,10 @@ it('XMLHttpRequest: emits the "response" event upon the original response', asyn
   expect(responseListener).toHaveBeenCalledTimes(1)
 
   // Lookup the correct response listener call.
-  const [response, request] = responseListener.mock.calls.find(
-    ([_, request]) => {
+  const [{ response, request, isMockedResponse }] =
+    responseListener.mock.calls.find(([{ request }]) => {
       return request.method === 'POST'
-    }
-  )!
+    })!
 
   expect(request).toBeDefined()
   expect(response).toBeDefined()
@@ -214,6 +219,8 @@ it('XMLHttpRequest: emits the "response" event upon the original response', asyn
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('original')
   expect(await response.text()).toBe('original-response-text')
+
+  expect(isMockedResponse).toBe(false)
 
   // Original response.
   expect(originalRequest.responseText).toEqual('original-response-text')
@@ -231,7 +238,8 @@ it('fetch: emits the "response" event upon a mocked response', async () => {
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
-  const [response, request] = responseListener.mock.calls[0]
+  const [{ response, request, isMockedResponse }] =
+    responseListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user'))
@@ -243,6 +251,8 @@ it('fetch: emits the "response" event upon a mocked response', async () => {
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('mocked')
   expect(await response.text()).toBe('mocked-response-text')
+
+  expect(isMockedResponse).toBe(true)
 })
 
 it('fetch: emits the "response" event upon the original response', async () => {
@@ -262,7 +272,8 @@ it('fetch: emits the "response" event upon the original response', async () => {
     expect(responseListener).toHaveBeenCalledTimes(1)
   })
 
-  const [response, request] = responseListener.mock.calls[0]
+  const [{ response, request, isMockedResponse }] =
+    responseListener.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/account'))
@@ -274,4 +285,6 @@ it('fetch: emits the "response" event upon the original response', async () => {
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('original')
   expect(await response.text()).toBe('original-response-text')
+
+  expect(isMockedResponse).toBe(false)
 })

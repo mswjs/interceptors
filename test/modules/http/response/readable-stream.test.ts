@@ -9,7 +9,7 @@ type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 const encoder = new TextEncoder()
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   const stream = new ReadableStream({
     async start(controller) {
       controller.enqueue(encoder.encode('first'))

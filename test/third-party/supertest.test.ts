@@ -43,13 +43,13 @@ it('intercepts a GET request', async () => {
 
   // Must call the "request" listener.
   expect(requestListener).toHaveBeenCalledTimes(1)
-  const [request] = requestListener.mock.calls[0]
+  const [{ request }] = requestListener.mock.calls[0]
   expect(request.method).toBe('GET')
   expect(request.body).toBeNull()
 
   // Must call the "response" listener.
   expect(responseListener).toHaveBeenCalledTimes(1)
-  const [responseFromListener] = responseListener.mock.calls[0]
+  const [{ response: responseFromListener }] = responseListener.mock.calls[0]
   expect(responseFromListener.status).toBe(200)
   expect(responseFromListener.statusText).toBe('OK')
   expect(responseFromListener.headers.get('content-type')).toBe(
@@ -70,13 +70,13 @@ it('intercepts a POST request', async () => {
 
   // Must call the "request" listener.
   expect(requestListener).toHaveBeenCalledTimes(1)
-  const [request] = requestListener.mock.calls[0]
+  const [{ request }] = requestListener.mock.calls[0]
   expect(request.method).toBe('POST')
   expect(await request.json()).toEqual({ query: 'foo' })
 
   // Must call the "response" listener.
   expect(responseListener).toHaveBeenCalledTimes(1)
-  const [responseFromListener] = responseListener.mock.calls[0]
+  const [{ response: responseFromListener }] = responseListener.mock.calls[0]
   expect(responseFromListener.status).toBe(200)
   expect(responseFromListener.statusText).toBe('OK')
   expect(responseFromListener.headers.get('content-type')).toBe(

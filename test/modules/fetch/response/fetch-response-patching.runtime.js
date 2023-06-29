@@ -2,7 +2,7 @@ import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 
-interceptor.on('request', async (request) => {
+interceptor.on('request', async ({ request }) => {
   const url = new URL(request.url)
 
   if (url.pathname === '/mocked') {

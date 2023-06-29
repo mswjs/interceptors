@@ -48,7 +48,7 @@ it('gracefully finishes the request when it has a mocked response', async () => 
     }
   )
 
-  emitter.on('request', (request) => {
+  emitter.on('request', ({ request }) => {
     request.respondWith(
       new Response('mocked-response', {
         status: 301,
@@ -97,7 +97,7 @@ it('responds with a mocked response when requesting an existing hostname', async
     }
   )
 
-  emitter.on('request', (request) => {
+  emitter.on('request', ({ request }) => {
     request.respondWith(new Response('mocked-response', { status: 201 }))
   })
 
@@ -198,7 +198,7 @@ it('does not emit ENOTFOUND error connecting to an inactive server given mocked 
     { emitter, logger }
   )
 
-  emitter.on('request', async (request) => {
+  emitter.on('request', async ({ request }) => {
     await sleep(250)
     request.respondWith(
       new Response(null, { status: 200, statusText: 'Works' })
@@ -231,7 +231,7 @@ it('does not emit ECONNREFUSED error connecting to an inactive server given mock
     }
   )
 
-  emitter.on('request', async (request) => {
+  emitter.on('request', async ({ request }) => {
     await sleep(250)
     request.respondWith(
       new Response(null, { status: 200, statusText: 'Works' })
@@ -295,7 +295,7 @@ it('does not send request body to the original server given mocked response', as
     }
   )
 
-  emitter.on('request', async (request) => {
+  emitter.on('request', async ({ request }) => {
     await sleep(200)
     request.respondWith(new Response('mock created!', { status: 301 }))
   })

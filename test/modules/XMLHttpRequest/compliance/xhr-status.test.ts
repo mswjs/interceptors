@@ -8,7 +8,7 @@ import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   const url = new URL(request.url)
 
   if (url.pathname === '/cors') {

@@ -23,7 +23,7 @@ const httpServer = new HttpServer((app) => {
 
 beforeAll(async () => {
   interceptor.apply()
-  interceptor.on('request', (request) => {
+  interceptor.on('request', ({ request }) => {
     switch (true) {
       case request.url.endsWith('/exception'): {
         throw new Error('Network error')

@@ -28,12 +28,12 @@ afterAll(async () => {
 it('forbids calling "respondWith" multiple times for the same request', async () => {
   const requestUrl = httpServer.http.url('/')
 
-  interceptor.on('request', function firstRequestListener(request) {
+  interceptor.on('request', function firstRequestListener({ request }) {
     request.respondWith(new Response())
   })
 
   const secondRequestEmitted = new DeferredPromise<void>()
-  interceptor.on('request', function secondRequestListener(request) {
+  interceptor.on('request', function secondRequestListener({ request }) {
     expect(() =>
       request.respondWith(new Response(null, { status: 301 }))
     ).toThrow(

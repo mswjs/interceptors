@@ -2,7 +2,7 @@ import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   const { serverHttpUrl, serverHttpsUrl } = window
 
   if ([serverHttpUrl, serverHttpsUrl].includes(request.url)) {

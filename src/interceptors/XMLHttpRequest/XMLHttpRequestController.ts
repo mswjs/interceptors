@@ -1,3 +1,4 @@
+import { invariant } from 'outvariant'
 import { headersToString } from 'headers-polyfill'
 import type { Logger } from '@open-draft/logger'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
@@ -12,7 +13,8 @@ import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
 import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
-import { invariant } from 'outvariant'
+
+const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
 
 /**
  * An `XMLHttpRequest` instance controller that allows us
@@ -23,14 +25,19 @@ export class XMLHttpRequestController {
   public requestId?: string
   public onRequest?: (
     this: XMLHttpRequestController,
-    request: Request,
-    requestId: string
+    args: {
+      request: Request
+      requestId: string
+    }
   ) => Promise<void>
   public onResponse?: (
     this: XMLHttpRequestController,
-    response: Response,
-    request: Request,
-    requestId: string
+    args: {
+      response: Response
+      isMockedResponse: boolean
+      request: Request
+      requestId: string
+    }
   ) => void
 
   private method: string = 'GET'
@@ -136,20 +143,22 @@ export class XMLHttpRequestController {
                 )
 
                 // Notify the consumer about the response.
-                this.onResponse.call(
-                  this,
-                  fetchResponse,
-                  fetchRequest,
-                  this.requestId!
-                )
+                this.onResponse.call(this, {
+                  response: fetchResponse,
+                  isMockedResponse: IS_MOCKED_RESPONSE in this.request,
+                  request: fetchRequest,
+                  requestId: this.requestId!,
+                })
               }
             })
 
             // Delegate request handling to the consumer.
             const fetchRequest = this.toFetchApiRequest()
             const onceRequestSettled =
-              this.onRequest?.call(this, fetchRequest, this.requestId!) ||
-              Promise.resolve()
+              this.onRequest?.call(this, {
+                request: fetchRequest,
+                requestId: this.requestId!,
+              }) || Promise.resolve()
 
             onceRequestSettled.finally(() => {
               // If the consumer didn't handle the request perform it as-is.
@@ -208,6 +217,13 @@ export class XMLHttpRequestController {
       response.status,
       response.statusText
     )
+
+    /**
+     * @note Since `XMLHttpRequestController` delegates the handling of the responses
+     * to the "load" event listener that doesn't distinguish between the mocked and original
+     * responses, mark the request that had a mocked response with a corresponding symbol.
+     */
+    define(this.request, IS_MOCKED_RESPONSE, true)
 
     define(this.request, 'status', response.status)
     define(this.request, 'statusText', response.statusText)
@@ -533,7 +549,9 @@ export class XMLHttpRequestController {
        * @see https://xhr.spec.whatwg.org/#cross-origin-credentials
        */
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
-      body: ['GET', 'HEAD'].includes(this.method) ? null : this.requestBody as any,
+      body: ['GET', 'HEAD'].includes(this.method)
+        ? null
+        : (this.requestBody as any),
     })
 
     const proxyHeaders = createProxy(fetchRequest.headers, {
@@ -573,7 +591,11 @@ function toAbsoluteUrl(url: string | URL): URL {
   return new URL(url.toString(), location.href)
 }
 
-function define(target: object, property: string, value: unknown): void {
+function define(
+  target: object,
+  property: string | symbol,
+  value: unknown
+): void {
   Reflect.defineProperty(target, property, {
     // Ensure writable properties to allow redefining readonly properties.
     writable: true,

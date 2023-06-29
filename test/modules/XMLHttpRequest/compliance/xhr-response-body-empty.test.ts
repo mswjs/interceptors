@@ -4,7 +4,7 @@ import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpR
 import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   request.respondWith(
     new Response(null, {
       status: 401,

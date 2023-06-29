@@ -14,7 +14,7 @@ const server = new HttpServer((app) => {
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   if (request.url.endsWith('/user')) {
     return request.respondWith(
       new Response('mocked response', {
@@ -48,32 +48,32 @@ it('emits events for a handled request', async () => {
 
   // Must call the "request" event listener.
   expect(requestListener).toHaveBeenCalledTimes(1)
-  const requestParams = requestListener.mock.calls[0]
+  const [requestParams] = requestListener.mock.calls[0]
 
-  expect(requestParams[0]).toBeInstanceOf(Request)
-  expect(requestParams[0].method).toBe('GET')
-  expect(requestParams[0].url).toBe(server.http.url('/user'))
+  expect(requestParams.request).toBeInstanceOf(Request)
+  expect(requestParams.request.method).toBe('GET')
+  expect(requestParams.request.url).toBe(server.http.url('/user'))
 
-  expect(requestParams[1]).toMatch(UUID_REGEXP)
+  expect(requestParams.requestId).toMatch(UUID_REGEXP)
 
   // Must call the "response" event listener.
   expect(responseListener).toHaveBeenCalledTimes(1)
-  const responseParams = responseListener.mock.calls[0]
+  const [responseParams] = responseListener.mock.calls[0]
 
-  expect(responseParams[0]).toBeInstanceOf(Response)
-  expect(responseParams[0].status).toBe(200)
-  expect(responseParams[0].statusText).toBe('OK')
-  expect(responseParams[0].headers.get('Content-Type')).toBe(
+  expect(responseParams.response).toBeInstanceOf(Response)
+  expect(responseParams.response.status).toBe(200)
+  expect(responseParams.response.statusText).toBe('OK')
+  expect(responseParams.response.headers.get('Content-Type')).toBe(
     'text/plain;charset=UTF-8'
   )
-  expect(responseParams[0].bodyUsed).toBe(false)
-  expect(await responseParams[0].text()).toBe('mocked response')
+  expect(responseParams.response.bodyUsed).toBe(false)
+  expect(await responseParams.response.text()).toBe('mocked response')
 
-  expect(responseParams[1]).toBeInstanceOf(Request)
-  expect(responseParams[1].method).toBe('GET')
-  expect(responseParams[1].url).toBe(server.http.url('/user'))
+  expect(responseParams.request).toBeInstanceOf(Request)
+  expect(responseParams.request.method).toBe('GET')
+  expect(responseParams.request.url).toBe(server.http.url('/user'))
 
-  expect(responseParams[2]).toMatch(UUID_REGEXP)
+  expect(responseParams.requestId).toMatch(UUID_REGEXP)
 })
 
 it('emits events for a bypassed request', async () => {
@@ -89,36 +89,39 @@ it('emits events for a bypassed request', async () => {
 
   // Must call the "request" event listener.
   expect(requestListener).toHaveBeenCalledTimes(1)
-  const requestParams = requestListener.mock.calls[0]
+  const [requestParams] = requestListener.mock.calls[0]
 
-  expect(requestParams[0]).toBeInstanceOf(Request)
-  expect(requestParams[0].method).toBe('GET')
-  expect(requestParams[0].url).toBe(server.http.url('/bypassed'))
-  expect(requestParams[0]).toHaveProperty('respondWith', expect.any(Function))
+  expect(requestParams.request).toBeInstanceOf(Request)
+  expect(requestParams.request.method).toBe('GET')
+  expect(requestParams.request.url).toBe(server.http.url('/bypassed'))
+  expect(requestParams.request).toHaveProperty(
+    'respondWith',
+    expect.any(Function)
+  )
 
   // The last argument of the request listener is the request ID.
-  expect(requestParams[1]).toMatch(UUID_REGEXP)
+  expect(requestParams.requestId).toMatch(UUID_REGEXP)
 
   // Must call the "response" event listener.
   expect(responseListener).toHaveBeenCalledTimes(1)
-  const responseParams = responseListener.mock.calls[0]
+  const [responseParams] = responseListener.mock.calls[0]
 
-  expect(responseParams[0]).toBeInstanceOf(Response)
-  expect(responseParams[0].status).toBe(201)
+  expect(responseParams.response).toBeInstanceOf(Response)
+  expect(responseParams.response.status).toBe(201)
   // Note that Express infers status texts from the code.
-  expect(responseParams[0].statusText).toBe('Created')
+  expect(responseParams.response.statusText).toBe('Created')
   // Express also adds whitespace between the header pairs.
-  expect(responseParams[0].headers.get('Content-Type')).toBe(
+  expect(responseParams.response.headers.get('Content-Type')).toBe(
     'text/plain; charset=utf-8'
   )
-  expect(responseParams[0].bodyUsed).toBe(false)
-  expect(await responseParams[0].text()).toBe('original response')
+  expect(responseParams.response.bodyUsed).toBe(false)
+  expect(await responseParams.response.text()).toBe('original response')
 
   // Response listener must provide a relevant request.
-  expect(responseParams[1]).toBeInstanceOf(Request)
-  expect(responseParams[1].method).toBe('GET')
-  expect(responseParams[1].url).toBe(server.http.url('/bypassed'))
+  expect(responseParams.request).toBeInstanceOf(Request)
+  expect(responseParams.request.method).toBe('GET')
+  expect(responseParams.request.url).toBe(server.http.url('/bypassed'))
 
   // The last argument of the response listener is the request ID.
-  expect(responseParams[2]).toMatch(UUID_REGEXP)
+  expect(responseParams.requestId).toMatch(UUID_REGEXP)
 })

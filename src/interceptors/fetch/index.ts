@@ -39,14 +39,17 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         'emitting the "request" event for %d listener(s)...',
         this.emitter.listenerCount('request')
       )
-      this.emitter.emit('request', interactiveRequest, requestId)
+      this.emitter.emit('request', {
+        request: interactiveRequest,
+        requestId,
+      })
 
       this.logger.info('awaiting for the mocked response...')
 
       const resolverResult = await until(async () => {
         await this.emitter.untilIdle(
           'request',
-          ({ args: [, pendingRequestId] }) => {
+          ({ args: [{ requestId: pendingRequestId }] }) => {
             return pendingRequestId === requestId
           }
         )
@@ -69,14 +72,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       if (mockedResponse && !request.signal?.aborted) {
         this.logger.info('received mocked response:', mockedResponse)
-        const responseCloine = mockedResponse.clone()
+        const responseClone = mockedResponse.clone()
 
-        this.emitter.emit(
-          'response',
-          responseCloine,
-          interactiveRequest,
-          requestId
-        )
+        this.emitter.emit('response', {
+          response: responseClone,
+          isMockedResponse: true,
+          request: interactiveRequest,
+          requestId,
+        })
 
         const response = new Response(mockedResponse.body, mockedResponse)
 
@@ -97,12 +100,12 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         const responseClone = response.clone()
         this.logger.info('original fetch performed', responseClone)
 
-        this.emitter.emit(
-          'response',
-          responseClone,
-          interactiveRequest,
-          requestId
-        )
+        this.emitter.emit('response', {
+          response: responseClone,
+          isMockedResponse: false,
+          request: interactiveRequest,
+          requestId,
+        })
 
         return response
       })
