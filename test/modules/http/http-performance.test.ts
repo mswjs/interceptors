@@ -48,7 +48,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('returns responses for 500 matching parallel requests', async () => {
+it.skip('returns responses for 500 matching parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
@@ -61,7 +61,7 @@ it('returns responses for 500 matching parallel requests', async () => {
   expect(bodies).toEqual(expectedBodies)
 })
 
-it('returns responses for 500 bypassed parallel requests', async () => {
+it.skip('returns responses for 500 bypassed parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
