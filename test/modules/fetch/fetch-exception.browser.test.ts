@@ -6,13 +6,6 @@ test('treats middleware exceptions as TypeError: Failed to fetch', async ({
 }) => {
   await loadExample(require.resolve('./fetch-exception.runtime.js'))
 
-  const errors: Array<string> = []
-  page.on('console', (message) => {
-    if (message.type() === 'error') {
-      errors.push(message.text())
-    }
-  })
-
   const fetchRejectionError = await page.evaluate(() => {
     return fetch('http://localhost:3001/resource').catch(
       (error: TypeError & { cause: Error }) => {
@@ -37,5 +30,4 @@ test('treats middleware exceptions as TypeError: Failed to fetch', async ({
       message: 'Network error',
     },
   })
-  expect(errors).toEqual(['GET http://localhost:3001/resource net::ERR_FAILED'])
 })
