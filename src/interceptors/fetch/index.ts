@@ -77,6 +77,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
         this.emitter.emit('response', {
           response: responseClone,
+          isMockedResponse: true,
           request: interactiveRequest,
           requestId,
         })
@@ -102,6 +103,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
         this.emitter.emit('response', {
           response: responseClone,
+          isMockedResponse: false,
           request: interactiveRequest,
           requestId,
         })

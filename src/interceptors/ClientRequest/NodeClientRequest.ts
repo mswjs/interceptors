@@ -229,6 +229,7 @@ export class NodeClientRequest extends ClientRequest {
         this.logger.info('emitting the custom "response" event...')
         this.emitter.emit('response', {
           response: responseClone,
+          isMockedResponse: true,
           request: capturedRequest,
           requestId,
         })
@@ -247,6 +248,7 @@ export class NodeClientRequest extends ClientRequest {
         this.logger.info('emitting the custom "response" event...')
         this.emitter.emit('response', {
           response: createResponse(message),
+          isMockedResponse: false,
           request: capturedRequest,
           requestId,
         })

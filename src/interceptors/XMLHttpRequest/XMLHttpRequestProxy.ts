@@ -112,11 +112,12 @@ export function createXMLHttpRequestProxy({
         )
       }
 
-      requestController.onResponse = async function (
+      requestController.onResponse = async function ({
         response,
+        isMockedResponse,
         request,
-        requestId
-      ) {
+        requestId,
+      }) {
         this.logger.info(
           'emitting the "response" event for %s listener(s)...',
           emitter.listenerCount('response')
@@ -124,6 +125,7 @@ export function createXMLHttpRequestProxy({
 
         emitter.emit('response', {
           response,
+          isMockedResponse,
           request,
           requestId,
         })

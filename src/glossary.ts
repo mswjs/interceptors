@@ -14,6 +14,7 @@ export type HttpRequestEventMap = {
   response: [
     args: {
       response: Response
+      isMockedResponse: boolean
       request: Request
       requestId: string
     }

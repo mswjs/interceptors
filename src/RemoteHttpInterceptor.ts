@@ -209,6 +209,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
           // not to rely on the back-and-forth signaling for the sake of the event.
           this.emitter.emit('response', {
             response: responseClone,
+            isMockedResponse: true,
             request: capturedRequest,
             requestId: requestJson.id,
           })
