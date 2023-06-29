@@ -47,7 +47,7 @@ export function createXMLHttpRequestProxy({
         logger
       )
 
-      requestController.onRequest = async function (request, requestId) {
+      requestController.onRequest = async function ({ request, requestId }) {
         // Notify the consumer about a new request.
         const interactiveRequest = toInteractiveRequest(request)
 

@@ -25,8 +25,10 @@ export class XMLHttpRequestController {
   public requestId?: string
   public onRequest?: (
     this: XMLHttpRequestController,
-    request: Request,
-    requestId: string
+    args: {
+      request: Request
+      requestId: string
+    }
   ) => Promise<void>
   public onResponse?: (
     this: XMLHttpRequestController,
@@ -153,8 +155,10 @@ export class XMLHttpRequestController {
             // Delegate request handling to the consumer.
             const fetchRequest = this.toFetchApiRequest()
             const onceRequestSettled =
-              this.onRequest?.call(this, fetchRequest, this.requestId!) ||
-              Promise.resolve()
+              this.onRequest?.call(this, {
+                request: fetchRequest,
+                requestId: this.requestId!,
+              }) || Promise.resolve()
 
             onceRequestSettled.finally(() => {
               // If the consumer didn't handle the request perform it as-is.
