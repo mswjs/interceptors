@@ -69,7 +69,7 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
   expect(resolver).toHaveBeenCalledTimes(2)
 
   // Intercepted initial request.
-  const [initialRequest] = resolver.mock.calls[0]
+  const [{ request: initialRequest }] = resolver.mock.calls[0]
 
   expect(initialRequest.method).toBe('POST')
   expect(initialRequest.url).toBe(server.https.url('/resource'))
@@ -79,7 +79,7 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
   expect(await initialRequest.json()).toEqual({ todo: 'Buy the milk' })
 
   // Intercepted redirect request (issued by "follow-redirects").
-  const [redirectedRequest] = resolver.mock.calls[1]
+  const [{ request: redirectedRequest }] = resolver.mock.calls[1]
 
   expect(redirectedRequest.method).toBe('POST')
   expect(redirectedRequest.url).toBe(server.https.url('/user'))

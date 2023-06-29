@@ -44,7 +44,7 @@ const interceptor = new BatchInterceptor({
   ],
 })
 
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   const url = new URL(request.url)
 
   if (url.pathname === '/user') {
@@ -97,7 +97,7 @@ it('ClientRequest: emits the "response" event for a mocked response', async () =
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
-  const [response, request] = responseListener.mock.calls[0]
+  const [{ response, request }] = responseListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user'))
@@ -128,7 +128,7 @@ it('ClientRequest: emits the "response" event upon the original response', async
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
-  const [response, request] = responseListener.mock.calls[0]
+  const [{ response, request }] = responseListener.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/account'))
@@ -154,8 +154,8 @@ it('XMLHttpRequest: emits the "response" event upon a mocked response', async ()
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
-  const [response, request] = responseListener.mock.calls.find(
-    ([_, request]) => {
+  const [{ response, request }] = responseListener.mock.calls.find(
+    ([{ request }]) => {
       // The first response event will be from the "OPTIONS" preflight request.
       return request.method === 'GET'
     }
@@ -195,8 +195,8 @@ it('XMLHttpRequest: emits the "response" event upon the original response', asyn
   expect(responseListener).toHaveBeenCalledTimes(1)
 
   // Lookup the correct response listener call.
-  const [response, request] = responseListener.mock.calls.find(
-    ([_, request]) => {
+  const [{ response, request }] = responseListener.mock.calls.find(
+    ([{ request }]) => {
       return request.method === 'POST'
     }
   )!
@@ -231,7 +231,7 @@ it('fetch: emits the "response" event upon a mocked response', async () => {
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
-  const [response, request] = responseListener.mock.calls[0]
+  const [{ response, request }] = responseListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user'))
@@ -262,7 +262,7 @@ it('fetch: emits the "response" event upon the original response', async () => {
     expect(responseListener).toHaveBeenCalledTimes(1)
   })
 
-  const [response, request] = responseListener.mock.calls[0]
+  const [{ response, request }] = responseListener.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/account'))

@@ -48,7 +48,7 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [capturedRequest, requestId] = resolver.mock.calls[0]
+  const [{ request: capturedRequest, requestId }] = resolver.mock.calls[0]
 
   expect(capturedRequest.method).toBe('POST')
   expect(capturedRequest.url).toBe(httpServer.http.url('/user'))

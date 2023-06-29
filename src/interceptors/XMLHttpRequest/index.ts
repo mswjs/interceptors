@@ -5,10 +5,10 @@ import { Interceptor } from '../../Interceptor'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { createXMLHttpRequestProxy } from './XMLHttpRequestProxy'
 
-export type XMLHttpRequestEventListener = (
-  request: InteractiveRequest,
+export type XMLHttpRequestEventListener = (args: {
+  request: InteractiveRequest
   requestId: string
-) => Promise<void> | void
+}) => Promise<void> | void
 
 export type XMLHttpRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
 

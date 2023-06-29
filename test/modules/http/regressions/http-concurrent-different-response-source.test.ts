@@ -12,7 +12,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', async (request) => {
+interceptor.on('request', async ({ request }) => {
   if (request.headers.get('x-bypass')) {
     return
   }

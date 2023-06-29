@@ -23,7 +23,7 @@ afterAll(async () => {
 })
 
 it('allows modifying the outgoing request headers', async () => {
-  interceptor.on('request', (request) => {
+  interceptor.on('request', ({ request }) => {
     request.headers.set('X-Appended-Header', 'modified')
   })
 

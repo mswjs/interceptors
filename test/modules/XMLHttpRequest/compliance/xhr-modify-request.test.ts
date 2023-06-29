@@ -39,7 +39,7 @@ afterAll(async () => {
 })
 
 it('allows modifying outgoing request headers', async () => {
-  interceptor.on('request', (request) => {
+  interceptor.on('request', ({ request }) => {
     request.headers.delete('X-Delete-Header')
     request.headers.append('X-Append-Header', '2')
     request.headers.set('X-Set-Header', 'new-value')

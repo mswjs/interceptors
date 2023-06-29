@@ -15,7 +15,7 @@ const httpServer = new HttpServer((app) => {
 const interceptedRequestBody = vi.fn()
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', async (request) => {
+interceptor.on('request', async ({ request }) => {
   interceptedRequestBody(await request.clone().text())
 })
 

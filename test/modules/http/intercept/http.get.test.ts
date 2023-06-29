@@ -41,7 +41,7 @@ it('intercepts an http.get request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [request, requestId] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url)
@@ -70,7 +70,7 @@ it('intercepts an http.get request given RequestOptions without a protocol', asy
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [request, requestId] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))

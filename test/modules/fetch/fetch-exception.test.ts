@@ -8,7 +8,7 @@ beforeAll(() => {
   vi.spyOn(console, 'error').mockImplementation(() => void 0)
 
   interceptor.apply()
-  interceptor.on('request', (request) => {
+  interceptor.on('request', () => {
     throw new Error('Network error')
   })
 })

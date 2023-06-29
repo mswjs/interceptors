@@ -46,7 +46,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
 
     let handleParentMessage: NodeJS.MessageListener
 
-    this.on('request', async (request, requestId) => {
+    this.on('request', async ({ request, requestId }) => {
       // Send the stringified intercepted request to
       // the parent process where the remote resolver is established.
       const serializedRequest = JSON.stringify({
@@ -169,10 +169,14 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
       const interactiveRequest = toInteractiveRequest(capturedRequest)
 
-      this.emitter.emit('request', interactiveRequest, requestJson.id)
+      this.emitter.emit('request', {
+        request: interactiveRequest,
+        requestId: requestJson.id,
+      })
+
       await this.emitter.untilIdle(
         'request',
-        ({ args: [, pendingRequestId] }) => {
+        ({ args: [{ requestId: pendingRequestId }] }) => {
           return pendingRequestId === requestJson.id
         }
       )
@@ -203,12 +207,11 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
           // Emit an optimistic "response" event at this point,
           // not to rely on the back-and-forth signaling for the sake of the event.
-          this.emitter.emit(
-            'response',
-            responseClone,
-            capturedRequest,
-            requestJson.id
-          )
+          this.emitter.emit('response', {
+            response: responseClone,
+            request: capturedRequest,
+            requestId: requestJson.id,
+          })
         }
       )
 

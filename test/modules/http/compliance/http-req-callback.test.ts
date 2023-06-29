@@ -13,7 +13,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   if ([httpServer.https.url('/get')].includes(request.url)) {
     return
   }

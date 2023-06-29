@@ -59,7 +59,7 @@ it('ClientRequest: emits the "request" event upon the request', async () => {
 
   expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [request, requestId] = requestListener.mock.calls[0]
+  const [{ request, requestId }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
@@ -87,7 +87,7 @@ it('XMLHttpRequest: emits the "request" event upon the request', async () => {
    */
   expect(requestListener).toHaveBeenCalledTimes(2)
 
-  const [request, requestId] = requestListener.mock.calls[0]
+  const [{ request, requestId }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)

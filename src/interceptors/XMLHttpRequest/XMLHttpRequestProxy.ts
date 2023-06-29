@@ -55,14 +55,17 @@ export function createXMLHttpRequestProxy({
           'emitting the "request" event for %s listener(s)...',
           emitter.listenerCount('request')
         )
-        emitter.emit('request', interactiveRequest, requestId)
+        emitter.emit('request', {
+          request: interactiveRequest,
+          requestId,
+        })
 
         this.logger.info('awaiting mocked response...')
 
         const resolverResult = await until(async () => {
           await emitter.untilIdle(
             'request',
-            ({ args: [, pendingRequestId] }) => {
+            ({ args: [{ requestId: pendingRequestId }] }) => {
               return pendingRequestId === requestId
             }
           )
@@ -119,7 +122,11 @@ export function createXMLHttpRequestProxy({
           emitter.listenerCount('response')
         )
 
-        emitter.emit('response', response, request, requestId)
+        emitter.emit('response', {
+          response,
+          request,
+          requestId,
+        })
       }
 
       // Return the proxied request from the controller

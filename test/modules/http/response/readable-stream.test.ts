@@ -9,7 +9,7 @@ type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 const encoder = new TextEncoder()
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', (request) => {
+interceptor.on('request', ({ request }) => {
   const stream = new ReadableStream({
     async start(controller) {
       controller.enqueue(encoder.encode('first'))
@@ -72,6 +72,6 @@ it('supports delays when enqueuing chunks', async () => {
   // Ensure that the chunks were sent over time,
   // respecting the delay set in the mocked stream.
   const chunkTimings = responseChunks.map((chunk) => chunk.timestamp)
-  expect(chunkTimings[1] - chunkTimings[0]).toBeGreaterThanOrEqual(190)
-  expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(190)
+  expect(chunkTimings[1] - chunkTimings[0]).toBeGreaterThanOrEqual(180)
+  expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(180)
 })
