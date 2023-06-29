@@ -147,3 +147,16 @@ it('spies on method calls', () => {
     expect.any(Function)
   )
 })
+
+it('proxies properties on the prototype level', () => {
+  const method = vi.fn()
+  const prototype = { method }
+
+  const proxy = createProxy(Object.create(prototype), {})
+  const proxyMethod = vi.fn()
+  proxy.method = proxyMethod
+
+  prototype.method()
+  expect(method).toHaveBeenCalledTimes(0)
+  expect(proxyMethod).toHaveBeenCalledTimes(1)
+})

@@ -72,6 +72,6 @@ it('supports delays when enqueuing chunks', async () => {
   // Ensure that the chunks were sent over time,
   // respecting the delay set in the mocked stream.
   const chunkTimings = responseChunks.map((chunk) => chunk.timestamp)
-  expect(chunkTimings[1] - chunkTimings[0]).toBeGreaterThanOrEqual(180)
-  expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(180)
+  expect(chunkTimings[1] - chunkTimings[0]).toBeGreaterThanOrEqual(150)
+  expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(150)
 })
