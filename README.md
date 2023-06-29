@@ -122,9 +122,12 @@ interceptor.on('request', ({ request, requestId }) => {
 
 // Listen to any responses sent to "http.ClientRequest".
 // Note that this listener is read-only and cannot affect responses.
-interceptor.on('response', ({ response, request, requestId }) => {
-  console.log('response to %s %s was:', request.method, request.url, response)
-})
+interceptor.on(
+  'response',
+  ({ response, isMockedResponse, request, requestId }) => {
+    console.log('response to %s %s was:', request.method, request.url, response)
+  }
+)
 ```
 
 All HTTP request interceptors implement the same events:
@@ -272,6 +275,21 @@ interceptor.on('request', async ({ request, requestId }) => {
   request.respondWith(new Response(null, { status: 500 }))
 })
 ```
+
+## Observing responses
+
+You can use the "response" event to transparently observe any incoming responses in your Node.js process.
+
+```js
+interceptor.on(
+  'response',
+  ({ response, isMockedResponse, request, requestId }) => {
+    // react to the incoming response...
+  }
+)
+```
+
+> Note that the `isMockedResponse` property will only be set to `true` if you resolved this request in the "request" event listener using the `request.respondWith()` method and providing a mocked `Response` instance.
 
 ## API
 
