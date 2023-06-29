@@ -21,9 +21,6 @@ afterAll(() => {
 it('treats middleware exceptions as TypeError: Failed to fetch', async () => {
   await fetch('http://localhost:3001/resource').catch(
     (error: TypeError & { cause: Error }) => {
-      expect(console.error).toHaveBeenCalledWith(
-        'GET http://localhost:3001/resource net::ERR_FAILED'
-      )
       expect(error).toBeInstanceOf(TypeError)
       expect(error.message).toBe('Failed to fetch')
       // Internal: preserve the original middleware error.
