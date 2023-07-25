@@ -48,7 +48,6 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       const options: NodeClientOptions = {
         emitter: this.emitter,
         logger: this.logger,
-        registerSignal: (signal) => controllerManager.registerSignal(signal),
       }
 
       // @ts-ignore

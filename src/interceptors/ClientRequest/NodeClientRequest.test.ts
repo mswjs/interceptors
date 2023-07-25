@@ -27,7 +27,6 @@ const httpServer = new HttpServer((app) => {
 })
 
 const logger = new Logger('test')
-const registerSignal = () => {}
 
 beforeAll(async () => {
   await httpServer.listen()
@@ -46,7 +45,6 @@ it('gracefully finishes the request when it has a mocked response', async () => 
     {
       emitter,
       logger,
-      registerSignal
     }
   )
 
@@ -96,7 +94,6 @@ it('responds with a mocked response when requesting an existing hostname', async
     {
       emitter,
       logger,
-      registerSignal
     }
   )
 
@@ -127,7 +124,6 @@ it('performs the request as-is given resolver returned no mocked response', asyn
     {
       emitter,
       logger,
-      registerSignal
     }
   )
 
@@ -154,7 +150,7 @@ it('emits the ENOTFOUND error connecting to a non-existing hostname given no moc
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
-    { emitter, logger, registerSignal }
+    { emitter, logger }
   )
   request.end()
 
@@ -175,7 +171,6 @@ it('emits the ECONNREFUSED error connecting to an inactive server given no mocke
     {
       emitter,
       logger,
-      registerSignal
     }
   )
 
@@ -200,7 +195,7 @@ it('does not emit ENOTFOUND error connecting to an inactive server given mocked 
   const handleError = vi.fn()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
-    { emitter, logger, registerSignal }
+    { emitter, logger }
   )
 
   emitter.on('request', async ({ request }) => {
@@ -233,7 +228,6 @@ it('does not emit ECONNREFUSED error connecting to an inactive server given mock
     {
       emitter,
       logger,
-      registerSignal
     }
   )
 
@@ -270,7 +264,6 @@ it('sends the request body to the server given no mocked response', async () => 
     {
       emitter,
       logger,
-      registerSignal
     }
   )
 
@@ -299,7 +292,6 @@ it('does not send request body to the original server given mocked response', as
     {
       emitter,
       logger,
-      registerSignal
     }
   )
 
@@ -334,7 +326,6 @@ it('abort the request when the interceptor is disposed', async () => {
     {
       emitter,
       logger,
-      registerSignal
     }
   )
 

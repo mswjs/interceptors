@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { AbortControllerManager } from '../../utils/AbortControllerManager'
 import { FetchInterceptor } from './index'
 
 describe('FetchInterceptor', () => {
@@ -154,5 +155,22 @@ describe('FetchInterceptor', () => {
     // requests.forEach(request => request.end())
 
     await Promise.all(requestsAborted)
+  })
+
+  it('signal is forgotten when the request ends', async () => {
+    const requestUrl = httpServer.http.url('/')
+
+    interceptor.on('request', function requestListener({ request }) {
+      request.respondWith(new Response())
+    })
+
+    const abortController = new AbortController()
+    const response = fetch(requestUrl, { signal: abortController.signal })
+
+    await response
+
+    const manager = new AbortControllerManager()
+    expect(manager.isRegistered(abortController)).toBeFalsy()
+    expect(manager.isReferenced(abortController)).toBeFalsy()
   })
 })

@@ -3,6 +3,7 @@ import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '.'
+import { AbortControllerManager } from '../../utils/AbortControllerManager'
 
 describe('ClientRequestInterceptor', () => {
   const httpServer = new HttpServer((app) => {
@@ -160,5 +161,27 @@ describe('ClientRequestInterceptor', () => {
     requests.forEach(request => request.end())
 
     await Promise.all(requestsAborted)
+  })
+
+  it('signal is forgotten when the request ends', async () => {
+    const requestUrl = httpServer.http.url('/')
+
+    interceptor.on('request', function requestListener({ request }) {
+      request.respondWith(new Response())
+    })
+
+    const controller = new AbortController()
+    const request = http.get(requestUrl, { signal: controller.signal })
+
+    const responseReceived = new DeferredPromise<http.IncomingMessage>()
+    request.on('response', (response) => {
+      responseReceived.resolve(response)
+    })
+
+    await responseReceived
+
+    const manager = new AbortControllerManager()
+    expect(manager.isRegistered(controller)).toBeFalsy()
+    expect(manager.isReferenced(controller)).toBeFalsy()
   })
 })

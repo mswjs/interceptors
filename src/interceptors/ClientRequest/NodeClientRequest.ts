@@ -1,7 +1,9 @@
 import { ClientRequest, IncomingMessage } from 'http'
 import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
+import { invariant } from 'outvariant'
 import type { ClientRequestEmitter } from '.'
+import { AbortControllerManager } from '../../utils/AbortControllerManager'
 import {
   ClientRequestEndCallback,
   ClientRequestEndChunk,
@@ -24,7 +26,6 @@ export type Protocol = 'http' | 'https'
 export interface NodeClientOptions {
   emitter: ClientRequestEmitter
   logger: Logger
-  registerSignal: (signal: AbortSignal) => void
 }
 
 export class NodeClientRequest extends ClientRequest {
@@ -39,6 +40,7 @@ export class NodeClientRequest extends ClientRequest {
     'EAI_AGAIN',
   ]
 
+  private forgetSignal: () => void
   private response: IncomingMessage
   private emitter: ClientRequestEmitter
   private logger: Logger
@@ -56,7 +58,22 @@ export class NodeClientRequest extends ClientRequest {
     [url, requestOptions, callback]: NormalizedClientRequestArgs,
     options: NodeClientOptions
   ) {
-    super(requestOptions, callback)
+    const augmentedRequestOptions = { ...requestOptions }
+
+    if (!augmentedRequestOptions.signal) {
+      const abortController = new AbortController()
+      augmentedRequestOptions.signal = abortController.signal
+    }
+
+    super(augmentedRequestOptions, callback)
+
+    const controllerManager = new AbortControllerManager()
+
+    const { signal } = augmentedRequestOptions
+    invariant(signal, "Missing AbortSignal")
+
+    controllerManager.registerSignal(signal);
+    this.forgetSignal = () => queueMicrotask(() => controllerManager.forgetSignal(signal))
 
     this.logger = options.logger.extend(
       `request ${requestOptions.method} ${url.href}`
@@ -236,6 +253,7 @@ export class NodeClientRequest extends ClientRequest {
         })
 
         this.logger.info('request (mock) is completed')
+        this.forgetSignal()
 
         return this
       }

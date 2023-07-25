@@ -68,7 +68,7 @@ describe('AbortControllerManager', () => {
     expect(manager.isRegistered(controller)).toBeTruthy()
   })
 
-  test('calling dispose restore the AbortController and clear the maps', () => {
+  test('calling dispose() restore the AbortController and clear the maps', () => {
     manager.decorate()
 
     const controller = new AbortController()
@@ -92,7 +92,7 @@ describe('AbortControllerManager', () => {
     expect(manager).toBe(manager2)
   })
 
-  test('calling abortAll abort all registered controllers', () => {
+  test('calling abortAll() abort all registered controllers', () => {
     manager.decorate()
 
     const controller = new AbortController()
@@ -109,7 +109,7 @@ describe('AbortControllerManager', () => {
     expect(controller3.signal.aborted).toBeFalsy()
   })
 
-  test('calling dispose abort all registered controllers', () => {
+  test('calling dispose() abort all registered controllers', () => {
     manager.decorate()
 
     const controller = new AbortController()
@@ -124,5 +124,22 @@ describe('AbortControllerManager', () => {
     expect(controller.signal.aborted).toBeTruthy()
     expect(controller2.signal.aborted).toBeTruthy()
     expect(controller3.signal.aborted).toBeFalsy()
+  })
+
+
+  test('calling forget() removes the controller from the references map and registration map', () => {
+    manager.decorate()
+
+    const controller = new AbortController()
+
+    manager.registerSignal(controller.signal)
+
+    expect(manager.isReferenced(controller)).toBeTruthy()
+    expect(manager.isRegistered(controller)).toBeTruthy()
+
+    manager.forgetSignal(controller.signal)
+
+    expect(manager.isReferenced(controller)).toBeFalsy()
+    expect(manager.isRegistered(controller)).toBeFalsy()
   })
 })

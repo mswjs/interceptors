@@ -41,7 +41,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         augmentedInit.signal = abortController.signal;
       }
 
-      controllerManager.registerSignal(augmentedInit.signal);
+      const { signal } = augmentedInit
+      invariant(signal, "Missing AbortSignal")
+
+      controllerManager.registerSignal(signal);
 
       const requestId = uuidv4()
       const request = new Request(input, augmentedInit)
@@ -75,6 +78,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
         return mockedResponse
       })
+
+      queueMicrotask(() => controllerManager.forgetSignal(signal))
 
       if (resolverResult.error) {
         const error = Object.assign(new TypeError('Failed to fetch'), {

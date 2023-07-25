@@ -103,7 +103,7 @@ export class AbortControllerManager {
      * Case (1) means this controller is outside of the scope of MSW,
      * therefore it is not the responsibility of the interceptor to handle its behavior during shutdown.
      *
-     * Case (2) means the last ref to AbortController.signal has been dropped before the request was sent.
+     * Case (2) means the last ref to AbortController.signal has been dropped before the request was intercepted.
      * This indicates that the test might be flaky and the user may benefit from a warning by
      * the test runner about open handles.
      * For this reason it is correct to not handle its behavior during shutdown.
@@ -122,6 +122,11 @@ export class AbortControllerManager {
 
     this.registeredAbortControllers.set(signal, controller)
     return true
+  }
+
+  forgetSignal(signal: AbortSignal) {
+    this.referencedAbortControllers.delete(signal);
+    this.registeredAbortControllers.delete(signal);
   }
 
   isDecorated() {
