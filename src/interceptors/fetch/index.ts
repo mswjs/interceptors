@@ -2,6 +2,7 @@ import { invariant } from 'outvariant'
 import { until } from '@open-draft/until'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
+import { AbortControllerManager } from '../../utils/AbortControllerManager'
 import { uuidv4 } from '../../utils/uuid'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 
@@ -27,9 +28,23 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       'Failed to patch the "fetch" module: already patched.'
     )
 
+    const controllerManager = new AbortControllerManager()
+    this.subscriptions.push(() => controllerManager.dispose())
+
+    controllerManager.decorate()
+
     globalThis.fetch = async (input, init) => {
+      const augmentedInit = { ...init }
+
+      if (!augmentedInit.signal) {
+        const abortController = new AbortController();
+        augmentedInit.signal = abortController.signal;
+      }
+
+      controllerManager.registerSignal(augmentedInit.signal);
+
       const requestId = uuidv4()
-      const request = new Request(input, init)
+      const request = new Request(input, augmentedInit)
 
       this.logger.info('[%s] %s', request.method, request.url)
 

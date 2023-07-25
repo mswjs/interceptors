@@ -24,6 +24,7 @@ export type Protocol = 'http' | 'https'
 export interface NodeClientOptions {
   emitter: ClientRequestEmitter
   logger: Logger
+  registerSignal: (signal: AbortSignal) => void
 }
 
 export class NodeClientRequest extends ClientRequest {

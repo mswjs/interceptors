@@ -15,6 +15,16 @@ export function get(protocol: Protocol, options: NodeClientOptions) {
       `${protocol}:`,
       ...args
     )
+
+    const [, requestOptions] = clientRequestArgs;
+
+    if (!requestOptions.signal) {
+      const abortController = new AbortController();
+      requestOptions.signal = abortController.signal;
+    }
+
+    options.registerSignal(requestOptions.signal);
+
     const request = new NodeClientRequest(clientRequestArgs, options)
 
     /**

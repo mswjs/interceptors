@@ -27,6 +27,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const logger = new Logger('test')
+const registerSignal = () => {}
 
 beforeAll(async () => {
   await httpServer.listen()
@@ -45,6 +46,7 @@ it('gracefully finishes the request when it has a mocked response', async () => 
     {
       emitter,
       logger,
+      registerSignal
     }
   )
 
@@ -94,6 +96,7 @@ it('responds with a mocked response when requesting an existing hostname', async
     {
       emitter,
       logger,
+      registerSignal
     }
   )
 
@@ -124,6 +127,7 @@ it('performs the request as-is given resolver returned no mocked response', asyn
     {
       emitter,
       logger,
+      registerSignal
     }
   )
 
@@ -150,7 +154,7 @@ it('emits the ENOTFOUND error connecting to a non-existing hostname given no moc
   const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
-    { emitter, logger }
+    { emitter, logger, registerSignal }
   )
   request.end()
 
@@ -171,6 +175,7 @@ it('emits the ECONNREFUSED error connecting to an inactive server given no mocke
     {
       emitter,
       logger,
+      registerSignal
     }
   )
 
@@ -195,7 +200,7 @@ it('does not emit ENOTFOUND error connecting to an inactive server given mocked 
   const handleError = vi.fn()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
-    { emitter, logger }
+    { emitter, logger, registerSignal }
   )
 
   emitter.on('request', async ({ request }) => {
@@ -228,6 +233,7 @@ it('does not emit ECONNREFUSED error connecting to an inactive server given mock
     {
       emitter,
       logger,
+      registerSignal
     }
   )
 
@@ -264,6 +270,7 @@ it('sends the request body to the server given no mocked response', async () => 
     {
       emitter,
       logger,
+      registerSignal
     }
   )
 
@@ -292,6 +299,42 @@ it('does not send request body to the original server given mocked response', as
     {
       emitter,
       logger,
+      registerSignal
+    }
+  )
+
+  emitter.on('request', async ({ request }) => {
+    await sleep(200)
+    request.respondWith(new Response('mock created!', { status: 301 }))
+  })
+
+  request.write('one')
+  request.write('two')
+  request.end()
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(response.statusCode).toBe(301)
+
+  const text = await getIncomingMessageBody(response)
+  expect(text).toBe('mock created!')
+})
+
+
+it('abort the request when the interceptor is disposed', async () => {
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
+      method: 'POST',
+    }),
+    {
+      emitter,
+      logger,
+      registerSignal
     }
   )
 
