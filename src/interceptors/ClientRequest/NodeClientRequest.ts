@@ -73,7 +73,7 @@ export class NodeClientRequest extends ClientRequest {
     invariant(signal, "Missing AbortSignal")
 
     controllerManager.registerSignal(signal);
-    this.forgetSignal = () => queueMicrotask(() => controllerManager.forgetSignal(signal))
+    this.forgetSignal = () => controllerManager.forgetSignal(signal)
 
     this.logger = options.logger.extend(
       `request ${requestOptions.method} ${url.href}`

@@ -79,7 +79,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         return mockedResponse
       })
 
-      queueMicrotask(() => controllerManager.forgetSignal(signal))
+      controllerManager.forgetSignal(signal)
 
       if (resolverResult.error) {
         const error = Object.assign(new TypeError('Failed to fetch'), {
