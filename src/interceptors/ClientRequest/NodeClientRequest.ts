@@ -200,6 +200,7 @@ export class NodeClientRequest extends ClientRequest {
       return mockedResponse
     }).then((resolverResult) => {
       this.logger.info('the listeners promise awaited!')
+      this.forgetSignal()
 
       /**
        * @fixme We are in the "end()" method that still executes in parallel
@@ -253,8 +254,6 @@ export class NodeClientRequest extends ClientRequest {
         })
 
         this.logger.info('request (mock) is completed')
-        this.forgetSignal()
-
         return this
       }
 
