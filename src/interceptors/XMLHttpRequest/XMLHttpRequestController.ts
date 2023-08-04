@@ -15,6 +15,7 @@ import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
 
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
+const isBrowser = typeof window !== 'undefined'
 
 /**
  * An `XMLHttpRequest` instance controller that allows us
@@ -171,7 +172,7 @@ export class XMLHttpRequestController {
                 )
 
                 /**
-                 * @note Set the intercepted request ID on the original request
+                 * @note Set the intercepted request ID on the original request in node js
                  * so that if it triggers any other interceptors, they don't attempt
                  * to process it once again.
                  *
@@ -179,7 +180,9 @@ export class XMLHttpRequestController {
                  * and we don't want for both XHR and ClientRequest interceptors to
                  * handle the same request at the same time (e.g. emit the "response" event twice).
                  */
-                this.request.setRequestHeader('X-Request-Id', this.requestId!)
+                if (!isBrowser) {
+                  this.request.setRequestHeader('X-Request-Id', this.requestId!)
+                }
 
                 return invoke()
               }
