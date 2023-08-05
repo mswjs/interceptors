@@ -1,5 +1,6 @@
 import { invariant } from 'outvariant'
 import { headersToString } from 'headers-polyfill'
+import { isNodeProcess } from 'is-node-process'
 import type { Logger } from '@open-draft/logger'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { createEvent } from './utils/createEvent'
@@ -15,7 +16,7 @@ import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
 
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
-const isBrowser = typeof window !== 'undefined'
+const IS_NODE = isNodeProcess()
 
 /**
  * An `XMLHttpRequest` instance controller that allows us
@@ -180,7 +181,7 @@ export class XMLHttpRequestController {
                  * and we don't want for both XHR and ClientRequest interceptors to
                  * handle the same request at the same time (e.g. emit the "response" event twice).
                  */
-                if (!isBrowser) {
+                if (IS_NODE) {
                   this.request.setRequestHeader('X-Request-Id', this.requestId!)
                 }
 
