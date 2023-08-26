@@ -24,7 +24,7 @@ const IS_NODE = isNodeProcess()
  */
 export class XMLHttpRequestController {
   public request: XMLHttpRequest
-  public requestId?: string
+  public requestId: string
   public onRequest?: (
     this: XMLHttpRequestController,
     args: {
@@ -51,6 +51,7 @@ export class XMLHttpRequestController {
 
   constructor(readonly initialRequest: XMLHttpRequest, public logger: Logger) {
     this.events = new Map()
+    this.requestId = uuidv4()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
 
@@ -81,8 +82,6 @@ export class XMLHttpRequestController {
         switch (methodName) {
           case 'open': {
             const [method, url] = args as [string, string | undefined]
-
-            this.requestId = uuidv4()
 
             if (typeof url === 'undefined') {
               this.method = 'GET'
@@ -173,7 +172,7 @@ export class XMLHttpRequestController {
                 )
 
                 /**
-                 * @note Set the intercepted request ID on the original request in node js
+                 * @note Set the intercepted request ID on the original request in Node.js
                  * so that if it triggers any other interceptors, they don't attempt
                  * to process it once again.
                  *

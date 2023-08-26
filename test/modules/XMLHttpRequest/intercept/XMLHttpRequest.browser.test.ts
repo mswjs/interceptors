@@ -1,30 +1,34 @@
 import { HttpServer } from '@open-draft/test-server/http'
 import { RequestHandler } from 'express-serve-static-core'
 import { test, expect } from '../../../playwright.extend'
+import { invariant } from 'outvariant'
 
 const httpServer = new HttpServer((app) => {
   const strictCorsMiddleware: RequestHandler = (req, res, next) => {
+    invariant(
+      !req.header('x-request-id'),
+      'Found unexpected "X-Request-Id" request header in the browser for "%s %s"',
+      req.method,
+      req.url
+    )
+
     res
       .set('Access-Control-Allow-Origin', req.headers.origin)
       .set('Access-Control-Allow-Methods', 'GET, POST')
-      .set('Access-Control-Allow-Headers', [
-        'content-type',
-        'x-request-id',
-        'x-request-header',
-      ])
+      .set('Access-Control-Allow-Headers', ['content-type', 'x-request-header'])
       .set('Access-Control-Allow-Credentials', 'true')
     return next()
   }
+
+  app.use(strictCorsMiddleware)
 
   const requestHandler: RequestHandler = (req, res) => {
     res.status(200).send('user-body')
   }
 
-  app.options('/user', strictCorsMiddleware, (req, res) =>
-    res.status(200).end()
-  )
-  app.get('/user', strictCorsMiddleware, requestHandler)
-  app.post('/user', strictCorsMiddleware, requestHandler)
+  app.options('/user', (req, res) => res.status(200).end())
+  app.get('/user', requestHandler)
+  app.post('/user', requestHandler)
 })
 
 test.beforeAll(async () => {
@@ -135,15 +139,18 @@ test('sets "credentials" to "same-origin" on isomorphic request when "withCreden
   expect(request.credentials).toBe('same-origin')
 })
 
-test('ignores the body for HEAD requests', async ({ loadExample, callXMLHttpRequest}) => {
+test('ignores the body for HEAD requests', async ({
+  loadExample,
+  callXMLHttpRequest,
+}) => {
   await loadExample(require.resolve('./XMLHttpRequest.browser.runtime.js'))
 
   const url = httpServer.http.url('/user')
   const call = callXMLHttpRequest({
     method: 'HEAD',
     url,
-    body: "test"
-  });
+    body: 'test',
+  })
 
   await expect(call).resolves.not.toThrowError()
 
@@ -151,15 +158,18 @@ test('ignores the body for HEAD requests', async ({ loadExample, callXMLHttpRequ
   expect(request.body).toBe(null)
 })
 
-test('ignores the body for GET requests', async ({ loadExample, callXMLHttpRequest}) => {
+test('ignores the body for GET requests', async ({
+  loadExample,
+  callXMLHttpRequest,
+}) => {
   await loadExample(require.resolve('./XMLHttpRequest.browser.runtime.js'))
 
   const url = httpServer.http.url('/user')
   const call = callXMLHttpRequest({
     method: 'GET',
     url,
-    body: "test"
-  });
+    body: 'test',
+  })
 
   await expect(call).resolves.not.toThrowError()
 
