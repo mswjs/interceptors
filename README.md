@@ -206,7 +206,7 @@ All HTTP request interceptors emit a "request" event. In the listener to this ev
 > There are many ways to describe a request in Node.js but this library coerces different request definitions to a single specification-compliant `Request` instance to make the handling consistent.
 
 ```js
-interceptor.on('reqest', ({ request, requestId }) => {
+interceptor.on('request', ({ request, requestId }) => {
   console.log(request.method, request.url)
 })
 ```
