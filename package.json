@@ -123,6 +123,7 @@
     "got": "^11.8.3",
     "jest": "^27.4.3",
     "node-fetch": "2.6.7",
+    "playwright": "^1.37.1",
     "rimraf": "^3.0.2",
     "simple-git-hooks": "^2.7.0",
     "superagent": "^6.1.0",
