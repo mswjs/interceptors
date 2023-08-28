@@ -140,6 +140,7 @@
     "@open-draft/logger": "^0.3.0",
     "@open-draft/until": "^2.0.0",
     "headers-polyfill": "^3.1.0",
+    "is-node-process": "^1.2.0",
     "outvariant": "^1.2.1",
     "strict-event-emitter": "^0.5.0"
   },

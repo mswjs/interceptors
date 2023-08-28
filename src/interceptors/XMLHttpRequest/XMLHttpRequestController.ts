@@ -1,5 +1,6 @@
 import { invariant } from 'outvariant'
 import { headersToString } from 'headers-polyfill'
+import { isNodeProcess } from 'is-node-process'
 import type { Logger } from '@open-draft/logger'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { createEvent } from './utils/createEvent'
@@ -15,6 +16,7 @@ import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
 
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
+const IS_NODE = isNodeProcess()
 
 /**
  * An `XMLHttpRequest` instance controller that allows us
@@ -22,7 +24,7 @@ const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
  */
 export class XMLHttpRequestController {
   public request: XMLHttpRequest
-  public requestId?: string
+  public requestId: string
   public onRequest?: (
     this: XMLHttpRequestController,
     args: {
@@ -49,6 +51,7 @@ export class XMLHttpRequestController {
 
   constructor(readonly initialRequest: XMLHttpRequest, public logger: Logger) {
     this.events = new Map()
+    this.requestId = uuidv4()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
 
@@ -79,8 +82,6 @@ export class XMLHttpRequestController {
         switch (methodName) {
           case 'open': {
             const [method, url] = args as [string, string | undefined]
-
-            this.requestId = uuidv4()
 
             if (typeof url === 'undefined') {
               this.method = 'GET'
@@ -171,7 +172,7 @@ export class XMLHttpRequestController {
                 )
 
                 /**
-                 * @note Set the intercepted request ID on the original request
+                 * @note Set the intercepted request ID on the original request in Node.js
                  * so that if it triggers any other interceptors, they don't attempt
                  * to process it once again.
                  *
@@ -179,7 +180,9 @@ export class XMLHttpRequestController {
                  * and we don't want for both XHR and ClientRequest interceptors to
                  * handle the same request at the same time (e.g. emit the "response" event twice).
                  */
-                this.request.setRequestHeader('X-Request-Id', this.requestId!)
+                if (IS_NODE) {
+                  this.request.setRequestHeader('X-Request-Id', this.requestId!)
+                }
 
                 return invoke()
               }
