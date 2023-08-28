@@ -35,7 +35,7 @@ jobs:
         run: pnpm build
 
       - name: Node.js tests
-        run: pnpm test:integration:node
+        run: pnpm test:node
 
       - name: Browser tests
-        run: pnpm test:integration:browser
+        run: pnpm test:browser
