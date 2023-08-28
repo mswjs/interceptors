@@ -1,5 +1,3 @@
-import { TextEncoder, TextDecoder } from '../shims/webEncoding'
-
 const encoder = new TextEncoder()
 
 export function encodeBuffer(text: string): Uint8Array {

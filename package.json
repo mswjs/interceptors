@@ -73,16 +73,16 @@
   },
   "scripts": {
     "start": "tsc --build -w",
-    "test": "yarn test:unit && yarn test:integration",
+    "test": "pnpm test:unit && pnpm test:integration",
     "test:unit": "vitest run",
-    "test:integration": "yarn test:integration:node && yarn test:integration:browser",
-    "test:integration:node": "vitest run -c test/vitest.config.js",
-    "test:integration:browser": "playwright test -c test/playwright.config.ts",
+    "test:integration": "pnpm test:node && pnpm test:browser",
+    "test:node": "vitest run -c test/vitest.config.js",
+    "test:browser": "pnpm playwright test -c test/playwright.config.ts",
     "clean": "rimraf lib",
-    "build": "yarn clean && cross-env NODE_ENV=production tsup --splitting",
-    "prepare": "yarn simple-git-hooks init",
+    "build": "pnpm clean && cross-env NODE_ENV=production tsup --splitting",
+    "prepare": "pnpm simple-git-hooks init",
     "release": "release publish",
-    "prepublishOnly": "yarn build && yarn test"
+    "prepublishOnly": "pnpm build && pnpm test"
   },
   "files": [
     "lib",
@@ -123,7 +123,6 @@
     "got": "^11.8.3",
     "jest": "^27.4.3",
     "node-fetch": "2.6.7",
-    "playwright": "^1.37.1",
     "rimraf": "^3.0.2",
     "simple-git-hooks": "^2.7.0",
     "superagent": "^6.1.0",
