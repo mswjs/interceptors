@@ -1,34 +1,41 @@
 name: ci
+
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [18.8.0]
+        node: [18]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
 
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 7.12
+
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: pnpm install
 
       - name: Unit tests
-        run: yarn test:unit
+        run: pnpm test:unit
 
       - name: Build
-        run: yarn build
+        run: pnpm build
 
       - name: Node.js tests
-        run: yarn test:integration:node
+        run: pnpm test:integration:node
 
       - name: Browser tests
-        run: yarn test:integration:browser
+        run: pnpm test:integration:browser

@@ -73,16 +73,16 @@
   },
   "scripts": {
     "start": "tsc --build -w",
-    "test": "yarn test:unit && yarn test:integration",
+    "test": "pnpm test:unit && pnpm test:integration",
     "test:unit": "vitest run",
-    "test:integration": "yarn test:integration:node && yarn test:integration:browser",
+    "test:integration": "pnpm test:integration:node && pnpm test:integration:browser",
     "test:integration:node": "vitest run -c test/vitest.config.js",
     "test:integration:browser": "playwright test -c test/playwright.config.ts",
     "clean": "rimraf lib",
-    "build": "yarn clean && cross-env NODE_ENV=production tsup --splitting",
-    "prepare": "yarn simple-git-hooks init",
+    "build": "pnpm clean && cross-env NODE_ENV=production tsup --splitting",
+    "prepare": "pnpm simple-git-hooks init",
     "release": "release publish",
-    "prepublishOnly": "yarn build && yarn test"
+    "prepublishOnly": "pnpm build && pnpm test"
   },
   "files": [
     "lib",
