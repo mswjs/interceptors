@@ -37,5 +37,8 @@ jobs:
       - name: Node.js tests
         run: pnpm test:node
 
+      - name: Install Playwright browsers
+        run: pnpx playwright install --with-deps
+
       - name: Browser tests
         run: pnpm test:browser
