@@ -38,7 +38,9 @@ it('abort pending requests when manually aborted', async () => {
 
   const request = fetch(requestUrl, { signal: controller.signal })
   request.catch((err) => {
-    expect(err.cause.name).toEqual('AbortError')
+    expect(err.name).toEqual('AbortError')
+    expect(err.code).toEqual(20)
+    expect(err.message).toEqual('This operation was aborted')
     requestAborted.resolve()
   })
 
@@ -46,6 +48,25 @@ it('abort pending requests when manually aborted', async () => {
 
   await requestAborted
 })
+
+it('native', async () => {
+  interceptor.dispose();
+  const requestUrl = httpServer.http.url('/');
+  const controller = new AbortController();
+  const requestAborted = new DeferredPromise<void>();
+
+  const request = fetch(requestUrl, { signal: controller.signal });
+  request.catch((err) => {
+    expect(err.name).toEqual('AbortError')
+    expect(err.code).toEqual(20)
+    expect(err.message).toEqual('This operation was aborted')
+    requestAborted.resolve()
+  });
+
+
+  controller.abort();
+  await requestAborted;
+});
 
 it('abort ongoing requests when manually aborted', async () => {
   const requestUrl = httpServer.http.url('/')
