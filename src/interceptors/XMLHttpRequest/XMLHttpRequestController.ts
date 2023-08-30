@@ -1,5 +1,4 @@
 import { invariant } from 'outvariant'
-import { headersToString } from 'headers-polyfill'
 import { isNodeProcess } from 'is-node-process'
 import type { Logger } from '@open-draft/logger'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
@@ -267,7 +266,13 @@ export class XMLHttpRequestController {
             return ''
           }
 
-          const allHeaders = headersToString(response.headers)
+          const headersList = Array.from(response.headers.entries())
+          const allHeaders = headersList
+            .map(([headerName, headerValue]) => {
+              return `${headerName}: ${headerValue}`
+            })
+            .join('\r\n')
+
           this.logger.info('resolved all response headers to', allHeaders)
 
           return allHeaders
