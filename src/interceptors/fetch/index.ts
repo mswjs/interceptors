@@ -50,7 +50,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       const signal = interactiveRequest.signal
       const requestAbortRejection = new DeferredPromise<string>()
 
-      signal.addEventListener('abort', () => requestAbortRejection.reject())
+      signal.addEventListener('abort', () => requestAbortRejection.reject(signal.reason))
 
       const resolverResult = await until(async () => {
         const allListenerResolved = this.emitter.untilIdle(
@@ -70,7 +70,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         return mockedResponse
       })
 
-      if (resolverResult.error) {
+      if (resolverResult.error || requestAbortRejection.state === 'rejected') {
         return Promise.reject(resolverResult.error)
       }
 

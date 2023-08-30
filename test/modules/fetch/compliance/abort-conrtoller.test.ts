@@ -12,17 +12,22 @@ const httpServer = new HttpServer((app) => {
   app.get('/get', (_req, res) => {
     res.status(200).send('/get')
   })
+  app.get('/delayed', (_req, res) => {
+    setTimeout(() => {
+      res.status(200).send('/delayed')
+    }, 1000);
+  })
 })
 
 const interceptor = new FetchInterceptor()
 
 beforeAll(async () => {
-  // interceptor.apply()
+  interceptor.apply()
   await httpServer.listen()
 })
 
 afterAll(async () => {
-  // interceptor.dispose()
+  interceptor.dispose()
   await httpServer.close()
 })
 
@@ -83,7 +88,7 @@ it('aborts a pending request when the original request is aborted', async () => 
   })
 
   const controller = new AbortController()
-  const request = fetch(httpServer.http.url('/'), {
+  const request = fetch(httpServer.http.url('/delayed'), {
     signal: controller.signal,
   }).then(() => {
     expect.fail('must not return any response')
@@ -92,9 +97,9 @@ it('aborts a pending request when the original request is aborted', async () => 
   request.catch(requestAborted.resolve)
   await requestListenerCalled
 
-  controller.abort()
+  controller.abort(new Error('Custom abort reason'))
 
   const abortError = await requestAborted
-  expect(abortError.name).toBe('AbortError')
-  expect(abortError.message).toEqual('This operation was aborted')
+  expect(abortError.name).toBe('Error')
+  expect(abortError.message).toEqual('Custom abort reason')
 })
