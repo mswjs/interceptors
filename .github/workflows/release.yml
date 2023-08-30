@@ -25,6 +25,7 @@ jobs:
         with:
           node-version: 18.8.0
           always-auth: true
+          registry-url: https://registry.npmjs.org
 
       - uses: pnpm/action-setup@v2
         with:
