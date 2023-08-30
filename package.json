@@ -45,10 +45,10 @@
     },
     "./RemoteHttpInterceptor": {
       "browser": null,
-      "types": "./lib/node/interceptors/RemoteHttpInterceptor.d.ts",
-      "require": "./lib/node/interceptors/RemoteHttpInterceptor.js",
-      "import": "./lib/node/interceptors/RemoteHttpInterceptor.mjs",
-      "default": "./lib/node/interceptors/RemoteHttpInterceptor.js"
+      "types": "./lib/node/RemoteHttpInterceptor.d.ts",
+      "require": "./lib/node/RemoteHttpInterceptor.js",
+      "import": "./lib/node/RemoteHttpInterceptor.mjs",
+      "default": "./lib/node/RemoteHttpInterceptor.js"
     },
     "./presets/node": {
       "browser": null,
