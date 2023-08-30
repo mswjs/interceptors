@@ -101,7 +101,7 @@
     "@commitlint/cli": "^16.0.2",
     "@commitlint/config-conventional": "^16.0.0",
     "@open-draft/test-server": "^0.5.1",
-    "@ossjs/release": "^0.4.0",
+    "@ossjs/release": "^0.5.1",
     "@playwright/test": "^1.37.1",
     "@types/cors": "^2.8.12",
     "@types/express": "^4.17.13",
