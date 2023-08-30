@@ -48,9 +48,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       this.logger.info('awaiting for the mocked response...')
 
       const signal = interactiveRequest.signal
-      const rejectWhenRequestAborted = new DeferredPromise<string>()
+      const requestAbortRejection = new DeferredPromise<string>()
 
-      signal.addEventListener('abort', () => rejectWhenRequestAborted.reject())
+      signal.addEventListener('abort', () => requestAbortRejection.reject())
 
       const resolverResult = await until(async () => {
         const allListenerResolved = this.emitter.untilIdle(
@@ -60,7 +60,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           }
         )
 
-        await Promise.race([rejectWhenRequestAborted, allListenerResolved])
+        await Promise.race([requestAbortRejection, allListenerResolved])
 
         this.logger.info('all request listeners have been resolved!')
 
