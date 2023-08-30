@@ -16,7 +16,12 @@ declare namespace window {
 }
 
 const httpServer = new HttpServer((app) => {
-  app.use(useCors)
+  app.use(useCors, (req, res, next) => {
+    res.set({
+      'Access-Control-Allow-Credentials': 'true',
+    })
+    return next()
+  })
 
   const handleUserRequest: RequestHandler = (_req, res) => {
     res.status(200).send('user-body').end()
