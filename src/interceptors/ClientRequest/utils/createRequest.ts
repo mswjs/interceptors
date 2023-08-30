@@ -1,4 +1,3 @@
-import { Headers } from 'headers-polyfill'
 import type { NodeClientRequest } from '../NodeClientRequest'
 
 /**

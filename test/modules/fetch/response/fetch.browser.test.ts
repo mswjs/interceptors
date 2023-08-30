@@ -1,6 +1,5 @@
 import { HttpServer } from '@open-draft/test-server/http'
 import { Page } from '@playwright/test'
-import { listToHeaders } from 'headers-polyfill'
 import { test, expect } from '../../../playwright.extend'
 import { useCors } from '../../../helpers'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
@@ -68,7 +67,7 @@ test('responds to an HTTP request handled in the resolver', async ({
       }))
     })
   }, httpServer.http.url('/'))
-  const headers = listToHeaders(response.headers)
+  const headers = new Headers(response.headers)
 
   expect(response.url).toBe(httpServer.http.url('/'))
   expect(response.type).toBe('default')
@@ -100,7 +99,7 @@ test('bypasses an HTTP request not handled in the resolver', async ({
       }
     })
   }, httpServer.http.url('/get'))
-  const headers = listToHeaders(response.headers)
+  const headers = new Headers(response.headers)
 
   expect(response.url).toBe(httpServer.http.url('/get'))
   expect(response.type).toBe('cors')
@@ -133,7 +132,7 @@ test('responds to an HTTPS request handled in the resolver', async ({
       }))
     })
   }, httpServer.https.url('/'))
-  const headers = listToHeaders(response.headers)
+  const headers = new Headers(response.headers)
 
   expect(response.url).toBe(httpServer.https.url('/'))
   expect(response.type).toBe('default')
@@ -165,7 +164,7 @@ test('bypasses an HTTPS request not handled in the resolver', async ({
       }
     })
   }, httpServer.https.url('/get'))
-  const headers = listToHeaders(response.headers)
+  const headers = new Headers(response.headers)
 
   expect(response.url).toBe(httpServer.https.url('/get'))
   expect(response.type).toBe('cors')

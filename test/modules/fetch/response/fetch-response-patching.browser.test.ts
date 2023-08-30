@@ -1,6 +1,5 @@
 import { HttpServer } from '@open-draft/test-server/http'
 import { Page } from '@playwright/test'
-import { listToHeaders } from 'headers-polyfill'
 import { test, expect } from '../../../playwright.extend'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 import { useCors } from '../../../helpers'
@@ -50,7 +49,7 @@ test('supports response patching', async ({ loadExample, page }) => {
       })
     })
   })
-  const headers = listToHeaders(res.headers)
+  const headers = new Headers(res.headers)
 
   expect(res.status).toBe(200)
   expect(res.statusText).toBe('OK')
@@ -58,21 +57,30 @@ test('supports response patching', async ({ loadExample, page }) => {
   expect(res.text).toBe('hello world')
 })
 
-test('throws an AbortError, when the request has been aborted', async ({ loadExample, page}) => {
+test('throws an AbortError, when the request has been aborted', async ({
+  loadExample,
+  page,
+}) => {
   await loadExample(require.resolve('./fetch-response-patching.runtime.js'))
   await forwardServerUrl(page)
 
   const result = await page.evaluate(async () => {
-    const controller = new AbortController();
-    const response = fetch('http://localhost/mocked', {signal: controller.signal})
-      .then(
-        () => { throw new Error("Fetch did not reject") },
-        (error) => ({ isDomException: error instanceof DOMException, name: error.name })
-      );
+    const controller = new AbortController()
+    const response = fetch('http://localhost/mocked', {
+      signal: controller.signal,
+    }).then(
+      () => {
+        throw new Error('Fetch did not reject')
+      },
+      (error) => ({
+        isDomException: error instanceof DOMException,
+        name: error.name,
+      })
+    )
     controller.abort()
     return await response
-  });
+  })
 
-  expect(result.name).toBe("AbortError")
+  expect(result.name).toBe('AbortError')
   expect(result.isDomException).toBe(true)
 })

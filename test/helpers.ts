@@ -1,7 +1,6 @@
 import https from 'https'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
-import { objectToHeaders } from 'headers-polyfill'
 import { Page } from '@playwright/test'
 import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
@@ -218,7 +217,7 @@ export async function extractRequestFromPage(page: Page): Promise<Request> {
 
   const request = new Request(requestJson.url, {
     method: requestJson.method,
-    headers: objectToHeaders(requestJson.headers),
+    headers: new Headers(requestJson.headers),
     credentials: requestJson.credentials,
     body: ['GET', 'HEAD'].includes(requestJson.method)
       ? null
