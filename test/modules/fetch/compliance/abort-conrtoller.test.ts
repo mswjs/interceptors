@@ -54,7 +54,35 @@ it('aborts unsent request when the original request is aborted', async () => {
   expect(abortError.message).toBe('This operation was aborted')
 })
 
-it('forwards custom abort reason to the aborted request', async () => {
+
+it('aborts a pending request when the original request is aborted', async () => {
+  const requestListenerCalled = new DeferredPromise<void>()
+  const requestAborted = new DeferredPromise<Error>()
+
+  interceptor.on('request', async ({ request }) => {
+    requestListenerCalled.resolve()
+    await sleep(1_000)
+    request.respondWith(new Response())
+  })
+
+  const controller = new AbortController()
+  const request = fetch(httpServer.http.url('/delayed'), {
+    signal: controller.signal,
+  }).then(() => {
+    expect.fail('must not return any response')
+  })
+
+  request.catch(requestAborted.resolve)
+  await requestListenerCalled
+
+  controller.abort()
+
+  const abortError = await requestAborted
+  expect(abortError.name).toBe('AbortError')
+  expect(abortError.message).toBe('This operation was aborted')
+})
+
+it('forwards custom abort reason to the request if aborted before it starts', async () => {
   interceptor.on('request', () => {
     expect.fail('must not sent the request')
   })
@@ -77,7 +105,8 @@ it('forwards custom abort reason to the aborted request', async () => {
   expect(abortError.message).toBe('Custom abort reason')
 })
 
-it('aborts a pending request when the original request is aborted', async () => {
+
+it('forwards custom abort reason to the request if pending', async () => {
   const requestListenerCalled = new DeferredPromise<void>()
   const requestAborted = new DeferredPromise<Error>()
 

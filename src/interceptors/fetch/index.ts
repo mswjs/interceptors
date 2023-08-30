@@ -70,8 +70,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         return mockedResponse
       })
 
-      if (resolverResult.error || requestAbortRejection.state === 'rejected') {
+      if (requestAbortRejection.state === 'rejected') {
         return Promise.reject(resolverResult.error)
+      }
+
+      if (resolverResult.error) {
+        const error = Object.assign(new TypeError('Failed to fetch'), {
+          cause: resolverResult.error,
+        })
+        return Promise.reject(error)
       }
 
       const mockedResponse = resolverResult.data
