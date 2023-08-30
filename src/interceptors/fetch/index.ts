@@ -48,9 +48,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       this.logger.info('awaiting for the mocked response...')
 
       const signal = interactiveRequest.signal
-      const requestAbortRejection = new DeferredPromise<string>()
+      const requestAborted = new DeferredPromise()
 
-      signal.addEventListener('abort', () => requestAbortRejection.reject(signal.reason))
+      signal.addEventListener('abort', () => {
+        requestAborted.reject(signal.reason)
+      })
 
       const resolverResult = await until(async () => {
         const allListenerResolved = this.emitter.untilIdle(
@@ -60,7 +62,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           }
         )
 
-        await Promise.race([requestAbortRejection, allListenerResolved])
+        await Promise.race([requestAborted, allListenerResolved])
 
         this.logger.info('all request listeners have been resolved!')
 
@@ -70,14 +72,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         return mockedResponse
       })
 
-      if (requestAbortRejection.state === 'rejected') {
-        return Promise.reject(resolverResult.error)
+      if (requestAborted.state === 'rejected') {
+        return Promise.reject(requestAborted.rejectionReason)
       }
 
       if (resolverResult.error) {
         const error = Object.assign(new TypeError('Failed to fetch'), {
           cause: resolverResult.error,
         })
+
         return Promise.reject(error)
       }
 
