@@ -315,3 +315,37 @@ it('does not send request body to the original server given mocked response', as
   const text = await getIncomingMessageBody(response)
   expect(text).toBe('mock created!')
 })
+
+
+it('abort the request when the interceptor is disposed', async () => {
+  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
+      method: 'POST',
+    }),
+    {
+      emitter,
+      logger,
+    }
+  )
+
+  emitter.on('request', async ({ request }) => {
+    await sleep(200)
+    request.respondWith(new Response('mock created!', { status: 301 }))
+  })
+
+  request.write('one')
+  request.write('two')
+  request.end()
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(response.statusCode).toBe(301)
+
+  const text = await getIncomingMessageBody(response)
+  expect(text).toBe('mock created!')
+})

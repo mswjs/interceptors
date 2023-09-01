@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
-import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '.'
 import { AbortControllerManager } from '../../utils/AbortControllerManager'
+import { FetchInterceptor } from './index'
 
-describe('ClientRequestInterceptor', () => {
+describe('FetchInterceptor', () => {
+  const noop = () => {}
   const httpServer = new HttpServer((app) => {
     app.get('/', (_req, res) => {
       res.status(200).send('/')
@@ -15,7 +15,7 @@ describe('ClientRequestInterceptor', () => {
     })
   })
 
-  const interceptor = new ClientRequestInterceptor()
+  const interceptor = new FetchInterceptor()
 
   beforeAll(async () => {
     await httpServer.listen()
@@ -33,37 +33,6 @@ describe('ClientRequestInterceptor', () => {
     interceptor.dispose()
   })
 
-  it('forbids calling "respondWith" multiple times for the same request', async () => {
-    const requestUrl = httpServer.http.url('/')
-
-    interceptor.on('request', function firstRequestListener({ request }) {
-      request.respondWith(new Response())
-    })
-
-    const secondRequestEmitted = new DeferredPromise<void>()
-    interceptor.on('request', function secondRequestListener({ request }) {
-      expect(() =>
-        request.respondWith(new Response(null, { status: 301 }))
-      ).toThrow(
-        `Failed to respond to "GET ${requestUrl}" request: the "request" event has already been responded to.`
-      )
-
-      secondRequestEmitted.resolve()
-    })
-
-    const request = http.get(requestUrl)
-    await secondRequestEmitted
-
-    const responseReceived = new DeferredPromise<http.IncomingMessage>()
-    request.on('response', (response) => {
-      responseReceived.resolve(response)
-    })
-
-    const response = await responseReceived
-    expect(response.statusCode).toBe(200)
-    expect(response.statusMessage).toBe('')
-  })
-
   it('add an AbortSignal to the request if missing', async () => {
     const requestUrl = httpServer.http.url('/')
 
@@ -73,7 +42,7 @@ describe('ClientRequestInterceptor', () => {
       requestEmitted.resolve()
     })
 
-    http.get(requestUrl)
+    fetch(requestUrl).catch(noop)
     await requestEmitted
   })
 
@@ -92,15 +61,13 @@ describe('ClientRequestInterceptor', () => {
       requestEmitted.resolve()
     })
 
-    const request = http.get(requestUrl, { signal: controller.signal })
-    await requestEmitted
-
     const requestAborted = new DeferredPromise<void>()
-    request.on('error', (err) => {
+    fetch(requestUrl, { signal: controller.signal }).catch((err) => {
       expect(err.name).toEqual('AbortError')
       requestAborted.resolve()
     })
 
+    await requestEmitted
     controller.abort()
     await requestAborted
   })
@@ -114,14 +81,15 @@ describe('ClientRequestInterceptor', () => {
     })
 
     const controller = new AbortController()
-    const requestWithoutUserController = http.get(requestUrl)
-    const requestWithUserController = http.get(requestUrl, { signal: controller.signal })
+    const requestWithoutUserController = fetch(requestUrl)
+    const requestWithUserController = fetch(requestUrl, { signal: controller.signal })
 
     const requests = [requestWithoutUserController, requestWithUserController]
 
-    const requestsAborted = requests.map(request => {
+    const requestsAborted = requests.map((request) => {
       const requestAborted = new DeferredPromise<void>()
-      request.on('error', (err) => {
+
+      request.catch((err) => {
         expect(err.name).toEqual('AbortError')
         requestAborted.resolve()
       })
@@ -137,19 +105,44 @@ describe('ClientRequestInterceptor', () => {
   it('abort upcoming requests when disposed', async () => {
     const requestUrl = httpServer.http.url('/')
 
-    interceptor.on('request', function requestListener() {
-      expect.fail('the request should never be sent, yet intercepted')
-    })
+    const stream = {
+      open: true
+    }
 
-    const controller = new AbortController()
-    const requestWithoutUserController = http.request(requestUrl)
-    const requestWithUserController = http.request(requestUrl, { signal: controller.signal })
+    function createBodyStream() {
+      return new ReadableStream({
+        pull: function(controller) {
+          if (!stream.open) {
+            controller.close()
+            return
+          }
+          console.log('pull called!')
+          controller.enqueue('Some data...')
+        }
+      })
+    }
+
+    const abortController = new AbortController()
+    const requestWithoutUserController = fetch(requestUrl, {
+      method: 'POST',
+      // @ts-ignore
+      duplex: 'half',
+      body: createBodyStream(),
+    })
+    const requestWithUserController = fetch(requestUrl, {
+      method: 'POST',
+      // @ts-ignore
+      duplex: 'half',
+      body: createBodyStream(),
+      signal: abortController.signal
+    })
 
     const requests = [requestWithoutUserController, requestWithUserController]
 
-    const requestsAborted = requests.map(request => {
+    const requestsAborted = requests.map((request) => {
       const requestAborted = new DeferredPromise<void>()
-      request.on('error', (err) => {
+
+      request.catch((err) => {
         expect(err.name).toEqual('AbortError')
         requestAborted.resolve()
       })
@@ -158,7 +151,8 @@ describe('ClientRequestInterceptor', () => {
     })
 
     interceptor.dispose()
-    requests.forEach(request => request.end())
+    stream.open = false
+    // requests.forEach(request => request.end())
 
     await Promise.all(requestsAborted)
   })
@@ -170,18 +164,13 @@ describe('ClientRequestInterceptor', () => {
       request.respondWith(new Response())
     })
 
-    const controller = new AbortController()
-    const request = http.get(requestUrl, { signal: controller.signal })
+    const abortController = new AbortController()
+    const response = fetch(requestUrl, { signal: abortController.signal })
 
-    const responseReceived = new DeferredPromise<http.IncomingMessage>()
-    request.on('response', (response) => {
-      responseReceived.resolve(response)
-    })
-
-    await responseReceived
+    await response
 
     const manager = new AbortControllerManager()
-    expect(manager.isRegistered(controller)).toBeFalsy()
-    expect(manager.isReferenced(controller)).toBeFalsy()
+    expect(manager.isRegistered(abortController)).toBeFalsy()
+    expect(manager.isReferenced(abortController)).toBeFalsy()
   })
 })

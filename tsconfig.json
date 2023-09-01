@@ -10,7 +10,12 @@
     "removeComments": false,
     "esModuleInterop": true,
     "downlevelIteration": true,
-    "lib": ["dom", "dom.iterable", "ES2018.AsyncGenerator"]
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2018.AsyncGenerator",
+      "es2021.weakref"
+    ]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "**/*.test.*"]

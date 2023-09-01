@@ -2,6 +2,7 @@ import http from 'http'
 import https from 'https'
 import { HttpRequestEventMap } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
+import { AbortControllerManager } from '../../utils/AbortControllerManager'
 import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { get } from './http.get'
 import { request } from './http.request'
@@ -21,7 +22,6 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
   constructor() {
     super(ClientRequestInterceptor.interceptorSymbol)
-
     this.modules = new Map()
     this.modules.set('http', http)
     this.modules.set('https', https)
@@ -29,6 +29,11 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
   protected setup(): void {
     const logger = this.logger.extend('setup')
+
+    const controllerManager = new AbortControllerManager()
+    this.subscriptions.push(() => controllerManager.dispose())
+
+    controllerManager.decorate()
 
     for (const [protocol, requestModule] of this.modules) {
       const { request: pureRequest, get: pureGet } = requestModule

@@ -15,6 +15,7 @@ export function get(protocol: Protocol, options: NodeClientOptions) {
       `${protocol}:`,
       ...args
     )
+
     const request = new NodeClientRequest(clientRequestArgs, options)
 
     /**

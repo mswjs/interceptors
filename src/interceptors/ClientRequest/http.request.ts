@@ -20,6 +20,7 @@ export function request(protocol: Protocol, options: NodeClientOptions) {
       `${protocol}:`,
       ...args
     )
+
     return new NodeClientRequest(clientRequestArgs, options)
   }
 }
