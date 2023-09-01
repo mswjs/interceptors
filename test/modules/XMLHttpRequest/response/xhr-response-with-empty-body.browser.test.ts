@@ -31,6 +31,7 @@ test.afterAll(async () => {
 test('204 http status', async ({
   loadExample,
   callRawXMLHttpRequest,
+  page,
 }) => {
   await loadExample(require.resolve('./xhr.browser.runtime.js'))
 
@@ -38,6 +39,12 @@ test('204 http status', async ({
     method: 'GET',
     url: httpServer.http.url('/get-204'),
   })
+
+  page.on('pageerror', (err) => {
+    if (err.message.includes('Failed to construct \'Response\': Response with null body status cannot have body')) {
+      process.exit(1);
+    }
+  });
 
   expect(secondResponse.status).toBe(204)
   expect(secondResponse.statusText).toBe('No Content')
