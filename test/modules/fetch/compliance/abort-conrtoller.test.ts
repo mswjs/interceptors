@@ -15,7 +15,7 @@ const httpServer = new HttpServer((app) => {
   app.get('/delayed', (_req, res) => {
     setTimeout(() => {
       res.status(200).send('/delayed')
-    }, 1000);
+    }, 1000)
   })
 })
 
@@ -47,13 +47,11 @@ it('aborts unsent request when the original request is aborted', async () => {
   controller.abort()
 
   const abortError = await requestAborted
-  console.log({ abortError })
 
   expect(abortError.name).toBe('AbortError')
   expect(abortError.code).toBe(20)
   expect(abortError.message).toBe('This operation was aborted')
 })
-
 
 it('aborts a pending request when the original request is aborted', async () => {
   const requestListenerCalled = new DeferredPromise<void>()
@@ -104,7 +102,6 @@ it('forwards custom abort reason to the request if aborted before it starts', as
   expect(abortError.code).toBeUndefined()
   expect(abortError.message).toBe('Custom abort reason')
 })
-
 
 it('forwards custom abort reason to the request if pending', async () => {
   const requestListenerCalled = new DeferredPromise<void>()
