@@ -50,19 +50,23 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       const signal = interactiveRequest.signal
       const requestAborted = new DeferredPromise()
 
-      signal.addEventListener('abort', () => {
-        requestAborted.reject(signal.reason)
-      })
+      signal.addEventListener(
+        'abort',
+        () => {
+          requestAborted.reject(signal.reason)
+        },
+        { once: true }
+      )
 
       const resolverResult = await until(async () => {
-        const allListenerResolved = this.emitter.untilIdle(
+        const allListenersResolved = this.emitter.untilIdle(
           'request',
           ({ args: [{ requestId: pendingRequestId }] }) => {
             return pendingRequestId === requestId
           }
         )
 
-        await Promise.race([requestAborted, allListenerResolved])
+        await Promise.race([requestAborted, allListenersResolved])
 
         this.logger.info('all request listeners have been resolved!')
 
