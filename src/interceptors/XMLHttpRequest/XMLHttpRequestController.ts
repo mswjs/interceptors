@@ -16,11 +16,6 @@ import { createResponse } from './utils/createResponse'
 
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
 const IS_NODE = isNodeProcess()
-export const httpResponseCodesWithNullBody: Record<number, boolean> = {
-  204: true,
-  205: true,
-  304: true,
-}
 
 /**
  * An `XMLHttpRequest` instance controller that allows us
@@ -134,8 +129,6 @@ export class XMLHttpRequestController {
 
             this.request.addEventListener('load', () => {
               if (typeof this.onResponse !== 'undefined') {
-                const body = httpResponseCodesWithNullBody[this.request.status] ? null : this.request.response;
-
                 // Create a Fetch API Response representation of whichever
                 // response this XMLHttpRequest received. Note those may
                 // be either a mocked and the original response.
@@ -146,7 +139,7 @@ export class XMLHttpRequestController {
                    * the ambiguous response body, as the request's "responseType" may differ.
                    * @see https://xhr.spec.whatwg.org/#the-response-attribute
                    */
-                  body
+                  this.request.response
                 )
 
                 // Notify the consumer about the response.

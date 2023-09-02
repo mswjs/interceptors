@@ -1,3 +1,5 @@
+const statusCodesWithoutBody = [204, 205, 304]
+
 /**
  * Creates a Fetch API `Response` instance from the given
  * `XMLHttpRequest` instance and a response body.
@@ -6,7 +8,19 @@ export function createResponse(
   request: XMLHttpRequest,
   body: BodyInit | null
 ): Response {
-  return new Response(body, {
+  /**
+   * Handle XMLHttpRequest responses that must have null as the
+   * response body when represented using Fetch API Response.
+   * XMLHttpRequest response will always have an empty string
+   * as the "request.response" in those cases, resulting in an error
+   * when constructing a Response instance.
+   * @see https://github.com/mswjs/interceptors/issues/379
+   */
+  const responseBodyOrNull = statusCodesWithoutBody.includes(request.status)
+    ? null
+    : body
+
+  return new Response(responseBodyOrNull, {
     status: request.status,
     statusText: request.statusText,
     headers: createHeadersFromXMLHttpReqestHeaders(
