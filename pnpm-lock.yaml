@@ -10,7 +10,7 @@ specifiers:
   '@open-draft/logger': ^0.3.0
   '@open-draft/test-server': ^0.5.1
   '@open-draft/until': ^2.0.0
-  '@ossjs/release': ^0.5.1
+  '@ossjs/release': ^0.7.2
   '@playwright/test': ^1.37.1
   '@types/cors': ^2.8.12
   '@types/express': ^4.17.13
@@ -59,7 +59,7 @@ devDependencies:
   '@commitlint/cli': 16.3.0
   '@commitlint/config-conventional': 16.2.4
   '@open-draft/test-server': 0.5.1
-  '@ossjs/release': 0.5.1
+  '@ossjs/release': 0.7.2
   '@playwright/test': 1.37.1
   '@types/cors': 2.8.13
   '@types/express': 4.17.17
@@ -1346,8 +1346,8 @@ packages:
   /@open-draft/until/2.1.0:
     resolution: {integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==}
 
-  /@ossjs/release/0.5.1:
-    resolution: {integrity: sha512-pp1VL1sOK7+E8rVRhnNvCcof0l8cN256dYLypLN0yOFqk9KxALZ9Rb5/Xft+PkHbsZyeca7SOEnuaWxAqJUt9g==}
+  /@ossjs/release/0.7.2:
+    resolution: {integrity: sha512-s8w7VRC6Xf1vfpIsDG2CflWinSg9O7H/6nckxaBCiMWClkeaZ3JuXzZEIcybc6jeAFc1Rz7UilCvgZflb06Y5g==}
     hasBin: true
     dependencies:
       '@open-draft/deferred-promise': 2.1.0
