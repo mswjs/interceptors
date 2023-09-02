@@ -3,6 +3,7 @@ import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '.'
+import { sleep } from '../../../test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
@@ -54,4 +55,31 @@ it('forbids calling "respondWith" multiple times for the same request', async ()
   const response = await responseReceived
   expect(response.statusCode).toBe(200)
   expect(response.statusMessage).toBe('')
+})
+
+
+it('abort the request if the abort signal is emitted', async () => {
+  const requestUrl = httpServer.http.url('/')
+
+  const requestEmitted = new DeferredPromise<void>()
+  interceptor.on('request', async function delayedResponse({ request }) {
+    requestEmitted.resolve()
+    await sleep(10000)
+    request.respondWith(new Response())
+  })
+
+  const abortController = new AbortController()
+  const request = http.get(requestUrl, { signal: abortController.signal })
+
+  await requestEmitted
+
+  abortController.abort()
+
+  const requestAborted = new DeferredPromise<void>()
+  request.on('error', function(err) {
+    expect(err.name).toEqual('AbortError')
+    requestAborted.resolve()
+  })
+
+  await requestAborted
 })

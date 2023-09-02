@@ -1,3 +1,4 @@
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { invariant } from 'outvariant'
 import { until } from '@open-draft/until'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
@@ -46,13 +47,27 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.logger.info('awaiting for the mocked response...')
 
+      const signal = interactiveRequest.signal
+      const requestAborted = new DeferredPromise()
+
+      signal.addEventListener(
+        'abort',
+        () => {
+          requestAborted.reject(signal.reason)
+        },
+        { once: true }
+      )
+
       const resolverResult = await until(async () => {
-        await this.emitter.untilIdle(
+        const allListenersResolved = this.emitter.untilIdle(
           'request',
           ({ args: [{ requestId: pendingRequestId }] }) => {
             return pendingRequestId === requestId
           }
         )
+
+        await Promise.race([requestAborted, allListenersResolved])
+
         this.logger.info('all request listeners have been resolved!')
 
         const [mockedResponse] = await interactiveRequest.respondWith.invoked()
@@ -61,10 +76,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         return mockedResponse
       })
 
+      if (requestAborted.state === 'rejected') {
+        return Promise.reject(requestAborted.rejectionReason)
+      }
+
       if (resolverResult.error) {
         const error = Object.assign(new TypeError('Failed to fetch'), {
           cause: resolverResult.error,
         })
+
         return Promise.reject(error)
       }
 
