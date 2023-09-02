@@ -87,22 +87,3 @@ it('represents a 304 response without body using fetch api response', async () =
   )
   expect(responseListener).toHaveBeenCalledTimes(1)
 })
-
-// describe('XHR responses with empty body', () => {
-//   statuses.forEach((status) => {
-//     it(`${status} http status`, async () => {
-//       const url = httpServer.http.url(`/get-${status}`)
-
-//       await createXMLHttpRequest((req) => {
-//         req.open('GET', url)
-//         req.send()
-//       })
-
-//       expect(resolver).toHaveBeenCalledTimes(1)
-
-//       const [{ response }] = resolver.mock.calls[0]
-
-//       expect(response.body).toBe(null)
-//     })
-//   })
-// })
