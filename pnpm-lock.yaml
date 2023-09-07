@@ -6,7 +6,7 @@ overrides:
 specifiers:
   '@commitlint/cli': ^16.0.2
   '@commitlint/config-conventional': ^16.0.0
-  '@open-draft/deferred-promise': ^2.1.0
+  '@open-draft/deferred-promise': ^2.2.0
   '@open-draft/logger': ^0.3.0
   '@open-draft/test-server': ^0.5.1
   '@open-draft/until': ^2.0.0
@@ -48,7 +48,7 @@ specifiers:
   webpack-http-server: ^0.5.0
 
 dependencies:
-  '@open-draft/deferred-promise': 2.1.0
+  '@open-draft/deferred-promise': 2.2.0
   '@open-draft/logger': 0.3.0
   '@open-draft/until': 2.1.0
   is-node-process: 1.2.0
@@ -1317,8 +1317,8 @@ packages:
       fastq: 1.15.0
     dev: true
 
-  /@open-draft/deferred-promise/2.1.0:
-    resolution: {integrity: sha512-Rzd5JrXZX8zErHzgcGyngh4fmEbSHqTETdGj9rXtejlqMIgXFlyKBA7Jn1Xp0Ls0M0Y22+xHcWiEzbmdWl0BOA==}
+  /@open-draft/deferred-promise/2.2.0:
+    resolution: {integrity: sha512-CecwLWx3rhxVQF6V4bAgPS5t+So2sTbPgAzafKkVizyi7tlwpcFpdFqq+wqF2OwNBmqFuu6tOyouTuxgpMfzmA==}
 
   /@open-draft/logger/0.3.0:
     resolution: {integrity: sha512-X2g45fzhxH238HKO4xbSr7+wBS8Fvw6ixhTDuvLd5mqh6bJJCFAPwU9mPDxbcrRtfxv4u5IHCEH77BmxvXmmxQ==}
@@ -1350,7 +1350,7 @@ packages:
     resolution: {integrity: sha512-s8w7VRC6Xf1vfpIsDG2CflWinSg9O7H/6nckxaBCiMWClkeaZ3JuXzZEIcybc6jeAFc1Rz7UilCvgZflb06Y5g==}
     hasBin: true
     dependencies:
-      '@open-draft/deferred-promise': 2.1.0
+      '@open-draft/deferred-promise': 2.2.0
       '@open-draft/until': 2.1.0
       '@types/conventional-commits-parser': 3.0.3
       '@types/issue-parser': 3.0.1
