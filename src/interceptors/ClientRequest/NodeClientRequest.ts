@@ -212,9 +212,26 @@ export class NodeClientRequest extends ClientRequest {
       const mockedResponse = resolverResult.data
 
       if (mockedResponse) {
+        this.logger.info('received mocked response:', mockedResponse)
+
+        // Handle mocked "Response.error" network error responses.
+        if (mockedResponse.type === 'error') {
+          this.logger.info(
+            'received network error response, aborting request...'
+          )
+
+          /**
+           * There is no standardized error format for network errors
+           * in Node.js. Instead, emit a generic TypeError.
+           */
+          this.emit('error', new TypeError('Network error'))
+          this.terminate()
+
+          return this
+        }
+
         const responseClone = mockedResponse.clone()
 
-        this.logger.info('received mocked response:', mockedResponse)
         this.responseSource = 'mock'
 
         this.respondWith(mockedResponse)
