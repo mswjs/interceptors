@@ -81,17 +81,31 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       }
 
       if (resolverResult.error) {
-        const error = Object.assign(new TypeError('Failed to fetch'), {
-          cause: resolverResult.error,
-        })
-
-        return Promise.reject(error)
+        return Promise.reject(createNetworkError(resolverResult.error))
       }
 
       const mockedResponse = resolverResult.data
 
       if (mockedResponse && !request.signal?.aborted) {
         this.logger.info('received mocked response:', mockedResponse)
+
+        // Reject the request Promise on mocked "Response.error" responses.
+        if (mockedResponse.type === 'error') {
+          this.logger.info(
+            'received a network error response, rejecting the request promise...'
+          )
+
+          /**
+           * Set the cause of the request promise rejection to the
+           * network error Response instance. This different from Undici.
+           * Undici will forward the "response.error" custom property
+           * as the rejection reason but for "Response.error()" static method
+           * "response.error" will equal to undefined, making "cause" an empty Error.
+           * @see https://github.com/nodejs/undici/blob/83cb522ae0157a19d149d72c7d03d46e34510d0a/lib/fetch/response.js#L344
+           */
+          return Promise.reject(createNetworkError(mockedResponse))
+        }
+
         const responseClone = mockedResponse.clone()
 
         this.emitter.emit('response', {
@@ -150,4 +164,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       )
     })
   }
+}
+
+function createNetworkError(cause: unknown) {
+  return Object.assign(new TypeError('Failed to fetch'), {
+    cause,
+  })
 }
