@@ -19,12 +19,16 @@ afterAll(() => {
 })
 
 it('treats middleware exceptions as TypeError: Failed to fetch', async () => {
-  await fetch('http://localhost:3001/resource').catch(
-    (error: TypeError & { cause: Error }) => {
-      expect(error).toBeInstanceOf(TypeError)
-      expect(error.message).toBe('Failed to fetch')
-      // Internal: preserve the original middleware error.
-      expect(error.cause).toEqual(new Error('Network error'))
-    }
+  const error = await fetch('http://localhost:3001/resource').then<
+    null,
+    TypeError & { cause: unknown }
+  >(
+    () => null,
+    (error) => error
   )
+
+  expect(error).toBeInstanceOf(TypeError)
+  expect(error!.message).toBe('Failed to fetch')
+  // Internal: preserve the original middleware error.
+  expect(error!.cause).toEqual(new Error('Network error'))
 })

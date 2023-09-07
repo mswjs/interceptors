@@ -104,6 +104,15 @@ export function createXMLHttpRequestProxy({
             mockedResponse.statusText
           )
 
+          if (mockedResponse.type === 'error') {
+            this.logger.info(
+              'received a network error response, rejecting the request promise...'
+            )
+
+            requestController.errorWith(new TypeError('Network error'))
+            return
+          }
+
           return requestController.respondWith(mockedResponse)
         }
 

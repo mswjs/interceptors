@@ -96,7 +96,6 @@ it('forwards custom abort reason to the request if aborted before it starts', as
   controller.abort(new Error('Custom abort reason'))
 
   const abortError = await requestAborted
-  console.log({ abortError })
 
   expect(abortError.name).toBe('Error')
   expect(abortError.code).toBeUndefined()
