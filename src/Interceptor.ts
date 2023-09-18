@@ -112,6 +112,8 @@ export class Interceptor<Events extends InterceptorEventMap> {
           runningInstance.emitter.removeListener(event, listener)
           logger.info('removed proxied "%s" listener!', event)
         })
+
+        return this
       }
 
       this.readyState = InterceptorReadyState.APPLIED
@@ -143,7 +145,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
   public on<EventName extends ExtractEventNames<Events>>(
     eventName: EventName,
     listener: Listener<Events[EventName]>
-  ): void {
+  ): this {
     const logger = this.logger.extend('on')
 
     if (
@@ -151,12 +153,39 @@ export class Interceptor<Events extends InterceptorEventMap> {
       this.readyState === InterceptorReadyState.DISPOSED
     ) {
       logger.info('cannot listen to events, already disposed!')
-      return
+      return this
     }
 
     logger.info('adding "%s" event listener:', eventName, listener.name)
 
     this.emitter.on(eventName, listener)
+    return this
+  }
+
+  public once<EventName extends ExtractEventNames<Events>>(
+    eventName: EventName,
+    listener: Listener<Events[EventName]>
+  ): this {
+    const logger = this.logger.extend('once')
+    logger.info(
+      'adding a one-time "%s" event listener:',
+      eventName,
+      listener.name
+    )
+
+    this.emitter.once(eventName, listener)
+    return this
+  }
+
+  public off<EventName extends ExtractEventNames<Events>>(
+    eventName: EventName,
+    listener: Listener<Events[EventName]>
+  ): this {
+    const logger = this.logger.extend('off')
+    logger.info('removing "%s" event listener:', eventName, listener.name)
+
+    this.emitter.off(eventName, listener)
+    return this
   }
 
   /**

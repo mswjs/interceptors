@@ -18,6 +18,31 @@ it('does not set a maximum listeners limit', () => {
   expect(interceptor['emitter'].getMaxListeners()).toBe(0)
 })
 
+describe('on()', () => {
+  it('adds a new listener using "on()"', () => {
+    const interceptor = new Interceptor(symbol)
+    expect(interceptor['emitter'].listenerCount('event')).toBe(0)
+
+    const listener = vi.fn()
+    interceptor.on('event', listener)
+    expect(interceptor['emitter'].listenerCount('event')).toBe(1)
+  })
+})
+
+describe('off()', () => {
+  it('removes a listener using "off()"', () => {
+    const interceptor = new Interceptor(symbol)
+    expect(interceptor['emitter'].listenerCount('event')).toBe(0)
+
+    const listener = vi.fn()
+    interceptor.on('event', listener)
+    expect(interceptor['emitter'].listenerCount('event')).toBe(1)
+
+    interceptor.off('event', listener)
+    expect(interceptor['emitter'].listenerCount('event')).toBe(0)
+  })
+})
+
 describe('persistence', () => {
   it('stores global reference to the applied interceptor', () => {
     const interceptor = new Interceptor(symbol)

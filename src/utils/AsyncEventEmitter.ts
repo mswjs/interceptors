@@ -1,6 +1,7 @@
 import { Logger } from '@open-draft/logger'
 import { Emitter, EventMap, Listener } from 'strict-event-emitter'
 import { nextTick } from './nextTick'
+import { invariant } from 'outvariant'
 
 export interface QueueItem<Args extends Array<unknown>> {
   args: Args
@@ -17,13 +18,16 @@ export class AsyncEventEmitter<
 > extends Emitter<Events> {
   public readyState: AsyncEventEmitterReadyState
 
-  private logger: Logger
+  protected logger: Logger
+
+  protected wrappedListeners: Map<Function, Listener<any>>
   protected queue: Map<keyof Events, Array<QueueItem<Events[any]>>>
 
   constructor() {
     super()
 
     this.logger = new Logger('async-event-emitter')
+    this.wrappedListeners = new Map()
     this.queue = new Map()
 
     this.readyState = AsyncEventEmitterReadyState.ACTIVE
@@ -42,7 +46,7 @@ export class AsyncEventEmitter<
       return this
     }
 
-    return super.on(eventName, async (...args) => {
+    const wrappedListener: Listener<Events[EventName]> = async (...args) => {
       // Event queue is always established when calling ".emit()".
       const queue = this.openListenerQueue(eventName)
 
@@ -66,7 +70,13 @@ export class AsyncEventEmitter<
           }
         }),
       })
-    })
+    }
+
+    // Associate the raw listener function with the wrapped listener
+    // to be able to remove this listener by the raw function reference.
+    this.wrappedListeners.set(listener, wrappedListener)
+
+    return super.on(eventName, wrappedListener)
   }
 
   public emit<EventName extends keyof Events>(
@@ -105,6 +115,19 @@ export class AsyncEventEmitter<
     })
 
     return super.emit(eventName, ...data)
+  }
+
+  public removeListener<EventName extends keyof Events>(
+    eventName: EventName,
+    listener: Listener<any>
+  ): this {
+    const wrappedListener = this.wrappedListeners.get(listener)
+
+    if (!wrappedListener) {
+      return this
+    }
+
+    return super.removeListener(eventName, wrappedListener)
   }
 
   /**
