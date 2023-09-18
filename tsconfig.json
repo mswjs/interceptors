@@ -6,7 +6,7 @@
     "sourceMap": true,
     "outDir": "lib",
     "declaration": true,
-    "moduleResolution": "node",
+    "moduleResolution": "NodeNext",
     "removeComments": false,
     "esModuleInterop": true,
     "downlevelIteration": true,
