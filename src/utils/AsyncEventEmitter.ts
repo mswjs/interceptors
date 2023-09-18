@@ -46,37 +46,23 @@ export class AsyncEventEmitter<
       return this
     }
 
-    const wrappedListener: Listener<Events[EventName]> = async (...args) => {
-      // Event queue is always established when calling ".emit()".
-      const queue = this.openListenerQueue(eventName)
-
-      logger.info('awaiting the "%s" listener...', eventName)
-
-      // Whenever a listener is called, create a new Promise
-      // that resolves when that listener function completes its execution.
-      queue.push({
-        args,
-        done: new Promise<void>(async (resolve, reject) => {
-          try {
-            // Treat listeners as potentially asynchronous functions
-            // so they could be awaited.
-            await listener(...args)
-            resolve()
-
-            logger.info('"%s" listener has resolved!', eventName)
-          } catch (error) {
-            logger.info('"%s" listener has rejected!', error)
-            reject(error)
-          }
-        }),
-      })
-    }
+    const wrappedListener = this.wrapListener(eventName, listener)
 
     // Associate the raw listener function with the wrapped listener
     // to be able to remove this listener by the raw function reference.
     this.wrappedListeners.set(listener, wrappedListener)
 
     return super.on(eventName, wrappedListener)
+  }
+
+  public once<EventName extends keyof Events>(
+    eventName: EventName,
+    listener: Listener<any>
+  ): this {
+    const wrappedListener = this.wrapListener(eventName, listener)
+    this.wrappedListeners.set(listener, wrappedListener)
+
+    return super.once(eventName, wrappedListener)
   }
 
   public emit<EventName extends keyof Events>(
@@ -148,6 +134,41 @@ export class AsyncEventEmitter<
       // so that different events don't share the same queue.
       this.queue.delete(eventName)
     })
+  }
+
+  private wrapListener<EventName extends keyof Events>(
+    eventName: EventName,
+    listener: Listener<any>
+  ): Listener<any> {
+    const logger = this.logger.extend('wrapListener')
+
+    const wrappedListener: Listener<Events[EventName]> = async (...args) => {
+      // Event queue is always established when calling ".emit()".
+      const queue = this.openListenerQueue(eventName)
+
+      logger.info('awaiting the "%s" listener...', eventName)
+
+      // Whenever a listener is called, create a new Promise
+      // that resolves when that listener function completes its execution.
+      queue.push({
+        args,
+        done: new Promise<void>(async (resolve, reject) => {
+          try {
+            // Treat listeners as potentially asynchronous functions
+            // so they could be awaited.
+            await listener(...args)
+            resolve()
+
+            logger.info('"%s" listener has resolved!', eventName)
+          } catch (error) {
+            logger.info('"%s" listener has rejected!', error)
+            reject(error)
+          }
+        }),
+      })
+    }
+
+    return wrappedListener
   }
 
   private openListenerQueue<EventName extends keyof Events>(
