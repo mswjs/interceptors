@@ -143,7 +143,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
    * Listen to the interceptor's public events.
    */
   public on<EventName extends ExtractEventNames<Events>>(
-    eventName: EventName,
+    event: EventName,
     listener: Listener<Events[EventName]>
   ): this {
     const logger = this.logger.extend('on')
@@ -156,35 +156,38 @@ export class Interceptor<Events extends InterceptorEventMap> {
       return this
     }
 
-    logger.info('adding "%s" event listener:', eventName, listener.name)
+    logger.info('adding "%s" event listener:', event, listener.name)
 
-    this.emitter.on(eventName, listener)
+    this.emitter.on(event, listener)
     return this
   }
 
   public once<EventName extends ExtractEventNames<Events>>(
-    eventName: EventName,
+    event: EventName,
     listener: Listener<Events[EventName]>
   ): this {
     const logger = this.logger.extend('once')
-    logger.info(
-      'adding a one-time "%s" event listener:',
-      eventName,
-      listener.name
-    )
+    logger.info('adding a one-time "%s" event listener:', event, listener.name)
 
-    this.emitter.once(eventName, listener)
+    this.emitter.once(event, listener)
     return this
   }
 
   public off<EventName extends ExtractEventNames<Events>>(
-    eventName: EventName,
+    event: EventName,
     listener: Listener<Events[EventName]>
   ): this {
     const logger = this.logger.extend('off')
-    logger.info('removing "%s" event listener:', eventName, listener.name)
+    logger.info('removing "%s" event listener:', event, listener.name)
 
-    this.emitter.off(eventName, listener)
+    this.emitter.off(event, listener)
+    return this
+  }
+
+  public removeAllListeners<EventName extends ExtractEventNames<Events>>(
+    event?: EventName
+  ): this {
+    this.emitter.removeAllListeners(event)
     return this
   }
 

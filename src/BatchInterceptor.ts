@@ -82,4 +82,14 @@ export class BatchInterceptor<
 
     return this
   }
+
+  public removeAllListeners<EventName extends ExtractEventNames<Events>>(
+    event?: EventName | undefined
+  ): this {
+    for (const interceptors of this.interceptors) {
+      interceptors.removeAllListeners(event)
+    }
+
+    return this
+  }
 }
