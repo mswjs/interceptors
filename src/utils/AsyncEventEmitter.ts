@@ -20,14 +20,15 @@ export class AsyncEventEmitter<
 
   protected logger: Logger
 
-  protected wrappedListeners: Map<Function, Listener<any>>
+  protected wrappedEvents: Map<keyof Events, Map<Function, Listener<any>>>
+
   protected queue: Map<keyof Events, Array<QueueItem<Events[any]>>>
 
   constructor() {
     super()
 
     this.logger = new Logger('async-event-emitter')
-    this.wrappedListeners = new Map()
+    this.wrappedEvents = new Map()
     this.queue = new Map()
 
     this.readyState = AsyncEventEmitterReadyState.ACTIVE
@@ -46,23 +47,23 @@ export class AsyncEventEmitter<
       return this
     }
 
-    const wrappedListener = this.wrapListener(eventName, listener)
-
-    // Associate the raw listener function with the wrapped listener
-    // to be able to remove this listener by the raw function reference.
-    this.wrappedListeners.set(listener, wrappedListener)
-
-    return super.on(eventName, wrappedListener)
+    return super.on(eventName, this.wrapListener(eventName, listener))
   }
 
   public once<EventName extends keyof Events>(
     eventName: EventName,
     listener: Listener<any>
   ): this {
-    const wrappedListener = this.wrapListener(eventName, listener)
-    this.wrappedListeners.set(listener, wrappedListener)
+    return super.once(
+      eventName,
+      this.wrapListener(eventName, listener, () => {
+        // Delete the listener-wrappedListener association
+        // after this listener is called.
+        this.wrappedEvents.get(eventName)?.delete(listener)
 
-    return super.once(eventName, wrappedListener)
+        this.queue.get(eventName)
+      })
+    )
   }
 
   public emit<EventName extends keyof Events>(
@@ -90,7 +91,7 @@ export class AsyncEventEmitter<
     logger.info('appending a one-time cleanup "%s" listener...', eventName)
 
     // Append a one-time clean up listener.
-    this.once(eventName, () => {
+    super.once(eventName, () => {
       // Clear the Promise queue for this particular event
       // in the next tick so the Promise in "untilIdle" has
       // the time to properly resolve.
@@ -107,7 +108,13 @@ export class AsyncEventEmitter<
     eventName: EventName,
     listener: Listener<any>
   ): this {
-    const wrappedListener = this.wrappedListeners.get(listener)
+    const wrappedListeners = this.wrappedEvents.get(eventName)
+
+    if (!wrappedListeners) {
+      return this
+    }
+
+    const wrappedListener = wrappedListeners.get(listener)
 
     if (!wrappedListener) {
       return this
@@ -138,7 +145,8 @@ export class AsyncEventEmitter<
 
   private wrapListener<EventName extends keyof Events>(
     eventName: EventName,
-    listener: Listener<any>
+    listener: Listener<any>,
+    callback?: () => void
   ): Listener<any> {
     const logger = this.logger.extend('wrapListener')
 
@@ -159,6 +167,23 @@ export class AsyncEventEmitter<
             await listener(...args)
             resolve()
 
+            /**
+             * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+             * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+             * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+             * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+             * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+             * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+             *
+             * The entire queue handling here has to be re-designed. It cannot
+             * process one-time listeners well, and they will always remain
+             * in the queue, wrapped.
+             *
+             * Consider a better approach than this queue. Something signal-based, idk.
+             */
+
+            callback?.()
+
             logger.info('"%s" listener has resolved!', eventName)
           } catch (error) {
             logger.info('"%s" listener has rejected!', error)
@@ -167,6 +192,12 @@ export class AsyncEventEmitter<
         }),
       })
     }
+
+    const nextWrappedListeners = this.wrappedEvents.get(eventName) || new Map()
+    // Associate the raw listener function with the wrapped listener
+    // to be able to remove this listener by the raw function reference.
+    nextWrappedListeners.set(listener, wrappedListener)
+    this.wrappedEvents.set(eventName, nextWrappedListeners)
 
     return wrappedListener
   }
@@ -197,6 +228,8 @@ export class AsyncEventEmitter<
 
     if (eventName) {
       this.queue.delete(eventName)
+      this.wrappedEvents.delete(eventName)
+
       logger.info(
         'cleared the "%s" listeners queue!',
         eventName,
@@ -204,6 +237,8 @@ export class AsyncEventEmitter<
       )
     } else {
       this.queue.clear()
+      this.wrappedEvents.clear()
+
       logger.info('cleared the listeners queue!', this.queue)
     }
 
