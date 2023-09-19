@@ -1,6 +1,7 @@
 import { ClientRequest, IncomingMessage } from 'http'
 import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import type { ClientRequestEmitter } from '.'
 import {
   ClientRequestEndCallback,
@@ -17,7 +18,7 @@ import { createResponse } from './utils/createResponse'
 import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
-import { DeferredPromise } from '@open-draft/deferred-promise'
+import { emitAsync } from '../../utils/emitAsync'
 
 export type Protocol = 'http' | 'https'
 
@@ -138,7 +139,17 @@ export class NodeClientRequest extends ClientRequest {
     this.writeRequestBodyChunk(chunk, encoding || undefined)
 
     const capturedRequest = createRequest(this)
-    const interactiveRequest = toInteractiveRequest(capturedRequest)
+    const { interactiveRequest, requestController } =
+      toInteractiveRequest(capturedRequest)
+
+    /**
+     * @todo Remove this modification of the original request
+     * and expose the controller alongside it in the "request"
+     * listener argument.
+     */
+    Object.defineProperty(capturedRequest, 'respondWith', {
+      value: requestController.respondWith.bind(requestController),
+    })
 
     // Prevent handling this request if it has already been handled
     // in another (parent) interceptor (like XMLHttpRequest -> ClientRequest).
@@ -155,28 +166,26 @@ export class NodeClientRequest extends ClientRequest {
       'emitting the "request" event for %d listener(s)...',
       this.emitter.listenerCount('request')
     )
-    this.emitter.emit('request', {
-      request: interactiveRequest,
-      requestId,
+
+    // Add the last "request" listener that always resolves
+    // the pending response Promise. This way if the consumer
+    // hasn't handled the request themselves, we will prevent
+    // the response Promise from pending indefinitely.
+    this.emitter.once('request', () => {
+      if (requestController.responsePromise.state === 'pending') {
+        requestController.responsePromise.resolve(undefined)
+      }
     })
 
     // Execute the resolver Promise like a side-effect.
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
     until(async () => {
-      await this.emitter.untilIdle(
-        'request',
-        ({ args: [{ requestId: pendingRequestId }] }) => {
-          /**
-           * @note Await only those listeners that are relevant to this request.
-           * This prevents extraneous parallel request from blocking the resolution
-           * of another, unrelated request. For example, during response patching,
-           * when request resolution is nested.
-           */
-          return pendingRequestId === requestId
-        }
-      )
+      await emitAsync(this.emitter, 'request', {
+        request: interactiveRequest,
+        requestId,
+      })
 
-      const [mockedResponse] = await interactiveRequest.respondWith.invoked()
+      const mockedResponse = await requestController.responsePromise
       this.logger.info('event.respondWith called with:', mockedResponse)
 
       return mockedResponse
