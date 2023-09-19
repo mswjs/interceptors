@@ -1,10 +1,11 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { invariant } from 'outvariant'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { uuidv4 } from '../../utils/uuid'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
+import { emitAsync } from '../../utils/emitAsync'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -34,15 +35,18 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.logger.info('[%s] %s', request.method, request.url)
 
-      const interactiveRequest = toInteractiveRequest(request)
+      const { interactiveRequest, requestController } =
+        toInteractiveRequest(request)
 
       this.logger.info(
         'emitting the "request" event for %d listener(s)...',
         this.emitter.listenerCount('request')
       )
-      this.emitter.emit('request', {
-        request: interactiveRequest,
-        requestId,
+
+      this.emitter.once('request', () => {
+        if (requestController.responsePromise.state === 'pending') {
+          requestController.responsePromise.resolve(undefined)
+        }
       })
 
       this.logger.info('awaiting for the mocked response...')
@@ -59,18 +63,23 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       )
 
       const resolverResult = await until(async () => {
-        const allListenersResolved = this.emitter.untilIdle(
-          'request',
-          ({ args: [{ requestId: pendingRequestId }] }) => {
-            return pendingRequestId === requestId
-          }
-        )
+        const listenersFinished = emitAsync(this.emitter, 'request', {
+          request: interactiveRequest,
+          requestId,
+        })
 
-        await Promise.race([requestAborted, allListenersResolved])
+        await Promise.race([
+          requestAborted,
+          // Put the listeners invocation Promise in the same race condition
+          // with the request abort Promise because otherwise awaiting the listeners
+          // would always yield some response (or undefined).
+          listenersFinished,
+          requestController.responsePromise,
+        ])
 
         this.logger.info('all request listeners have been resolved!')
 
-        const [mockedResponse] = await interactiveRequest.respondWith.invoked()
+        const mockedResponse = await requestController.responsePromise
         this.logger.info('event.respondWith called with:', mockedResponse)
 
         return mockedResponse

@@ -8,7 +8,7 @@ export class RequestController {
     this.responsePromise = new DeferredPromise()
   }
 
-  public respondWith(response: Response): void {
+  public respondWith(response?: Response): void {
     invariant(
       this.responsePromise.state === 'pending',
       'Failed to call "respondWith()" for "%s %s": request already handled',
