@@ -35,7 +35,7 @@ jobs:
         run: pnpm install
 
       - name: Install Playwright browsers
-        run: pnpx playwright install --with-deps
+        run: npx playwright install
 
       - name: Release
         run: pnpm release
