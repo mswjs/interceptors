@@ -1,13 +1,13 @@
 import http from 'http'
 import https from 'https'
+import type { Emitter } from 'strict-event-emitter'
 import { HttpRequestEventMap } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
-import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { get } from './http.get'
 import { request } from './http.request'
 import { NodeClientOptions, Protocol } from './NodeClientRequest'
 
-export type ClientRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
+export type ClientRequestEmitter = Emitter<HttpRequestEventMap>
 
 export type ClientRequestModules = Map<Protocol, typeof http | typeof https>
 

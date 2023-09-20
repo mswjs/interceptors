@@ -18,9 +18,8 @@ const httpServer = new HttpServer((app) => {
 const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterAll(async () => {

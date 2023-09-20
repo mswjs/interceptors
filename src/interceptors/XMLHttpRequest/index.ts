@@ -1,8 +1,8 @@
 import { invariant } from 'outvariant'
+import { Emitter } from 'strict-event-emitter'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { InteractiveRequest } from '../../utils/toInteractiveRequest'
 import { Interceptor } from '../../Interceptor'
-import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { createXMLHttpRequestProxy } from './XMLHttpRequestProxy'
 
 export type XMLHttpRequestEventListener = (args: {
@@ -10,7 +10,7 @@ export type XMLHttpRequestEventListener = (args: {
   requestId: string
 }) => Promise<void> | void
 
-export type XMLHttpRequestEmitter = AsyncEventEmitter<HttpRequestEventMap>
+export type XMLHttpRequestEmitter = Emitter<HttpRequestEventMap>
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static interceptorSymbol = Symbol('xhr')

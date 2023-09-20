@@ -57,14 +57,13 @@ it('forbids calling "respondWith" multiple times for the same request', async ()
   expect(response.statusMessage).toBe('')
 })
 
-
 it('abort the request if the abort signal is emitted', async () => {
   const requestUrl = httpServer.http.url('/')
 
   const requestEmitted = new DeferredPromise<void>()
   interceptor.on('request', async function delayedResponse({ request }) {
     requestEmitted.resolve()
-    await sleep(10000)
+    await sleep(10_000)
     request.respondWith(new Response())
   })
 
@@ -76,7 +75,7 @@ it('abort the request if the abort signal is emitted', async () => {
   abortController.abort()
 
   const requestAborted = new DeferredPromise<void>()
-  request.on('error', function(err) {
+  request.on('error', function (err) {
     expect(err.name).toEqual('AbortError')
     requestAborted.resolve()
   })
