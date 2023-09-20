@@ -5,6 +5,7 @@ import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
 import { toInteractiveRequest } from './utils/toInteractiveRequest'
+import { emitAsync } from './utils/emitAsync'
 
 export interface SerializedRequest {
   id: string
@@ -166,20 +167,21 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
         body: requestJson.body,
       })
 
-      const interactiveRequest = toInteractiveRequest(capturedRequest)
+      const { interactiveRequest, requestController } =
+        toInteractiveRequest(capturedRequest)
 
-      this.emitter.emit('request', {
+      this.emitter.once('request', () => {
+        if (requestController.responsePromise.state === 'pending') {
+          requestController.respondWith(undefined)
+        }
+      })
+
+      await emitAsync(this.emitter, 'request', {
         request: interactiveRequest,
         requestId: requestJson.id,
       })
 
-      await this.emitter.untilIdle(
-        'request',
-        ({ args: [{ requestId: pendingRequestId }] }) => {
-          return pendingRequestId === requestJson.id
-        }
-      )
-      const [mockedResponse] = await interactiveRequest.respondWith.invoked()
+      const mockedResponse = await requestController.responsePromise
 
       if (!mockedResponse) {
         return

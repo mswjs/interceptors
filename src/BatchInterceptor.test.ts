@@ -142,12 +142,16 @@ it('forwards listeners added via "on()"', () => {
 })
 
 it('forwards listeners removal via "off()"', () => {
-  class FirstInterceptor extends Interceptor<any> {
+  type Events = {
+    foo: []
+  }
+
+  class FirstInterceptor extends Interceptor<Events> {
     constructor() {
       super(Symbol('first'))
     }
   }
-  class SecondaryInterceptor extends Interceptor<any> {
+  class SecondaryInterceptor extends Interceptor<Events> {
     constructor() {
       super(Symbol('second'))
     }
@@ -170,12 +174,17 @@ it('forwards listeners removal via "off()"', () => {
 })
 
 it('forwards removal of all listeners by name via ".removeAllListeners()"', () => {
-  class FirstInterceptor extends Interceptor<any> {
+  type Events = {
+    foo: []
+    bar: []
+  }
+
+  class FirstInterceptor extends Interceptor<Events> {
     constructor() {
       super(Symbol('first'))
     }
   }
-  class SecondaryInterceptor extends Interceptor<any> {
+  class SecondaryInterceptor extends Interceptor<Events> {
     constructor() {
       super(Symbol('second'))
     }

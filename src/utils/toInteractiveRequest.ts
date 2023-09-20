@@ -1,29 +1,23 @@
-import { format } from 'outvariant'
-import { createLazyCallback, LazyCallback } from './createLazyCallback'
-
-type LazyResponseCallback = (response: Response) => void
+import { RequestController } from './RequestController'
 
 export type InteractiveRequest = globalThis.Request & {
-  respondWith: LazyCallback<LazyResponseCallback>
+  respondWith: RequestController['respondWith']
 }
 
-export function toInteractiveRequest(request: Request): InteractiveRequest {
-  Object.defineProperty(request, 'respondWith', {
-    writable: false,
-    enumerable: true,
-    value: createLazyCallback<LazyResponseCallback>({
-      maxCalls: 1,
-      maxCallsCallback() {
-        throw new Error(
-          format(
-            'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
-            request.method,
-            request.url
-          )
-        )
-      },
-    }),
-  })
+export function toInteractiveRequest(request: Request): {
+  interactiveRequest: InteractiveRequest
+  requestController: RequestController
+} {
+  const requestController = new RequestController(request)
 
-  return request as InteractiveRequest
+  Reflect.set(
+    request,
+    'respondWith',
+    requestController.respondWith.bind(requestController)
+  )
+
+  return {
+    interactiveRequest: request as InteractiveRequest,
+    requestController,
+  }
 }

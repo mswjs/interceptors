@@ -1,5 +1,5 @@
 import { EventMap, Listener } from 'strict-event-emitter'
-import { ExtractEventNames, Interceptor } from './Interceptor'
+import { Interceptor, ExtractEventNames } from './Interceptor'
 
 export interface BatchInterceptorOptions<
   InterceptorList extends ReadonlyArray<Interceptor<any>>
