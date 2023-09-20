@@ -30,7 +30,7 @@ describe('on()', () => {
 })
 
 describe('once()', () => {
-  it.only('calls the listener only once', () => {
+  it('calls the listener only once', () => {
     const interceptor = new Interceptor(symbol)
     const listener = vi.fn()
 

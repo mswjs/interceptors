@@ -43,7 +43,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         this.emitter.listenerCount('request')
       )
 
-      this.emitter.once('request', () => {
+      this.emitter.once('request', ({ requestId: pendingRequestId }) => {
+        if (pendingRequestId !== requestId) {
+          return
+        }
+
         if (requestController.responsePromise.state === 'pending') {
           requestController.responsePromise.resolve(undefined)
         }

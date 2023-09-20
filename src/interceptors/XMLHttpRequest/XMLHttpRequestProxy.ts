@@ -54,7 +54,11 @@ export function createXMLHttpRequestProxy({
 
         this.logger.info('awaiting mocked response...')
 
-        emitter.once('request', () => {
+        emitter.once('request', ({ requestId: pendingRequestId }) => {
+          if (pendingRequestId !== requestId) {
+            return
+          }
+
           if (requestController.responsePromise.state === 'pending') {
             requestController.respondWith(undefined)
           }

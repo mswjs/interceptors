@@ -11,7 +11,7 @@ export class RequestController {
   public respondWith(response?: Response): void {
     invariant(
       this.responsePromise.state === 'pending',
-      'Failed to call "respondWith()" for "%s %s": request already handled',
+      'Failed to respond to "%s %s" request: the "request" event has already been responded to.',
       this.request.method,
       this.request.url
     )

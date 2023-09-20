@@ -171,7 +171,15 @@ export class NodeClientRequest extends ClientRequest {
     // the pending response Promise. This way if the consumer
     // hasn't handled the request themselves, we will prevent
     // the response Promise from pending indefinitely.
-    this.emitter.once('request', () => {
+    this.emitter.once('request', ({ requestId: pendingRequestId }) => {
+      /**
+       * @note Ignore request events emitted by irrelevant
+       * requests. This happens when response patching.
+       */
+      if (pendingRequestId !== requestId) {
+        return
+      }
+
       if (requestController.responsePromise.state === 'pending') {
         requestController.responsePromise.resolve(undefined)
       }

@@ -1,11 +1,11 @@
 import { it, expect } from 'vitest'
 import { Logger } from '@open-draft/logger'
 import { HttpRequestEventMap } from '../../..'
-import { AsyncEventEmitter } from '../../../utils/AsyncEventEmitter'
 import { NodeClientRequest } from '../NodeClientRequest'
 import { createRequest } from './createRequest'
+import { Emitter } from 'strict-event-emitter'
 
-const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
+const emitter = new Emitter<HttpRequestEventMap>()
 const logger = new Logger('test')
 
 it('creates a fetch Request with a JSON body', async () => {

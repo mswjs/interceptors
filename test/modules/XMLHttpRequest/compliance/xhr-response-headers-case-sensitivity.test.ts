@@ -27,7 +27,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it.only('ignores casing when retrieving response headers via "getResponseHeader"', async () => {
+it('ignores casing when retrieving response headers via "getResponseHeader"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/account'))
     req.send()
