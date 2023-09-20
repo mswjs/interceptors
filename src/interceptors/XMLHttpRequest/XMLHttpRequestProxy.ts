@@ -2,6 +2,7 @@ import { until } from '@open-draft/until'
 import type { Logger } from '@open-draft/logger'
 import { XMLHttpRequestEmitter } from '.'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
+import { emitAsync } from '../../utils/emitAsync'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
 
 export interface XMLHttpRequestProxyOptions {
@@ -42,38 +43,37 @@ export function createXMLHttpRequestProxy({
         )
       }
 
-      const requestController = new XMLHttpRequestController(
+      const xhrRequestController = new XMLHttpRequestController(
         originalRequest,
         logger
       )
 
-      requestController.onRequest = async function ({ request, requestId }) {
-        // Notify the consumer about a new request.
-        const interactiveRequest = toInteractiveRequest(request)
-
-        this.logger.info(
-          'emitting the "request" event for %s listener(s)...',
-          emitter.listenerCount('request')
-        )
-        emitter.emit('request', {
-          request: interactiveRequest,
-          requestId,
-        })
+      xhrRequestController.onRequest = async function ({ request, requestId }) {
+        const { interactiveRequest, requestController } =
+          toInteractiveRequest(request)
 
         this.logger.info('awaiting mocked response...')
 
+        emitter.once('request', () => {
+          if (requestController.responsePromise.state === 'pending') {
+            requestController.respondWith(undefined)
+          }
+        })
+
         const resolverResult = await until(async () => {
-          await emitter.untilIdle(
-            'request',
-            ({ args: [{ requestId: pendingRequestId }] }) => {
-              return pendingRequestId === requestId
-            }
+          this.logger.info(
+            'emitting the "request" event for %s listener(s)...',
+            emitter.listenerCount('request')
           )
+
+          await emitAsync(emitter, 'request', {
+            request: interactiveRequest,
+            requestId,
+          })
 
           this.logger.info('all "request" listeners settled!')
 
-          const [mockedResponse] =
-            await interactiveRequest.respondWith.invoked()
+          const mockedResponse = await requestController.responsePromise
 
           this.logger.info('event.respondWith called with:', mockedResponse)
 
@@ -91,7 +91,7 @@ export function createXMLHttpRequestProxy({
            * since not all consumers are expecting to handle errors.
            * If they don't, this error will be swallowed.
            */
-          requestController.errorWith(resolverResult.error)
+          xhrRequestController.errorWith(resolverResult.error)
           return
         }
 
@@ -109,11 +109,11 @@ export function createXMLHttpRequestProxy({
               'received a network error response, rejecting the request promise...'
             )
 
-            requestController.errorWith(new TypeError('Network error'))
+            xhrRequestController.errorWith(new TypeError('Network error'))
             return
           }
 
-          return requestController.respondWith(mockedResponse)
+          return xhrRequestController.respondWith(mockedResponse)
         }
 
         this.logger.info(
@@ -121,7 +121,7 @@ export function createXMLHttpRequestProxy({
         )
       }
 
-      requestController.onResponse = async function ({
+      xhrRequestController.onResponse = async function ({
         response,
         isMockedResponse,
         request,
@@ -143,7 +143,7 @@ export function createXMLHttpRequestProxy({
       // Return the proxied request from the controller
       // so that the controller can react to the consumer's interactions
       // with this request (opening/sending/etc).
-      return requestController.request
+      return xhrRequestController.request
     },
   })
 

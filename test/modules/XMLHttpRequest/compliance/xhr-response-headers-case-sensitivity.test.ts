@@ -18,9 +18,8 @@ const httpServer = new HttpServer((app) => {
 const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(async () => {
-  await httpServer.listen()
-
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -28,7 +27,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('ignores casing when retrieving response headers via "getResponseHeader"', async () => {
+it.only('ignores casing when retrieving response headers via "getResponseHeader"', async () => {
   const req = await createXMLHttpRequest((req) => {
     req.open('GET', httpServer.http.url('/account'))
     req.send()
