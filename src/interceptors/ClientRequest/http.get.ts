@@ -10,7 +10,9 @@ import {
 } from './utils/normalizeClientRequestArgs'
 
 export function get(protocol: Protocol, options: NodeClientOptions) {
-  return (...args: ClientRequestArgs): ClientRequest => {
+  return function interceptorsHttpGet(
+    ...args: ClientRequestArgs
+  ): ClientRequest {
     const clientRequestArgs = normalizeClientRequestArgs(
       `${protocol}:`,
       ...args

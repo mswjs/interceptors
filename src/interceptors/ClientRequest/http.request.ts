@@ -13,7 +13,9 @@ import {
 const logger = new Logger('http request')
 
 export function request(protocol: Protocol, options: NodeClientOptions) {
-  return (...args: ClientRequestArgs): ClientRequest => {
+  return function interceptorsHttpRequest(
+    ...args: ClientRequestArgs
+  ): ClientRequest {
     logger.info('request call (protocol "%s"):', protocol, args)
 
     const clientRequestArgs = normalizeClientRequestArgs(
