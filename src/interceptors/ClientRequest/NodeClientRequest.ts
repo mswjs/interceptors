@@ -160,13 +160,6 @@ export class NodeClientRequest extends ClientRequest {
       return this.passthrough(chunk, encoding, callback)
     }
 
-    // Notify the interceptor about the request.
-    // This will call any "request" listeners the users have.
-    this.logger.info(
-      'emitting the "request" event for %d listener(s)...',
-      this.emitter.listenerCount('request')
-    )
-
     // Add the last "request" listener that always resolves
     // the pending response Promise. This way if the consumer
     // hasn't handled the request themselves, we will prevent
@@ -181,6 +174,10 @@ export class NodeClientRequest extends ClientRequest {
       }
 
       if (requestController.responsePromise.state === 'pending') {
+        this.logger.info(
+          'request has not been handled in listeners, executing fail-safe listener...'
+        )
+
         requestController.responsePromise.resolve(undefined)
       }
     })
@@ -188,10 +185,19 @@ export class NodeClientRequest extends ClientRequest {
     // Execute the resolver Promise like a side-effect.
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
     until(async () => {
+      // Notify the interceptor about the request.
+      // This will call any "request" listeners the users have.
+      this.logger.info(
+        'emitting the "request" event for %d listener(s)...',
+        this.emitter.listenerCount('request')
+      )
+
       await emitAsync(this.emitter, 'request', {
         request: interactiveRequest,
         requestId,
       })
+
+      this.logger.info('all "request" listeners done!')
 
       const mockedResponse = await requestController.responsePromise
       this.logger.info('event.respondWith called with:', mockedResponse)
@@ -220,6 +226,8 @@ export class NodeClientRequest extends ClientRequest {
           'encountered resolver exception, aborting request...',
           resolverResult.error
         )
+
+        this.destroyed = true
         this.emit('error', resolverResult.error)
         this.terminate()
 
@@ -229,7 +237,17 @@ export class NodeClientRequest extends ClientRequest {
       const mockedResponse = resolverResult.data
 
       if (mockedResponse) {
-        this.logger.info('received mocked response:', mockedResponse)
+        this.logger.info(
+          'received mocked response:',
+          mockedResponse.status,
+          mockedResponse.statusText
+        )
+
+        /**
+         * @note Ignore this request being destroyed by TLS in Node.js
+         * due to connection errors.
+         */
+        this.destroyed = false
 
         // Handle mocked "Response.error" network error responses.
         if (mockedResponse.type === 'error') {
@@ -448,10 +466,29 @@ export class NodeClientRequest extends ClientRequest {
     }
     this.logger.info('mocked response headers ready:', headers)
 
+    /**
+     * Set the internal "res" property to the mocked "OutgoingMessage"
+     * to make the "ClientRequest" instance think there's data received
+     * from the socket.
+     * @see https://github.com/nodejs/node/blob/9c405f2591f5833d0247ed0fafdcd68c5b14ce7a/lib/_http_client.js#L501
+     *
+     * Set the response immediately so the interceptor could stream data
+     * chunks to the request client as they come in.
+     */
+    // @ts-ignore
+    this.res = this.response
+    this.emit('response', this.response)
+
     const isResponseStreamFinished = new DeferredPromise<void>()
 
     const finishResponseStream = () => {
       this.logger.info('finished response stream!')
+
+      // Push "null" to indicate that the response body is complete
+      // and shouldn't be written to anymore.
+      this.response.push(null)
+      this.response.complete = true
+
       isResponseStreamFinished.resolve()
     }
 
@@ -475,29 +512,12 @@ export class NodeClientRequest extends ClientRequest {
       finishResponseStream()
     }
 
-    /**
-     * Set the internal "res" property to the mocked "OutgoingMessage"
-     * to make the "ClientRequest" instance think there's data received
-     * from the socket.
-     * @see https://github.com/nodejs/node/blob/9c405f2591f5833d0247ed0fafdcd68c5b14ce7a/lib/_http_client.js#L501
-     *
-     * Set the response immediately so the interceptor could stream data
-     * chunks to the request client as they come in.
-     */
-    // @ts-ignore
-    this.res = this.response
-    this.emit('response', this.response)
-
     isResponseStreamFinished.then(() => {
       this.logger.info('finalizing response...')
-
-      // Push "null" to indicate that the response body is complete
-      // and shouldn't be written to anymore.
-      this.response.push(null)
-      this.response.complete = true
       this.response.emit('end')
-
       this.terminate()
+
+      this.logger.info('request complete!')
     })
   }
 
