@@ -36,7 +36,7 @@ specifiers:
   outvariant: ^1.2.1
   rimraf: ^3.0.2
   simple-git-hooks: ^2.7.0
-  strict-event-emitter: ^0.5.0
+  strict-event-emitter: ^0.5.1
   superagent: ^6.1.0
   supertest: ^6.1.6
   ts-jest: ^27.1.1
@@ -53,7 +53,7 @@ dependencies:
   '@open-draft/until': 2.1.0
   is-node-process: 1.2.0
   outvariant: 1.4.0
-  strict-event-emitter: 0.5.0
+  strict-event-emitter: 0.5.1
 
 devDependencies:
   '@commitlint/cli': 16.3.0
@@ -5976,8 +5976,8 @@ packages:
     resolution: {integrity: sha512-AiisoFqQ0vbGcZgQPY1cdP2I76glaVA/RauYR4G4thNFgkTqr90yXTo4LYX60Jl+sIlPNHHdGSwo01AvbKUSVQ==}
     dev: true
 
-  /strict-event-emitter/0.5.0:
-    resolution: {integrity: sha512-sqnMpVJLSB3daNO6FcvsEk4Mq5IJeAwDeH80DP1S8+pgxrF6yZnE1+VeapesGled7nEcIkz1Ax87HzaIy+02kA==}
+  /strict-event-emitter/0.5.1:
+    resolution: {integrity: sha512-vMgjE/GGEPEFnhFub6pa4FmJBRBVOLpIII2hvCZ8Kzb7K0hlHo7mQv6xYrBvCL2LtAIBwFUK8wvuJgTVSQ5MFQ==}
     dev: false
 
   /string-length/4.0.2:
