@@ -110,10 +110,12 @@ export function normalizeClientRequestArgs(
   // and derive request options from it.
   else if (args[0] instanceof URL) {
     url = args[0]
-    logger.info('first argument is a URL:', url)
 
     options = resolveRequestOptions(args, url)
     logger.info('derived request options:', options)
+
+    url.pathname = options.path || ''
+    logger.info('first argument is a URL:', url)
 
     callback = resolveCallback(args)
   }
