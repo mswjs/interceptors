@@ -11,6 +11,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
+
 interceptor.on('request', function rootListener({ request }) {
   if (request.url.toString() === httpServer.http.url('/test')) {
     request.respondWith(new Response('mocked-body'))
