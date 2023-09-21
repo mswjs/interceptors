@@ -230,14 +230,12 @@ it('intercepts an http.request given RequestOptions without a protocol', async (
   expect(requestId).toMatch(UUID_REGEXP)
 })
 
-it.only('intercepts an http.request given auth', async () => {
-  // Create a request with `RequestOptions` without an explicit "protocol".
-  // Since request is done via `http.get`, the "http:" protocol must be inferred.
+it('intercepts an http.request given auth', async () => {
+  const auth = 'username:password'
   const req = http.request({
     host: httpServer.http.address.host,
     port: httpServer.http.address.port,
-    path: '/user?id=123',
-    auth: 'username:password',
+    auth,
   })
   req.end()
   await waitForClientRequest(req)
@@ -247,7 +245,8 @@ it.only('intercepts an http.request given auth', async () => {
   const [{ request, requestId }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.http.url('/user?id=123'))
+  expect(request.url).toBe(httpServer.http.url('/'))
+  expect(request.headers.get('authorization')).toEqual('Basic ' + Buffer.from(auth).toString('base64'))
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
