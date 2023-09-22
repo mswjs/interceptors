@@ -114,7 +114,12 @@ export function normalizeClientRequestArgs(
     options = resolveRequestOptions(args, url)
     logger.info('derived request options:', options)
 
-    url.pathname = options.path || ''
+    if (options.path) {
+      logger.info('found explicit "path" option ("%s"), overriding URL pathname ("%s")', options.path, url.pathname)
+
+      url.pathname = options.path
+    }
+
     logger.info('first argument is a URL:', url)
 
     callback = resolveCallback(args)

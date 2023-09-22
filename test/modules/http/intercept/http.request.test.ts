@@ -254,6 +254,30 @@ it('intercepts an http.request with three argument form: URL, options, and callb
   expect(requestId).toMatch(UUID_REGEXP)
 })
 
+it('intercepts an http.request path in url and options', async () => {
+  const callback = vi.fn()
+  const req = http.request(
+    new URL(httpServer.http.url('/one')),
+    { path: '/two' },
+    callback,
+  )
+  req.end()
+  await waitForClientRequest(req)
+
+  expect(resolver).toHaveBeenCalledTimes(1)
+
+  const [{ request, requestId }] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.http.url('/two'))
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(callback).toHaveBeenCalledTimes(1)
+
+  expect(requestId).toMatch(UUID_REGEXP)
+})
+
 it('intercepts an http.request with custom "auth" option', async () => {
   const auth = 'john:secret123'
   const req = http.request({
