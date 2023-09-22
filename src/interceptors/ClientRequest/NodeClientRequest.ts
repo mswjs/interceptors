@@ -312,6 +312,17 @@ export class NodeClientRequest extends ClientRequest {
     return this
   }
 
+  flushHeaders(): void {
+    /**
+     * @note `.flusHeaders()` isn't strictly equivalent to `.end()`.
+     * Flushing headers writes request headers but not the request body,
+     * and we likely cannot replace it with `.end()`.
+     *
+     * @see https://github.com/nodejs/node/blob/c2cd74453e7d2794ad81cab63e68371e08bad04f/lib/_http_outgoing.js#L1161
+     */
+    this.end('')
+  }
+
   emit(event: string, ...data: any[]) {
     this.logger.info('emit: %s', event)
 
