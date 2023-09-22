@@ -69,8 +69,6 @@ export class NodeClientRequest extends ClientRequest {
     })
 
     this.url = url
-    this.url.username = ''
-    this.url.password = ''
     this.emitter = options.emitter
 
     // Set request buffer to null by default so that GET/HEAD requests
