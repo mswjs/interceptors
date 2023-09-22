@@ -212,3 +212,26 @@ it('intercepts an http.request request given RequestOptions without a protocol',
 
   expect(requestId).toMatch(UUID_REGEXP)
 })
+
+it('intercepts an http.request kickstarted by ".flushHeaders()', async () => {
+  const req = https.request({
+    agent: httpsAgent,
+    host: httpServer.https.address.host,
+    port: httpServer.https.address.port,
+    path: '/',
+  })
+  req.flushHeaders()
+  await waitForClientRequest(req)
+
+  expect(resolver).toHaveBeenCalledTimes(1)
+
+  const [{ request, requestId }] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.https.url('/'))
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
+
+  expect(requestId).toMatch(UUID_REGEXP)
+})
