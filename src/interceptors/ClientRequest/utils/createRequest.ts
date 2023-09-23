@@ -47,10 +47,5 @@ function getRequestBody(
   }
 
   const readable = clientRequest['requestBodyStream']
-
-  if (readable.readableLength === 0) {
-    return null
-  }
-
   return toWebReadableStream(readable)
 }
