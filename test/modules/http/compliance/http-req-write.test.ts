@@ -2,7 +2,6 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { NodeClientRequest } from '../../../../src/interceptors/ClientRequest/NodeClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
@@ -18,10 +17,6 @@ const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', async ({ request }) => {
   interceptedRequestBody(await request.clone().text())
 })
-
-function getInternalRequestBody(req: http.ClientRequest): Buffer {
-  return Buffer.from((req as NodeClientRequest).requestBuffer || '')
-}
 
 beforeAll(async () => {
   interceptor.apply()
@@ -54,8 +49,7 @@ it('writes string request body', async () => {
   const expectedBody = 'onetwothree'
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
-  expect(await text()).toEqual(expectedBody)
+  expect(await text()).toBe(expectedBody)
 })
 
 it('writes JSON request body', async () => {
@@ -70,11 +64,10 @@ it('writes JSON request body', async () => {
   req.write(':"value"')
   req.end('}')
 
-  const { res, text } = await waitForClientRequest(req)
+  const { text } = await waitForClientRequest(req)
   const expectedBody = `{"key":"value"}`
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
   expect(await text()).toEqual(expectedBody)
 })
 
@@ -94,7 +87,6 @@ it('writes Buffer request body', async () => {
   const expectedBody = `{"key":"value"}`
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
   expect(await text()).toEqual(expectedBody)
 })
 

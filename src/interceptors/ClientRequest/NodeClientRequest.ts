@@ -1,4 +1,5 @@
 import { ClientRequest, IncomingMessage } from 'http'
+import { Readable } from 'stream'
 import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'
@@ -49,8 +50,11 @@ export class NodeClientRequest extends ClientRequest {
   private responseSource: 'mock' | 'bypass' = 'mock'
   private capturedError?: NodeJS.ErrnoException
 
+  private isRequestSent: boolean = false
+  private requestBodyStream: Readable
+
   public url: URL
-  public requestBuffer: Buffer | null
+  // public requestBuffer: Buffer | null
 
   constructor(
     [url, requestOptions, callback]: NormalizedClientRequestArgs,
@@ -73,7 +77,11 @@ export class NodeClientRequest extends ClientRequest {
 
     // Set request buffer to null by default so that GET/HEAD requests
     // without a body wouldn't suddenly get one.
-    this.requestBuffer = null
+    // this.requestBuffer = null
+
+    this.requestBodyStream = new Readable({
+      read() {},
+    })
 
     // Construct a mocked response message.
     this.response = new IncomingMessage(this.socket!)
@@ -83,32 +91,30 @@ export class NodeClientRequest extends ClientRequest {
     chunk: string | Buffer | null,
     encoding?: BufferEncoding
   ): void {
-    if (chunk == null) {
+    if (chunk === null) {
+      this.requestBodyStream.push(null)
       return
-    }
-
-    if (this.requestBuffer == null) {
-      this.requestBuffer = Buffer.from([])
     }
 
     const resolvedChunk = Buffer.isBuffer(chunk)
       ? chunk
       : Buffer.from(chunk, encoding)
 
-    this.requestBuffer = Buffer.concat([this.requestBuffer, resolvedChunk])
+    this.requestBodyStream.push(resolvedChunk)
   }
 
   write(...args: ClientRequestWriteArgs): boolean {
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
     this.logger.info('write:', { chunk, encoding, callback })
+
     this.chunks.push({ chunk, encoding })
 
     // Write each request body chunk to the internal buffer.
     this.writeRequestBodyChunk(chunk, encoding)
 
     this.logger.info(
-      'chunk successfully stored!',
-      this.requestBuffer?.byteLength
+      'chunk successfully written!',
+      this.requestBodyStream.readableLength
     )
 
     /**
@@ -137,6 +143,9 @@ export class NodeClientRequest extends ClientRequest {
 
     // Write the last request body chunk passed to the "end()" method.
     this.writeRequestBodyChunk(chunk, encoding || undefined)
+
+    // Write null to end the internal request body stream.
+    this.writeRequestBodyChunk(null)
 
     const capturedRequest = createRequest(this)
     const { interactiveRequest, requestController } =
@@ -310,17 +319,6 @@ export class NodeClientRequest extends ClientRequest {
     })
 
     return this
-  }
-
-  flushHeaders(): void {
-    /**
-     * @note `.flusHeaders()` isn't strictly equivalent to `.end()`.
-     * Flushing headers writes request headers but not the request body,
-     * and we likely cannot replace it with `.end()`.
-     *
-     * @see https://github.com/nodejs/node/blob/c2cd74453e7d2794ad81cab63e68371e08bad04f/lib/_http_outgoing.js#L1161
-     */
-    this.end('')
   }
 
   emit(event: string, ...data: any[]) {
