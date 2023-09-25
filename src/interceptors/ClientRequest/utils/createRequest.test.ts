@@ -83,3 +83,43 @@ it('creates a fetch Request with an empty string body', async () => {
   expect(request.url).toBe('https://api.github.com/')
   expect(request.body).toBe(null)
 })
+
+it('creates a fetch Request with an empty username', async () => {
+  const clientRequest = new NodeClientRequest(
+    [
+      new URL('https://api.github.com'),
+      { auth: 'username:' },
+      () => {},
+    ],
+    {
+      emitter,
+      logger,
+    }
+  )
+  clientRequest.write('')
+
+  const request = createRequest(clientRequest)
+
+  expect(request.headers.get('Authorization')).toBe(`Basic ${btoa('username:')}`)
+  expect(request.url).toBe('https://api.github.com/')
+})
+
+it('creates a fetch Request with an empty password', async () => {
+  const clientRequest = new NodeClientRequest(
+    [
+      new URL('https://api.github.com'),
+      { auth: ':password' },
+      () => {},
+    ],
+    {
+      emitter,
+      logger,
+    }
+  )
+  clientRequest.write('')
+
+  const request = createRequest(clientRequest)
+
+  expect(request.headers.get('Authorization')).toBe(`Basic ${btoa(':password')}`)
+  expect(request.url).toBe('https://api.github.com/')
+})

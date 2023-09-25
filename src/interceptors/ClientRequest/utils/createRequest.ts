@@ -26,7 +26,7 @@ export function createRequest(clientRequest: NodeClientRequest): Request {
    * @see https://github.com/mswjs/interceptors/issues/438
    */
   if (clientRequest.url.username || clientRequest.url.password) {
-    const auth = `${clientRequest.url.username}:${clientRequest.url.password}`
+    const auth = `${clientRequest.url.username || ''}:${clientRequest.url.password || ''}`
     headers.set('Authorization', `Basic ${btoa(auth)}`)
 
     // Remove the credentials from the URL since you cannot
