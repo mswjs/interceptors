@@ -371,3 +371,50 @@ it('merges URL-based RequestOptions with the custom RequestOptions', () => {
   expect(options.hostname).toEqual(url.hostname)
   expect(options.path).toEqual(url.pathname)
 })
+
+it('respects custom "options.path" over URL path', () => {
+  const [url, options] = normalizeClientRequestArgs(
+    'http:',
+    new URL('http://example.com/path-from-url'),
+    {
+      path: '/path-from-options',
+    }
+  )
+
+  expect(url.href).toBe('http://example.com/path-from-options')
+  expect(options.protocol).toBe('http:')
+  expect(options.host).toBe('example.com')
+  expect(options.hostname).toBe('example.com')
+  expect(options.path).toBe('/path-from-options')
+})
+
+it('respects custom "options.path" over URL path with query string', () => {
+  const [url, options] = normalizeClientRequestArgs(
+    'http:',
+    new URL('http://example.com/path-from-url?a=b&c=d'),
+    {
+      path: '/path-from-options',
+    }
+  )
+
+  // Must replace the path but preserve the query string.
+  expect(url.href).toBe('http://example.com/path-from-options?a=b&c=d')
+  expect(options.protocol).toBe('http:')
+  expect(options.host).toBe('example.com')
+  expect(options.hostname).toBe('example.com')
+  expect(options.path).toBe('/path-from-options')
+})
+
+it('preserves URL query string', () => {
+  const [url, options] = normalizeClientRequestArgs(
+    'http:',
+    new URL('http://example.com/resource?a=b&c=d')
+  )
+
+  expect(url.href).toBe('http://example.com/resource?a=b&c=d')
+  expect(options.protocol).toBe('http:')
+  expect(options.host).toBe('example.com')
+  expect(options.hostname).toBe('example.com')
+  // Query string is a part of the options path.
+  expect(options.path).toBe('/resource?a=b&c=d')
+})

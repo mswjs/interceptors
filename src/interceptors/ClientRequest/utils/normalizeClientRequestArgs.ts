@@ -110,17 +110,29 @@ export function normalizeClientRequestArgs(
   // and derive request options from it.
   else if (args[0] instanceof URL) {
     url = args[0]
+    logger.info('first argument is a URL:', url)
+
+    // Check if the second provided argument is RequestOptions.
+    // If it is, check if "options.path" was set and rewrite it
+    // on the input URL.
+    // Do this before resolving options from the URL below
+    // to prevent query string from being duplicated in the path.
+    if (typeof args[1] !== 'undefined' && isObject<RequestOptions>(args[1])) {
+      const explicitOptions = args[1]
+
+      if (explicitOptions.path != null) {
+        logger.info(
+          'found explicit "path" option ("%s"), overriding URL pathname ("%s")',
+          explicitOptions.path,
+          url.pathname
+        )
+
+        url.pathname = explicitOptions.path
+      }
+    }
 
     options = resolveRequestOptions(args, url)
     logger.info('derived request options:', options)
-
-    if (options.path) {
-      logger.info('found explicit "path" option ("%s"), overriding URL pathname ("%s")', options.path, url.pathname)
-
-      url.pathname = options.path
-    }
-
-    logger.info('first argument is a URL:', url)
 
     callback = resolveCallback(args)
   }
