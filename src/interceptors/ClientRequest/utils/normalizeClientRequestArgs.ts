@@ -74,10 +74,9 @@ function overrideUrlByRequestOptions(url: URL, options: RequestOptions): URL {
   url.port = options.port ? options.port.toString() : url.port
 
   if (options.path) {
-    url.pathname = options.path
-
-    const parsedPartialUrl = parseUrl(options.path)
-    url.search = parsedPartialUrl.search || ''
+    const parsedOptionsPath = parseUrl(options.path, false)
+    url.pathname = parsedOptionsPath.pathname || ''
+    url.search = parsedOptionsPath.search || ''
   }
 
   return url
@@ -138,19 +137,7 @@ export function normalizeClientRequestArgs(
     // Do this before resolving options from the URL below
     // to prevent query string from being duplicated in the path.
     if (typeof args[1] !== 'undefined' && isObject<RequestOptions>(args[1])) {
-      const explicitOptions = args[1]
-
       url = overrideUrlByRequestOptions(url, args[1])
-
-      if (explicitOptions.path != null) {
-        logger.info(
-          'found explicit "path" option ("%s"), overriding URL pathname ("%s")',
-          explicitOptions.path,
-          url.pathname
-        )
-
-        url.pathname = explicitOptions.path
-      }
     }
 
     options = resolveRequestOptions(args, url)
