@@ -212,6 +212,40 @@ it('handles [URL, RequestOptions, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
+it('handles [URL, RequestOptions] where options override the URL', () => {
+  const firstResult = normalizeClientRequestArgs(
+    'http:',
+    new URL('http://example.com/path-from-url'),
+    {
+      hostname: 'host-from-options.com',
+    }
+  )
+  expect(firstResult[0].href).toBe('http://host-from-options.com/path-from-url')
+  expect(firstResult[1]).toMatchObject({
+    host: 'host-from-options.com',
+    path: '/path-from-url',
+  })
+
+  const secondResult = normalizeClientRequestArgs(
+    'http:',
+    new URL('http://example.com/path-from-url?a=b&c=d'),
+    {
+      hostname: 'host-from-options.com',
+      path: '/path-from-options',
+      port: 1234,
+    }
+  )
+  // Must remove the query string since it's not specified in "options.path"
+  expect(secondResult[0].href).toBe(
+    'http://host-from-options.com:1234/path-from-options'
+  )
+  expect(secondResult[1]).toMatchObject({
+    host: 'host-from-options.com:1234',
+    path: '/path-from-options',
+    port: 1234,
+  })
+})
+
 it('handles [RequestOptions, callback] input', () => {
   const initialOptions = {
     method: 'POST',
@@ -397,8 +431,8 @@ it('respects custom "options.path" over URL path with query string', () => {
     }
   )
 
-  // Must replace the path but preserve the query string.
-  expect(url.href).toBe('http://example.com/path-from-options?a=b&c=d')
+  // Must replace both the path and the query string.
+  expect(url.href).toBe('http://example.com/path-from-options')
   expect(options.protocol).toBe('http:')
   expect(options.host).toBe('example.com')
   expect(options.hostname).toBe('example.com')

@@ -8,7 +8,7 @@ import {
   Agent as HttpsAgent,
   globalAgent as httpsGlobalAgent,
 } from 'https'
-import { Url as LegacyURL } from 'url'
+import { Url as LegacyURL, parse as parseUrl } from 'url'
 import { Logger } from '@open-draft/logger'
 import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
 import {
@@ -61,6 +61,26 @@ function resolveRequestOptions(
 
   logger.info('using an empty object as request options')
   return {} as RequestOptions
+}
+
+/**
+ * Overrides the given `URL` instance with the explicit properties provided
+ * on the `RequestOptions` object. The options object takes precedence,
+ * and will replace URL properties like "host", "path", and "port", if specified.
+ */
+function overrideUrlByRequestOptions(url: URL, options: RequestOptions): URL {
+  url.host = options.host || url.host
+  url.hostname = options.hostname || url.hostname
+  url.port = options.port ? options.port.toString() : url.port
+
+  if (options.path) {
+    url.pathname = options.path
+
+    const parsedPartialUrl = parseUrl(options.path)
+    url.search = parsedPartialUrl.search || ''
+  }
+
+  return url
 }
 
 function resolveCallback(
@@ -119,6 +139,8 @@ export function normalizeClientRequestArgs(
     // to prevent query string from being duplicated in the path.
     if (typeof args[1] !== 'undefined' && isObject<RequestOptions>(args[1])) {
       const explicitOptions = args[1]
+
+      url = overrideUrlByRequestOptions(url, args[1])
 
       if (explicitOptions.path != null) {
         logger.info(
