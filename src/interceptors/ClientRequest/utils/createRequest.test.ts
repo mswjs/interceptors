@@ -84,7 +84,7 @@ it('creates a fetch Request with an empty string body', async () => {
   expect(request.body).toBe(null)
 })
 
-it('creates a fetch Request with an empty username', async () => {
+it('creates a fetch Request with an empty password', async () => {
   const clientRequest = new NodeClientRequest(
     [
       new URL('https://api.github.com'),
@@ -104,7 +104,7 @@ it('creates a fetch Request with an empty username', async () => {
   expect(request.url).toBe('https://api.github.com/')
 })
 
-it('creates a fetch Request with an empty password', async () => {
+it('creates a fetch Request with an empty username', async () => {
   const clientRequest = new NodeClientRequest(
     [
       new URL('https://api.github.com'),
