@@ -123,3 +123,22 @@ it('creates a fetch Request with an empty username', async () => {
   expect(request.headers.get('Authorization')).toBe(`Basic ${btoa(':password')}`)
   expect(request.url).toBe('https://api.github.com/')
 })
+
+it('creates a fetch Request with falsy headers', async () => {
+  const clientRequest = new NodeClientRequest(
+    [
+      new URL('https://api.github.com'),
+      { headers: { 'foo': 0, 'empty': '' }}
+    ],
+    {
+      emitter,
+      logger,
+    }
+  )
+  clientRequest.write('')
+
+  const request = createRequest(clientRequest)
+
+  expect(request.headers.get('foo')).toBe('0')
+  expect(request.headers.get('empty')).toBe('')
+})
