@@ -10,7 +10,7 @@ export function createRequest(clientRequest: NodeClientRequest): Request {
   for (const headerName in outgoingHeaders) {
     const headerValue = outgoingHeaders[headerName]
 
-    if (!headerValue) {
+    if (typeof headerValue === 'undefined') {
       continue
     }
 
