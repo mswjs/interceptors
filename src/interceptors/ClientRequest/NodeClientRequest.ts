@@ -48,6 +48,7 @@ export class NodeClientRequest extends ClientRequest {
   }> = []
   private responseSource: 'mock' | 'bypass' = 'mock'
   private capturedError?: NodeJS.ErrnoException
+  private afterConnectionPhase: boolean = false
 
   public url: URL
   public requestBuffer: Buffer | null
@@ -205,6 +206,8 @@ export class NodeClientRequest extends ClientRequest {
       return mockedResponse
     }).then((resolverResult) => {
       this.logger.info('the listeners promise awaited!')
+      // We no longer need to suppress any errors
+      this.afterConnectionPhase = true
 
       /**
        * @fixme We are in the "end()" method that still executes in parallel
@@ -354,7 +357,8 @@ export class NodeClientRequest extends ClientRequest {
       // to a non-existing hostname but has a mocked response.
       if (
         this.responseSource === 'mock' &&
-        NodeClientRequest.suppressErrorCodes.includes(errorCode)
+        NodeClientRequest.suppressErrorCodes.includes(errorCode) &&
+        !this.afterConnectionPhase
       ) {
         // Capture the first emitted error in order to replay
         // it later if this request won't have any mocked response.

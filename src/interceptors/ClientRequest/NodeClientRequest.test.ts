@@ -190,6 +190,31 @@ it('emits the ECONNREFUSED error connecting to an inactive server given no mocke
   expect(error.port).toBe(12345)
 })
 
+it('does emit ECONNREFUSED error that thrown from the mocked response', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', 'http://127.0.0.1:12345'),
+    {
+      emitter,
+      logger,
+    }
+  )
+
+  emitter.on('request',  () => {
+    throw { code: 'ECONNREFUSED' }
+  })
+
+  const errorReceived = new DeferredPromise<{ code: string }>()
+  request.on('error', async (error: { code: string }) => {
+    errorReceived.resolve(error)
+  })
+  request.end()
+
+  const error = await errorReceived
+
+  expect(error.code).toBe('ECONNREFUSED')
+})
+
 it('does not emit ENOTFOUND error connecting to an inactive server given mocked response', async () => {
   const emitter = new Emitter<HttpRequestEventMap>()
   const handleError = vi.fn()
