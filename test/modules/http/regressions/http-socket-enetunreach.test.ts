@@ -1,9 +1,18 @@
-import { it, expect } from 'vitest'
+import { it, expect, beforeAll, afterAll } from 'vitest'
 import { httpGet } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
+const interceptor = new ClientRequestInterceptor()
+
+beforeAll(() => {
+  interceptor.apply()
+})
+
+afterAll(() => {
+  interceptor.dispose()
+})
+
 it('does not leave the test process hanging due to the custom socket timeout', async () => {
-  const interceptor = new ClientRequestInterceptor()
   interceptor.apply();
   interceptor.on('request', ({ request }) => {
     request.respondWith(new Response('test'))
