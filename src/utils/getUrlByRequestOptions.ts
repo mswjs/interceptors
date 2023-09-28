@@ -75,14 +75,7 @@ function getPortByRequestOptions(
   return undefined
 }
 
-function getHostByRequestOptions(options: ResolvedRequestOptions): string {
-  const { hostname, host } = options
-
-  // If the hostname is specified, resolve the host from the "host:port" string.
-  if (hostname != null) {
-    return hostname.replace(/:\d+$/, '')
-  }
-
+function getHostByRequestOptions(host: RequestOptions['host']): string {
   return host || DEFAULT_HOST
 }
 
@@ -100,31 +93,8 @@ function getAuthByRequestOptions(
   }
 }
 
-/**
- * Returns true if host looks like an IPv6 address without surrounding brackets
- * It assumes any host containing `:` is definitely not IPv4 and probably IPv6,
- * but note that this could include invalid IPv6 addresses as well.
- */
-function isRawIPv6Address(host: string): boolean {
-  return host.includes(':') && !host.startsWith('[') && !host.endsWith(']')
-}
-
-function getHostname(host: string, port?: number): string {
-  const portString = typeof port !== 'undefined' ? `:${port}` : ''
-
-  /**
-   * @note As of Node >= 17, hosts (including "localhost") can resolve to IPv6
-   * addresses, so construct valid URL by surrounding the IPv6 host with brackets.
-   */
-  if (isRawIPv6Address(host)) {
-    return `[${host}]${portString}`
-  }
-
-  if (typeof port === 'undefined') {
-    return host
-  }
-
-  return `${host}${portString}`
+function getHostname(host: string): string {
+  return host.replace(/:\d+$/, '')
 }
 
 /**
@@ -146,13 +116,13 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   const protocol = getProtocolByRequestOptions(options)
   logger.info('protocol', protocol)
 
-  const host = getHostByRequestOptions(options)
+  const host = getHostByRequestOptions(options.host)
   logger.info('host', host)
 
   const port = getPortByRequestOptions(options)
   logger.info('port', port)
 
-  const hostname = getHostname(host, port)
+  const hostname = getHostname(host)
   logger.info('hostname', hostname)
 
   const path = options.path || DEFAULT_PATH
@@ -166,7 +136,7 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
     : ''
   logger.info('auth string:', authString)
 
-  const url = new URL(`${protocol}//${hostname}${path}`)
+  const url = new URL(`${protocol}//${host}${path}`)
   url.username = credentials?.username || ''
   url.password = credentials?.password || ''
 
