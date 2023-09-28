@@ -205,7 +205,6 @@ export class NodeClientRequest extends ClientRequest {
       return mockedResponse
     }).then((resolverResult) => {
       this.logger.info('the listeners promise awaited!')
-      // We no longer need to suppress any errors
 
       /**
        * @fixme We are in the "end()" method that still executes in parallel
