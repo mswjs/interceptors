@@ -50,9 +50,9 @@ function getPortByRequestOptions(
     return Number(options.port)
   }
 
-  // Extract the port from the hostname.
-  if (options.hostname != null) {
-    const [, extractedPort] = options.hostname.match(/:(\d+)$/) || []
+  // Extract the port from the host.
+  if (options.host != null) {
+    const [, extractedPort] = options.host.match(/:(\d+)$/) || []
 
     if (extractedPort != null) {
       return Number(extractedPort)
@@ -75,8 +75,20 @@ function getPortByRequestOptions(
   return undefined
 }
 
-function getHostByRequestOptions(host?: string | null): string {
-  return host || DEFAULT_HOST
+function getHostByRequestOptions(options: ResolvedRequestOptions): string {
+  if (options.host) {
+    return options.host
+  }
+
+  if (options.hostname) {
+    if (options.port) {
+      return `${options.hostname}:${options.port}`
+    }
+
+    return options.hostname
+  }
+
+  return DEFAULT_HOST
 }
 
 interface RequestAuth {
@@ -93,8 +105,18 @@ function getAuthByRequestOptions(
   }
 }
 
-function getHostname(host: string): string {
-  return host.replace(/:\d+$/, '')
+function getHostname(options: ResolvedRequestOptions): string {
+  if (options.hostname) {
+    return options.hostname
+  }
+
+  if (options.host) {
+    // Check the presence of the port, and if it's present,
+    // remove it from the host, returning a hostname.
+    return new URL(`http://${options.host}`).hostname
+  }
+
+  return DEFAULT_HOST
 }
 
 /**
@@ -116,13 +138,13 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   const protocol = getProtocolByRequestOptions(options)
   logger.info('protocol', protocol)
 
-  const host = getHostByRequestOptions(options.host)
+  const host = getHostByRequestOptions(options)
   logger.info('host', host)
 
   const port = getPortByRequestOptions(options)
   logger.info('port', port)
 
-  const hostname = getHostname(host)
+  const hostname = getHostname(options)
   logger.info('hostname', hostname)
 
   const path = options.path || DEFAULT_PATH
