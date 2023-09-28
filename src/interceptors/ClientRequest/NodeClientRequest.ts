@@ -46,9 +46,8 @@ export class NodeClientRequest extends ClientRequest {
     chunk?: string | Buffer
     encoding?: BufferEncoding
   }> = []
-  private responseSource: 'mock' | 'bypass' = 'mock'
+  private responseSource: 'unknown' | 'mock' | 'bypass' = 'unknown'
   private capturedError?: NodeJS.ErrnoException
-  private afterConnectionPhase: boolean = false
 
   public url: URL
   public requestBuffer: Buffer | null
@@ -207,7 +206,6 @@ export class NodeClientRequest extends ClientRequest {
     }).then((resolverResult) => {
       this.logger.info('the listeners promise awaited!')
       // We no longer need to suppress any errors
-      this.afterConnectionPhase = true
 
       /**
        * @fixme We are in the "end()" method that still executes in parallel
@@ -229,6 +227,7 @@ export class NodeClientRequest extends ClientRequest {
           'encountered resolver exception, aborting request...',
           resolverResult.error
         )
+        this.responseSource = 'mock'
 
         this.destroyed = true
         this.emit('error', resolverResult.error)
@@ -245,6 +244,7 @@ export class NodeClientRequest extends ClientRequest {
           mockedResponse.status,
           mockedResponse.statusText
         )
+        this.responseSource = 'mock'
 
         /**
          * @note Ignore this request being destroyed by TLS in Node.js
@@ -269,8 +269,6 @@ export class NodeClientRequest extends ClientRequest {
         }
 
         const responseClone = mockedResponse.clone()
-
-        this.responseSource = 'mock'
 
         this.respondWith(mockedResponse)
         this.logger.info(
@@ -356,9 +354,8 @@ export class NodeClientRequest extends ClientRequest {
       // For example, no need to destroy this request if it connects
       // to a non-existing hostname but has a mocked response.
       if (
-        this.responseSource === 'mock' &&
-        NodeClientRequest.suppressErrorCodes.includes(errorCode) &&
-        !this.afterConnectionPhase
+        this.responseSource === 'unknown' &&
+        NodeClientRequest.suppressErrorCodes.includes(errorCode)
       ) {
         // Capture the first emitted error in order to replay
         // it later if this request won't have any mocked response.
