@@ -75,7 +75,7 @@ function getPortByRequestOptions(
   return undefined
 }
 
-function getHostByRequestOptions(host: RequestOptions['host']): string {
+function getHostByRequestOptions(host?: string | null): string {
   return host || DEFAULT_HOST
 }
 
