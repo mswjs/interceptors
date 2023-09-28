@@ -12,7 +12,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('does not leave the test process hanging due to the custom socket timeout', async () => {
+it('supports requests with IPv6 request url', async () => {
   interceptor.apply();
   interceptor.on('request', ({ request }) => {
     request.respondWith(new Response('test'))
