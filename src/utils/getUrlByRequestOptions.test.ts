@@ -101,14 +101,14 @@ it('inherits "username" and "password"', () => {
   expect(url).toHaveProperty('href', 'https://admin:abc-123@127.0.0.1/user')
 })
 
-it('resolves hostname to localhost if none provided', () => {
-  expect(getUrlByRequestOptions({}).hostname).toBe('localhost')
+it('resolves host to localhost if none provided', () => {
+  expect(getUrlByRequestOptions({}).host).toBe('localhost')
 })
 
-it('supports "hostname" instead of "host" and "port"', () => {
+it('supports "host" instead of "hostname" and "port"', () => {
   const options: RequestOptions = {
     protocol: 'https:',
-    hostname: '127.0.0.1:1234',
+    host: '127.0.0.1:1234',
     path: '/resource',
   }
 
@@ -117,17 +117,17 @@ it('supports "hostname" instead of "host" and "port"', () => {
   )
 })
 
-it('handles IPv6 hostnames', () => {
+it('handles IPv6 host', () => {
   expect(
     getUrlByRequestOptions({
-      host: '::1',
+      host: '[::1]',
       path: '/resource',
     }).href
   ).toBe('http://[::1]/resource')
 
   expect(
     getUrlByRequestOptions({
-      host: '::1',
+      host: '[::1]',
       port: 3001,
       path: '/resource',
     }).href

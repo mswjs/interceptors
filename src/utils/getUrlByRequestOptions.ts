@@ -75,7 +75,7 @@ function getPortByRequestOptions(
   return undefined
 }
 
-function getHostByRequestOptions(options: ResolvedRequestOptions): string {
+function getHostByRequestOptions(options: ResolvedRequestOptions): string | undefined {
   if (options.host) {
     return options.host
   }
@@ -88,7 +88,7 @@ function getHostByRequestOptions(options: ResolvedRequestOptions): string {
     return options.hostname
   }
 
-  return DEFAULT_HOST
+  return undefined
 }
 
 interface RequestAuth {
@@ -105,9 +105,23 @@ function getAuthByRequestOptions(
   }
 }
 
-function getHostname(options: ResolvedRequestOptions): string {
+/**
+ * Returns true if host looks like an IPv6 address without surrounding brackets
+ * It assumes any host containing `:` is definitely not IPv4 and probably IPv6,
+ * but note that this could include invalid IPv6 addresses as well.
+ */
+function isRawIPv6Address(host: string): boolean {
+  return host.includes(':') && !host.startsWith('[') && !host.endsWith(']')
+}
+
+function getHostname(options: ResolvedRequestOptions): string | undefined {
   if (options.hostname) {
-    return options.hostname
+    if (isRawIPv6Address(options.hostname)) {
+      // Put back the bracket we strip on getRequestOptionsByUrl
+      return `[${options.hostname}]`
+    } else {
+      return options.hostname
+    }
   }
 
   if (options.host) {
@@ -116,7 +130,7 @@ function getHostname(options: ResolvedRequestOptions): string {
     return new URL(`http://${options.host}`).hostname
   }
 
-  return DEFAULT_HOST
+  return undefined
 }
 
 /**
@@ -158,7 +172,8 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
     : ''
   logger.info('auth string:', authString)
 
-  const url = new URL(`${protocol}//${host}${path}`)
+  const portString = typeof port !== 'undefined' ? `:${port}` : ''
+  const url = new URL(`${protocol}//${hostname}${portString}${path}`)
   url.username = credentials?.username || ''
   url.password = credentials?.password || ''
 
