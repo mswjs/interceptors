@@ -316,7 +316,7 @@ it('does not send request body to the original server given mocked response', as
   expect(text).toBe('mock created!')
 })
 
-it.only('sets the correct rawHeaders', async () => {
+it.only('does not lowercase the rawHeaders', async () => {
   const emitter = new Emitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://any.thing'),
