@@ -20,6 +20,10 @@ import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
 import { emitAsync } from '../../utils/emitAsync'
 
+const kHeadersList = Object.getOwnPropertySymbols(new Headers()).find(
+    (s) => s.description === "headers list"
+);
+
 export type Protocol = 'http' | 'https'
 
 export interface NodeClientOptions {
@@ -451,7 +455,7 @@ export class NodeClientRequest extends ClientRequest {
     if (headers) {
       this.response.headers = {}
 
-      headers.forEach((headerValue, headerName) => {
+      Object.entries(headers[kHeadersList].entries).forEach(([headerName, headerValue]) => {
         /**
          * @note Make sure that multi-value headers are appended correctly.
          */

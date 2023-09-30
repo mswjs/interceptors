@@ -315,3 +315,36 @@ it('does not send request body to the original server given mocked response', as
   const text = await getIncomingMessageBody(response)
   expect(text).toBe('mock created!')
 })
+
+it.only('sets the correct rawHeaders', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', 'http://any.thing'),
+    {
+      emitter,
+      logger,
+    }
+  )
+
+  emitter.on('request', ({ request }) => {
+    request.respondWith(
+      new Response(null, {
+        headers: {
+          'X-Custom-Header': 'Yes',
+        },
+      })
+    )
+  })
+
+  request.end()
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+
+  request.on('response', async (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(response.rawHeaders).toStrictEqual([ 'X-Custom-Header', 'Yes' ])
+  expect(response.headers).toStrictEqual({ 'x-custom-header': 'Yes' })
+})
