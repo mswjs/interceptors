@@ -99,6 +99,11 @@ export class NodeClientRequest extends ClientRequest {
   }
 
   write(...args: ClientRequestWriteArgs): boolean {
+    // Fallback to native behavior to throw 
+    if (this.destroyed || this.finished) {
+      return super.write(args)
+    }
+
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
     this.logger.info('write:', { chunk, encoding, callback })
     this.chunks.push({ chunk, encoding })

@@ -315,3 +315,26 @@ it('does not send request body to the original server given mocked response', as
   const text = await getIncomingMessageBody(response)
   expect(text).toBe('mock created!')
 })
+
+it.only('emits the ERR_STREAM_WRITE_AFTER_END error when write after end given no mocked response', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write')),
+    {
+      emitter,
+      logger,
+    }
+  )
+
+  const errorReceived = new DeferredPromise<NodeJS.ErrnoException>()
+  request.on('error', (error) => {
+    errorReceived.resolve(error)
+  })
+  
+  request.end()
+  request.write('foo')
+
+  const error = await errorReceived
+
+  expect(error.code).toBe('ERR_STREAM_WRITE_AFTER_END')
+})
