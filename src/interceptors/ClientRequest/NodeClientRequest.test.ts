@@ -1,5 +1,6 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import express from 'express'
+import { setImmediate } from 'node:timers/promises';
 import { IncomingMessage } from 'http'
 import { Emitter } from 'strict-event-emitter'
 import { Logger } from '@open-draft/logger'
@@ -10,6 +11,7 @@ import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { sleep } from '../../../test/helpers'
 import { HttpRequestEventMap } from '../../glossary'
+
 
 interface ErrorConnectionRefused extends NodeJS.ErrnoException {
   address: string
@@ -314,4 +316,92 @@ it('does not send request body to the original server given mocked response', as
 
   const text = await getIncomingMessageBody(response)
   expect(text).toBe('mock created!')
+})
+
+it('emits close and abort when call abort before end given no mocked response', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
+      method: 'POST',
+    }),
+    {
+      emitter,
+      logger,
+    }
+  )
+  const emitSpy = vi.spyOn(request, 'emit')
+
+  request.abort()
+  request.end()
+  await setImmediate()
+
+  expect(emitSpy.mock.calls).toStrictEqual([['close'], ['abort']])
+})
+
+it('emits close and abort when call abort before end when it has a mocked response', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
+      method: 'POST',
+    }),
+    {
+      emitter,
+      logger,
+    }
+  )
+  const emitSpy = vi.spyOn(request, 'emit')
+
+  emitter.on('request', () => {
+    expect.fail('must not sent the request')
+  })
+
+  request.abort()
+  request.end()
+  await setImmediate()
+
+  expect(emitSpy.mock.calls).toStrictEqual([['close'], ['abort']])
+})
+
+it('emits close and abort when call end before abort given no mocked response', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
+      method: 'POST',
+    }),
+    {
+      emitter,
+      logger,
+    }
+  )
+  const emitSpy = vi.spyOn(request, 'emit')
+
+  request.end()
+  request.abort()
+  await setImmediate()
+  
+  expect(emitSpy.mock.calls).toStrictEqual([['close'], ['abort']])
+})
+
+it('emits close and abort when call end before abort when it has a mocked response', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
+      method: 'POST',
+    }),
+    {
+      emitter,
+      logger,
+    }
+  )
+  const emitSpy = vi.spyOn(request, 'emit')
+
+  emitter.on('request', () => {
+    expect.fail('must not sent the request')
+  })
+
+  request.end()
+  request.abort()
+  await setImmediate()
+
+  expect(emitSpy.mock.calls).toStrictEqual([['close'], ['abort']])
 })
