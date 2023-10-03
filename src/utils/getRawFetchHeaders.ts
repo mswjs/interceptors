@@ -1,6 +1,8 @@
 import { getValueBySymbol } from './getValueBySymbol'
+import { isObject } from './isObject'
 
 type RawHeadersMap = Map<string, string>
+type HeadersMapHeader = { name: string; value: string }
 
 /**
  * Returns raw headers from the given `Headers` instance.
@@ -16,30 +18,39 @@ export function getRawFetchHeaders(
 ): RawHeadersMap | undefined {
   const headersList = getValueBySymbol<object>('headers list', headers)
 
-  console.log('\n\n----')
-  console.log({ headersList })
-
   if (!headersList) {
     return
   }
 
   const headersMap = getValueBySymbol<
-    Map<string, { name: string; value: string }>
+    Map<string, string> | Map<string, HeadersMapHeader>
   >('headers map', headersList)
 
-  console.log({ headersList })
-
-  if (!headersMap) {
+  /**
+   * @note Older versions of Node.js (e.g. 18.8.0) keep headers map
+   * as Map<normalizedHeaderName, value> without any means to tap
+   * into raw header values. Detect that and return undefined.
+   */
+  if (!headersMap || !isHeadersMapWithRawHeaderNames(headersMap)) {
     return
   }
 
-  const rawHeaders: RawHeadersMap = new Map()
+  // Raw headers is a map of { rawHeaderName: rawHeaderValue }
+  const rawHeaders: RawHeadersMap = new Map<string, string>()
 
-  headersMap?.forEach(({ name, value }) => {
+  headersMap.forEach(({ name, value }) => {
     rawHeaders.set(name, value)
   })
 
-  console.log({ rawHeaders })
-
   return rawHeaders
+}
+
+function isHeadersMapWithRawHeaderNames(
+  headersMap: Map<string, string> | Map<string, HeadersMapHeader>
+): headersMap is Map<string, HeadersMapHeader> {
+  return Array.from(
+    headersMap.values() as Iterable<string | HeadersMapHeader>
+  ).every((value) => {
+    return isObject<HeadersMapHeader>(value) && 'name' in value
+  })
 }
