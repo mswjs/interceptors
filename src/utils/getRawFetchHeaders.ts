@@ -16,6 +16,9 @@ export function getRawFetchHeaders(
 ): RawHeadersMap | undefined {
   const headersList = getValueBySymbol<object>('headers list', headers)
 
+  console.log('\n\n----')
+  console.log({ headersList })
+
   if (!headersList) {
     return
   }
@@ -23,6 +26,8 @@ export function getRawFetchHeaders(
   const headersMap = getValueBySymbol<
     Map<string, { name: string; value: string }>
   >('headers map', headersList)
+
+  console.log({ headersList })
 
   if (!headersMap) {
     return
@@ -33,6 +38,8 @@ export function getRawFetchHeaders(
   headersMap?.forEach(({ name, value }) => {
     rawHeaders.set(name, value)
   })
+
+  console.log({ rawHeaders })
 
   return rawHeaders
 }
