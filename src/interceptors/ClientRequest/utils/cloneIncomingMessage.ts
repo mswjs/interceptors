@@ -1,18 +1,12 @@
 import { IncomingMessage } from 'http'
 import { PassThrough } from 'stream'
 
-export const IS_CLONE = Symbol('isClone')
-
-export interface ClonedIncomingMessage extends IncomingMessage {
-  [IS_CLONE]: boolean
-}
-
 /**
  * Clones a given `http.IncomingMessage` instance.
  */
 export function cloneIncomingMessage(
   message: IncomingMessage
-): ClonedIncomingMessage {
+): IncomingMessage {
   const clone = message.pipe(new PassThrough())
 
   // Inherit all direct "IncomingMessage" properties.
@@ -25,12 +19,7 @@ export function cloneIncomingMessage(
   })
   Object.setPrototypeOf(clone, clonedPrototype)
 
-  Object.defineProperty(clone, IS_CLONE, {
-    enumerable: true,
-    value: true,
-  })
-
-  return clone as unknown as ClonedIncomingMessage
+  return clone as unknown as IncomingMessage
 }
 
 /**

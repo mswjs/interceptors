@@ -1,45 +1,54 @@
 import { IncomingMessage } from 'http'
 import { PassThrough } from 'stream'
 import * as zlib from 'zlib'
+import { invariant } from 'outvariant'
 import { Logger } from '@open-draft/logger'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const logger = new Logger('http getIncomingMessageBody')
 
 export function getIncomingMessageBody(
   response: IncomingMessage
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    logger.info('cloning the original response...')
+  const responseBodyPromise = new DeferredPromise<string>()
+  logger.info('cloning the original response...')
 
-    // Pipe the original response to support non-clone
-    // "response" input. No need to clone the response,
-    // as we always have access to the full "response" input,
-    // either a clone or an original one (in tests).
-    const responseClone = response.pipe(new PassThrough())
-    const stream =
-      response.headers['content-encoding'] === 'gzip'
-        ? responseClone.pipe(zlib.createGunzip())
-        : responseClone
+  invariant(
+    response.readable,
+    'Failed to get IncomingMessage body: stream not readable'
+  )
 
-    const encoding = response.readableEncoding || 'utf8'
-    stream.setEncoding(encoding)
-    logger.info('using encoding:', encoding)
+  console.log('?', response.readable)
 
-    let body = ''
+  // Pipe the original response to support non-clone
+  // "response" input. No need to clone the response,
+  // as we always have access to the full "response" input,
+  // either a clone or an original one (in tests).
+  const responseClone = response.pipe(new PassThrough())
+  const stream =
+    response.headers['content-encoding'] === 'gzip'
+      ? responseClone.pipe(zlib.createGunzip())
+      : responseClone
 
-    stream.on('data', (responseBody) => {
-      logger.info('response body read:', responseBody)
-      body += responseBody
-    })
+  const encoding = response.readableEncoding || 'utf8'
+  const responseBuffer: Array<Buffer> = []
 
-    stream.once('end', () => {
-      logger.info('response body end')
-      resolve(body)
-    })
-
-    stream.once('error', (error) => {
-      logger.info('error while reading response body:', error)
-      reject(error)
-    })
+  stream.on('data', (chunk) => {
+    logger.info('response body chunk:', chunk)
+    responseBuffer.push(chunk)
   })
+
+  stream.once('end', () => {
+    logger.info('response body end')
+    responseBodyPromise.resolve(
+      Buffer.concat(responseBuffer).toString(encoding)
+    )
+  })
+
+  stream.once('error', (error) => {
+    logger.info('error while reading response body:', error)
+    responseBodyPromise.reject(error)
+  })
+
+  return responseBodyPromise
 }

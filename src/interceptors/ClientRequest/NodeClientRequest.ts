@@ -13,12 +13,14 @@ import {
   ClientRequestWriteArgs,
   normalizeClientRequestWriteArgs,
 } from './utils/normalizeClientRequestWriteArgs'
-import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
 import { createResponse } from './utils/createResponse'
 import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
 import { emitAsync } from '../../utils/emitAsync'
+import { drainIncomingMessage } from './utils/drainIncomingMessage'
+import { cloneReadable } from './utils/cloneReadable'
+import { Readable } from 'stream'
 
 export type Protocol = 'http' | 'https'
 
@@ -39,7 +41,9 @@ export class NodeClientRequest extends ClientRequest {
     'EAI_AGAIN',
   ]
 
-  private response: IncomingMessage
+  private response: IncomingMessage = null as any
+  private responseBodyStream?: Readable
+
   private emitter: ClientRequestEmitter
   private logger: Logger
   private chunks: Array<{
@@ -74,9 +78,6 @@ export class NodeClientRequest extends ClientRequest {
     // Set request buffer to null by default so that GET/HEAD requests
     // without a body wouldn't suddenly get one.
     this.requestBuffer = null
-
-    // Construct a mocked response message.
-    this.response = new IncomingMessage(this.socket!)
   }
 
   private writeRequestBodyChunk(
@@ -293,13 +294,21 @@ export class NodeClientRequest extends ClientRequest {
 
       this.logger.info('no mocked response received!')
 
-      this.once('response-internal', (message: IncomingMessage) => {
-        this.logger.info(message.statusCode, message.statusMessage)
-        this.logger.info('original response headers:', message.headers)
+      // Handle the original (passthrough) response.
+      this.once('response', (response) => {
+        this.logger.info(response.statusCode, response.statusMessage)
+        this.logger.info('original response headers:', response.headers)
 
         this.logger.info('emitting the custom "response" event...')
+
         this.emitter.emit('response', {
-          response: createResponse(message),
+          response: createResponse(
+            response,
+            // Drain the response body stream instead of consuming
+            // it directly to prevent locking that stream to the
+            // upstream consumers (the actual request).
+            this.responseBodyStream
+          ),
           isMockedResponse: false,
           request: capturedRequest,
           requestId,
@@ -319,24 +328,18 @@ export class NodeClientRequest extends ClientRequest {
       this.logger.info('found "response" event, cloning the response...')
 
       try {
-        /**
-         * Clone the response object when emitting the "response" event.
-         * This prevents the response body stream from locking
-         * and allows reading it twice:
-         * 1. Internal "response" event from the observer.
-         * 2. Any external response body listeners.
-         * @see https://github.com/mswjs/interceptors/issues/161
-         */
         const response = data[0] as IncomingMessage
-        const firstClone = cloneIncomingMessage(response)
-        const secondClone = cloneIncomingMessage(response)
 
-        this.emit('response-internal', secondClone)
+        console.log('response?', response.readableEnded)
+
+        this.responseBodyStream = cloneReadable(response)
+
+        console.log('after clone:', response.readableEnded)
 
         this.logger.info(
           'response successfully cloned, emitting "response" event...'
         )
-        return super.emit(event, firstClone, ...data.slice(1))
+        return super.emit(event, response, ...data.slice(1))
       } catch (error) {
         this.logger.info('error when cloning response:', error)
         return super.emit(event, ...data)
@@ -413,9 +416,11 @@ export class NodeClientRequest extends ClientRequest {
       this.logger.info('original request aborted!')
     })
 
-    this.once('response-internal', (message: IncomingMessage) => {
-      this.logger.info(message.statusCode, message.statusMessage)
-      this.logger.info('original response headers:', message.headers)
+    this.once('response', (response) => {
+      this.response = response
+
+      this.logger.info(this.response.statusCode, this.response.statusMessage)
+      this.logger.info('original response headers:', this.response.headers)
     })
 
     this.logger.info('performing original request...')
@@ -445,6 +450,9 @@ export class NodeClientRequest extends ClientRequest {
     this.emit('finish')
 
     const { status, statusText, headers, body } = mockedResponse
+
+    // Set the internal response instance to an empty IncomingMessage.
+    this.response = new IncomingMessage(this.socket!)
     this.response.statusCode = status
     this.response.statusMessage = statusText
 
@@ -487,7 +495,6 @@ export class NodeClientRequest extends ClientRequest {
       // Push "null" to indicate that the response body is complete
       // and shouldn't be written to anymore.
       this.response.push(null)
-      this.response.complete = true
 
       isResponseStreamFinished.resolve()
     }
@@ -502,7 +509,7 @@ export class NodeClientRequest extends ClientRequest {
           return
         }
 
-        this.response.emit('data', value)
+        this.response.push(value)
 
         return readNextChunk()
       }

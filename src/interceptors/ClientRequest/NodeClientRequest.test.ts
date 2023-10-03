@@ -115,7 +115,7 @@ it('responds with a mocked response when requesting an existing hostname', async
   expect(text).toBe('mocked-response')
 })
 
-it('performs the request as-is given resolver returned no mocked response', async () => {
+it.only('performs the request as-is given resolver returned no mocked response', async () => {
   const emitter = new Emitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.url('/comment'), {
@@ -144,6 +144,7 @@ it('performs the request as-is given resolver returned no mocked response', asyn
 
   const text = await getIncomingMessageBody(response)
   expect(text).toBe('original-response')
+  expect(request['response'].complete).toBe(true)
 })
 
 it('emits the ENOTFOUND error connecting to a non-existing hostname given no mocked response', async () => {

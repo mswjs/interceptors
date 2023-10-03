@@ -1,25 +1,46 @@
+import { Readable } from 'stream'
 import type { IncomingHttpHeaders, IncomingMessage } from 'http'
+import { invariant } from 'outvariant'
 import { responseStatusCodesWithoutBody } from '../../../utils/responseUtils'
 
 /**
  * Creates a Fetch API `Response` instance from the given
  * `http.IncomingMessage` instance.
  */
-export function createResponse(message: IncomingMessage): Response {
-  const responseBodyOrNull = responseStatusCodesWithoutBody.includes(
-    message.statusCode || 200
+export function createResponse(
+  message: IncomingMessage,
+  bodyStream?: Readable
+): Response {
+  const statusCode = message.statusCode || 200
+  const readable = bodyStream || message
+
+  invariant(
+    message.readable,
+    'Failed to create Response from IncomingMessage: message not readable'
   )
+  invariant(
+    message.readableEnded,
+    'Failed to create Response from IncomingMessage: message already read'
+  )
+
+  if (bodyStream) {
+    invariant(
+      bodyStream.readable,
+      'Failed to create Response from IncomingMessage using custom body Readable: stream not readable'
+    )
+    invariant(
+      bodyStream.readableEnded,
+      'Failed to create Response from IncomingMessage using custom Readable: stream already read'
+    )
+  }
+
+  const responseBodyOrNull = responseStatusCodesWithoutBody.includes(statusCode)
     ? null
     : new ReadableStream({
         start(controller) {
-          message.on('data', (chunk) => controller.enqueue(chunk))
-          message.on('end', () => controller.close())
-
-          /**
-           * @todo Should also listen to the "error" on the message
-           * and forward it to the controller. Otherwise the stream
-           * will pend indefinitely.
-           */
+          readable.on('data', (chunk) => controller.enqueue(chunk))
+          readable.on('error', (error) => controller.error(error))
+          readable.on('end', () => controller.close())
         },
       })
 
