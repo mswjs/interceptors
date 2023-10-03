@@ -316,7 +316,7 @@ it('does not send request body to the original server given mocked response', as
   expect(text).toBe('mock created!')
 })
 
-it('does not lowercase the rawHeaders', async () => {
+it('preserves the original mocked response headers casing in "rawHeaders"', async () => {
   const emitter = new Emitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://any.thing'),
@@ -330,7 +330,7 @@ it('does not lowercase the rawHeaders', async () => {
     request.respondWith(
       new Response(null, {
         headers: {
-          'X-Custom-Header': 'Yes',
+          'X-CustoM-HeadeR': 'Yes',
         },
       })
     )
@@ -345,6 +345,6 @@ it('does not lowercase the rawHeaders', async () => {
   })
   const response = await responseReceived
 
-  expect(response.rawHeaders).toStrictEqual([ 'X-Custom-Header', 'Yes' ])
+  expect(response.rawHeaders).toStrictEqual(['X-CustoM-HeadeR', 'Yes'])
   expect(response.headers).toStrictEqual({ 'x-custom-header': 'Yes' })
 })

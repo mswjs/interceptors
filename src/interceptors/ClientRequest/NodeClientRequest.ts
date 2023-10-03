@@ -19,6 +19,7 @@ import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
 import { emitAsync } from '../../utils/emitAsync'
+import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 
 export type Protocol = 'http' | 'https'
 
@@ -448,10 +449,14 @@ export class NodeClientRequest extends ClientRequest {
     this.response.statusCode = status
     this.response.statusMessage = statusText
 
-    if (headers) {
+    // Try extracting the raw headers from the headers instance.
+    // If not possible, fallback to the headers instance as-is.
+    const rawHeaders = getRawFetchHeaders(headers) || headers
+
+    if (rawHeaders) {
       this.response.headers = {}
 
-      headers.forEach((headerValue, headerName) => {
+      rawHeaders.forEach((headerValue, headerName) => {
         /**
          * @note Make sure that multi-value headers are appended correctly.
          */
