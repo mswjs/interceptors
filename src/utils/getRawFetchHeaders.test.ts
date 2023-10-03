@@ -37,3 +37,14 @@ it('returns raw headers from the given Headers instance', () => {
     ])
   )
 })
+
+it('returns raw headers for a header with multiple values', () => {
+  expect(
+    getRawFetchHeaders(
+      new Headers([
+        ['Set-CookiE', 'a=b'],
+        ['Set-CookiE', 'c=d'],
+      ])
+    )
+  ).toEqual(new Map([['Set-CookiE', 'a=b, c=d']]))
+})
