@@ -28,8 +28,6 @@ it('emits the ERR_STREAM_WRITE_AFTER_END error when write after end given no moc
 
   const errorReceived = new DeferredPromise<NodeJS.ErrnoException>()
   req.on('error', (error) => {
-    console.log(error);
-    
     errorReceived.resolve(error)
   })
   

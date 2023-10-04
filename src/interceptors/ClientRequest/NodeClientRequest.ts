@@ -20,6 +20,7 @@ import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
 import { emitAsync } from '../../utils/emitAsync'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
+import { NodeError } from '../../utils/nodeError'
 
 export type Protocol = 'http' | 'https'
 
@@ -104,9 +105,11 @@ export class NodeClientRequest extends ClientRequest {
   }
 
   write(...args: ClientRequestWriteArgs): boolean {
-    // Fallback to native behavior to throw 
-    if (this.destroyed || this.finished) {
-      return super.write(args)
+    if (this.isRequestSent) {
+      const err = new NodeError('write after end', 'ERR_STREAM_WRITE_AFTER_END')
+      process.nextTick(() => this.emit('error', err))
+
+      return false
     }
 
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
