@@ -19,6 +19,7 @@ import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
 import { emitAsync } from '../../utils/emitAsync'
+import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 
 export type Protocol = 'http' | 'https'
 
@@ -37,8 +38,11 @@ export class NodeClientRequest extends ClientRequest {
     'ECONNREFUSED',
     'ECONNRESET',
     'EAI_AGAIN',
+    'ENETUNREACH',
+    'EHOSTUNREACH',
   ]
 
+  private isRequestSent: boolean
   private response: IncomingMessage
   private emitter: ClientRequestEmitter
   private logger: Logger
@@ -68,6 +72,7 @@ export class NodeClientRequest extends ClientRequest {
       callback,
     })
 
+    this.isRequestSent = false
     this.url = url
     this.emitter = options.emitter
 
@@ -129,6 +134,19 @@ export class NodeClientRequest extends ClientRequest {
 
   end(...args: any): this {
     this.logger.info('end', args)
+
+    /**
+     * @note Mark the request as sent immediately when invoking ".end()".
+     * In Node.js, calling ".end()" will flush the remaining request body
+     * and mark the request as "finished" immediately ("end" is synchronous)
+     * but we delegate that property update to:
+     *
+     * - respondWith(), in the case of mocked responses;
+     * - super.end(), in the case of bypassed responses.
+     *
+     * For that reason, we have to keep an internal flag for a finished request.
+     */
+    this.isRequestSent = true
 
     const requestId = uuidv4()
 
@@ -448,10 +466,14 @@ export class NodeClientRequest extends ClientRequest {
     this.response.statusCode = status
     this.response.statusMessage = statusText
 
-    if (headers) {
+    // Try extracting the raw headers from the headers instance.
+    // If not possible, fallback to the headers instance as-is.
+    const rawHeaders = getRawFetchHeaders(headers) || headers
+
+    if (rawHeaders) {
       this.response.headers = {}
 
-      headers.forEach((headerValue, headerName) => {
+      rawHeaders.forEach((headerValue, headerName) => {
         /**
          * @note Make sure that multi-value headers are appended correctly.
          */
