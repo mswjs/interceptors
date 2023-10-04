@@ -252,6 +252,35 @@ it('does not emit ECONNREFUSED error connecting to an inactive server given mock
   expect(response.statusMessage).toBe('Works')
 })
 
+it('does not emit ENETUNREACH error connecting to an inactive server given mocked response', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const handleError = vi.fn()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', 'http://[2607:f0d0:1002:51::4]'),
+    { emitter, logger }
+  )
+
+  emitter.on('request', async ({ request }) => {
+    await sleep(250)
+    request.respondWith(
+      new Response(null, { status: 200, statusText: 'Works' })
+    )
+  })
+
+  request.on('error', handleError)
+  request.end()
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(handleError).not.toHaveBeenCalled()
+  expect(response.statusCode).toBe(200)
+  expect(response.statusMessage).toBe('Works')
+})
+
 it('sends the request body to the server given no mocked response', async () => {
   const emitter = new Emitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
@@ -314,4 +343,26 @@ it('does not send request body to the original server given mocked response', as
 
   const text = await getIncomingMessageBody(response)
   expect(text).toBe('mock created!')
+})
+
+it('sets the internal "isRequestSent" flag to true when the request is sent', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
+      method: 'POST',
+    }),
+    {
+      emitter,
+      logger,
+    }
+  )
+  expect(request['isRequestSent']).toBe(false)
+
+  request.write('chunk')
+  expect(request['isRequestSent']).toBe(false)
+
+  request.end()
+
+  // Must be set to true once ".end()" has been called.
+  expect(request['isRequestSent']).toBe(true)
 })
