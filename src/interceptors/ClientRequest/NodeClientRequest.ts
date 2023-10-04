@@ -244,7 +244,6 @@ export class NodeClientRequest extends ClientRequest {
           'encountered resolver exception, aborting request...',
           resolverResult.error
         )
-        this.responseSource = 'mock'
 
         this.destroyed = true
         this.emit('error', resolverResult.error)
@@ -261,7 +260,6 @@ export class NodeClientRequest extends ClientRequest {
           mockedResponse.status,
           mockedResponse.statusText
         )
-        this.responseSource = 'mock'
 
         /**
          * @note Ignore this request being destroyed by TLS in Node.js
@@ -286,6 +284,8 @@ export class NodeClientRequest extends ClientRequest {
         }
 
         const responseClone = mockedResponse.clone()
+
+        this.responseSource = 'mock'
 
         this.respondWith(mockedResponse)
         this.logger.info(
@@ -367,11 +367,11 @@ export class NodeClientRequest extends ClientRequest {
 
       this.logger.info('error:\n', error)
 
-      // Suppress certain errors while using the "mock" source.
+      // Suppress certain errors while processing the request.
       // For example, no need to destroy this request if it connects
       // to a non-existing hostname but has a mocked response.
       if (
-        this.responseSource === 'unknown' &&
+        !this.isRequestSent &&
         NodeClientRequest.suppressErrorCodes.includes(errorCode)
       ) {
         // Capture the first emitted error in order to replay
