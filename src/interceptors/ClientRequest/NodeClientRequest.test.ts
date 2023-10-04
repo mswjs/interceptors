@@ -344,3 +344,25 @@ it('does not send request body to the original server given mocked response', as
   const text = await getIncomingMessageBody(response)
   expect(text).toBe('mock created!')
 })
+
+it('sets the internal "isRequestSent" flag to true when the request is sent', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
+      method: 'POST',
+    }),
+    {
+      emitter,
+      logger,
+    }
+  )
+  expect(request['isRequestSent']).toBe(false)
+
+  request.write('chunk')
+  expect(request['isRequestSent']).toBe(false)
+
+  request.end()
+
+  // Must be set to true once ".end()" has been called.
+  expect(request['isRequestSent']).toBe(true)
+})

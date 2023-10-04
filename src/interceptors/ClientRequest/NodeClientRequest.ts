@@ -41,6 +41,7 @@ export class NodeClientRequest extends ClientRequest {
     'ENETUNREACH',
   ]
 
+  private isRequestSent: boolean
   private response: IncomingMessage
   private emitter: ClientRequestEmitter
   private logger: Logger
@@ -70,6 +71,7 @@ export class NodeClientRequest extends ClientRequest {
       callback,
     })
 
+    this.isRequestSent = false
     this.url = url
     this.emitter = options.emitter
 
@@ -131,6 +133,19 @@ export class NodeClientRequest extends ClientRequest {
 
   end(...args: any): this {
     this.logger.info('end', args)
+
+    /**
+     * @note Mark the request as sent immediately when invoking ".end()".
+     * In Node.js, calling ".end()" will flush the remaining request body
+     * and mark the request as "finished" immediately ("end" is synchronous)
+     * but we delegate that property update to:
+     *
+     * - respondWith(), in the case of mocked responses;
+     * - super.end(), in the case of bypassed responses.
+     *
+     * For that reason, we have to keep an internal flag for a finished request.
+     */
+    this.isRequestSent = true
 
     const requestId = uuidv4()
 
