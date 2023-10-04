@@ -39,6 +39,7 @@ export class NodeClientRequest extends ClientRequest {
     'ECONNRESET',
     'EAI_AGAIN',
     'ENETUNREACH',
+    'EHOSTUNREACH',
   ]
 
   private response: IncomingMessage
