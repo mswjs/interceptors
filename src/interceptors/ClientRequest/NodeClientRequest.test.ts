@@ -252,6 +252,35 @@ it('does not emit ECONNREFUSED error connecting to an inactive server given mock
   expect(response.statusMessage).toBe('Works')
 })
 
+it('does not emit ENETUNREACH error connecting to an inactive server given mocked response', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const handleError = vi.fn()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', 'http://[2607:f0d0:1002:51::4]'),
+    { emitter, logger }
+  )
+
+  emitter.on('request', async ({ request }) => {
+    await sleep(250)
+    request.respondWith(
+      new Response(null, { status: 200, statusText: 'Works' })
+    )
+  })
+
+  request.on('error', handleError)
+  request.end()
+
+  const responseReceived = new DeferredPromise<IncomingMessage>()
+  request.on('response', (response) => {
+    responseReceived.resolve(response)
+  })
+  const response = await responseReceived
+
+  expect(handleError).not.toHaveBeenCalled()
+  expect(response.statusCode).toBe(200)
+  expect(response.statusMessage).toBe('Works')
+})
+
 it('sends the request body to the server given no mocked response', async () => {
   const emitter = new Emitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(

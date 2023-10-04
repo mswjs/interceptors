@@ -38,6 +38,7 @@ export class NodeClientRequest extends ClientRequest {
     'ECONNREFUSED',
     'ECONNRESET',
     'EAI_AGAIN',
+    'ENETUNREACH',
   ]
 
   private response: IncomingMessage
