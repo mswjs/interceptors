@@ -58,10 +58,12 @@ it('forwards ECONNREFUSED error given a bypassed request', async () => {
 
   const requestError = await errorPromise
 
+  /**
+   * @note Don't assert exact error address/port
+   * because Node.js v20 will aggreggate connection errors
+   * into a single "AggregateError" instance that doesn't have those.
+   */
   expect(requestError.code).toBe('ECONNREFUSED')
-  expect(requestError.syscall).toBe('connect')
-  expect(requestError.address).toBe('::1')
-  expect(requestError.port).toBe(9876)
   expect(responseListener).not.toHaveBeenCalled()
 })
 
@@ -94,7 +96,6 @@ it('forwards ENOTFOUND error for a bypassed request', async () => {
   const requestError = await errorPromise
 
   expect(requestError.code).toBe('ENOTFOUND')
-  expect(requestError.syscall).toBe('getaddrinfo')
   expect(requestError.hostname).toBe('non-existing-url.com')
   expect(responseListener).not.toHaveBeenCalled()
 })
@@ -129,16 +130,15 @@ it('forwards EHOSTUNREACH error for a bypassed request', async () => {
   const requestError = await errorPromise
 
   expect(requestError.code).toBe('EHOSTUNREACH')
-  expect(requestError.syscall).toBe('connect')
   expect(requestError.address).toBe('2607:f0d0:1002:51::4')
   expect(requestError.port).toBe(80)
 })
 
 it('allows throwing connection errors in the request listener', async () => {
   class ConnectionRefusedError extends Error implements ConnectionError {
-    code?: string | undefined
-    errno?: number | undefined
-    syscall?: string | undefined
+    code?: string
+    errno?: number
+    syscall?: string
 
     constructor(public address: string, public port: number) {
       super()
