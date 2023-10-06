@@ -99,14 +99,14 @@ it('forwards ENOTFOUND error for a bypassed request', async () => {
   expect(responseListener).not.toHaveBeenCalled()
 })
 
-it('suppresses ENETUNREACH error given a mocked response', async () => {
+it('suppresses EHOSTUNREACH error given a mocked response', async () => {
   interceptor.once('request', async ({ request }) => {
     await sleep(250)
     request.respondWith(new Response('Mocked'))
   })
 
   // Connecting to an IPv6 address that's out of the network's
-  // reach will result in the "ENETUNREACH" error in Node.js.
+  // reach will result in the "EHOSTUNREACH" error in Node.js.
   const request = http.get('http://[2607:f0d0:1002:51::4]')
   const errorListener = vi.fn()
   request.on('error', errorListener)
@@ -117,9 +117,9 @@ it('suppresses ENETUNREACH error given a mocked response', async () => {
   expect(await text()).toBe('Mocked')
 })
 
-it('forwards ENETUNREACH error for a bypassed request', async () => {
+it('forwards EHOSTUNREACH error for a bypassed request', async () => {
   // Connecting to an IPv6 address that's out of the network's
-  // reach will result in the "ENETUNREACH" error in Node.js.
+  // reach will result in the "EHOSTUNREACH" error in Node.js.
   const request = http.get('http://[2607:f0d0:1002:51::4]')
   const errorPromise = new DeferredPromise<ConnectionError>()
   request.on('error', (error: ConnectionError) => {
