@@ -129,7 +129,11 @@ it('forwards EHOSTUNREACH error for a bypassed request', async () => {
 
   const requestError = await errorPromise
 
-  expect(requestError.code).toBe('EHOSTUNREACH')
+  /**
+   * @note On Ubuntu, requesting an unreachable host
+   * results in the "ENETUNREACH" error instead of "EHOSTUNREACH"
+   */
+  expect(requestError.code).toMatch(/^(EHOSTUNREACH|ENETUNREACH)$/)
   expect(requestError.address).toBe('2607:f0d0:1002:51::4')
   expect(requestError.port).toBe(80)
 })
