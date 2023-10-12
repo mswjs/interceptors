@@ -19,6 +19,7 @@ import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
+import crypto from "node:crypto"
 
 export type Protocol = 'http' | 'https'
 
