@@ -17,7 +17,6 @@ import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
 import { createResponse } from './utils/createResponse'
 import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
-import { uuidv4 } from '../../utils/uuid'
 import { emitAsync } from '../../utils/emitAsync'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 
@@ -150,7 +149,7 @@ export class NodeClientRequest extends ClientRequest {
   end(...args: any): this {
     this.logger.info('end', args)
 
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
 
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.logger.info('normalized arguments:', { chunk, encoding, callback })

@@ -11,7 +11,6 @@ import {
 import { createProxy } from '../../utils/createProxy'
 import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
-import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
 
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
@@ -50,7 +49,7 @@ export class XMLHttpRequestController {
 
   constructor(readonly initialRequest: XMLHttpRequest, public logger: Logger) {
     this.events = new Map()
-    this.requestId = uuidv4()
+    this.requestId = crypto.randomUUID()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
 
