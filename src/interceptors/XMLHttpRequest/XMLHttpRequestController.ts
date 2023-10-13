@@ -1,6 +1,7 @@
 import { invariant } from 'outvariant'
 import { isNodeProcess } from 'is-node-process'
 import type { Logger } from '@open-draft/logger'
+import { randomUUID } from 'node:crypto'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { createEvent } from './utils/createEvent'
 import {
@@ -12,7 +13,6 @@ import { createProxy } from '../../utils/createProxy'
 import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
 import { createResponse } from './utils/createResponse'
-import crypto from "node:crypto"
 
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
 const IS_NODE = isNodeProcess()
@@ -50,7 +50,7 @@ export class XMLHttpRequestController {
 
   constructor(readonly initialRequest: XMLHttpRequest, public logger: Logger) {
     this.events = new Map()
-    this.requestId = crypto.randomUUID()
+    this.requestId = randomUUID()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
 

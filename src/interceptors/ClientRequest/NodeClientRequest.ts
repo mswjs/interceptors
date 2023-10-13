@@ -2,6 +2,7 @@ import { ClientRequest, IncomingMessage } from 'http'
 import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { randomUUID } from 'node:crypto'
 import type { ClientRequestEmitter } from '.'
 import {
   ClientRequestEndCallback,
@@ -19,7 +20,6 @@ import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
-import crypto from "node:crypto"
 
 export type Protocol = 'http' | 'https'
 
@@ -150,7 +150,7 @@ export class NodeClientRequest extends ClientRequest {
   end(...args: any): this {
     this.logger.info('end', args)
 
-    const requestId = crypto.randomUUID()
+    const requestId = randomUUID()
 
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.logger.info('normalized arguments:', { chunk, encoding, callback })

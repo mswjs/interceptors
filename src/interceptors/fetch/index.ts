@@ -1,11 +1,11 @@
 import { invariant } from 'outvariant'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
+import { randomUUID } from 'node:crypto'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
-import crypto from "node:crypto"
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -30,7 +30,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     )
 
     globalThis.fetch = async (input, init) => {
-      const requestId = crypto.randomUUID()
+      const requestId = randomUUID()
       const request = new Request(input, init)
 
       this.logger.info('[%s] %s', request.method, request.url)
