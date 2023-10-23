@@ -103,7 +103,7 @@ export class XMLHttpRequestController {
             ]
 
             this.registerEvent(eventName, listener)
-            this.logger.info('addEventListener', eventName, listener?.name)
+            this.logger.info('addEventListener', eventName, listener)
 
             return invoke()
           }
@@ -206,7 +206,7 @@ export class XMLHttpRequestController {
     const nextEvents = prevEvents.concat(listener)
     this.events.set(eventName, nextEvents)
 
-    this.logger.info('registered event "%s"', eventName, listener?.name)
+    this.logger.info('registered event "%s"', eventName, listener)
   }
 
   /**
