@@ -20,6 +20,7 @@ import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
 import { emitAsync } from '../../utils/emitAsync'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
+import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 
 export type Protocol = 'http' | 'https'
 
@@ -287,7 +288,16 @@ export class NodeClientRequest extends ClientRequest {
         this.destroyed = false
 
         // Handle mocked "Response.error" network error responses.
-        if (mockedResponse.type === 'error') {
+        if (
+          /**
+           * @note Some environments, like Miniflare (Cloudflare) do not
+           * implement the "Response.type" property and throw on its access.
+           * Safely check if we can access "type" on "Response" before continuing.
+           * @see https://github.com/mswjs/msw/issues/1834
+           */
+          isPropertyAccessible(mockedResponse, 'type') &&
+          mockedResponse.type === 'error'
+        ) {
           this.logger.info(
             'received network error response, aborting request...'
           )
