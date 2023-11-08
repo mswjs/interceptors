@@ -52,3 +52,10 @@ test('responds to https get', async () => {
   expect(resBody).toEqual('mocked-body')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
+
+test('Some response properties/methods throw', async () => {
+  // If this test fails in the future, we can remove the property access
+  // safety checks in the interceptors.
+  expect(() => new Response('body').type).toThrow()
+  expect(() => Response.error()).toThrow()
+})
