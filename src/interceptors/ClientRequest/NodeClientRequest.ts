@@ -289,6 +289,12 @@ export class NodeClientRequest extends ClientRequest {
 
         // Handle mocked "Response.error" network error responses.
         if (
+          /**
+           * @note Some environments, like Miniflare (Cloudflare) do not
+           * implement the "Response.type" property and throw on its access.
+           * Safely check if we can access "type" on "Response" before continuing.
+           * @see https://github.com/mswjs/msw/issues/1834
+           */
           isPropertyAccessible(mockedResponse, 'type') &&
           mockedResponse.type === 'error'
         ) {
