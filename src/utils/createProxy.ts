@@ -44,21 +44,21 @@ function optionsToProxyHandler<T extends Record<string, any>>(
     }
   }
 
-  handler.set = function (target, propertyName, nextValue, receiver) {
+  handler.set = function (target, propertyName, nextValue) {
     const next = () => {
-      const propertySource = findPropertySource(target, propertyName)
-      if (propertySource === null) return false
-
+      const propertySource = findPropertySource(target, propertyName) || target
       const ownDescriptors = Reflect.getOwnPropertyDescriptor(
         propertySource,
         propertyName
       )
 
+      // Respect any custom setters present for this property.
       if (typeof ownDescriptors?.set !== 'undefined') {
         ownDescriptors.set.apply(target, [nextValue])
         return true
       }
 
+      // Otherwise, set the property on the source.
       return Reflect.defineProperty(propertySource, propertyName, {
         writable: true,
         enumerable: true,
