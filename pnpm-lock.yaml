@@ -30,6 +30,7 @@ specifiers:
   express-rate-limit: ^6.3.0
   follow-redirects: ^1.15.1
   got: ^11.8.3
+  happy-dom: ^12.10.3
   is-node-process: ^1.2.0
   jest: ^27.4.3
   node-fetch: 2.6.7
@@ -79,6 +80,7 @@ devDependencies:
   express-rate-limit: 6.9.0_express@4.18.2
   follow-redirects: 1.15.2
   got: 11.8.6
+  happy-dom: 12.10.3
   jest: 27.5.1
   node-fetch: 2.6.7
   rimraf: 3.0.2
@@ -88,7 +90,7 @@ devDependencies:
   ts-jest: 27.1.5_n4jzo3ixy42kfaqevs43wjx5ui
   tsup: 6.7.0_typescript@4.9.5
   typescript: 4.9.5
-  vitest: 0.28.5
+  vitest: 0.28.5_happy-dom@12.10.3
   wait-for-expect: 3.0.2
   web-encoding: 1.1.5
   webpack-http-server: 0.5.0
@@ -2764,6 +2766,10 @@ packages:
       which: 2.0.2
     dev: true
 
+  /css.escape/1.5.1:
+    resolution: {integrity: sha512-YUifsXXuknHlUsmlgyY0PKzgPOr7/FjCePfHNt0jxm83wHZi44VDMQ7/fGNkjY3/jV1MC+1CmZbaHzugyeRtpg==}
+    dev: true
+
   /cssom/0.3.8:
     resolution: {integrity: sha512-b0tGHbfegbhPJpxpiBPU2sCkigAqtM9O121le6bbOlgyV+NyGyCmVfJ6QW9eRjz8CpNfWEOYBIMIGRYkLwsIYg==}
     dev: true
@@ -3048,6 +3054,11 @@ packages:
     dependencies:
       graceful-fs: 4.2.11
       tapable: 2.2.1
+    dev: true
+
+  /entities/4.5.0:
+    resolution: {integrity: sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==}
+    engines: {node: '>=0.12'}
     dev: true
 
   /error-ex/1.3.2:
@@ -3669,6 +3680,17 @@ packages:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
     dev: true
 
+  /happy-dom/12.10.3:
+    resolution: {integrity: sha512-JzUXOh0wdNGY54oKng5hliuBkq/+aT1V3YpTM+lrN/GoLQTANZsMaIvmHiHe612rauHvPJnDZkZ+5GZR++1Abg==}
+    dependencies:
+      css.escape: 1.5.1
+      entities: 4.5.0
+      iconv-lite: 0.6.3
+      webidl-conversions: 7.0.0
+      whatwg-encoding: 2.0.0
+      whatwg-mimetype: 3.0.0
+    dev: true
+
   /hard-rejection/2.1.0:
     resolution: {integrity: sha512-VIZB+ibDhx7ObhAe7OVtoEbuP4h/MuOTHJ+J8h/eBXotJYl0fBgR72xDFCKgIh22OJZIOVNxBMWuhAr10r8HdA==}
     engines: {node: '>=6'}
@@ -3793,6 +3815,13 @@ packages:
 
   /iconv-lite/0.4.24:
     resolution: {integrity: sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==}
+    engines: {node: '>=0.10.0'}
+    dependencies:
+      safer-buffer: 2.1.2
+    dev: true
+
+  /iconv-lite/0.6.3:
+    resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
     dependencies:
       safer-buffer: 2.1.2
@@ -6689,7 +6718,7 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /vitest/0.28.5:
+  /vitest/0.28.5_happy-dom@12.10.3:
     resolution: {integrity: sha512-pyCQ+wcAOX7mKMcBNkzDwEHRGqQvHUl0XnoHR+3Pb1hytAHISgSxv9h0gUiSiYtISXUU3rMrKiKzFYDrI6ZIHA==}
     engines: {node: '>=v14.16.0'}
     hasBin: true
@@ -6723,6 +6752,7 @@ packages:
       cac: 6.7.14
       chai: 4.3.8
       debug: 4.3.4
+      happy-dom: 12.10.3
       local-pkg: 0.4.3
       pathe: 1.1.1
       picocolors: 1.0.0
@@ -6809,6 +6839,11 @@ packages:
     engines: {node: '>=10.4'}
     dev: true
 
+  /webidl-conversions/7.0.0:
+    resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
+    engines: {node: '>=12'}
+    dev: true
+
   /webpack-http-server/0.5.0:
     resolution: {integrity: sha512-kyewxAnzmDuZxe09fn/Bb0PeEnaDxHChYKFVsMy4oeBUs9Cyv2j1uEgzQJ7ljPFexLU8ongUS4i4O+e22CeBZQ==}
     dependencies:
@@ -6878,8 +6913,20 @@ packages:
       iconv-lite: 0.4.24
     dev: true
 
+  /whatwg-encoding/2.0.0:
+    resolution: {integrity: sha512-p41ogyeMUrw3jWclHWTQg1k05DSVXPLcVxRTYsXUk+ZooOCZLcoYgPZ/HL/D/N+uQPOtcp1me1WhBEaX02mhWg==}
+    engines: {node: '>=12'}
+    dependencies:
+      iconv-lite: 0.6.3
+    dev: true
+
   /whatwg-mimetype/2.3.0:
     resolution: {integrity: sha512-M4yMwr6mAnQz76TbJm914+gPpB/nCwvZbJU28cUD6dR004SAxDLOOSUaB1JDRqLtaOV/vi0IC5lEAGFgrjGv/g==}
+    dev: true
+
+  /whatwg-mimetype/3.0.0:
+    resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
+    engines: {node: '>=12'}
     dev: true
 
   /whatwg-url/5.0.0:

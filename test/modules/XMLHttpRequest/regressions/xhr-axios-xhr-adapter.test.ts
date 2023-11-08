@@ -1,5 +1,6 @@
 /**
- * @vitest-environment jsdom
+ * @vitest-environment happy-dom
+ * @note This issue is only reproducible in "happy-dom".
  * @see https://github.com/mswjs/msw/issues/1816
  */
 import { beforeAll, afterAll, it, expect } from 'vitest'
