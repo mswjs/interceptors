@@ -41,31 +41,28 @@ test('responds to fetch', async () => {
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
-test('responds to http get', async () => {
+test('responds to http.get', async () => {
   const { resBody } = await httpGet('http://example.com')
   expect(resBody).toEqual('mocked-body')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
-test('responds to https get', async () => {
+test('responds to https.get', async () => {
   const { resBody } = await httpsGet('https://example.com')
   expect(resBody).toEqual('mocked-body')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
-test('Some response properties/methods throw', async () => {
-  // If this test fails in the future, we can remove the property access
-  // safety checks in the interceptors.
-  expect(() => new Response('body').type).toThrow()
-  expect(() => Response.error()).toThrow()
-})
+test('throws when responding with a network error', async () => {
+  requestListener.mockImplementationOnce(({ request }) => {
+    /**
+     * @note "Response.error()" static method is NOT implemented in Miniflare.
+     * This expression will throw, resulting in a request error.
+     */
+    request.respondWith(Response.error())
+  })
 
-/**
- * We aren't testing this on purpose, even though we install the interceptor here.
- * The reason is that we want to make sure we can install the XMLHttpRequest interceptor
- * even when the global XMLHttpRequest is not available. So that we can avoid
- * issues with miniflare.
- */
-test('XMLHttpRequest is not available', () => {
-  expect(() => XMLHttpRequest).toThrow()
+  await expect(() => httpGet('http://example.com')).rejects.toThrow(
+    'Response.error is not a function'
+  )
 })
