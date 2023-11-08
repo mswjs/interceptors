@@ -59,3 +59,13 @@ test('Some response properties/methods throw', async () => {
   expect(() => new Response('body').type).toThrow()
   expect(() => Response.error()).toThrow()
 })
+
+/**
+ * We aren't testing this on purpose, even though we install the interceptor here.
+ * The reason is that we want to make sure we can install the XMLHttpRequest interceptor
+ * even when the global XMLHttpRequest is not available. So that we can avoid
+ * issues with miniflare.
+ */
+test('XMLHttpRequest is not available', () => {
+  expect(() => XMLHttpRequest).toThrow()
+})
