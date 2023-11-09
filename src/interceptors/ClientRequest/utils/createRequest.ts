@@ -1,4 +1,5 @@
 import type { NodeClientRequest } from '../NodeClientRequest'
+import { FORBIDDEN_REQUEST_METHODS } from '../../../utils/fetchUtils'
 
 /**
  * Creates a Fetch API `Request` instance from the given `http.ClientRequest`.
@@ -26,7 +27,9 @@ export function createRequest(clientRequest: NodeClientRequest): Request {
    * @see https://github.com/mswjs/interceptors/issues/438
    */
   if (clientRequest.url.username || clientRequest.url.password) {
-    const auth = `${clientRequest.url.username || ''}:${clientRequest.url.password || ''}`
+    const auth = `${clientRequest.url.username || ''}:${
+      clientRequest.url.password || ''
+    }`
     headers.set('Authorization', `Basic ${btoa(auth)}`)
 
     // Remove the credentials from the URL since you cannot
@@ -37,13 +40,20 @@ export function createRequest(clientRequest: NodeClientRequest): Request {
 
   const method = clientRequest.method || 'GET'
 
-  return new Request(clientRequest.url, {
-    method,
+  const fetchRequest = new Request(clientRequest.url, {
+    method: FORBIDDEN_REQUEST_METHODS.includes(method)
+      ? `UNSAFE-${method}`
+      : method,
     headers,
     credentials: 'same-origin',
-    body:
-      method === 'HEAD' || method === 'GET'
-        ? null
-        : clientRequest.requestBuffer,
+    body: ['HEAD', 'GET'].includes(method) ? null : clientRequest.requestBuffer,
   })
+
+  if (fetchRequest.method.startsWith('UNSAFE-')) {
+    Object.defineProperty(fetchRequest, 'method', {
+      value: fetchRequest.method.replace('UNSAFE-', ''),
+    })
+  }
+
+  return fetchRequest
 }

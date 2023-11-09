@@ -1,4 +1,4 @@
-import { responseStatusCodesWithoutBody } from '../../../utils/responseUtils'
+import { RESPONSE_STATUS_CODES_WITHOUT_BODY } from '../../../utils/fetchUtils'
 
 /**
  * Creates a Fetch API `Response` instance from the given
@@ -16,7 +16,7 @@ export function createResponse(
    * when constructing a Response instance.
    * @see https://github.com/mswjs/interceptors/issues/379
    */
-  const responseBodyOrNull = responseStatusCodesWithoutBody.includes(
+  const responseBodyOrNull = RESPONSE_STATUS_CODES_WITHOUT_BODY.includes(
     request.status
   )
     ? null
