@@ -596,6 +596,17 @@ export class XMLHttpRequestController {
 }
 
 function toAbsoluteUrl(url: string | URL): URL {
+  /**
+   * @note XMLHttpRequest interceptor may run in environments
+   * that implement XMLHttpRequest but don't implement "location"
+   * (for example, React Native). If that's the case, return the
+   * input URL as-is (nothing to be relative to).
+   * @see https://github.com/mswjs/msw/issues/1777
+   */
+  if (typeof location === 'undefined') {
+    return new URL(url)
+  }
+
   return new URL(url.toString(), location.href)
 }
 
