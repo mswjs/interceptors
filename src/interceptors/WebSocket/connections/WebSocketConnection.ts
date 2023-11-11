@@ -10,7 +10,10 @@ import type { WebSocketData } from '../transports/Transport'
  */
 export class WebSocketConnection extends Connection {
   constructor(ws: WebSocket) {
-    super(new WebSocketTransport(ws))
+    super({
+      url: ws.url,
+      transport: new WebSocketTransport(ws),
+    })
   }
 
   public emit(event: string, data: WebSocketData): void {

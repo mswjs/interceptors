@@ -3,15 +3,27 @@ import type { Transport, WebSocketData } from '../transports/Transport'
 
 export const kOnOutgoingMessage = Symbol('kOnOutgoingMessage')
 
+const kEmitter = Symbol('kEmitter')
+
+export interface ConnectionOptions {
+  url: string
+  transport: Transport
+}
+
 /**
  * Connection represents server-side connection to a particular
  * WebSocket client.
  */
 export abstract class Connection {
-  private emitter: EventTarget
+  public url: string
 
-  constructor(protected readonly transport: Transport) {
-    this.emitter = new EventTarget()
+  protected transport: Transport
+  private [kEmitter]: EventTarget
+
+  constructor(options: ConnectionOptions) {
+    this[kEmitter] = new EventTarget()
+    this.url = options.url
+    this.transport = options.transport
   }
 
   public open(): void {
@@ -19,7 +31,7 @@ export abstract class Connection {
   }
 
   public on(event: string, listener: (...data: Array<unknown>) => void): void {
-    this.emitter.addEventListener(event, (event) => {
+    this[kEmitter].addEventListener(event, (event) => {
       if (event instanceof MessageEvent) {
         listener(event.data)
       }
@@ -52,6 +64,6 @@ export abstract class Connection {
     // so the user could listen to outgoing client data like:
     //
     // connection.on('message', listener)
-    this.emitter.dispatchEvent(new MessageEvent('message', { data }))
+    this[kEmitter].dispatchEvent(new MessageEvent('message', { data }))
   }
 }
