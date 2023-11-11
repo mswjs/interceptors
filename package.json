@@ -43,6 +43,15 @@
       "import": "./lib/node/interceptors/fetch/index.mjs",
       "default": "./lib/node/interceptors/fetch/index.js"
     },
+    "./WebSocket": {
+      "node": null,
+      "browser": {
+        "types": "./lib/browser/interceptors/WebSocket/index.d.ts",
+        "require": "./lib/browser/interceptors/WebSocket/index.js",
+        "import": "./lib/browser/interceptors/WebSocket/index.mjs",
+        "default": "./lib/browser/interceptors/WebSocket/index.js"
+      }
+    },
     "./RemoteHttpInterceptor": {
       "browser": null,
       "types": "./lib/node/RemoteHttpInterceptor.d.ts",
