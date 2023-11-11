@@ -64,18 +64,6 @@ export class WebSocketController {
     this.ws.addEventListener('close', () => this.connection.close(), {
       once: true,
     })
-
-    // Open connection.
-    queueMicrotask(() => {
-      this.setReadyState(WebSocket.OPEN)
-
-      this.connection.open()
-
-      const openEvent = new Event('open')
-      extendEvent(openEvent, { target: this.ws })
-
-      this.ws.dispatchEvent(openEvent)
-    })
   }
 
   private setReadyState(nextState: number): void {

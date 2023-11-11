@@ -14,6 +14,8 @@ const interceptor = new WebSocketInterceptor()
 interceptor.apply()
 
 interceptor.on('connection', (connection) => {
+  connection.open()
+
   connection.on('message', async (data) => {
     addMessage(data, 'client')
 

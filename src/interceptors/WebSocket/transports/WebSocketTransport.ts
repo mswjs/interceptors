@@ -6,6 +6,16 @@ export class WebSocketTransport extends Transport {
     super()
   }
 
+  public open(): void {
+    queueMicrotask(() => {
+      Reflect.set(this.ws, 'readyState', WebSocket.OPEN)
+
+      const openEvent = new Event('open')
+      extendEvent(openEvent, { target: this.ws })
+      this.ws.dispatchEvent(openEvent)
+    })
+  }
+
   /**
    * Send data from the server to the client.
    */
