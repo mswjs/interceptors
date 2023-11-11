@@ -13,6 +13,7 @@ import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
 import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
+import { FORBIDDEN_REQUEST_METHODS } from '../../utils/fetchUtils'
 
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
 const IS_NODE = isNodeProcess()
@@ -551,7 +552,9 @@ export class XMLHttpRequestController {
     this.logger.info('converting request to a Fetch API Request...')
 
     const fetchRequest = new Request(this.url.href, {
-      method: this.method,
+      method: FORBIDDEN_REQUEST_METHODS.includes(this.method)
+        ? `UNSAFE-${this.method}`
+        : this.method,
       headers: this.requestHeaders,
       /**
        * @see https://xhr.spec.whatwg.org/#cross-origin-credentials
@@ -561,6 +564,12 @@ export class XMLHttpRequestController {
         ? null
         : (this.requestBody as any),
     })
+
+    if (fetchRequest.method.startsWith('UNSAFE-')) {
+      Object.defineProperty(fetchRequest, 'method', {
+        value: fetchRequest.method.replace('UNSAFE-', ''),
+      })
+    }
 
     const proxyHeaders = createProxy(fetchRequest.headers, {
       methodCall: ([methodName, args], invoke) => {

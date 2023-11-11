@@ -1,4 +1,5 @@
 import { ClientRequest, IncomingMessage } from 'http'
+import { Duplex } from 'stream'
 import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'
@@ -577,6 +578,25 @@ export class NodeClientRequest extends ClientRequest {
       this.terminate()
 
       this.logger.info('request complete!')
+
+      if (this.method === 'CONNECT') {
+        console.warn('SHOULD EMIT CONNECT', typeof this.response)
+
+        const head = Buffer.from('')
+
+        const socket = new Duplex({
+          read() {},
+          write(chunk, encoding, callback) {
+            console.log(
+              'CONNECT event Duplex write:\n',
+              `== START ==\n${chunk.toString('utf8')}== END ==`
+            )
+            callback()
+          },
+        })
+
+        this.emit('connect', this.response, socket, head)
+      }
     })
   }
 

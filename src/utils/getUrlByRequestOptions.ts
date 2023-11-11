@@ -155,7 +155,21 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   const hostname = getHostname(host, port)
   logger.info('hostname', hostname)
 
-  const path = options.path || DEFAULT_PATH
+  const path = options.path
+    ? /**
+       * @FIXME THIS IS INCORRECT!
+       * CONNECT options of ClientRequest can have "path" pointing to the origin host.
+       * @see https://nodejs.org/docs/latest-v18.x/api/http.html#event-connect (example)
+       *
+       * @note Some clients provide the "path" option that
+       * does not start with a leading slash. Prepend it
+       * so the normalized URL can be constructed correctly.
+       * @see https://github.com/delvedor/hpagent/blob/96f45f1d40bfbdfd0fcc84cdba056be6e0fb8f4c/index.js#L23
+       */
+      options.path.startsWith('/')
+      ? options.path
+      : `/${options.path}`
+    : DEFAULT_PATH
   logger.info('path', path)
 
   const credentials = getAuthByRequestOptions(options)
