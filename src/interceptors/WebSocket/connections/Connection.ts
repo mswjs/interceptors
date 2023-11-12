@@ -16,18 +16,26 @@ export interface ConnectionOptions {
  */
 export abstract class Connection {
   public url: string
+  public isOpen: boolean
 
   protected transport: Transport
   private [kEmitter]: EventTarget
 
   constructor(options: ConnectionOptions) {
     this[kEmitter] = new EventTarget()
+
     this.url = options.url
     this.transport = options.transport
+    this.isOpen = false
   }
 
   public open(): void {
+    if (this.isOpen) {
+      return
+    }
+
     this.transport.open()
+    this.isOpen = true
   }
 
   public on(event: string, listener: (...data: Array<unknown>) => void): void {
@@ -53,6 +61,10 @@ export abstract class Connection {
   }
 
   public close(): void {
+    if (!this.isOpen) {
+      return
+    }
+
     this.transport.close()
   }
 

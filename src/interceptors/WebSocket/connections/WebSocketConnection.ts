@@ -27,4 +27,8 @@ export class WebSocketConnection extends Connection {
 
     this.transport.send(data)
   }
+
+  public close(code = 1000, reason?: string): void {
+    this.transport.close(code, reason)
+  }
 }

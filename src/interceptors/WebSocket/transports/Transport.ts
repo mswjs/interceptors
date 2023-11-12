@@ -12,5 +12,5 @@ export type WebSocketData = string | ArrayBufferLike | Blob | ArrayBufferView
 export abstract class Transport {
   public open(): void {}
   public send(data: WebSocketData): void {}
-  public close(): void {}
+  public close(code: number = 1000, reason?: string): void {}
 }

@@ -23,6 +23,7 @@ interceptor.on('connection', (connection) => {
 
     if (data.includes('My name is John')) {
       connection.send(`Greetings, John!`)
+      connection.close()
     }
   })
 })

@@ -19,13 +19,20 @@ export class WebSocketController {
           }
 
           case 'addEventListener': {
-            const [event] = args as [string]
+            const [event, listener] = args as [
+              string,
+              EventListenerOrEventListenerObject
+            ]
 
             // Suppress the original "error" and "close" events
             // from propagating to the user-attached listeners.
             // The user will be in charge of those events via
             // the connection received in the handler.
             if (['error', 'close'].includes(event)) {
+              /**
+               * @fixme Somehow still call these listeners
+               * if the connection was closed in the handler. The same for errors.
+               */
               return
             }
 
@@ -59,15 +66,19 @@ export class WebSocketController {
       },
     })
 
-    this.setReadyState(WebSocket.CONNECTING)
+    Reflect.set(this.ws, 'readyState', WebSocket.CONNECTING)
 
-    this.ws.addEventListener('close', () => this.connection.close(), {
-      once: true,
-    })
-  }
-
-  private setReadyState(nextState: number): void {
-    Reflect.set(this.ws, 'readyState', nextState)
+    this.ws.addEventListener(
+      'close',
+      () => {
+        // Forward the "close" events initialted outside
+        // of the connection (e.g. by the client).
+        this.connection.close()
+      },
+      {
+        once: true,
+      }
+    )
   }
 
   private send(data: WebSocketData): void {

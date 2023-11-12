@@ -26,12 +26,16 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
         args: ConstructorParameters<typeof globalThis.WebSocket>,
         newTarget
       ) => {
-        const originalWebSocket = Reflect.construct(target, args, newTarget)
-        const controller = new WebSocketController(originalWebSocket)
+        let originalWebSocket: WebSocket
 
-        this.emitter.emit('connection', controller.connection)
-
-        return controller.ws
+        try {
+          originalWebSocket = Reflect.construct(target, args, newTarget)
+          const controller = new WebSocketController(originalWebSocket)
+          this.emitter.emit('connection', controller.connection)
+          return controller.ws
+        } finally {
+          //
+        }
       },
     })
 
