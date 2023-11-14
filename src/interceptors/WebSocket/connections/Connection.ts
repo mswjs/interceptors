@@ -2,26 +2,28 @@ import { invariant } from 'outvariant'
 import type { Transport, WebSocketData } from '../transports/Transport'
 
 export const kOnOutgoingMessage = Symbol('kOnOutgoingMessage')
-
+export const kHandshakeState = Symbol('kHandshakeState')
 const kEmitter = Symbol('kEmitter')
 
-export interface ConnectionOptions {
+export interface ConnectionOptions<T extends Transport> {
   url: string
-  transport: Transport
+  transport: T
 }
 
 /**
  * Connection represents server-side connection to a particular
  * WebSocket client.
  */
-export abstract class Connection {
+export abstract class Connection<T extends Transport> {
   public url: string
   public isOpen: boolean
 
-  protected transport: Transport
+  protected transport: T
+  private [kHandshakeState]: 'mock' | 'bypass'
   private [kEmitter]: EventTarget
 
-  constructor(options: ConnectionOptions) {
+  constructor(options: ConnectionOptions<T>) {
+    this[kHandshakeState] = 'bypass'
     this[kEmitter] = new EventTarget()
 
     this.url = options.url
@@ -29,10 +31,8 @@ export abstract class Connection {
     this.isOpen = false
   }
 
-  public open(): void {
-    if (this.isOpen) {
-      return
-    }
+  public handshake(): void {
+    this[kHandshakeState] = 'mock'
 
     this.transport.open()
     this.isOpen = true
@@ -54,24 +54,28 @@ export abstract class Connection {
   }
 
   /**
-   * Emit event to the connected client.
+   * Emit event from the server to the client.
    */
   public emit(event: string, data: WebSocketData): void {
     invariant(false, `The "emit" method is not implemented on this Connection`)
   }
 
+  /**
+   * Close this WebSocket connection from the server.
+   */
   public close(): void {
     if (!this.isOpen) {
       return
     }
 
     this.transport.close()
+    this.isOpen = false
   }
 
   /**
    * Handle outgoing (intercepted) client messages.
    */
-  [kOnOutgoingMessage](data: unknown) {
+  [kOnOutgoingMessage](data: WebSocketData) {
     // Note that this "message" will be emitted on the connection itself
     // so the user could listen to outgoing client data like:
     //

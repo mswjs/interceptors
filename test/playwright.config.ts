@@ -17,7 +17,10 @@ const config: PlaywrightTestConfig = {
       // Some of the browser tests perform HTTPS requests
       // to the locally running test server with a self-signed certificate.
       // Allow those despite the certificate issues.
-      args: ['--allow-insecure-localhost'],
+      args: [
+        '--allow-insecure-localhost',
+        '--proxy-bypass-list=ws://*localhost',
+      ],
     },
   },
   fullyParallel: true,

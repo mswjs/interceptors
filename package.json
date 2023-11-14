@@ -109,7 +109,7 @@
   "devDependencies": {
     "@commitlint/cli": "^16.0.2",
     "@commitlint/config-conventional": "^16.0.0",
-    "@open-draft/test-server": "^0.5.1",
+    "@open-draft/test-server": "^0.6.1",
     "@ossjs/release": "^0.7.2",
     "@playwright/test": "^1.37.1",
     "@types/cors": "^2.8.12",
@@ -120,6 +120,7 @@
     "@types/node": "^16.11.26",
     "@types/node-fetch": "2.5.12",
     "@types/supertest": "^2.0.11",
+    "@types/ws": "^8.5.9",
     "axios": "^1.6.0",
     "body-parser": "^1.19.0",
     "commitizen": "^4.2.4",
@@ -144,7 +145,9 @@
     "vitest-environment-miniflare": "^2.14.1",
     "wait-for-expect": "^3.0.2",
     "web-encoding": "^1.1.5",
-    "webpack-http-server": "^0.5.0"
+    "webpack": "5.88.2",
+    "webpack-http-server": "^0.5.0",
+    "ws": "^8.14.2"
   },
   "dependencies": {
     "@open-draft/deferred-promise": "^2.2.0",

@@ -2,11 +2,11 @@ import { Interceptor } from '../../Interceptor'
 import type { WebSocketConnection } from './connections/WebSocketConnection'
 import { WebSocketController } from './WebSocketController'
 
-export type WebSocketEventMap = {
+export type WebSocketInterceptorEventMap = {
   connection: [WebSocketConnection]
 }
 
-export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
+export class WebSocketInterceptor extends Interceptor<WebSocketInterceptorEventMap> {
   static interceptorSymbol = Symbol('websocket-class-interceptor')
 
   constructor() {
@@ -20,22 +20,22 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
   }
 
   protected setup(): void {
+    const OriginalWebSocket = globalThis.WebSocket
+
     const WebSocketProxy = Proxy.revocable(globalThis.WebSocket, {
       construct: (
-        target,
-        args: ConstructorParameters<typeof globalThis.WebSocket>,
-        newTarget
+        _,
+        args: ConstructorParameters<typeof globalThis.WebSocket>
       ) => {
-        let originalWebSocket: WebSocket
+        const [url, protocols] = args
+        const controller = new WebSocketController({
+          url,
+          protocols,
+          emitter: this.emitter,
+          WebSocketClass: OriginalWebSocket,
+        })
 
-        try {
-          originalWebSocket = Reflect.construct(target, args, newTarget)
-          const controller = new WebSocketController(originalWebSocket)
-          this.emitter.emit('connection', controller.connection)
-          return controller.ws
-        } finally {
-          //
-        }
+        return controller.ws
       },
     })
 
