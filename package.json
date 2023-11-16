@@ -8,6 +8,12 @@
   "exports": {
     ".": {
       "types": "./lib/node/index.d.ts",
+      "browser": {
+        "types": "./lib/browser/index.d.ts",
+        "require": "./lib/browser/index.js",
+        "import": "./lib/browser/index.mjs",
+        "default": "./lib/browser/index.js"
+      },
       "require": "./lib/node/index.js",
       "import": "./lib/node/index.mjs",
       "default": "./lib/node/index.js"
