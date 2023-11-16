@@ -112,3 +112,144 @@ it('disposes of child interceptors', async () => {
   expect(primaryDisposeSpy).toHaveBeenCalledTimes(1)
   expect(secondaryDisposeSpy).toHaveBeenCalledTimes(1)
 })
+
+it('forwards listeners added via "on()"', () => {
+  class FirstInterceptor extends Interceptor<any> {
+    constructor() {
+      super(Symbol('first'))
+    }
+  }
+  class SecondaryInterceptor extends Interceptor<any> {
+    constructor() {
+      super(Symbol('second'))
+    }
+  }
+
+  const firstInterceptor = new FirstInterceptor()
+  const secondInterceptor = new SecondaryInterceptor()
+
+  const interceptor = new BatchInterceptor({
+    name: 'batch',
+    interceptors: [firstInterceptor, secondInterceptor],
+  })
+
+  const listener = vi.fn()
+  interceptor.on('foo', listener)
+
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(1)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(1)
+  expect(interceptor['emitter'].listenerCount('foo')).toBe(0)
+})
+
+it('forwards listeners removal via "off()"', () => {
+  type Events = {
+    foo: []
+  }
+
+  class FirstInterceptor extends Interceptor<Events> {
+    constructor() {
+      super(Symbol('first'))
+    }
+  }
+  class SecondaryInterceptor extends Interceptor<Events> {
+    constructor() {
+      super(Symbol('second'))
+    }
+  }
+
+  const firstInterceptor = new FirstInterceptor()
+  const secondInterceptor = new SecondaryInterceptor()
+
+  const interceptor = new BatchInterceptor({
+    name: 'batch',
+    interceptors: [firstInterceptor, secondInterceptor],
+  })
+
+  const listener = vi.fn()
+  interceptor.on('foo', listener)
+  interceptor.off('foo', listener)
+
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(0)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
+})
+
+it('forwards removal of all listeners by name via ".removeAllListeners()"', () => {
+  type Events = {
+    foo: []
+    bar: []
+  }
+
+  class FirstInterceptor extends Interceptor<Events> {
+    constructor() {
+      super(Symbol('first'))
+    }
+  }
+  class SecondaryInterceptor extends Interceptor<Events> {
+    constructor() {
+      super(Symbol('second'))
+    }
+  }
+
+  const firstInterceptor = new FirstInterceptor()
+  const secondInterceptor = new SecondaryInterceptor()
+
+  const interceptor = new BatchInterceptor({
+    name: 'batch',
+    interceptors: [firstInterceptor, secondInterceptor],
+  })
+
+  const listener = vi.fn()
+  interceptor.on('foo', listener)
+  interceptor.on('foo', listener)
+  interceptor.on('bar', listener)
+
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
+  expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
+
+  interceptor.removeAllListeners('foo')
+
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(0)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
+  expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
+  expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
+})
+
+it('forwards removal of all listeners via ".removeAllListeners()"', () => {
+  class FirstInterceptor extends Interceptor<any> {
+    constructor() {
+      super(Symbol('first'))
+    }
+  }
+  class SecondaryInterceptor extends Interceptor<any> {
+    constructor() {
+      super(Symbol('second'))
+    }
+  }
+
+  const firstInterceptor = new FirstInterceptor()
+  const secondInterceptor = new SecondaryInterceptor()
+
+  const interceptor = new BatchInterceptor({
+    name: 'batch',
+    interceptors: [firstInterceptor, secondInterceptor],
+  })
+
+  const listener = vi.fn()
+  interceptor.on('foo', listener)
+  interceptor.on('foo', listener)
+  interceptor.on('bar', listener)
+
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
+  expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
+
+  interceptor.removeAllListeners()
+
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(0)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
+  expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(0)
+  expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(0)
+})

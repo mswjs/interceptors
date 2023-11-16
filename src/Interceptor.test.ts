@@ -18,6 +18,52 @@ it('does not set a maximum listeners limit', () => {
   expect(interceptor['emitter'].getMaxListeners()).toBe(0)
 })
 
+describe('on()', () => {
+  it('adds a new listener using "on()"', () => {
+    const interceptor = new Interceptor(symbol)
+    expect(interceptor['emitter'].listenerCount('event')).toBe(0)
+
+    const listener = vi.fn()
+    interceptor.on('event', listener)
+    expect(interceptor['emitter'].listenerCount('event')).toBe(1)
+  })
+})
+
+describe('once()', () => {
+  it('calls the listener only once', () => {
+    const interceptor = new Interceptor(symbol)
+    const listener = vi.fn()
+
+    interceptor.once('foo', listener)
+    expect(listener).not.toHaveBeenCalled()
+
+    interceptor['emitter'].emit('foo', 'bar')
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith('bar')
+
+    listener.mockReset()
+
+    interceptor['emitter'].emit('foo', 'baz')
+    interceptor['emitter'].emit('foo', 'xyz')
+    expect(listener).toHaveBeenCalledTimes(0)
+  })
+})
+
+describe('off()', () => {
+  it('removes a listener using "off()"', () => {
+    const interceptor = new Interceptor(symbol)
+    expect(interceptor['emitter'].listenerCount('event')).toBe(0)
+
+    const listener = vi.fn()
+    interceptor.on('event', listener)
+    expect(interceptor['emitter'].listenerCount('event')).toBe(1)
+
+    interceptor.off('event', listener)
+    expect(interceptor['emitter'].listenerCount('event')).toBe(0)
+  })
+})
+
 describe('persistence', () => {
   it('stores global reference to the applied interceptor', () => {
     const interceptor = new Interceptor(symbol)

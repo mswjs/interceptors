@@ -32,7 +32,7 @@ afterAll(async () => {
 })
 
 it('aborts unsent request when the original request is aborted', async () => {
-  interceptor.on('request', () => {
+  interceptor.once('request', () => {
     expect.fail('must not sent the request')
   })
 
@@ -57,7 +57,7 @@ it('aborts a pending request when the original request is aborted', async () => 
   const requestListenerCalled = new DeferredPromise<void>()
   const requestAborted = new DeferredPromise<Error>()
 
-  interceptor.on('request', async ({ request }) => {
+  interceptor.once('request', async ({ request }) => {
     requestListenerCalled.resolve()
     await sleep(1_000)
     request.respondWith(new Response())
@@ -81,7 +81,7 @@ it('aborts a pending request when the original request is aborted', async () => 
 })
 
 it('forwards custom abort reason to the request if aborted before it starts', async () => {
-  interceptor.on('request', () => {
+  interceptor.once('request', () => {
     expect.fail('must not sent the request')
   })
 
@@ -106,7 +106,7 @@ it('forwards custom abort reason to the request if pending', async () => {
   const requestListenerCalled = new DeferredPromise<void>()
   const requestAborted = new DeferredPromise<Error>()
 
-  interceptor.on('request', async ({ request }) => {
+  interceptor.once('request', async ({ request }) => {
     requestListenerCalled.resolve()
     await sleep(1_000)
     request.respondWith(new Response())

@@ -1,6 +1,5 @@
 import { Logger } from '@open-draft/logger'
-import { Listener } from 'strict-event-emitter'
-import { AsyncEventEmitter } from './utils/AsyncEventEmitter'
+import { Emitter, EventMap, Listener } from 'strict-event-emitter'
 
 export type InterceptorEventMap = Record<string, any>
 export type InterceptorSubscription = () => void
@@ -34,7 +33,7 @@ export type ExtractEventNames<Events extends Record<string, any>> =
   Events extends Record<infer EventName, any> ? EventName : never
 
 export class Interceptor<Events extends InterceptorEventMap> {
-  protected emitter: AsyncEventEmitter<Events>
+  protected emitter: Emitter<Events>
   protected subscriptions: Array<InterceptorSubscription>
   protected logger: Logger
 
@@ -43,7 +42,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
   constructor(private readonly symbol: symbol) {
     this.readyState = InterceptorReadyState.INACTIVE
 
-    this.emitter = new AsyncEventEmitter()
+    this.emitter = new Emitter()
     this.subscriptions = []
     this.logger = new Logger(symbol.description!)
 
@@ -84,12 +83,6 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
     this.readyState = InterceptorReadyState.APPLYING
 
-    // Always activate the emitter when applying the interceptor.
-    // This will ensure the interceptor can process events after it's
-    // been disposed and re-applied again (it may be a singleton).
-    this.emitter.activate()
-    logger.info('activated the emiter!', this.emitter.readyState)
-
     // Whenever applying a new interceptor, check if it hasn't been applied already.
     // This enables to apply the same interceptor multiple times, for example from a different
     // interceptor, only proxying events but keeping the stubs in a single place.
@@ -112,6 +105,8 @@ export class Interceptor<Events extends InterceptorEventMap> {
           runningInstance.emitter.removeListener(event, listener)
           logger.info('removed proxied "%s" listener!', event)
         })
+
+        return this
       }
 
       this.readyState = InterceptorReadyState.APPLIED
@@ -141,9 +136,9 @@ export class Interceptor<Events extends InterceptorEventMap> {
    * Listen to the interceptor's public events.
    */
   public on<EventName extends ExtractEventNames<Events>>(
-    eventName: EventName,
+    event: EventName,
     listener: Listener<Events[EventName]>
-  ): void {
+  ): this {
     const logger = this.logger.extend('on')
 
     if (
@@ -151,12 +146,36 @@ export class Interceptor<Events extends InterceptorEventMap> {
       this.readyState === InterceptorReadyState.DISPOSED
     ) {
       logger.info('cannot listen to events, already disposed!')
-      return
+      return this
     }
 
-    logger.info('adding "%s" event listener:', eventName, listener.name)
+    logger.info('adding "%s" event listener:', event, listener)
 
-    this.emitter.on(eventName, listener)
+    this.emitter.on(event, listener)
+    return this
+  }
+
+  public once<EventName extends ExtractEventNames<Events>>(
+    event: EventName,
+    listener: Listener<Events[EventName]>
+  ): this {
+    this.emitter.once(event, listener)
+    return this
+  }
+
+  public off<EventName extends ExtractEventNames<Events>>(
+    event: EventName,
+    listener: Listener<Events[EventName]>
+  ): this {
+    this.emitter.off(event, listener)
+    return this
+  }
+
+  public removeAllListeners<EventName extends ExtractEventNames<Events>>(
+    event?: EventName
+  ): this {
+    this.emitter.removeAllListeners(event)
+    return this
   }
 
   /**
@@ -196,7 +215,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
       logger.info('disposed of all subscriptions!', this.subscriptions.length)
     }
 
-    this.emitter.deactivate()
+    this.emitter.removeAllListeners()
     logger.info('destroyed the listener!')
 
     this.readyState = InterceptorReadyState.DISPOSED

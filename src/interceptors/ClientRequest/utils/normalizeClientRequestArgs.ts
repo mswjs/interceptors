@@ -8,7 +8,7 @@ import {
   Agent as HttpsAgent,
   globalAgent as httpsGlobalAgent,
 } from 'https'
-import { Url as LegacyURL } from 'url'
+import { Url as LegacyURL, parse as parseUrl } from 'url'
 import { Logger } from '@open-draft/logger'
 import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
 import {
@@ -23,6 +23,8 @@ const logger = new Logger('http normalizeClientRequestArgs')
 export type HttpRequestCallback = (response: IncomingMessage) => void
 
 export type ClientRequestArgs =
+  // Request without any arguments is also possible.
+  | []
   | [string | URL | LegacyURL, HttpRequestCallback?]
   | [string | URL | LegacyURL, RequestOptions, HttpRequestCallback?]
   | [RequestOptions, HttpRequestCallback?]
@@ -63,6 +65,25 @@ function resolveRequestOptions(
   return {} as RequestOptions
 }
 
+/**
+ * Overrides the given `URL` instance with the explicit properties provided
+ * on the `RequestOptions` object. The options object takes precedence,
+ * and will replace URL properties like "host", "path", and "port", if specified.
+ */
+function overrideUrlByRequestOptions(url: URL, options: RequestOptions): URL {
+  url.host = options.host || url.host
+  url.hostname = options.hostname || url.hostname
+  url.port = options.port ? options.port.toString() : url.port
+
+  if (options.path) {
+    const parsedOptionsPath = parseUrl(options.path, false)
+    url.pathname = parsedOptionsPath.pathname || ''
+    url.search = parsedOptionsPath.search || ''
+  }
+
+  return url
+}
+
 function resolveCallback(
   args: ClientRequestArgs
 ): HttpRequestCallback | undefined {
@@ -90,6 +111,14 @@ export function normalizeClientRequestArgs(
   logger.info('arguments', args)
   logger.info('using default protocol:', defaultProtocol)
 
+  // Support "http.request()" calls without any arguments.
+  // That call results in a "GET http://localhost" request.
+  if (args.length === 0) {
+    const url = new URL('http://localhost')
+    const options = resolveRequestOptions(args, url)
+    return [url, options]
+  }
+
   // Convert a url string into a URL instance
   // and derive request options from it.
   if (typeof args[0] === 'string') {
@@ -111,6 +140,15 @@ export function normalizeClientRequestArgs(
   else if (args[0] instanceof URL) {
     url = args[0]
     logger.info('first argument is a URL:', url)
+
+    // Check if the second provided argument is RequestOptions.
+    // If it is, check if "options.path" was set and rewrite it
+    // on the input URL.
+    // Do this before resolving options from the URL below
+    // to prevent query string from being duplicated in the path.
+    if (typeof args[1] !== 'undefined' && isObject<RequestOptions>(args[1])) {
+      url = overrideUrlByRequestOptions(url, args[1])
+    }
 
     options = resolveRequestOptions(args, url)
     logger.info('derived request options:', options)

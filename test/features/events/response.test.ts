@@ -198,7 +198,7 @@ it('XMLHttpRequest: emits the "response" event upon the original response', asyn
    * passthrough to the ClientRequest, it will perform an "OPTIONS" request first,
    * thus two request/response events emitted.
    */
-  expect(responseListener).toHaveBeenCalledTimes(1)
+  expect(responseListener).toHaveBeenCalledTimes(2)
 
   // Lookup the correct response listener call.
   const [{ response, request, isMockedResponse }] =

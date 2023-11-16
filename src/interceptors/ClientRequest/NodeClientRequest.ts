@@ -1,6 +1,7 @@
 import { ClientRequest, IncomingMessage } from 'http'
 import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import type { ClientRequestEmitter } from '.'
 import {
   ClientRequestEndCallback,
@@ -17,9 +18,23 @@ import { createResponse } from './utils/createResponse'
 import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { uuidv4 } from '../../utils/uuid'
-import { DeferredPromise } from '@open-draft/deferred-promise'
+import { emitAsync } from '../../utils/emitAsync'
+import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
+import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 
 export type Protocol = 'http' | 'https'
+
+enum HttpClientInternalState {
+  // Have the concept of an idle request because different
+  // request methods can kick off request sending
+  // (e.g. ".end()" or ".flushHeaders()").
+  Idle,
+  Sending,
+  Sent,
+  MockLookupStart,
+  MockLookupEnd,
+  ResponseReceived,
+}
 
 export interface NodeClientOptions {
   emitter: ClientRequestEmitter
@@ -36,8 +51,15 @@ export class NodeClientRequest extends ClientRequest {
     'ECONNREFUSED',
     'ECONNRESET',
     'EAI_AGAIN',
+    'ENETUNREACH',
+    'EHOSTUNREACH',
   ]
 
+  /**
+   * Internal state of the request.
+   */
+  private state: HttpClientInternalState
+  private responseType?: 'mock' | 'passthrough'
   private response: IncomingMessage
   private emitter: ClientRequestEmitter
   private logger: Logger
@@ -45,7 +67,6 @@ export class NodeClientRequest extends ClientRequest {
     chunk?: string | Buffer
     encoding?: BufferEncoding
   }> = []
-  private responseSource: 'mock' | 'bypass' = 'mock'
   private capturedError?: NodeJS.ErrnoException
 
   public url: URL
@@ -67,6 +88,7 @@ export class NodeClientRequest extends ClientRequest {
       callback,
     })
 
+    this.state = HttpClientInternalState.Idle
     this.url = url
     this.emitter = options.emitter
 
@@ -137,8 +159,31 @@ export class NodeClientRequest extends ClientRequest {
     // Write the last request body chunk passed to the "end()" method.
     this.writeRequestBodyChunk(chunk, encoding || undefined)
 
+    /**
+     * @note Mark the request as sent immediately when invoking ".end()".
+     * In Node.js, calling ".end()" will flush the remaining request body
+     * and mark the request as "finished" immediately ("end" is synchronous)
+     * but we delegate that property update to:
+     *
+     * - respondWith(), in the case of mocked responses;
+     * - super.end(), in the case of bypassed responses.
+     *
+     * For that reason, we have to keep an internal flag for a finished request.
+     */
+    this.state = HttpClientInternalState.Sent
+
     const capturedRequest = createRequest(this)
-    const interactiveRequest = toInteractiveRequest(capturedRequest)
+    const { interactiveRequest, requestController } =
+      toInteractiveRequest(capturedRequest)
+
+    /**
+     * @todo Remove this modification of the original request
+     * and expose the controller alongside it in the "request"
+     * listener argument.
+     */
+    Object.defineProperty(capturedRequest, 'respondWith', {
+      value: requestController.respondWith.bind(requestController),
+    })
 
     // Prevent handling this request if it has already been handled
     // in another (parent) interceptor (like XMLHttpRequest -> ClientRequest).
@@ -149,39 +194,55 @@ export class NodeClientRequest extends ClientRequest {
       return this.passthrough(chunk, encoding, callback)
     }
 
-    // Notify the interceptor about the request.
-    // This will call any "request" listeners the users have.
-    this.logger.info(
-      'emitting the "request" event for %d listener(s)...',
-      this.emitter.listenerCount('request')
-    )
-    this.emitter.emit('request', {
-      request: interactiveRequest,
-      requestId,
+    // Add the last "request" listener that always resolves
+    // the pending response Promise. This way if the consumer
+    // hasn't handled the request themselves, we will prevent
+    // the response Promise from pending indefinitely.
+    this.emitter.once('request', ({ requestId: pendingRequestId }) => {
+      /**
+       * @note Ignore request events emitted by irrelevant
+       * requests. This happens when response patching.
+       */
+      if (pendingRequestId !== requestId) {
+        return
+      }
+
+      if (requestController.responsePromise.state === 'pending') {
+        this.logger.info(
+          'request has not been handled in listeners, executing fail-safe listener...'
+        )
+
+        requestController.responsePromise.resolve(undefined)
+      }
     })
 
     // Execute the resolver Promise like a side-effect.
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
     until(async () => {
-      await this.emitter.untilIdle(
-        'request',
-        ({ args: [{ requestId: pendingRequestId }] }) => {
-          /**
-           * @note Await only those listeners that are relevant to this request.
-           * This prevents extraneous parallel request from blocking the resolution
-           * of another, unrelated request. For example, during response patching,
-           * when request resolution is nested.
-           */
-          return pendingRequestId === requestId
-        }
+      // Notify the interceptor about the request.
+      // This will call any "request" listeners the users have.
+      this.logger.info(
+        'emitting the "request" event for %d listener(s)...',
+        this.emitter.listenerCount('request')
       )
 
-      const [mockedResponse] = await interactiveRequest.respondWith.invoked()
+      this.state = HttpClientInternalState.MockLookupStart
+
+      await emitAsync(this.emitter, 'request', {
+        request: interactiveRequest,
+        requestId,
+      })
+
+      this.logger.info('all "request" listeners done!')
+
+      const mockedResponse = await requestController.responsePromise
       this.logger.info('event.respondWith called with:', mockedResponse)
 
       return mockedResponse
     }).then((resolverResult) => {
       this.logger.info('the listeners promise awaited!')
+
+      this.state = HttpClientInternalState.MockLookupEnd
 
       /**
        * @fixme We are in the "end()" method that still executes in parallel
@@ -203,6 +264,8 @@ export class NodeClientRequest extends ClientRequest {
           'encountered resolver exception, aborting request...',
           resolverResult.error
         )
+
+        this.destroyed = true
         this.emit('error', resolverResult.error)
         this.terminate()
 
@@ -212,10 +275,29 @@ export class NodeClientRequest extends ClientRequest {
       const mockedResponse = resolverResult.data
 
       if (mockedResponse) {
-        this.logger.info('received mocked response:', mockedResponse)
+        this.logger.info(
+          'received mocked response:',
+          mockedResponse.status,
+          mockedResponse.statusText
+        )
+
+        /**
+         * @note Ignore this request being destroyed by TLS in Node.js
+         * due to connection errors.
+         */
+        this.destroyed = false
 
         // Handle mocked "Response.error" network error responses.
-        if (mockedResponse.type === 'error') {
+        if (
+          /**
+           * @note Some environments, like Miniflare (Cloudflare) do not
+           * implement the "Response.type" property and throw on its access.
+           * Safely check if we can access "type" on "Response" before continuing.
+           * @see https://github.com/mswjs/msw/issues/1834
+           */
+          isPropertyAccessible(mockedResponse, 'type') &&
+          mockedResponse.type === 'error'
+        ) {
           this.logger.info(
             'received network error response, aborting request...'
           )
@@ -231,8 +313,6 @@ export class NodeClientRequest extends ClientRequest {
         }
 
         const responseClone = mockedResponse.clone()
-
-        this.responseSource = 'mock'
 
         this.respondWith(mockedResponse)
         this.logger.info(
@@ -314,20 +394,28 @@ export class NodeClientRequest extends ClientRequest {
 
       this.logger.info('error:\n', error)
 
-      // Suppress certain errors while using the "mock" source.
-      // For example, no need to destroy this request if it connects
-      // to a non-existing hostname but has a mocked response.
-      if (
-        this.responseSource === 'mock' &&
-        NodeClientRequest.suppressErrorCodes.includes(errorCode)
-      ) {
-        // Capture the first emitted error in order to replay
-        // it later if this request won't have any mocked response.
-        if (!this.capturedError) {
-          this.capturedError = error
-          this.logger.info('captured the first error:', this.capturedError)
+      // Suppress only specific Node.js connection errors.
+      if (NodeClientRequest.suppressErrorCodes.includes(errorCode)) {
+        // Until we aren't sure whether the request will be
+        // passthrough, capture the first emitted connection
+        // error in case we have to replay it for this request.
+        if (this.state < HttpClientInternalState.MockLookupEnd) {
+          if (!this.capturedError) {
+            this.capturedError = error
+            this.logger.info('captured the first error:', this.capturedError)
+          }
+          return false
         }
-        return false
+
+        // Ignore any connection errors once we know the request
+        // has been resolved with a mocked response. Don't capture
+        // them as they won't ever be replayed.
+        if (
+          this.state === HttpClientInternalState.ResponseReceived &&
+          this.responseType === 'mock'
+        ) {
+          return false
+        }
       }
     }
 
@@ -345,9 +433,8 @@ export class NodeClientRequest extends ClientRequest {
     encoding?: BufferEncoding | null,
     callback?: ClientRequestEndCallback | null
   ): this {
-    // Set the response source to "bypass".
-    // Any errors emitted past this point are not suppressed.
-    this.responseSource = 'bypass'
+    this.state = HttpClientInternalState.ResponseReceived
+    this.responseType = 'passthrough'
 
     // Propagate previously captured errors.
     // For example, a ECONNREFUSED error when connecting to a non-existing host.
@@ -395,6 +482,9 @@ export class NodeClientRequest extends ClientRequest {
   private respondWith(mockedResponse: Response): void {
     this.logger.info('responding with a mocked response...', mockedResponse)
 
+    this.state = HttpClientInternalState.ResponseReceived
+    this.responseType = 'mock'
+
     /**
      * Mark the request as finished right before streaming back the response.
      * This is not entirely conventional but this will allow the consumer to
@@ -413,10 +503,14 @@ export class NodeClientRequest extends ClientRequest {
     this.response.statusCode = status
     this.response.statusMessage = statusText
 
-    if (headers) {
+    // Try extracting the raw headers from the headers instance.
+    // If not possible, fallback to the headers instance as-is.
+    const rawHeaders = getRawFetchHeaders(headers) || headers
+
+    if (rawHeaders) {
       this.response.headers = {}
 
-      headers.forEach((headerValue, headerName) => {
+      rawHeaders.forEach((headerValue, headerName) => {
         /**
          * @note Make sure that multi-value headers are appended correctly.
          */
@@ -431,10 +525,29 @@ export class NodeClientRequest extends ClientRequest {
     }
     this.logger.info('mocked response headers ready:', headers)
 
+    /**
+     * Set the internal "res" property to the mocked "OutgoingMessage"
+     * to make the "ClientRequest" instance think there's data received
+     * from the socket.
+     * @see https://github.com/nodejs/node/blob/9c405f2591f5833d0247ed0fafdcd68c5b14ce7a/lib/_http_client.js#L501
+     *
+     * Set the response immediately so the interceptor could stream data
+     * chunks to the request client as they come in.
+     */
+    // @ts-ignore
+    this.res = this.response
+    this.emit('response', this.response)
+
     const isResponseStreamFinished = new DeferredPromise<void>()
 
     const finishResponseStream = () => {
       this.logger.info('finished response stream!')
+
+      // Push "null" to indicate that the response body is complete
+      // and shouldn't be written to anymore.
+      this.response.push(null)
+      this.response.complete = true
+
       isResponseStreamFinished.resolve()
     }
 
@@ -458,29 +571,12 @@ export class NodeClientRequest extends ClientRequest {
       finishResponseStream()
     }
 
-    /**
-     * Set the internal "res" property to the mocked "OutgoingMessage"
-     * to make the "ClientRequest" instance think there's data received
-     * from the socket.
-     * @see https://github.com/nodejs/node/blob/9c405f2591f5833d0247ed0fafdcd68c5b14ce7a/lib/_http_client.js#L501
-     *
-     * Set the response immediately so the interceptor could stream data
-     * chunks to the request client as they come in.
-     */
-    // @ts-ignore
-    this.res = this.response
-    this.emit('response', this.response)
-
     isResponseStreamFinished.then(() => {
       this.logger.info('finalizing response...')
-
-      // Push "null" to indicate that the response body is complete
-      // and shouldn't be written to anymore.
-      this.response.push(null)
-      this.response.complete = true
       this.response.emit('end')
-
       this.terminate()
+
+      this.logger.info('request complete!')
     })
   }
 

@@ -1,13 +1,13 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import express from 'express'
 import { IncomingMessage } from 'http'
+import { Emitter } from 'strict-event-emitter'
 import { Logger } from '@open-draft/logger'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { NodeClientRequest } from './NodeClientRequest'
 import { getIncomingMessageBody } from './utils/getIncomingMessageBody'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
-import { AsyncEventEmitter } from '../../utils/AsyncEventEmitter'
 import { sleep } from '../../../test/helpers'
 import { HttpRequestEventMap } from '../../glossary'
 
@@ -37,7 +37,7 @@ afterAll(async () => {
 })
 
 it('gracefully finishes the request when it has a mocked response', async () => {
-  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
+  const emitter = new Emitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', 'http://any.thing', {
       method: 'PUT',
@@ -88,7 +88,7 @@ it('gracefully finishes the request when it has a mocked response', async () => 
 })
 
 it('responds with a mocked response when requesting an existing hostname', async () => {
-  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
+  const emitter = new Emitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.url('/comment')),
     {
@@ -116,7 +116,7 @@ it('responds with a mocked response when requesting an existing hostname', async
 })
 
 it('performs the request as-is given resolver returned no mocked response', async () => {
-  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
+  const emitter = new Emitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.url('/comment'), {
       method: 'POST',
@@ -146,114 +146,8 @@ it('performs the request as-is given resolver returned no mocked response', asyn
   expect(text).toBe('original-response')
 })
 
-it('emits the ENOTFOUND error connecting to a non-existing hostname given no mocked response', async () => {
-  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
-  const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
-    { emitter, logger }
-  )
-  request.end()
-
-  const errorReceived = new DeferredPromise<NodeJS.ErrnoException>()
-  request.on('error', async (error) => {
-    errorReceived.resolve(error)
-  })
-  const error = await errorReceived
-
-  expect(error.code).toBe('ENOTFOUND')
-  expect(error.syscall).toBe('getaddrinfo')
-})
-
-it('emits the ECONNREFUSED error connecting to an inactive server given no mocked response', async () => {
-  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
-  const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', 'http://127.0.0.1:12345'),
-    {
-      emitter,
-      logger,
-    }
-  )
-
-  request.end()
-
-  const errorReceived = new DeferredPromise<ErrorConnectionRefused>()
-  request.on('error', async (error: ErrorConnectionRefused) => {
-    errorReceived.resolve(error)
-  })
-  request.end()
-
-  const error = await errorReceived
-
-  expect(error.code).toBe('ECONNREFUSED')
-  expect(error.syscall).toBe('connect')
-  expect(error.address).toBe('127.0.0.1')
-  expect(error.port).toBe(12345)
-})
-
-it('does not emit ENOTFOUND error connecting to an inactive server given mocked response', async () => {
-  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
-  const handleError = vi.fn()
-  const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', 'http://non-existing-url.com'),
-    { emitter, logger }
-  )
-
-  emitter.on('request', async ({ request }) => {
-    await sleep(250)
-    request.respondWith(
-      new Response(null, { status: 200, statusText: 'Works' })
-    )
-  })
-
-  request.end()
-
-  request.on('error', handleError)
-
-  const responseReceived = new DeferredPromise<IncomingMessage>()
-  request.on('response', (response) => {
-    responseReceived.resolve(response)
-  })
-  const response = await responseReceived
-
-  expect(handleError).not.toHaveBeenCalled()
-  expect(response.statusCode).toBe(200)
-  expect(response.statusMessage).toBe('Works')
-})
-
-it('does not emit ECONNREFUSED error connecting to an inactive server given mocked response', async () => {
-  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
-  const handleError = vi.fn()
-  const request = new NodeClientRequest(
-    normalizeClientRequestArgs('http:', 'http://localhost:9876'),
-    {
-      emitter,
-      logger,
-    }
-  )
-
-  emitter.on('request', async ({ request }) => {
-    await sleep(250)
-    request.respondWith(
-      new Response(null, { status: 200, statusText: 'Works' })
-    )
-  })
-
-  request.on('error', handleError)
-  request.end()
-
-  const responseReceived = new DeferredPromise<IncomingMessage>()
-  request.on('response', (response) => {
-    responseReceived.resolve(response)
-  })
-  const response = await responseReceived
-
-  expect(handleError).not.toHaveBeenCalled()
-  expect(response.statusCode).toBe(200)
-  expect(response.statusMessage).toBe('Works')
-})
-
 it('sends the request body to the server given no mocked response', async () => {
-  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
+  const emitter = new Emitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
       method: 'POST',
@@ -284,7 +178,7 @@ it('sends the request body to the server given no mocked response', async () => 
 })
 
 it('does not send request body to the original server given mocked response', async () => {
-  const emitter = new AsyncEventEmitter<HttpRequestEventMap>()
+  const emitter = new Emitter<HttpRequestEventMap>()
   const request = new NodeClientRequest(
     normalizeClientRequestArgs('http:', httpServer.http.url('/write'), {
       method: 'POST',

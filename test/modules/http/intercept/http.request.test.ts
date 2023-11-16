@@ -1,7 +1,7 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'http'
-import { RequestHandler } from 'express-serve-static-core'
 import { HttpServer } from '@open-draft/test-server/http'
+import type { RequestHandler } from 'express'
 import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
@@ -228,4 +228,74 @@ it('intercepts an http.request given RequestOptions without a protocol', async (
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
+})
+
+it('intercepts an http.request path in url and options', async () => {
+  const callback = vi.fn()
+  const req = http.request(
+    new URL(httpServer.http.url('/one')),
+    { path: '/two' },
+    callback
+  )
+  req.end()
+  await waitForClientRequest(req)
+
+  expect(resolver).toHaveBeenCalledTimes(1)
+
+  const [{ request, requestId }] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.http.url('/two'))
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
+  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(callback).toHaveBeenCalledTimes(1)
+
+  expect(requestId).toMatch(UUID_REGEXP)
+})
+
+it('intercepts an http.request with custom "auth" option', async () => {
+  const auth = 'john:secret123'
+  const req = http.request({
+    host: httpServer.http.address.host,
+    port: httpServer.http.address.port,
+    auth,
+  })
+  req.end()
+  await waitForClientRequest(req)
+
+  expect(resolver).toHaveBeenCalledTimes(1)
+
+  const [{ request }] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.http.url('/'))
+  expect(request.headers.get('authorization')).toBe(`Basic ${btoa(auth)}`)
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
+})
+
+it('intercepts an http.request with a URL with "username" and "password"', async () => {
+  const username = 'john'
+  const password = 'secret123'
+  const req = http.request(
+    // The request URL can include the basic auth directly.
+    new URL(
+      `http://${username}:${password}@${httpServer.http.address.host}:${httpServer.http.address.port}/`
+    )
+  )
+  req.end()
+  await waitForClientRequest(req)
+
+  expect(resolver).toHaveBeenCalledTimes(1)
+
+  const [{ request }] = resolver.mock.calls[0]
+
+  expect(request.method).toBe('GET')
+  expect(request.url).toBe(httpServer.http.url('/'))
+  expect(request.headers.get('authorization')).toBe(
+    `Basic ${btoa(`${username}:${password}`)}`
+  )
+  expect(request.credentials).toBe('same-origin')
+  expect(request.body).toBe(null)
 })

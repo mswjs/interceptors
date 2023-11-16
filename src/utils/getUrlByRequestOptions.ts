@@ -86,7 +86,14 @@ function getHostByRequestOptions(options: ResolvedRequestOptions): string {
   return host || DEFAULT_HOST
 }
 
-function getAuthByRequestOptions(options: ResolvedRequestOptions) {
+interface RequestAuth {
+  username: string
+  password: string
+}
+
+function getAuthByRequestOptions(
+  options: ResolvedRequestOptions
+): RequestAuth | undefined {
   if (options.auth) {
     const [username, password] = options.auth.split(':')
     return { username, password }
@@ -159,7 +166,10 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
     : ''
   logger.info('auth string:', authString)
 
-  const url = new URL(`${protocol}//${authString}${hostname}${path}`)
+  const url = new URL(`${protocol}//${hostname}${path}`)
+  url.username = credentials?.username || ''
+  url.password = credentials?.password || ''
+
   logger.info('created url:', url)
 
   return url

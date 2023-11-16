@@ -10,7 +10,7 @@ export function createRequest(clientRequest: NodeClientRequest): Request {
   for (const headerName in outgoingHeaders) {
     const headerValue = outgoingHeaders[headerName]
 
-    if (!headerValue) {
+    if (typeof headerValue === 'undefined') {
       continue
     }
 
@@ -18,6 +18,21 @@ export function createRequest(clientRequest: NodeClientRequest): Request {
     for (const value of valuesList) {
       headers.append(headerName, value.toString())
     }
+  }
+
+  /**
+   * Translate the authentication from the request URL to
+   * the request "Authorization" header.
+   * @see https://github.com/mswjs/interceptors/issues/438
+   */
+  if (clientRequest.url.username || clientRequest.url.password) {
+    const auth = `${clientRequest.url.username || ''}:${clientRequest.url.password || ''}`
+    headers.set('Authorization', `Basic ${btoa(auth)}`)
+
+    // Remove the credentials from the URL since you cannot
+    // construct a Request instance with such a URL.
+    clientRequest.url.username = ''
+    clientRequest.url.password = ''
   }
 
   const method = clientRequest.method || 'GET'

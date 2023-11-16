@@ -23,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18.8.0
+          node-version: 18.14
           always-auth: true
           registry-url: https://registry.npmjs.org
 
@@ -35,7 +35,7 @@ jobs:
         run: pnpm install
 
       - name: Install Playwright browsers
-        run: pnpx playwright install --with-deps
+        run: npx playwright install
 
       - name: Release
         run: pnpm release
