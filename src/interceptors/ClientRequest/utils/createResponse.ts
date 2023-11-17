@@ -1,12 +1,12 @@
 import type { IncomingHttpHeaders, IncomingMessage } from 'http'
-import { responseStatusCodesWithoutBody } from '../../../utils/responseUtils'
+import { RESPONSE_STATUS_CODES_WITHOUT_BODY } from '../../../utils/fetchUtils'
 
 /**
  * Creates a Fetch API `Response` instance from the given
  * `http.IncomingMessage` instance.
  */
 export function createResponse(message: IncomingMessage): Response {
-  const responseBodyOrNull = responseStatusCodesWithoutBody.includes(
+  const responseBodyOrNull = RESPONSE_STATUS_CODES_WITHOUT_BODY.includes(
     message.statusCode || 200
   )
     ? null
