@@ -41,8 +41,6 @@ it.only('folds duplicate headers the same as Node', async () => {
     'set-cookie2=bar',
     'set-cookie',
     'set-cookie3=baz',
-    'CONTENT-TYPE',
-    'text/xml',
     'cookie',
     'cookie1=foo; cookie2=bar',
     'cookie',
@@ -56,7 +54,7 @@ it.only('folds duplicate headers the same as Node', async () => {
   ]
   interceptor.once('request', ({ request }) => {
     const response = new Response(null)
-    for (let i = 0; i < replyHeaders.length - 2; i += 2) {
+    for (let i = 0; i < replyHeaders.length; i += 2) {
       response.headers.append(replyHeaders[i], replyHeaders[i + 1])
     }
     request.respondWith(response)

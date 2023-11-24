@@ -517,15 +517,9 @@ export class NodeClientRequest extends ClientRequest {
         this.response.rawHeaders.push(headerName, headerValue)
 
         const insensitiveHeaderName = headerName.toLowerCase()
-        
-        if (this.response.headers[insensitiveHeaderName]) {
-          if (!noDuplicatesHeaders.has(headerName)) {
-            const separator = insensitiveHeaderName === 'cookie' ? '; ' : ', '
-            this.response.headers[insensitiveHeaderName]?.concat(separator, headerValue)
-          }
-        } else {
-          this.response.headers[insensitiveHeaderName] = headerValue
-        }
+        this.response.headers[insensitiveHeaderName] = insensitiveHeaderName === 'set-cookie'
+          ? headers.getSetCookie()
+          : headerValue
       })
     }
     this.logger.info('mocked response headers ready:', headers)
@@ -599,23 +593,3 @@ export class NodeClientRequest extends ClientRequest {
     this.agent?.destroy()
   }
 }
-
-const noDuplicatesHeaders = new Set([
-  'age',
-  'authorization',
-  'content-length',
-  'content-type',
-  'etag',
-  'expires',
-  'from',
-  'host',
-  'if-modified-since',
-  'if-unmodified-since',
-  'last-modified',
-  'location',
-  'max-forwards',
-  'proxy-authorization',
-  'referer',
-  'retry-after',
-  'user-agent',
-])
