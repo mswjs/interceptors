@@ -517,7 +517,6 @@ export class NodeClientRequest extends ClientRequest {
         this.response.rawHeaders.push(headerName, headerValue)
 
         const insensitiveHeaderName = headerName.toLowerCase()
-        console.log(rawHeaders);
         
         if (this.response.headers[insensitiveHeaderName]) {
           if (!noDuplicatesHeaders.has(headerName)) {
