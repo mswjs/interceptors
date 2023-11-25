@@ -23,6 +23,8 @@ const logger = new Logger('http normalizeClientRequestArgs')
 export type HttpRequestCallback = (response: IncomingMessage) => void
 
 export type ClientRequestArgs =
+  // Request without any arguments is also possible.
+  | []
   | [string | URL | LegacyURL, HttpRequestCallback?]
   | [string | URL | LegacyURL, RequestOptions, HttpRequestCallback?]
   | [RequestOptions, HttpRequestCallback?]
@@ -108,6 +110,14 @@ export function normalizeClientRequestArgs(
 
   logger.info('arguments', args)
   logger.info('using default protocol:', defaultProtocol)
+
+  // Support "http.request()" calls without any arguments.
+  // That call results in a "GET http://localhost" request.
+  if (args.length === 0) {
+    const url = new URL('http://localhost')
+    const options = resolveRequestOptions(args, url)
+    return [url, options]
+  }
 
   // Convert a url string into a URL instance
   // and derive request options from it.

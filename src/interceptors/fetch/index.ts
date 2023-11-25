@@ -6,6 +6,7 @@ import { Interceptor } from '../../Interceptor'
 import { uuidv4 } from '../../utils/uuid'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
+import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -103,7 +104,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         this.logger.info('received mocked response:', mockedResponse)
 
         // Reject the request Promise on mocked "Response.error" responses.
-        if (mockedResponse.type === 'error') {
+        if (
+          isPropertyAccessible(mockedResponse, 'type') &&
+          mockedResponse.type === 'error'
+        ) {
           this.logger.info(
             'received a network error response, rejecting the request promise...'
           )
