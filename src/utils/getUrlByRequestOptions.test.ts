@@ -132,4 +132,19 @@ it('handles IPv6 host', () => {
       path: '/resource',
     }).href
   ).toBe('http://[::1]:3001/resource')
+
+  expect(
+    getUrlByRequestOptions({
+      host: '[::1]:3001',
+      path: '/resource',
+    }).href
+  ).toBe('http://[::1]:3001/resource')
+
+  expect(
+    getUrlByRequestOptions({
+      hostname: '[::1]',
+      port: 3001,
+      path: '/resource',
+    }).href
+  ).toBe('http://[::1]:3001/resource')
 })

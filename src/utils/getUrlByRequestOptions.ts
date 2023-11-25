@@ -15,7 +15,7 @@ export type ResolvedRequestOptions = RequestOptions & RequestSelf
 
 export const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
-const DEFAULT_HOST = 'localhost'
+const DEFAULT_HOSTNAME = 'localhost'
 const SSL_PORT = 443
 
 function getAgent(
@@ -130,7 +130,7 @@ function getHostname(options: ResolvedRequestOptions): string | undefined {
     return new URL(`http://${options.host}`).hostname
   }
 
-  return undefined
+  return DEFAULT_HOSTNAME
 }
 
 /**
