@@ -2,7 +2,7 @@ import { it, expect } from 'vitest'
 import { Socket } from 'net'
 import * as http from 'http'
 import { createResponse } from './createResponse'
-import { responseStatusCodesWithoutBody } from '../../../utils/responseUtils'
+import { RESPONSE_STATUS_CODES_WITHOUT_BODY } from '../../../utils/responseUtils'
 
 it('creates a fetch api response from http incoming message', async () => {
   const message = new http.IncomingMessage(new Socket())
@@ -22,7 +22,7 @@ it('creates a fetch api response from http incoming message', async () => {
   expect(await response.json()).toEqual({ firstName: 'John' })
 })
 
-it.each(responseStatusCodesWithoutBody)(
+it.each(RESPONSE_STATUS_CODES_WITHOUT_BODY)(
   'ignores message body for %i response status',
   (responseStatus) => {
     const message = new http.IncomingMessage(new Socket())
