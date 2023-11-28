@@ -1,4 +1,4 @@
-import { it, expect } from 'vitest'
+import { it, expect, describe } from 'vitest'
 import { Agent as HttpAgent } from 'http'
 import { RequestOptions, Agent as HttpsAgent } from 'https'
 import { getUrlByRequestOptions } from './getUrlByRequestOptions'
@@ -101,14 +101,19 @@ it('inherits "username" and "password"', () => {
   expect(url).toHaveProperty('href', 'https://admin:abc-123@127.0.0.1/user')
 })
 
+it('resolves hostname to localhost if none provided', () => {
+  expect(getUrlByRequestOptions({}).hostname).toBe('localhost')
+})
+
 it('resolves host to localhost if none provided', () => {
   expect(getUrlByRequestOptions({}).host).toBe('localhost')
 })
 
-it('supports "host" instead of "hostname" and "port"', () => {
+it('supports "hostname" and "port"', () => {
   const options: RequestOptions = {
     protocol: 'https:',
-    host: '127.0.0.1:1234',
+    hostname: '127.0.0.1',
+    port: 1234,
     path: '/resource',
   }
 
@@ -117,34 +122,45 @@ it('supports "host" instead of "hostname" and "port"', () => {
   )
 })
 
-it('handles IPv6 host', () => {
-  expect(
-    getUrlByRequestOptions({
-      host: '[::1]',
-      path: '/resource',
-    }).href
-  ).toBe('http://[::1]/resource')
+it('use "hostname" if both "hostname" and "host" are specified', () => {
+  const options: RequestOptions = {
+    protocol: 'https:',
+    host: 'host',
+    hostname: 'hostname',
+    path: '/resource',
+  }
 
-  expect(
-    getUrlByRequestOptions({
-      host: '[::1]',
-      port: 3001,
-      path: '/resource',
-    }).href
-  ).toBe('http://[::1]:3001/resource')
+  // TODO: we should ignore the port
+  expect(getUrlByRequestOptions(options).href).toBe(
+    'https://hostname/resource'
+  )
+})
 
-  expect(
-    getUrlByRequestOptions({
-      host: '[::1]:3001',
-      path: '/resource',
-    }).href
-  ).toBe('http://[::1]:3001/resource')
+describe('IP v6', () => {
+  it('supports "host"', () => {
+    expect(
+      getUrlByRequestOptions({
+        host: '::1',
+        path: '/resource',
+      }).href
+    ).toBe('http://[::1]/resource')
 
-  expect(
-    getUrlByRequestOptions({
-      hostname: '[::1]',
-      port: 3001,
-      path: '/resource',
-    }).href
-  ).toBe('http://[::1]:3001/resource')
+    expect(
+      getUrlByRequestOptions({
+        host: '[::1]',
+        path: '/resource',
+      }).href
+    ).toBe('http://[::1]/resource')
+
+  })
+
+  it('support "host" and "port"', () => {
+    expect(
+      getUrlByRequestOptions({
+        host: '::1',
+        port: 3001,
+        path: '/resource',
+      }).href
+    ).toBe('http://[::1]:3001/resource')
+  })
 })

@@ -50,15 +50,6 @@ function getPortByRequestOptions(
     return Number(options.port)
   }
 
-  // Extract the port from the host.
-  if (options.host != null) {
-    const [, extractedPort] = options.host.match(/:(\d+)$/) || []
-
-    if (extractedPort != null) {
-      return Number(extractedPort)
-    }
-  }
-
   // Otherwise, try to resolve port from the agent.
   const agent = getAgent(options)
 
@@ -72,22 +63,6 @@ function getPortByRequestOptions(
 
   // Lastly, return undefined indicating that the port
   // must inferred from the protocol. Do not infer it here.
-  return undefined
-}
-
-function getHostByRequestOptions(options: ResolvedRequestOptions): string | undefined {
-  if (options.host) {
-    return options.host
-  }
-
-  if (options.hostname) {
-    if (options.port) {
-      return `${options.hostname}:${options.port}`
-    }
-
-    return options.hostname
-  }
-
   return undefined
 }
 
@@ -115,19 +90,16 @@ function isRawIPv6Address(host: string): boolean {
 }
 
 function getHostname(options: ResolvedRequestOptions): string | undefined {
-  if (options.hostname) {
-    if (isRawIPv6Address(options.hostname)) {
-      // Put back the bracket we strip on getRequestOptionsByUrl
-      return `[${options.hostname}]`
-    } else {
-      return options.hostname
-    }
-  }
+  let host = options.hostname || options.host
 
-  if (options.host) {
+  if (host) {
+    if (isRawIPv6Address(host)) {
+       host = `[${host}]`
+    }
+
     // Check the presence of the port, and if it's present,
     // remove it from the host, returning a hostname.
-    return new URL(`http://${options.host}`).hostname
+    return new URL(`http://${host}`).hostname
   }
 
   return DEFAULT_HOSTNAME
@@ -151,9 +123,6 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
 
   const protocol = getProtocolByRequestOptions(options)
   logger.info('protocol', protocol)
-
-  const host = getHostByRequestOptions(options)
-  logger.info('host', host)
 
   const port = getPortByRequestOptions(options)
   logger.info('port', port)
