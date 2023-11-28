@@ -22,7 +22,15 @@ it('creates a fetch api response from http incoming message', async () => {
   expect(await response.json()).toEqual({ firstName: 'John' })
 })
 
-it.each(RESPONSE_STATUS_CODES_WITHOUT_BODY)(
+/**
+ * @note Ignore 1xx response status code because those cannot
+ * be used as the init to the "Response" constructor.
+ */
+const CONSTRUCTABLE_RESPONSE_STATUS_CODES = Array.from(
+  RESPONSE_STATUS_CODES_WITHOUT_BODY
+).filter((status) => status >= 200)
+
+it.each(CONSTRUCTABLE_RESPONSE_STATUS_CODES)(
   'ignores message body for %i response status',
   (responseStatus) => {
     const message = new http.IncomingMessage(new Socket())
