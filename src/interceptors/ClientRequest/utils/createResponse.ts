@@ -1,14 +1,12 @@
 import type { IncomingHttpHeaders, IncomingMessage } from 'http'
-import { responseStatusCodesWithoutBody } from '../../../utils/responseUtils'
+import { isResponseWithoutBody } from '../../../utils/responseUtils'
 
 /**
  * Creates a Fetch API `Response` instance from the given
  * `http.IncomingMessage` instance.
  */
 export function createResponse(message: IncomingMessage): Response {
-  const responseBodyOrNull = responseStatusCodesWithoutBody.includes(
-    message.statusCode || 200
-  )
+  const responseBodyOrNull = isResponseWithoutBody(message.statusCode || 200)
     ? null
     : new ReadableStream({
         start(controller) {
