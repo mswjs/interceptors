@@ -1,5 +1,5 @@
 export class NodeError extends Error {
-  constructor(message: string, readonly code: string) {
+  constructor(readonly message: string, readonly code: string) {
     super(message)
   }
 }
