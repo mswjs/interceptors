@@ -121,6 +121,10 @@ export class NodeClientRequest extends ClientRequest {
 
   write(...args: ClientRequestWriteArgs): boolean {
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
+    if (!chunk) {
+      super.write(chunk)
+    }
+  
     this.logger.info('write:', { chunk, encoding, callback })
     this.chunks.push({ chunk, encoding })
 
@@ -136,7 +140,7 @@ export class NodeClientRequest extends ClientRequest {
      * Prevent invoking the callback if the written chunk is empty.
      * @see https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
      */
-    if (!chunk || chunk.length === 0) {
+    if (chunk.length === 0) {
       this.logger.info('written chunk is empty, skipping callback...')
     } else {
       callback?.()
