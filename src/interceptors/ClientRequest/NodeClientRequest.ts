@@ -121,7 +121,7 @@ export class NodeClientRequest extends ClientRequest {
 
   write(...args: ClientRequestWriteArgs): boolean {
     const [chunk, encoding, callback] = normalizeClientRequestWriteArgs(args)
-    if (!chunk) {
+    if (chunk === null || chunk === undefined) {
       super.write(chunk)
     }
   
