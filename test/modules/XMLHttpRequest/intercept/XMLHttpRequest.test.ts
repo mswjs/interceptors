@@ -8,6 +8,7 @@ import {
 } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest, useCors, UUID_REGEXP } from '../../../helpers'
 import { toArrayBuffer, encodeBuffer } from '../../../../src/utils/bufferUtils'
+import { AsyncHooksInterceptor } from '../../../../src/interceptors/AsyncHooks'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -37,7 +38,7 @@ const httpServer = new HttpServer((app) => {
 
 const resolver = vi.fn<Parameters<XMLHttpRequestEventListener>>()
 
-const interceptor = new XMLHttpRequestInterceptor()
+const interceptor = new AsyncHooksInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -66,9 +67,12 @@ it('intercepts an HTTP HEAD request', async () => {
     req.send()
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  /**
+   * @fixme Assert that the first call was OPTIONS.
+   */
+  const [{ request, requestId }] = resolver.mock.calls[1]
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(url)
@@ -90,9 +94,9 @@ it('intercepts an HTTP GET request', async () => {
     req.send()
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[1]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url)
@@ -114,9 +118,9 @@ it('intercepts an HTTP POST request', async () => {
     req.send('post-payload')
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[1]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
@@ -138,9 +142,9 @@ it('intercepts an HTTP PUT request', async () => {
     req.send('put-payload')
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[1]
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(url)
@@ -162,9 +166,9 @@ it('intercepts an HTTP DELETE request', async () => {
     req.send()
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[1]
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(url)
@@ -172,7 +176,7 @@ it('intercepts an HTTP DELETE request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -186,9 +190,9 @@ it('intercepts an HTTPS HEAD request', async () => {
     req.send()
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[1]
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(url)
@@ -196,7 +200,7 @@ it('intercepts an HTTPS HEAD request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -210,9 +214,9 @@ it('intercepts an HTTPS GET request', async () => {
     req.send()
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[1]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url)
@@ -220,7 +224,7 @@ it('intercepts an HTTPS GET request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -234,9 +238,9 @@ it('intercepts an HTTPS POST request', async () => {
     req.send('post-payload')
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[1]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
@@ -258,9 +262,9 @@ it('intercepts an HTTPS PUT request', async () => {
     req.send('put-payload')
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[1]
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(url)
@@ -282,9 +286,9 @@ it('intercepts an HTTPS DELETE request', async () => {
     req.send()
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(resolver).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId }] = resolver.mock.calls[1]
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(url)
@@ -292,7 +296,7 @@ it('intercepts an HTTPS DELETE request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
