@@ -12,6 +12,7 @@ const nodeConfig: Options = {
   outDir: './lib/node',
   platform: 'node',
   format: ['cjs', 'esm'],
+  sourcemap: true,
   dts: true,
 }
 
@@ -25,6 +26,7 @@ const browserConfig: Options = {
   outDir: './lib/browser',
   platform: 'browser',
   format: ['cjs', 'esm'],
+  sourcemap: true,
   dts: true,
 }
 
