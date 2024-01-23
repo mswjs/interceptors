@@ -1,9 +1,11 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { AsyncHooksInterceptor } from '../../../../src/interceptors/AsyncHooks'
+import {
+  SocketInterceptor,
+  SocketInterceptorEventsMap,
+} from '../../../../src/interceptors/Socket'
 import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
-import { HttpRequestEventMap } from '../../../../src'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -11,9 +13,9 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = vi.fn<HttpRequestEventMap['request']>()
+const resolver = vi.fn<SocketInterceptorEventsMap['request']>()
 
-const interceptor = new AsyncHooksInterceptor()
+const interceptor = new SocketInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {

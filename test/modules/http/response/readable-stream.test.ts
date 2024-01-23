@@ -1,14 +1,14 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import https from 'https'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { SocketInterceptor } from '../../../../src/interceptors/Socket'
 import { sleep } from '../../../helpers'
 
 type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 
 const encoder = new TextEncoder()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new SocketInterceptor()
 interceptor.on('request', ({ request }) => {
   const stream = new ReadableStream({
     async start(controller) {
