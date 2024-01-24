@@ -2,9 +2,8 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { NodeClientRequest } from '../../../../src/interceptors/ClientRequest/NodeClientRequest'
 import { waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { SocketInterceptor } from '../../../../src/interceptors/Socket/index'
 
 const httpServer = new HttpServer((app) => {
   app.post('/resource', express.text({ type: '*/*' }), (req, res) => {
@@ -14,14 +13,10 @@ const httpServer = new HttpServer((app) => {
 
 const interceptedRequestBody = vi.fn()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new SocketInterceptor()
 interceptor.on('request', async ({ request }) => {
   interceptedRequestBody(await request.clone().text())
 })
-
-function getInternalRequestBody(req: http.ClientRequest): Buffer {
-  return Buffer.from((req as NodeClientRequest).requestBuffer || '')
-}
 
 beforeAll(async () => {
   interceptor.apply()
@@ -54,7 +49,6 @@ it('writes string request body', async () => {
   const expectedBody = 'onetwothree'
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
   expect(await text()).toEqual(expectedBody)
 })
 
@@ -74,7 +68,6 @@ it('writes JSON request body', async () => {
   const expectedBody = `{"key":"value"}`
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
   expect(await text()).toEqual(expectedBody)
 })
 
@@ -94,11 +87,15 @@ it('writes Buffer request body', async () => {
   const expectedBody = `{"key":"value"}`
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(getInternalRequestBody(req).toString()).toEqual(expectedBody)
   expect(await text()).toEqual(expectedBody)
 })
 
-it('does not call the write callback when writing an empty string', async () => {
+/**
+ * @note Node.js does call the write callback when passed an empty string
+ * as the written chunk, despite what the docs say.
+ * @see https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
+ */
+it.skip('does not call the write callback when writing an empty string', async () => {
   const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
@@ -111,7 +108,12 @@ it('does not call the write callback when writing an empty string', async () => 
   expect(writeCallback).not.toHaveBeenCalled()
 })
 
-it('does not call the write callback when writing an empty Buffer', async () => {
+/**
+ * @note Node.js does call the write callback when passed an empty buffer
+ * as the written chunk, despite what the docs say.
+ * @see https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
+ */
+it.skip('does not call the write callback when writing an empty Buffer', async () => {
   const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })

@@ -1,4 +1,8 @@
-import { IncomingMessage, OutgoingMessage } from 'node:http'
+import {
+  type IncomingHttpHeaders,
+  IncomingMessage,
+  OutgoingMessage,
+} from 'node:http'
 import { Readable } from 'node:stream'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 
@@ -63,10 +67,25 @@ export function respondToOutgoingMessage(
 export function responseFromIncomingMessage(
   incoming: IncomingMessage
 ): Response {
-  const stream = Readable.toWeb(incoming)
-
-  return new Response(stream, {
+  return new Response(Readable.toWeb(incoming), {
     status: incoming.statusCode,
     statusText: incoming.statusMessage,
+    headers: headersFromIncomingHeaders(incoming.headers),
   })
+}
+
+function headersFromIncomingHeaders(
+  incomingHeaders: IncomingHttpHeaders
+): Headers {
+  const headers = new Headers()
+
+  for (const headerName in incomingHeaders) {
+    const headerValues = Array.prototype.concat(incomingHeaders[headerName])
+
+    for (const headerValue of headerValues) {
+      headers.append(headerName, headerValue)
+    }
+  }
+
+  return headers
 }

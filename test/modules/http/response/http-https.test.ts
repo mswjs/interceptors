@@ -3,7 +3,6 @@ import http from 'http'
 import https from 'https'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { SocketInterceptor } from '../../../../src/interceptors/Socket'
 
 const httpServer = new HttpServer((app) => {
@@ -18,8 +17,6 @@ const httpServer = new HttpServer((app) => {
 const interceptor = new SocketInterceptor()
 interceptor.on('request', ({ request }) => {
   const url = new URL(request.url)
-
-  console.log('REQUEST LISTENER', request.method, request.url)
 
   if (url.pathname === '/non-existing') {
     request.respondWith(
