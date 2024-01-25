@@ -7,6 +7,7 @@ import { uuidv4 } from '../../utils/uuid'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
+import { canParseUrl } from '../../utils/canParseUrl'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -32,7 +33,21 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
     globalThis.fetch = async (input, init) => {
       const requestId = uuidv4()
-      const request = new Request(input, init)
+
+      /**
+       * @note Resolve potentially relative request URL
+       * against the present `location`. This is mainly
+       * for native `fetch` in JSDOM.
+       * @see https://github.com/mswjs/msw/issues/1625
+       */
+      const resolvedInput =
+        typeof input === 'string' &&
+        typeof location !== 'undefined' &&
+        !canParseUrl(input)
+          ? new URL(input, location.origin)
+          : input
+
+      const request = new Request(resolvedInput, init)
 
       this.logger.info('[%s] %s', request.method, request.url)
 
