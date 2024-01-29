@@ -3,15 +3,23 @@ import {
   WebSocketSendData,
   WebSocketTransport,
   WebSocketTransportOnIncomingCallback,
+  WebSocketTransportOnOutgoingCallback,
 } from '../../WebSocketTransport'
-import { kOnReceive, WebSocketClassOverride } from './WebSocketClassInterceptor'
+import {
+  kOnReceive,
+  kOnSend,
+  WebSocketClassOverride,
+} from './WebSocketClassInterceptor'
 
 export class WebSocketClassTransport extends WebSocketTransport {
+  public onOutgoing: WebSocketTransportOnOutgoingCallback = () => {}
   public onIncoming: WebSocketTransportOnIncomingCallback = () => {}
 
   constructor(protected readonly ws: WebSocketClassOverride) {
     super()
-    this.ws[kOnReceive] = this.onIncoming
+
+    this.ws[kOnSend] = (...args) => this.onOutgoing(...args)
+    this.ws[kOnReceive] = (...args) => this.onIncoming(...args)
   }
 
   public send(data: WebSocketSendData): void {

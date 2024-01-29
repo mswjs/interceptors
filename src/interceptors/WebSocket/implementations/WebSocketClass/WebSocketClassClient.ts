@@ -1,15 +1,16 @@
 import { invariant } from 'outvariant'
-import { WebSocketClient } from '../../WebSocketClient'
+import { WebSocketClient, kEmitter } from '../../WebSocketClient'
 import type { WebSocketSendData } from '../../WebSocketTransport'
 import { WebSocketClassTransport } from './WebSocketClassTransport'
 import type { WebSocketClassOverride } from './WebSocketClassInterceptor'
+import { bindEvent } from '../../utils/bindEvent'
 
 export class WebSocketClassClient extends WebSocketClient {
   constructor(
     readonly ws: WebSocketClassOverride,
     readonly transport: WebSocketClassTransport
   ) {
-    super(new URL(ws.url), transport)
+    super(ws, transport)
   }
 
   public emit(event: string, data: WebSocketSendData): void {

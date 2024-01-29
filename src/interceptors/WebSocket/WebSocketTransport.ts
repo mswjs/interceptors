@@ -8,6 +8,10 @@ export type WebSocketTransportOnIncomingCallback = (
   event: MessageEvent<WebSocketSendData>
 ) => void
 
+export type WebSocketTransportOnOutgoingCallback = (
+  data: WebSocketSendData
+) => void
+
 export abstract class WebSocketTransport {
   /**
    * Listener for the incoming server events.
@@ -18,6 +22,7 @@ export abstract class WebSocketTransport {
    * on the mocked connection to let the user know.
    */
   abstract onIncoming: WebSocketTransportOnIncomingCallback
+  abstract onOutgoing: WebSocketTransportOnOutgoingCallback
 
   /**
    * Send the data from the server to this client.

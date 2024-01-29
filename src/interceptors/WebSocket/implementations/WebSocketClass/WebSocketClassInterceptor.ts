@@ -42,7 +42,6 @@ export class WebSocketClassInterceptor extends Interceptor<WebSocketEventsMap> {
         // any events to the original server (no connection established).
         // To forward the events, the user must use the "server.send()" API.
         const mockWs = new WebSocketClassOverride(url, protocols)
-
         const transport = new WebSocketClassTransport(mockWs)
 
         // The "globalThis.WebSocket" class stands for
@@ -68,7 +67,7 @@ export class WebSocketClassInterceptor extends Interceptor<WebSocketEventsMap> {
 const WEBSOCKET_CLOSE_CODE_RANGE_ERROR =
   'InvalidAccessError: close code out of user configurable range'
 
-const kOnSend = Symbol('kOnSend')
+export const kOnSend = Symbol('kOnSend')
 export const kOnReceive = Symbol('kOnReceive')
 
 type WebSocketEventListener = (this: WebSocket, event: Event) => void
@@ -126,6 +125,12 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
         once: true,
       }
     )
+
+    Reflect.set(this, 'readyState', this.CONNECTING)
+    queueMicrotask(() => {
+      Reflect.set(this, 'readyState', this.OPEN)
+      this.dispatchEvent(bindEvent(this, new Event('open')))
+    })
   }
 
   get bufferedAmount(): number {
@@ -142,7 +147,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
     }, 0)
   }
 
-  set onopen(listener: WebSocketEventListener) {
+  set onopen(listener: WebSocketEventListener | null) {
     this.removeEventListener('open', this._onopen)
     this._onopen = listener
     if (listener !== null) {
@@ -153,7 +158,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
     return this._onopen
   }
 
-  set onmessage(listener: WebSocketMessageListener) {
+  set onmessage(listener: WebSocketMessageListener | null) {
     this.removeEventListener(
       'message',
       this._onmessage as WebSocketEventListener
@@ -167,7 +172,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
     return this._onmessage
   }
 
-  set onerror(listener: WebSocketEventListener) {
+  set onerror(listener: WebSocketEventListener | null) {
     this.removeEventListener('error', this._onerror)
     this._onerror = listener
     if (listener !== null) {
@@ -178,7 +183,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
     return this._onerror
   }
 
-  set onclose(listener: WebSocketCloseListener) {
+  set onclose(listener: WebSocketCloseListener | null) {
     this.removeEventListener('close', this._onclose as WebSocketEventListener)
     this._onclose = listener
     if (listener !== null) {
@@ -201,7 +206,9 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
     }
 
     /**
-     * @note Notify the parent about data being sent.
+     * @note Notify the parent about outgoing data.
+     * This notifies the transport and the connection
+     * listens to the outgoing data to emit the "message" event.
      */
     this[kOnSend]?.(data)
   }

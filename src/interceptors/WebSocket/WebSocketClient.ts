@@ -2,8 +2,9 @@ import type {
   WebSocketSendData,
   WebSocketTransport,
 } from './WebSocketTransport'
+import { bindEvent } from './utils/bindEvent'
 
-const kEmitter = Symbol('emitter')
+export const kEmitter = Symbol('kEmitter')
 
 /**
  * The WebSocket client instance represents an incoming
@@ -11,26 +12,28 @@ const kEmitter = Symbol('emitter')
  * send and receive events.
  */
 export class WebSocketClient {
+  public readonly url: URL
+
   protected [kEmitter]: EventTarget
 
   constructor(
-    public readonly url: URL,
+    protected readonly ws: WebSocket,
     protected readonly transport: WebSocketTransport
   ) {
+    this.url = new URL(ws.url)
     this[kEmitter] = new EventTarget()
 
-    /**
-     * Emit incoming server events so they can be reacted to.
-     * @note This does NOT forward the events to the client.
-     * That must be done explicitly via "server.send()".
-     */
-    transport.onIncoming = (event) => {
-      this[kEmitter].dispatchEvent(event)
+    // Emit outgoing client data ("ws.send()") as "message"
+    // events on the client connection.
+    this.transport.onOutgoing = (data) => {
+      this[kEmitter].dispatchEvent(
+        bindEvent(this.ws, new MessageEvent('message', { data }))
+      )
     }
   }
 
   /**
-   * Listen for incoming events from the connected client.
+   * Listen for the outgoing events from the connected client.
    */
   public on(
     event: string,
