@@ -5,7 +5,7 @@ import { WebSocketSendData } from '../../../../../src/interceptors/WebSocket/Web
 declare global {
   interface Window {
     interceptor: WebSocketInterceptor
-    outgoingData: Array<WebSocketSendData>
+    outgoingData: WebSocketSendData
   }
 }
 
@@ -31,10 +31,10 @@ test('intercepts text sent over websocket', async ({ loadExample, page }) => {
   await loadExample(require.resolve('../websocket.runtime.js'))
 
   await page.evaluate(() => {
-    const { interceptor, outgoingData } = window
+    const { interceptor } = window
 
     interceptor.on('connection', ({ client }) => {
-      client.on('message', (data) => outgoingData.push(data))
+      client.on('message', (data) => (window.outgoingData = data))
     })
     interceptor.apply()
   })
@@ -45,17 +45,17 @@ test('intercepts text sent over websocket', async ({ loadExample, page }) => {
   })
 
   const outgoingData = await page.evaluate(() => window.outgoingData)
-  expect(outgoingData).toEqual(['hello from client'])
+  expect(outgoingData).toBe('hello from client')
 })
 
 test('intercepts Blob sent over websocket', async ({ loadExample, page }) => {
   await loadExample(require.resolve('../websocket.runtime.js'))
 
   await page.evaluate(() => {
-    const { interceptor, outgoingData } = window
+    const { interceptor } = window
 
     interceptor.on('connection', ({ client }) => {
-      client.on('message', (data) => outgoingData.push(data))
+      client.on('message', (data) => (window.outgoingData = data))
     })
     interceptor.apply()
   })
@@ -73,7 +73,7 @@ test('intercepts Blob sent over websocket', async ({ loadExample, page }) => {
 
   const outgoingData = await page.evaluate(() => {
     // Blobs don't serialize over MessageChannel.
-    return (window.outgoingData[0] as Blob).text()
+    return (window.outgoingData as Blob).text()
   })
   expect(outgoingData).toBe('hello from client')
 })
@@ -85,10 +85,10 @@ test('intercepts ArrayBuffer sent over websocket', async ({
   await loadExample(require.resolve('../websocket.runtime.js'))
 
   await page.evaluate(() => {
-    const { interceptor, outgoingData } = window
+    const { interceptor } = window
 
     interceptor.on('connection', ({ client }) => {
-      client.on('message', (data) => outgoingData.push(data))
+      client.on('message', (data) => (window.outgoingData = data))
     })
     interceptor.apply()
   })
@@ -101,7 +101,7 @@ test('intercepts ArrayBuffer sent over websocket', async ({
   })
 
   const outgoingData = await page.evaluate(() => {
-    return new TextDecoder().decode(window.outgoingData[0] as Uint8Array)
+    return new TextDecoder().decode(window.outgoingData as Uint8Array)
   })
   expect(outgoingData).toBe('hello from client')
 })
@@ -113,11 +113,7 @@ test('increases "bufferedAmount" before the data is sent', async ({
   await loadExample(require.resolve('../websocket.runtime.js'))
 
   await page.evaluate(() => {
-    const { interceptor, outgoingData } = window
-
-    interceptor.on('connection', ({ client }) => {
-      client.on('message', (data) => outgoingData.push(data))
-    })
+    const { interceptor } = window
     interceptor.apply()
   })
 

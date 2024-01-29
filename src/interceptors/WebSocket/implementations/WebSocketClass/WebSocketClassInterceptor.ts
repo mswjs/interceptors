@@ -199,6 +199,8 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
   }
 
   public dispatchEvent(event: Event): boolean {
+    console.log('WebSocketClassOverride#dispatchEvent', event.type, event)
+
     /**
      * @note This override class never forwards the incoming
      * events to the actual client instance. Instead, it
@@ -209,7 +211,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
       event.type === 'message' &&
       // Ignore mocked events sent from the connection.
       // This condition is for the original server-sent events only.
-      !(kOnSend && event.target)
+      !(event.target instanceof WebSocketClassOverride)
     ) {
       this[kOnReceive]?.(event as MessageEvent)
       return true

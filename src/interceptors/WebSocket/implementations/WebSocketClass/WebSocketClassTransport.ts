@@ -23,8 +23,15 @@ export class WebSocketClassTransport extends WebSocketTransport {
   }
 
   public send(data: WebSocketSendData): void {
-    this.ws.dispatchEvent(
-      bindEvent(
+    queueMicrotask(() => {
+      console.log(
+        'WebSocketClassTransport#send',
+        data,
+        this.ws,
+        this.ws.readyState
+      )
+
+      const message = bindEvent(
         /**
          * @note Setting this event's "target" to the
          * WebSocket override instance is important.
@@ -38,7 +45,11 @@ export class WebSocketClassTransport extends WebSocketTransport {
           data,
         })
       )
-    )
+
+      console.log('message', message, message.target)
+
+      this.ws.dispatchEvent(message)
+    })
   }
 
   public close(code: number, reason?: string): void {

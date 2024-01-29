@@ -4,7 +4,7 @@ import type {
 } from './WebSocketTransport'
 import { bindEvent } from './utils/bindEvent'
 
-export const kEmitter = Symbol('kEmitter')
+const kEmitter = Symbol('kEmitter')
 
 /**
  * The WebSocket client instance represents an incoming
@@ -50,6 +50,7 @@ export class WebSocketClient {
    * Send data to the connected client.
    */
   public send(data: WebSocketSendData): void {
+    console.log('WebSocketClient#send', data)
     this.transport.send(data)
   }
 
