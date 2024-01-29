@@ -124,6 +124,7 @@
     "@types/node": "^16.11.26",
     "@types/node-fetch": "2.5.12",
     "@types/supertest": "^2.0.11",
+    "@types/ws": "^8.5.10",
     "axios": "^1.6.0",
     "body-parser": "^1.19.0",
     "commitizen": "^4.2.4",
@@ -148,7 +149,8 @@
     "vitest-environment-miniflare": "^2.14.1",
     "wait-for-expect": "^3.0.2",
     "web-encoding": "^1.1.5",
-    "webpack-http-server": "^0.5.0"
+    "webpack-http-server": "^0.5.0",
+    "ws": "^8.16.0"
   },
   "dependencies": {
     "@open-draft/deferred-promise": "^2.2.0",

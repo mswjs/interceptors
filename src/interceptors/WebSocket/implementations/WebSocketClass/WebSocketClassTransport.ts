@@ -5,11 +5,7 @@ import {
   WebSocketTransportOnIncomingCallback,
   WebSocketTransportOnOutgoingCallback,
 } from '../../WebSocketTransport'
-import {
-  kOnReceive,
-  kOnSend,
-  WebSocketClassOverride,
-} from './WebSocketClassInterceptor'
+import { kOnSend, WebSocketClassOverride } from './WebSocketClassInterceptor'
 
 export class WebSocketClassTransport extends WebSocketTransport {
   public onOutgoing: WebSocketTransportOnOutgoingCallback = () => {}
@@ -17,9 +13,7 @@ export class WebSocketClassTransport extends WebSocketTransport {
 
   constructor(protected readonly ws: WebSocketClassOverride) {
     super()
-
     this.ws[kOnSend] = (...args) => this.onOutgoing(...args)
-    this.ws[kOnReceive] = (...args) => this.onIncoming(...args)
   }
 
   public send(data: WebSocketSendData): void {
@@ -45,8 +39,6 @@ export class WebSocketClassTransport extends WebSocketTransport {
           data,
         })
       )
-
-      console.log('message', message, message.target)
 
       this.ws.dispatchEvent(message)
     })

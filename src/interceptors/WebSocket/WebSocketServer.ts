@@ -8,9 +8,9 @@ import type { WebSocketMessageListener } from './implementations/WebSocketClass/
  */
 export class WebSocketServer {
   /**
-   * Connect to the actual WebSocket server.
+   * Connect to the original WebSocket server.
    */
-  public connect(): Promise<void> {
+  public connect(): void {
     throw new Error('WebSocketServer#connect is not implemented')
   }
 

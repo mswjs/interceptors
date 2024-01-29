@@ -3,10 +3,7 @@ import type { WebSocketEventsMap } from '../../index'
 import { Interceptor } from '../../../../Interceptor'
 import { WebSocketClassClient } from './WebSocketClassClient'
 import { WebSocketClassServer } from './WebSocketClassServer'
-import type {
-  WebSocketSendData,
-  WebSocketTransportOnIncomingCallback,
-} from '../../WebSocketTransport'
+import type { WebSocketSendData } from '../../WebSocketTransport'
 import { bindEvent } from '../../utils/bindEvent'
 import { WebSocketClassTransport } from './WebSocketClassTransport'
 
@@ -49,7 +46,7 @@ export class WebSocketClassInterceptor extends Interceptor<WebSocketEventsMap> {
         // as soon as the WebSocket instance is constructed.
         this.emitter.emit('connection', {
           client: new WebSocketClassClient(mockWs, transport),
-          server: new WebSocketClassServer(mockWs, createConnection),
+          server: new WebSocketClassServer(mockWs, createConnection, transport),
         })
 
         return mockWs
@@ -68,7 +65,6 @@ const WEBSOCKET_CLOSE_CODE_RANGE_ERROR =
   'InvalidAccessError: close code out of user configurable range'
 
 export const kOnSend = Symbol('kOnSend')
-export const kOnReceive = Symbol('kOnReceive')
 
 type WebSocketEventListener = (this: WebSocket, event: Event) => void
 export type WebSocketMessageListener = (
@@ -100,7 +96,6 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
   private _onclose: WebSocketCloseListener | null = null
 
   private [kOnSend]?: (data: WebSocketSendData) => void
-  private [kOnReceive]?: WebSocketTransportOnIncomingCallback
 
   constructor(url: string | URL, protocols?: string | Array<string>) {
     super()
@@ -196,29 +191,6 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
        */
       this[kOnSend]?.(data)
     })
-  }
-
-  public dispatchEvent(event: Event): boolean {
-    console.log('WebSocketClassOverride#dispatchEvent', event.type, event)
-
-    /**
-     * @note This override class never forwards the incoming
-     * events to the actual client instance. Instead, it
-     * forwards the incoming events to the connection
-     * and lets the "server" API handle the forwarding.
-     */
-    if (
-      event.type === 'message' &&
-      // Ignore mocked events sent from the connection.
-      // This condition is for the original server-sent events only.
-      !(event.target instanceof WebSocketClassOverride)
-    ) {
-      this[kOnReceive]?.(event as MessageEvent)
-      return true
-    }
-
-    // Dispatch the other events (open, close, etc).
-    return super.dispatchEvent(event)
   }
 
   public close(code: number = 1000, reason?: string): void {
