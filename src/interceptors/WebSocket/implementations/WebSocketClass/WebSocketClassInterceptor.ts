@@ -92,13 +92,13 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
   public extensions: string
   public binaryType: BinaryType
   public readyState: number
+  public bufferedAmount: number
 
   private _onopen: WebSocketEventListener | null = null
   private _onmessage: WebSocketMessageListener | null = null
   private _onerror: WebSocketEventListener | null = null
   private _onclose: WebSocketCloseListener | null = null
 
-  private buffer: Array<WebSocketSendData>
   private [kOnSend]?: (data: WebSocketSendData) => void
   private [kOnReceive]?: WebSocketTransportOnIncomingCallback
 
@@ -109,42 +109,13 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
     this.extensions = ''
     this.binaryType = 'arraybuffer'
     this.readyState = this.CONNECTING
-
-    this.buffer = []
-
-    this.addEventListener(
-      'open',
-      () => {
-        // As soon as the connection opens, send any buffered data.
-        if (this.buffer.length > 0) {
-          this.buffer.map(this.send)
-          this.buffer = []
-        }
-      },
-      {
-        once: true,
-      }
-    )
+    this.bufferedAmount = 0
 
     Reflect.set(this, 'readyState', this.CONNECTING)
     queueMicrotask(() => {
       Reflect.set(this, 'readyState', this.OPEN)
       this.dispatchEvent(bindEvent(this, new Event('open')))
     })
-  }
-
-  get bufferedAmount(): number {
-    return this.buffer.reduce((totalSize, data) => {
-      if (typeof data === 'string') {
-        return totalSize + data.length
-      }
-
-      if (data instanceof Blob) {
-        return totalSize + data.size
-      }
-
-      return totalSize + data.byteLength
-    }, 0)
   }
 
   set onopen(listener: WebSocketEventListener | null) {
@@ -194,23 +165,37 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
     return this._onclose
   }
 
+  /**
+   * @see https://websockets.spec.whatwg.org/#ref-for-dom-websocket-send%E2%91%A0
+   */
   public send(data: WebSocketSendData): void {
     if (this.readyState === this.CONNECTING) {
       this.close()
-      throw new Error('InvalidStateError')
+      throw new DOMException('InvalidStateError')
     }
 
+    // Sending when the socket is about to close
+    // discards the sent data.
     if (this.readyState === this.CLOSING || this.readyState === this.CLOSED) {
-      this.buffer.push(data)
       return
     }
 
-    /**
-     * @note Notify the parent about outgoing data.
-     * This notifies the transport and the connection
-     * listens to the outgoing data to emit the "message" event.
-     */
-    this[kOnSend]?.(data)
+    // Buffer the data to send in this even loop
+    // but send it in the next.
+    this.bufferedAmount += getDataSize(data)
+
+    queueMicrotask(() => {
+      // This is a bit optimistic but since no actual data transfer
+      // is involved, all the data will be "sent" on the next tick.
+      this.bufferedAmount = 0
+
+      /**
+       * @note Notify the parent about outgoing data.
+       * This notifies the transport and the connection
+       * listens to the outgoing data to emit the "message" event.
+       */
+      this[kOnSend]?.(data)
+    })
   }
 
   public dispatchEvent(event: Event): boolean {
@@ -234,7 +219,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
     return super.dispatchEvent(event)
   }
 
-  public close(code?: number, reason?: string): void {
+  public close(code: number = 1000, reason?: string): void {
     invariant(code, WEBSOCKET_CLOSE_CODE_RANGE_ERROR)
     invariant(
       code === 1000 || (code >= 3000 && code <= 4999),
@@ -292,4 +277,16 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
   ): void {
     return super.removeEventListener(type, callback, options)
   }
+}
+
+function getDataSize(data: WebSocketSendData): number {
+  if (typeof data === 'string') {
+    return data.length
+  }
+
+  if (data instanceof Blob) {
+    return data.size
+  }
+
+  return data.byteLength
 }
