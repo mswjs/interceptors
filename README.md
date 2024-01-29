@@ -295,6 +295,9 @@ interceptor.on(
 
 You can intercept a WebSocket communication using the `WebSocketInterceptor` class.
 
+> [!WARNING]
+> In practice, WebSocket connections can use different mechanisms to work (called "transports"). At this moment, the WebSocket interceptor only supports connections established using the `globalThis.WebSocket` class. Supporting third-party transports is challenging because they are non-standard and specific to individual WebSocket client libraries.
+
 ```js
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 
@@ -320,55 +323,57 @@ The `connection` event exposes the following arguments:
 | `client` | `object` | An object representing a connected WebSocket client instance.    |
 | `server` | `object` | An object representing the original WebSocket server connection. |
 
-### Intercepting outgoing events
+### Intercepting outgoing client events
 
 To intercept an event sent by the WebSocket client, add a `message` listener to the `client` object.
 
 ```js
 interceptor.on('connection', ({ client }) => {
-  // Intercepts all outgoing events from the client.
-  client.on('message', (data) => {
-    console.log('received:', data)
+  // Intercept all outgoing events from the client.
+  client.on('message', (event) => {
+    console.log('received:', event.data)
   })
 })
 ```
 
-### Mocking incoming events
+### Mocking incoming server events
 
 To mock an event sent from the server to the client, call `client.send()` with the event payload.
 
 ```js
 interceptor.on('connection', ({ client }) => {
-  // Sends a mocked "MessageEvent" to the client
-  // with the given data.
+  // Send a mocked "MessageEvent" to the client
+  // with the given "hello" string as the data.
   client.send('hello')
 })
 ```
 
-> The WebSocket interceptor respects the WebSocket WHATWG specification and supports sending all supported data types (string, Blob, ArrayBuffer, etc).
+> The WebSocket interceptor respects the [WebSocket WHATWG standard](https://websockets.spec.whatwg.org/) and supports sending all supported data types (string, Blob, ArrayBuffer, etc).
 
 ### Bypassing events
 
-By default, the WebSocket interceptor **prevents all the outgoing events from hitting the production server**. To bypass an event, first establish the actual server connection by calling `server.connect()`, and then call `server.send()` with the `MessageEvent` you wish to forward to the original server
+By default, the WebSocket interceptor **prevents all the outgoing client events from hitting the production server**. This is a sensible default to support mocking a WebSocket communication when a WebSocket server doesn't exist.
+
+To bypass an event, first establish the actual server connection by calling `server.connect()`, and then call `server.send()` with the data you wish to forward to the original server.
 
 ```js
-interceptor.on('connection', async ({ client, server }) => {
+interceptor.on('connection', ({ client, server }) => {
   // First, connect to the original server.
   server.connect()
 
   // Forward all outgoing client events to the original server.
-  client.on('message', (event) => server.send(event))
+  client.on('message', (event) => server.send(event.data))
 })
 ```
 
-### Intercepting server events
+### Intercepting incoming server events
 
 The WebSocket communication is duplex and the WebSocket interceptor allows you to intercept both outgoing (client) events and incoming (original server) events.
 
 To intercept an incoming event from the original server, first establish the original connection by calling `server.connect()`, and then add a `message` listener to the `server` object.
 
 ```js
-interceptor.on('connection', async ({ server }) => {
+interceptor.on('connection', ({ server }) => {
   server.connect()
 
   server.on('message', (event) => {
@@ -377,12 +382,12 @@ interceptor.on('connection', async ({ server }) => {
 })
 ```
 
-Unlike the outgoing client events, incoming server events **are automatically forwarded to the client**. This keeps the original server connection authentic if you ever decide to open one.
+Unlike the outgoing client events, incoming server events **are automatically forwarded to the client as soon as you call `server.connect()`**. This keeps the original server connection authentic if you ever decide to open one.
 
 If you wish to prevent the automatic forwarding of the server events to the client, call `event.preventDefault()` on the incoming event you wish to prevent. This can be handy for observing as well as modifying incoming events.
 
 ```js
-interceptor.on('connection', async ({ client, server }) => {
+interceptor.on('connection', ({ client, server }) => {
   server.connect()
 
   server.on('message', (event) => {
@@ -410,7 +415,7 @@ interceptor.on('connection', ({ client }) => {
 
 By default, this will close the connection with the `1000` code, meaning a graceful disconnect.
 
-You can provide a custom error to the `client.close()` to mock a connection close due to an error.
+You can provide a custom error to the `client.close()` to mock the connection being closed due to an error.
 
 ```js
 interceptor.on('connection', ({ client }) => {

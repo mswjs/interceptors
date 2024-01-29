@@ -18,13 +18,6 @@ export class WebSocketClassTransport extends WebSocketTransport {
 
   public send(data: WebSocketSendData): void {
     queueMicrotask(() => {
-      console.log(
-        'WebSocketClassTransport#send',
-        data,
-        this.ws,
-        this.ws.readyState
-      )
-
       const message = bindEvent(
         /**
          * @note Setting this event's "target" to the

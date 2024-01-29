@@ -101,9 +101,9 @@ test('receives mock data in response to sent event', async ({
     const { interceptor } = window
 
     interceptor.on('connection', ({ client }) => {
-      client.on('message', (data) => {
-        if (data === 'John') {
-          client.send(`Hello, ${data}!`)
+      client.on('message', (event) => {
+        if (event.data === 'John') {
+          client.send(`Hello, ${event.data}!`)
         }
       })
     })

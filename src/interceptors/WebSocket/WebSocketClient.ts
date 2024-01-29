@@ -9,6 +9,7 @@ import type {
   WebSocketSendData,
   WebSocketTransport,
 } from './WebSocketTransport'
+import { WebSocketMessageListener } from './implementations/WebSocketClass/WebSocketClassInterceptor'
 import { bindEvent } from './utils/bindEvent'
 
 const kEmitter = Symbol('kEmitter')
@@ -42,13 +43,10 @@ export class WebSocketClient {
   /**
    * Listen for the outgoing events from the connected client.
    */
-  public on(
-    event: string,
-    listener: (...data: Array<WebSocketSendData>) => void
-  ): void {
+  public on(event: string, listener: WebSocketMessageListener): void {
     this[kEmitter].addEventListener(event, (event) => {
       if (event instanceof MessageEvent) {
-        listener(event.data)
+        listener.call(this.ws, event)
       }
     })
   }
@@ -57,7 +55,6 @@ export class WebSocketClient {
    * Send data to the connected client.
    */
   public send(data: WebSocketSendData): void {
-    console.log('WebSocketClient#send', data)
     this.transport.send(data)
   }
 

@@ -109,8 +109,6 @@ export class WebSocketClassServer extends WebSocketServer {
   }
 
   public on(event: 'message', callback: WebSocketMessageListener): void {
-    console.log('WebSocketClassServer#on', event)
-
     this[kEmitter].addEventListener('message', (event) => {
       if (event instanceof MessageEvent) {
         callback.call(this.prodWs!, event)
