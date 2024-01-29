@@ -194,6 +194,8 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
   }
 
   public close(code: number = 1000, reason?: string): void {
+    console.log('WebSocketOverride#code', code, reason, this.readyState)
+
     invariant(code, WEBSOCKET_CLOSE_CODE_RANGE_ERROR)
     invariant(
       code === 1000 || (code >= 3000 && code <= 4999),
@@ -204,22 +206,26 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
       return
     }
 
-    this.dispatchEvent(
-      bindEvent(
-        this,
-        new CloseEvent('close', {
-          code,
-          reason,
-          wasClean: code === 1000,
-        })
-      )
-    )
+    console.log('dispatching event!')
 
-    // Remove all event listeners once the socket is closed.
-    this._onopen = null
-    this._onmessage = null
-    this._onerror = null
-    this._onclose = null
+    queueMicrotask(() => {
+      this.dispatchEvent(
+        bindEvent(
+          this,
+          new CloseEvent('close', {
+            code,
+            reason,
+            wasClean: code === 1000,
+          })
+        )
+      )
+
+      // Remove all event listeners once the socket is closed.
+      this._onopen = null
+      this._onmessage = null
+      this._onerror = null
+      this._onclose = null
+    })
   }
 
   public addEventListener<K extends keyof WebSocketEventMap>(
