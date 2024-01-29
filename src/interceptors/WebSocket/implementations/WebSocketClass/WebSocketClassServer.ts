@@ -96,11 +96,20 @@ export class WebSocketClassServer extends WebSocketServer {
       this.mockWs.url
     )
 
+    console.log('[ServerClass] send', data, prodWs.readyState)
+
     // Delegate the send to when the original connection is open.
     // Unlike the mock, connecting to the original server may take time
     // so we cannot call this on the next tick.
     if (prodWs.readyState === prodWs.CONNECTING) {
-      prodWs.addEventListener('open', () => prodWs.send(data), { once: true })
+      prodWs.addEventListener(
+        'open',
+        () => {
+          console.log('[ServerClass] prod ws open!')
+          prodWs.send(data)
+        },
+        { once: true }
+      )
       return
     }
 
@@ -109,7 +118,7 @@ export class WebSocketClassServer extends WebSocketServer {
   }
 
   public on(event: 'message', callback: WebSocketMessageListener): void {
-    this[kEmitter].addEventListener('message', (event) => {
+    this[kEmitter].addEventListener(event, (event) => {
       if (event instanceof MessageEvent) {
         callback.call(this.prodWs!, event)
       }

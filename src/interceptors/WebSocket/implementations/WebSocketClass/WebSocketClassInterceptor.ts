@@ -21,8 +21,6 @@ export class WebSocketClassInterceptor extends Interceptor<WebSocketEventsMap> {
   }
 
   protected setup(): void {
-    const { WebSocket: OriginalWebSocket } = globalThis
-
     const webSocketProxy = Proxy.revocable(globalThis.WebSocket, {
       construct: (
         target,

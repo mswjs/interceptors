@@ -1,7 +1,7 @@
 import { WebSocketServer } from 'ws'
-import { HttpServer } from '@open-draft/test-server/http'
 import { test, expect } from '../../../../playwright.extend'
 import type { WebSocketInterceptor } from '../../../../../src/interceptors/WebSocket'
+import { getWsUrl } from '../../utils/getWsUrl'
 
 declare global {
   interface Window {
@@ -9,21 +9,9 @@ declare global {
   }
 }
 
-const httpServer = new HttpServer()
 const wsServer = new WebSocketServer({
-  server: httpServer['_http'],
-})
-
-function getWebSocketUrl(ws: WebSocketServer): string {
-  const address = ws.address()
-  if (typeof address === 'string') {
-    return address
-  }
-  return `ws://${address.address}:${address.port}`
-}
-
-test.beforeAll(async () => {
-  await httpServer.listen()
+  host: '127.0.0.1',
+  port: 0,
 })
 
 test.afterEach(() => {
@@ -31,7 +19,6 @@ test.afterEach(() => {
 })
 
 test.afterAll(async () => {
-  await httpServer.close()
   await new Promise<void>((resolve, reject) => {
     wsServer.close((error) => {
       if (error) reject(error)
@@ -65,7 +52,7 @@ test('forwards incoming server data from the original server', async ({
     return new Promise<string>((resolve) => {
       ws.addEventListener('message', (event) => resolve(event.data))
     })
-  }, getWebSocketUrl(wsServer))
+  }, getWsUrl(wsServer))
 
   expect(receivedString).toBe('hello from server')
 })
@@ -101,7 +88,7 @@ test('forwards outgoing client data to the original server', async ({
       ws.addEventListener('open', () => ws.send('John'))
       ws.addEventListener('message', (event) => resolve(event.data))
     })
-  }, getWebSocketUrl(wsServer))
+  }, getWsUrl(wsServer))
 
   expect(receivedString).toBe('Hello, John!')
 })
