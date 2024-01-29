@@ -293,56 +293,83 @@ interceptor.on(
 
 ## WebSocket interception
 
+You can intercept a WebSocket communication using the `WebSocketInterceptor` class.
+
 ```js
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
 ```
 
-The WebSocket interceptor emits a single `connection` event that represents a new client connecting to the server. Within the `connection` event listener, you can use the `client` reference to listen to the outgoing events and send the mock events from the server.
+Unlike the HTTP-based interceptors that share the same `request`/`response` events, the WebSocket interceptor only emits the `connection` event and let's you handle the incoming/outgoing events in its listener.
+
+### WebSocket connection
+
+Whenever a WebSocket instance is constructed, the `connection` event is emitted on the WebSocket interceptor.
+
+```js
+intereceptor.on('connection', ({ client }) => {
+  console.log(client.url)
+})
+```
+
+The `connection` event exposes the following arguments:
+
+| Name     | Type     | Description                                                      |
+| -------- | -------- | ---------------------------------------------------------------- |
+| `client` | `object` | An object representing a connected WebSocket client instance.    |
+| `server` | `object` | An object representing the original WebSocket server connection. |
+
+### Intercepting outgoing events
+
+To intercept an event sent by the WebSocket client, add a `message` listener to the `client` object.
 
 ```js
 interceptor.on('connection', ({ client }) => {
-  console.log(client.url)
-
-  client.on('message', (event) => {
-    if (event.data === 'hello from client') {
-      client.send('hello from server')
-    }
+  // Intercepts all outgoing events from the client.
+  client.on('message', (data) => {
+    console.log('received:', data)
   })
 })
 ```
 
-### Interceptor arguments
+### Mocking incoming events
 
-| Name     | Type     | Description                            |
-| -------- | -------- | -------------------------------------- |
-| `client` | `object` | A client WebSocket connection.         |
-| `server` | `object` | An actual WebSocket server connection. |
+To mock an event sent from the server to the client, call `client.send()` with the event payload.
 
-Remember that you write the interceptor from the _server's perspective_. With that in mind, the `client` represents a client connecting to this "server" (your interceptor). The `server`, on the other hand, represents an actual production server connection, if you ever wish to establish one to intercept the incoming events as well.
+```js
+interceptor.on('connection', ({ client }) => {
+  // Sends a mocked "MessageEvent" to the client
+  // with the given data.
+  client.send('hello')
+})
+```
+
+> The WebSocket interceptor respects the WebSocket WHATWG specification and supports sending all supported data types (string, Blob, ArrayBuffer, etc).
 
 ### Bypassing events
 
-By default, the WebSocket interceptor prevents all the outgoing events from reaching the production server. To bypass the event, first establish the actual server connection by calling `await server.connect()`, and then use `server.send()` and provide it the `MessageEvent` to bypass.
+By default, the WebSocket interceptor **prevents all the outgoing events from hitting the production server**. To bypass an event, first establish the actual server connection by calling `server.connect()`, and then call `server.send()` with the `MessageEvent` you wish to forward to the original server
 
 ```js
 interceptor.on('connection', async ({ client, server }) => {
-  // First, connect to the actual server.
-  await server.connect()
+  // First, connect to the original server.
+  server.connect()
 
   // Forward all outgoing client events to the original server.
   client.on('message', (event) => server.send(event))
 })
 ```
 
-### Incoming server events
+### Intercepting server events
 
-The WebSocket interceptor also intercepts the incoming events sent from the original server.
+The WebSocket communication is duplex and the WebSocket interceptor allows you to intercept both outgoing (client) events and incoming (original server) events.
+
+To intercept an incoming event from the original server, first establish the original connection by calling `server.connect()`, and then add a `message` listener to the `server` object.
 
 ```js
 interceptor.on('connection', async ({ server }) => {
-  await server.connect()
+  server.connect()
 
   server.on('message', (event) => {
     console.log('original server sent:', event.data)
@@ -350,26 +377,48 @@ interceptor.on('connection', async ({ server }) => {
 })
 ```
 
-> Note: If you establish the original server connection, all the incoming server events will be automatically forwarded to the client.
+Unlike the outgoing client events, incoming server events **are automatically forwarded to the client**. This keeps the original server connection authentic if you ever decide to open one.
 
-If you wish to prevent the automatic forwarding of the server events to the client, call `event.preventDefault()` on the incoming event you wish to prevent.
+If you wish to prevent the automatic forwarding of the server events to the client, call `event.preventDefault()` on the incoming event you wish to prevent. This can be handy for observing as well as modifying incoming events.
 
 ```js
 interceptor.on('connection', async ({ client, server }) => {
-  await server.connect()
+  server.connect()
 
   server.on('message', (event) => {
-    if (event.data === 'hello from actual server') {
+    if (event.data === 'hello from server') {
       // Never forward this event to the client.
       event.preventDefault()
 
       // Instead, send this mock data.
-      client.send('hello from mock server')
+      client.send('greetings, client')
       return
     }
   })
 })
 ```
+
+### Closing the connection
+
+You can terminate the open WebSocket client connection by calling `client.close()`.
+
+```js
+interceptor.on('connection', ({ client }) => {
+  client.close()
+})
+```
+
+By default, this will close the connection with the `1000` code, meaning a graceful disconnect.
+
+You can provide a custom error to the `client.close()` to mock a connection close due to an error.
+
+```js
+interceptor.on('connection', ({ client }) => {
+  client.close(new Error('Oops!'))
+})
+```
+
+When provided an error instance, the connection will be closed with a hard-coded `3000` code and a `reason` that equals to the message of the provided error.
 
 ## API
 

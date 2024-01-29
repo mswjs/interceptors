@@ -1,3 +1,10 @@
+/**
+ * WebSocket client class.
+ * This represents an incoming WebSocket client connection.
+ * @note Keep this class implementation-agnostic because it's
+ * meant to be used over any WebSocket implementation
+ * (not all of them follow the one from WHATWG).
+ */
 import type {
   WebSocketSendData,
   WebSocketTransport,
