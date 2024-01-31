@@ -6,7 +6,7 @@ export function bindEvent<E extends Event, T>(
 ): EventWithTarget<E, T> {
   Object.defineProperty(event, 'target', {
     enumerable: true,
-    writable: false,
+    writable: true,
     value: target,
   })
   return event as EventWithTarget<E, T>
