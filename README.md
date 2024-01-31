@@ -423,6 +423,16 @@ interceptor.on('connection', ({ client }) => {
 })
 ```
 
+You can also close the connection with the termination status code (1001 - 1015), which are not configurable by the user otherwise.
+
+```js
+interceptor.on('connection', ({ client }) => {
+  // Terminate the connection because the "server"
+  // cannot accept the data sent from the client.
+  client.close(1003)
+})
+```
+
 ## API
 
 ### `Interceptor`

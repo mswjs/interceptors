@@ -202,7 +202,18 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
       return
     }
 
+    this._close(code, reason)
+  }
+
+  private _close(code: number, reason?: string): void {
     queueMicrotask(() => {
+      // Non-user-configurable close status codes
+      // represent connection termination and must
+      // emit the "error" event before closing.
+      if (code > 1000 && code <= 1015) {
+        this.dispatchEvent(bindEvent(this, new Event('error')))
+      }
+
       this.dispatchEvent(
         bindEvent(
           this,

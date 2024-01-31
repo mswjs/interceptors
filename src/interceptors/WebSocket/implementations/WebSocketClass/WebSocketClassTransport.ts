@@ -38,6 +38,11 @@ export class WebSocketClassTransport extends WebSocketTransport {
   }
 
   public close(code: number, reason?: string): void {
-    this.ws.close(code, reason)
+    /**
+     * @note Call the internal close method directly
+     * to allow closing the connection with the status codes
+     * that are non-configurable by the user (> 1000 <= 1015).
+     */
+    this.ws['_close'](code, reason)
   }
 }
