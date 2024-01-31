@@ -98,15 +98,17 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
   constructor(url: string | URL, protocols?: string | Array<string>) {
     super()
     this.url = url.toString()
-    this.protocol = protocols ? protocols[0] : 'ws'
+    this.protocol = ''
     this.extensions = ''
-    this.binaryType = 'arraybuffer'
+    this.binaryType = 'blob'
     this.readyState = this.CONNECTING
     this.bufferedAmount = 0
 
     Reflect.set(this, 'readyState', this.CONNECTING)
     queueMicrotask(() => {
       Reflect.set(this, 'readyState', this.OPEN)
+      this.protocol = protocols ? protocols[0] : 'ws'
+
       this.dispatchEvent(bindEvent(this, new Event('open')))
     })
   }
