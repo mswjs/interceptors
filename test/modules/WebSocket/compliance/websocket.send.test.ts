@@ -5,8 +5,8 @@
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { RawData, WebSocketServer } from 'ws'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { WebSocketInterceptor } from '../../../../../src/interceptors/WebSocket'
-import { getWsUrl } from '../../utils/getWsUrl'
+import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { getWsUrl } from '../utils/getWsUrl'
 
 const interceptor = new WebSocketInterceptor()
 

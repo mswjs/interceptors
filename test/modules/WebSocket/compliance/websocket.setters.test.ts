@@ -2,8 +2,8 @@
  * @vitest-environment node-with-websocket
  */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
-import { WebSocketInterceptor } from '../../../../../src/interceptors/WebSocket'
-import { waitForNextTick } from '../../utils/waitForNextTick'
+import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { waitForNextTick } from '../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()
 

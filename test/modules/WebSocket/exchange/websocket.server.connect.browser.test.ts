@@ -1,7 +1,7 @@
 import { WebSocketServer } from 'ws'
-import { test, expect } from '../../../../playwright.extend'
-import type { WebSocketInterceptor } from '../../../../../src/interceptors/WebSocket'
-import { getWsUrl } from '../../utils/getWsUrl'
+import { test, expect } from '../../../playwright.extend'
+import type { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { getWsUrl } from '../utils/getWsUrl'
 
 declare global {
   interface Window {

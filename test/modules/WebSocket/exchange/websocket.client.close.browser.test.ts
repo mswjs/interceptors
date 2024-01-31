@@ -1,5 +1,5 @@
-import { test, expect } from '../../../../playwright.extend'
-import type { WebSocketInterceptor } from '../../../../../src/interceptors/WebSocket'
+import { test, expect } from '../../../playwright.extend'
+import type { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
 
 declare global {
   interface Window {

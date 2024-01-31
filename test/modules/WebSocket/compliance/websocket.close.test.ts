@@ -3,9 +3,9 @@
  * @see https://websockets.spec.whatwg.org/#dom-websocket-close
  */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
-import { WebSocketInterceptor } from '../../../../../src/interceptors/WebSocket'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { waitForNextTick } from '../../utils/waitForNextTick'
+import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { waitForNextTick } from '../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()
 
