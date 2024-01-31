@@ -1,10 +1,6 @@
 import { invariant } from 'outvariant'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketServer } from '../../WebSocketServer'
-import type {
-  WebSocketClassOverride,
-  WebSocketMessageListener,
-} from './WebSocketClassInterceptor'
+import type { WebSocketClassOverride } from './WebSocketClassOverride'
 import type { WebSocketSendData } from '../../WebSocketTransport'
 import type { WebSocketClassTransport } from './WebSocketClassTransport'
 import { bindEvent } from '../../utils/bindEvent'

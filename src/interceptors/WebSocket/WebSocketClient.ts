@@ -9,7 +9,7 @@ import type {
   WebSocketSendData,
   WebSocketTransport,
 } from './WebSocketTransport'
-import { WebSocketMessageListener } from './implementations/WebSocketClass/WebSocketClassInterceptor'
+import { WebSocketMessageListener } from './implementations/WebSocketClass/WebSocketClassOverride'
 import { bindEvent } from './utils/bindEvent'
 
 const kEmitter = Symbol('kEmitter')

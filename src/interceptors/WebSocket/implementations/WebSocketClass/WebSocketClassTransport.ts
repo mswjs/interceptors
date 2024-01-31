@@ -5,7 +5,7 @@ import {
   WebSocketTransportOnIncomingCallback,
   WebSocketTransportOnOutgoingCallback,
 } from '../../WebSocketTransport'
-import { kOnSend, WebSocketClassOverride } from './WebSocketClassInterceptor'
+import { kOnSend, WebSocketClassOverride } from './WebSocketClassOverride'
 
 export class WebSocketClassTransport extends WebSocketTransport {
   public onOutgoing: WebSocketTransportOnOutgoingCallback = () => {}

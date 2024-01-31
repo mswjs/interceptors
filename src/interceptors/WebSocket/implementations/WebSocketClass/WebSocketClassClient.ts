@@ -2,7 +2,7 @@ import { invariant } from 'outvariant'
 import { WebSocketClient } from '../../WebSocketClient'
 import type { WebSocketSendData } from '../../WebSocketTransport'
 import { WebSocketClassTransport } from './WebSocketClassTransport'
-import type { WebSocketClassOverride } from './WebSocketClassInterceptor'
+import type { WebSocketClassOverride } from './WebSocketClassOverride'
 
 export class WebSocketClassClient extends WebSocketClient {
   constructor(

@@ -1,5 +1,4 @@
 import type { WebSocketSendData } from './WebSocketTransport'
-import type { WebSocketMessageListener } from './implementations/WebSocketClass/WebSocketClassInterceptor'
 
 /**
  * The WebSocket server instance represents the actual production
