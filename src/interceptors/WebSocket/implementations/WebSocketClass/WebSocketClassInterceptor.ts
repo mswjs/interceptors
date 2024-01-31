@@ -208,7 +208,11 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
   }
 
   private _close(code: number, reason?: string): void {
+    this.readyState = this.CLOSING
+
     queueMicrotask(() => {
+      this.readyState = this.CLOSED
+
       // Non-user-configurable close status codes
       // represent connection termination and must
       // emit the "error" event before closing.
