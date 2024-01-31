@@ -37,7 +37,7 @@ it('closes the client connection with a custom error', async () => {
   const socketClosePromise = new DeferredPromise<CloseEvent>()
 
   interceptor.once('connection', ({ client }) => {
-    client.close(new Error('Oops!'))
+    client.close(3000, 'Oops!')
   })
 
   const ws = new WebSocket('wss://example.com')

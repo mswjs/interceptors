@@ -40,7 +40,7 @@ it('emits "close" event when the connection is closed', async () => {
   })
 })
 
-it('emits "close" event when the connection is closed by the server', async () => {
+it('emits "close" event when the connection is closed normally by the server', async () => {
   interceptor.once('connection', ({ client }) => {
     client.close()
   })
@@ -58,7 +58,7 @@ it('emits "close" event when the connection is closed by the server', async () =
 
 it('emits "close" event when the connection is closed by the server with a code and a reason', async () => {
   interceptor.once('connection', ({ client }) => {
-    client.close(new Error('Oops!'))
+    client.close(3000, 'Oops!')
   })
 
   const closeEventPromise = new DeferredPromise<CloseEvent>()

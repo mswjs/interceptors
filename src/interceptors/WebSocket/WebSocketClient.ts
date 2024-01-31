@@ -65,9 +65,12 @@ export class WebSocketClient {
     throw new Error('WebSocketClient#emit is not implemented')
   }
 
-  public close(error?: Error): void {
-    // Don't do any guessing behind the close code's semantics
-    // and fallback to a generic contrived close code of 3000.
-    this.transport.close(error ? 3000 : 1000, error?.message)
+  /**
+   * Close the WebSocket connection.
+   * @param {number} code A status code (see https://www.rfc-editor.org/rfc/rfc6455#section-7.4.1).
+   * @param {string} reason A custom connection close reason.
+   */
+  public close(code?: number, reason?: string): void {
+    this.transport.close(code, reason)
   }
 }

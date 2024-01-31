@@ -32,5 +32,5 @@ export abstract class WebSocketTransport {
   /**
    * Close the client connection.
    */
-  abstract close(code: number, reason?: string): void
+  abstract close(code?: number, reason?: string): void
 }

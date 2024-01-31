@@ -49,7 +49,7 @@ test('closes the client connection with a custom error', async ({
     const { interceptor } = window
 
     interceptor.on('connection', ({ client }) => {
-      client.close(new Error('Oops!'))
+      client.close(3000, 'Oops!')
     })
     interceptor.apply()
   })

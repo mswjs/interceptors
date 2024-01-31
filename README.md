@@ -415,15 +415,13 @@ interceptor.on('connection', ({ client }) => {
 
 By default, this will close the connection with the `1000` code, meaning a graceful disconnect.
 
-You can provide a custom error to the `client.close()` to mock the connection being closed due to an error.
+You can provide a custom close [Status code](https://www.rfc-editor.org/rfc/rfc6455#section-7.4.1) and [Close reason](https://www.rfc-editor.org/rfc/rfc6455#section-7.1.6) to the `client.close()` to mock different connection close scenarios.
 
 ```js
 interceptor.on('connection', ({ client }) => {
-  client.close(new Error('Oops!'))
+  client.close(3000, 'Close reason')
 })
 ```
-
-When provided an error instance, the connection will be closed with a hard-coded `3000` code and a `reason` that equals to the message of the provided error.
 
 ## API
 
