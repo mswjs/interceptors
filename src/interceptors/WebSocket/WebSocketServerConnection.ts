@@ -1,13 +1,17 @@
 import { invariant } from 'outvariant'
-import { WebSocketServer } from '../../WebSocketServer'
-import type { WebSocketClassOverride } from './WebSocketClassOverride'
-import type { WebSocketSendData } from '../../WebSocketTransport'
-import type { WebSocketClassTransport } from './WebSocketClassTransport'
-import { bindEvent } from '../../utils/bindEvent'
+import type { WebSocketClassOverride } from './implementations/WebSocketClass/WebSocketClassOverride'
+import type { WebSocketSendData } from './WebSocketTransport'
+import type { WebSocketClassTransport } from './implementations/WebSocketClass/WebSocketClassTransport'
+import { bindEvent } from './utils/bindEvent'
 
 const kEmitter = Symbol('kEmitter')
 
-export class WebSocketClassServer extends WebSocketServer {
+/**
+ * The WebSocket server instance represents the actual production
+ * WebSocket server connection. It's idle by default but you can
+ * establish it by calling `server.connect()`.
+ */
+export class WebSocketServerConnection {
   /**
    * A WebSocket instance connected to the original server.
    */
@@ -19,7 +23,6 @@ export class WebSocketClassServer extends WebSocketServer {
     private readonly createConnection: () => WebSocket,
     private readonly transport: WebSocketClassTransport
   ) {
-    super()
     this[kEmitter] = new EventTarget()
 
     // Handle incoming events from the actual server.

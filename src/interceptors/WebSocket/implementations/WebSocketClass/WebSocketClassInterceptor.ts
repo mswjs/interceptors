@@ -1,7 +1,7 @@
 import type { WebSocketEventsMap } from '../../index'
 import { Interceptor } from '../../../../Interceptor'
-import { WebSocketClassClient } from './WebSocketClassClient'
-import { WebSocketClassServer } from './WebSocketClassServer'
+import { WebSocketClientConnection } from '../../WebSocketClientConnection'
+import { WebSocketServerConnection } from '../../WebSocketServerConnection'
 import { WebSocketClassTransport } from './WebSocketClassTransport'
 import { WebSocketClassOverride } from './WebSocketClassOverride'
 
@@ -41,8 +41,12 @@ export class WebSocketClassInterceptor extends Interceptor<WebSocketEventsMap> {
         // the client-side connection. Assume it's established
         // as soon as the WebSocket instance is constructed.
         this.emitter.emit('connection', {
-          client: new WebSocketClassClient(mockWs, transport),
-          server: new WebSocketClassServer(mockWs, createConnection, transport),
+          client: new WebSocketClientConnection(mockWs, transport),
+          server: new WebSocketServerConnection(
+            mockWs,
+            createConnection,
+            transport
+          ),
         })
 
         return mockWs

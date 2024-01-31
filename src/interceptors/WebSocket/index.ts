@@ -1,6 +1,6 @@
 import { BatchInterceptor } from '../..'
-import { WebSocketClient } from './WebSocketClient'
-import { WebSocketServer } from './WebSocketServer'
+import type { WebSocketClientConnection } from './WebSocketClientConnection'
+import type { WebSocketServerConnection } from './WebSocketServerConnection'
 import { WebSocketClassInterceptor } from './implementations/WebSocketClass/WebSocketClassInterceptor'
 
 export type WebSocketEventsMap = {
@@ -9,11 +9,12 @@ export type WebSocketEventsMap = {
       /**
        * The connected WebSocket client.
        */
-      client: WebSocketClient
+      client: WebSocketClientConnection
+
       /**
        * The original WebSocket server.
        */
-      server: WebSocketServer
+      server: WebSocketServerConnection
     }
   ]
 }

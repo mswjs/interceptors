@@ -19,7 +19,7 @@ const kEmitter = Symbol('kEmitter')
  * client connection. The user can control the connection,
  * send and receive events.
  */
-export class WebSocketClient {
+export class WebSocketClientConnection {
   public readonly url: URL
 
   protected [kEmitter]: EventTarget
@@ -56,13 +56,6 @@ export class WebSocketClient {
    */
   public send(data: WebSocketSendData): void {
     this.transport.send(data)
-  }
-
-  /**
-   * Emit the given event to the connected client.
-   */
-  public emit(event: string, data: WebSocketSendData): void {
-    throw new Error('WebSocketClient#emit is not implemented')
   }
 
   /**
