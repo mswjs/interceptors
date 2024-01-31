@@ -127,7 +127,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
       'message',
       this._onmessage as WebSocketEventListener
     )
-    this.onmessage = listener
+    this._onmessage = listener
     if (listener !== null) {
       this.addEventListener('message', listener)
     }
