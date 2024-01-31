@@ -50,6 +50,16 @@ export class WebSocketClassServer extends WebSocketServer {
 
     const ws = this.createConnection()
 
+    // Close the original connection when the (mock)
+    // client closes, regardless of the reason.
+    this.mockWs.addEventListener(
+      'close',
+      (event) => {
+        ws.close(event.code, event.reason)
+      },
+      { once: true }
+    )
+
     // Once the connection is open, forward any incoming
     // events directly to the (override) WebSocket instance.
     ws.addEventListener('message', (event) => {
@@ -114,11 +124,12 @@ export class WebSocketClassServer extends WebSocketServer {
     prodWs.send(data)
   }
 
-  public on(event: 'message', callback: WebSocketMessageListener): void {
+  public on<K extends keyof WebSocketEventMap>(
+    event: K,
+    callback: (this: WebSocket, event: WebSocketEventMap[K]) => void
+  ): void {
     this[kEmitter].addEventListener(event, (event) => {
-      if (event instanceof MessageEvent) {
-        callback.call(this.prodWs!, event)
-      }
+      callback.call(this.prodWs!, event as any)
     })
   }
 }

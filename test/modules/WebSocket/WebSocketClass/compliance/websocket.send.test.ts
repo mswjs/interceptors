@@ -36,7 +36,7 @@ it('throws "InvalidStateError" when sending while the connection is not open yet
 })
 
 /**
- * @note The same "instanceof" issue with "ws".
+ * @fixme The same "instanceof" issue with "ws".
  * It implements its own "Event" class so Node "dispatchEvent"
  * throws on that.
  */

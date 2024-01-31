@@ -27,7 +27,10 @@ export class WebSocketServer {
    * forwarded to the client connection unless you prevent them
    * via `event.preventDefault()`.
    */
-  public on(event: string, callback: WebSocketMessageListener): void {
+  public on<K extends keyof WebSocketEventMap>(
+    event: K,
+    callback: (this: WebSocket, event: WebSocketEventMap[K]) => void
+  ): void {
     throw new Error('WebSocketServer#on is not implemented')
   }
 }
