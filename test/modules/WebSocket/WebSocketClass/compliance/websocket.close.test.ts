@@ -5,6 +5,7 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { WebSocketInterceptor } from '../../../../../src/interceptors/WebSocket'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { waitForNextTick } from '../../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -77,12 +78,10 @@ it('removes all listeners after calling "close"', async () => {
   expect(ws.onclose).not.toBeNull()
   expect(ws.onerror).not.toBeNull()
 
-  await new Promise<void>((resolve) => {
-    expect(ws.onopen).toBeNull()
-    expect(ws.onmessage).toBeNull()
-    expect(ws.onclose).toBeNull()
-    expect(ws.onerror).toBeNull()
+  await waitForNextTick()
 
-    resolve()
-  })
+  expect(ws.onopen).toBeNull()
+  expect(ws.onmessage).toBeNull()
+  expect(ws.onclose).toBeNull()
+  expect(ws.onerror).toBeNull()
 })
