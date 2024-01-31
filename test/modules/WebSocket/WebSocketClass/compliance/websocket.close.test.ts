@@ -60,3 +60,29 @@ it('closes the connection with a custom code and reason', async () => {
   expect(closeEvent.reason).toBe('Oops!')
   expect(closeEvent.wasClean).toBe(false)
 })
+
+it('removes all listeners after calling "close"', async () => {
+  const ws = new WebSocket('wss://example.com')
+  ws.onopen = () => {}
+  ws.onmessage = () => {}
+  ws.onclose = () => {}
+  ws.onerror = () => {}
+
+  ws.close()
+
+  // Listeners are preserved on this tick
+  // so they can react to the close event.
+  expect(ws.onopen).not.toBeNull()
+  expect(ws.onmessage).not.toBeNull()
+  expect(ws.onclose).not.toBeNull()
+  expect(ws.onerror).not.toBeNull()
+
+  await new Promise<void>((resolve) => {
+    expect(ws.onopen).toBeNull()
+    expect(ws.onmessage).toBeNull()
+    expect(ws.onclose).toBeNull()
+    expect(ws.onerror).toBeNull()
+
+    resolve()
+  })
+})

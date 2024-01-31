@@ -207,7 +207,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
     this._close(code, reason)
   }
 
-  private _close(code: number, reason?: string): void {
+  private _close(code: number = 1000, reason?: string): void {
     this.readyState = this.CLOSING
 
     queueMicrotask(() => {
