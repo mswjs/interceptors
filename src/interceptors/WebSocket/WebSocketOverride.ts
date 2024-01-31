@@ -1,6 +1,6 @@
 import { invariant } from 'outvariant'
-import type { WebSocketSendData } from '../../WebSocketTransport'
-import { bindEvent } from '../../utils/bindEvent'
+import type { WebSocketRawData } from './WebSocketTransport'
+import { bindEvent } from './utils/bindEvent'
 
 type WebSocketEventListener = (this: WebSocket, event: Event) => void
 
@@ -16,7 +16,7 @@ const WEBSOCKET_CLOSE_CODE_RANGE_ERROR =
 
 export const kOnSend = Symbol('kOnSend')
 
-export class WebSocketClassOverride extends EventTarget implements WebSocket {
+export class WebSocketOverride extends EventTarget implements WebSocket {
   static readonly CONNECTING = WebSocket.CONNECTING
   static readonly OPEN = WebSocket.OPEN
   static readonly CLOSING = WebSocket.CLOSING
@@ -38,7 +38,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
   private _onerror: WebSocketEventListener | null = null
   private _onclose: WebSocketCloseListener | null = null
 
-  private [kOnSend]?: (data: WebSocketSendData) => void
+  private [kOnSend]?: (data: WebSocketRawData) => void
 
   constructor(url: string | URL, protocols?: string | Array<string>) {
     super()
@@ -108,7 +108,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
   /**
    * @see https://websockets.spec.whatwg.org/#ref-for-dom-websocket-send%E2%91%A0
    */
-  public send(data: WebSocketSendData): void {
+  public send(data: WebSocketRawData): void {
     if (this.readyState === this.CONNECTING) {
       this.close()
       throw new DOMException('InvalidStateError')
@@ -215,7 +215,7 @@ export class WebSocketClassOverride extends EventTarget implements WebSocket {
   }
 }
 
-function getDataSize(data: WebSocketSendData): number {
+function getDataSize(data: WebSocketRawData): number {
   if (typeof data === 'string') {
     return data.length
   }

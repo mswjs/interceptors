@@ -5,11 +5,8 @@
  * meant to be used over any WebSocket implementation
  * (not all of them follow the one from WHATWG).
  */
-import type {
-  WebSocketSendData,
-  WebSocketTransport,
-} from './WebSocketTransport'
-import { WebSocketMessageListener } from './implementations/WebSocketClass/WebSocketClassOverride'
+import type { WebSocketRawData, WebSocketTransport } from './WebSocketTransport'
+import { WebSocketMessageListener } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 
 const kEmitter = Symbol('kEmitter')
@@ -54,7 +51,7 @@ export class WebSocketClientConnection {
   /**
    * Send data to the connected client.
    */
-  public send(data: WebSocketSendData): void {
+  public send(data: WebSocketRawData): void {
     this.transport.send(data)
   }
 

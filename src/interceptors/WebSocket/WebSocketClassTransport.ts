@@ -1,22 +1,22 @@
-import { bindEvent } from '../../utils/bindEvent'
+import { bindEvent } from './utils/bindEvent'
 import {
-  WebSocketSendData,
+  WebSocketRawData,
   WebSocketTransport,
   WebSocketTransportOnIncomingCallback,
   WebSocketTransportOnOutgoingCallback,
-} from '../../WebSocketTransport'
-import { kOnSend, WebSocketClassOverride } from './WebSocketClassOverride'
+} from './WebSocketTransport'
+import { kOnSend, WebSocketOverride } from './WebSocketOverride'
 
 export class WebSocketClassTransport extends WebSocketTransport {
   public onOutgoing: WebSocketTransportOnOutgoingCallback = () => {}
   public onIncoming: WebSocketTransportOnIncomingCallback = () => {}
 
-  constructor(protected readonly ws: WebSocketClassOverride) {
+  constructor(protected readonly ws: WebSocketOverride) {
     super()
     this.ws[kOnSend] = (...args) => this.onOutgoing(...args)
   }
 
-  public send(data: WebSocketSendData): void {
+  public send(data: WebSocketRawData): void {
     queueMicrotask(() => {
       const message = bindEvent(
         /**

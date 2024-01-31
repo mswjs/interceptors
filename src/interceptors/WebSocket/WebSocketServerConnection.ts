@@ -1,7 +1,7 @@
 import { invariant } from 'outvariant'
-import type { WebSocketClassOverride } from './implementations/WebSocketClass/WebSocketClassOverride'
-import type { WebSocketSendData } from './WebSocketTransport'
-import type { WebSocketClassTransport } from './implementations/WebSocketClass/WebSocketClassTransport'
+import type { WebSocketOverride } from './WebSocketOverride'
+import type { WebSocketRawData } from './WebSocketTransport'
+import type { WebSocketClassTransport } from './WebSocketClassTransport'
 import { bindEvent } from './utils/bindEvent'
 
 const kEmitter = Symbol('kEmitter')
@@ -19,7 +19,7 @@ export class WebSocketServerConnection {
   private [kEmitter]: EventTarget
 
   constructor(
-    private readonly mockWs: WebSocketClassOverride,
+    private readonly mockWs: WebSocketOverride,
     private readonly createConnection: () => WebSocket,
     private readonly transport: WebSocketClassTransport
   ) {
@@ -41,6 +41,9 @@ export class WebSocketServerConnection {
     }
   }
 
+  /**
+   * Open connection to the original WebSocket server.
+   */
   public connect(): void {
     invariant(
       !this.prodWs,
@@ -98,7 +101,14 @@ export class WebSocketServerConnection {
     this.prodWs = ws
   }
 
-  public send(data: WebSocketSendData): void {
+  /**
+   * Send data to the original WebSocket server.
+   * @example
+   * server.send('hello')
+   * server.send(new Blob(['hello']))
+   * server.send(new TextEncoder().encode('hello'))
+   */
+  public send(data: WebSocketRawData): void {
     const { prodWs } = this
     invariant(
       prodWs,
