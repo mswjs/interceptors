@@ -21,10 +21,9 @@ it('emits "open" event when the connection is opened', async () => {
   const ws = new WebSocket('wss://example.com')
   ws.onopen = openEventPromise.resolve
 
-  expect(await openEventPromise).toMatchObject({
-    type: 'open',
-    target: ws,
-  })
+  const openEvent = await openEventPromise
+  expect(openEvent.type).toBe('open')
+  expect(openEvent.target).toBe(ws)
 })
 
 it('emits "message" event on the incoming event from the server', async () => {
@@ -37,11 +36,11 @@ it('emits "message" event on the incoming event from the server', async () => {
   const ws = new WebSocket('wss://example.com')
   ws.onmessage = messageEventPromise.resolve
 
-  expect(await messageEventPromise).toMatchObject({
-    type: 'message',
-    data: 'hello',
-    target: ws,
-  })
+  const messageEvent = await messageEventPromise
+  expect(messageEvent.type).toBe('message')
+  expect(messageEvent.data).toBe('hello')
+  expect(messageEvent.target).toBe(ws)
+  expect(messageEvent.origin).toBe(ws.url)
 })
 
 it('emits "close" event when the connection is closed', async () => {
@@ -67,10 +66,9 @@ it('emits "close" event when the connection is closed normally by the server', a
   const ws = new WebSocket('wss://example.com')
   ws.onclose = closeEventPromise.resolve
 
-  expect(await closeEventPromise).toMatchObject({
-    type: 'close',
-    target: ws,
-  })
+  const closeEvent = await closeEventPromise
+  expect(closeEvent.type).toBe('close')
+  expect(closeEvent.target).toBe(ws)
 })
 
 it('emits "close" event when the connection is closed by the server with a code and a reason', async () => {
@@ -83,12 +81,11 @@ it('emits "close" event when the connection is closed by the server with a code 
   const ws = new WebSocket('wss://example.com')
   ws.onclose = closeEventPromise.resolve
 
-  expect(await closeEventPromise).toMatchObject({
-    type: 'close',
-    target: ws,
-    code: 3000,
-    reason: 'Oops!',
-  })
+  const closeEvent = await closeEventPromise
+  expect(closeEvent.type).toBe('close')
+  expect(closeEvent.code).toBe(3000)
+  expect(closeEvent.reason).toBe('Oops!')
+  expect(closeEvent.target).toBe(ws)
 })
 
 it('emits "error" event when the connection is closed due to an error', async () => {
@@ -99,21 +96,20 @@ it('emits "error" event when the connection is closed due to an error', async ()
   })
 
   const errorEventPromise = new DeferredPromise<Event>()
-  const closeEventPromise = new DeferredPromise<Event>()
+  const closeEventPromise = new DeferredPromise<CloseEvent>()
 
   const ws = new WebSocket('wss://example.com')
   ws.onerror = errorEventPromise.resolve
   ws.onclose = closeEventPromise.resolve
 
-  expect(await errorEventPromise).toMatchObject({
-    type: 'error',
-    target: ws,
-  })
-  expect(await closeEventPromise).toMatchObject({
-    type: 'close',
-    code: 1003,
-    reason: '',
-    wasClean: false,
-    target: ws,
-  })
+  const errorEvent = await errorEventPromise
+  expect(errorEvent.type).toBe('error')
+  expect(errorEvent.target).toBe(ws)
+
+  const closeEvent = await closeEventPromise
+  expect(closeEvent.type).toBe('close')
+  expect(closeEvent.code).toBe(1003)
+  expect(closeEvent.reason).toBe('')
+  expect(closeEvent.wasClean).toBe(false)
+  expect(closeEvent.target).toBe(ws)
 })

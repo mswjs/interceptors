@@ -41,12 +41,16 @@ it.skip('forwards incoming server data from the original server', async () => {
   })
 
   const ws = new WebSocket(getWsUrl(wsServer))
-  const messageReceivedPromise = new DeferredPromise<string>()
+  const messageReceivedPromise = new DeferredPromise<MessageEvent>()
   ws.addEventListener('message', (event) => {
-    messageReceivedPromise.resolve(event.data)
+    messageReceivedPromise.resolve(event)
   })
 
-  expect(await messageReceivedPromise).toBe('hello from server')
+  const messageEvent = await messageReceivedPromise
+  expect(messageEvent.type).toBe('message')
+  expect(messageEvent.data).toBe('hello from server')
+  expect(messageEvent.origin).toBe(ws.url)
+  expect(messageEvent.target).toEqual(ws)
 })
 
 it.skip('forwards outgoing client data to the original server', async () => {
@@ -62,15 +66,19 @@ it.skip('forwards outgoing client data to the original server', async () => {
   })
 
   const ws = new WebSocket(getWsUrl(wsServer))
-  const messageReceivedPromise = new DeferredPromise<string>()
+  const messageReceivedPromise = new DeferredPromise<MessageEvent>()
   ws.addEventListener('open', () => {
     ws.send('John')
   })
   ws.addEventListener('message', (event) => {
-    messageReceivedPromise.resolve(event.data)
+    messageReceivedPromise.resolve(event)
   })
 
-  expect(await messageReceivedPromise).toBe('Hello, John!')
+  const messageEvent = await messageReceivedPromise
+  expect(messageEvent.type).toBe('message')
+  expect(messageEvent.data).toBe('Hello, John!')
+  expect(messageEvent.origin).toBe(ws.url)
+  expect(messageEvent.target).toEqual(ws)
 })
 
 /**
@@ -101,10 +109,10 @@ it.skip('closes the actual server connection when the client closes', async () =
   await clientClosePromise
   expect(ws.readyState).toBe(WebSocket.CLOSED)
 
-  expect(await serverClosePromise).toMatchObject({
-    type: 'close',
-    code: 1000,
-    reason: '',
-    wasClean: true,
-  })
+  const closeEvent = await serverClosePromise
+  expect(closeEvent.type).toBe('close')
+  expect(closeEvent.code).toBe(1000)
+  expect(closeEvent.reason).toBe('')
+  expect(closeEvent.wasClean).toBe(true)
+  expect(closeEvent.target).toBe(wsServer)
 })

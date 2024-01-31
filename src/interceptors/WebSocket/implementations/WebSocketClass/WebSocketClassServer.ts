@@ -71,6 +71,7 @@ export class WebSocketClassServer extends WebSocketServer {
         this.prodWs!,
         new MessageEvent('message', {
           data: event.data,
+          origin: this.prodWs!.url,
         })
       )
       this.transport.onIncoming(messageEvent)

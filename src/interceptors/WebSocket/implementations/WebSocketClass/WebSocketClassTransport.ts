@@ -30,6 +30,7 @@ export class WebSocketClassTransport extends WebSocketTransport {
         this.ws,
         new MessageEvent('message', {
           data,
+          origin: this.ws.url,
         })
       )
 
