@@ -42,11 +42,25 @@ export class WebSocketServerConnection {
   }
 
   /**
+   * Server ready state.
+   * Proxies the ready state of the original WebSocket instance,
+   * if set. If the original connection hasn't been established,
+   * defaults to `-1`.
+   */
+  public get readyState(): number {
+    if (this.prodWs) {
+      return this.prodWs.readyState
+    }
+
+    return -1
+  }
+
+  /**
    * Open connection to the original WebSocket server.
    */
   public connect(): void {
     invariant(
-      !this.prodWs,
+      this.readyState === -1,
       'Failed to call "connect()" on the original WebSocket instance: the connection already open'
     )
 

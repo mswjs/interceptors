@@ -4,6 +4,9 @@ import { WebSocketServerConnection } from './WebSocketServerConnection'
 import { WebSocketClassTransport } from './WebSocketClassTransport'
 import { WebSocketOverride } from './WebSocketOverride'
 
+export type { WebSocketRawData } from './WebSocketTransport'
+export { WebSocketClientConnection, WebSocketServerConnection }
+
 export type WebSocketEventMap = {
   connection: [
     args: {
@@ -25,7 +28,7 @@ export type WebSocketEventMap = {
  * the global `WebSocket` class.
  */
 export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
-  static symbol = Symbol('websocket-class')
+  static symbol = Symbol('websocket')
 
   constructor() {
     super(WebSocketInterceptor.symbol)
