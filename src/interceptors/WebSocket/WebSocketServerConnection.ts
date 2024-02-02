@@ -88,8 +88,10 @@ export class WebSocketServerConnection {
         new MessageEvent('message', {
           data: event.data,
           origin: this.realWebSocket!.url,
+          cancelable: true,
         })
       )
+
       this.transport.onIncoming(messageEvent)
 
       // Unless the default is prevented, forward the
