@@ -50,7 +50,6 @@
       "default": "./lib/node/interceptors/fetch/index.js"
     },
     "./WebSocket": {
-      "node": null,
       "types": "./lib/browser/interceptors/WebSocket/index.d.ts",
       "require": "./lib/browser/interceptors/WebSocket/index.js",
       "import": "./lib/browser/interceptors/WebSocket/index.mjs",
