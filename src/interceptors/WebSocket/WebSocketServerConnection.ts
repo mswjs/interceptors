@@ -15,11 +15,11 @@ export class WebSocketServerConnection {
   /**
    * A WebSocket instance connected to the original server.
    */
-  private prodWs?: WebSocket
+  private realWebSocket?: WebSocket
   private [kEmitter]: EventTarget
 
   constructor(
-    private readonly mockWs: WebSocketOverride,
+    private readonly mockWebSocket: WebSocketOverride,
     private readonly createConnection: () => WebSocket,
     private readonly transport: WebSocketClassTransport
   ) {
@@ -48,8 +48,8 @@ export class WebSocketServerConnection {
    * defaults to `-1`.
    */
   public get readyState(): number {
-    if (this.prodWs) {
-      return this.prodWs.readyState
+    if (this.realWebSocket) {
+      return this.realWebSocket.readyState
     }
 
     return -1
@@ -68,7 +68,7 @@ export class WebSocketServerConnection {
 
     // Close the original connection when the (mock)
     // client closes, regardless of the reason.
-    this.mockWs.addEventListener(
+    this.mockWebSocket.addEventListener(
       'close',
       (event) => {
         ws.close(event.code, event.reason)
@@ -84,10 +84,10 @@ export class WebSocketServerConnection {
       // exception. Clone it here so we can observe this event
       // being prevented in the "server.on()" listeners.
       const messageEvent = bindEvent(
-        this.prodWs!,
+        this.realWebSocket!,
         new MessageEvent('message', {
           data: event.data,
-          origin: this.prodWs!.url,
+          origin: this.realWebSocket!.url,
         })
       )
       this.transport.onIncoming(messageEvent)
@@ -96,14 +96,14 @@ export class WebSocketServerConnection {
       // messages from the original server to the mock client.
       // This is the only way the user can receive them.
       if (!messageEvent.defaultPrevented) {
-        this.mockWs.dispatchEvent(
+        this.mockWebSocket.dispatchEvent(
           bindEvent(
             /**
              * @note Bind the forwarded original server events
              * to the mock WebSocket instance so it would
              * dispatch them straight away.
              */
-            this.mockWs,
+            this.mockWebSocket,
             // Clone the message event again to prevent
             // the "already being dispatched" exception.
             new MessageEvent('message', { data: event.data })
@@ -112,7 +112,7 @@ export class WebSocketServerConnection {
       }
     })
 
-    this.prodWs = ws
+    this.realWebSocket = ws
   }
 
   /**
@@ -123,21 +123,21 @@ export class WebSocketServerConnection {
    * server.send(new TextEncoder().encode('hello'))
    */
   public send(data: WebSocketRawData): void {
-    const { prodWs } = this
+    const { realWebSocket } = this
     invariant(
-      prodWs,
+      realWebSocket,
       'Failed to call "server.send()" for "%s": the connection is not open. Did you forget to call "await server.connect()"?',
-      this.mockWs.url
+      this.mockWebSocket.url
     )
 
     // Delegate the send to when the original connection is open.
     // Unlike the mock, connecting to the original server may take time
     // so we cannot call this on the next tick.
-    if (prodWs.readyState === prodWs.CONNECTING) {
-      prodWs.addEventListener(
+    if (realWebSocket.readyState === realWebSocket.CONNECTING) {
+      realWebSocket.addEventListener(
         'open',
         () => {
-          prodWs.send(data)
+          realWebSocket.send(data)
         },
         { once: true }
       )
@@ -145,7 +145,7 @@ export class WebSocketServerConnection {
     }
 
     // Send the data to the original WebSocket server.
-    prodWs.send(data)
+    realWebSocket.send(data)
   }
 
   public on<K extends keyof WebSocketEventMap>(
@@ -153,7 +153,7 @@ export class WebSocketServerConnection {
     callback: (this: WebSocket, event: WebSocketEventMap[K]) => void
   ): void {
     this[kEmitter].addEventListener(event, (event) => {
-      callback.call(this.prodWs!, event as any)
+      callback.call(this.realWebSocket!, event as any)
     })
   }
 }
