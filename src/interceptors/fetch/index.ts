@@ -74,13 +74,16 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       const signal = interactiveRequest.signal
       const requestAborted = new DeferredPromise()
 
-      signal.addEventListener(
-        'abort',
-        () => {
-          requestAborted.reject(signal.reason)
-        },
-        { once: true }
-      )
+      // Signal isn't always defined in react-native.
+      if (signal) {
+        signal.addEventListener(
+          'abort',
+          () => {
+            requestAborted.reject(signal.reason)
+          },
+          { once: true },
+        )
+      }
 
       const resolverResult = await until(async () => {
         const listenersFinished = emitAsync(this.emitter, 'request', {
@@ -147,7 +150,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           requestId,
         })
 
-        const response = new Response(mockedResponse.body, mockedResponse)
+        // const response = new Response(mockedResponse.body, mockedResponse);
+        // response.body is undefined in react-native.
+        const response = mockedResponse.clone();
 
         // Set the "response.url" property to equal the intercepted request URL.
         Object.defineProperty(response, 'url', {
