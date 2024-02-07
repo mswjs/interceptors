@@ -45,13 +45,20 @@ export class WebSocketClientConnection {
     listener: WebSocketMessageListener,
     options?: AddEventListenerOptions | boolean
   ): void {
-    this[kEmitter].addEventListener(
+    this[kEmitter].addEventListener(event, listener as EventListener, options)
+  }
+
+  /**
+   * Removes the listener for the given event.
+   */
+  public removeEventListener(
+    event: string,
+    listener: WebSocketMessageListener,
+    options?: EventListenerOptions | boolean
+  ): void {
+    this[kEmitter].removeEventListener(
       event,
-      (event) => {
-        if (event instanceof MessageEvent) {
-          listener.call(this.ws, event)
-        }
-      },
+      listener as EventListener,
       options
     )
   }
