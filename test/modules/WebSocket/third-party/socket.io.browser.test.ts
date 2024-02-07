@@ -44,7 +44,7 @@ test('intercepts and modifies data sent to socket.io server', async ({
      */
     markup: `
 <script src="https://cdn.socket.io/4.7.4/socket.io.min.js" integrity="sha384-Gr6Lu2Ajx28mzwyVR8CFkULdCU7kMlZ9UthllibdOSo6qAiN+yXNHqtgdTvFXMT4" crossorigin="anonymous" defer>
-</script>  
+</script>
     `,
   })
 
@@ -110,7 +110,7 @@ test('intercepts and modifies data sent to socket.io server', async ({
     interceptor.on('connection', ({ client, server }) => {
       server.connect()
 
-      client.on('message', (event) => {
+      client.addEventListener('message', (event) => {
         const data = decodeMessage(event.data)
 
         if (data?.[0] === 'hello') {
@@ -122,7 +122,7 @@ test('intercepts and modifies data sent to socket.io server', async ({
         }
       })
 
-      client.on('message', (event) => {
+      client.addEventListener('message', (event) => {
         server.send(event.data)
       })
     })

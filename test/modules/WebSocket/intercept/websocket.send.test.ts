@@ -24,7 +24,7 @@ it('intercepts text sent over websocket', async () => {
   const messageReceivedPromise = new DeferredPromise<string>()
 
   interceptor.once('connection', ({ client }) => {
-    client.on('message', (event) => {
+    client.addEventListener('message', (event) => {
       messageReceivedPromise.resolve(event.data)
     })
   })
@@ -39,7 +39,7 @@ it('intercepts Blob sent over websocket', async () => {
   const messageReceivedPromise = new DeferredPromise<Blob>()
 
   interceptor.once('connection', ({ client }) => {
-    client.on('message', (event) => {
+    client.addEventListener('message', (event) => {
       messageReceivedPromise.resolve(event.data)
     })
   })
@@ -55,7 +55,7 @@ it('intercepts ArrayBuffer sent over websocket', async () => {
   const messageReceivedPromise = new DeferredPromise<ArrayBuffer>()
 
   interceptor.once('connection', ({ client }) => {
-    client.on('message', (event) => {
+    client.addEventListener('message', (event) => {
       messageReceivedPromise.resolve(event.data)
     })
   })

@@ -62,7 +62,7 @@ it.skip('forwards outgoing client data to the original server', async () => {
 
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
-    client.on('message', (event) => server.send(event.data))
+    client.addEventListener('message', (event) => server.send(event.data))
   })
 
   const ws = new WebSocket(getWsUrl(wsServer))
@@ -91,8 +91,8 @@ it.skip('closes the actual server connection when the client closes', async () =
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
 
-    server.on('close', serverClosePromise.resolve)
-    client.on('message', (event) => {
+    server.addEventListener('close', serverClosePromise.resolve)
+    client.addEventListener('message', (event) => {
       if (event.data === 'close') {
         return client.close()
       }

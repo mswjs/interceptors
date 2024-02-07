@@ -49,7 +49,7 @@ it.skip('sends text data to the original server', async () => {
 
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
-    client.on('message', (event) => server.send(event.data))
+    client.addEventListener('message', (event) => server.send(event.data))
   })
 
   const ws = new WebSocket(getWsUrl(wsServer))
@@ -73,7 +73,7 @@ it.skip('sends Blob data to the original server', async () => {
 
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
-    client.on('message', (event) => server.send(event.data))
+    client.addEventListener('message', (event) => server.send(event.data))
   })
 
   const ws = new WebSocket(getWsUrl(wsServer))
@@ -97,7 +97,7 @@ it.skip('sends ArrayBuffer data to the original server', async () => {
 
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
-    client.on('message', (event) => server.send(event.data))
+    client.addEventListener('message', (event) => server.send(event.data))
   })
 
   const ws = new WebSocket(getWsUrl(wsServer))

@@ -149,13 +149,20 @@ export class WebSocketServerConnection {
     // Send the data to the original WebSocket server.
     realWebSocket.send(data)
   }
-
-  public on<K extends keyof WebSocketEventMap>(
+  /**
+   * Listen for the incoming events from the original WebSocket server.
+   */
+  public addEventListener<K extends keyof WebSocketEventMap>(
     event: K,
-    callback: (this: WebSocket, event: WebSocketEventMap[K]) => void
+    callback: (this: WebSocket, event: WebSocketEventMap[K]) => void,
+    options?: AddEventListenerOptions | boolean
   ): void {
-    this[kEmitter].addEventListener(event, (event) => {
-      callback.call(this.realWebSocket!, event as any)
-    })
+    this[kEmitter].addEventListener(
+      event,
+      (event) => {
+        callback.call(this.realWebSocket!, event as any)
+      },
+      options
+    )
   }
 }

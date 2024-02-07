@@ -38,14 +38,22 @@ export class WebSocketClientConnection {
   }
 
   /**
-   * Listen for the outgoing events from the connected client.
+   * Listen for the outgoing events from the connected WebSocket client.
    */
-  public on(event: string, listener: WebSocketMessageListener): void {
-    this[kEmitter].addEventListener(event, (event) => {
-      if (event instanceof MessageEvent) {
-        listener.call(this.ws, event)
-      }
-    })
+  public addEventListener(
+    event: string,
+    listener: WebSocketMessageListener,
+    options?: AddEventListenerOptions | boolean
+  ): void {
+    this[kEmitter].addEventListener(
+      event,
+      (event) => {
+        if (event instanceof MessageEvent) {
+          listener.call(this.ws, event)
+        }
+      },
+      options
+    )
   }
 
   /**

@@ -73,7 +73,7 @@ it('receives incoming mock ArrayBuffer data from the server', async () => {
 
 it('receives mock data in response to sent event', async () => {
   interceptor.once('connection', ({ client }) => {
-    client.on('message', (event) => {
+    client.addEventListener('message', (event) => {
       if (event.data === 'John') {
         client.send(`Hello, ${event.data}!`)
       }

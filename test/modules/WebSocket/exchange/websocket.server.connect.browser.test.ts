@@ -76,7 +76,7 @@ test('forwards outgoing client data to the original server', async ({
       server.connect()
 
       // Forward outgoing events to the original WebSocket server.
-      client.on('message', (event) => server.send(event.data))
+      client.addEventListener('message', (event) => server.send(event.data))
     })
     interceptor.apply()
   })

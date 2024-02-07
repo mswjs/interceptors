@@ -34,7 +34,10 @@ test('intercepts text sent over websocket', async ({ loadExample, page }) => {
     const { interceptor } = window
 
     interceptor.on('connection', ({ client }) => {
-      client.on('message', (event) => (window.outgoingData = event.data))
+      client.addEventListener(
+        'message',
+        (event) => (window.outgoingData = event.data)
+      )
     })
     interceptor.apply()
   })
@@ -55,7 +58,10 @@ test('intercepts Blob sent over websocket', async ({ loadExample, page }) => {
     const { interceptor } = window
 
     interceptor.on('connection', ({ client }) => {
-      client.on('message', (event) => (window.outgoingData = event.data))
+      client.addEventListener(
+        'message',
+        (event) => (window.outgoingData = event.data)
+      )
     })
     interceptor.apply()
   })
@@ -88,7 +94,10 @@ test('intercepts ArrayBuffer sent over websocket', async ({
     const { interceptor } = window
 
     interceptor.on('connection', ({ client }) => {
-      client.on('message', (event) => (window.outgoingData = event.data))
+      client.addEventListener(
+        'message',
+        (event) => (window.outgoingData = event.data)
+      )
     })
     interceptor.apply()
   })
