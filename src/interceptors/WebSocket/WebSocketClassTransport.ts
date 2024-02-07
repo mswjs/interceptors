@@ -2,6 +2,7 @@ import { bindEvent } from './utils/bindEvent'
 import {
   WebSocketRawData,
   WebSocketTransport,
+  WebSocketTransportOnCloseCallback,
   WebSocketTransportOnIncomingCallback,
   WebSocketTransportOnOutgoingCallback,
 } from './WebSocketTransport'
@@ -10,9 +11,14 @@ import { kOnSend, WebSocketOverride } from './WebSocketOverride'
 export class WebSocketClassTransport extends WebSocketTransport {
   public onOutgoing: WebSocketTransportOnOutgoingCallback = () => {}
   public onIncoming: WebSocketTransportOnIncomingCallback = () => {}
+  public onClose: WebSocketTransportOnCloseCallback = () => {}
 
   constructor(protected readonly ws: WebSocketOverride) {
     super()
+
+    this.ws.addEventListener('close', (event) => this.onClose(event), {
+      once: true,
+    })
     this.ws[kOnSend] = (...args) => this.onOutgoing(...args)
   }
 

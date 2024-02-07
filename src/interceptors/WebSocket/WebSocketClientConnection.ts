@@ -35,6 +35,12 @@ export class WebSocketClientConnection {
         bindEvent(this.ws, new MessageEvent('message', { data }))
       )
     }
+
+    this.transport.onClose = (event) => {
+      this[kEmitter].dispatchEvent(
+        bindEvent(this.ws, new CloseEvent('close', event))
+      )
+    }
   }
 
   /**

@@ -8,6 +8,8 @@ export type WebSocketTransportOnOutgoingCallback = (
   data: WebSocketRawData
 ) => void
 
+export type WebSocketTransportOnCloseCallback = (event: CloseEvent) => void
+
 export abstract class WebSocketTransport {
   /**
    * Listener for the incoming server events.
@@ -19,6 +21,7 @@ export abstract class WebSocketTransport {
    */
   abstract onIncoming: WebSocketTransportOnIncomingCallback
   abstract onOutgoing: WebSocketTransportOnOutgoingCallback
+  abstract onClose: WebSocketTransportOnCloseCallback
 
   /**
    * Send the data from the server to this client.
