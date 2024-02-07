@@ -1,7 +1,11 @@
-const encoder = new TextEncoder()
+let encoder: TextEncoder;
+
+function getEncoder() {
+  return encoder || (encoder = new TextEncoder());
+}
 
 export function encodeBuffer(text: string): Uint8Array {
-  return encoder.encode(text)
+  return getEncoder().encode(text)
 }
 
 export function decodeBuffer(buffer: ArrayBuffer, encoding?: string): string {
