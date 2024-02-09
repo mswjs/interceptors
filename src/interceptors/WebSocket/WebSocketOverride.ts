@@ -1,6 +1,7 @@
 import { invariant } from 'outvariant'
 import type { WebSocketRawData } from './WebSocketTransport'
 import { bindEvent } from './utils/bindEvent'
+import { CloseEvent } from './utils/events'
 
 type WebSocketEventListener = (this: WebSocket, event: Event) => void
 

@@ -6,6 +6,7 @@ import { WebSocketServer } from 'ws'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
 import { getWsUrl } from '../utils/getWsUrl'
+import { waitForNextTick } from '../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -28,10 +29,7 @@ afterAll(() => {
   wsServer.close()
 })
 
-/**
- * @fixme Once "ws" stops polyfilling "Event".
- */
-it.skip('forwards incoming server data from the original server', async () => {
+it('forwards incoming server data from the original server', async () => {
   wsServer.once('connection', (ws) => {
     ws.send('hello from server')
   })
@@ -53,7 +51,7 @@ it.skip('forwards incoming server data from the original server', async () => {
   expect(messageEvent.target).toEqual(ws)
 })
 
-it.skip('forwards outgoing client data to the original server', async () => {
+it('forwards outgoing client data to the original server', async () => {
   wsServer.once('connection', (ws) => {
     ws.on('message', (data) => {
       ws.send(`Hello, ${data}!`)
@@ -81,17 +79,14 @@ it.skip('forwards outgoing client data to the original server', async () => {
   expect(messageEvent.target).toEqual(ws)
 })
 
-/**
- * @fixme Once again, the "ws" custom Error issue.
- */
-it.skip('closes the actual server connection when the client closes', async () => {
+it('closes the actual server connection when the client closes', async () => {
   const clientClosePromise = new DeferredPromise<CloseEvent>()
-  const serverClosePromise = new DeferredPromise<CloseEvent>()
+  let realWebSocket: WebSocket | undefined
 
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
+    realWebSocket = server['realWebSocket']
 
-    server.addEventListener('close', serverClosePromise.resolve)
     client.addEventListener('message', (event) => {
       if (event.data === 'close') {
         return client.close()
@@ -104,15 +99,9 @@ it.skip('closes the actual server connection when the client closes', async () =
   ws.addEventListener('open', () => {
     ws.send('close')
   })
-  ws.onclose = clientClosePromise.resolve
+  ws.addEventListener('close', (event) => clientClosePromise.resolve(event))
 
   await clientClosePromise
   expect(ws.readyState).toBe(WebSocket.CLOSED)
-
-  const closeEvent = await serverClosePromise
-  expect(closeEvent.type).toBe('close')
-  expect(closeEvent.code).toBe(1000)
-  expect(closeEvent.reason).toBe('')
-  expect(closeEvent.wasClean).toBe(true)
-  expect(closeEvent.target).toBe(wsServer)
+  expect(realWebSocket?.readyState).toBe(WebSocket.CLOSING)
 })

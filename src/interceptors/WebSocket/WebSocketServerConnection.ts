@@ -3,6 +3,7 @@ import type { WebSocketOverride } from './WebSocketOverride'
 import type { WebSocketRawData } from './WebSocketTransport'
 import type { WebSocketClassTransport } from './WebSocketClassTransport'
 import { bindEvent } from './utils/bindEvent'
+import { CloseEvent } from './utils/events'
 
 const kEmitter = Symbol('kEmitter')
 
@@ -84,10 +85,10 @@ export class WebSocketServerConnection {
       // exception. Clone it here so we can observe this event
       // being prevented in the "server.on()" listeners.
       const messageEvent = bindEvent(
-        this.realWebSocket!,
+        ws,
         new MessageEvent('message', {
           data: event.data,
-          origin: this.realWebSocket!.url,
+          origin: event.origin,
           cancelable: true,
         })
       )
@@ -108,7 +109,10 @@ export class WebSocketServerConnection {
             this.mockWebSocket,
             // Clone the message event again to prevent
             // the "already being dispatched" exception.
-            new MessageEvent('message', { data: event.data })
+            new MessageEvent('message', {
+              data: event.data,
+              origin: event.origin,
+            })
           )
         )
       }

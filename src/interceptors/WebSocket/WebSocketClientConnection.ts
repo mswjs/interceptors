@@ -8,6 +8,7 @@
 import type { WebSocketRawData, WebSocketTransport } from './WebSocketTransport'
 import { WebSocketMessageListener } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
+import { CloseEvent } from './utils/events'
 
 const kEmitter = Symbol('kEmitter')
 

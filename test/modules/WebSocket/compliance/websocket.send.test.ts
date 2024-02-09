@@ -3,7 +3,7 @@
  * @see https://websockets.spec.whatwg.org/#dom-websocket-send
  */
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { RawData, WebSocketServer } from 'ws'
+import { Data, WebSocketServer } from 'ws'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
 import { getWsUrl } from '../utils/getWsUrl'
@@ -30,21 +30,16 @@ afterAll(() => {
 
 it('throws "InvalidStateError" when sending while the connection is not open yet', () => {
   const ws = new WebSocket('wss://example.com')
-  expect(() => {
-    ws.send('hello')
-  }).toThrow('InvalidStateError')
+  expect(() => ws.send('hello')).toThrow('InvalidStateError')
 })
 
-/**
- * @fixme The same "instanceof" issue with "ws".
- * It implements its own "Event" class so Node "dispatchEvent"
- * throws on that.
- */
-it.skip('sends text data to the original server', async () => {
-  const messagePromise = new DeferredPromise<RawData>()
+it('sends text data to the original server', async () => {
+  const messagePromise = new DeferredPromise<Data>()
 
   wsServer.once('connection', (ws) => {
-    ws.on('message', (data) => messagePromise.resolve(data))
+    ws.addEventListener('message', (event) => {
+      messagePromise.resolve(event.data)
+    })
   })
 
   interceptor.once('connection', ({ client, server }) => {
@@ -64,11 +59,13 @@ it.skip('sends text data to the original server', async () => {
   expect(ws.bufferedAmount).toBe(0)
 })
 
-it.skip('sends Blob data to the original server', async () => {
-  const messagePromise = new DeferredPromise<RawData>()
+it('sends Blob data to the original server', async () => {
+  const messagePromise = new DeferredPromise<Data>()
 
   wsServer.once('connection', (ws) => {
-    ws.on('message', (data) => messagePromise.resolve(data))
+    ws.addEventListener('message', (event) => {
+      messagePromise.resolve(event.data)
+    })
   })
 
   interceptor.once('connection', ({ client, server }) => {
@@ -84,12 +81,15 @@ it.skip('sends Blob data to the original server', async () => {
     expect(ws.bufferedAmount).toBe(5)
   })
 
-  expect(await messagePromise).toEqual(new Blob(['hello']))
+  /**
+   * @note "ws" will convert Blob to a Node.js Buffer.
+   */
+  expect(await messagePromise).toEqual(Buffer.from('hello'))
   expect(ws.bufferedAmount).toBe(0)
 })
 
-it.skip('sends ArrayBuffer data to the original server', async () => {
-  const messagePromise = new DeferredPromise<RawData>()
+it('sends ArrayBuffer data to the original server', async () => {
+  const messagePromise = new DeferredPromise<Data>()
 
   wsServer.once('connection', (ws) => {
     ws.on('message', (data) => messagePromise.resolve(data))
@@ -108,6 +108,9 @@ it.skip('sends ArrayBuffer data to the original server', async () => {
     expect(ws.bufferedAmount).toBe(5)
   })
 
-  expect(await messagePromise).toEqual(new TextEncoder().encode('hello'))
+  /**
+   * @note "ws" will convert ArrayBuffer to a Node.js Buffer.
+   */
+  expect(await messagePromise).toEqual(Buffer.from('hello'))
   expect(ws.bufferedAmount).toBe(0)
 })
