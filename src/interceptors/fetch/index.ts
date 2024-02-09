@@ -74,13 +74,16 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       const signal = interactiveRequest.signal
       const requestAborted = new DeferredPromise()
 
-      signal.addEventListener(
-        'abort',
-        () => {
-          requestAborted.reject(signal.reason)
-        },
-        { once: true }
-      )
+      // Signal isn't always defined in react-native.
+      if (signal) {
+        signal.addEventListener(
+          'abort',
+          () => {
+            requestAborted.reject(signal.reason)
+          },
+          { once: true }
+        )
+      }
 
       const resolverResult = await until(async () => {
         const listenersFinished = emitAsync(this.emitter, 'request', {
@@ -138,6 +141,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           return Promise.reject(createNetworkError(mockedResponse))
         }
 
+        // Clone the mocked response for the "response" event listener.
+        // This way, the listener can read the response and not lock its body
+        // for the actual fetch consumer.
         const responseClone = mockedResponse.clone()
 
         this.emitter.emit('response', {
@@ -147,17 +153,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           requestId,
         })
 
-        const response = new Response(mockedResponse.body, mockedResponse)
-
         // Set the "response.url" property to equal the intercepted request URL.
-        Object.defineProperty(response, 'url', {
+        Object.defineProperty(mockedResponse, 'url', {
           writable: false,
           enumerable: true,
           configurable: false,
           value: request.url,
         })
 
-        return response
+        return mockedResponse
       }
 
       this.logger.info('no mocked response received!')
