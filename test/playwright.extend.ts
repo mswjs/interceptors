@@ -1,5 +1,9 @@
 import { test as base, expect } from '@playwright/test'
-import { Compilation, WebpackHttpServer } from 'webpack-http-server'
+import {
+  Compilation,
+  CompilationOptions,
+  WebpackHttpServer,
+} from 'webpack-http-server'
 import {
   BrowserXMLHttpRequestInit,
   createBrowserXMLHttpRequest,
@@ -9,7 +13,7 @@ import {
 import { getWebpackHttpServer } from './webpackHttpServer'
 
 interface TestFixutures {
-  loadExample(entry: string): Promise<Compilation>
+  loadExample(entry: string, options?: CompilationOptions): Promise<Compilation>
   webpackServer: WebpackHttpServer
   callXMLHttpRequest: (
     init: BrowserXMLHttpRequestInit
@@ -25,9 +29,10 @@ export const test = base.extend<TestFixutures>({
   async loadExample({ webpackServer, page }, use) {
     let compilation: Compilation | undefined
 
-    await use(async (entry) => {
+    await use(async (entry, options) => {
       compilation = await webpackServer.compile(
-        Array.prototype.concat([], entry)
+        Array.prototype.concat([], entry),
+        options
       )
 
       page.on('pageerror', console.error)

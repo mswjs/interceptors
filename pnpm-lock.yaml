@@ -20,12 +20,14 @@ specifiers:
   '@types/node': ^16.11.26
   '@types/node-fetch': 2.5.12
   '@types/supertest': ^2.0.11
+  '@types/ws': ^8.5.10
   axios: ^1.6.0
   body-parser: ^1.19.0
   commitizen: ^4.2.4
   cors: ^2.8.5
   cross-env: ^7.0.3
   cz-conventional-changelog: 3.3.0
+  engine.io-parser: ^5.2.1
   express: ^4.17.3
   express-rate-limit: ^6.3.0
   follow-redirects: ^1.15.1
@@ -37,17 +39,22 @@ specifiers:
   outvariant: ^1.2.1
   rimraf: ^3.0.2
   simple-git-hooks: ^2.7.0
+  socket.io: ^4.7.4
+  socket.io-client: ^4.7.4
+  socket.io-parser: ^4.2.4
   strict-event-emitter: ^0.5.1
   superagent: ^6.1.0
   supertest: ^6.1.6
   ts-jest: ^27.1.1
   tsup: ^6.5.0
   typescript: ^4.9.4
+  undici: ^6.5.0
   vitest: ^0.28.5
   vitest-environment-miniflare: ^2.14.1
   wait-for-expect: ^3.0.2
   web-encoding: ^1.1.5
   webpack-http-server: ^0.5.0
+  ws: ^8.16.0
 
 dependencies:
   '@open-draft/deferred-promise': 2.2.0
@@ -71,12 +78,14 @@ devDependencies:
   '@types/node': 16.18.46
   '@types/node-fetch': 2.5.12
   '@types/supertest': 2.0.12
+  '@types/ws': 8.5.10
   axios: 1.6.0
   body-parser: 1.20.2
   commitizen: 4.3.0
   cors: 2.8.5
   cross-env: 7.0.3
   cz-conventional-changelog: 3.3.0
+  engine.io-parser: 5.2.1
   express: 4.18.2
   express-rate-limit: 6.9.0_express@4.18.2
   follow-redirects: 1.15.2
@@ -86,16 +95,21 @@ devDependencies:
   node-fetch: 2.6.7
   rimraf: 3.0.2
   simple-git-hooks: 2.9.0
+  socket.io: 4.7.4
+  socket.io-client: 4.7.4
+  socket.io-parser: 4.2.4
   superagent: 6.1.0
   supertest: 6.3.3
   ts-jest: 27.1.5_n4jzo3ixy42kfaqevs43wjx5ui
   tsup: 6.7.0_typescript@4.9.5
   typescript: 4.9.5
+  undici: 6.5.0
   vitest: 0.28.5_happy-dom@12.10.3
   vitest-environment-miniflare: 2.14.1_vitest@0.28.5
   wait-for-expect: 3.0.2
   web-encoding: 1.1.5
   webpack-http-server: 0.5.0
+  ws: 8.16.0
 
 packages:
 
@@ -1053,6 +1067,11 @@ packages:
     dev: true
     optional: true
 
+  /@fastify/busboy/2.1.0:
+    resolution: {integrity: sha512-+KpH+QxZU7O4675t3mnkQKcZZg56u+K/Ct2K+N2AZYNVK8kyeo/bI18tI8aPm3tvNNRyTWfj6s5tnGNlcbQRsA==}
+    engines: {node: '>=14'}
+    dev: true
+
   /@iarna/toml/2.2.5:
     resolution: {integrity: sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg==}
     dev: true
@@ -1462,7 +1481,7 @@ packages:
       '@miniflare/core': 2.14.1
       '@miniflare/shared': 2.14.1
       undici: 5.20.0
-      ws: 8.11.0
+      ws: 8.16.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -1508,7 +1527,7 @@ packages:
       cors: 2.8.5
       express: 4.18.2
       outvariant: 1.4.0
-      socket.io: 4.7.2
+      socket.io: 4.7.4
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -1898,6 +1917,12 @@ packages:
     resolution: {integrity: sha512-X3HPWTwXRerBZS7Mo1k6vMVR1Z6zmJcDVn5O/31whe0tnjE4te6ZJSJGq1RiqHPjzPdMTfjCFogDJmwng9xHaQ==}
     dependencies:
       '@types/superagent': 4.1.18
+    dev: true
+
+  /@types/ws/8.5.10:
+    resolution: {integrity: sha512-vmQSUcfalpIq0R9q7uTo2lXs6eGIpt9wtnLdMv9LVpIjCA/+ufZRozlVoVelIYixx1ugCBKDhn89vnsEGOCx9A==}
+    dependencies:
+      '@types/node': 20.4.7
     dev: true
 
   /@types/yargs-parser/21.0.0:
@@ -3217,13 +3242,27 @@ packages:
       once: 1.4.0
     dev: true
 
+  /engine.io-client/6.5.3:
+    resolution: {integrity: sha512-9Z0qLB0NIisTRt1DZ/8U2k12RJn8yls/nXMZLn+/N8hANT3TcYjKFKcwbw5zFQiN4NTde3TSY9zb79e1ij6j9Q==}
+    dependencies:
+      '@socket.io/component-emitter': 3.1.0
+      debug: 4.3.4
+      engine.io-parser: 5.2.1
+      ws: 8.11.0
+      xmlhttprequest-ssl: 2.0.0
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+    dev: true
+
   /engine.io-parser/5.2.1:
     resolution: {integrity: sha512-9JktcM3u18nU9N2Lz3bWeBgxVgOKpw7yhRaoxQA3FUDZzzw+9WlA6p4G4u0RixNkg14fH7EfEc/RhpurtiROTQ==}
     engines: {node: '>=10.0.0'}
     dev: true
 
-  /engine.io/6.5.2:
-    resolution: {integrity: sha512-IXsMcGpw/xRfjra46sVZVHiSWo/nJ/3g1337q9KNXtS6YRzbW5yIzTCb9DjhrBe7r3GZQR0I4+nq+4ODk5g/cA==}
+  /engine.io/6.5.4:
+    resolution: {integrity: sha512-KdVSDKhVKyOi+r5uEabrDLZw2qXStVvCsEB/LN3mw4WFi6Gx50jTyuxYVCwAAC0U46FdnzP/ScKRBTXb/NiEOg==}
     engines: {node: '>=10.2.0'}
     dependencies:
       '@types/cookie': 0.4.1
@@ -6140,6 +6179,20 @@ packages:
       - utf-8-validate
     dev: true
 
+  /socket.io-client/4.7.4:
+    resolution: {integrity: sha512-wh+OkeF0rAVCrABWQBaEjLfb7DVPotMbu0cgWgyR0v6eA4EoVnAwcIeIbcdTE3GT/H3kbdLl7OoH2+asoDRIIg==}
+    engines: {node: '>=10.0.0'}
+    dependencies:
+      '@socket.io/component-emitter': 3.1.0
+      debug: 4.3.4
+      engine.io-client: 6.5.3
+      socket.io-parser: 4.2.4
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+    dev: true
+
   /socket.io-parser/4.2.4:
     resolution: {integrity: sha512-/GbIKmo8ioc+NIWIhwdecY0ge+qVBSMdgxGygevmdHj24bsfgtCmcUUcQ5ZzcylGFHsN3k4HB4Cgkl96KVnuew==}
     engines: {node: '>=10.0.0'}
@@ -6150,15 +6203,15 @@ packages:
       - supports-color
     dev: true
 
-  /socket.io/4.7.2:
-    resolution: {integrity: sha512-bvKVS29/I5fl2FGLNHuXlQaUH/BlzX1IN6S+NKLNZpBsPZIDH+90eQmCs2Railn4YUiww4SzUedJ6+uzwFnKLw==}
+  /socket.io/4.7.4:
+    resolution: {integrity: sha512-DcotgfP1Zg9iP/dH9zvAQcWrE0TtbMVwXmlV4T4mqsvY+gw+LqUGPfx2AoVyRk0FLME+GQhufDMyacFmw7ksqw==}
     engines: {node: '>=10.2.0'}
     dependencies:
       accepts: 1.3.8
       base64id: 2.0.0
       cors: 2.8.5
       debug: 4.3.4
-      engine.io: 6.5.2
+      engine.io: 6.5.4
       socket.io-adapter: 2.5.2
       socket.io-parser: 4.2.4
     transitivePeerDependencies:
@@ -6861,6 +6914,13 @@ packages:
       busboy: 1.6.0
     dev: true
 
+  /undici/6.5.0:
+    resolution: {integrity: sha512-/MUmPb2ptTvp1j7lPvdMSofMdqPxcOhAaKZi4k55sqm6XMeKI3n1dZJ5cnD4gLjpt2l7CIlthR1IXM59xKhpxw==}
+    engines: {node: '>=18.0'}
+    dependencies:
+      '@fastify/busboy': 2.1.0
+    dev: true
+
   /universalify/0.2.0:
     resolution: {integrity: sha512-CJ1QgKmNg3CwvAv/kOFmtnEN05f0D/cn9QntgNOQlQF9dgvVTHj3t+8JPdjqawCHk7V/KA+fbUqzZ9XWhcqPUg==}
     engines: {node: '>= 4.0.0'}
@@ -7355,12 +7415,30 @@ packages:
         optional: true
     dev: true
 
+  /ws/8.16.0:
+    resolution: {integrity: sha512-HS0c//TP7Ina87TfiPUz1rQzMhHrl/SG2guqRcTOIUYD2q8uhUdNHZYJUaQ8aTGPzCh+c6oawMKW35nFl1dxyQ==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+    dev: true
+
   /xml-name-validator/3.0.0:
     resolution: {integrity: sha512-A5CUptxDsvxKJEU3yO6DuWBSJz/qizqzJKOMIfUJHETbBw/sFaDxgd6fxm1ewUaM0jZ444Fc5vC5ROYurg/4Pw==}
     dev: true
 
   /xmlchars/2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
+    dev: true
+
+  /xmlhttprequest-ssl/2.0.0:
+    resolution: {integrity: sha512-QKxVRxiRACQcVuQEYFsI1hhkrMlrXHPegbbd1yn9UHOmRxY+si12nQYzri3vbzt8VdTTRviqcKxcyllFas5z2A==}
+    engines: {node: '>=0.4.0'}
     dev: true
 
   /xtend/4.0.2:
