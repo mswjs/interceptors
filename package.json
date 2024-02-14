@@ -103,7 +103,8 @@
     "ClientRequest",
     "fetch",
     "RemoteHttpInterceptor",
-    "XMLHttpRequest"
+    "XMLHttpRequest",
+    "WebSocket"
   ],
   "repository": {
     "type": "git",
