@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node-with-websocket
  */
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { WebSocketServer } from 'ws'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
@@ -103,4 +103,18 @@ it('closes the actual server connection when the client closes', async () => {
   await clientClosePromise
   expect(ws.readyState).toBe(WebSocket.CLOSED)
   expect(realWebSocket?.readyState).toBe(WebSocket.CLOSING)
+})
+
+it('throw an error when connecting to a non-existing server', async () => {
+  interceptor.once('connection', ({ server }) => {
+    server.connect()
+  })
+
+  const errorListener = vi.fn()
+  const ws = new WebSocket('ws://localhost:9876')
+  ws.onerror = errorListener
+
+  await vi.waitFor(() => {
+    expect(errorListener).toHaveBeenCalledTimes(1)
+  })
 })

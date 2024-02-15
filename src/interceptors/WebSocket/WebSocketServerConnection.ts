@@ -117,6 +117,14 @@ export class WebSocketServerConnection {
       this.transport.onIncoming(event)
     })
 
+    // Forward server errors to the WebSocket client as-is.
+    // We may consider exposing them to the interceptor in the future.
+    ws.addEventListener('error', () => {
+      this.mockWebSocket.dispatchEvent(
+        bindEvent(this.mockWebSocket, new Event('error'))
+      )
+    })
+
     this.realWebSocket = ws
   }
 
