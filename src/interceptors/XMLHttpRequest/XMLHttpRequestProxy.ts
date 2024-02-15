@@ -23,7 +23,11 @@ export function createXMLHttpRequestProxy({
     construct(target, args, newTarget) {
       logger.info('constructed new XMLHttpRequest')
 
-      const originalRequest = Reflect.construct(target, args, newTarget)
+      const originalRequest = Reflect.construct(
+        target,
+        args,
+        newTarget
+      ) as XMLHttpRequest
 
       /**
        * @note Forward prototype descriptors onto the proxied object.

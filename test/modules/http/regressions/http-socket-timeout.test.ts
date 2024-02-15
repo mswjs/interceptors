@@ -12,6 +12,14 @@ beforeAll(() => {
 
   // Jest writes its output into "stderr".
   child.stderr?.on('data', (buffer: Buffer) => {
+    /**
+     * @note @fixme Skip Vite's CJS build deprecation message.
+     * Remove this once the Interceptors are ESM-only.
+     */
+    if (buffer.toString('utf8').includes('Vite')) {
+      return
+    }
+
     stderr = Buffer.concat([stderr, buffer])
   })
 })

@@ -6,7 +6,7 @@ import {
   WebSocketTransportOnIncomingCallback,
   WebSocketTransportOnOutgoingCallback,
 } from './WebSocketTransport'
-import { kOnSend, WebSocketOverride } from './WebSocketOverride'
+import { kOnSend, kClose, WebSocketOverride } from './WebSocketOverride'
 
 export class WebSocketClassTransport extends WebSocketTransport {
   public onOutgoing: WebSocketTransportOnOutgoingCallback = () => {}
@@ -50,6 +50,6 @@ export class WebSocketClassTransport extends WebSocketTransport {
      * to allow closing the connection with the status codes
      * that are non-configurable by the user (> 1000 <= 1015).
      */
-    this.ws['_close'](code, reason)
+    this.ws[kClose](code, reason)
   }
 }

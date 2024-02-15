@@ -559,7 +559,7 @@ export class XMLHttpRequestController {
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
       body: ['GET', 'HEAD'].includes(this.method)
         ? null
-        : (this.requestBody as any),
+        : (this.requestBody as BodyInit),
     })
 
     const proxyHeaders = createProxy(fetchRequest.headers, {

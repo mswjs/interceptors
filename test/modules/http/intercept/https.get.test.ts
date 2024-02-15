@@ -45,7 +45,7 @@ it('intercepts a GET request', async () => {
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')

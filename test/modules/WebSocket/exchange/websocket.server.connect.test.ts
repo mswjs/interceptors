@@ -6,7 +6,6 @@ import { WebSocketServer } from 'ws'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
 import { getWsUrl } from '../utils/getWsUrl'
-import { waitForNextTick } from '../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()
 
