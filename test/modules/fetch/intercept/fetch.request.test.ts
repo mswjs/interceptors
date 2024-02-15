@@ -52,7 +52,7 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
 
   expect(capturedRequest.method).toBe('POST')
   expect(capturedRequest.url).toBe(httpServer.http.url('/user'))
-  expect(Object.fromEntries(capturedRequest.headers.entries())).toContain({
+  expect(Object.fromEntries(capturedRequest.headers.entries())).toMatchObject({
     'content-type': 'text/plain',
     'user-agent': 'interceptors',
   })

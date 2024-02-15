@@ -97,7 +97,7 @@ it('intercepts an HTTP POST request', async () => {
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     accept: '*/*',
     'x-custom-header': 'yes',
   })
@@ -123,7 +123,7 @@ it('intercepts an HTTP PUT request', async () => {
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
@@ -147,7 +147,7 @@ it('intercepts an HTTP DELETE request', async () => {
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
@@ -172,7 +172,7 @@ it('intercepts an HTTP PATCH request', async () => {
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
@@ -197,7 +197,7 @@ it('intercepts an HTTPS HEAD request', async () => {
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
@@ -221,7 +221,7 @@ it('intercepts an HTTPS GET request', async () => {
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
@@ -247,7 +247,7 @@ it('intercepts an HTTPS POST request', async () => {
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
@@ -273,7 +273,7 @@ it('intercepts an HTTPS PUT request', async () => {
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
@@ -298,7 +298,7 @@ it('intercepts an HTTPS DELETE request', async () => {
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
@@ -323,7 +323,7 @@ it('intercepts an HTTPS PATCH request', async () => {
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')

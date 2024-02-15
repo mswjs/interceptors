@@ -48,7 +48,7 @@ specifiers:
   ts-jest: ^27.1.1
   tsup: ^6.5.0
   typescript: ^4.9.4
-  undici: ^6.5.0
+  undici: ^6.6.2
   vitest: ^1.2.2
   vitest-environment-miniflare: ^2.14.1
   wait-for-expect: ^3.0.2
@@ -103,7 +103,7 @@ devDependencies:
   ts-jest: 27.1.5_n4jzo3ixy42kfaqevs43wjx5ui
   tsup: 6.7.0_typescript@4.9.5
   typescript: 4.9.5
-  undici: 6.5.0
+  undici: 6.6.2
   vitest: 1.2.2_tzd3dabz5yko6x5zyblyxnclxa
   vitest-environment-miniflare: 2.14.1_vitest@1.2.2
   wait-for-expect: 3.0.2
@@ -7086,8 +7086,8 @@ packages:
       busboy: 1.6.0
     dev: true
 
-  /undici/6.5.0:
-    resolution: {integrity: sha512-/MUmPb2ptTvp1j7lPvdMSofMdqPxcOhAaKZi4k55sqm6XMeKI3n1dZJ5cnD4gLjpt2l7CIlthR1IXM59xKhpxw==}
+  /undici/6.6.2:
+    resolution: {integrity: sha512-vSqvUE5skSxQJ5sztTZ/CdeJb1Wq0Hf44hlYMciqHghvz+K88U0l7D6u1VsndoFgskDcnU+nG3gYmMzJVzd9Qg==}
     engines: {node: '>=18.0'}
     dependencies:
       '@fastify/busboy': 2.1.0
