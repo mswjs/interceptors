@@ -16,6 +16,7 @@ const WEBSOCKET_CLOSE_CODE_RANGE_ERROR =
   'InvalidAccessError: close code out of user configurable range'
 
 export const kOnSend = Symbol('kOnSend')
+export const kClose = Symbol('kClose')
 
 export class WebSocketOverride extends EventTarget implements WebSocket {
   static readonly CONNECTING = WebSocket.CONNECTING
@@ -150,10 +151,10 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
       return
     }
 
-    this._close(code, reason)
+    this[kClose](code, reason)
   }
 
-  private _close(code: number = 1000, reason?: string): void {
+  private [kClose](code: number = 1000, reason?: string): void {
     this.readyState = this.CLOSING
 
     queueMicrotask(() => {
