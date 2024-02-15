@@ -3,7 +3,6 @@ import type { WebSocketOverride } from './WebSocketOverride'
 import type { WebSocketRawData } from './WebSocketTransport'
 import type { WebSocketClassTransport } from './WebSocketClassTransport'
 import { bindEvent } from './utils/bindEvent'
-import { CloseEvent } from './utils/events'
 
 const kEmitter = Symbol('kEmitter')
 
@@ -95,9 +94,10 @@ export class WebSocketServerConnection {
 
       this.transport.onIncoming(messageEvent)
 
-      // Unless the default is prevented, forward the
-      // messages from the original server to the mock client.
-      // This is the only way the user can receive them.
+      /**
+       * @note Forward the incoming server events to the client.
+       * Preventing the default on the message event stops this.
+       */
       if (!messageEvent.defaultPrevented) {
         this.mockWebSocket.dispatchEvent(
           bindEvent(
