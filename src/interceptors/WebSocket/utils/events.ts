@@ -1,3 +1,38 @@
+const kCancelable = Symbol('kCancelable')
+const kDefaultPrevented = Symbol('kDefaultPrevented')
+
+/**
+ * A `MessageEvent` superset that supports event cancellation
+ * in Node.js. It's rather non-intrusive so it can be safely
+ * used in the browser as well.
+ *
+ * @see https://github.com/nodejs/node/issues/51767
+ */
+export class CancelableMessageEvent<T = any> extends MessageEvent<T> {
+  [kCancelable]: boolean;
+  [kDefaultPrevented]: boolean
+
+  constructor(type: string, init: MessageEventInit<T>) {
+    super(type, init)
+    this[kCancelable] = !!init.cancelable
+    this[kDefaultPrevented] = false
+  }
+
+  get cancelable() {
+    return this[kCancelable]
+  }
+
+  get defaultPrevented() {
+    return this[kDefaultPrevented]
+  }
+
+  public preventDefault(): void {
+    if (this.cancelable && !this[kDefaultPrevented]) {
+      this[kDefaultPrevented] = true
+    }
+  }
+}
+
 interface CloseEventInit extends EventInit {
   code?: number
   reason?: string

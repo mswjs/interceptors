@@ -7,6 +7,7 @@ import { WebSocket } from 'undici'
 
 export default <Environment>{
   name: 'node-with-websocket',
+  transformMode: 'ssr',
   async setup(global, options) {
     const { teardown } = await builtinEnvironments.node.setup(global, options)
 
