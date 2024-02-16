@@ -18,6 +18,7 @@ const kEmitter = Symbol('kEmitter')
  * send and receive events.
  */
 export class WebSocketClientConnection {
+  public readonly id: string
   public readonly url: URL
 
   protected [kEmitter]: EventTarget
@@ -26,6 +27,7 @@ export class WebSocketClientConnection {
     protected readonly ws: WebSocket,
     protected readonly transport: WebSocketTransport
   ) {
+    this.id = Math.random().toString(36).slice(2)
     this.url = new URL(ws.url)
     this[kEmitter] = new EventTarget()
 
