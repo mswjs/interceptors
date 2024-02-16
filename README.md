@@ -2,15 +2,12 @@
 
 # `@mswjs/interceptors`
 
-Low-level HTTP/HTTPS/XHR/fetch request interception library.
+Low-level network interception library.
 
-**Intercepts any requests issued by:**
+This library supports intercepting the following protocols:
 
-- `http.get`/`http.request`
-- `https.get`/`https.request`
-- `XMLHttpRequest`
-- `window.fetch`
-- Any third-party libraries that use the modules above (i.e. `axios`, `request`, `node-fetch`, `supertest`, etc.)
+- HTTP (via the `http` module, `XMLHttpRequest`, or `globalThis.fetch`);
+- [WebSocket](#websocket-interception) (the `WebSocket` class in Undici and in the browser).
 
 ## Motivation
 
