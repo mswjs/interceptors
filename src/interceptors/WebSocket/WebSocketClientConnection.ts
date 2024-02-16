@@ -9,6 +9,7 @@ import type { WebSocketRawData, WebSocketTransport } from './WebSocketTransport'
 import { WebSocketMessageListener } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 import { CloseEvent } from './utils/events'
+import { uuidv4 } from '../../utils/uuid'
 
 const kEmitter = Symbol('kEmitter')
 
@@ -18,6 +19,7 @@ const kEmitter = Symbol('kEmitter')
  * send and receive events.
  */
 export class WebSocketClientConnection {
+  public readonly id: string
   public readonly url: URL
 
   protected [kEmitter]: EventTarget
@@ -26,6 +28,7 @@ export class WebSocketClientConnection {
     protected readonly ws: WebSocket,
     protected readonly transport: WebSocketTransport
   ) {
+    this.id = uuidv4()
     this.url = new URL(ws.url)
     this[kEmitter] = new EventTarget()
 
