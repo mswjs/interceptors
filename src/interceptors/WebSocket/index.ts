@@ -66,8 +66,8 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
           client: new WebSocketClientConnection(socket, transport),
           server: new WebSocketServerConnection(
             socket,
-            createConnection,
-            transport
+            transport,
+            createConnection
           ),
         })
 

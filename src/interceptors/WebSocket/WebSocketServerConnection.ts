@@ -21,8 +21,8 @@ export class WebSocketServerConnection {
 
   constructor(
     private readonly socket: WebSocketOverride,
-    private readonly createConnection: () => WebSocket,
-    private readonly transport: WebSocketClassTransport
+    private readonly transport: WebSocketClassTransport,
+    private readonly createConnection: () => WebSocket
   ) {
     this[kEmitter] = new EventTarget()
 
