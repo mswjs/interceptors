@@ -56,22 +56,22 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
         // All WebSocket instances are mocked and don't forward
         // any events to the original server (no connection established).
         // To forward the events, the user must use the "server.send()" API.
-        const mockWs = new WebSocketOverride(url, protocols)
-        const transport = new WebSocketClassTransport(mockWs)
+        const socket = new WebSocketOverride(url, protocols)
+        const transport = new WebSocketClassTransport(socket)
 
         // The "globalThis.WebSocket" class stands for
         // the client-side connection. Assume it's established
         // as soon as the WebSocket instance is constructed.
         this.emitter.emit('connection', {
-          client: new WebSocketClientConnection(mockWs, transport),
+          client: new WebSocketClientConnection(socket, transport),
           server: new WebSocketServerConnection(
-            mockWs,
+            socket,
             createConnection,
             transport
           ),
         })
 
-        return mockWs
+        return socket
       },
     })
 

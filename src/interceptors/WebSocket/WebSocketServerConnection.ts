@@ -20,7 +20,7 @@ export class WebSocketServerConnection {
   private [kEmitter]: EventTarget
 
   constructor(
-    private readonly mockWebSocket: WebSocketOverride,
+    private readonly socket: WebSocketOverride,
     private readonly createConnection: () => WebSocket,
     private readonly transport: WebSocketClassTransport
   ) {
@@ -58,14 +58,14 @@ export class WebSocketServerConnection {
        * Preventing the default on the message event stops this.
        */
       if (!messageEvent.defaultPrevented) {
-        this.mockWebSocket.dispatchEvent(
+        this.socket.dispatchEvent(
           bindEvent(
             /**
              * @note Bind the forwarded original server events
              * to the mock WebSocket instance so it would
              * dispatch them straight away.
              */
-            this.mockWebSocket,
+            this.socket,
             // Clone the message event again to prevent
             // the "already being dispatched" exception.
             new MessageEvent('message', {
@@ -105,7 +105,7 @@ export class WebSocketServerConnection {
 
     // Close the original connection when the (mock)
     // client closes, regardless of the reason.
-    this.mockWebSocket.addEventListener(
+    this.socket.addEventListener(
       'close',
       (event) => {
         ws.close(event.code, event.reason)
@@ -120,9 +120,7 @@ export class WebSocketServerConnection {
     // Forward server errors to the WebSocket client as-is.
     // We may consider exposing them to the interceptor in the future.
     ws.addEventListener('error', () => {
-      this.mockWebSocket.dispatchEvent(
-        bindEvent(this.mockWebSocket, new Event('error'))
-      )
+      this.socket.dispatchEvent(bindEvent(this.socket, new Event('error')))
     })
 
     this.realWebSocket = ws
@@ -170,7 +168,7 @@ export class WebSocketServerConnection {
     invariant(
       realWebSocket,
       'Failed to call "server.send()" for "%s": the connection is not open. Did you forget to call "await server.connect()"?',
-      this.mockWebSocket.url
+      this.socket.url
     )
 
     // Delegate the send to when the original connection is open.

@@ -25,24 +25,24 @@ export class WebSocketClientConnection {
   protected [kEmitter]: EventTarget
 
   constructor(
-    protected readonly ws: WebSocket,
+    protected readonly socket: WebSocket,
     protected readonly transport: WebSocketTransport
   ) {
     this.id = uuidv4()
-    this.url = new URL(ws.url)
+    this.url = new URL(socket.url)
     this[kEmitter] = new EventTarget()
 
     // Emit outgoing client data ("ws.send()") as "message"
     // events on the client connection.
     this.transport.onOutgoing = (data) => {
       this[kEmitter].dispatchEvent(
-        bindEvent(this.ws, new MessageEvent('message', { data }))
+        bindEvent(this.socket, new MessageEvent('message', { data }))
       )
     }
 
     this.transport.onClose = (event) => {
       this[kEmitter].dispatchEvent(
-        bindEvent(this.ws, new CloseEvent('close', event))
+        bindEvent(this.socket, new CloseEvent('close', event))
       )
     }
   }
