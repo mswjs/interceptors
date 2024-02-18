@@ -4,7 +4,7 @@ import { WebSocketServerConnection } from './WebSocketServerConnection'
 import { WebSocketClassTransport } from './WebSocketClassTransport'
 import { WebSocketOverride } from './WebSocketOverride'
 
-export type { WebSocketRawData } from './WebSocketTransport'
+export type { WebSocketData } from './WebSocketTransport'
 export { WebSocketClientConnection, WebSocketServerConnection }
 
 export type WebSocketEventMap = {
@@ -19,7 +19,7 @@ export type WebSocketEventMap = {
        * The original WebSocket server connection.
        */
       server: WebSocketServerConnection
-    }
+    },
   ]
 }
 

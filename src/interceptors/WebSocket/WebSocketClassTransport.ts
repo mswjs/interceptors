@@ -1,6 +1,6 @@
 import { bindEvent } from './utils/bindEvent'
 import {
-  WebSocketRawData,
+  WebSocketData,
   WebSocketTransport,
   WebSocketTransportOnCloseCallback,
   WebSocketTransportOnIncomingCallback,
@@ -22,7 +22,7 @@ export class WebSocketClassTransport extends WebSocketTransport {
     this.ws[kOnSend] = (...args) => this.onOutgoing(...args)
   }
 
-  public send(data: WebSocketRawData): void {
+  public send(data: WebSocketData): void {
     queueMicrotask(() => {
       const message = bindEvent(
         /**

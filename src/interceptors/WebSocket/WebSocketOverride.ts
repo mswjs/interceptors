@@ -1,5 +1,5 @@
 import { invariant } from 'outvariant'
-import type { WebSocketRawData } from './WebSocketTransport'
+import type { WebSocketData } from './WebSocketTransport'
 import { bindEvent } from './utils/bindEvent'
 import { CloseEvent } from './utils/events'
 
@@ -40,7 +40,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
   private _onerror: WebSocketEventListener | null = null
   private _onclose: WebSocketCloseListener | null = null
 
-  private [kOnSend]?: (data: WebSocketRawData) => void
+  private [kOnSend]?: (data: WebSocketData) => void
 
   constructor(url: string | URL, protocols?: string | Array<string>) {
     super()
@@ -110,7 +110,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
   /**
    * @see https://websockets.spec.whatwg.org/#ref-for-dom-websocket-send%E2%91%A0
    */
-  public send(data: WebSocketRawData): void {
+  public send(data: WebSocketData): void {
     if (this.readyState === this.CONNECTING) {
       this.close()
       throw new DOMException('InvalidStateError')
@@ -217,7 +217,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
   }
 }
 
-function getDataSize(data: WebSocketRawData): number {
+function getDataSize(data: WebSocketData): number {
   if (typeof data === 'string') {
     return data.length
   }

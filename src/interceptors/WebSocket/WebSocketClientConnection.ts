@@ -5,7 +5,7 @@
  * meant to be used over any WebSocket implementation
  * (not all of them follow the one from WHATWG).
  */
-import type { WebSocketRawData, WebSocketTransport } from './WebSocketTransport'
+import type { WebSocketData, WebSocketTransport } from './WebSocketTransport'
 import { WebSocketMessageListener } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 import { CloseEvent } from './utils/events'
@@ -76,7 +76,7 @@ export class WebSocketClientConnection {
   /**
    * Send data to the connected client.
    */
-  public send(data: WebSocketRawData): void {
+  public send(data: WebSocketData): void {
     this.transport.send(data)
   }
 

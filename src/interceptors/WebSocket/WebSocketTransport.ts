@@ -1,12 +1,10 @@
-export type WebSocketRawData = string | ArrayBufferLike | Blob | ArrayBufferView
+export type WebSocketData = string | ArrayBufferLike | Blob | ArrayBufferView
 
 export type WebSocketTransportOnIncomingCallback = (
-  event: MessageEvent<WebSocketRawData>
+  event: MessageEvent<WebSocketData>
 ) => void
 
-export type WebSocketTransportOnOutgoingCallback = (
-  data: WebSocketRawData
-) => void
+export type WebSocketTransportOnOutgoingCallback = (data: WebSocketData) => void
 
 export type WebSocketTransportOnCloseCallback = (event: CloseEvent) => void
 
@@ -26,7 +24,7 @@ export abstract class WebSocketTransport {
   /**
    * Send the data from the server to this client.
    */
-  abstract send(data: WebSocketRawData): void
+  abstract send(data: WebSocketData): void
 
   /**
    * Close the client connection.

@@ -1,6 +1,6 @@
 import { invariant } from 'outvariant'
 import type { WebSocketOverride } from './WebSocketOverride'
-import type { WebSocketRawData } from './WebSocketTransport'
+import type { WebSocketData } from './WebSocketTransport'
 import type { WebSocketClassTransport } from './WebSocketClassTransport'
 import { bindEvent } from './utils/bindEvent'
 import { CancelableMessageEvent } from './utils/events'
@@ -165,7 +165,7 @@ export class WebSocketServerConnection {
    * server.send(new Blob(['hello']))
    * server.send(new TextEncoder().encode('hello'))
    */
-  public send(data: WebSocketRawData): void {
+  public send(data: WebSocketData): void {
     const { realWebSocket } = this
     invariant(
       realWebSocket,
