@@ -1,32 +1,37 @@
-export type WebSocketRawData = string | ArrayBufferLike | Blob | ArrayBufferView
+export type WebSocketData = string | ArrayBufferLike | Blob | ArrayBufferView
 
 export type WebSocketTransportOnIncomingCallback = (
-  event: MessageEvent<WebSocketRawData>
+  event: MessageEvent<WebSocketData>
 ) => void
 
-export type WebSocketTransportOnOutgoingCallback = (
-  data: WebSocketRawData
-) => void
+export type WebSocketTransportOnOutgoingCallback = (data: WebSocketData) => void
 
 export type WebSocketTransportOnCloseCallback = (event: CloseEvent) => void
 
 export abstract class WebSocketTransport {
   /**
-   * Listener for the incoming server events.
-   * This is called when the client receives the
-   * event from the original server connection.
-   *
-   * This way, we can trigger the "message" event
-   * on the mocked connection to let the user know.
+   * A callback for the incoming server events.
+   * This is called when the WebSocket client receives
+   * a message from the server.
    */
   abstract onIncoming: WebSocketTransportOnIncomingCallback
+
+  /**
+   * A callback for outgoing client events.
+   * This is called when the WebSocket client sends data.
+   */
   abstract onOutgoing: WebSocketTransportOnOutgoingCallback
+
+  /**
+   * A callback for the close client event.
+   * This is called when the WebSocket client is closed.
+   */
   abstract onClose: WebSocketTransportOnCloseCallback
 
   /**
    * Send the data from the server to this client.
    */
-  abstract send(data: WebSocketRawData): void
+  abstract send(data: WebSocketData): void
 
   /**
    * Close the client connection.

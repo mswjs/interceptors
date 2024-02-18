@@ -1,6 +1,6 @@
 import { bindEvent } from './utils/bindEvent'
 import {
-  WebSocketRawData,
+  WebSocketData,
   WebSocketTransport,
   WebSocketTransportOnCloseCallback,
   WebSocketTransportOnIncomingCallback,
@@ -8,21 +8,25 @@ import {
 } from './WebSocketTransport'
 import { kOnSend, kClose, WebSocketOverride } from './WebSocketOverride'
 
+/**
+ * Abstraction over the given mock `WebSocket` instance that allows
+ * for controlling that instance (e.g. sending and receiving messages).
+ */
 export class WebSocketClassTransport extends WebSocketTransport {
   public onOutgoing: WebSocketTransportOnOutgoingCallback = () => {}
   public onIncoming: WebSocketTransportOnIncomingCallback = () => {}
   public onClose: WebSocketTransportOnCloseCallback = () => {}
 
-  constructor(protected readonly ws: WebSocketOverride) {
+  constructor(protected readonly socket: WebSocketOverride) {
     super()
 
-    this.ws.addEventListener('close', (event) => this.onClose(event), {
+    this.socket.addEventListener('close', (event) => this.onClose(event), {
       once: true,
     })
-    this.ws[kOnSend] = (...args) => this.onOutgoing(...args)
+    this.socket[kOnSend] = (...args) => this.onOutgoing(...args)
   }
 
-  public send(data: WebSocketRawData): void {
+  public send(data: WebSocketData): void {
     queueMicrotask(() => {
       const message = bindEvent(
         /**
@@ -33,14 +37,14 @@ export class WebSocketClassTransport extends WebSocketTransport {
          * mocked message events like the one below
          * (must be dispatched on the client instance).
          */
-        this.ws,
+        this.socket,
         new MessageEvent('message', {
           data,
-          origin: this.ws.url,
+          origin: this.socket.url,
         })
       )
 
-      this.ws.dispatchEvent(message)
+      this.socket.dispatchEvent(message)
     })
   }
 
@@ -50,6 +54,6 @@ export class WebSocketClassTransport extends WebSocketTransport {
      * to allow closing the connection with the status codes
      * that are non-configurable by the user (> 1000 <= 1015).
      */
-    this.ws[kClose](code, reason)
+    this.socket[kClose](code, reason)
   }
 }
