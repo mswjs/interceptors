@@ -13,20 +13,29 @@ import { uuidv4 } from '../../utils/uuid'
 
 const kEmitter = Symbol('kEmitter')
 
+export interface WebSocketClientConnectionProtocol {
+  id: string
+  url: URL
+  send(data: WebSocketData): void
+  close(code?: number, reason?: string): void
+}
+
 /**
  * The WebSocket client instance represents an incoming
  * client connection. The user can control the connection,
  * send and receive events.
  */
-export class WebSocketClientConnection {
+export class WebSocketClientConnection
+  implements WebSocketClientConnectionProtocol
+{
   public readonly id: string
   public readonly url: URL
 
-  protected [kEmitter]: EventTarget
+  private [kEmitter]: EventTarget
 
   constructor(
-    protected readonly socket: WebSocket,
-    protected readonly transport: WebSocketTransport
+    private readonly socket: WebSocket,
+    private readonly transport: WebSocketTransport
   ) {
     this.id = uuidv4()
     this.url = new URL(socket.url)

@@ -1,11 +1,18 @@
 import { Interceptor } from '../../Interceptor'
-import { WebSocketClientConnection } from './WebSocketClientConnection'
+import {
+  type WebSocketClientConnectionProtocol,
+  WebSocketClientConnection,
+} from './WebSocketClientConnection'
 import { WebSocketServerConnection } from './WebSocketServerConnection'
 import { WebSocketClassTransport } from './WebSocketClassTransport'
 import { WebSocketOverride } from './WebSocketOverride'
 
 export { type WebSocketData, WebSocketTransport } from './WebSocketTransport'
-export { WebSocketClientConnection, WebSocketServerConnection }
+export {
+  WebSocketClientConnection,
+  WebSocketClientConnectionProtocol,
+  WebSocketServerConnection,
+}
 
 export type WebSocketEventMap = {
   connection: [
