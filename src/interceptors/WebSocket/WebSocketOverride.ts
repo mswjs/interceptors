@@ -19,14 +19,14 @@ export const kOnSend = Symbol('kOnSend')
 export const kClose = Symbol('kClose')
 
 export class WebSocketOverride extends EventTarget implements WebSocket {
-  static readonly CONNECTING = WebSocket.CONNECTING
-  static readonly OPEN = WebSocket.OPEN
-  static readonly CLOSING = WebSocket.CLOSING
-  static readonly CLOSED = WebSocket.CLOSED
-  readonly CONNECTING = WebSocket.CONNECTING
-  readonly OPEN = WebSocket.OPEN
-  readonly CLOSING = WebSocket.CLOSING
-  readonly CLOSED = WebSocket.CLOSED
+  static readonly CONNECTING = 0
+  static readonly OPEN = 1
+  static readonly CLOSING = 2
+  static readonly CLOSED = 3
+  readonly CONNECTING = 0
+  readonly OPEN = 1
+  readonly CLOSING = 2
+  readonly CLOSED = 3
 
   public url: string
   public protocol: string
