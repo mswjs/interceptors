@@ -327,7 +327,7 @@ To intercept an event sent by the WebSocket client, add a `message` listener to 
 ```js
 interceptor.on('connection', ({ client }) => {
   // Intercept all outgoing events from the client.
-  client.on('message', (event) => {
+  client.addEventListener('message', (event) => {
     console.log('received:', event.data)
   })
 })
@@ -359,7 +359,7 @@ interceptor.on('connection', ({ client, server }) => {
   server.connect()
 
   // Forward all outgoing client events to the original server.
-  client.on('message', (event) => server.send(event.data))
+  client.addEventListener('message', (event) => server.send(event.data))
 })
 ```
 
@@ -373,7 +373,7 @@ To intercept an incoming event from the original server, first establish the ori
 interceptor.on('connection', ({ server }) => {
   server.connect()
 
-  server.on('message', (event) => {
+  server.addEventListener('message', (event) => {
     console.log('original server sent:', event.data)
   })
 })
@@ -387,7 +387,7 @@ If you wish to prevent the automatic forwarding of the server events to the clie
 interceptor.on('connection', ({ client, server }) => {
   server.connect()
 
-  server.on('message', (event) => {
+  server.addEventListener('message', (event) => {
     if (event.data === 'hello from server') {
       // Never forward this event to the client.
       event.preventDefault()
