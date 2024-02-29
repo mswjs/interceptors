@@ -13,13 +13,13 @@ export async function emitAsync<
   eventName: EventName,
   ...data: Events[EventName]
 ): Promise<void> {
-  const listners = emitter.listeners(eventName)
+  const listeners = emitter.listeners(eventName)
 
-  if (listners.length === 0) {
+  if (listeners.length === 0) {
     return
   }
 
-  for (const listener of listners) {
-    await listener.apply(emitter, data)
+  for (const listener of listeners) {
+    await (listener as (...args: Events[EventName]) => Promise<void>).apply(emitter, data)
   }
 }

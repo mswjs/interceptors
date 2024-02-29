@@ -486,10 +486,7 @@ Enables request interception in the current process while delegating the respons
 import { RemoteHttpInterceptor } from '@mswjs/interceptors/RemoteHttpInterceptor'
 import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
 
-const interceptor = new RemoteHttpInterceptor({
-  // Alternatively, you can use presets.
-  interceptors: [new ClientRequestInterceptor()],
-})
+const interceptor = new RemoteHttpInterceptor()
 
 interceptor.apply()
 
@@ -502,7 +499,7 @@ You can still listen to and handle any requests in the child process via the `re
 
 ### `RemoteHttpResolver`
 
-Resolves an intercepted request in the given child `process`. Requires for that child process to enable request interception by calling the `createRemoteInterceptor` function.
+Resolves an intercepted request in the given child `process`. Requires for that child process to enable request interception by using the `RemoteHttpInterceptor` interceptor.
 
 ```js
 // parent.js
@@ -516,6 +513,7 @@ const appProcess = spawn('node', ['app.js'], {
 const resolver = new RemoteHttpResolver({
   process: appProcess,
 })
+resolver.apply();
 
 resolver.on('request', ({ request, requestId }) => {
   // Optionally, return a mocked response

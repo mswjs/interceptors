@@ -4,8 +4,9 @@ import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
-import { toInteractiveRequest } from './utils/toInteractiveRequest'
+import { InteractiveRequest, toInteractiveRequest } from './utils/toInteractiveRequest'
 import { emitAsync } from './utils/emitAsync'
+import { FetchInterceptor } from './interceptors/fetch'
 
 export interface SerializedRequest {
   id: string
@@ -29,22 +30,22 @@ export interface SerializedResponse {
 }
 
 export class RemoteHttpInterceptor extends BatchInterceptor<
-  [ClientRequestInterceptor, XMLHttpRequestInterceptor]
+  [ClientRequestInterceptor, XMLHttpRequestInterceptor, FetchInterceptor]
 > {
+  requestId2Response: Map<string, { request: InteractiveRequest, resolve: () => void }> = new Map();
   constructor() {
     super({
       name: 'remote-interceptor',
       interceptors: [
         new ClientRequestInterceptor(),
         new XMLHttpRequestInterceptor(),
+        new FetchInterceptor(),
       ],
     })
   }
 
   protected setup() {
     super.setup()
-
-    let handleParentMessage: NodeJS.MessageListener
 
     this.on('request', async ({ request, requestId }) => {
       // Send the stringified intercepted request to
@@ -67,34 +68,44 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
       process.send?.(`request:${serializedRequest}`)
 
       const responsePromise = new Promise<void>((resolve) => {
-        handleParentMessage = (message) => {
-          if (typeof message !== 'string') {
-            return resolve()
-          }
-
-          if (message.startsWith(`response:${requestId}`)) {
-            const [, serializedResponse] =
-              message.match(/^response:.+?:(.+)$/) || []
-
-            if (!serializedResponse) {
-              return resolve()
-            }
-
-            const responseInit = JSON.parse(
-              serializedResponse
-            ) as SerializedResponse
-
-            const mockedResponse = new Response(responseInit.body, {
-              status: responseInit.status,
-              statusText: responseInit.statusText,
-              headers: responseInit.headers,
-            })
-
-            request.respondWith(mockedResponse)
-            return resolve()
-          }
-        }
+        this.requestId2Response.set(requestId, { request, resolve })
       })
+      return responsePromise
+    })
+
+    const handleParentMessage: NodeJS.MessageListener = (message) => {
+      if (typeof message !== 'string') {
+        return
+      }
+      const startIdPosition = 'response:'.length;
+      const endIdPosition = message.indexOf(':', startIdPosition);
+      const requestId = message.slice(startIdPosition, endIdPosition)
+      const entry = this.requestId2Response.get(requestId)
+      if (!entry) {
+        return;
+      }
+      this.requestId2Response.delete(requestId)
+      const { request, resolve } = entry
+      const serializedResponse = message.slice(endIdPosition + 1)
+      console.log(serializedResponse)
+
+      if (!serializedResponse) {
+        return resolve()
+      }
+
+      const responseInit = JSON.parse(
+        serializedResponse
+      ) as SerializedResponse
+
+      const mockedResponse = new Response(responseInit.body, {
+        status: responseInit.status,
+        statusText: responseInit.statusText,
+        headers: responseInit.headers,
+      })
+
+      request.respondWith(mockedResponse)
+      return resolve()
+    }
 
       // Listen for the mocked response message from the parent.
       this.logger.info(
@@ -102,9 +113,6 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
         handleParentMessage
       )
       process.addListener('message', handleParentMessage)
-
-      return responsePromise
-    })
 
     this.subscriptions.push(() => {
       process.removeListener('message', handleParentMessage)
