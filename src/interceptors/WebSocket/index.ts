@@ -48,7 +48,9 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
   }
 
   protected setup(): void {
-    const webSocketProxy = Proxy.revocable(globalThis.WebSocket, {
+    const originalWebSocket = globalThis.WebSocket
+
+    const webSocketProxy = new Proxy(globalThis.WebSocket, {
       construct: (
         target,
         args: ConstructorParameters<typeof globalThis.WebSocket>,
@@ -82,10 +84,10 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
       },
     })
 
-    globalThis.WebSocket = webSocketProxy.proxy
+    globalThis.WebSocket = webSocketProxy
 
     this.subscriptions.push(() => {
-      webSocketProxy.revoke()
+      globalThis.WebSocket = originalWebSocket
     })
   }
 }
