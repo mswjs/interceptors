@@ -15,7 +15,7 @@ export type ResolvedRequestOptions = RequestOptions & RequestSelf
 
 export const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
-const DEFAULT_HOST = 'localhost'
+const DEFAULT_HOSTNAME = 'localhost'
 const SSL_PORT = 443
 
 function getAgent(
@@ -50,15 +50,6 @@ function getPortByRequestOptions(
     return Number(options.port)
   }
 
-  // Extract the port from the hostname.
-  if (options.hostname != null) {
-    const [, extractedPort] = options.hostname.match(/:(\d+)$/) || []
-
-    if (extractedPort != null) {
-      return Number(extractedPort)
-    }
-  }
-
   // Otherwise, try to resolve port from the agent.
   const agent = getAgent(options)
 
@@ -73,17 +64,6 @@ function getPortByRequestOptions(
   // Lastly, return undefined indicating that the port
   // must inferred from the protocol. Do not infer it here.
   return undefined
-}
-
-function getHostByRequestOptions(options: ResolvedRequestOptions): string {
-  const { hostname, host } = options
-
-  // If the hostname is specified, resolve the host from the "host:port" string.
-  if (hostname != null) {
-    return hostname.replace(/:\d+$/, '')
-  }
-
-  return host || DEFAULT_HOST
 }
 
 interface RequestAuth {
@@ -109,22 +89,20 @@ function isRawIPv6Address(host: string): boolean {
   return host.includes(':') && !host.startsWith('[') && !host.endsWith(']')
 }
 
-function getHostname(host: string, port?: number): string {
-  const portString = typeof port !== 'undefined' ? `:${port}` : ''
+function getHostname(options: ResolvedRequestOptions): string | undefined {
+  let host = options.hostname || options.host
 
-  /**
-   * @note As of Node >= 17, hosts (including "localhost") can resolve to IPv6
-   * addresses, so construct valid URL by surrounding the IPv6 host with brackets.
-   */
-  if (isRawIPv6Address(host)) {
-    return `[${host}]${portString}`
+  if (host) {
+    if (isRawIPv6Address(host)) {
+       host = `[${host}]`
+    }
+
+    // Check the presence of the port, and if it's present,
+    // remove it from the host, returning a hostname.
+    return new URL(`http://${host}`).hostname
   }
 
-  if (typeof port === 'undefined') {
-    return host
-  }
-
-  return `${host}${portString}`
+  return DEFAULT_HOSTNAME
 }
 
 /**
@@ -146,13 +124,10 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   const protocol = getProtocolByRequestOptions(options)
   logger.info('protocol', protocol)
 
-  const host = getHostByRequestOptions(options)
-  logger.info('host', host)
-
   const port = getPortByRequestOptions(options)
   logger.info('port', port)
 
-  const hostname = getHostname(host, port)
+  const hostname = getHostname(options)
   logger.info('hostname', hostname)
 
   const path = options.path || DEFAULT_PATH
@@ -166,7 +141,8 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
     : ''
   logger.info('auth string:', authString)
 
-  const url = new URL(`${protocol}//${hostname}${path}`)
+  const portString = typeof port !== 'undefined' ? `:${port}` : ''
+  const url = new URL(`${protocol}//${hostname}${portString}${path}`)
   url.username = credentials?.username || ''
   url.password = credentials?.password || ''
 
