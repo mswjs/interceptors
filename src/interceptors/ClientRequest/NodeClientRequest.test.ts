@@ -209,3 +209,21 @@ it('does not send request body to the original server given mocked response', as
   const text = await getIncomingMessageBody(response)
   expect(text).toBe('mock created!')
 })
+
+it('does not allow empty chunk', async () => {
+  const emitter = new Emitter<HttpRequestEventMap>()
+  const request = new NodeClientRequest(
+    normalizeClientRequestArgs('http:', httpServer.http.url('/comment'), {
+      method: 'POST',
+    }),
+    {
+      emitter,
+      logger,
+    }
+  )
+
+  // @ts-expect-error - test undefined chunk
+  expect(() => request.write()).toThrow('The "chunk" argument must be of type string or an instance of Buffer or Uint8Array. Received undefined')
+  // @ts-expect-error - test null chunk
+  expect(() => request.write(null)).toThrow('May not write null values to stream')
+})
