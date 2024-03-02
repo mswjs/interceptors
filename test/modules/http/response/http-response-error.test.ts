@@ -1,9 +1,9 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { SocketInterceptor } from '../../../../src/interceptors/Socket/index'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new SocketInterceptor()
 
 interceptor.on('request', ({ request }) => {
   request.respondWith(Response.error())
@@ -19,7 +19,6 @@ afterAll(() => {
 
 it('treats "Response.error()" as a request error', async () => {
   const requestErrorPromise = new DeferredPromise<Error>()
-
   const request = http.get('http://localhost:3001/resource')
 
   // In ClientRequest, network errors are forwarded as

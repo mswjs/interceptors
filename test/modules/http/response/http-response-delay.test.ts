@@ -2,9 +2,9 @@ import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { SocketInterceptor } from '../../../../src/interceptors/Socket/index'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new SocketInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
@@ -29,7 +29,7 @@ it('supports custom delay before responding with a mock', async () => {
   })
 
   const requestStart = Date.now()
-  const request = http.get('https://non-existing-host.com')
+  const request = http.get('http://non-existing-host.com')
   const { res, text } = await waitForClientRequest(request)
   const requestEnd = Date.now()
 
@@ -38,11 +38,12 @@ it('supports custom delay before responding with a mock', async () => {
   expect(requestEnd - requestStart).toBeGreaterThanOrEqual(700)
 })
 
-it('supports custom delay before receiving the original response', async () => {
-  interceptor.once('request', async () => {
+it.only('supports custom delay before receiving the original response', async () => {
+  interceptor.once('request', async ({ request }) => {
+    console.log('INTERCEPTED', request.method, request.url)
     // This will simply delay the request execution before
     // it receives the original response.
-    await sleep(750)
+    await sleep(500)
   })
 
   const requestStart = Date.now()

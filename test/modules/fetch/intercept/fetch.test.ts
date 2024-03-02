@@ -6,6 +6,7 @@ import { HttpRequestEventMap } from '../../../../src'
 import { UUID_REGEXP } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { encodeBuffer } from '../../../../src/utils/bufferUtils'
+import { AsyncHooksInterceptor } from '../../../../src/interceptors/AsyncHooks'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {
@@ -22,7 +23,7 @@ const httpServer = new HttpServer((app) => {
 
 const resolver = vi.fn<HttpRequestEventMap['request']>()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new AsyncHooksInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -55,7 +56,7 @@ it('intercepts an HTTP HEAD request', async () => {
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
   expect(request.headers.get('x-custom-header')).toBe('yes')
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -76,7 +77,7 @@ it('intercepts an HTTP GET request', async () => {
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
   expect(request.headers.get('x-custom-header')).toBe('yes')
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -151,7 +152,7 @@ it('intercepts an HTTP DELETE request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -201,7 +202,7 @@ it('intercepts an HTTPS HEAD request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -225,7 +226,7 @@ it('intercepts an HTTPS GET request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -302,7 +303,7 @@ it('intercepts an HTTPS DELETE request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -327,7 +328,7 @@ it('intercepts an HTTPS PATCH request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)

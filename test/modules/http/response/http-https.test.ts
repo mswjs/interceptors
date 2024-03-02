@@ -3,7 +3,7 @@ import http from 'http'
 import https from 'https'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { SocketInterceptor } from '../../../../src/interceptors/Socket'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
@@ -14,7 +14,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new SocketInterceptor()
 interceptor.on('request', ({ request }) => {
   const url = new URL(request.url)
 
@@ -37,7 +37,6 @@ interceptor.on('request', ({ request }) => {
 
 beforeAll(async () => {
   await httpServer.listen()
-
   interceptor.apply()
 })
 
