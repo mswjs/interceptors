@@ -3,17 +3,20 @@ import net from 'node:net'
 import { Readable } from 'node:stream'
 import { until } from '@open-draft/until'
 import { Interceptor } from '../../Interceptor'
-import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
+import {
+  InteractiveRequest,
+  toInteractiveRequest,
+} from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { invariant } from 'outvariant'
 
-const HTTPParser = process.binding('http_parser').HTTPParser
+const { HTTPParser } = process.binding('http_parser')
 
 export interface SocketEventMap {
   request: [
     args: {
       requestId: string
-      request: Request
+      request: InteractiveRequest
     },
   ]
   response: [
@@ -109,6 +112,8 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 }
 
 type CommonSocketConnectOptions = {
+  method?: string
+  auth?: string
   noDelay: boolean
   encoding: BufferEncoding | null
   servername: string
@@ -286,16 +291,34 @@ class SocketController {
   private onRequestStart(path: string, rawHeaders: Array<string>) {
     // Depending on how the request object is constructed,
     // its path may be available only from the parsed HTTP message.
-    const requestUrl = new URL(path, this.url)
+    const url = new URL(path, this.url)
+    const headers = parseRawHeaders(rawHeaders)
+
+    if (url.username || url.password) {
+      if (!headers.has('authorization')) {
+        headers.set(
+          'authorization',
+          `Basic ${btoa(`${url.username}:${url.password}`)}`
+        )
+      }
+      url.username = ''
+      url.password = ''
+    }
 
     this.requestStream = new Readable()
-    const method = 'GET' // todo
-    const request = new Request(requestUrl, {
-      headers: parseRawHeaders(rawHeaders),
-      body:
-        method === 'HEAD' || method === 'GET'
-          ? null
-          : Readable.toWeb(this.requestStream),
+    const method = this.normalizedOptions.method || 'GET'
+    const methodWithBody = method !== 'HEAD' && method !== 'GET'
+    // Request must specify the "Content-Length" header.
+    // Otherwise, no way for us to know if we should set
+    // the body stream. E.g. a "DELETE" request without a body.
+    const contentLength = headers.has('content-length')
+    const hasBody = methodWithBody && contentLength
+
+    const request = new Request(url, {
+      method,
+      headers,
+      body: hasBody ? Readable.toWeb(this.requestStream) : null,
+      duplex: hasBody ? 'half' : undefined,
     })
     this.onRequest(request)
   }
@@ -365,6 +388,11 @@ function parseSocketConnectionUrl(
   }
   if (options.path) {
     url.pathname = options.path
+  }
+  if (options.auth) {
+    const [username, password] = options.auth.split(':')
+    url.username = username
+    url.password = password
   }
 
   return url

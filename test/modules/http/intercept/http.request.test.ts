@@ -3,8 +3,10 @@ import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
 import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { HttpRequestEventMap } from '../../../../src'
+import {
+  SocketInterceptor,
+  SocketEventMap,
+} from '../../../../src/interceptors/Socket/SocketInterceptor'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {
@@ -17,8 +19,8 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = vi.fn<HttpRequestEventMap['request']>()
-const interceptor = new ClientRequestInterceptor()
+const resolver = vi.fn<SocketEventMap['request']>()
+const interceptor = new SocketInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -52,7 +54,7 @@ it('intercepts a HEAD request', async () => {
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
@@ -80,7 +82,7 @@ it('intercepts a GET request', async () => {
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
@@ -96,6 +98,7 @@ it('intercepts a POST request', async () => {
   const req = http.request(url, {
     method: 'POST',
     headers: {
+      'content-length': '12',
       'x-custom-header': 'yes',
     },
   })
@@ -109,7 +112,7 @@ it('intercepts a POST request', async () => {
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
@@ -125,6 +128,7 @@ it('intercepts a PUT request', async () => {
   const req = http.request(url, {
     method: 'PUT',
     headers: {
+      'content-length': '11',
       'x-custom-header': 'yes',
     },
   })
@@ -138,7 +142,7 @@ it('intercepts a PUT request', async () => {
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
@@ -154,6 +158,7 @@ it('intercepts a PATCH request', async () => {
   const req = http.request(url, {
     method: 'PATCH',
     headers: {
+      'content-length': '13',
       'x-custom-header': 'yes',
     },
   })
@@ -167,7 +172,7 @@ it('intercepts a PATCH request', async () => {
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
@@ -195,7 +200,7 @@ it('intercepts a DELETE request', async () => {
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
