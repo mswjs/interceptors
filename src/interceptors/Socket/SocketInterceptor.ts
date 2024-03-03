@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto'
 import net from 'node:net'
+import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { until } from '@open-draft/until'
@@ -42,10 +42,10 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
     net.Socket.prototype.connect = function (normalizedOptions) {
       const socket = originalConnect.apply(this, normalizedOptions as any)
-
       const controller = new SocketController(socket, ...normalizedOptions)
-      const requestId = randomUUID()
+
       controller.onRequest = (request) => {
+        const requestId = randomUUID()
         const { interactiveRequest, requestController } =
           toInteractiveRequest(request)
 
@@ -76,30 +76,25 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           const mockedResponse = resolverResult.data
 
           if (mockedResponse) {
-            const responseClone = mockedResponse.clone()
             controller.respondWith(mockedResponse)
-
-            self.emitter.emit('response', {
-              requestId,
-              response: responseClone,
-              request,
-              isMockedResponse: true,
-            })
-
             return
           }
 
-          // Otherwise, listen to the original response
-          // and forward it to the interceptor.
-          controller.onResponse = (response) => {
-            self.emitter.emit('response', {
-              requestId,
-              request,
-              response,
-              isMockedResponse: false,
-            })
-          }
+          controller.passthrough()
         })
+
+        // Otherwise, listen to the original response
+        // and forward it to the interceptor.
+        controller.onResponse = (response, isMockedResponse) => {
+          console.log('onResponse callback')
+
+          self.emitter.emit('response', {
+            requestId,
+            request,
+            response,
+            isMockedResponse,
+          })
+        }
       }
 
       return socket
@@ -129,11 +124,13 @@ type NormalizedSocketConnectOptions =
 
 class SocketController {
   public onRequest: (request: Request) => void = () => null
-  public onResponse: (response: Response) => void = () => null
+  public onResponse: (response: Response, isMockedResponse: boolean) => void =
+    () => null
 
   private url: URL
-  private mode: 'bypass' | 'mock' = 'bypass'
+  private shouldSuppressEvents = false
   private suppressedEvents: Array<[event: string, ...args: Array<unknown>]> = []
+  private request: Request
   private requestParser: typeof HTTPParser
   private requestStream?: Readable
   private responseParser: typeof HTTPParser
@@ -146,6 +143,9 @@ class SocketController {
   ) {
     this.url = parseSocketConnectionUrl(normalizedOptions)
 
+    // Create the parser later on because a single
+    // socket can be *reused* for multiple requests.
+    // The same way, don't free the parser.
     this.requestParser = new HTTPParser()
     this.requestParser[HTTPParser.kOnHeadersComplete] = (
       verionMajor: number,
@@ -202,15 +202,12 @@ class SocketController {
         // non-existing address. If that happens, switch to
         // the mock mode and emulate successful connection.
         if (args[0] === 'lookup' && args[1] instanceof Error) {
-          this.mode = 'mock'
-          this.suppressedEvents.push(['lookup', args.slice(1)])
-          queueMicrotask(() => {
-            this.mockConnect(callback)
-          })
+          this.shouldSuppressEvents = true
+          this.mockConnect(callback)
           return true
         }
 
-        if (this.mode === 'mock') {
+        if (this.shouldSuppressEvents) {
           if (args[0] === 'error') {
             Reflect.set(this.socket, '_hadError', false)
             this.suppressedEvents.push(['error', args.slice(1)])
@@ -226,6 +223,12 @@ class SocketController {
 
         return Reflect.apply(target, thisArg, args)
       },
+    })
+
+    socket.once('ready', () => {
+      // Notify the interceptor once the socket is ready.
+      // The HTTP parser triggers BEFORE that.
+      this.onRequest(this.request)
     })
 
     // Intercept the outgoing (request) data.
@@ -254,24 +257,51 @@ class SocketController {
   }
 
   private mockConnect(callback?: (error?: Error) => void) {
-    /**
-     * @todo We may want to push these events until AFTER
-     * the "request" interceptor event is awaited. This will
-     * prevent the "lookup" from being emitted twice.
-     */
     this.socket.emit('lookup', null, '::1', 6, '')
 
     Reflect.set(this.socket, 'connecting', false)
     // Don't forger about "secureConnect" for TLS connections.
     this.socket.emit('connect')
     callback?.()
+
     this.socket.emit('ready')
   }
 
-  public respondWith(response: Response): void {
-    // Use the given mocked Response instance to
-    // send its headers/data to this socket.
-    throw new Error('Not implemented')
+  public async respondWith(response: Response): Promise<void> {
+    this.onResponse(response, true)
+
+    this.socket.push(`HTTP/1.1 ${response.status} ${response.statusText}\r\n`)
+
+    for (const [name, value] of response.headers) {
+      this.socket.push(`${name}: ${value}\r\n`)
+    }
+
+    if (response.body) {
+      this.socket.push('\r\n')
+
+      const reader = response.body.getReader()
+      const readNextChunk = async () => {
+        const { done, value } = await reader.read()
+
+        if (done) {
+          this.socket.push(null)
+          return
+        }
+
+        this.socket.push(value)
+        await readNextChunk()
+      }
+
+      readNextChunk()
+      return
+    }
+
+    this.socket.push(null)
+  }
+
+  public async passthrough(): Promise<void> {
+    this.shouldSuppressEvents = false
+    this.replayErrors()
   }
 
   private replayErrors() {
@@ -279,12 +309,12 @@ class SocketController {
       return
     }
 
-    for (const [event, error] of this.suppressedEvents) {
+    for (const [event, ...args] of this.suppressedEvents) {
       if (event === 'error') {
         Reflect.set(this.socket, '_hadError', true)
       }
 
-      this.socket.emit(event, error)
+      this.socket.emit(event, ...args)
     }
   }
 
@@ -309,14 +339,13 @@ class SocketController {
     const method = this.normalizedOptions.method || 'GET'
     const methodWithBody = method !== 'HEAD' && method !== 'GET'
 
-    const request = new Request(url, {
+    this.request = new Request(url, {
       method,
       headers,
       body: methodWithBody ? Readable.toWeb(this.requestStream) : null,
       duplex: methodWithBody ? 'half' : undefined,
       credentials: 'same-origin',
     })
-    this.onRequest(request)
   }
 
   private onRequestData(chunk: Buffer) {
@@ -401,3 +430,21 @@ function parseRawHeaders(rawHeaders: Array<string>): Headers {
   }
   return headers
 }
+
+// MOCKED REQUEST:
+// 1. lookup // mock that's OK
+// 2. connect
+// 3. ready
+// HAS MOCK?
+// -> Y: data -> close
+// -> N (no response, non-existing host):
+//   -> replayErrors()
+//     -> lookup (error), error, close
+
+// BYPASSED REQUEST TO EXISTING HOST:
+// 1. lookup (no errors)
+// 2. (skip mockConnect), forward all socket events.
+// 3. emit "request" on the interceptor.
+// 4. HAS MOCK?
+//  -> Y: respondWith: data -> close
+//  -> N: do nothing

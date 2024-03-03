@@ -93,7 +93,7 @@ it('intercepts a GET request', async () => {
   expect(requestId).toMatch(UUID_REGEXP)
 })
 
-it('intercepts a POST request', async () => {
+it.only('intercepts a POST request', async () => {
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'POST',
@@ -102,6 +102,8 @@ it('intercepts a POST request', async () => {
       'x-custom-header': 'yes',
     },
   })
+  console.log('write (Test):', new Date())
+
   req.write('post-payload')
   req.end()
   await waitForClientRequest(req)
