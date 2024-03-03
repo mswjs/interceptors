@@ -319,6 +319,7 @@ class SocketController {
       headers,
       body: hasBody ? Readable.toWeb(this.requestStream) : null,
       duplex: hasBody ? 'half' : undefined,
+      credentials: 'same-origin',
     })
     this.onRequest(request)
   }
