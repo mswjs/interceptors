@@ -128,7 +128,7 @@ class SocketController {
 
   private url: URL
   private mode: 'bypass' | 'mock' = 'bypass'
-  private errors: Array<[event: string, error: Error]> = []
+  private suppressedEvents: Array<[event: string, ...args: Array<unknown>]> = []
   private requestParser: typeof HTTPParser
   private requestStream?: Readable
   private responseParser: typeof HTTPParser
@@ -198,7 +198,7 @@ class SocketController {
         // the mock mode and emulate successful connection.
         if (args[0] === 'lookup' && args[1] instanceof Error) {
           this.mode = 'mock'
-          this.errors.push(['lookup', args[1]])
+          this.suppressedEvents.push(['lookup', args.slice(1)])
           queueMicrotask(() => {
             this.mockConnect(callback)
           })
@@ -208,12 +208,13 @@ class SocketController {
         if (this.mode === 'mock') {
           if (args[0] === 'error') {
             Reflect.set(this.socket, '_hadError', false)
-            this.errors.push(['error', args[1]])
+            this.suppressedEvents.push(['error', args.slice(1)])
             return true
           }
 
           // Suppress close events for errored mocked connections.
           if (args[0] === 'close') {
+            this.suppressedEvents.push(['close', args.slice(1)])
             return true
           }
         }
@@ -269,12 +270,15 @@ class SocketController {
   }
 
   private replayErrors() {
-    if (this.errors.length === 0) {
+    if (this.suppressedEvents.length === 0) {
       return
     }
 
-    Reflect.set(this.socket, '_hadError', true)
-    for (const [event, error] of this.errors) {
+    for (const [event, error] of this.suppressedEvents) {
+      if (event === 'error') {
+        Reflect.set(this.socket, '_hadError', true)
+      }
+
       this.socket.emit(event, error)
     }
   }
