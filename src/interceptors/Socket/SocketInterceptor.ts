@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import net from 'node:net'
 import { Readable } from 'node:stream'
+import { invariant } from 'outvariant'
 import { until } from '@open-draft/until'
 import { Interceptor } from '../../Interceptor'
 import {
@@ -8,7 +9,6 @@ import {
   toInteractiveRequest,
 } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
-import { invariant } from 'outvariant'
 
 const { HTTPParser } = process.binding('http_parser')
 
