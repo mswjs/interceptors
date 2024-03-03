@@ -308,17 +308,12 @@ class SocketController {
     this.requestStream = new Readable()
     const method = this.normalizedOptions.method || 'GET'
     const methodWithBody = method !== 'HEAD' && method !== 'GET'
-    // Request must specify the "Content-Length" header.
-    // Otherwise, no way for us to know if we should set
-    // the body stream. E.g. a "DELETE" request without a body.
-    const contentLength = headers.has('content-length')
-    const hasBody = methodWithBody && contentLength
 
     const request = new Request(url, {
       method,
       headers,
-      body: hasBody ? Readable.toWeb(this.requestStream) : null,
-      duplex: hasBody ? 'half' : undefined,
+      body: methodWithBody ? Readable.toWeb(this.requestStream) : null,
+      duplex: methodWithBody ? 'half' : undefined,
       credentials: 'same-origin',
     })
     this.onRequest(request)
