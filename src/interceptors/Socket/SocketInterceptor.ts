@@ -5,6 +5,7 @@ import { until } from '@open-draft/until'
 import { Interceptor } from '../../Interceptor'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
+import { invariant } from 'outvariant'
 
 const HTTPParser = process.binding('http_parser').HTTPParser
 
@@ -296,12 +297,21 @@ class SocketController {
   }
 
   private onRequestData(chunk: Buffer) {
-    this.requestStream?.push(chunk)
+    invariant(
+      this.requestStream,
+      'Failed to push the chunk to the request stream: request stream is missing'
+    )
+    this.requestStream.push(chunk)
   }
 
   private onRequestEnd() {
-    this.requestStream?.push(null)
     this.requestParser.free()
+
+    invariant(
+      this.requestStream,
+      'Failed to handle the request end: request stream is missing'
+    )
+    this.requestStream.push(null)
   }
 
   private onResponseStart(
@@ -319,12 +329,21 @@ class SocketController {
   }
 
   private onResponseData(chunk: Buffer) {
-    this.responseStream?.push(chunk)
+    invariant(
+      this.responseStream,
+      'Failed to push the chunk to the response stream: response stream is missing'
+    )
+    this.responseStream.push(chunk)
   }
 
   private onResponseEnd() {
-    this.responseStream?.push(null)
     this.responseParser.free()
+
+    invariant(
+      this.responseStream,
+      'Failed to handle the response end: response stream is missing'
+    )
+    this.responseStream.push(null)
   }
 }
 
