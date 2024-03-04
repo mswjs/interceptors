@@ -1,4 +1,5 @@
 import net from 'node:net'
+import { HTTPParser } from 'node:_http_common'
 import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
@@ -9,8 +10,6 @@ import {
   toInteractiveRequest,
 } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
-
-const { HTTPParser } = process.binding('http_parser')
 
 export interface SocketEventMap {
   request: [
