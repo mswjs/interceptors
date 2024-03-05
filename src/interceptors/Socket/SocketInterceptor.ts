@@ -2,7 +2,6 @@ import net from 'node:net'
 import { HTTPParser } from 'node:_http_common'
 import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
-import { invariant } from 'outvariant'
 import { until } from '@open-draft/until'
 import { Interceptor } from '../../Interceptor'
 import {
@@ -39,11 +38,16 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
     const self = this
     const originalConnect = net.Socket.prototype.connect
 
-    net.Socket.prototype.connect = function (normalizedOptions) {
-      const socket = originalConnect.apply(this, normalizedOptions as any)
-      const controller = new SocketController(socket, ...normalizedOptions)
+    net.Socket.prototype.connect = function (options, callback) {
+      // const socket = originalConnect.apply(this, normalizedOptions as any)
 
-      controller.onRequest = (request) => {
+      const createConnection = () => {
+        return originalConnect.apply(this, options)
+      }
+
+      const socketWrap = new SocketWrap(options, createConnection)
+
+      socketWrap.on('request', async (request) => {
         const requestId = randomUUID()
         const { interactiveRequest, requestController } =
           toInteractiveRequest(request)
@@ -58,48 +62,214 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           }
         })
 
-        until(async () => {
+        const resolverResult = await until(async () => {
           await emitAsync(self.emitter, 'request', {
-            request: interactiveRequest,
             requestId,
+            request: interactiveRequest,
           })
 
-          const mockedResponse = await requestController.responsePromise
-          return mockedResponse
-        }).then((resolverResult) => {
-          if (resolverResult.error) {
-            socket.emit('error', resolverResult.error)
-            return
-          }
-
-          const mockedResponse = resolverResult.data
-
-          if (mockedResponse) {
-            controller.respondWith(mockedResponse)
-            return
-          }
-
-          controller.passthrough()
+          return await requestController.responsePromise
         })
 
-        // Otherwise, listen to the original response
-        // and forward it to the interceptor.
-        controller.onResponse = (response, isMockedResponse) => {
+        if (resolverResult.error) {
+          throw new Error('Implement error handling')
+        }
+
+        const mockedResponse = resolverResult.data
+
+        if (mockedResponse) {
+          socketWrap.respondWith(mockedResponse)
+        } else {
+          socketWrap.passthrough()
+        }
+
+        socketWrap.once('response', (response) => {
           self.emitter.emit('response', {
             requestId,
             request,
             response,
-            isMockedResponse,
+            isMockedResponse: false,
           })
-        }
-      }
+        })
+      })
 
-      return socket
+      return socketWrap
     }
 
     this.subscriptions.push(() => {
       net.Socket.prototype.connect = originalConnect
     })
+  }
+}
+
+class SocketWrap extends net.Socket {
+  public url: URL
+  public onRequest?: (request: Request) => void
+  public onResponse?: (response: Response) => void
+
+  private connectionOptions: NormalizedSocketConnectOptions
+  private requestParser: HttpMessageParser<'request'>
+  private responseParser: HttpMessageParser<'response'>
+  private requestStream: Readable
+  private responseStream: Readable
+
+  private requestChunks: Array<Buffer> = []
+
+  constructor(
+    readonly info: [
+      options: NormalizedSocketConnectOptions,
+      callback: () => void | undefined,
+    ],
+    private createConnection: () => net.Socket
+  ) {
+    super()
+
+    this.connectionOptions = info[0]
+    this.url = parseSocketConnectionUrl(this.connectionOptions)
+
+    this.requestStream = new Readable()
+    this.requestParser = new HttpMessageParser('request', {
+      onHeadersComplete: (major, minor, headers, method, path) => {
+        this.onRequestStart(path, headers)
+      },
+      onBody: (chunk) => {
+        this.requestStream.push(chunk)
+      },
+      onMessageComplete: () => {
+        this.requestStream.push(null)
+        this.requestParser.destroy()
+      },
+    })
+
+    this.responseStream = new Readable()
+    this.responseParser = new HttpMessageParser('response', {
+      onHeadersComplete: (
+        major,
+        minor,
+        headers,
+        method,
+        url,
+        status,
+        statusText
+      ) => {
+        this.onResponseStart(status, statusText, headers)
+      },
+      onBody: (chunk) => {
+        this.responseStream.push(chunk)
+      },
+      onMessageComplete: () => {
+        this.responseStream.push(null)
+        this.responseParser.destroy()
+      },
+    })
+  }
+
+  public write(chunk: Buffer) {
+    this.requestChunks.push(chunk)
+
+    if (chunk !== null) {
+      this.requestParser.push(
+        Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+      )
+    }
+
+    return true
+  }
+
+  public push(chunk: any, encoding?: BufferEncoding) {
+    if (chunk !== null) {
+      const chunkBuffer = Buffer.isBuffer(chunk)
+        ? chunk
+        : Buffer.from(chunk, encoding)
+      this.responseParser.push(chunkBuffer)
+      this.emit('data', chunkBuffer)
+    } else {
+      this.emit('end')
+    }
+
+    return true
+  }
+
+  private onRequestStart(path: string, rawHeaders: Array<string>): void {
+    const url = new URL(path, this.url)
+    const headers = parseRawHeaders(rawHeaders)
+
+    // Translate URL auth into the authorization request header.
+    if (url.username || url.password) {
+      if (!headers.has('authorization')) {
+        headers.set(
+          'authorization',
+          `Basic ${btoa(`${url.username}:${url.password}`)}`
+        )
+      }
+      url.username = ''
+      url.password = ''
+    }
+
+    const method = this.connectionOptions.method || 'GET'
+    const isBodyAllowed = method !== 'HEAD' && method !== 'GET'
+
+    const request = new Request(url, {
+      method,
+      headers,
+      credentials: 'same-origin',
+      body: isBodyAllowed ? Readable.toWeb(this.requestStream) : null,
+      // @ts-expect-error Not documented fetch property.
+      duplex: isBodyAllowed ? 'half' : undefined,
+    })
+
+    this.emit('request', request)
+  }
+
+  private onResponseStart(
+    status: number,
+    statusText: string,
+    rawHeaders: Array<string>
+  ) {
+    const response = new Response(Readable.toWeb(this.responseStream), {
+      status,
+      statusText,
+      headers: parseRawHeaders(rawHeaders),
+    })
+
+    this.emit('response', response)
+  }
+
+  /**
+   * Passthrough this Socket connection.
+   * Performs the connection as-is, flushing the request body
+   * and forwarding any events and response stream to this instance.
+   */
+  public passthrough(): void {
+    const socket = this.createConnection()
+
+    /**
+     * @fixme This is not ideal. I'd love not to introduce another
+     * place where we store the request body stream. Alas, we cannot
+     * read from "this.requestStream.read()" as it returns null
+     * (at this point, the stream is drained).
+     */
+    if (this.requestChunks.length > 0) {
+      this.requestChunks.forEach((chunk) => socket.write(chunk))
+    }
+
+    socket
+      .once('connect', () => this.emit('connect'))
+      .once('ready', () => {
+        this.emit('ready')
+        socket.on('data', (chunk) => {
+          this.emit('data', chunk)
+        })
+      })
+      .on('error', (error) => this.emit('error', error))
+      .on('timeout', () => this.emit('timeout'))
+      .on('drain', () => this.emit('drain'))
+      .on('close', (...args) => this.emit('close', ...args))
+      .on('end', () => this.emit('end'))
+  }
+
+  public respondWith(response: Response): void {
+    pipeResponse(response, this)
   }
 }
 
@@ -118,259 +288,6 @@ type NormalizedSocketConnectOptions =
       port: number
       path: string | null
     })
-
-class SocketController {
-  public onRequest: (request: Request) => void = () => null
-  public onResponse: (response: Response, isMockedResponse: boolean) => void =
-    () => null
-
-  private url: URL
-  private shouldSuppressEvents = false
-  private suppressedEvents: Array<[event: string, ...args: Array<unknown>]> = []
-  private request: Request
-  private requestStream?: Readable
-  private responseStream?: Readable
-
-  constructor(
-    private readonly socket: net.Socket,
-    private readonly normalizedOptions: NormalizedSocketConnectOptions,
-    callback?: (error?: Error) => void
-  ) {
-    this.url = parseSocketConnectionUrl(normalizedOptions)
-
-    const requestParser = new HttpMessageParser('request', {
-      onHeadersComplete: (major, minor, headers, _, path) => {
-        this.onRequestStart(path, headers)
-      },
-      onBody: (chunk) => {
-        this.onRequestData(chunk)
-      },
-      onMessageComplete: this.onRequestEnd.bind(this),
-    })
-
-    const responseParser = new HttpMessageParser('response', {
-      onHeadersComplete: (
-        versionMajor,
-        versionMinor,
-        headers,
-        method,
-        url,
-        status,
-        statusText,
-        upgrade,
-        keepalive
-      ) => {
-        this.onResponseStart(status, statusText, headers)
-      },
-      onBody: (chunk) => {
-        this.onResponseData(chunk)
-      },
-      onMessageComplete: this.onResponseEnd.bind(this),
-    })
-
-    socket.emit = new Proxy(socket.emit, {
-      apply: (target, thisArg, args) => {
-        // The lookup phase will error first when requesting
-        // non-existing address. If that happens, switch to
-        // the mock mode and emulate successful connection.
-        if (args[0] === 'lookup' && args[1] instanceof Error) {
-          this.shouldSuppressEvents = true
-          this.mockConnect(callback)
-          return true
-        }
-
-        if (this.shouldSuppressEvents) {
-          if (args[0] === 'error') {
-            Reflect.set(this.socket, '_hadError', false)
-            this.suppressedEvents.push(['error', ...args.slice(1)])
-            return true
-          }
-
-          // Suppress close events for errored mocked connections.
-          if (args[0] === 'close') {
-            this.suppressedEvents.push(['close', ...args.slice(1)])
-            return true
-          }
-        }
-
-        return Reflect.apply(target, thisArg, args)
-      },
-    })
-
-    socket.once('connect', () => {
-      // Notify the interceptor once the socket is ready.
-      // The HTTP parser triggers BEFORE that.
-      this.onRequest(this.request)
-    })
-
-    // Intercept the outgoing (request) data.
-    socket.write = new Proxy(socket.write, {
-      apply: (target, thisArg, args) => {
-        if (args[0] !== null) {
-          requestParser.push(
-            Buffer.isBuffer(args[0]) ? args[0] : Buffer.from(args[0])
-          )
-        }
-        return Reflect.apply(target, thisArg, args)
-      },
-    })
-
-    // Intercept the incoming (response) data.
-    socket.push = new Proxy(socket.push, {
-      apply: (target, thisArg, args) => {
-        if (args[0] !== null) {
-          responseParser.push(
-            Buffer.isBuffer(args[0]) ? args[0] : Buffer.from(args[0])
-          )
-        }
-        return Reflect.apply(target, thisArg, args)
-      },
-    })
-  }
-
-  private mockConnect(callback?: (error?: Error) => void) {
-    this.socket.emit('lookup', null, '::1', 6, '')
-
-    Reflect.set(this.socket, 'connecting', false)
-    // Don't forger about "secureConnect" for TLS connections.
-    this.socket.emit('connect')
-    callback?.()
-
-    this.socket.emit('ready')
-  }
-
-  public async respondWith(response: Response): Promise<void> {
-    this.onResponse(response, true)
-
-    this.socket.push(`HTTP/1.1 ${response.status} ${response.statusText}\r\n`)
-
-    for (const [name, value] of response.headers) {
-      this.socket.push(`${name}: ${value}\r\n`)
-    }
-
-    if (response.body) {
-      this.socket.push('\r\n')
-
-      const reader = response.body.getReader()
-      const readNextChunk = async () => {
-        const { done, value } = await reader.read()
-
-        if (done) {
-          this.socket.push(null)
-          return
-        }
-
-        this.socket.push(value)
-        await readNextChunk()
-      }
-
-      readNextChunk()
-      return
-    }
-
-    this.socket.push(null)
-  }
-
-  public async passthrough(): Promise<void> {
-    this.shouldSuppressEvents = false
-    this.replayErrors()
-  }
-
-  private replayErrors() {
-    console.log('replay errors...', this.suppressedEvents)
-
-    if (this.suppressedEvents.length === 0) {
-      return
-    }
-
-    for (const [event, ...args] of this.suppressedEvents) {
-      console.log('replaying event', event, ...args)
-
-      if (event === 'error') {
-        Reflect.set(this.socket, '_hadError', true)
-      }
-
-      this.socket.emit(event, ...args)
-    }
-  }
-
-  private onRequestStart(path: string, rawHeaders: Array<string>) {
-    // Depending on how the request object is constructed,
-    // its path may be available only from the parsed HTTP message.
-    const url = new URL(path, this.url)
-    const headers = parseRawHeaders(rawHeaders)
-
-    if (url.username || url.password) {
-      if (!headers.has('authorization')) {
-        headers.set(
-          'authorization',
-          `Basic ${btoa(`${url.username}:${url.password}`)}`
-        )
-      }
-      url.username = ''
-      url.password = ''
-    }
-
-    this.requestStream = new Readable()
-    const method = this.normalizedOptions.method || 'GET'
-    const methodWithBody = method !== 'HEAD' && method !== 'GET'
-
-    this.request = new Request(url, {
-      method,
-      headers,
-      body: methodWithBody ? Readable.toWeb(this.requestStream) : null,
-      // @ts-expect-error Not documented fetch property.
-      duplex: methodWithBody ? 'half' : undefined,
-      credentials: 'same-origin',
-    })
-  }
-
-  private onRequestData(chunk: Buffer) {
-    invariant(
-      this.requestStream,
-      'Failed to push the chunk to the request stream: request stream is missing'
-    )
-    this.requestStream.push(chunk)
-  }
-
-  private onRequestEnd() {
-    invariant(
-      this.requestStream,
-      'Failed to handle the request end: request stream is missing'
-    )
-    this.requestStream.push(null)
-  }
-
-  private onResponseStart(
-    status: number,
-    statusText: string,
-    rawHeaders: Array<string>
-  ) {
-    this.responseStream = new Readable()
-    const response = new Response(Readable.toWeb(this.responseStream), {
-      status,
-      statusText,
-      headers: parseRawHeaders(rawHeaders),
-    })
-    this.onResponse(response, false)
-  }
-
-  private onResponseData(chunk: Buffer) {
-    invariant(
-      this.responseStream,
-      'Failed to push the chunk to the response stream: response stream is missing'
-    )
-    this.responseStream.push(chunk)
-  }
-
-  private onResponseEnd() {
-    invariant(
-      this.responseStream,
-      'Failed to handle the response end: response stream is missing'
-    )
-    this.responseStream.push(null)
-  }
-}
 
 type HttpMessageParserMessageType = 'request' | 'response'
 interface HttpMessageParserCallbacks<T extends HttpMessageParserMessageType> {
@@ -411,6 +328,7 @@ class HttpMessageParser<T extends HttpMessageParserMessageType> {
       {}
     )
     this.parser[HTTPParser.kOnHeadersComplete] = callbacks.onHeadersComplete
+    this.parser[HTTPParser.kOnBody] = callbacks.onBody
     this.parser[HTTPParser.kOnMessageComplete] = callbacks.onMessageComplete
   }
 
@@ -419,6 +337,7 @@ class HttpMessageParser<T extends HttpMessageParserMessageType> {
   }
 
   public destroy(): void {
+    this.parser.finish()
     this.parser.free()
   }
 }
@@ -453,4 +372,42 @@ function parseRawHeaders(rawHeaders: Array<string>): Headers {
     headers.append(rawHeaders[line], rawHeaders[line + 1])
   }
   return headers
+}
+
+/**
+ * Pipes the entire HTTP message from the given Fetch API `Response`
+ * instance to the socket.
+ */
+async function pipeResponse(
+  response: Response,
+  socket: net.Socket
+): Promise<void> {
+  socket.push(`HTTP/1.1 ${response.status} ${response.statusText}\r\n`)
+
+  for (const [name, value] of response.headers) {
+    socket.push(`${name}: ${value}\r\n`)
+  }
+
+  if (response.body) {
+    socket.push('\r\n')
+
+    const encoding = response.headers.get('content-encoding') as
+      | BufferEncoding
+      | undefined
+    const reader = response.body.getReader()
+
+    while (true) {
+      const { done, value } = await reader.read()
+
+      if (done) {
+        break
+      }
+
+      socket.push(value, encoding)
+    }
+
+    reader.releaseLock()
+  }
+
+  socket.push(null)
 }
