@@ -2,9 +2,9 @@ import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { SocketInterceptor } from '../../../../src/interceptors/Socket/SocketInterceptor'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new SocketInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
@@ -29,7 +29,7 @@ it('supports custom delay before responding with a mock', async () => {
   })
 
   const requestStart = Date.now()
-  const request = http.get('https://non-existing-host.com')
+  const request = http.get('http://non-existing-host.com')
   const { res, text } = await waitForClientRequest(request)
   const requestEnd = Date.now()
 

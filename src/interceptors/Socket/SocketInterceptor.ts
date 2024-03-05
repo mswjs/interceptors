@@ -1,4 +1,5 @@
 import net from 'node:net'
+import { STATUS_CODES } from 'node:http'
 import { HTTPParser } from 'node:_http_common'
 import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
@@ -9,7 +10,7 @@ import {
   toInteractiveRequest,
 } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
-import { STATUS_CODES } from 'node:http'
+import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 
 type NormalizedSocketConnectArgs = [
   options: NormalizedSocketConnectOptions,
@@ -108,6 +109,15 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
         const mockedResponse = resolverResult.data
 
         if (mockedResponse) {
+          // Handle mocked "Response.error()" instances.
+          if (
+            isPropertyAccessible(mockedResponse, 'type') &&
+            mockedResponse.type === 'error'
+          ) {
+            socketWrap.errorWith(new TypeError('Network error'))
+            return
+          }
+
           socketWrap.respondWith(mockedResponse)
         } else {
           socketWrap.passthrough()
