@@ -9,6 +9,22 @@ import {
   toInteractiveRequest,
 } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
+import { STATUS_CODES } from 'node:http'
+
+type NormalizedSocketConnectArgs = [
+  options: NormalizedSocketConnectOptions,
+  connectionListener: (() => void) | null,
+]
+
+declare module 'node:net' {
+  /**
+   * Internal `new Socket().connect()` arguments normalization function.
+   * @see https://github.com/nodejs/node/blob/29ec7e9331c4944006ffe28e126cc31cc3de271b/lib/net.js#L272
+   */
+  export var _normalizeArgs: (
+    args: Array<unknown>
+  ) => NormalizedSocketConnectArgs
+}
 
 export interface SocketEventMap {
   request: [
@@ -38,16 +54,29 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
     const self = this
     const originalConnect = net.Socket.prototype.connect
 
-    net.Socket.prototype.connect = function (options, callback) {
-      // const socket = originalConnect.apply(this, normalizedOptions as any)
+    net.Socket.prototype.connect = function mockConnect(
+      ...args: Array<unknown>
+    ) {
+      /**
+       * @note In some cases, "Socket.prototype.connect" will receive already
+       * normalized arguments. The call signature of that method will differ:
+       * .connect(port, host, cb) // unnormalized
+       * .connect([options, cb, normalizedSymbol]) // normalized
+       * Check that and unwrap the arguments to have a consistent format.
+       */
+      const unwrappedArgs = Array.isArray(args[0]) ? args[0] : args
+      const normalizedSocketConnectArgs = net._normalizeArgs(unwrappedArgs)
 
       const createConnection = () => {
-        return originalConnect.apply(this, options)
+        return originalConnect.apply(this, args)
       }
 
-      const socketWrap = new SocketWrap(options, createConnection)
+      const socketWrap = new SocketWrap(
+        normalizedSocketConnectArgs,
+        createConnection
+      )
 
-      socketWrap.on('request', async (request) => {
+      socketWrap.onRequest = async (request) => {
         const requestId = randomUUID()
         const { interactiveRequest, requestController } =
           toInteractiveRequest(request)
@@ -72,7 +101,8 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
         })
 
         if (resolverResult.error) {
-          throw new Error('Implement error handling')
+          socketWrap.errorWith(resolverResult.error)
+          return
         }
 
         const mockedResponse = resolverResult.data
@@ -83,15 +113,15 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           socketWrap.passthrough()
         }
 
-        socketWrap.once('response', (response) => {
+        socketWrap.onResponse = (response) => {
           self.emitter.emit('response', {
             requestId,
             request,
             response,
             isMockedResponse: false,
           })
-        })
-      })
+        }
+      }
 
       return socketWrap
     }
@@ -107,29 +137,40 @@ class SocketWrap extends net.Socket {
   public onRequest?: (request: Request) => void
   public onResponse?: (response: Response) => void
 
-  private connectionOptions: NormalizedSocketConnectOptions
+  private connectionOptions: NormalizedSocketConnectArgs[0]
+  private connectionListener: NormalizedSocketConnectArgs[1]
   private requestParser: HttpMessageParser<'request'>
   private responseParser: HttpMessageParser<'response'>
   private requestStream: Readable
   private responseStream: Readable
-
   private requestChunks: Array<Buffer> = []
+  private shouldKeepAlive?: boolean
 
   constructor(
-    readonly info: [
-      options: NormalizedSocketConnectOptions,
-      callback: () => void | undefined,
-    ],
+    readonly socketConnectArgs: ReturnType<typeof net._normalizeArgs>,
     private createConnection: () => net.Socket
   ) {
     super()
 
-    this.connectionOptions = info[0]
+    this.connectionOptions = socketConnectArgs[0]
+    this.connectionListener = socketConnectArgs[1]
+
     this.url = parseSocketConnectionUrl(this.connectionOptions)
 
     this.requestStream = new Readable()
     this.requestParser = new HttpMessageParser('request', {
-      onHeadersComplete: (major, minor, headers, method, path) => {
+      onHeadersComplete: (
+        major,
+        minor,
+        headers,
+        method,
+        path,
+        _,
+        __,
+        ___,
+        shouldKeepAlive
+      ) => {
+        this.shouldKeepAlive = shouldKeepAlive
         this.onRequestStart(path, headers)
       },
       onBody: (chunk) => {
@@ -162,6 +203,39 @@ class SocketWrap extends net.Socket {
         this.responseParser.destroy()
       },
     })
+
+    this.mockConnect()
+  }
+
+  private mockConnect() {
+    if (this.connectionListener) {
+      this.once('connect', this.connectionListener)
+    }
+
+    Reflect.set(this, 'connecting', true)
+
+    queueMicrotask(() => {
+      this.emit('lookup', null, '127.0.0.1', 6, this.connectionOptions.host)
+      Reflect.set(this, 'connecting', false)
+
+      this.emit('connect')
+      this.emit('ready')
+    })
+  }
+
+  public destroy(error?: Error) {
+    queueMicrotask(() => {
+      if (error) {
+        this.emit('error', error)
+      }
+      // Override the ".destroy()" method in order to
+      // emit the "hadError" argument with the "close" event.
+      // For some reason, relying on "super.destroy()" doesn't
+      // include that argument, it's undefined.
+      this.emit('close', !!error)
+    })
+
+    return this
   }
 
   public write(chunk: Buffer) {
@@ -218,7 +292,7 @@ class SocketWrap extends net.Socket {
       duplex: isBodyAllowed ? 'half' : undefined,
     })
 
-    this.emit('request', request)
+    this.onRequest?.(request)
   }
 
   private onResponseStart(
@@ -232,7 +306,7 @@ class SocketWrap extends net.Socket {
       headers: parseRawHeaders(rawHeaders),
     })
 
-    this.emit('response', response)
+    this.onResponse?.(response)
   }
 
   /**
@@ -264,21 +338,42 @@ class SocketWrap extends net.Socket {
       .on('error', (error) => this.emit('error', error))
       .on('timeout', () => this.emit('timeout'))
       .on('drain', () => this.emit('drain'))
-      .on('close', (...args) => this.emit('close', ...args))
+      .on('close', (hadError) => this.emit('close', hadError))
       .on('end', () => this.emit('end'))
   }
 
-  public respondWith(response: Response): void {
-    pipeResponse(response, this)
+  public async respondWith(response: Response): Promise<void> {
+    this.emit('resume')
+    await pipeResponse(response, this)
+
+    // If the request did not specify the "Connection" header,
+    // the socket will be kept alive. We mustn't close its
+    // readable stream in that case as more clients can write to it.
+    if (!this.shouldKeepAlive) {
+      /**
+       * Socket (I suspect the underlying stream) emits the
+       * "readable" event for non-keepalive connections
+       * before closing them. If you are a magician who knows
+       * why it does so, let us know if we're doing it right here.
+       */
+      this.emit('readable')
+      this.push(null)
+    }
+  }
+
+  public errorWith(error?: Error): void {
+    Reflect.set(this, '_hadError', true)
+    this.emit('error', error)
+    this.emit('close', true)
   }
 }
 
 type CommonSocketConnectOptions = {
   method?: string
   auth?: string
-  noDelay: boolean
-  encoding: BufferEncoding | null
-  servername: string
+  noDelay?: boolean
+  encoding?: BufferEncoding | null
+  servername?: string
 }
 
 type NormalizedSocketConnectOptions =
@@ -286,7 +381,7 @@ type NormalizedSocketConnectOptions =
   | (CommonSocketConnectOptions & {
       host: string
       port: number
-      path: string | null
+      path?: string | null
     })
 
 type HttpMessageParserMessageType = 'request' | 'response'
@@ -297,7 +392,11 @@ interface HttpMessageParserCallbacks<T extends HttpMessageParserMessageType> {
         versionMinor: number,
         headers: Array<string>,
         idk: number,
-        path: string
+        path: string,
+        idk2: unknown,
+        idk3: unknown,
+        idk4: unknown,
+        shouldKeepAlive: boolean
       ) => void
     : (
         versionMajor: number,
@@ -349,14 +448,19 @@ function parseSocketConnectionUrl(
     return new URL(options.href)
   }
 
-  const url = new URL(`http://${options.host}`)
+  const protocol = options.port === 443 ? 'https:' : 'http:'
+  const host = options.host
+
+  const url = new URL(`${protocol}//${host}`)
 
   if (options.port) {
     url.port = options.port.toString()
   }
+
   if (options.path) {
     url.pathname = options.path
   }
+
   if (options.auth) {
     const [username, password] = options.auth.split(':')
     url.username = username
@@ -382,32 +486,49 @@ async function pipeResponse(
   response: Response,
   socket: net.Socket
 ): Promise<void> {
-  socket.push(`HTTP/1.1 ${response.status} ${response.statusText}\r\n`)
+  const httpHeaders: Array<Buffer> = []
+  // Status text is optional in Response but required in the HTTP message.
+  const statusText = response.statusText || STATUS_CODES[response.status] || ''
+
+  httpHeaders.push(Buffer.from(`HTTP/1.1 ${response.status} ${statusText}\r\n`))
 
   for (const [name, value] of response.headers) {
-    socket.push(`${name}: ${value}\r\n`)
+    httpHeaders.push(Buffer.from(`${name}: ${value}\r\n`))
   }
 
-  if (response.body) {
-    socket.push('\r\n')
+  if (!response.body) {
+    socket.push(Buffer.concat(httpHeaders))
+    return
+  }
 
-    const encoding = response.headers.get('content-encoding') as
-      | BufferEncoding
-      | undefined
-    const reader = response.body.getReader()
+  httpHeaders.push(Buffer.from('\r\n'))
 
-    while (true) {
-      const { done, value } = await reader.read()
+  const encoding = response.headers.get('content-encoding') as
+    | BufferEncoding
+    | undefined
+  const reader = response.body.getReader()
 
-      if (done) {
-        break
-      }
+  while (true) {
+    const { done, value } = await reader.read()
 
-      socket.push(value, encoding)
+    if (done) {
+      break
     }
 
-    reader.releaseLock()
+    // Send the whole HTTP message headers buffer,
+    // including the first body chunk at once. This will
+    // be triggered for all non-stream response bodies.
+    if (httpHeaders.length > 0) {
+      httpHeaders.push(Buffer.from(value))
+      socket.push(Buffer.concat(httpHeaders))
+      httpHeaders.length = 0
+      continue
+    }
+
+    // If the response body keeps streaming,
+    // pipe it to the socket as we receive the chunks.
+    socket.push(value, encoding)
   }
 
-  socket.push(null)
+  reader.releaseLock()
 }

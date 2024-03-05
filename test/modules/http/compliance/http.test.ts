@@ -49,6 +49,7 @@ it('bypasses a request to the existing host', async () => {
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
 
+  expect(requestFromListener.url).toBe(httpServer.http.url('/user'))
   expect(requestFromListener.method).toBe('POST')
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
@@ -110,6 +111,7 @@ it('mocked request to an existing host', async () => {
 
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
+  expect(requestFromListener.url).toBe(httpServer.http.url('/user'))
   expect(requestFromListener.method).toBe('POST')
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
@@ -149,6 +151,7 @@ it('mocks response to a non-existing host', async () => {
 
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
+  expect(requestFromListener.url).toBe('http://foo.example.com/')
   expect(requestFromListener.method).toBe('POST')
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
