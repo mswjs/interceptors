@@ -52,10 +52,9 @@ export class MockHttpSocket extends MockSocket {
         }
       },
       read: (chunk) => {
-        // console.log('MockHttpSocket.read()', chunk)
-        // this.responseParser.execute(
-        //   Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-        // )
+        this.responseParser.execute(
+          Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+        )
       },
     })
 
@@ -86,8 +85,7 @@ export class MockHttpSocket extends MockSocket {
   }
 
   public destroy(error?: Error | undefined): this {
-    console.log('MockHttpSocket.destroy()')
-
+    // Free the parsers once this socket is destroyed.
     this.requestParser.free()
     this.responseParser.free()
     return super.destroy(error)
@@ -98,22 +96,7 @@ export class MockHttpSocket extends MockSocket {
    * its data/events through this Socket.
    */
   public passthrough(): void {
-    console.log('MockHttpSocket.passthrough()')
-
-    if (this.writable) {
-      console.log('SOCKET IS STILL WRITABLE')
-
-      this.once('end', () => {
-        console.log('FINISHED')
-        // this.passthrough()
-      })
-
-      return
-    }
-
     const socket = this.createConnection()
-
-    console.log('buffered chunks:', this.writeBuffer)
 
     // Write the buffered request body chunks.
     // Exhaust the "requestBuffer" in case this Socket
@@ -121,8 +104,6 @@ export class MockHttpSocket extends MockSocket {
     let writeArgs: NormalizedWriteArgs | undefined
 
     while ((writeArgs = this.writeBuffer.shift())) {
-      console.log('writing onto original socket:', writeArgs)
-
       if (writeArgs !== undefined) {
         socket.write(...writeArgs)
       }
@@ -160,7 +141,7 @@ export class MockHttpSocket extends MockSocket {
   public async respondWith(response: Response): Promise<void> {
     // Handle "type: error" responses.
     if (isPropertyAccessible(response, 'type') && response.type === 'error') {
-      this.errorWith(new Error('Failed to fetch'))
+      this.errorWith(new TypeError('Failed to fetch'))
       return
     }
 
@@ -286,10 +267,9 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private onRequestEnd(): void {
+    // Request end can be called for requests without body.
     if (this.requestStream) {
       this.requestStream.push(null)
-      this.requestStream.destroy()
-      this.requestStream = undefined
     }
   }
 
@@ -307,6 +287,7 @@ export class MockHttpSocket extends MockSocket {
     const headers = parseRawHeaders(rawHeaders)
     const canHaveBody = !RESPONSE_STATUS_CODES_WITHOUT_BODY.has(status)
 
+    // Similarly, create a new stream for each response.
     if (canHaveBody) {
       this.responseStream = new Readable()
     }
@@ -333,9 +314,9 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private onResponseEnd(): void {
+    // Response end can be called for responses without body.
     if (this.responseStream) {
       this.responseStream.push(null)
-      this.responseStream.destroy()
     }
   }
 }

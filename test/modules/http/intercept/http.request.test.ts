@@ -91,7 +91,7 @@ it('intercepts a GET request', async () => {
   expect(requestId).toMatch(UUID_REGEXP)
 })
 
-it.only('intercepts a POST request', async () => {
+it('intercepts a POST request', async () => {
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'POST',
