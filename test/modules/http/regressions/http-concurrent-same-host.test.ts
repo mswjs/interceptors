@@ -3,11 +3,11 @@
  */
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { SocketInterceptor } from '../../../../src/interceptors/Socket/SocketInterceptor'
 
 let requests: Array<Request> = []
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new SocketInterceptor()
 interceptor.on('request', ({ request }) => {
   requests.push(request)
   request.respondWith(new Response())

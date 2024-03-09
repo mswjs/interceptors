@@ -3,10 +3,8 @@ import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
 import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
-import {
-  SocketInterceptor,
-  SocketEventMap,
-} from '../../../../src/interceptors/Socket/SocketInterceptor'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { HttpRequestEventMap } from '../../../../src/glossary'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {
@@ -19,8 +17,8 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = vi.fn<SocketEventMap['request']>()
-const interceptor = new SocketInterceptor()
+const resolver = vi.fn<HttpRequestEventMap['request']>()
+const interceptor = new _ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -93,7 +91,7 @@ it('intercepts a GET request', async () => {
   expect(requestId).toMatch(UUID_REGEXP)
 })
 
-it('intercepts a POST request', async () => {
+it.only('intercepts a POST request', async () => {
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'POST',
@@ -103,8 +101,25 @@ it('intercepts a POST request', async () => {
     },
   })
   req.write('post-payload')
+
+  console.log('[test] calling req.end()...')
   req.end()
-  await waitForClientRequest(req)
+
+  req.on('abort', () => {
+    console.trace('REQUEST ABORTED')
+  })
+
+  req.on('socket', (socket) => {
+    console.log('req socket!', socket.constructor.name)
+
+    socket.on('error', (error) => {
+      console.log('socket error', error)
+    })
+  })
+
+  const { res } = await waitForClientRequest(req)
+
+  console.log('[test] RESPONSE:', res.statusCode, res.statusMessage)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 

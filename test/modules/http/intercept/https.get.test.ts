@@ -2,8 +2,11 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'https'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { HttpRequestEventMap } from '../../../../src'
+import {
+  SocketInterceptor,
+  SocketEventMap,
+  MockAgent,
+} from '../../../../src/interceptors/Socket/SocketInterceptor'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -11,8 +14,8 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = vi.fn<HttpRequestEventMap['request']>()
-const interceptor = new ClientRequestInterceptor()
+const resolver = vi.fn<SocketEventMap['request']>()
+const interceptor = new SocketInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -29,28 +32,45 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('intercepts a GET request', async () => {
+it.only('intercepts a GET request', async () => {
   const url = httpServer.https.url('/user?id=123')
-  const req = https.get(url, {
-    agent: httpsAgent,
+  const request = https.get(url, {
+    agent: new MockAgent(),
     headers: {
       'x-custom-header': 'yes',
     },
   })
-  await waitForClientRequest(req)
+
+  request
+    .on('socket', (socket) => {
+      console.log('[test] request "socket" event:', socket.constructor.name)
+
+      socket.on('secureConnect', () => console.log('secureConnect'))
+      socket.on('error', (e) => console.error(e))
+      socket.on('timeout', () => console.error('timeout'))
+      socket.on('close', (e) => console.error(e))
+      socket.on('end', () => console.error('end'))
+    })
+    .on('error', (e) => console.error(e))
+    .on('end', () => console.log('end'))
+    .on('close', () => console.log('close'))
+
+  await waitForClientRequest(request)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request: requestFromListener, requestId }] = resolver.mock.calls[0]
 
-  expect(request.method).toBe('GET')
-  expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
+  expect(requestFromListener.method).toBe('GET')
+  expect(requestFromListener.url).toBe(url)
+  expect(
+    Object.fromEntries(requestFromListener.headers.entries())
+  ).toMatchObject({
     'x-custom-header': 'yes',
   })
-  expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(requestFromListener.credentials).toBe('same-origin')
+  expect(requestFromListener.body).toBe(null)
+  expect(requestFromListener.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
 })

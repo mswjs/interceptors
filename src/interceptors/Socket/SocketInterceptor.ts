@@ -1,8 +1,10 @@
 import net from 'node:net'
+import https from 'node:https'
+import tls from 'node:tls'
 import { STATUS_CODES } from 'node:http'
 import { HTTPParser } from 'node:_http_common'
 import { randomUUID } from 'node:crypto'
-import { Readable } from 'node:stream'
+import { Duplex, Readable } from 'node:stream'
 import { until } from '@open-draft/until'
 import { Interceptor } from '../../Interceptor'
 import {
@@ -11,6 +13,7 @@ import {
 } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
+import EventEmitter from 'node:events'
 
 type NormalizedSocketConnectArgs = [
   options: NormalizedSocketConnectOptions,
@@ -54,6 +57,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
   protected setup(): void {
     const self = this
     const originalConnect = net.Socket.prototype.connect
+    const originalTlsConnect = tls.TLSSocket.prototype.connect
 
     net.Socket.prototype.connect = function mockConnect(
       ...args: Array<unknown>
@@ -136,8 +140,42 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       return socketWrap
     }
 
+    //
+    //
+    //
+
+    // tls.TLSSocket.prototype.connect = function mockTlsConnect(...args) {
+    //   console.log('tls.TLSSocket.connect')
+
+    //   const normalizedArgs = net._normalizeArgs(args)
+
+    //   const createSocketConnection = () => {
+    //     /** @todo Have doubts about this. Bypassed request tests will reveal the truth. */
+    //     return originalConnect.apply(this, normalizedArgs[0], normalizedArgs[1])
+    //   }
+
+    //   // const socketWrap = new SocketWrap(normalizedArgs, createSocketConnection)
+
+    //   // const tlsSocket = new TlsSocketWrap(socketWrap, normalizedArgs[0])
+    //   // const tlsSocket = new tls.TLSSocket(socketWrap, normalizedArgs[0])
+    //   //
+
+    //   // socketWrap.onRequest = (request) => {
+    //   //   console.log('intercepted', request.method, request.url)
+    //   // }
+
+    //   const e = new EventEmitter()
+    //   queueMicrotask(() => {
+    //     e.emit('secureConnect')
+    //     e.emit('connect')
+    //   })
+
+    //   return e
+    // }
+
     this.subscriptions.push(() => {
       net.Socket.prototype.connect = originalConnect
+      tls.TLSSocket.prototype.connect = originalTlsConnect
     })
   }
 }
@@ -158,7 +196,8 @@ class SocketWrap extends net.Socket {
 
   constructor(
     readonly socketConnectArgs: ReturnType<typeof net._normalizeArgs>,
-    private createConnection: () => net.Socket
+    private createConnection: () => net.Socket,
+    private isSecure = false
   ) {
     super()
 
@@ -218,6 +257,8 @@ class SocketWrap extends net.Socket {
   }
 
   private mockConnect() {
+    console.log('SocketWrap.mockConnect()', this.connectionListener)
+
     if (this.connectionListener) {
       this.once('connect', this.connectionListener)
     }
@@ -227,6 +268,10 @@ class SocketWrap extends net.Socket {
     queueMicrotask(() => {
       this.emit('lookup', null, '127.0.0.1', 6, this.connectionOptions.host)
       Reflect.set(this, 'connecting', false)
+
+      if (this.isSecure) {
+        this.emit('secureConnect')
+      }
 
       this.emit('connect')
       this.emit('ready')
@@ -375,6 +420,30 @@ class SocketWrap extends net.Socket {
     Reflect.set(this, '_hadError', true)
     this.emit('error', error)
     this.emit('close', true)
+  }
+}
+
+class TlsSocketWrap extends tls.TLSSocket {
+  constructor(
+    private readonly socket: SocketWrap,
+    _tlsOptions: NormalizedSocketConnectOptions
+  ) {
+    socket._tlsOptions = {}
+
+    super(socket)
+
+    this.mockSecureConnect()
+  }
+
+  private mockSecureConnect() {
+    console.log('TlsSocketWrap: mockSecureConnect()')
+    // console.log(this.ssl)
+
+    // this.ssl.onhandshakedone()
+
+    this._secureEstablished = true
+    this.emit('secure')
+    this.emit('secureConnect')
   }
 }
 
@@ -541,4 +610,19 @@ async function pipeResponse(
   }
 
   reader.releaseLock()
+}
+
+export class MockAgent extends https.Agent {
+  createConnection(
+    options,
+    onCreate: (error: Error | null, socket: net.Socket) => void
+  ) {
+    const normalizedOptions = net._normalizeArgs([options, onCreate])
+
+    const createRealConnection = () => {
+      throw new Error('Not implemented')
+    }
+
+    return new SocketWrap(normalizedOptions, createRealConnection, true)
+  }
 }

@@ -9,5 +9,6 @@ export default defineConfig({
       'vitest-environment-node-with-websocket': './envs/node-with-websocket',
       'vitest-environment-react-native-like': './envs/react-native-like',
     },
+    testTimeout: 2000,
   },
 })
