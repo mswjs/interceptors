@@ -149,7 +149,7 @@ export class MockHttpSocket extends MockSocket {
   public async respondWith(response: Response): Promise<void> {
     // Handle "type: error" responses.
     if (isPropertyAccessible(response, 'type') && response.type === 'error') {
-      this.errorWith(new TypeError('Failed to fetch'))
+      this.errorWith(new TypeError('Network error'))
       return
     }
 
