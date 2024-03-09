@@ -1,10 +1,10 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'https'
 import { RequestHandler } from 'express'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer } from '@open-draft/test-server/http'
 import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpRequestEventMap } from '../../../../src'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (req, res) => {
@@ -20,7 +20,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const resolver = vi.fn<HttpRequestEventMap['request']>()
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -40,7 +40,7 @@ afterAll(async () => {
 it('intercepts a HEAD request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
-    agent: httpsAgent,
+    rejectUnauthorized: false,
     method: 'HEAD',
     headers: {
       'x-custom-header': 'yes',
@@ -65,7 +65,7 @@ it('intercepts a HEAD request', async () => {
 it('intercepts a GET request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
-    agent: httpsAgent,
+    rejectUnauthorized: false,
     method: 'GET',
     headers: {
       'x-custom-header': 'yes',
@@ -90,7 +90,7 @@ it('intercepts a GET request', async () => {
 it('intercepts a POST request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
-    agent: httpsAgent,
+    rejectUnauthorized: false,
     method: 'POST',
     headers: {
       'x-custom-header': 'yes',
@@ -116,7 +116,7 @@ it('intercepts a POST request', async () => {
 it('intercepts a PUT request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
-    agent: httpsAgent,
+    rejectUnauthorized: false,
     method: 'PUT',
     headers: {
       'x-custom-header': 'yes',
@@ -142,7 +142,7 @@ it('intercepts a PUT request', async () => {
 it('intercepts a PATCH request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
-    agent: httpsAgent,
+    rejectUnauthorized: false,
     method: 'PATCH',
     headers: {
       'x-custom-header': 'yes',
@@ -168,7 +168,7 @@ it('intercepts a PATCH request', async () => {
 it('intercepts a DELETE request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const req = https.request(url, {
-    agent: httpsAgent,
+    rejectUnauthorized: false,
     method: 'DELETE',
     headers: {
       'x-custom-header': 'yes',
@@ -184,7 +184,7 @@ it('intercepts a DELETE request', async () => {
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.text()).toBe('')
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -192,7 +192,7 @@ it('intercepts a DELETE request', async () => {
 
 it('intercepts an http.request request given RequestOptions without a protocol', async () => {
   const req = https.request({
-    agent: httpsAgent,
+    rejectUnauthorized: false,
     host: httpServer.https.address.host,
     port: httpServer.https.address.port,
     path: '/user?id=123',

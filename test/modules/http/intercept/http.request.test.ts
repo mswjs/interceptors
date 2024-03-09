@@ -3,8 +3,8 @@ import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
 import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 import { HttpRequestEventMap } from '../../../../src/glossary'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {
@@ -101,25 +101,9 @@ it('intercepts a POST request', async () => {
     },
   })
   req.write('post-payload')
-
-  console.log('[test] calling req.end()...')
   req.end()
 
-  req.on('abort', () => {
-    console.trace('REQUEST ABORTED')
-  })
-
-  req.on('socket', (socket) => {
-    console.log('req socket!', socket.constructor.name)
-
-    socket.on('error', (error) => {
-      console.log('socket error', error)
-    })
-  })
-
-  const { res } = await waitForClientRequest(req)
-
-  console.log('[test] RESPONSE:', res.statusCode, res.statusMessage)
+  await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 

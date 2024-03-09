@@ -25,29 +25,41 @@ export class _ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     const { get: originalGet, request: originalRequest } = http
     const { get: originalHttpsGet, request: originalHttpsRequest } = http
 
+    const onRequest = this.onRequest.bind(this)
+    const onResponse = this.onResponse.bind(this)
+
     http.request = new Proxy(http.request, {
-      apply: (target, context, args: Parameters<typeof http.request>) => {
-        const normalizedArgs = normalizeClientRequestArgs('http:', ...args)
+      apply: (target, thisArg, args: Parameters<typeof http.request>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'http:',
+          ...args
+        )
+        const mockAgent = new MockAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
 
-        const agent = new MockAgent()
-        agent.onRequest = this.onRequest.bind(this)
-        agent.onResponse = this.onResponse.bind(this)
-
-        normalizedArgs[1].agent = agent
-        return Reflect.apply(target, context, normalizedArgs)
+        return Reflect.apply(target, thisArg, [url, options, callback])
       },
     })
 
     http.get = new Proxy(http.get, {
-      apply: (target, context, args: Parameters<typeof http.get>) => {
-        const normalizedArgs = normalizeClientRequestArgs('http:', ...args)
+      apply: (target, thisArg, args: Parameters<typeof http.get>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'http:',
+          ...args
+        )
 
-        const agent = new MockAgent()
-        agent.onRequest = this.onRequest.bind(this)
-        agent.onResponse = this.onResponse.bind(this)
+        const mockAgent = new MockAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
 
-        normalizedArgs[1].agent = agent
-        return Reflect.apply(target, context, normalizedArgs)
+        return Reflect.apply(target, thisArg, [url, options, callback])
       },
     })
 
@@ -56,15 +68,38 @@ export class _ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     //
 
     https.request = new Proxy(https.request, {
-      apply: (target, context, args: Parameters<typeof https.request>) => {
-        const normalizedArgs = normalizeClientRequestArgs('https:', ...args)
+      apply: (target, thisArg, args: Parameters<typeof https.request>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'https:',
+          ...args
+        )
 
-        const httpsAgent = new MockHttpsAgent()
-        httpsAgent.onRequest = this.onRequest.bind(this)
-        httpsAgent.onResponse = this.onResponse.bind(this)
+        const mockAgent = new MockHttpsAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
 
-        normalizedArgs[1].agent = httpsAgent
-        return Reflect.apply(target, context, normalizedArgs)
+        return Reflect.apply(target, thisArg, [url, options, callback])
+      },
+    })
+
+    https.get = new Proxy(https.get, {
+      apply: (target, thisArg, args: Parameters<typeof https.request>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'https:',
+          ...args
+        )
+
+        const mockAgent = new MockHttpsAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
+
+        return Reflect.apply(target, thisArg, [url, options, callback])
       },
     })
 
