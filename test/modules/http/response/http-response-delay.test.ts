@@ -2,9 +2,9 @@ import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
-import { SocketInterceptor } from '../../../../src/interceptors/Socket/SocketInterceptor'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 
-const interceptor = new SocketInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {

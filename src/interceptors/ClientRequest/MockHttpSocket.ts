@@ -52,9 +52,11 @@ export class MockHttpSocket extends MockSocket {
         }
       },
       read: (chunk) => {
-        this.responseParser.execute(
-          Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-        )
+        if (chunk) {
+          this.responseParser.execute(
+            Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+          )
+        }
       },
     })
 
@@ -190,9 +192,6 @@ export class MockHttpSocket extends MockSocket {
         this.push(value)
       }
     }
-
-    this.push('\r\n')
-    this.push(null)
 
     // Close the socket if the connection wasn't marked as keep-alive.
     if (!this.shouldKeepAlive) {
