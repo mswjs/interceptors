@@ -45,7 +45,7 @@ export class MockHttpSocket extends MockSocket {
       write: (chunk, encoding, callback) => {
         this.writeBuffer.push([chunk, encoding, callback])
 
-        if (chunk !== '') {
+        if (chunk) {
           this.requestParser.execute(
             Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding)
           )

@@ -2,11 +2,8 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'https'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
-import {
-  SocketInterceptor,
-  SocketEventMap,
-  MockAgent,
-} from '../../../../src/interceptors/Socket/SocketInterceptor'
+import { HttpRequestEventMap } from '../../../../src/glossary'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -14,8 +11,8 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = vi.fn<SocketEventMap['request']>()
-const interceptor = new SocketInterceptor()
+const resolver = vi.fn<HttpRequestEventMap['request']>()
+const interceptor = new _ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -32,10 +29,10 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it.only('intercepts a GET request', async () => {
+it('intercepts a GET request', async () => {
   const url = httpServer.https.url('/user?id=123')
   const request = https.get(url, {
-    agent: new MockAgent(),
+    agent: httpsAgent,
     headers: {
       'x-custom-header': 'yes',
     },
