@@ -4,11 +4,11 @@
  */
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 let requests: Array<Request> = []
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', ({ request }) => {
   requests.push(request)
   request.respondWith(new Response())

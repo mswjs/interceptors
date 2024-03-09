@@ -6,10 +6,10 @@ import http from 'node:http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.use(express.json())

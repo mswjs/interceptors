@@ -9,7 +9,7 @@ import { it, expect, beforeAll, afterAll } from 'vitest'
 import http, { IncomingMessage } from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (_req, res) => {
@@ -17,7 +17,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', ({ request }) => {
   request.respondWith(new Response('hello world', { status: 301 }))
 })

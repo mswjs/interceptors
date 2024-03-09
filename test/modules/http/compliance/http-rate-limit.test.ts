@@ -5,7 +5,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import rateLimit from 'express-rate-limit'
 import { HttpServer } from '@open-draft/test-server/http'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.use(
@@ -24,7 +24,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', ({ request }) => {
   const url = new URL(request.url)
 

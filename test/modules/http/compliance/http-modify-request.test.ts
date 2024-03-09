@@ -1,7 +1,7 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
 const server = new HttpServer((app) => {
@@ -10,7 +10,7 @@ const server = new HttpServer((app) => {
   })
 })
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 
 beforeAll(async () => {
   await server.listen()

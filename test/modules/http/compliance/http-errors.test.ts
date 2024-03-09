@@ -1,10 +1,10 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 
 interface NotFoundError extends NodeJS.ErrnoException {
   hostname: string

@@ -3,10 +3,10 @@
  */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()

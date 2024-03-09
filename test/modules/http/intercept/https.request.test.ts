@@ -4,7 +4,7 @@ import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (req, res) => {
@@ -20,7 +20,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const resolver = vi.fn<HttpRequestEventMap['request']>()
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {

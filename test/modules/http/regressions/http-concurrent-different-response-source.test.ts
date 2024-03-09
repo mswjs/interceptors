@@ -3,7 +3,7 @@
  */
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { httpGet } from '../../../helpers'
 import { sleep } from '../../../../test/helpers'
 
@@ -14,7 +14,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', async ({ request }) => {
   if (request.headers.get('x-bypass')) {
     return

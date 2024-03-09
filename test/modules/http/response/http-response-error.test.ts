@@ -1,9 +1,9 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 
 interceptor.on('request', ({ request }) => {
   request.respondWith(Response.error())

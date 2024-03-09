@@ -5,7 +5,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
@@ -16,7 +16,7 @@ const httpServer = new HttpServer((app) => {
 
 const interceptedRequestBody = vi.fn()
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', async ({ request }) => {
   interceptedRequestBody(await request.clone().text())
 })

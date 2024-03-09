@@ -2,7 +2,7 @@ import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import https from 'https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
@@ -14,7 +14,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new _ClientRequestInterceptor()
+const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', ({ request }) => {
   const url = new URL(request.url)
 
