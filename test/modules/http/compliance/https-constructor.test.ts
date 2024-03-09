@@ -1,21 +1,22 @@
 /**
+ * @vitest-environment node
  * @see https://github.com/mswjs/interceptors/issues/131
  */
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import { IncomingMessage } from 'http'
-import https from 'https'
-import { URL } from 'url'
+import { IncomingMessage } from 'node:http'
+import https from 'node:https'
+import { URL } from 'node:url'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { DeferredPromise } from '@open-draft/deferred-promise'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
     res.status(200).send('hello')
   })
 })
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 
 beforeAll(async () => {
   await httpServer.listen()

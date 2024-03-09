@@ -1,15 +1,15 @@
 /**
  * @vitest-environment node
  */
-import http from 'node:http'
 import { vi, beforeAll, afterEach, afterAll, it, expect } from 'vitest'
-import { HttpServer } from '@open-draft/test-server/http'
+import http from 'node:http'
 import express from 'express'
-import { SocketInterceptor } from '../../../../src/interceptors/Socket/SocketInterceptor'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { waitForClientRequest } from '../../../helpers'
 
-const interceptor = new SocketInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.use(express.json())

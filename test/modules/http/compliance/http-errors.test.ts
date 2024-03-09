@@ -1,10 +1,10 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 
 interface NotFoundError extends NodeJS.ErrnoException {
   hostname: string
@@ -73,7 +73,7 @@ it('suppresses ENOTFOUND error given a mocked response', async () => {
     request.respondWith(new Response('Mocked'))
   })
 
-  const request = http.get('https://non-existing-url.com')
+  const request = http.get('http://non-existing-url.com')
   const errorListener = vi.fn()
   request.on('error', errorListener)
 
@@ -85,7 +85,7 @@ it('suppresses ENOTFOUND error given a mocked response', async () => {
 })
 
 it('forwards ENOTFOUND error for a bypassed request', async () => {
-  const request = http.get('https://non-existing-url.com')
+  const request = http.get('http://non-existing-url.com')
   const errorPromise = new DeferredPromise<NotFoundError>()
   request.on('error', (error: NotFoundError) => {
     errorPromise.resolve(error)
@@ -144,7 +144,10 @@ it('allows throwing connection errors in the request listener', async () => {
     errno?: number
     syscall?: string
 
-    constructor(public address: string, public port: number) {
+    constructor(
+      public address: string,
+      public port: number
+    ) {
       super()
       this.code = 'ECONNREFUSED'
       this.errno = -61

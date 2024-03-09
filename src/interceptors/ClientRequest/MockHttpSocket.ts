@@ -128,9 +128,7 @@ export class MockHttpSocket extends MockSocket {
       .on('session', (session) => this.emit('session', session))
       .on('ready', () => this.emit('ready'))
       .on('drain', () => this.emit('drain'))
-      .on('data', (chunk) => {
-        this.emit('data', chunk)
-      })
+      .on('data', (chunk) => this.emit('data', chunk))
       .on('error', (error) => {
         Reflect.set(this, '_hadError', Reflect.get(socket, '_hadError'))
         this.emit('error', error)

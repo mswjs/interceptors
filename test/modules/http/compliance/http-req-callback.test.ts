@@ -1,10 +1,13 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { IncomingMessage } from 'http'
-import https from 'https'
+import { IncomingMessage } from 'node:http'
+import https from 'node:https'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
-import { getRequestOptionsByUrl } from '../../../../src/utils/getRequestOptionsByUrl'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
+import { getRequestOptionsByUrl } from '../../../../src/utils/getRequestOptionsByUrl'
 
 const httpServer = new HttpServer((app) => {
   app.get('/get', (req, res) => {
@@ -12,7 +15,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 interceptor.on('request', ({ request }) => {
   if ([httpServer.https.url('/get')].includes(request.url)) {
     return

@@ -1,7 +1,7 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 import { waitForClientRequest } from '../../../helpers'
 
 const server = new HttpServer((app) => {
@@ -10,7 +10,7 @@ const server = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 
 beforeAll(async () => {
   await server.listen()
@@ -28,7 +28,7 @@ it('allows modifying the outgoing request headers', async () => {
   })
 
   const req = http.get(server.http.url('/user'))
-  const { text, res } = await waitForClientRequest(req)
+  const { res } = await waitForClientRequest(req)
 
   expect(res.headers['x-appended-header']).toBe('modified')
 })

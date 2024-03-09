@@ -1,8 +1,11 @@
+/**
+ * @vitest-environment node
+ */
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 import { httpGet } from '../../../helpers'
 import { sleep } from '../../../../test/helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (req, res) => {
@@ -11,7 +14,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 interceptor.on('request', async ({ request }) => {
   if (request.headers.get('x-bypass')) {
     return

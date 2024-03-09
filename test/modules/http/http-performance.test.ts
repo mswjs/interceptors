@@ -1,7 +1,10 @@
+/**
+ * @vitest-environment node
+ */
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { SocketInterceptor } from '../../../src/interceptors/Socket/SocketInterceptor'
 import { httpGet, PromisifiedResponse, useCors } from '../../helpers'
+import { _ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest/index-new'
 
 function arrayWith<V>(length: number, mapFn: (index: number) => V): V[] {
   return new Array(length).fill(null).map((_, index) => mapFn(index))
@@ -28,7 +31,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new SocketInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 
 interceptor.on('request', ({ request }) => {
   const url = new URL(request.url)

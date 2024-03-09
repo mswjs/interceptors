@@ -1,13 +1,14 @@
 /**
+ * @vitest-environment node
  * @see https://github.com/mswjs/interceptors/issues/2
  */
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import http from 'http'
-import { SocketInterceptor } from '../../../../src/interceptors/Socket/SocketInterceptor'
+import http from 'node:http'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 
 let requests: Array<Request> = []
 
-const interceptor = new SocketInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 interceptor.on('request', ({ request }) => {
   requests.push(request)
   request.respondWith(new Response())
