@@ -1,7 +1,7 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { SocketInterceptor } from '../../../../src/interceptors/Socket/SocketInterceptor'
+import { _ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index-new'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
 const server = new HttpServer((app) => {
@@ -10,7 +10,7 @@ const server = new HttpServer((app) => {
   })
 })
 
-const interceptor = new SocketInterceptor()
+const interceptor = new _ClientRequestInterceptor()
 
 async function getResponse(request: Request): Promise<Response | undefined> {
   const url = new URL(request.url)
