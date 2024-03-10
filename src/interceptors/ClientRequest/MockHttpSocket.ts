@@ -1,15 +1,14 @@
 import net from 'node:net'
+import {
+  HTTPParser,
+  type RequestHeadersCompleteCallback,
+  type ResponseHeadersCompleteCallback,
+} from '_http_common'
 import { STATUS_CODES } from 'node:http'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedWriteArgs } from '../Socket/utils/normalizeWriteArgs'
-import {
-  HTTPParser,
-  RequestHeadersCompleteCallback,
-  ResponseHeadersCompleteCallback,
-  type NodeHttpParser,
-} from '../Socket/parsers/HttpParser'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
 import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
@@ -33,11 +32,11 @@ export class MockHttpSocket extends MockSocket {
   private onResponse?: (response: Response) => void
 
   private writeBuffer: Array<NormalizedWriteArgs> = []
-  private requestParser: NodeHttpParser<0>
+  private requestParser: HTTPParser<0>
   private requestStream?: Readable
   private shouldKeepAlive?: boolean
 
-  private responseParser: NodeHttpParser<1>
+  private responseParser: HTTPParser<1>
   private responseStream?: Readable
 
   constructor(options: MockHttpSocketOptions) {

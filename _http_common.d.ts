@@ -1,26 +1,22 @@
-// @ts-expect-error Tapping into Node.js internals.
-import httpCommon from 'node:_http_common'
-
-const HTTPParser = httpCommon.HTTPParser as NodeHttpParser<number>
-
-export interface NodeHttpParser<Type extends number> {
+declare var HTTPParser: {
+  new (): HTTPParser<number>
   REQUEST: 0
   RESPONSE: 1
   readonly kOnHeadersComplete: unique symbol
   readonly kOnBody: unique symbol
   readonly kOnMessageComplete: unique symbol
+}
 
-  new (): NodeHttpParser<Type>
+export interface HTTPParser<ParserType extends number> {
+  new (): HTTPParser<ParserType>
 
-  // Headers complete callback has different
-  // signatures for REQUEST and RESPONSE parsers.
-  [HTTPParser.kOnHeadersComplete]: Type extends 0
+  [HTTPParser.kOnHeadersComplete]: ParserType extends 0
     ? RequestHeadersCompleteCallback
     : ResponseHeadersCompleteCallback
   [HTTPParser.kOnBody]: (chunk: Buffer) => void
   [HTTPParser.kOnMessageComplete]: () => void
 
-  initialize(type: Type, asyncResource: object): void
+  initialize(type: ParserType, asyncResource: object): void
   execute(buffer: Buffer): void
   finish(): void
   free(): void
@@ -49,5 +45,3 @@ export type ResponseHeadersCompleteCallback = (
   upgrade: boolean,
   shouldKeepAlive: boolean
 ) => void
-
-export { HTTPParser }

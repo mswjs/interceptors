@@ -2,9 +2,9 @@ import net from 'node:net'
 import https from 'node:https'
 import tls from 'node:tls'
 import { STATUS_CODES } from 'node:http'
-import { HTTPParser } from 'node:_http_common'
+import { HTTPParser } from '_http_common'
 import { randomUUID } from 'node:crypto'
-import { Duplex, Readable } from 'node:stream'
+import { Readable } from 'node:stream'
 import { until } from '@open-draft/until'
 import { Interceptor } from '../../Interceptor'
 import {
@@ -13,7 +13,6 @@ import {
 } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
-import EventEmitter from 'node:events'
 
 type NormalizedSocketConnectArgs = [
   options: NormalizedSocketConnectOptions,
