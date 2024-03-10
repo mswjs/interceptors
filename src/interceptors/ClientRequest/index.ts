@@ -4,12 +4,11 @@ import { randomUUID } from 'node:crypto'
 import { until } from '@open-draft/until'
 import { Interceptor } from '../../Interceptor'
 import type { HttpRequestEventMap } from '../../glossary'
-import {
-  MockAgent,
-  MockHttpsAgent,
-  type MockAgentOnRequestCallback,
-  type MockAgentOnResponseCallback,
-} from './agents'
+import type {
+  MockHttpSocketRequestCallback,
+  MockHttpSocketResponseCallback,
+} from './MockHttpSocket'
+import { MockAgent, MockHttpsAgent } from './agents'
 import { emitAsync } from '../../utils/emitAsync'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
@@ -112,7 +111,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     })
   }
 
-  private onRequest: MockAgentOnRequestCallback = async ({
+  private onRequest: MockHttpSocketRequestCallback = async ({
     request,
     socket,
   }) => {
@@ -159,7 +158,17 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     socket.passthrough()
   }
 
-  public onResponse: MockAgentOnResponseCallback = async ({ response }) => {
-    console.log('RESPONSE:', response.status, response.statusText)
+  public onResponse: MockHttpSocketResponseCallback = async ({
+    requestId,
+    request,
+    response,
+    isMockedResponse,
+  }) => {
+    this.emitter.emit('response', {
+      requestId,
+      request,
+      response,
+      isMockedResponse,
+    })
   }
 }

@@ -1,7 +1,11 @@
 import net from 'node:net'
 import http from 'node:http'
 import https from 'node:https'
-import { MockHttpSocket } from './MockHttpSocket'
+import {
+  MockHttpSocket,
+  type MockHttpSocketRequestCallback,
+  type MockHttpSocketResponseCallback,
+} from './MockHttpSocket'
 
 declare module 'node:http' {
   interface Agent {
@@ -9,23 +13,16 @@ declare module 'node:http' {
   }
 }
 
-export type MockAgentOnRequestCallback = (args: {
-  request: Request
-  socket: MockHttpSocket
-}) => void
-
-export type MockAgentOnResponseCallback = (args: { response: Response }) => void
-
 interface MockAgentOptions {
   customAgent?: http.RequestOptions['agent']
-  onRequest: MockAgentOnRequestCallback
-  onResponse: MockAgentOnResponseCallback
+  onRequest: MockHttpSocketRequestCallback
+  onResponse: MockHttpSocketResponseCallback
 }
 
 export class MockAgent extends http.Agent {
   private customAgent?: http.RequestOptions['agent']
-  private onRequest: MockAgentOnRequestCallback
-  private onResponse: MockAgentOnResponseCallback
+  private onRequest: MockHttpSocketRequestCallback
+  private onResponse: MockHttpSocketResponseCallback
 
   constructor(options: MockAgentOptions) {
     super()
@@ -43,12 +40,8 @@ export class MockAgent extends http.Agent {
     const socket = new MockHttpSocket({
       connectionOptions: options,
       createConnection: createConnection.bind(this, options, callback),
-      onRequest: (request) => {
-        this.onRequest({ request, socket })
-      },
-      onResponse: (response) => {
-        this.onResponse({ response })
-      },
+      onRequest: this.onRequest.bind(this),
+      onResponse: this.onResponse.bind(this),
     })
 
     return socket
@@ -57,8 +50,8 @@ export class MockAgent extends http.Agent {
 
 export class MockHttpsAgent extends https.Agent {
   private customAgent?: https.RequestOptions['agent']
-  private onRequest: MockAgentOnRequestCallback
-  private onResponse: MockAgentOnResponseCallback
+  private onRequest: MockHttpSocketRequestCallback
+  private onResponse: MockHttpSocketResponseCallback
 
   constructor(options: MockAgentOptions) {
     super()
@@ -76,12 +69,8 @@ export class MockHttpsAgent extends https.Agent {
     const socket = new MockHttpSocket({
       connectionOptions: options,
       createConnection: createConnection.bind(this, options, callback),
-      onRequest: (request) => {
-        this.onRequest({ request, socket })
-      },
-      onResponse: (response) => {
-        this.onResponse({ response })
-      },
+      onRequest: this.onRequest.bind(this),
+      onResponse: this.onResponse.bind(this),
     })
 
     return socket

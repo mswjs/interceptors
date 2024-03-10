@@ -6,6 +6,7 @@ import {
 } from '_http_common'
 import { STATUS_CODES } from 'node:http'
 import { Readable } from 'node:stream'
+import { randomUUID } from 'node:crypto'
 import { invariant } from 'outvariant'
 import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedWriteArgs } from '../Socket/utils/normalizeWriteArgs'
@@ -17,20 +18,36 @@ import { RESPONSE_STATUS_CODES_WITHOUT_BODY } from '../../utils/responseUtils'
 
 type HttpConnectionOptions = any
 
+export type MockHttpSocketRequestCallback = (args: {
+  requestId: string
+  request: Request
+  socket: MockHttpSocket
+}) => void
+
+export type MockHttpSocketResponseCallback = (args: {
+  requestId: string
+  request: Request
+  response: Response
+  isMockedResponse: boolean
+  socket: MockHttpSocket
+}) => void
+
 interface MockHttpSocketOptions {
   connectionOptions: HttpConnectionOptions
   createConnection: () => net.Socket
-  onRequest: (request: Request) => void
-  onResponse: (response: Response) => void
+  onRequest: MockHttpSocketRequestCallback
+  onResponse: MockHttpSocketResponseCallback
 }
+
+const kRequestId = Symbol('kRequestId')
 
 export class MockHttpSocket extends MockSocket {
   private connectionOptions: HttpConnectionOptions
   private createConnection: () => net.Socket
   private baseUrl: URL
 
-  private onRequest: (request: Request) => void
-  private onResponse: (response: Response) => void
+  private onRequest: MockHttpSocketRequestCallback
+  private onResponse: MockHttpSocketResponseCallback
 
   private writeBuffer: Array<NormalizedWriteArgs> = []
   private request?: Request
@@ -38,6 +55,7 @@ export class MockHttpSocket extends MockSocket {
   private requestStream?: Readable
   private shouldKeepAlive?: boolean
 
+  private responseType: 'mock' | 'bypassed' = 'bypassed'
   private responseParser: HTTPParser<1>
   private responseStream?: Readable
 
@@ -53,7 +71,7 @@ export class MockHttpSocket extends MockSocket {
         }
       },
       read: (chunk) => {
-        if (chunk) {
+        if (chunk !== null) {
           this.responseParser.execute(
             Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
           )
@@ -88,14 +106,10 @@ export class MockHttpSocket extends MockSocket {
 
     // Once the socket is marked as finished,
     // no requests can be written to it, so free the parser.
-    this.once('finish', () => {
-      this.requestParser.free()
-    })
+    this.once('finish', () => this.requestParser.free())
   }
 
   public destroy(error?: Error | undefined): this {
-    // Free the parsers once this socket is destroyed.
-    this.requestParser.free()
     this.responseParser.free()
     return super.destroy(error)
   }
@@ -125,11 +139,15 @@ export class MockHttpSocket extends MockSocket {
           const chunkAfterRequestHeaders = chunkString.slice(
             chunk.indexOf('\r\n\r\n')
           )
-          const requestHeadersString = Array.from(
-            this.request!.headers.entries()
-          )
+          const requestHeaders =
+            getRawFetchHeaders(this.request!.headers) || this.request!.headers
+          const requestHeadersString = Array.from(requestHeaders.entries())
             .map(([name, value]) => `${name}: ${value}`)
             .join('\r\n')
+
+          // Modify the HTTP request message headers
+          // to reflect any changes to the request headers
+          // from the "request" event listener.
           const headersChunk = `${chunkBeforeRequestHeaders}${requestHeadersString}${chunkAfterRequestHeaders}`
           socket.write(headersChunk, encoding, callback)
           headersWritten = true
@@ -151,7 +169,12 @@ export class MockHttpSocket extends MockSocket {
       .on('session', (session) => this.emit('session', session))
       .on('ready', () => this.emit('ready'))
       .on('drain', () => this.emit('drain'))
-      .on('data', (chunk) => this.emit('data', chunk))
+      .on('data', (chunk) => {
+        // Push the original response to this socket
+        // so it triggers the HTTP response parser. This unifies
+        // the handling pipeline for original and mocked response.
+        this.push(chunk)
+      })
       .on('error', (error) => {
         Reflect.set(this, '_hadError', Reflect.get(socket, '_hadError'))
         this.emit('error', error)
@@ -177,6 +200,7 @@ export class MockHttpSocket extends MockSocket {
     // First, emit all the connection events
     // to emulate a successful connection.
     this.mockConnect()
+    this.responseType = 'mock'
 
     const httpHeaders: Array<Buffer> = []
 
@@ -217,7 +241,7 @@ export class MockHttpSocket extends MockSocket {
         this.push(value)
       }
     } else {
-      // If the response has no body, write the headers immediately.
+      // If the response has no body, write its headers immediately.
       this.push(Buffer.concat(httpHeaders))
       httpHeaders.length = 0
     }
@@ -225,6 +249,15 @@ export class MockHttpSocket extends MockSocket {
     // Close the socket if the connection wasn't marked as keep-alive.
     if (!this.shouldKeepAlive) {
       this.emit('readable')
+
+      /**
+       * @todo @fixme This is likely a hack.
+       * Since we push null to the socket, it never propagates to the
+       * parser, and the parser never calls "onResponseEnd" to close
+       * the response stream. We are closing the stream here manually
+       * but that shouldn't be the case.
+       */
+      this.responseStream?.push(null)
       this.push(null)
     }
   }
@@ -263,6 +296,8 @@ export class MockHttpSocket extends MockSocket {
     const headers = parseRawHeaders(rawHeaders)
     const canHaveBody = method !== 'GET' && method !== 'HEAD'
 
+    // Translate the basic authorization in the URL to the request header.
+    // Constructing a Request instance with a URL containing auth is no-op.
     if (url.username || url.password) {
       if (!headers.has('authorization')) {
         headers.set('authorization', `Basic ${url.username}:${url.password}`)
@@ -279,6 +314,7 @@ export class MockHttpSocket extends MockSocket {
       this.requestStream = new Readable()
     }
 
+    const requestId = randomUUID()
     this.request = new Request(url, {
       method,
       headers,
@@ -288,7 +324,13 @@ export class MockHttpSocket extends MockSocket {
       body: canHaveBody ? Readable.toWeb(this.requestStream) : null,
     })
 
-    this.onRequest?.(this.request)
+    Reflect.set(this.request, kRequestId, requestId)
+
+    this.onRequest({
+      requestId,
+      request: this.request,
+      socket: this,
+    })
   }
 
   private onRequestBody(chunk: Buffer): void {
@@ -314,9 +356,7 @@ export class MockHttpSocket extends MockSocket {
     method,
     url,
     status,
-    statusText,
-    upgrade,
-    shouldKeepAlive
+    statusText
   ) => {
     const headers = parseRawHeaders(rawHeaders)
     const canHaveBody = !RESPONSE_STATUS_CODES_WITHOUT_BODY.has(status)
@@ -335,7 +375,18 @@ export class MockHttpSocket extends MockSocket {
       }
     )
 
-    this.onResponse?.(response)
+    invariant(
+      this.request,
+      'Failed to handle a response: request does not exist'
+    )
+
+    this.onResponse({
+      response,
+      isMockedResponse: this.responseType === 'mock',
+      requestId: Reflect.get(this.request, kRequestId),
+      request: this.request,
+      socket: this,
+    })
   }
 
   private onResponseBody(chunk: Buffer) {
@@ -348,6 +399,8 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private onResponseEnd(): void {
+    console.log('------ on response end')
+
     // Response end can be called for responses without body.
     if (this.responseStream) {
       this.responseStream.push(null)
