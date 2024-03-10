@@ -24,8 +24,6 @@ export class MockSocket extends net.Socket {
   }
 
   public connect() {
-    console.log('MockSocket.connect()')
-
     // The connection will remain pending until
     // the consumer decides to handle it.
     this.connecting = true
@@ -34,15 +32,11 @@ export class MockSocket extends net.Socket {
 
   public write(...args: Array<unknown>): boolean {
     const [chunk, encoding, callback] = normalizeWriteArgs(args)
-    console.log('MockSocket.write()', chunk.toString())
-
     this.options.write(chunk, encoding, callback)
     return false
   }
 
   public end(...args: Array<unknown>) {
-    console.log('MockSocket.end()', args)
-
     const [chunk, encoding, callback] = normalizeWriteArgs(args)
     this.options.write(chunk, encoding, callback)
 
@@ -50,8 +44,6 @@ export class MockSocket extends net.Socket {
   }
 
   public push(chunk: any, encoding?: BufferEncoding): boolean {
-    console.log('MockSocket.push()', { chunk: chunk?.toString(), encoding })
-
     this.options.read(chunk, encoding)
 
     if (chunk !== null) {

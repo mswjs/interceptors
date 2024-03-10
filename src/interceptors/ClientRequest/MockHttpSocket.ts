@@ -399,8 +399,6 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private onResponseEnd(): void {
-    console.log('------ on response end')
-
     // Response end can be called for responses without body.
     if (this.responseStream) {
       this.responseStream.push(null)
