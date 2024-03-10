@@ -2,13 +2,23 @@ import {
   Agent as HttpAgent,
   globalAgent as httpGlobalAgent,
   IncomingMessage,
-} from 'http'
+} from 'node:http'
 import {
   RequestOptions,
   Agent as HttpsAgent,
   globalAgent as httpsGlobalAgent,
-} from 'https'
-import { Url as LegacyURL, parse as parseUrl } from 'url'
+} from 'node:https'
+import {
+  /**
+   * @note Use the Node.js URL instead of the global URL
+   * because environments like JSDOM may override the global,
+   * breaking the compatibility with Node.js.
+   * @see https://github.com/node-fetch/node-fetch/issues/1376#issuecomment-966435555
+   */
+  URL,
+  Url as LegacyURL,
+  parse as parseUrl,
+} from 'node:url'
 import { Logger } from '@open-draft/logger'
 import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
 import {
@@ -114,6 +124,7 @@ export function normalizeClientRequestArgs(
   // Support "http.request()" calls without any arguments.
   // That call results in a "GET http://localhost" request.
   if (args.length === 0) {
+    console.log('THIS?')
     const url = new URL('http://localhost')
     const options = resolveRequestOptions(args, url)
     return [url, options]
@@ -262,6 +273,17 @@ export function normalizeClientRequestArgs(
   logger.info('successfully resolved url:', url.href)
   logger.info('successfully resolved options:', options)
   logger.info('successfully resolved callback:', callback)
+
+  /**
+   * @note If the user-provided URL is not a valid URL in Node.js,
+   * (e.g. the one provided by the JSDOM polyfills), case it to
+   * string. Otherwise, this throws on Node.js incompatibility
+   * (`ERR_INVALID_ARG_TYPE` on the connection listener)
+   * @see https://github.com/node-fetch/node-fetch/issues/1376#issuecomment-966435555
+   */
+  if (!(url instanceof URL)) {
+    url = (url as any).toString()
+  }
 
   return [url, options, callback]
 }
