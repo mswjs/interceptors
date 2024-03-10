@@ -121,7 +121,7 @@
     "@types/express-rate-limit": "^6.0.0",
     "@types/follow-redirects": "^1.14.1",
     "@types/jest": "^27.0.3",
-    "@types/node": "^16.11.26",
+    "@types/node": "18",
     "@types/node-fetch": "2.5.12",
     "@types/supertest": "^2.0.11",
     "@types/ws": "^8.5.10",

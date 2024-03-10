@@ -11,6 +11,7 @@
     "esModuleInterop": true,
     "downlevelIteration": true,
     "lib": ["dom", "dom.iterable", "ES2018.AsyncGenerator"],
+    "types": ["@types/node"],
     "baseUrl": ".",
     "paths": {
       "_http_commons": ["./_http.common.d.ts"]

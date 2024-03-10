@@ -319,9 +319,9 @@ export class MockHttpSocket extends MockSocket {
       method,
       headers,
       credentials: 'same-origin',
-      // @ts-expect-error: Undocumented fetch option.
+      // @ts-expect-error Undocumented Fetch property.
       duplex: canHaveBody ? 'half' : undefined,
-      body: canHaveBody ? Readable.toWeb(this.requestStream) : null,
+      body: canHaveBody ? (Readable.toWeb(this.requestStream!) as any) : null,
     })
 
     Reflect.set(this.request, kRequestId, requestId)
@@ -367,7 +367,7 @@ export class MockHttpSocket extends MockSocket {
     }
 
     const response = new Response(
-      canHaveBody ? Readable.toWeb(this.responseStream) : null,
+      canHaveBody ? (Readable.toWeb(this.responseStream!) as any) : null,
       {
         status,
         statusText,
