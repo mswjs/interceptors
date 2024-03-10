@@ -124,7 +124,6 @@ it('ClientRequest: emits the "response" event upon the original response', async
     headers: {
       'x-request-custom': 'yes',
     },
-    agent: httpsAgent,
   })
   req.write('request-body')
   req.end()
@@ -261,7 +260,6 @@ it('fetch: emits the "response" event upon the original response', async () => {
   interceptor.on('response', responseListener)
 
   await fetch(httpServer.https.url('/account'), {
-    agent: httpsAgent,
     method: 'POST',
     headers: {
       'x-request-custom': 'yes',

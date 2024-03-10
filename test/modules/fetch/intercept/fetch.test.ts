@@ -1,11 +1,13 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import fetch from 'node-fetch'
 import { RequestHandler } from 'express'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
 import { UUID_REGEXP } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { encodeBuffer } from '../../../../src/utils/bufferUtils'
+
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {
@@ -184,7 +186,6 @@ it('intercepts an HTTP PATCH request', async () => {
 
 it('intercepts an HTTPS HEAD request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
-    agent: httpsAgent,
     method: 'HEAD',
     headers: {
       'x-custom-header': 'yes',
@@ -209,7 +210,6 @@ it('intercepts an HTTPS HEAD request', async () => {
 
 it('intercepts an HTTPS GET request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
-    agent: httpsAgent,
     headers: {
       'x-custom-header': 'yes',
     },
@@ -233,7 +233,6 @@ it('intercepts an HTTPS GET request', async () => {
 
 it('intercepts an HTTPS POST request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
-    agent: httpsAgent,
     method: 'POST',
     headers: {
       'x-custom-header': 'yes',
@@ -259,7 +258,6 @@ it('intercepts an HTTPS POST request', async () => {
 
 it('intercepts an HTTPS PUT request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
-    agent: httpsAgent,
     method: 'PUT',
     headers: {
       'x-custom-header': 'yes',
@@ -285,7 +283,6 @@ it('intercepts an HTTPS PUT request', async () => {
 
 it('intercepts an HTTPS DELETE request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
-    agent: httpsAgent,
     method: 'DELETE',
     headers: {
       'x-custom-header': 'yes',
@@ -310,7 +307,6 @@ it('intercepts an HTTPS DELETE request', async () => {
 
 it('intercepts an HTTPS PATCH request', async () => {
   await fetch(httpServer.https.url('/user?id=123'), {
-    agent: httpsAgent,
     method: 'PATCH',
     headers: {
       'x-custom-header': 'yes',
