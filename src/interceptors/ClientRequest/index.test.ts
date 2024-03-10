@@ -54,7 +54,7 @@ it('forbids calling "respondWith" multiple times for the same request', async ()
 
   const response = await responseReceived
   expect(response.statusCode).toBe(200)
-  expect(response.statusMessage).toBe('')
+  expect(response.statusMessage).toBe('OK')
 })
 
 it('abort the request if the abort signal is emitted', async () => {
