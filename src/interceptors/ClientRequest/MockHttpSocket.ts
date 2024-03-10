@@ -189,8 +189,10 @@ export class MockHttpSocket extends MockSocket {
       httpHeaders.push(Buffer.from(`${name}: ${value}\r\n`))
     }
 
+    // An empty line separating headers from the body.
+    httpHeaders.push(Buffer.from('\r\n'))
+
     if (response.body) {
-      httpHeaders.push(Buffer.from('\r\n'))
       const reader = response.body.getReader()
 
       while (true) {
@@ -211,6 +213,10 @@ export class MockHttpSocket extends MockSocket {
         // Subsequent body chukns are push to the stream.
         this.push(value)
       }
+    } else {
+      // If the response has no body, write the headers immediately.
+      this.push(Buffer.concat(httpHeaders))
+      httpHeaders.length = 0
     }
 
     // Close the socket if the connection wasn't marked as keep-alive.

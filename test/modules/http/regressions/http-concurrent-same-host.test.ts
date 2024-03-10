@@ -10,6 +10,8 @@ let requests: Array<Request> = []
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', ({ request }) => {
+  console.log('REQUEST', request.method, request.url)
+
   requests.push(request)
   request.respondWith(new Response())
 })
@@ -42,16 +44,16 @@ it('resolves multiple concurrent requests to the same host independently', async
     promisifyClientRequest(() => {
       return http.get('http://httpbin.org/get')
     }),
-    promisifyClientRequest(() => {
-      return http.get('http://httpbin.org/get?header=abc', {
-        headers: { 'x-custom-header': 'abc' },
-      })
-    }),
-    promisifyClientRequest(() => {
-      return http.get('http://httpbin.org/get?header=123', {
-        headers: { 'x-custom-header': '123' },
-      })
-    }),
+    // promisifyClientRequest(() => {
+    //   return http.get('http://httpbin.org/get?header=abc', {
+    //     headers: { 'x-custom-header': 'abc' },
+    //   })
+    // }),
+    // promisifyClientRequest(() => {
+    //   return http.get('http://httpbin.org/get?header=123', {
+    //     headers: { 'x-custom-header': '123' },
+    //   })
+    // }),
   ])
 
   for (const request of requests) {

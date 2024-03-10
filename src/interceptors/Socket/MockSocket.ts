@@ -50,12 +50,7 @@ export class MockSocket extends net.Socket {
   }
 
   public push(chunk: any, encoding?: BufferEncoding): boolean {
-    console.log(
-      'MockSocket.push()',
-      { chunk, encoding },
-      this.writable,
-      this.writableFinished
-    )
+    console.log('MockSocket.push()', { chunk: chunk?.toString(), encoding })
 
     this.options.read(chunk, encoding)
 
