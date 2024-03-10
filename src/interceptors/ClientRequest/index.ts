@@ -22,7 +22,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
   protected setup(): void {
     const { get: originalGet, request: originalRequest } = http
-    const { get: originalHttpsGet, request: originalHttpsRequest } = http
+    const { get: originalHttpsGet, request: originalHttpsRequest } = https
 
     const onRequest = this.onRequest.bind(this)
     const onResponse = this.onResponse.bind(this)
