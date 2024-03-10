@@ -32,6 +32,7 @@ export class MockHttpSocket extends MockSocket {
   private onResponse: (response: Response) => void
 
   private writeBuffer: Array<NormalizedWriteArgs> = []
+  private request?: Request
   private requestParser: HTTPParser<0>
   private requestStream?: Readable
   private shouldKeepAlive?: boolean
@@ -109,9 +110,31 @@ export class MockHttpSocket extends MockSocket {
     // Exhaust the "requestBuffer" in case this Socket
     // gets reused for different requests.
     let writeArgs: NormalizedWriteArgs | undefined
+    let headersWritten = false
 
     while ((writeArgs = this.writeBuffer.shift())) {
       if (writeArgs !== undefined) {
+        if (!headersWritten) {
+          const [chunk, encoding, callback] = writeArgs
+          const chunkString = chunk.toString()
+          const chunkBeforeRequestHeaders = chunkString.slice(
+            0,
+            chunkString.indexOf('\r\n') + 2
+          )
+          const chunkAfterRequestHeaders = chunkString.slice(
+            chunk.indexOf('\r\n\r\n')
+          )
+          const requestHeadersString = Array.from(
+            this.request!.headers.entries()
+          )
+            .map(([name, value]) => `${name}: ${value}`)
+            .join('\r\n')
+          const headersChunk = `${chunkBeforeRequestHeaders}${requestHeadersString}${chunkAfterRequestHeaders}`
+          socket.write(headersChunk, encoding, callback)
+          headersWritten = true
+          continue
+        }
+
         socket.write(...writeArgs)
       }
     }
@@ -247,7 +270,7 @@ export class MockHttpSocket extends MockSocket {
       this.requestStream = new Readable()
     }
 
-    const request = new Request(url, {
+    this.request = new Request(url, {
       method,
       headers,
       credentials: 'same-origin',
@@ -256,7 +279,7 @@ export class MockHttpSocket extends MockSocket {
       body: canHaveBody ? Readable.toWeb(this.requestStream) : null,
     })
 
-    this.onRequest?.(request)
+    this.onRequest?.(this.request)
   }
 
   private onRequestBody(chunk: Buffer): void {
