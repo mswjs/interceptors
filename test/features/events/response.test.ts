@@ -3,7 +3,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'https'
 import fetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
 import {
   createXMLHttpRequest,
@@ -63,6 +63,7 @@ interceptor.on('request', ({ request }) => {
 beforeAll(async () => {
   // Allow XHR requests to the local HTTPS server with a self-signed certificate.
   window._resourceLoader._strictSSL = false
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
   await httpServer.listen()
   interceptor.apply()
