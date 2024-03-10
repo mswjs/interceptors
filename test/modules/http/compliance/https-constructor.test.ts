@@ -7,7 +7,7 @@ import { IncomingMessage } from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer } from '@open-draft/test-server/http'
 import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
@@ -35,7 +35,7 @@ it('performs the original HTTPS request', async () => {
       new URL(httpServer.https.url('/resource')),
       {
         method: 'GET',
-        agent: httpsAgent,
+        rejectUnauthorized: false,
       },
       async (response) => {
         responseReceived.resolve(response)

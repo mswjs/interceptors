@@ -19,8 +19,8 @@ type HttpConnectionOptions = any
 interface MockHttpSocketOptions {
   connectionOptions: HttpConnectionOptions
   createConnection: () => net.Socket
-  onRequest?: (request: Request) => void
-  onResponse?: (response: Response) => void
+  onRequest: (request: Request) => void
+  onResponse: (response: Response) => void
 }
 
 export class MockHttpSocket extends MockSocket {
@@ -28,8 +28,8 @@ export class MockHttpSocket extends MockSocket {
   private createConnection: () => net.Socket
   private baseUrl: URL
 
-  private onRequest?: (request: Request) => void
-  private onResponse?: (response: Response) => void
+  private onRequest: (request: Request) => void
+  private onResponse: (response: Response) => void
 
   private writeBuffer: Array<NormalizedWriteArgs> = []
   private requestParser: HTTPParser<0>

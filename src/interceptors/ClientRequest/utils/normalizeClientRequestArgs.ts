@@ -93,7 +93,7 @@ function resolveCallback(
 export type NormalizedClientRequestArgs = [
   url: URL,
   options: ResolvedRequestOptions,
-  callback?: HttpRequestCallback
+  callback?: HttpRequestCallback,
 ]
 
 /**
@@ -102,7 +102,7 @@ export type NormalizedClientRequestArgs = [
  */
 export function normalizeClientRequestArgs(
   defaultProtocol: string,
-  ...args: ClientRequestArgs
+  args: ClientRequestArgs
 ): NormalizedClientRequestArgs {
   let url: URL
   let options: ResolvedRequestOptions
@@ -172,16 +172,14 @@ export function normalizeClientRequestArgs(
       logger.info('given legacy URL is relative (no hostname)')
 
       return isObject(args[1])
-        ? normalizeClientRequestArgs(
-            defaultProtocol,
+        ? normalizeClientRequestArgs(defaultProtocol, [
             { path: legacyUrl.path, ...args[1] },
-            args[2]
-          )
-        : normalizeClientRequestArgs(
-            defaultProtocol,
+            args[2],
+          ])
+        : normalizeClientRequestArgs(defaultProtocol, [
             { path: legacyUrl.path },
-            args[1] as HttpRequestCallback
-          )
+            args[1] as HttpRequestCallback,
+          ])
     }
 
     logger.info('given legacy url is absolute')
@@ -190,15 +188,14 @@ export function normalizeClientRequestArgs(
     const resolvedUrl = new URL(legacyUrl.href)
 
     return args[1] === undefined
-      ? normalizeClientRequestArgs(defaultProtocol, resolvedUrl)
+      ? normalizeClientRequestArgs(defaultProtocol, [resolvedUrl])
       : typeof args[1] === 'function'
-      ? normalizeClientRequestArgs(defaultProtocol, resolvedUrl, args[1])
-      : normalizeClientRequestArgs(
-          defaultProtocol,
-          resolvedUrl,
-          args[1],
-          args[2]
-        )
+        ? normalizeClientRequestArgs(defaultProtocol, [resolvedUrl, args[1]])
+        : normalizeClientRequestArgs(defaultProtocol, [
+            resolvedUrl,
+            args[1],
+            args[2],
+          ])
   }
   // Handle a given "RequestOptions" object as-is
   // and derive the URL instance from it.

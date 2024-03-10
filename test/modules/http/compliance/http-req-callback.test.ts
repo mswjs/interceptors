@@ -1,17 +1,16 @@
 /**
- * @vitest-environment jsdom
+ * @vitest-environment node
  */
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { IncomingMessage } from 'node:http'
 import https from 'node:https'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { getRequestOptionsByUrl } from '../../../../src/utils/getRequestOptionsByUrl'
 
 const httpServer = new HttpServer((app) => {
   app.get('/get', (req, res) => {
-    res.status(200).send('/').end()
+    res.status(200).send('/')
   })
 })
 
@@ -47,16 +46,16 @@ it('calls a custom callback once when the request is bypassed', async () => {
   let text: string = ''
 
   const responseReceived = new DeferredPromise<void>()
-  const responseCallback = vi.fn<[IncomingMessage]>((res) => {
-    res.on('data', (chunk) => (text += chunk))
-    res.on('end', () => responseReceived.resolve())
-    res.on('error', (error) => responseReceived.reject(error))
+  const responseCallback = vi.fn<[IncomingMessage]>((response) => {
+    response.on('data', (chunk) => (text += chunk))
+    response.on('end', () => responseReceived.resolve())
+    response.on('error', (error) => responseReceived.reject(error))
   })
 
   https.get(
+    httpServer.https.url('/get'),
     {
-      ...getRequestOptionsByUrl(new URL(httpServer.https.url('/get'))),
-      agent: httpsAgent,
+      rejectUnauthorized: false,
     },
     responseCallback
   )
@@ -74,16 +73,16 @@ it('calls a custom callback once when the response is mocked', async () => {
   let text: string = ''
 
   const responseReceived = new DeferredPromise<void>()
-  const responseCallback = vi.fn<[IncomingMessage]>((res) => {
-    res.on('data', (chunk) => (text += chunk))
-    res.on('end', () => responseReceived.resolve())
-    res.on('error', (error) => responseReceived.reject(error))
+  const responseCallback = vi.fn<[IncomingMessage]>((response) => {
+    response.on('data', (chunk) => (text += chunk))
+    response.on('end', () => responseReceived.resolve())
+    response.on('error', (error) => responseReceived.reject(error))
   })
 
   https.get(
+    httpServer.https.url('/arbitrary'),
     {
-      ...getRequestOptionsByUrl(new URL(httpServer.https.url('/arbitrary'))),
-      agent: httpsAgent,
+      rejectUnauthorized: false,
     },
     responseCallback
   )
