@@ -12,6 +12,7 @@ import type { NormalizedWriteArgs } from '../Socket/utils/normalizeWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
 import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
+import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 import { RESPONSE_STATUS_CODES_WITHOUT_BODY } from '../../utils/responseUtils'
 
 type HttpConnectionOptions = any
@@ -185,7 +186,9 @@ export class MockHttpSocket extends MockSocket {
       )
     )
 
-    for (const [name, value] of response.headers) {
+    // Get the raw headers stored behind the symbol to preserve name casing.
+    const headers = getRawFetchHeaders(response.headers) || response.headers
+    for (const [name, value] of headers) {
       httpHeaders.push(Buffer.from(`${name}: ${value}\r\n`))
     }
 
