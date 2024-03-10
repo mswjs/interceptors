@@ -153,7 +153,7 @@ it('intercepts an HTTP DELETE request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -299,7 +299,7 @@ it('intercepts an HTTPS DELETE request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
@@ -323,7 +323,7 @@ it('intercepts an HTTPS PATCH request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
   expect(requestId).toMatch(UUID_REGEXP)
