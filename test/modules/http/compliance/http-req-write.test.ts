@@ -93,29 +93,29 @@ it('writes Buffer request body', async () => {
   expect(await text()).toEqual(expectedBody)
 })
 
-it('does not call the write callback when writing an empty string', async () => {
-  const req = http.request(httpServer.http.url('/resource'), {
+it('calls the callback when writing an empty string', async () => {
+  const request = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
 
   const writeCallback = vi.fn()
-  req.write('', writeCallback)
-  req.end()
-  await waitForClientRequest(req)
+  request.write('', writeCallback)
+  request.end()
+  await waitForClientRequest(request)
 
-  expect(writeCallback).not.toHaveBeenCalled()
+  expect(writeCallback).toHaveBeenCalledTimes(1)
 })
 
-it('does not call the write callback when writing an empty Buffer', async () => {
-  const req = http.request(httpServer.http.url('/resource'), {
+it('calls the callback when writing an empty Buffer', async () => {
+  const request = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
 
   const writeCallback = vi.fn()
-  req.write(Buffer.from(''), writeCallback)
-  req.end()
+  request.write(Buffer.from(''), writeCallback)
+  request.end()
 
-  await waitForClientRequest(req)
+  await waitForClientRequest(request)
 
-  expect(writeCallback).not.toHaveBeenCalled()
+  expect(writeCallback).toHaveBeenCalledTimes(1)
 })
