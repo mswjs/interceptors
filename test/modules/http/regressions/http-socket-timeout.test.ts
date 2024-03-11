@@ -13,7 +13,6 @@ beforeAll(() => {
     `--config=${require.resolve('./http-socket-timeout.vitest.config.js')}`,
   ])
 
-  // Jest writes its output into "stderr".
   child.stderr?.on('data', (buffer: Buffer) => {
     /**
      * @note @fixme Skip Vite's CJS build deprecation message.
