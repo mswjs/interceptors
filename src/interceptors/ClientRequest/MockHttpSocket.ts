@@ -219,6 +219,19 @@ export class MockHttpSocket extends MockSocket {
     // An empty line separating headers from the body.
     httpHeaders.push(Buffer.from('\r\n'))
 
+    const flushHeaders = (value?: Uint8Array) => {
+      if (httpHeaders.length === 0) {
+        return
+      }
+
+      if (typeof value !== 'undefined') {
+        httpHeaders.push(Buffer.from(value))
+      }
+
+      this.push(Buffer.concat(httpHeaders))
+      httpHeaders.length = 0
+    }
+
     if (response.body) {
       const reader = response.body.getReader()
 
@@ -229,21 +242,24 @@ export class MockHttpSocket extends MockSocket {
           break
         }
 
-        // The first body chunk flushes the entire headers.
+        // Flush the headers upon the first chunk in the stream.
+        // This ensures the consumer will start receiving the response
+        // as it streams in (subsequent chunks are pushed).
         if (httpHeaders.length > 0) {
-          httpHeaders.push(Buffer.from(value))
-          this.push(Buffer.concat(httpHeaders))
-          httpHeaders.length = 0
+          flushHeaders(value)
           continue
         }
 
         // Subsequent body chukns are push to the stream.
         this.push(value)
       }
-    } else {
-      // If the response has no body, write its headers immediately.
-      this.push(Buffer.concat(httpHeaders))
-      httpHeaders.length = 0
+    }
+
+    // If the headers were not flushed up to this point,
+    // this means the response either had no body or had
+    // an empty body stream. Flush the headers.
+    if (httpHeaders.length > 0) {
+      flushHeaders()
     }
 
     // Close the socket if the connection wasn't marked as keep-alive.
