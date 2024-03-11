@@ -38,20 +38,6 @@ it('intercepts a GET request', async () => {
     },
   })
 
-  request
-    .on('socket', (socket) => {
-      console.log('[test] request "socket" event:', socket.constructor.name)
-
-      socket.on('secureConnect', () => console.log('secureConnect'))
-      socket.on('error', (e) => console.error(e))
-      socket.on('timeout', () => console.error('timeout'))
-      socket.on('close', (e) => console.error(e))
-      socket.on('end', () => console.error('end'))
-    })
-    .on('error', (e) => console.error(e))
-    .on('end', () => console.log('end'))
-    .on('close', () => console.log('close'))
-
   await waitForClientRequest(request)
 
   expect(resolver).toHaveBeenCalledTimes(1)

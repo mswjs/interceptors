@@ -124,7 +124,6 @@ export function normalizeClientRequestArgs(
   // Support "http.request()" calls without any arguments.
   // That call results in a "GET http://localhost" request.
   if (args.length === 0) {
-    console.log('THIS?')
     const url = new URL('http://localhost')
     const options = resolveRequestOptions(args, url)
     return [url, options]
