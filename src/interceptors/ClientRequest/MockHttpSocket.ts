@@ -326,6 +326,16 @@ export class MockHttpSocket extends MockSocket {
 
     Reflect.set(this.request, kRequestId, requestId)
 
+    /**
+     * @fixme Stop relying on the "X-Request-Id" request header
+     * to figure out if one interceptor has been invoked within another.
+     * @see https://github.com/mswjs/interceptors/issues/378
+     */
+    if (this.request.headers.has('x-request-id')) {
+      this.passthrough()
+      return
+    }
+
     this.onRequest({
       requestId,
       request: this.request,
@@ -379,6 +389,15 @@ export class MockHttpSocket extends MockSocket {
       this.request,
       'Failed to handle a response: request does not exist'
     )
+
+    /**
+     * @fixme Stop relying on the "X-Request-Id" request header
+     * to figure out if one interceptor has been invoked within another.
+     * @see https://github.com/mswjs/interceptors/issues/378
+     */
+    if (this.request.headers.has('x-request-id')) {
+      return
+    }
 
     this.onResponse({
       response,
