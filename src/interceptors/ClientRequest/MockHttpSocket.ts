@@ -104,12 +104,15 @@ export class MockHttpSocket extends MockSocket {
     this.responseParser[HTTPParser.kOnMessageComplete] =
       this.onResponseEnd.bind(this)
 
-    // Once the socket is marked as finished,
-    // no requests can be written to it, so free the parser.
+    // Once the socket is finished, nothing can write to it
+    // anymore. It has also flushed any buffered chunks.
     this.once('finish', () => this.requestParser.free())
   }
 
   public destroy(error?: Error | undefined): this {
+    // Destroy the response parser when the socket gets destroyed.
+    // Normally, we shoud listen to the "close" event but it
+    // can be suppressed by using the "emitClose: false" option.
     this.responseParser.free()
     return super.destroy(error)
   }
