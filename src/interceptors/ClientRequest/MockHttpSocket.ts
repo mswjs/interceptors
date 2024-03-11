@@ -290,8 +290,13 @@ export class MockHttpSocket extends MockSocket {
     this.emit('connect')
     this.emit('ready')
 
-    // TODO: Also emit "secure" -> "secureConnect" -> "session" events
-    // for TLS sockets.
+    if (this.baseUrl.protocol === 'https:') {
+      this.emit('secure')
+      this.emit('secureConnect')
+      // A single TLS connection is represented by two "session" events.
+      this.emit('session', Buffer.from('mock-session-renegotiate'))
+      this.emit('session', Buffer.from('mock-session-resume'))
+    }
   }
 
   private onRequestStart: RequestHeadersCompleteCallback = (
