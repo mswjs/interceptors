@@ -103,6 +103,9 @@ export class WebSocketServerConnection {
 
     const ws = this.createConnection()
 
+    // Inherit the binary type from the mock WebSocket client.
+    ws.binaryType = this.socket.binaryType
+
     // Close the original connection when the (mock)
     // client closes, regardless of the reason.
     this.socket.addEventListener(
