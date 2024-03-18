@@ -335,7 +335,10 @@ export class MockHttpSocket extends MockSocket {
     // this ensures that each request gets its own stream.
     // One Socket instance can only handle one request at a time.
     if (canHaveBody) {
-      this.requestStream = new Readable()
+      this.requestStream = new Readable({
+        // Dummy implementation. We control the queue in the onRequestBody\End functions
+        read: () => {}
+      })
     }
 
     const requestId = randomUUID()

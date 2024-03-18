@@ -6,7 +6,8 @@ import http from 'node:http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import { sleep, waitForClientRequest } from '../../../helpers'
+import { Readable } from 'node:stream'
 
 const httpServer = new HttpServer((app) => {
   app.post('/resource', express.text({ type: '*/*' }), (req, res) => {
@@ -88,6 +89,31 @@ it('writes Buffer request body', async () => {
 
   const { text } = await waitForClientRequest(req)
   const expectedBody = `{"key":"value"}`
+
+  expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
+  expect(await text()).toEqual(expectedBody)
+})
+
+it('writes Readable request body', async () => {
+  const req = http.request(httpServer.http.url('/resource'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  const input = ['hello', ' ', 'world', null]
+  const readable = new Readable({
+    read: async function() {
+      await sleep(10)
+      this.push(input.shift())
+    },
+  })
+
+  readable.pipe(req)
+
+  const { text } = await waitForClientRequest(req)
+  const expectedBody = 'hello world'
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
   expect(await text()).toEqual(expectedBody)
