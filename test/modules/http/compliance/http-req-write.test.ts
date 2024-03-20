@@ -1,13 +1,13 @@
 /**
  * @vitest-environment node
  */
+import { Readable } from 'node:stream'
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { sleep, waitForClientRequest } from '../../../helpers'
-import { Readable } from 'node:stream'
 
 const httpServer = new HttpServer((app) => {
   app.post('/resource', express.text({ type: '*/*' }), (req, res) => {
@@ -94,7 +94,7 @@ it('writes Buffer request body', async () => {
   expect(await text()).toEqual(expectedBody)
 })
 
-it('writes Readable request body', async () => {
+it('supports Readable as the request body', async () => {
   const req = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
