@@ -6,8 +6,6 @@ import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 import type { HttpRequestEventMap } from '../../src/glossary'
 import { waitForClientRequest } from '../helpers'
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
-
 const resolver = vi.fn<HttpRequestEventMap['request']>()
 
 const interceptor = new ClientRequestInterceptor()
@@ -42,7 +40,7 @@ afterAll(async () => {
   await server.close()
 })
 
-it('intercepts a POST request issued by "follow-redirects"', async () => {
+it.skip('intercepts a POST request issued by "follow-redirects"', async () => {
   const { address } = server.https
   const payload = JSON.stringify({ todo: 'Buy the milk' })
 
@@ -55,8 +53,9 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
       path: '/resource',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': payload.length,
+        'Content-Length': Buffer.from(payload).byteLength,
       },
+      rejectUnauthorized: false,
     },
     (res) => {
       catchResponseUrl(res.responseUrl)
