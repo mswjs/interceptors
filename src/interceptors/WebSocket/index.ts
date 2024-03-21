@@ -15,19 +15,19 @@ export {
 }
 
 export type WebSocketEventMap = {
-  connection: [
-    args: {
-      /**
-       * The incoming WebSocket client connection.
-       */
-      client: WebSocketClientConnection
+  connection: [args: WebSocketConnectionData]
+}
 
-      /**
-       * The original WebSocket server connection.
-       */
-      server: WebSocketServerConnection
-    }
-  ]
+export type WebSocketConnectionData = {
+  /**
+   * The incoming WebSocket client connection.
+   */
+  client: WebSocketClientConnection
+
+  /**
+   * The original WebSocket server connection.
+   */
+  server: WebSocketServerConnection
 }
 
 /**
