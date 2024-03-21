@@ -34,7 +34,7 @@ export class WebSocketClientConnection
   private [kEmitter]: EventTarget
 
   constructor(
-    private readonly socket: WebSocket,
+    public readonly socket: WebSocket,
     private readonly transport: WebSocketTransport
   ) {
     this.id = uuidv4()
