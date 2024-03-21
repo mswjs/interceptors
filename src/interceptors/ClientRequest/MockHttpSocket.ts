@@ -336,8 +336,12 @@ export class MockHttpSocket extends MockSocket {
     // One Socket instance can only handle one request at a time.
     if (canHaveBody) {
       this.requestStream = new Readable({
-        // Dummy implementation. We control the queue in the onRequestBody\End functions
-        read: () => {}
+        /**
+         * @note Provide the `read()` method so a `Readable` could be
+         * used as the actual request body (the stream calls "read()").
+         * We control the queue in the onRequestBody/End functions.
+         */
+        read: () => {},
       })
     }
 
@@ -376,9 +380,7 @@ export class MockHttpSocket extends MockSocket {
       'Failed to write to a request stream: stream does not exist'
     )
 
-    if (this.requestStream.push(chunk)) {
-      process.nextTick(() => this.emit('drain'))
-    }
+    this.requestStream.push(chunk)
   }
 
   private onRequestEnd(): void {
@@ -386,7 +388,6 @@ export class MockHttpSocket extends MockSocket {
     if (this.requestStream) {
       this.requestStream.push(null)
     }
-    process.nextTick(() => this.emit('drain'))
   }
 
   private onResponseStart: ResponseHeadersCompleteCallback = (
