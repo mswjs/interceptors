@@ -10,8 +10,6 @@ let requests: Array<Request> = []
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', ({ request }) => {
-  console.log('REQUEST', request.method, request.url)
-
   requests.push(request)
   request.respondWith(new Response())
 })
