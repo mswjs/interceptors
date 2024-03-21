@@ -34,7 +34,7 @@ export class MockSocket extends net.Socket {
   public write(...args: Array<unknown>): boolean {
     const [chunk, encoding, callback] = normalizeWriteArgs(args as WriteArgs)
     this.options.write(chunk, encoding, callback)
-    return true
+    return false
   }
 
   public end(...args: Array<unknown>) {

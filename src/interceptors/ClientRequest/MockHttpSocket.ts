@@ -376,7 +376,9 @@ export class MockHttpSocket extends MockSocket {
       'Failed to write to a request stream: stream does not exist'
     )
 
-    this.requestStream.push(chunk)
+    if (this.requestStream.push(chunk)) {
+      process.nextTick(() => this.emit('drain'))
+    }
   }
 
   private onRequestEnd(): void {
@@ -384,6 +386,7 @@ export class MockHttpSocket extends MockSocket {
     if (this.requestStream) {
       this.requestStream.push(null)
     }
+    process.nextTick(() => this.emit('drain'))
   }
 
   private onResponseStart: ResponseHeadersCompleteCallback = (
