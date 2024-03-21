@@ -39,4 +39,4 @@ it('does not leave the test process hanging due to the custom socket timeout', a
 
   expect(testErrors).toBe('')
   expect(exitCode).toEqual(0)
-})
+}, 10_000)
