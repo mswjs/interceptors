@@ -315,120 +315,113 @@ intereceptor.on('connection', ({ client }) => {
 
 The `connection` event exposes the following arguments:
 
-| Name     | Type     | Description                                                      |
-| -------- | -------- | ---------------------------------------------------------------- |
-| `client` | `object` | An object representing a connected WebSocket client instance.    |
-| `server` | `object` | An object representing the original WebSocket server connection. |
+| Name     | Type                                                      | Description                                                      |
+| -------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
+| `client` | [`WebSocketClientConnection`](#websocketclientconnection) | An object representing a connected WebSocket client instance.    |
+| `server` | [`WebSocketServerConnection`](#websocketserverconnection) | An object representing the original WebSocket server connection. |
 
-### Intercepting outgoing client events
+### `WebSocketClientConnection`
 
-To intercept an event sent by the WebSocket client, add a `message` listener to the `client` object.
+#### `.addEventListener(type, listener)`
+
+- `type`, `"message"`
+- `listener`, `(event: MessageEvent<WebSocketData>) => void`
+
+Adds an event listener to the given event type of the WebSocket client.
+
+| Event name | Description                                                       |
+| ---------- | ----------------------------------------------------------------- |
+| `message`  | Dispatched when data is sent by the intercepted WebSocket client. |
 
 ```js
-interceptor.on('connection', ({ client }) => {
-  // Intercept all outgoing events from the client.
-  client.addEventListener('message', (event) => {
-    console.log('received:', event.data)
-  })
+client.addEventListener('message', (event) => {
+  console.log('outgoing:', event.data)
 })
 ```
 
-### Mocking incoming server events
+#### `.removeEventListener(type, listener)`
 
-To mock an event sent from the server to the client, call `client.send()` with the event payload.
+- `type`, `"message"`
+- `listener`, `(event: MessageEvent<WebSocketData>) => void`
+
+Removes the listener for the given event type.
+
+#### `.send(data)`
+
+- `data`, `string | Blob | ArrayBuffer`
+
+Sends the data to the intercepted WebSocket client.
 
 ```js
-interceptor.on('connection', ({ client }) => {
-  // Send a mocked "MessageEvent" to the client
-  // with the given "hello" string as the data.
-  client.send('hello')
+client.send('text')
+client.send(new Blob(['blob']))
+client.send(new TextEncoder().encode('array buffer'))
+```
+
+#### `.close(code, reason)`
+
+- `code`, close [status code](https://www.rfc-editor.org/rfc/rfc6455#section-7.4.1).
+- `reason`, [close reason](https://www.rfc-editor.org/rfc/rfc6455#section-7.1.6).
+
+Closes the client connection. Unlike the regular `WebSocket.prototype.close()`, the `client.close()` method can accept a non-configurable status codes, such as 1001, 1003, etc.
+
+```js
+// Gracefully close the connection with the
+// intercepted WebSocket client.
+client.close()
+```
+
+```js
+// Terminate the connection by emulating
+// the server unable to process the received data.
+client.close(1003)
+```
+
+### `WebSocketServerConnection`
+
+#### `.connect()`
+
+Establishes the connection to the original WebSocket server. Connection cannot be awaited. Any data sent via `server.send()` while connecting is buffered and flushed once the connection is open.
+
+#### `.addEventListener(type, listener)`
+
+- `type`, `"message"`
+- `listener`, `(event: MessageEvent<WebSocketData>) => void`
+
+Adds an event listener to the given event type of the WebSocket server.
+
+| Event name | Description                                                          |
+| ---------- | -------------------------------------------------------------------- |
+| `message`  | Dispatched when data is received from the original WebSocket server. |
+
+```js
+server.addEventListener('message', (event) => {
+  console.log('incoming:', event.data)
 })
 ```
 
-> The WebSocket interceptor respects the [WebSocket WHATWG standard](https://websockets.spec.whatwg.org/) and supports sending all supported data types (string, Blob, ArrayBuffer, etc).
+#### `.removeEventListener(type, listener)`
 
-### Bypassing events
+- `type`, `"message"`
+- `listener`, `(event: MessageEvent<WebSocketData>) => void`
 
-By default, the WebSocket interceptor **prevents all the outgoing client events from hitting the production server**. This is a sensible default to support mocking a WebSocket communication when a WebSocket server doesn't exist.
+Removes the listener for the given event type.
 
-To bypass an event, first establish the actual server connection by calling `server.connect()`, and then call `server.send()` with the data you wish to forward to the original server.
+#### `.send(data)`
+
+- `data`, `string | Blob | ArrayBuffer`
+
+Sends the data to the original WebSocket server. Useful in a combination with the client-sent events forwarding:
 
 ```js
-interceptor.on('connection', ({ client, server }) => {
-  // First, connect to the original server.
-  server.connect()
-
-  // Forward all outgoing client events to the original server.
-  client.addEventListener('message', (event) => server.send(event.data))
+client.addEventListener('message', (event) => {
+  server.send(event.data)
 })
 ```
 
-### Intercepting incoming server events
+#### `.close()`
 
-The WebSocket communication is duplex and the WebSocket interceptor allows you to intercept both outgoing (client) events and incoming (original server) events.
-
-To intercept an incoming event from the original server, first establish the original connection by calling `server.connect()`, and then add a `message` listener to the `server` object.
-
-```js
-interceptor.on('connection', ({ server }) => {
-  server.connect()
-
-  server.addEventListener('message', (event) => {
-    console.log('original server sent:', event.data)
-  })
-})
-```
-
-Unlike the outgoing client events, incoming server events **are automatically forwarded to the client as soon as you call `server.connect()`**. This keeps the original server connection authentic if you ever decide to open one.
-
-If you wish to prevent the automatic forwarding of the server events to the client, call `event.preventDefault()` on the incoming event you wish to prevent. This can be handy for observing as well as modifying incoming events.
-
-```js
-interceptor.on('connection', ({ client, server }) => {
-  server.connect()
-
-  server.addEventListener('message', (event) => {
-    if (event.data === 'hello from server') {
-      // Never forward this event to the client.
-      event.preventDefault()
-
-      // Instead, send this mock data.
-      client.send('greetings, client')
-      return
-    }
-  })
-})
-```
-
-### Closing the connection
-
-You can terminate the open WebSocket client connection by calling `client.close()`.
-
-```js
-interceptor.on('connection', ({ client }) => {
-  client.close()
-})
-```
-
-By default, this will close the connection with the `1000` code, meaning a graceful disconnect.
-
-You can provide a custom close [Status code](https://www.rfc-editor.org/rfc/rfc6455#section-7.4.1) and [Close reason](https://www.rfc-editor.org/rfc/rfc6455#section-7.1.6) to the `client.close()` to mock different connection close scenarios.
-
-```js
-interceptor.on('connection', ({ client }) => {
-  client.close(3000, 'Close reason')
-})
-```
-
-You can also close the connection with the termination status code (1001 - 1015), which are not configurable by the user otherwise.
-
-```js
-interceptor.on('connection', ({ client }) => {
-  // Terminate the connection because the "server"
-  // cannot accept the data sent from the client.
-  client.close(1003)
-})
-```
+Closes the connection with the original WebSocket server. Unlike `client.close()`, closing the server connection does not accept any arguments and always asumes a graceful closure. Sending data via `server.send()` after the connection has been closed will have no effect.
 
 ## API
 
