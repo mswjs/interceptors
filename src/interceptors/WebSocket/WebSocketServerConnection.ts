@@ -97,36 +97,36 @@ export class WebSocketServerConnection {
    */
   public connect(): void {
     invariant(
-      this.readyState === -1,
+      !this.realWebSocket || this.realWebSocket.readyState !== WebSocket.OPEN,
       'Failed to call "connect()" on the original WebSocket instance: the connection already open'
     )
 
-    const ws = this.createConnection()
+    const realWebSocket = this.createConnection()
 
     // Inherit the binary type from the mock WebSocket client.
-    ws.binaryType = this.socket.binaryType
+    realWebSocket.binaryType = this.socket.binaryType
 
     // Close the original connection when the (mock)
     // client closes, regardless of the reason.
     this.socket.addEventListener(
       'close',
       (event) => {
-        ws.close(event.code, event.reason)
+        realWebSocket.close(event.code, event.reason)
       },
       { once: true }
     )
 
-    ws.addEventListener('message', (event) => {
+    realWebSocket.addEventListener('message', (event) => {
       this.transport.onIncoming(event)
     })
 
     // Forward server errors to the WebSocket client as-is.
     // We may consider exposing them to the interceptor in the future.
-    ws.addEventListener('error', () => {
+    realWebSocket.addEventListener('error', () => {
       this.socket.dispatchEvent(bindEvent(this.socket, new Event('error')))
     })
 
-    this.realWebSocket = ws
+    this.realWebSocket = realWebSocket
   }
 
   /**
@@ -171,7 +171,7 @@ export class WebSocketServerConnection {
 
     invariant(
       realWebSocket,
-      'Failed to call "server.send()" for "%s": the connection is not open. Did you forget to call "await server.connect()"?',
+      'Failed to call "server.send()" for "%s": the connection is not open. Did you forget to call "server.connect()"?',
       this.socket.url
     )
 

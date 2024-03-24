@@ -2,14 +2,14 @@
  * @vitest-environment node-with-websocket
  */
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { RawData } from 'engine.io-parser'
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { WebSocketServer } from 'ws'
+import { WebSocketServer, Data } from 'ws'
 import {
   WebSocketInterceptor,
   WebSocketServerConnection,
 } from '../../../../src/interceptors/WebSocket/index'
 import { getWsUrl } from '../utils/getWsUrl'
+import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
 import { waitForNextTick } from '../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()
@@ -24,6 +24,7 @@ beforeAll(() => {
 })
 
 afterEach(() => {
+  interceptor.removeAllListeners()
   wsServer.clients.forEach((client) => client.close())
 })
 
@@ -47,13 +48,12 @@ it('throws if closing the unconnected server', async () => {
 })
 
 it('closes the actual server connection when called "server.close()"', async () => {
-  const clientOpenPromise = new DeferredPromise<void>()
   const serverCallback = vi.fn<[number]>()
-  const clientMessageListener = vi.fn<[RawData]>()
+  const originalClientMessageListener = vi.fn<[Data]>()
 
   wsServer.on('connection', (client) => {
     client.addEventListener('message', (event) => {
-      clientMessageListener(event.data)
+      originalClientMessageListener(event.data)
     })
   })
 
@@ -80,14 +80,14 @@ it('closes the actual server connection when called "server.close()"', async () 
   })
 
   const ws = new WebSocket(getWsUrl(wsServer))
-  ws.onopen = () => clientOpenPromise.resolve()
-  ws.onerror = () => clientOpenPromise.reject()
-  await clientOpenPromise
+  await waitForWebSocketEvent('open', ws)
 
   // Must forward the client messages to the original server.
   ws.send('hello from client')
   await vi.waitFor(() => {
-    expect(clientMessageListener).toHaveBeenCalledWith('hello from client')
+    expect(originalClientMessageListener).toHaveBeenCalledWith(
+      'hello from client'
+    )
   })
 
   // Must close the server connection once "server.close()" is called.
@@ -100,5 +100,60 @@ it('closes the actual server connection when called "server.close()"', async () 
   // after the connection has been closed.
   ws.send('another hello')
   await waitForNextTick()
-  expect(clientMessageListener).not.toHaveBeenCalledWith('another hello')
+  expect(originalClientMessageListener).not.toHaveBeenCalledWith(
+    'another hello'
+  )
+})
+
+it('resumes forwarding client events to the server once it is reconnected', async () => {
+  const originalClientMessageListener = vi.fn<[Data]>()
+  wsServer.on('connection', (client) => {
+    client.addEventListener('message', (event) => {
+      originalClientMessageListener(event.data)
+    })
+  })
+
+  interceptor.once('connection', ({ client, server }) => {
+    server.connect()
+
+    client.addEventListener('message', (event) => {
+      if (event.data === 'server/close') {
+        server.close()
+      }
+
+      if (event.data === 'server/reconnect') {
+        server.connect()
+      }
+
+      server.send(event.data)
+    })
+  })
+
+  const ws = new WebSocket(getWsUrl(wsServer))
+  await waitForWebSocketEvent('open', ws)
+
+  ws.send('first hello')
+  await vi.waitFor(() => {
+    expect(originalClientMessageListener).toHaveBeenLastCalledWith(
+      'first hello'
+    )
+  })
+
+  ws.send('server/close')
+  await waitForNextTick()
+  ws.send('second hello')
+  await vi.waitFor(() => {
+    expect(originalClientMessageListener).not.toHaveBeenCalledWith(
+      'second hello'
+    )
+  })
+
+  ws.send('server/reconnect')
+  await waitForNextTick()
+  ws.send('third hello')
+  await vi.waitFor(() => {
+    expect(originalClientMessageListener).toHaveBeenLastCalledWith(
+      'third hello'
+    )
+  })
 })
