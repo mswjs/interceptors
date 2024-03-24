@@ -157,3 +157,46 @@ it('resumes forwarding client events to the server once it is reconnected', asyn
     )
   })
 })
+
+it('forwards "close" events from the original server', async () => {
+  const interceptorServerCloseListener = vi.fn()
+
+  wsServer.on('connection', (client) => {
+    client.addEventListener('message', (event) => {
+      if (event.data === 'unprocessable') {
+        client.close(1003, 'Cannot process payload')
+      }
+    })
+  })
+
+  interceptor.once('connection', ({ client, server }) => {
+    server.connect()
+    client.addEventListener('message', (event) => {
+      server.send(event.data)
+    })
+    server.addEventListener('close', (event) => {
+      interceptorServerCloseListener(event.code, event.reason)
+    })
+  })
+
+  const ws = new WebSocket(getWsUrl(wsServer))
+  await waitForWebSocketEvent('open', ws)
+  const clientCloseListener = vi.fn()
+  ws.onclose = (event) => clientCloseListener(event.code, event.reason)
+
+  ws.send('unprocessable')
+
+  // Must forward the original close event to the interceptor.
+  await vi.waitFor(() => {
+    expect(interceptorServerCloseListener).toHaveBeenCalledWith(
+      1003,
+      'Cannot process payload'
+    )
+  })
+
+  // Must forward the original close to the intercepted client.
+  expect(clientCloseListener).toHaveBeenCalledWith(
+    1003,
+    'Cannot process payload'
+  )
+})

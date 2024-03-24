@@ -1,11 +1,13 @@
 import { invariant } from 'outvariant'
-import type { WebSocketOverride } from './WebSocketOverride'
+import { kClose, WebSocketOverride } from './WebSocketOverride'
 import type { WebSocketData } from './WebSocketTransport'
 import type { WebSocketClassTransport } from './WebSocketClassTransport'
 import { bindEvent } from './utils/bindEvent'
-import { CancelableMessageEvent } from './utils/events'
+import { CancelableMessageEvent, CloseEvent } from './utils/events'
 
 const kEmitter = Symbol('kEmitter')
+
+const MANUAL_CLOSE_REASON = 'INTERNAL/MANUAL_CLOSE_REASON'
 
 /**
  * The WebSocket server instance represents the actual production
@@ -106,19 +108,59 @@ export class WebSocketServerConnection {
     // Inherit the binary type from the mock WebSocket client.
     realWebSocket.binaryType = this.socket.binaryType
 
-    // Close the original connection when the (mock)
-    // client closes, regardless of the reason.
-    this.socket.addEventListener(
-      'close',
-      (event) => {
-        realWebSocket.close(event.code, event.reason)
-      },
-      { once: true }
-    )
-
     realWebSocket.addEventListener('message', (event) => {
       this.transport.onIncoming(event)
     })
+
+    // Close the original connection when the mock client closes.
+    // E.g. "client.close()" was called.
+    const mockCloseListenerController = new AbortController()
+    this.socket.addEventListener(
+      'close',
+      () => {
+        // Always close gracefully.
+        realWebSocket.close()
+      },
+      {
+        once: true,
+        signal: mockCloseListenerController.signal,
+      }
+    )
+
+    // Forward the "close" event to let the interceptor handle
+    // closures initiated by the original server.
+    realWebSocket.addEventListener(
+      'close',
+      (event) => {
+        // Ignore close events initiated by "server.close()" in the interceptor.
+        if (event.reason === MANUAL_CLOSE_REASON) {
+          return
+        }
+
+        // For closures originating from the original server,
+        // remove the "close" listener from the mock client.
+        // original close -> (?) client[kClose]() --X-> "close" (again).
+        mockCloseListenerController.abort()
+
+        const closeEvent = bindEvent(
+          this.realWebSocket,
+          new CloseEvent('close', event)
+        )
+
+        this[kEmitter].dispatchEvent(closeEvent)
+
+        // If the close event from the server hasn't been prevented,
+        // forward the closure to the mock client.
+        if (!closeEvent.defaultPrevented) {
+          // Close the intercepted client forcefully to
+          // allow non-configurable status codes from the server.
+          // If the socket has been closed by now, no harm calling
+          // this again—it will have no effect.
+          this.socket[kClose](event.code, event.reason)
+        }
+      },
+      { once: true }
+    )
 
     // Forward server errors to the WebSocket client as-is.
     // We may consider exposing them to the interceptor in the future.
@@ -220,6 +262,9 @@ export class WebSocketServerConnection {
       return
     }
 
-    realWebSocket.close()
+    // Close the original WebSocket connection using a special reason
+    // to tell apart closure via "server.close()" and those received
+    // from the actual server.
+    realWebSocket.close(1000, MANUAL_CLOSE_REASON)
   }
 }
