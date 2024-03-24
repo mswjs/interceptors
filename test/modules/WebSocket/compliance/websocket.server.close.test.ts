@@ -5,7 +5,10 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { RawData } from 'engine.io-parser'
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket/index'
+import {
+  WebSocketInterceptor,
+  WebSocketServerConnection,
+} from '../../../../src/interceptors/WebSocket/index'
 import { getWsUrl } from '../utils/getWsUrl'
 import { waitForNextTick } from '../utils/waitForNextTick'
 
@@ -29,6 +32,20 @@ afterAll(() => {
   wsServer.close()
 })
 
+it('throws if closing the unconnected server', async () => {
+  const serverPromise = new DeferredPromise<WebSocketServerConnection>()
+  interceptor.once('connection', ({ server }) => {
+    serverPromise.resolve(server)
+  })
+
+  new WebSocket('wss://example.com')
+  const server = await serverPromise
+
+  expect(() => server.close()).toThrow(
+    `Failed to close server connection for "wss://example.com": the connection is not open. Did you forget to call "server.connect()"?`
+  )
+})
+
 it('closes the actual server connection when called "server.close()"', async () => {
   const clientOpenPromise = new DeferredPromise<void>()
   const serverCallback = vi.fn<[number]>()
@@ -40,7 +57,7 @@ it('closes the actual server connection when called "server.close()"', async () 
     })
   })
 
-  interceptor.on('connection', ({ client, server }) => {
+  interceptor.once('connection', ({ client, server }) => {
     server.connect()
     serverCallback(server.readyState)
 
