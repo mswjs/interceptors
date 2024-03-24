@@ -175,10 +175,18 @@ export class WebSocketServerConnection {
       this.socket.url
     )
 
+    // Silently ignore writes on the closed original WebSocket.
+    if (
+      realWebSocket.readyState === WebSocket.CLOSING ||
+      realWebSocket.readyState === WebSocket.CLOSED
+    ) {
+      return
+    }
+
     // Delegate the send to when the original connection is open.
     // Unlike the mock, connecting to the original server may take time
     // so we cannot call this on the next tick.
-    if (realWebSocket.readyState === realWebSocket.CONNECTING) {
+    if (realWebSocket.readyState === WebSocket.CONNECTING) {
       realWebSocket.addEventListener(
         'open',
         () => {
@@ -206,8 +214,8 @@ export class WebSocketServerConnection {
     )
 
     if (
-      realWebSocket.readyState === realWebSocket.CLOSING ||
-      realWebSocket.readyState === realWebSocket.CLOSED
+      realWebSocket.readyState === WebSocket.CLOSING ||
+      realWebSocket.readyState === WebSocket.CLOSED
     ) {
       return
     }
