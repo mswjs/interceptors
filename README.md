@@ -292,8 +292,8 @@ interceptor.on(
 
 You can intercept a WebSocket communication using the `WebSocketInterceptor` class.
 
-> [!WARNING]
-> In practice, WebSocket connections can use different mechanisms to work (called "transports"). At this moment, the WebSocket interceptor only supports connections established using the `globalThis.WebSocket` class. Supporting third-party transports is challenging because they are non-standard and specific to individual WebSocket client libraries.
+> [!IMPORTANT]
+> This library only supports intercepting WebSocket connections created using the global WHATWG `WebSocket` class. Third-party transports, such as HTTP/XHR polling, are not supported by design due to their contrived nature.
 
 ```js
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
@@ -302,6 +302,13 @@ const interceptor = new WebSocketInterceptor()
 ```
 
 Unlike the HTTP-based interceptors that share the same `request`/`response` events, the WebSocket interceptor only emits the `connection` event and let's you handle the incoming/outgoing events in its listener.
+
+### Important defaults
+
+1. Intercepted WebSocket connections are _not_ opened. To open the actual WebSocket connection, call [`server.connect()`](#connect) in the interceptor.
+1. Once connected to the actual server, the outgoing client events are _not_ forwarded to that server. You must add a message listener for the `client` and forward the events manually using [`server.send()`](#senddata-1).
+1. Once connected to the actual server, the incoming server events _are_ forwarded to the client by default. You can prevent that forwarding by calling `event.preventDefault()` in the message event listener for the `server`.
+1. Once connected to the actual server, the `close` event received from that server is forwarded to the intercepted client by default. You can prevent that forwarding by calling `event.preventDefault()` in the close event listener for the `server`.
 
 ### WebSocket connection
 
