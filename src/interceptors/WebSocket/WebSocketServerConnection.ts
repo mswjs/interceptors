@@ -7,8 +7,6 @@ import { CancelableMessageEvent, CloseEvent } from './utils/events'
 
 const kEmitter = Symbol('kEmitter')
 
-const MANUAL_CLOSE_REASON = 'INTERNAL/MANUAL_CLOSE_REASON'
-
 /**
  * The WebSocket server instance represents the actual production
  * WebSocket server connection. It's idle by default but you can
@@ -19,6 +17,7 @@ export class WebSocketServerConnection {
    * A WebSocket instance connected to the original server.
    */
   private realWebSocket?: WebSocket
+  private mockCloseController: AbortController
   private [kEmitter]: EventTarget
 
   constructor(
@@ -27,6 +26,7 @@ export class WebSocketServerConnection {
     private readonly createConnection: () => WebSocket
   ) {
     this[kEmitter] = new EventTarget()
+    this.mockCloseController = new AbortController()
 
     // Handle incoming events from the actual server.
     // The (mock) WebSocket instance will call this
@@ -114,53 +114,13 @@ export class WebSocketServerConnection {
 
     // Close the original connection when the mock client closes.
     // E.g. "client.close()" was called.
-    const mockCloseListenerController = new AbortController()
-    this.socket.addEventListener(
-      'close',
-      () => {
-        // Always close gracefully.
-        realWebSocket.close()
-      },
-      {
-        once: true,
-        signal: mockCloseListenerController.signal,
-      }
-    )
+    this.socket.addEventListener('close', this.handleMockClose.bind(this), {
+      signal: this.mockCloseController.signal,
+    })
 
     // Forward the "close" event to let the interceptor handle
     // closures initiated by the original server.
-    realWebSocket.addEventListener(
-      'close',
-      (event) => {
-        // Ignore close events initiated by "server.close()" in the interceptor.
-        if (event.reason === MANUAL_CLOSE_REASON) {
-          return
-        }
-
-        // For closures originating from the original server,
-        // remove the "close" listener from the mock client.
-        // original close -> (?) client[kClose]() --X-> "close" (again).
-        mockCloseListenerController.abort()
-
-        const closeEvent = bindEvent(
-          this.realWebSocket,
-          new CloseEvent('close', event)
-        )
-
-        this[kEmitter].dispatchEvent(closeEvent)
-
-        // If the close event from the server hasn't been prevented,
-        // forward the closure to the mock client.
-        if (!closeEvent.defaultPrevented) {
-          // Close the intercepted client forcefully to
-          // allow non-configurable status codes from the server.
-          // If the socket has been closed by now, no harm calling
-          // this again—it will have no effect.
-          this.socket[kClose](event.code, event.reason)
-        }
-      },
-      { once: true }
-    )
+    realWebSocket.addEventListener('close', this.handleRealClose.bind(this))
 
     // Forward server errors to the WebSocket client as-is.
     // We may consider exposing them to the interceptor in the future.
@@ -187,7 +147,7 @@ export class WebSocketServerConnection {
   }
 
   /**
-   * Removes the listener for the given event.
+   * Remove the listener for the given event.
    */
   public removeEventListener<K extends keyof WebSocketEventMap>(
     event: K,
@@ -255,6 +215,8 @@ export class WebSocketServerConnection {
       this.socket.url
     )
 
+    realWebSocket.removeEventListener('close', this.handleRealClose)
+
     if (
       realWebSocket.readyState === WebSocket.CLOSING ||
       realWebSocket.readyState === WebSocket.CLOSED
@@ -262,9 +224,37 @@ export class WebSocketServerConnection {
       return
     }
 
-    // Close the original WebSocket connection using a special reason
-    // to tell apart closure via "server.close()" and those received
-    // from the actual server.
-    realWebSocket.close(1000, MANUAL_CLOSE_REASON)
+    realWebSocket.close()
+  }
+
+  private handleMockClose(_event: Event): void {
+    // Close the original connection if the mock client closes.
+    if (this.realWebSocket) {
+      this.realWebSocket.close()
+    }
+  }
+
+  private handleRealClose(event: CloseEvent): void {
+    // For closures originating from the original server,
+    // remove the "close" listener from the mock client.
+    // original close -> (?) client[kClose]() --X-> "close" (again).
+    this.mockCloseController.abort()
+
+    const closeEvent = bindEvent(
+      this.realWebSocket,
+      new CloseEvent('close', event)
+    )
+
+    this[kEmitter].dispatchEvent(closeEvent)
+
+    // If the close event from the server hasn't been prevented,
+    // forward the closure to the mock client.
+    if (!closeEvent.defaultPrevented) {
+      // Close the intercepted client forcefully to
+      // allow non-configurable status codes from the server.
+      // If the socket has been closed by now, no harm calling
+      // this again—it will have no effect.
+      this.socket[kClose](event.code, event.reason)
+    }
   }
 }
