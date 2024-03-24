@@ -168,6 +168,7 @@ export class WebSocketServerConnection {
    */
   public send(data: WebSocketData): void {
     const { realWebSocket } = this
+
     invariant(
       realWebSocket,
       'Failed to call "server.send()" for "%s": the connection is not open. Did you forget to call "await server.connect()"?',
@@ -190,5 +191,27 @@ export class WebSocketServerConnection {
 
     // Send the data to the original WebSocket server.
     realWebSocket.send(data)
+  }
+
+  /**
+   * Close the actual server connection.
+   */
+  public close(): void {
+    const { realWebSocket } = this
+
+    invariant(
+      realWebSocket,
+      'Failed to close server connection for "%s": the connection is not open. Did you forget to call "server.connect()"?',
+      this.socket.url
+    )
+
+    if (
+      realWebSocket.readyState === realWebSocket.CLOSING ||
+      realWebSocket.readyState === realWebSocket.CLOSED
+    ) {
+      return
+    }
+
+    realWebSocket.close()
   }
 }
