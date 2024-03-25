@@ -1,7 +1,7 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const interceptor = new ClientRequestInterceptor()
 

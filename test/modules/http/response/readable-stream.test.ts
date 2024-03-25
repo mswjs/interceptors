@@ -1,6 +1,6 @@
 import { performance } from 'node:perf_hooks'
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import https from 'https'
+import https from 'node:https'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { sleep } from '../../../helpers'

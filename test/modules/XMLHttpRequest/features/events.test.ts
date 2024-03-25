@@ -1,4 +1,6 @@
-// @vitest-environment jsdom
+/**
+ * @vitest-environment jsdom
+ */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'

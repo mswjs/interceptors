@@ -1,8 +1,11 @@
+/**
+ * @vitest-environment node
+ */
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { httpGet } from '../../../helpers'
 import { sleep } from '../../../../test/helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (req, res) => {

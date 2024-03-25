@@ -1,4 +1,6 @@
-// @vitest-environment jsdom
+/**
+ * @vitest-environment jsdom
+ */
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'

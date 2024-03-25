@@ -1,11 +1,14 @@
+/**
+ * @vitest-environment node
+ */
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
 const server = new HttpServer((app) => {
-  app.get('/user', (req, res) => {
+  app.use('/user', (req, res) => {
     res.set('x-appended-header', req.headers['x-appended-header']).end()
   })
 })
@@ -24,11 +27,25 @@ afterAll(async () => {
 
 it('allows modifying the outgoing request headers', async () => {
   interceptor.on('request', ({ request }) => {
-    request.headers.set('X-Appended-Header', 'modified')
+    request.headers.set('x-appended-header', 'modified')
   })
 
-  const req = http.get(server.http.url('/user'))
-  const { text, res } = await waitForClientRequest(req)
+  const request = http.get(server.http.url('/user'))
+  const { res } = await waitForClientRequest(request)
+
+  expect(res.headers['x-appended-header']).toBe('modified')
+})
+
+it('allows modifying the outgoing request headers in a request with body', async () => {
+  interceptor.on('request', ({ request }) => {
+    request.headers.set('x-appended-header', 'modified')
+  })
+
+  const request = http.request(server.http.url('/user'), { method: 'POST' })
+  request.write('post-payload')
+  request.end()
+
+  const { res } = await waitForClientRequest(request)
 
   expect(res.headers['x-appended-header']).toBe('modified')
 })
