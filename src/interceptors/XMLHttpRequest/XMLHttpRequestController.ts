@@ -11,7 +11,6 @@ import {
 import { createProxy } from '../../utils/createProxy'
 import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
-import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 
@@ -54,7 +53,7 @@ export class XMLHttpRequestController {
     public logger: Logger
   ) {
     this.events = new Map()
-    this.requestId = uuidv4()
+    this.requestId = crypto.randomUUID()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
 

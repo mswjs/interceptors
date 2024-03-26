@@ -3,7 +3,6 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
-import { uuidv4 } from '../../utils/uuid'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
@@ -32,7 +31,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     )
 
     globalThis.fetch = async (input, init) => {
-      const requestId = uuidv4()
+      const requestId = crypto.randomUUID()
 
       /**
        * @note Resolve potentially relative request URL
