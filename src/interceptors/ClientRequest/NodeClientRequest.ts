@@ -21,6 +21,7 @@ import { uuidv4 } from '../../utils/uuid'
 import { emitAsync } from '../../utils/emitAsync'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
+import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 
 export type Protocol = 'http' | 'https'
 
@@ -189,8 +190,8 @@ export class NodeClientRequest extends ClientRequest {
     // in another (parent) interceptor (like XMLHttpRequest -> ClientRequest).
     // That means some interceptor up the chain has concluded that
     // this request must be performed as-is.
-    if (this.getHeader('X-Request-Id') != null) {
-      this.removeHeader('X-Request-Id')
+    if (this.hasHeader(INTERNAL_REQUEST_ID_HEADER_NAME)) {
+      this.removeHeader(INTERNAL_REQUEST_ID_HEADER_NAME)
       return this.passthrough(chunk, encoding, callback)
     }
 
