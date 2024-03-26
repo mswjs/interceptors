@@ -112,7 +112,23 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       }
 
       if (resolverResult.error) {
-        return Promise.reject(createNetworkError(resolverResult.error))
+        // Treat unhandled exceptions from the "request" listeners
+        // as 500 errors from the server. Fetch API doesn't respect
+        // Node.js internal errors so no special treatment for those.
+        return new Response(
+          JSON.stringify({
+            name: resolverResult.error.name,
+            message: resolverResult.error.message,
+            stack: resolverResult.error.stack,
+          }),
+          {
+            status: 500,
+            statusText: 'Unhandled Exception',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
       }
 
       const mockedResponse = resolverResult.data
