@@ -1,13 +1,15 @@
+import { invariant } from 'outvariant'
 import { HttpServer } from '@open-draft/test-server/http'
 import { RequestHandler } from 'express-serve-static-core'
 import { test, expect } from '../../../playwright.extend'
-import { invariant } from 'outvariant'
+import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../../../src/Interceptor'
 
 const httpServer = new HttpServer((app) => {
   const strictCorsMiddleware: RequestHandler = (req, res, next) => {
     invariant(
-      !req.header('x-request-id'),
-      'Found unexpected "X-Request-Id" request header in the browser for "%s %s"',
+      !req.header(INTERNAL_REQUEST_ID_HEADER_NAME),
+      'Found unexpected internal "%s" request header in the browser for "%s %s"',
+      INTERNAL_REQUEST_ID_HEADER_NAME,
       req.method,
       req.url
     )
