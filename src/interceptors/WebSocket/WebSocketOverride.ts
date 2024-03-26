@@ -3,14 +3,9 @@ import type { WebSocketData } from './WebSocketTransport'
 import { bindEvent } from './utils/bindEvent'
 import { CloseEvent } from './utils/events'
 
-type WebSocketEventListener = (this: WebSocket, event: Event) => void
-
-export type WebSocketMessageListener = (
-  this: WebSocket,
-  event: MessageEvent
-) => void
-
-type WebSocketCloseListener = (this: WebSocket, event: CloseEvent) => void
+export type WebSocketEventListener<
+  T extends WebSocketEventMap[keyof WebSocketEventMap] = Event,
+> = (this: WebSocket, event: T) => void
 
 const WEBSOCKET_CLOSE_CODE_RANGE_ERROR =
   'InvalidAccessError: close code out of user configurable range'
@@ -36,9 +31,11 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
   public bufferedAmount: number
 
   private _onopen: WebSocketEventListener | null = null
-  private _onmessage: WebSocketMessageListener | null = null
+  private _onmessage: WebSocketEventListener<
+    MessageEvent<WebSocketData>
+  > | null = null
   private _onerror: WebSocketEventListener | null = null
-  private _onclose: WebSocketCloseListener | null = null
+  private _onclose: WebSocketEventListener<CloseEvent> | null = null
 
   private [kOnSend]?: (data: WebSocketData) => void
 
@@ -71,7 +68,9 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
     return this._onopen
   }
 
-  set onmessage(listener: WebSocketMessageListener | null) {
+  set onmessage(
+    listener: WebSocketEventListener<MessageEvent<WebSocketData>> | null
+  ) {
     this.removeEventListener(
       'message',
       this._onmessage as WebSocketEventListener
@@ -81,7 +80,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
       this.addEventListener('message', listener)
     }
   }
-  get onmessage(): WebSocketMessageListener | null {
+  get onmessage(): WebSocketEventListener<MessageEvent<WebSocketData>> | null {
     return this._onmessage
   }
 
@@ -96,14 +95,14 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
     return this._onerror
   }
 
-  set onclose(listener: WebSocketCloseListener | null) {
+  set onclose(listener: WebSocketEventListener<CloseEvent> | null) {
     this.removeEventListener('close', this._onclose as WebSocketEventListener)
     this._onclose = listener
     if (listener !== null) {
       this.addEventListener('close', listener)
     }
   }
-  get onclose(): WebSocketCloseListener | null {
+  get onclose(): WebSocketEventListener<CloseEvent> | null {
     return this._onclose
   }
 
