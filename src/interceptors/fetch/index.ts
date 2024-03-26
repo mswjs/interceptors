@@ -22,7 +22,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     )
   }
 
-  protected setup() {
+  protected async setup() {
     const pureFetch = globalThis.fetch
 
     invariant(

@@ -1,4 +1,4 @@
-import { ClientRequest, IncomingMessage } from 'http'
+import { ClientRequest, IncomingMessage } from 'node:http'
 import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'

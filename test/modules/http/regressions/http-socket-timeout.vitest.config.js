@@ -10,5 +10,6 @@ export default defineConfig({
      * via its CLI so here we are.
      */
     include: ['./http-socket-timeout.ts'],
+    setupFiles: ['../../../vitest.setup.crypto.ts'],
   },
 })
