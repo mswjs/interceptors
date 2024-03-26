@@ -9,7 +9,6 @@ import type { WebSocketData, WebSocketTransport } from './WebSocketTransport'
 import { WebSocketMessageListener } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 import { CloseEvent } from './utils/events'
-import { uuidv4 } from '../../utils/uuid'
 
 const kEmitter = Symbol('kEmitter')
 
@@ -37,7 +36,7 @@ export class WebSocketClientConnection
     public readonly socket: WebSocket,
     private readonly transport: WebSocketTransport
   ) {
-    this.id = uuidv4()
+    this.id = crypto.randomUUID()
     this.url = new URL(socket.url)
     this[kEmitter] = new EventTarget()
 
