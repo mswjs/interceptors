@@ -41,11 +41,16 @@ it('emits "close" event when the client closes itself', async () => {
   })
 
   const ws = new WebSocket('wss://localhost')
-  ws.onopen = () => ws.close()
+  ws.onopen = () => ws.close(3123)
 
   await vi.waitFor(() => {
     expect(closeListener).toHaveBeenCalledWith(
-      expect.objectContaining({ target: ws })
+      expect.objectContaining({
+        code: 3123,
+        reason: '',
+        wasClean: false,
+        target: ws,
+      })
     )
     expect(closeListener).toHaveBeenCalledTimes(1)
   })
