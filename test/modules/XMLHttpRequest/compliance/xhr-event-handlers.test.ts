@@ -13,7 +13,7 @@ const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
     res.send('hello')
   })
-  app.get('/error', (req, res) => {
+  app.get('/error-response', (req, res) => {
     res.status(500).send('Internal Server Error')
   })
   app.get('/exception', (req, res) => {
@@ -26,10 +26,14 @@ beforeAll(async () => {
   interceptor.on('request', ({ request }) => {
     switch (true) {
       case request.url.endsWith('/exception'): {
-        throw new Error('Network error')
+        throw new Error('Custom error')
       }
 
-      case request.url.endsWith('/error'): {
+      case request.url.endsWith('/network-error'): {
+        return request.respondWith(Response.error())
+      }
+
+      case request.url.endsWith('/error-response'): {
         return request.respondWith(
           new Response('Internal Server Error', { status: 500 })
         )
@@ -115,8 +119,8 @@ it.each<[name: string, getUrl: () => string]>([
 )
 
 it.each<[name: string, getUrl: () => string]>([
-  ['passthrough', () => httpServer.https.url('/error')],
-  ['mocked', () => 'http://localhost/error'],
+  ['passthrough', () => httpServer.https.url('/error-response')],
+  ['mocked', () => 'http://localhost/error-response'],
 ])(`dispatches relevant events upon a %s error response`, async (_, getUrl) => {
   const url = getUrl()
 
@@ -178,8 +182,8 @@ it.each<[name: string, getUrl: () => string]>([
 })
 
 it.each<[name: string, getUrl: () => string]>([
-  ['passthrough', () => httpServer.https.url('/exception')],
-  ['mocked', () => 'http://localhost/exception'],
+  ['passthrough', () => httpServer.https.url('/network-error')],
+  ['mocked', () => 'http://localhost/network-error'],
 ])(`dispatches relevant events upon a %s request error`, async (_, getUrl) => {
   const url = getUrl()
 
@@ -233,5 +237,69 @@ it.each<[name: string, getUrl: () => string]>([
   expect(loadStartListener).not.toHaveBeenCalled()
   expect(progressListener).not.toHaveBeenCalled()
   expect(loadListener).not.toHaveBeenCalled()
+  expect(loadEndListener).toHaveBeenCalledTimes(1)
+})
+
+it('dispatched relevant events upon an unhandled exception in the interceptor', async () => {
+  const onReadyStateChangeHandler = vi.fn(function (this: XMLHttpRequest) {
+    return this.readyState
+  })
+  const onLoadStartHandler = vi.fn()
+  const onProgressHandler = vi.fn()
+  const onLoadHandler = vi.fn()
+  const onLoadEndHandler = vi.fn()
+
+  const onReadyStateChangeListener = vi.fn(function (this: XMLHttpRequest) {
+    return this.readyState
+  })
+  const loadStartListener = vi.fn()
+  const progressListener = vi.fn()
+  const loadListener = vi.fn()
+  const loadEndListener = vi.fn()
+
+  const request = await createXMLHttpRequest((request) => {
+    request.responseType = 'json'
+    request.open('GET', httpServer.https.url('/exception'))
+
+    request.onreadystatechange = onReadyStateChangeHandler
+    request.onloadstart = onLoadStartHandler
+    request.onprogress = onProgressHandler
+    request.onload = onLoadHandler
+    request.onloadend = onLoadEndHandler
+
+    request.addEventListener('readystatechange', onReadyStateChangeListener)
+    request.addEventListener('loadstart', loadStartListener)
+    request.addEventListener('progress', progressListener)
+    request.addEventListener('load', loadListener)
+    request.addEventListener('loadend', loadEndListener)
+
+    request.send()
+  })
+
+  expect(request.readyState).toBe(4)
+  expect(request.status).toBe(500)
+  expect(request.statusText).toBe('Unhandled Exception')
+  expect(request.response).toEqual({
+    name: 'Error',
+    message: 'Custom error',
+    stack: expect.any(String),
+  })
+
+  expect(onReadyStateChangeHandler).toHaveBeenCalledTimes(3)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(1, 2)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(2, 3)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(3, 4)
+  expect(onLoadStartHandler).toHaveBeenCalledTimes(1)
+  expect(onProgressHandler).toHaveBeenCalledTimes(1)
+  expect(onLoadHandler).toHaveBeenCalledTimes(1)
+  expect(onLoadEndHandler).toHaveBeenCalledTimes(1)
+
+  expect(onReadyStateChangeListener).toHaveBeenCalledTimes(3)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(1, 2)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(2, 3)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(3, 4)
+  expect(loadStartListener).toHaveBeenCalledTimes(1)
+  expect(progressListener).toHaveBeenCalledTimes(1)
+  expect(loadListener).toHaveBeenCalledTimes(1)
   expect(loadEndListener).toHaveBeenCalledTimes(1)
 })

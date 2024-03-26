@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment node
+ */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
@@ -144,7 +147,10 @@ it('allows throwing connection errors in the request listener', async () => {
     errno?: number
     syscall?: string
 
-    constructor(public address: string, public port: number) {
+    constructor(
+      public address: string,
+      public port: number
+    ) {
       super()
       this.code = 'ECONNREFUSED'
       this.errno = -61

@@ -20,6 +20,7 @@ import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
+import { isNodeLikeError } from '../../utils/isNodeLikeError'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 
 export type Protocol = 'http' | 'https'
@@ -258,16 +259,36 @@ export class NodeClientRequest extends ClientRequest {
         }
       }
 
-      // Halt the request whenever the resolver throws an exception.
       if (resolverResult.error) {
         this.logger.info(
-          'encountered resolver exception, aborting request...',
+          'unhandled resolver exception, coercing to an error response...',
           resolverResult.error
         )
 
-        this.destroyed = true
-        this.emit('error', resolverResult.error)
-        this.terminate()
+        // Allow throwing Node.js-like errors, like connection rejection errors.
+        // Treat them as request errors.
+        if (isNodeLikeError(resolverResult.error)) {
+          this.errorWith(resolverResult.error)
+        } else {
+          // Coerce unhandled exceptions in the "request" listeners
+          // as 500 responses.
+          this.respondWith(
+            new Response(
+              JSON.stringify({
+                name: resolverResult.error.name,
+                message: resolverResult.error.message,
+                stack: resolverResult.error.stack,
+              }),
+              {
+                status: 500,
+                statusText: 'Unhandled Exception',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              }
+            )
+          )
+        }
 
         return this
       }
@@ -299,15 +320,14 @@ export class NodeClientRequest extends ClientRequest {
           mockedResponse.type === 'error'
         ) {
           this.logger.info(
-            'received network error response, aborting request...'
+            'received network error response, erroring request...'
           )
 
           /**
            * There is no standardized error format for network errors
            * in Node.js. Instead, emit a generic TypeError.
            */
-          this.emit('error', new TypeError('Network error'))
-          this.terminate()
+          this.errorWith(new TypeError('Network error'))
 
           return this
         }
@@ -578,6 +598,12 @@ export class NodeClientRequest extends ClientRequest {
 
       this.logger.info('request complete!')
     })
+  }
+
+  private errorWith(error: Error): void {
+    this.destroyed = true
+    this.emit('error', error)
+    this.terminate()
   }
 
   /**

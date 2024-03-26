@@ -18,17 +18,14 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('treats middleware exceptions as TypeError: Failed to fetch', async () => {
-  const error = await fetch('http://localhost:3001/resource').then<
-    null,
-    TypeError & { cause: unknown }
-  >(
-    () => null,
-    (error) => error
-  )
+it('treats middleware exceptions as 500 responses', async () => {
+  const response = await fetch('http://localhost:3001/resource')
 
-  expect(error).toBeInstanceOf(TypeError)
-  expect(error!.message).toBe('Failed to fetch')
-  // Internal: preserve the original middleware error.
-  expect(error!.cause).toEqual(new Error('Network error'))
+  expect(response.status).toBe(500)
+  expect(response.statusText).toBe('Unhandled Exception')
+  expect(await response.json()).toEqual({
+    name: 'Error',
+    message: 'Network error',
+    stack: expect.any(String),
+  })
 })
