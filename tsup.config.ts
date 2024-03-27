@@ -11,7 +11,6 @@ const nodeConfig: Options = {
   ],
   outDir: './lib/node',
   platform: 'node',
-  inject: ['./src/crypto-shim.ts'],
   format: ['cjs', 'esm'],
   sourcemap: true,
   dts: true,
