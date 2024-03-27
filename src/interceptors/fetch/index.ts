@@ -7,7 +7,7 @@ import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { canParseUrl } from '../../utils/canParseUrl'
-import { randomId } from '../../randomId'
+import { createRequestId } from '../../createRequestId'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -32,7 +32,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     )
 
     globalThis.fetch = async (input, init) => {
-      const requestId = randomId()
+      const requestId = createRequestId()
 
       /**
        * @note Resolve potentially relative request URL

@@ -13,7 +13,7 @@ import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
 import { createResponse } from './utils/createResponse'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
-import { randomId } from '../../randomId'
+import { createRequestId } from '../../createRequestId'
 
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
 const IS_NODE = isNodeProcess()
@@ -54,7 +54,7 @@ export class XMLHttpRequestController {
     public logger: Logger
   ) {
     this.events = new Map()
-    this.requestId = randomId()
+    this.requestId = createRequestId()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
 
