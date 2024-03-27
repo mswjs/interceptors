@@ -1,8 +1,13 @@
 /**
  * @vitest-environment node-with-websocket
+ * This test suite asserts that the "client" connection object
+ * dispatches the right events in different scenarios.
  */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import {
+  WebSocketData,
+  WebSocketInterceptor,
+} from '../../../../src/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -15,7 +20,7 @@ afterAll(() => {
 })
 
 it('emits "message" event when the client sends data', async () => {
-  const messageListener = vi.fn()
+  const messageListener = vi.fn<[MessageEvent<WebSocketData>]>()
   interceptor.once('connection', ({ client }) => {
     client.addEventListener('message', messageListener)
   })
@@ -24,12 +29,13 @@ it('emits "message" event when the client sends data', async () => {
   ws.onopen = () => ws.send('hello')
 
   await vi.waitFor(() => {
-    expect(messageListener).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: 'hello',
-        target: ws,
-      })
-    )
+    const [messageEvent] = messageListener.mock.calls[0]
+
+    expect(messageEvent.type).toBe('message')
+    expect(messageEvent.data).toBe('hello')
+    expect(messageEvent.currentTarget).toEqual(ws)
+    expect(messageEvent.target).toEqual(ws)
+
     expect(messageListener).toHaveBeenCalledTimes(1)
   })
 })
@@ -44,14 +50,15 @@ it('emits "close" event when the client closes itself', async () => {
   ws.onopen = () => ws.close(3123)
 
   await vi.waitFor(() => {
-    expect(closeListener).toHaveBeenCalledWith(
-      expect.objectContaining({
-        code: 3123,
-        reason: '',
-        wasClean: false,
-        target: ws,
-      })
-    )
+    const [closeEvent] = closeListener.mock.calls[0]
+
+    expect(closeEvent.type).toBe('close')
+    expect(closeEvent.code).toBe(3123)
+    expect(closeEvent.reason).toBe('')
+    expect(closeEvent.wasClean).toBe(false)
+    expect(closeEvent.currentTarget).toEqual(ws)
+    expect(closeEvent.target).toEqual(ws)
+
     expect(closeListener).toHaveBeenCalledTimes(1)
   })
 })
