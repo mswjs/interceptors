@@ -1,5 +1,7 @@
 /**
  * @vitest-environment node-with-websocket
+ * This test suite asserts that the intercepted WebSocket client
+ * still dispatches the correct events in mocked/bypassed scenarios.
  */
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
