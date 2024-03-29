@@ -331,14 +331,20 @@ The `connection` event exposes the following arguments:
 
 #### `.addEventListener(type, listener)`
 
-- `type`, `"message"`
-- `listener`, `(event: MessageEvent<WebSocketData>) => void`
+- `type`, `string`
+- `listener`, `EventListener`
 
 Adds an event listener to the given event type of the WebSocket client.
 
-| Event name | Description                                                       |
-| ---------- | ----------------------------------------------------------------- |
-| `message`  | Dispatched when data is sent by the intercepted WebSocket client. |
+```ts
+interface WebSocketServerConnectionEventMap {
+  // Dispatched when the WebSocket client sends data.
+  message: (this: WebSocket, event: MessageEvent<WebSocketData>) => void
+
+  // Dispatched when the WebSocket client is closed.
+  close: (this: WebSocket, event: CloseEvent) => void
+}
+```
 
 ```js
 client.addEventListener('message', (event) => {
@@ -348,8 +354,8 @@ client.addEventListener('message', (event) => {
 
 #### `.removeEventListener(type, listener)`
 
-- `type`, `"message"`
-- `listener`, `(event: MessageEvent<WebSocketData>) => void`
+- `type`, `string`
+- `listener`, `EventListener`
 
 Removes the listener for the given event type.
 
@@ -392,14 +398,23 @@ Establishes the connection to the original WebSocket server. Connection cannot b
 
 #### `.addEventListener(type, listener)`
 
-- `type`, `"message"`
-- `listener`, `(event: MessageEvent<WebSocketData>) => void`
+- `type`, `string`
+- `listener`, `EventListener`
 
 Adds an event listener to the given event type of the WebSocket server.
 
-| Event name | Description                                                          |
-| ---------- | -------------------------------------------------------------------- |
-| `message`  | Dispatched when data is received from the original WebSocket server. |
+```ts
+interface WebSocketServerConnectionEventMap {
+  // Dispatched when the server connection is open.
+  open: (this: WebSocket, event: Event) => void
+
+  // Dispatched when the server sends data to the client.
+  message: (this: WebSocket, event: MessageEvent<WebSocketData>) => void
+
+  // Dispatched when the server connection closes.
+  close: (this: WebSocket, event: CloseEvent) => void
+}
+```
 
 ```js
 server.addEventListener('message', (event) => {
@@ -409,8 +424,8 @@ server.addEventListener('message', (event) => {
 
 #### `.removeEventListener(type, listener)`
 
-- `type`, `"message"`
-- `listener`, `(event: MessageEvent<WebSocketData>) => void`
+- `type`, `string`
+- `listener`, `EventListener`
 
 Removes the listener for the given event type.
 
