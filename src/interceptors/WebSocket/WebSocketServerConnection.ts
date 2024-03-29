@@ -228,6 +228,9 @@ export class WebSocketServerConnection {
       this.socket.url
     )
 
+    // Remove the "close" event listener from the server
+    // so it doesn't close the underlying WebSocket client
+    // when you call "server.close()".
     realWebSocket.removeEventListener('close', this.handleRealClose)
 
     if (
@@ -238,6 +241,13 @@ export class WebSocketServerConnection {
     }
 
     realWebSocket.close()
+
+    // Dispatch the "close" event on the server connection.
+    queueMicrotask(() => {
+      this[kEmitter].dispatchEvent(
+        bindEvent(this.realWebSocket, new CloseEvent('close'))
+      )
+    })
   }
 
   private handleMockClose(_event: Event): void {
