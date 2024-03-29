@@ -108,6 +108,19 @@ export class WebSocketServerConnection {
     // Inherit the binary type from the mock WebSocket client.
     realWebSocket.binaryType = this.socket.binaryType
 
+    // Allow the interceptor to listen to when the server connection
+    // has been established. This isn't necessary to operate with the connection
+    // but may be beneficial in some cases (like conditionally adding logging).
+    realWebSocket.addEventListener(
+      'open',
+      (event) => {
+        this[kEmitter].dispatchEvent(
+          bindEvent(this.realWebSocket!, new Event('open', event))
+        )
+      },
+      { once: true }
+    )
+
     realWebSocket.addEventListener('message', (event) => {
       this.transport.onIncoming(event)
     })
