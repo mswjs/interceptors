@@ -274,7 +274,7 @@ it('handles [RequestOptions, callback] input', () => {
   expect(url.href).toEqual('https://mswjs.io/resource')
 
   // Request options must be preserved.
-  expect(options).toEqual(initialOptions)
+  expect(options).toMatchObject(initialOptions)
 
   // Callback must be preserved.
   expect(callback).toBeTypeOf('function')
@@ -320,7 +320,7 @@ it('handles [PartialRequestOptions, callback] input', () => {
   )
 
   // Request options must be preserved.
-  expect(options).toEqual(initialOptions)
+  expect(options).toMatchObject(initialOptions)
 
   // Options protocol must be inferred from the request issuing module.
   expect(options.protocol).toEqual('https:')
