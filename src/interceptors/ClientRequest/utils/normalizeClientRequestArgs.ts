@@ -210,7 +210,7 @@ export function normalizeClientRequestArgs(
   // Handle a given "RequestOptions" object as-is
   // and derive the URL instance from it.
   else if (isObject(args[0])) {
-    options = args[0] as any
+    options = { ... args[0] as any }
     logger.info('first argument is RequestOptions:', options)
 
     // When handling a "RequestOptions" object without an explicit "protocol",
