@@ -40,7 +40,7 @@ afterAll(async () => {
   await server.close()
 })
 
-it.skip('intercepts a POST request issued by "follow-redirects"', async () => {
+it('intercepts a POST request issued by "follow-redirects"', async () => {
   const { address } = server.https
   const payload = JSON.stringify({ todo: 'Buy the milk' })
 
