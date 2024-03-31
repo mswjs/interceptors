@@ -124,7 +124,8 @@ export class MockHttpSocket extends MockSocket {
   public passthrough(): void {
     const socket = this.createConnection()
 
-    // Write the buffered request body chunks.
+    // Flush the buffered "socket.write()" calls onto
+    // the original socket instance (i.e. write request body).
     // Exhaust the "requestBuffer" in case this Socket
     // gets reused for different requests.
     let writeArgs: NormalizedWriteArgs | undefined
@@ -187,6 +188,7 @@ export class MockHttpSocket extends MockSocket {
       .on('prefinish', () => this.emit('prefinish'))
       .on('finish', () => this.emit('finish'))
       .on('close', (hadError) => this.emit('close', hadError))
+      .on('end', () => this.emit('end'))
   }
 
   /**
@@ -204,6 +206,16 @@ export class MockHttpSocket extends MockSocket {
     // to emulate a successful connection.
     this.mockConnect()
     this.responseType = 'mock'
+
+    // Exhaust the "socket.write()" callbacks to
+    // transition the Writable into the right state
+    // (i.e. "request body written" state). There's nowhere
+    // to actually write the data so we disregard it.
+    // It has been used by the request parser to construct
+    // a Fetch API Request instance representing this request.
+    for (const [_, __, writeCallback] of this.writeBuffer) {
+      writeCallback?.()
+    }
 
     const httpHeaders: Array<Buffer> = []
 
