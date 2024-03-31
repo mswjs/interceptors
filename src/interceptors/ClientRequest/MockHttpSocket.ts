@@ -7,6 +7,7 @@ import {
 import { STATUS_CODES } from 'node:http'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
+import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedWriteArgs } from '../Socket/utils/normalizeWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
@@ -145,6 +146,8 @@ export class MockHttpSocket extends MockSocket {
           const requestHeaders =
             getRawFetchHeaders(this.request!.headers) || this.request!.headers
           const requestHeadersString = Array.from(requestHeaders.entries())
+            // Skip the internal request ID deduplication header.
+            .filter(([name]) => name !== INTERNAL_REQUEST_ID_HEADER_NAME)
             .map(([name, value]) => `${name}: ${value}`)
             .join('\r\n')
 
@@ -357,12 +360,17 @@ export class MockHttpSocket extends MockSocket {
 
     Reflect.set(this.request, kRequestId, requestId)
 
+    // Skip handling the request that's already being handled
+    // by another (parent) interceptor. For example, XMLHttpRequest
+    // is often implemented via ClientRequest in Node.js (e.g. JSDOM).
+    // In that case, XHR interceptor will bubble down to the ClientRequest
+    // interceptor. No need to try to handle that request again.
     /**
      * @fixme Stop relying on the "X-Request-Id" request header
      * to figure out if one interceptor has been invoked within another.
      * @see https://github.com/mswjs/interceptors/issues/378
      */
-    if (this.request.headers.has('x-request-id')) {
+    if (this.request.headers.has(INTERNAL_REQUEST_ID_HEADER_NAME)) {
       this.passthrough()
       return
     }
@@ -426,7 +434,7 @@ export class MockHttpSocket extends MockSocket {
      * to figure out if one interceptor has been invoked within another.
      * @see https://github.com/mswjs/interceptors/issues/378
      */
-    if (this.request.headers.has('x-request-id')) {
+    if (this.request.headers.has(INTERNAL_REQUEST_ID_HEADER_NAME)) {
       return
     }
 

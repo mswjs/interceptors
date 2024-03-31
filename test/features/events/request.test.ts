@@ -80,10 +80,16 @@ it('XMLHttpRequest: emits the "request" event upon the request', async () => {
   })
 
   /**
-   * @note There are two "request" events emitted because XMLHttpRequest
-   * is polyfilled by "http.ClientRequest" in JSDOM. When this request gets
-   * bypassed by XMLHttpRequest interceptor, JSDOM constructs "http.ClientRequest"
-   * to perform it as-is. This issues an additional OPTIONS request first.
+   * @note There are 3 requests that happen:
+   * 1. POST by XMLHttpRequestInterceptor.
+   * 2. OPTIONS request by ClientRequestInterceptor.
+   * 3. POST by ClientRequestInterceptor (XHR in JSDOM relies on ClientRequest).
+   *
+   * But there will only be 2 "request" events emitted:
+   * 1. POST by XMLHttpRequestInterceptor.
+   * 2. OPTIONS request by ClientRequestInterceptor.
+   * The second POST that bubbles down from XHR to ClientRequest is deduped
+   * via the "INTERNAL_REQUEST_ID_HEADER_NAME" request header.
    */
   expect(requestListener).toHaveBeenCalledTimes(2)
 
