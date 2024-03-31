@@ -6,7 +6,6 @@ import {
 } from '_http_common'
 import { STATUS_CODES } from 'node:http'
 import { Readable } from 'node:stream'
-import { randomUUID } from 'node:crypto'
 import { invariant } from 'outvariant'
 import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedWriteArgs } from '../Socket/utils/normalizeWriteArgs'
@@ -15,6 +14,7 @@ import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnect
 import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 import { RESPONSE_STATUS_CODES_WITHOUT_BODY } from '../../utils/responseUtils'
+import { createRequestId } from '../../createRequestId'
 
 type HttpConnectionOptions = any
 
@@ -39,7 +39,7 @@ interface MockHttpSocketOptions {
   onResponse: MockHttpSocketResponseCallback
 }
 
-const kRequestId = Symbol('kRequestId')
+export const kRequestId = Symbol('kRequestId')
 
 export class MockHttpSocket extends MockSocket {
   private connectionOptions: HttpConnectionOptions
@@ -345,7 +345,7 @@ export class MockHttpSocket extends MockSocket {
       })
     }
 
-    const requestId = randomUUID()
+    const requestId = createRequestId()
     this.request = new Request(url, {
       method,
       headers,

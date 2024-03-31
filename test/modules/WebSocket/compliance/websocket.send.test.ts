@@ -33,6 +33,24 @@ it('throws "InvalidStateError" when sending while the connection is not open yet
   expect(() => ws.send('hello')).toThrow('InvalidStateError')
 })
 
+it('sends data to the original server immediately after connecting', async () => {
+  const messagePromise = new DeferredPromise<Data>()
+
+  wsServer.once('connection', (ws) => {
+    ws.addEventListener('message', (event) => {
+      messagePromise.resolve(event.data)
+    })
+  })
+
+  interceptor.once('connection', ({ server }) => {
+    server.connect()
+    server.send('hello from interceptor')
+  })
+
+  new WebSocket(getWsUrl(wsServer))
+  expect(await messagePromise).toBe('hello from interceptor')
+})
+
 it('sends text data to the original server', async () => {
   const messagePromise = new DeferredPromise<Data>()
 

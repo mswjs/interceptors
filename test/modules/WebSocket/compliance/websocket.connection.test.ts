@@ -3,7 +3,7 @@
  */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket/index'
-import { UUID_REGEXP } from '../../../helpers'
+import { REQUEST_ID_REGEXP } from '../../../helpers'
 import { waitForNextTick } from '../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()
@@ -34,7 +34,7 @@ it('emits the correct "connection" event on the interceptor', async () => {
     1,
     expect.objectContaining({
       client: expect.objectContaining({
-        id: expect.stringMatching(UUID_REGEXP),
+        id: expect.stringMatching(REQUEST_ID_REGEXP),
         send: expect.any(Function),
         addEventListener: expect.any(Function),
         removeEventListener: expect.any(Function),

@@ -4,7 +4,11 @@
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors, UUID_REGEXP } from '../../../helpers'
+import {
+  createXMLHttpRequest,
+  useCors,
+  REQUEST_ID_REGEXP,
+} from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
 
 const server = new HttpServer((app) => {
@@ -56,7 +60,7 @@ it('emits events for a handled request', async () => {
   expect(requestParams.request.method).toBe('GET')
   expect(requestParams.request.url).toBe(server.http.url('/user'))
 
-  expect(requestParams.requestId).toMatch(UUID_REGEXP)
+  expect(requestParams.requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must call the "response" event listener.
   expect(responseListener).toHaveBeenCalledTimes(1)
@@ -75,7 +79,7 @@ it('emits events for a handled request', async () => {
   expect(responseParams.request.method).toBe('GET')
   expect(responseParams.request.url).toBe(server.http.url('/user'))
 
-  expect(responseParams.requestId).toMatch(UUID_REGEXP)
+  expect(responseParams.requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('emits events for a bypassed request', async () => {
@@ -102,7 +106,7 @@ it('emits events for a bypassed request', async () => {
   )
 
   // The last argument of the request listener is the request ID.
-  expect(requestParams.requestId).toMatch(UUID_REGEXP)
+  expect(requestParams.requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must call the "response" event listener.
   expect(responseListener).toHaveBeenCalledTimes(1)
@@ -125,5 +129,5 @@ it('emits events for a bypassed request', async () => {
   expect(responseParams.request.url).toBe(server.http.url('/bypassed'))
 
   // The last argument of the response listener is the request ID.
-  expect(responseParams.requestId).toMatch(UUID_REGEXP)
+  expect(responseParams.requestId).toMatch(REQUEST_ID_REGEXP)
 })

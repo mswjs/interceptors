@@ -7,8 +7,7 @@ import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
 import { RequestHandler } from 'express'
 
-export const UUID_REGEXP =
-  /\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b/
+export const REQUEST_ID_REGEXP = /^\w{10,}$/
 
 export interface PromisifiedResponse {
   req: ClientRequest
@@ -238,7 +237,7 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
         string,
         Record<string, string> | undefined,
         string | undefined,
-        boolean | undefined
+        boolean | undefined,
       ]
     >(
       (args) => {

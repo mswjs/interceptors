@@ -2,7 +2,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { Request } from 'node-fetch'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
-import { fetch, UUID_REGEXP } from '../../../helpers'
+import { fetch, REQUEST_ID_REGEXP } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
@@ -60,5 +60,5 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
   expect(await capturedRequest.text()).toBe('hello world')
   expect(capturedRequest.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })

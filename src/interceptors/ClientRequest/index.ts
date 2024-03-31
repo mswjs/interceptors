@@ -1,10 +1,10 @@
 import http from 'node:http'
 import https from 'node:https'
-import { randomUUID } from 'node:crypto'
 import { until } from '@open-draft/until'
 import { Interceptor } from '../../Interceptor'
 import type { HttpRequestEventMap } from '../../glossary'
-import type {
+import {
+  kRequestId,
   MockHttpSocketRequestCallback,
   MockHttpSocketResponseCallback,
 } from './MockHttpSocket'
@@ -115,7 +115,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     request,
     socket,
   }) => {
-    const requestId = randomUUID()
+    const requestId = Reflect.get(request, kRequestId)
     const { interactiveRequest, requestController } =
       toInteractiveRequest(request)
 

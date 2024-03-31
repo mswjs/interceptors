@@ -6,12 +6,17 @@
  * (not all of them follow the one from WHATWG).
  */
 import type { WebSocketData, WebSocketTransport } from './WebSocketTransport'
-import { WebSocketMessageListener } from './WebSocketOverride'
+import { WebSocketEventListener } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 import { CloseEvent } from './utils/events'
-import { uuidv4 } from '../../utils/uuid'
+import { createRequestId } from '../../createRequestId'
 
 const kEmitter = Symbol('kEmitter')
+
+interface WebSocketClientEventMap {
+  message: MessageEvent<WebSocketData>
+  close: CloseEvent
+}
 
 export interface WebSocketClientConnectionProtocol {
   id: string
@@ -37,7 +42,7 @@ export class WebSocketClientConnection
     public readonly socket: WebSocket,
     private readonly transport: WebSocketTransport
   ) {
-    this.id = uuidv4()
+    this.id = createRequestId()
     this.url = new URL(socket.url)
     this[kEmitter] = new EventTarget()
 
@@ -59,20 +64,20 @@ export class WebSocketClientConnection
   /**
    * Listen for the outgoing events from the connected WebSocket client.
    */
-  public addEventListener(
-    event: string,
-    listener: WebSocketMessageListener,
+  public addEventListener<EventType extends keyof WebSocketClientEventMap>(
+    type: EventType,
+    listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
     options?: AddEventListenerOptions | boolean
   ): void {
-    this[kEmitter].addEventListener(event, listener as EventListener, options)
+    this[kEmitter].addEventListener(type, listener as EventListener, options)
   }
 
   /**
    * Removes the listener for the given event.
    */
-  public removeEventListener(
-    event: string,
-    listener: WebSocketMessageListener,
+  public removeEventListener<EventType extends keyof WebSocketClientEventMap>(
+    event: EventType,
+    listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
     options?: EventListenerOptions | boolean
   ): void {
     this[kEmitter].removeEventListener(
