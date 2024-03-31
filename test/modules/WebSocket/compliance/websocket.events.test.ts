@@ -1,5 +1,7 @@
 /**
  * @vitest-environment node-with-websocket
+ * This test suite asserts that the intercepted WebSocket client
+ * still dispatches the correct events in mocked/bypassed scenarios.
  */
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
@@ -24,6 +26,7 @@ it('emits "open" event when the connection is opened', async () => {
   const openEvent = await openEventPromise
   expect(openEvent.type).toBe('open')
   expect(openEvent.target).toBe(ws)
+  expect(openEvent.currentTarget).toBe(ws)
 })
 
 it('emits "message" event on the incoming event from the server', async () => {
@@ -40,6 +43,7 @@ it('emits "message" event on the incoming event from the server', async () => {
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toBe('hello')
   expect(messageEvent.target).toBe(ws)
+  expect(messageEvent.currentTarget).toBe(ws)
   expect(messageEvent.origin).toBe(ws.url)
 })
 
@@ -86,6 +90,7 @@ it('emits "close" event when the connection is closed by the server with a code 
   expect(closeEvent.code).toBe(3000)
   expect(closeEvent.reason).toBe('Oops!')
   expect(closeEvent.target).toBe(ws)
+  expect(closeEvent.currentTarget).toBe(ws)
 })
 
 it('emits "error" event when the connection is closed due to an error', async () => {
@@ -112,4 +117,5 @@ it('emits "error" event when the connection is closed due to an error', async ()
   expect(closeEvent.reason).toBe('')
   expect(closeEvent.wasClean).toBe(false)
   expect(closeEvent.target).toBe(ws)
+  expect(closeEvent.currentTarget).toBe(ws)
 })

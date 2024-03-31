@@ -6,7 +6,7 @@ import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index'
 import { HttpRequestEventMap } from '../../../../src/glossary'
-import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
+import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {
@@ -107,7 +107,7 @@ it('emits the "response" event for a mocked response', async () => {
   expect(await response.text()).toBe('hello world')
   expect(isMockedResponse).toBe(true)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
   expect(requestFromListener).toBeInstanceOf(Request)
   expect(requestFromListener.method).toBe('GET')
   expect(requestFromListener.url).toBe('http://localhost/')
@@ -147,7 +147,7 @@ it('emits the "response" event for a bypassed response', async () => {
   expect(await response.text()).toBe('original-response')
   expect(isMockedResponse).toBe(false)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
   expect(requestFromListener).toBeInstanceOf(Request)
   expect(requestFromListener.method).toBe('GET')
   expect(requestFromListener.url).toBe(httpServer.http.url('/'))

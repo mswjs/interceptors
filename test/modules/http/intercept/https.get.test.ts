@@ -1,7 +1,7 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
+import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src/glossary'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
@@ -55,7 +55,7 @@ it('intercepts a GET request', async () => {
   expect(requestFromListener.body).toBe(null)
   expect(requestFromListener.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an https.get request given RequestOptions without a protocol', async () => {
@@ -83,5 +83,5 @@ it('intercepts an https.get request given RequestOptions without a protocol', as
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })

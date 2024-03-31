@@ -6,7 +6,7 @@ import { HttpRequestEventMap } from '../../../src'
 import {
   createXMLHttpRequest,
   useCors,
-  UUID_REGEXP,
+  REQUEST_ID_REGEXP,
   waitForClientRequest,
 } from '../../helpers'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
@@ -68,7 +68,7 @@ it('ClientRequest: emits the "request" event upon the request', async () => {
   expect(await request.json()).toEqual({ userId: 'abc-123' })
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('XMLHttpRequest: emits the "request" event upon the request', async () => {
@@ -96,5 +96,5 @@ it('XMLHttpRequest: emits the "request" event upon the request', async () => {
   expect(await request.json()).toEqual({ userId: 'abc-123' })
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })

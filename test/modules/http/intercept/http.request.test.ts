@@ -2,7 +2,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
-import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
+import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src/glossary'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
@@ -60,7 +60,7 @@ it('intercepts a HEAD request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a GET request', async () => {
@@ -88,7 +88,7 @@ it('intercepts a GET request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a POST request', async () => {
@@ -119,7 +119,7 @@ it('intercepts a POST request', async () => {
   expect(await request.text()).toBe('post-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a PUT request', async () => {
@@ -149,7 +149,7 @@ it('intercepts a PUT request', async () => {
   expect(await request.text()).toBe('put-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a PATCH request', async () => {
@@ -179,7 +179,7 @@ it('intercepts a PATCH request', async () => {
   expect(await request.text()).toBe('patch-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a DELETE request', async () => {
@@ -207,7 +207,7 @@ it('intercepts a DELETE request', async () => {
   expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an http.request given RequestOptions without a protocol', async () => {
@@ -231,7 +231,7 @@ it('intercepts an http.request given RequestOptions without a protocol', async (
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an http.request path in url and options', async () => {
@@ -255,7 +255,7 @@ it('intercepts an http.request path in url and options', async () => {
   expect(request.respondWith).toBeInstanceOf(Function)
   expect(callback).toHaveBeenCalledTimes(1)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an http.request with custom "auth" option', async () => {

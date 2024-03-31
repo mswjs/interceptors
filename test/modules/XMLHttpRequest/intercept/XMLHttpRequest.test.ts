@@ -6,7 +6,11 @@ import {
   XMLHttpRequestEventListener,
   XMLHttpRequestInterceptor,
 } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors, UUID_REGEXP } from '../../../helpers'
+import {
+  createXMLHttpRequest,
+  useCors,
+  REQUEST_ID_REGEXP,
+} from '../../../helpers'
 import { toArrayBuffer, encodeBuffer } from '../../../../src/utils/bufferUtils'
 
 declare namespace window {
@@ -79,7 +83,7 @@ it('intercepts an HTTP HEAD request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP GET request', async () => {
@@ -103,7 +107,7 @@ it('intercepts an HTTP GET request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP POST request', async () => {
@@ -127,7 +131,7 @@ it('intercepts an HTTP POST request', async () => {
   expect(await request.text()).toBe('post-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP PUT request', async () => {
@@ -151,7 +155,7 @@ it('intercepts an HTTP PUT request', async () => {
   expect(await request.text()).toBe('put-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP DELETE request', async () => {
@@ -175,7 +179,7 @@ it('intercepts an HTTP DELETE request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS HEAD request', async () => {
@@ -199,7 +203,7 @@ it('intercepts an HTTPS HEAD request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS GET request', async () => {
@@ -223,7 +227,7 @@ it('intercepts an HTTPS GET request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS POST request', async () => {
@@ -247,7 +251,7 @@ it('intercepts an HTTPS POST request', async () => {
   expect(await request.text()).toBe('post-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS PUT request', async () => {
@@ -271,7 +275,7 @@ it('intercepts an HTTPS PUT request', async () => {
   expect(await request.text()).toBe('put-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS DELETE request', async () => {
@@ -295,7 +299,7 @@ it('intercepts an HTTPS DELETE request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {

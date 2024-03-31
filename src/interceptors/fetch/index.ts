@@ -3,11 +3,11 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
-import { uuidv4 } from '../../utils/uuid'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { canParseUrl } from '../../utils/canParseUrl'
+import { createRequestId } from '../../createRequestId'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -23,7 +23,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     )
   }
 
-  protected setup() {
+  protected async setup() {
     const pureFetch = globalThis.fetch
 
     invariant(
@@ -32,7 +32,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     )
 
     globalThis.fetch = async (input, init) => {
-      const requestId = uuidv4()
+      const requestId = createRequestId()
 
       /**
        * @note Resolve potentially relative request URL

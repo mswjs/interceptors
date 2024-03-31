@@ -1,3 +1,4 @@
+import { performance } from 'node:perf_hooks'
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import https from 'node:https'
 import { DeferredPromise } from '@open-draft/deferred-promise'
@@ -52,7 +53,7 @@ it('supports delays when enqueuing chunks', async () => {
       .on('data', (data) => {
         chunks.push({
           buffer: Buffer.from(data),
-          timestamp: Date.now(),
+          timestamp: performance.now(),
         })
       })
       .on('end', () => {
