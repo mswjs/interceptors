@@ -1,19 +1,31 @@
 /**
  * @vitest-environment node-with-websocket
  */
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket/index'
+import { getWsUrl } from '../utils/getWsUrl'
 import { REQUEST_ID_REGEXP } from '../../../helpers'
 import { waitForNextTick } from '../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()
 
-beforeAll(() => {
+const wsServer = new WebSocketServer({
+  host: '127.0.0.1',
+  port: 0,
+})
+
+beforeAll(async () => {
   interceptor.apply()
 })
 
-afterAll(() => {
+afterEach(() => {
+  wsServer.clients.forEach((client) => client.close())
+})
+
+afterAll(async () => {
   interceptor.dispose()
+  wsServer.close()
 })
 
 it('emits the correct "connection" event on the interceptor', async () => {
@@ -47,4 +59,18 @@ it('emits the correct "connection" event on the interceptor', async () => {
       }),
     })
   )
+})
+
+it('does not connect to the actual WebSocket server by default', async () => {
+  const realConnectionListener = vi.fn()
+  wsServer.on('connection', realConnectionListener)
+
+  const connectionListener = vi.fn()
+  interceptor.once('connection', connectionListener)
+
+  new WebSocket(getWsUrl(wsServer))
+  await waitForNextTick()
+
+  expect(connectionListener).toHaveBeenCalledTimes(1)
+  expect(realConnectionListener).not.toHaveBeenCalled()
 })
