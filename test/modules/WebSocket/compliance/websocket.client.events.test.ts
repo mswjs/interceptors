@@ -8,6 +8,7 @@ import {
   WebSocketData,
   WebSocketInterceptor,
 } from '../../../../src/interceptors/WebSocket'
+import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -21,23 +22,29 @@ afterAll(() => {
 
 it('emits "message" event when the client sends data', async () => {
   const messageListener = vi.fn<[MessageEvent<WebSocketData>]>()
+  const errorListener = vi.fn()
   interceptor.once('connection', ({ client }) => {
-    client.addEventListener('message', messageListener)
+    client.addEventListener('message', (event) => {
+      messageListener(event)
+      queueMicrotask(() => client.close())
+    })
   })
 
   const ws = new WebSocket('wss://localhost')
   ws.onopen = () => ws.send('hello')
+  ws.onerror = errorListener
 
-  await vi.waitFor(() => {
-    const [messageEvent] = messageListener.mock.calls[0]
+  await waitForWebSocketEvent('close', ws)
 
-    expect(messageEvent.type).toBe('message')
-    expect(messageEvent.data).toBe('hello')
-    expect(messageEvent.currentTarget).toEqual(ws)
-    expect(messageEvent.target).toEqual(ws)
+  const [messageEvent] = messageListener.mock.calls[0]
 
-    expect(messageListener).toHaveBeenCalledTimes(1)
-  })
+  expect(messageEvent.type).toBe('message')
+  expect(messageEvent.data).toBe('hello')
+  expect(messageEvent.currentTarget).toEqual(ws)
+  expect(messageEvent.target).toEqual(ws)
+
+  expect(messageListener).toHaveBeenCalledTimes(1)
+  expect(errorListener).not.toHaveBeenCalled()
 })
 
 it('emits "close" event when the client closes itself', async () => {
