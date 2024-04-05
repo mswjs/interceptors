@@ -57,7 +57,7 @@ test('forwards incoming server data from the original server', async ({
   expect(receivedString).toBe('hello from server')
 })
 
-test('forwards outgoing client data to the original server', async ({
+test('forwards outgoing client data to the original server by default', async ({
   loadExample,
   page,
 }) => {
@@ -74,9 +74,6 @@ test('forwards outgoing client data to the original server', async ({
 
     interceptor.on('connection', ({ client, server }) => {
       server.connect()
-
-      // Forward outgoing events to the original WebSocket server.
-      client.addEventListener('message', (event) => server.send(event.data))
     })
     interceptor.apply()
   })
