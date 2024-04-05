@@ -6,7 +6,7 @@ import {
   WebSocketTransportEventMap,
 } from './WebSocketTransport'
 import { kOnSend, kClose, WebSocketOverride } from './WebSocketOverride'
-import { CloseEvent } from './utils/events'
+import { CancelableMessageEvent, CloseEvent } from './utils/events'
 
 /**
  * Abstraction over the given mock `WebSocket` instance that allows
@@ -34,9 +34,12 @@ export class WebSocketClassTransport
       this.dispatchEvent(
         bindEvent(
           this.socket,
-          new MessageEvent('outgoing', {
+          // Dispatch this as cancelable because "client" connection
+          // re-creates this message event (cannot dispatch the same event).
+          new CancelableMessageEvent('outgoing', {
             data,
             origin: this.socket.url,
+            cancelable: true,
           })
         )
       )

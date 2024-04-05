@@ -60,7 +60,7 @@ it('sends text data to the original server', async () => {
     })
   })
 
-  interceptor.once('connection', ({ client, server }) => {
+  interceptor.once('connection', ({ server }) => {
     server.connect()
   })
 
@@ -85,7 +85,7 @@ it('sends Blob data to the original server', async () => {
     })
   })
 
-  interceptor.once('connection', ({ client, server }) => {
+  interceptor.once('connection', ({ server }) => {
     server.connect()
   })
 
@@ -111,7 +111,7 @@ it('sends ArrayBuffer data to the original server', async () => {
     ws.on('message', (data) => messagePromise.resolve(data))
   })
 
-  interceptor.once('connection', ({ client, server }) => {
+  interceptor.once('connection', ({ server }) => {
     server.connect()
   })
 

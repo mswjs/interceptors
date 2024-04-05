@@ -42,16 +42,24 @@ export class WebSocketClientConnection
     // Emit outgoing client data ("ws.send()") as "message"
     // events on the "client" connection.
     this.transport.addEventListener('outgoing', (event) => {
-      this[kEmitter].dispatchEvent(
-        bindEvent(
-          this.socket,
-          new CancelableMessageEvent('message', {
-            data: event.data,
-            origin: event.origin,
-            cancelable: true,
-          })
-        )
+      const message = bindEvent(
+        this.socket,
+        new CancelableMessageEvent('message', {
+          data: event.data,
+          origin: event.origin,
+          cancelable: true,
+        })
       )
+
+      this[kEmitter].dispatchEvent(message)
+
+      // This is a bit silly but forward the cancellation state
+      // of the "client" message event to the "outgoing" transport event.
+      // This way, other agens (like "server" connection) can know
+      // whether the client listener has pervented the default.
+      if (message.defaultPrevented) {
+        event.preventDefault()
+      }
     })
 
     /**
