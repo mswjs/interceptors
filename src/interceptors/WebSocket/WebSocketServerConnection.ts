@@ -28,56 +28,32 @@ export class WebSocketServerConnection {
     this[kEmitter] = new EventTarget()
     this.mockCloseController = new AbortController()
 
-    // Handle incoming events from the actual server.
-    // The (mock) WebSocket instance will call this
-    // whenever a "message" event from the actual server
-    // is dispatched on it (the dispatch will be skipped).
-    this.transport.onIncoming = (event) => {
-      // Clone the event to dispatch it on this class
-      // once again and prevent the "already being dispatched"
-      // exception. Clone it here so we can observe this event
-      // being prevented in the "server.on()" listeners.
-      const messageEvent = bindEvent(
-        this.realWebSocket!,
-        new CancelableMessageEvent('message', {
-          data: event.data,
-          origin: event.origin,
-          cancelable: true,
-        })
-      )
-
-      /**
-       * @note Emit "message" event on the WebSocketClassServer
-       * instance to let the interceptor know about these
-       * incoming events from the original server. In that listener,
-       * the interceptor can modify or skip the event forwarding
-       * to the mock WebSocket instance.
-       */
-      this[kEmitter].dispatchEvent(messageEvent)
-
-      /**
-       * @note Forward the incoming server events to the client.
-       * Preventing the default on the message event stops this.
-       */
-      if (!messageEvent.defaultPrevented) {
-        this.socket.dispatchEvent(
-          bindEvent(
-            /**
-             * @note Bind the forwarded original server events
-             * to the mock WebSocket instance so it would
-             * dispatch them straight away.
-             */
-            this.socket,
-            // Clone the message event again to prevent
-            // the "already being dispatched" exception.
-            new MessageEvent('message', {
-              data: event.data,
-              origin: event.origin,
-            })
-          )
-        )
+    // Automatically forward outgoing client events
+    // to the actual server unless the outgoing message event
+    // has been prevented. The "outgoing" transport event it
+    // dispatched by the "client" connection.
+    this.transport.addEventListener('outgoing', (event) => {
+      // Ignore client messages if the server connection
+      // hasn't been established yet. Nowhere to forward.
+      if (this.readyState === -1) {
+        return
       }
-    }
+
+      // Every outgoing client message can prevent this forwarding
+      // by preventing the default of the outgoing message event.
+      // This listener will be added before user-defined listeners,
+      // so execute the logic on the next tick.
+      queueMicrotask(() => {
+        if (!event.defaultPrevented) {
+          this.send(event.data)
+        }
+      })
+    })
+
+    this.transport.addEventListener(
+      'incoming',
+      this.handleIncomingMessage.bind(this)
+    )
   }
 
   /**
@@ -122,7 +98,19 @@ export class WebSocketServerConnection {
     )
 
     realWebSocket.addEventListener('message', (event) => {
-      this.transport.onIncoming(event)
+      // Dispatch the "incoming" transport event instead of
+      // invoking the internal handler directly. This way,
+      // anyone can listen to the "incoming" event but this
+      // class is the one resulting in it.
+      this.transport.dispatchEvent(
+        bindEvent(
+          this.realWebSocket!,
+          new MessageEvent('incoming', {
+            data: event.data,
+            origin: event.origin,
+          })
+        )
+      )
     })
 
     // Close the original connection when the mock client closes.
@@ -248,6 +236,53 @@ export class WebSocketServerConnection {
         bindEvent(this.realWebSocket, new CloseEvent('close'))
       )
     })
+  }
+
+  private handleIncomingMessage(event: MessageEvent<WebSocketData>): void {
+    // Clone the event to dispatch it on this class
+    // once again and prevent the "already being dispatched"
+    // exception. Clone it here so we can observe this event
+    // being prevented in the "server.on()" listeners.
+    const messageEvent = bindEvent(
+      event.target,
+      new CancelableMessageEvent('message', {
+        data: event.data,
+        origin: event.origin,
+        cancelable: true,
+      })
+    )
+
+    /**
+     * @note Emit "message" event on the server connection
+     * instance to let the interceptor know about these
+     * incoming events from the original server. In that listener,
+     * the interceptor can modify or skip the event forwarding
+     * to the mock WebSocket instance.
+     */
+    this[kEmitter].dispatchEvent(messageEvent)
+
+    /**
+     * @note Forward the incoming server events to the client.
+     * Preventing the default on the message event stops this.
+     */
+    if (!messageEvent.defaultPrevented) {
+      this.socket.dispatchEvent(
+        bindEvent(
+          /**
+           * @note Bind the forwarded original server events
+           * to the mock WebSocket instance so it would
+           * dispatch them straight away.
+           */
+          this.socket,
+          // Clone the message event again to prevent
+          // the "already being dispatched" exception.
+          new MessageEvent('message', {
+            data: event.data,
+            origin: event.origin,
+          })
+        )
+      )
+    }
   }
 
   private handleMockClose(_event: Event): void {

@@ -1,50 +1,86 @@
 import { bindEvent } from './utils/bindEvent'
 import {
+  StrictEventListenerOrEventListenerObject,
   WebSocketData,
   WebSocketTransport,
-  WebSocketTransportOnCloseCallback,
-  WebSocketTransportOnIncomingCallback,
-  WebSocketTransportOnOutgoingCallback,
+  WebSocketTransportEventMap,
 } from './WebSocketTransport'
 import { kOnSend, kClose, WebSocketOverride } from './WebSocketOverride'
+import { CancelableMessageEvent, CloseEvent } from './utils/events'
 
 /**
  * Abstraction over the given mock `WebSocket` instance that allows
  * for controlling that instance (e.g. sending and receiving messages).
  */
-export class WebSocketClassTransport extends WebSocketTransport {
-  public onOutgoing: WebSocketTransportOnOutgoingCallback = () => {}
-  public onIncoming: WebSocketTransportOnIncomingCallback = () => {}
-  public onClose: WebSocketTransportOnCloseCallback = () => {}
-
+export class WebSocketClassTransport
+  extends EventTarget
+  implements WebSocketTransport
+{
   constructor(protected readonly socket: WebSocketOverride) {
     super()
 
-    this.socket.addEventListener('close', (event) => this.onClose(event), {
-      once: true,
+    // Emit the "close" event on the transport if the close
+    // originates from the WebSocket client. E.g. the application
+    // calls "ws.close()", not the interceptor.
+    this.socket.addEventListener('close', (event) => {
+      this.dispatchEvent(bindEvent(this.socket, new CloseEvent('close', event)))
     })
-    this.socket[kOnSend] = (...args) => this.onOutgoing(...args)
+
+    /**
+     * Emit the "outgoing" event on the transport
+     * whenever the WebSocket client sends data ("ws.send()").
+     */
+    this.socket[kOnSend] = (data) => {
+      this.dispatchEvent(
+        bindEvent(
+          this.socket,
+          // Dispatch this as cancelable because "client" connection
+          // re-creates this message event (cannot dispatch the same event).
+          new CancelableMessageEvent('outgoing', {
+            data,
+            origin: this.socket.url,
+            cancelable: true,
+          })
+        )
+      )
+    }
+  }
+
+  public addEventListener<EventType extends keyof WebSocketTransportEventMap>(
+    type: EventType,
+    callback: StrictEventListenerOrEventListenerObject<
+      WebSocketTransportEventMap[EventType]
+    > | null,
+    options?: boolean | AddEventListenerOptions
+  ): void {
+    return super.addEventListener(type, callback as EventListener, options)
+  }
+
+  public dispatchEvent<EventType extends keyof WebSocketTransportEventMap>(
+    event: WebSocketTransportEventMap[EventType]
+  ): boolean {
+    return super.dispatchEvent(event)
   }
 
   public send(data: WebSocketData): void {
     queueMicrotask(() => {
-      const message = bindEvent(
-        /**
-         * @note Setting this event's "target" to the
-         * WebSocket override instance is important.
-         * This way it can tell apart original incoming events
-         * (must be forwarded to the transport) from the
-         * mocked message events like the one below
-         * (must be dispatched on the client instance).
-         */
-        this.socket,
-        new MessageEvent('message', {
-          data,
-          origin: this.socket.url,
-        })
+      this.socket.dispatchEvent(
+        bindEvent(
+          /**
+           * @note Setting this event's "target" to the
+           * WebSocket override instance is important.
+           * This way it can tell apart original incoming events
+           * (must be forwarded to the transport) from the
+           * mocked message events like the one below
+           * (must be dispatched on the client instance).
+           */
+          this.socket,
+          new MessageEvent('message', {
+            data,
+            origin: this.socket.url,
+          })
+        )
       )
-
-      this.socket.dispatchEvent(message)
     })
   }
 

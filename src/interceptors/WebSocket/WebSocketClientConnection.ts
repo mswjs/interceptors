@@ -1,14 +1,7 @@
-/**
- * WebSocket client class.
- * This represents an incoming WebSocket client connection.
- * @note Keep this class implementation-agnostic because it's
- * meant to be used over any WebSocket implementation
- * (not all of them follow the one from WHATWG).
- */
 import type { WebSocketData, WebSocketTransport } from './WebSocketTransport'
 import { WebSocketEventListener } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
-import { CloseEvent } from './utils/events'
+import { CancelableMessageEvent, CloseEvent } from './utils/events'
 import { createRequestId } from '../../createRequestId'
 
 const kEmitter = Symbol('kEmitter')
@@ -47,18 +40,41 @@ export class WebSocketClientConnection
     this[kEmitter] = new EventTarget()
 
     // Emit outgoing client data ("ws.send()") as "message"
-    // events on the client connection.
-    this.transport.onOutgoing = (data) => {
-      this[kEmitter].dispatchEvent(
-        bindEvent(this.socket, new MessageEvent('message', { data }))
+    // events on the "client" connection.
+    this.transport.addEventListener('outgoing', (event) => {
+      const message = bindEvent(
+        this.socket,
+        new CancelableMessageEvent('message', {
+          data: event.data,
+          origin: event.origin,
+          cancelable: true,
+        })
       )
-    }
 
-    this.transport.onClose = (event) => {
+      this[kEmitter].dispatchEvent(message)
+
+      // This is a bit silly but forward the cancellation state
+      // of the "client" message event to the "outgoing" transport event.
+      // This way, other agens (like "server" connection) can know
+      // whether the client listener has pervented the default.
+      if (message.defaultPrevented) {
+        event.preventDefault()
+      }
+    })
+
+    /**
+     * Emit the "close" event on the "client" connection
+     * whenever the underlying transport is closed.
+     * @note "client.close()" does NOT dispatch the "close"
+     * event on the WebSocket because it uses non-configurable
+     * close status code. Thus, we listen to the transport
+     * instead of the WebSocket's "close" event.
+     */
+    this.transport.addEventListener('close', (event) => {
       this[kEmitter].dispatchEvent(
         bindEvent(this.socket, new CloseEvent('close', event))
       )
-    }
+    })
   }
 
   /**

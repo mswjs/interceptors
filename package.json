@@ -86,9 +86,9 @@
   "scripts": {
     "start": "tsc --build -w",
     "test": "pnpm test:unit && pnpm test:integration",
-    "test:unit": "vitest run",
+    "test:unit": "vitest",
     "test:integration": "pnpm test:node && pnpm test:browser",
-    "test:node": "vitest run -c test/vitest.config.js",
+    "test:node": "vitest -c test/vitest.config.js",
     "test:browser": "pnpm playwright test -c test/playwright.config.ts",
     "clean": "rimraf lib",
     "build": "pnpm clean && cross-env NODE_ENV=production tsup --splitting",

@@ -88,9 +88,9 @@ it('closes the actual server connection when the client closes', async () => {
 
     client.addEventListener('message', (event) => {
       if (event.data === 'close') {
+        event.preventDefault()
         return client.close()
       }
-      server.send(event.data)
     })
   })
 

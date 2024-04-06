@@ -61,10 +61,6 @@ it('closes the actual server connection when called "server.close()"', async () 
     server.connect()
     serverCallback(server.readyState)
 
-    client.addEventListener('message', (event) => {
-      server.send(event.data)
-    })
-
     /**
      * @fixme Tapping into internals isn't nice.
      */
@@ -74,6 +70,7 @@ it('closes the actual server connection when called "server.close()"', async () 
 
     client.addEventListener('message', (event) => {
       if (event.data === 'close-server') {
+        event.preventDefault()
         server.close()
       }
     })
@@ -117,15 +114,19 @@ it('resumes forwarding client events to the server once it is reconnected', asyn
     server.connect()
 
     client.addEventListener('message', (event) => {
-      if (event.data === 'server/close') {
-        server.close()
-      }
+      switch (event.data) {
+        case 'server/close': {
+          event.preventDefault()
+          server.close()
+          break
+        }
 
-      if (event.data === 'server/reconnect') {
-        server.connect()
+        case 'server/reconnect': {
+          event.preventDefault()
+          server.connect()
+          break
+        }
       }
-
-      server.send(event.data)
     })
   })
 
@@ -171,9 +172,6 @@ it('forwards "close" events from the original server', async () => {
 
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
-    client.addEventListener('message', (event) => {
-      server.send(event.data)
-    })
     server.addEventListener('close', (event) => {
       interceptorServerCloseListener(event.code, event.reason)
     })
