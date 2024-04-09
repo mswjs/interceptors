@@ -50,6 +50,28 @@ describe(CancelableMessageEvent, () => {
     event.preventDefault()
     expect(event.defaultPrevented).toBe(false)
   })
+
+  it('supports setting the "cancelable" value directly', () => {
+    const event = new CancelableMessageEvent('message', {})
+    /**
+     * @note HappyDOM sets the "cancelable" and "preventDefault"
+     * event properties directly. That's no-op as far as I know
+     * but they do it and we have to account for that.
+     */
+    event.cancelable = true
+    expect(event.cancelable).toBe(true)
+  })
+
+  it('supports setting the "defaultPrevented" value directly', () => {
+    const event = new CancelableMessageEvent('message', {})
+    /**
+     * @note HappyDOM sets the "cancelable" and "preventDefault"
+     * event properties directly. That's no-op as far as I know
+     * but they do it and we have to account for that.
+     */
+    event.defaultPrevented = true
+    expect(event.defaultPrevented).toBe(true)
+  })
 })
 
 describe(CloseEvent, () => {
