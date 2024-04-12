@@ -1,11 +1,23 @@
 import { invariant } from 'outvariant'
-import { kClose, WebSocketOverride } from './WebSocketOverride'
+import {
+  kClose,
+  WebSocketEventListener,
+  WebSocketOverride,
+} from './WebSocketOverride'
 import type { WebSocketData } from './WebSocketTransport'
 import type { WebSocketClassTransport } from './WebSocketClassTransport'
 import { bindEvent } from './utils/bindEvent'
 import { CancelableMessageEvent, CloseEvent } from './utils/events'
 
 const kEmitter = Symbol('kEmitter')
+const kBoundListener = Symbol('kBoundListener')
+
+interface WebSocketServerEventMap {
+  open: Event
+  message: MessageEvent<WebSocketData>
+  error: Event
+  close: CloseEvent
+}
 
 /**
  * The WebSocket server instance represents the actual production
@@ -135,14 +147,23 @@ export class WebSocketServerConnection {
   /**
    * Listen for the incoming events from the original WebSocket server.
    */
-  public addEventListener<K extends keyof WebSocketEventMap>(
-    event: K,
-    listener: (this: WebSocket, event: WebSocketEventMap[K]) => void,
+  public addEventListener<EventType extends keyof WebSocketServerEventMap>(
+    event: EventType,
+    listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
     options?: AddEventListenerOptions | boolean
   ): void {
+    const boundListener = listener.bind(this.socket)
+
+    // Store the bound listener on the original listener
+    // so the exact bound function can be accessed in "removeEventListener()".
+    Object.defineProperty(listener, kBoundListener, {
+      value: boundListener,
+      enumerable: false,
+    })
+
     this[kEmitter].addEventListener(
       event,
-      listener.bind(this.realWebSocket!) as EventListener,
+      boundListener as EventListener,
       options
     )
   }
@@ -150,14 +171,14 @@ export class WebSocketServerConnection {
   /**
    * Remove the listener for the given event.
    */
-  public removeEventListener<K extends keyof WebSocketEventMap>(
-    event: K,
-    listener: (this: WebSocket, event: WebSocketEventMap[K]) => void,
+  public removeEventListener<EventType extends keyof WebSocketServerEventMap>(
+    event: EventType,
+    listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
     options?: EventListenerOptions | boolean
   ): void {
     this[kEmitter].removeEventListener(
       event,
-      listener as EventListener,
+      Reflect.get(listener, kBoundListener) as EventListener,
       options
     )
   }

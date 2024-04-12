@@ -1,10 +1,11 @@
 import type { WebSocketData, WebSocketTransport } from './WebSocketTransport'
-import { WebSocketEventListener } from './WebSocketOverride'
+import type { WebSocketEventListener } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 import { CancelableMessageEvent, CloseEvent } from './utils/events'
 import { createRequestId } from '../../createRequestId'
 
 const kEmitter = Symbol('kEmitter')
+const kBoundListener = Symbol('kBoundListener')
 
 interface WebSocketClientEventMap {
   message: MessageEvent<WebSocketData>
@@ -85,7 +86,20 @@ export class WebSocketClientConnection
     listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
     options?: AddEventListenerOptions | boolean
   ): void {
-    this[kEmitter].addEventListener(type, listener as EventListener, options)
+    const boundListener = listener.bind(this.socket)
+
+    // Store the bound listener on the original listener
+    // so the exact bound function can be accessed in "removeEventListener()".
+    Object.defineProperty(listener, kBoundListener, {
+      value: boundListener,
+      enumerable: false,
+    })
+
+    this[kEmitter].addEventListener(
+      type,
+      boundListener as EventListener,
+      options
+    )
   }
 
   /**
@@ -98,7 +112,7 @@ export class WebSocketClientConnection
   ): void {
     this[kEmitter].removeEventListener(
       event,
-      listener as EventListener,
+      Reflect.get(listener, kBoundListener) as EventListener,
       options
     )
   }
