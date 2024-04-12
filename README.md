@@ -305,10 +305,10 @@ Unlike the HTTP-based interceptors that share the same `request`/`response` even
 
 ### Important defaults
 
-1. Intercepted WebSocket connections are _not_ opened. To open the actual WebSocket connection, call [`server.connect()`](#connect) in the interceptor.
-1. Once connected to the actual server, the outgoing client events are _not_ forwarded to that server. You must add a message listener for the `client` and forward the events manually using [`server.send()`](#senddata-1).
-1. Once connected to the actual server, the incoming server events _are_ forwarded to the client by default. You can prevent that forwarding by calling `event.preventDefault()` in the message event listener for the `server`.
-1. Once connected to the actual server, the `close` event received from that server is forwarded to the intercepted client by default. You can prevent that forwarding by calling `event.preventDefault()` in the close event listener for the `server`.
+1. Intercepted WebSocket connections are _not opened_. To open the actual WebSocket connection, call [`server.connect()`](#connect) in the interceptor.
+1. Once connected to the actual server, the outgoing client events are _forwarded to that server by default_. If you wish to prevent a client message from reaching the server, call `event.preventDefault()` for that client message event.
+1. Once connected to the actual server, the incoming server events are _forwarded to the client by default_. If you wish to prevent a server message from reaching the client, call `event.preventDefault()` for the server message event.
+1. Once connected to the actual server, the `close` event received from that server is _forwarded to the client by default_. If you wish to prevent that, call `event.preventDefault()` for that close event of the server.
 
 ### WebSocket connection
 

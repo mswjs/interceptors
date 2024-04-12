@@ -22,8 +22,16 @@ export class CancelableMessageEvent<T = any> extends MessageEvent<T> {
     return this[kCancelable]
   }
 
+  set cancelable(nextCancelable) {
+    this[kCancelable] = nextCancelable
+  }
+
   get defaultPrevented() {
     return this[kDefaultPrevented]
+  }
+
+  set defaultPrevented(nextDefaultPrevented) {
+    this[kDefaultPrevented] = nextDefaultPrevented
   }
 
   public preventDefault(): void {
