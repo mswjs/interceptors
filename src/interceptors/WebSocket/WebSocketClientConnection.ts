@@ -1,5 +1,5 @@
 import type { WebSocketData, WebSocketTransport } from './WebSocketTransport'
-import { WebSocketEventListener } from './WebSocketOverride'
+import type { WebSocketEventListener } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 import { CancelableMessageEvent, CloseEvent } from './utils/events'
 import { createRequestId } from '../../createRequestId'

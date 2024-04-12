@@ -1,11 +1,22 @@
 import { invariant } from 'outvariant'
-import { kClose, WebSocketOverride } from './WebSocketOverride'
+import {
+  kClose,
+  WebSocketEventListener,
+  WebSocketOverride,
+} from './WebSocketOverride'
 import type { WebSocketData } from './WebSocketTransport'
 import type { WebSocketClassTransport } from './WebSocketClassTransport'
 import { bindEvent } from './utils/bindEvent'
 import { CancelableMessageEvent, CloseEvent } from './utils/events'
 
 const kEmitter = Symbol('kEmitter')
+
+interface WebSocketServerEventMap {
+  open: Event
+  message: MessageEvent<WebSocketData>
+  error: Event
+  close: CloseEvent
+}
 
 /**
  * The WebSocket server instance represents the actual production
@@ -135,9 +146,9 @@ export class WebSocketServerConnection {
   /**
    * Listen for the incoming events from the original WebSocket server.
    */
-  public addEventListener<K extends keyof WebSocketEventMap>(
-    event: K,
-    listener: (this: WebSocket, event: WebSocketEventMap[K]) => void,
+  public addEventListener<EventType extends keyof WebSocketServerEventMap>(
+    event: EventType,
+    listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
     options?: AddEventListenerOptions | boolean
   ): void {
     this[kEmitter].addEventListener(
@@ -150,9 +161,9 @@ export class WebSocketServerConnection {
   /**
    * Remove the listener for the given event.
    */
-  public removeEventListener<K extends keyof WebSocketEventMap>(
-    event: K,
-    listener: (this: WebSocket, event: WebSocketEventMap[K]) => void,
+  public removeEventListener<EventType extends keyof WebSocketServerEventMap>(
+    event: EventType,
+    listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
     options?: EventListenerOptions | boolean
   ): void {
     this[kEmitter].removeEventListener(
