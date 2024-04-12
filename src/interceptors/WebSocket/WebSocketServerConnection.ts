@@ -10,6 +10,7 @@ import { bindEvent } from './utils/bindEvent'
 import { CancelableMessageEvent, CloseEvent } from './utils/events'
 
 const kEmitter = Symbol('kEmitter')
+const kBoundListener = Symbol('kBoundListener')
 
 interface WebSocketServerEventMap {
   open: Event
@@ -151,9 +152,18 @@ export class WebSocketServerConnection {
     listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
     options?: AddEventListenerOptions | boolean
   ): void {
+    const boundListener = listener.bind(this.socket)
+
+    // Store the bound listener on the original listener
+    // so the exact bound function can be accessed in "removeEventListener()".
+    Object.defineProperty(listener, kBoundListener, {
+      value: boundListener,
+      enumerable: false,
+    })
+
     this[kEmitter].addEventListener(
       event,
-      listener.bind(this.realWebSocket!) as EventListener,
+      boundListener as EventListener,
       options
     )
   }
@@ -168,7 +178,7 @@ export class WebSocketServerConnection {
   ): void {
     this[kEmitter].removeEventListener(
       event,
-      listener as EventListener,
+      Reflect.get(listener, kBoundListener) as EventListener,
       options
     )
   }

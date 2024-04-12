@@ -94,6 +94,7 @@ export class WebSocketClientConnection
       value: boundListener,
       enumerable: false,
     })
+
     this[kEmitter].addEventListener(
       type,
       boundListener as EventListener,
