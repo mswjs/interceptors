@@ -9,9 +9,9 @@ export type WebSocketTransportEventMap = {
 }
 
 export type StrictEventListenerOrEventListenerObject<EventType extends Event> =
-  | ((event: EventType) => void)
+  | ((this: WebSocket, event: EventType) => void)
   | {
-      handleEvent(event: EventType): void
+      handleEvent(this: WebSocket, event: EventType): void
     }
 
 export interface WebSocketTransport {

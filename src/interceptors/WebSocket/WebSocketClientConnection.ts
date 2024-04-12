@@ -85,7 +85,11 @@ export class WebSocketClientConnection
     listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
     options?: AddEventListenerOptions | boolean
   ): void {
-    this[kEmitter].addEventListener(type, listener as EventListener, options)
+    this[kEmitter].addEventListener(
+      type,
+      listener.bind(this.socket) as EventListener,
+      options
+    )
   }
 
   /**
