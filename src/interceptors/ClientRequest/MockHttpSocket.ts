@@ -239,25 +239,33 @@ export class MockHttpSocket extends MockSocket {
     }
 
     if (response.body) {
-      const reader = response.body.getReader()
+      try {
+        const reader = response.body.getReader()
 
-      while (true) {
-        const { done, value } = await reader.read()
+        while (true) {
+          const { done, value } = await reader.read()
 
-        if (done) {
-          break
+          if (done) {
+            break
+          }
+
+          // Flush the headers upon the first chunk in the stream.
+          // This ensures the consumer will start receiving the response
+          // as it streams in (subsequent chunks are pushed).
+          if (httpHeaders.length > 0) {
+            flushHeaders(value)
+            continue
+          }
+
+          // Subsequent body chukns are push to the stream.
+          this.push(value)
         }
-
-        // Flush the headers upon the first chunk in the stream.
-        // This ensures the consumer will start receiving the response
-        // as it streams in (subsequent chunks are pushed).
-        if (httpHeaders.length > 0) {
-          flushHeaders(value)
-          continue
+      } catch (error) {
+        if (error instanceof Error) {
+          // Forward response streaming errors as response errors.
+          this.errorWith(error)
         }
-
-        // Subsequent body chukns are push to the stream.
-        this.push(value)
+        return
       }
     }
 
