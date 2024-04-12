@@ -125,7 +125,8 @@ export class MockHttpSocket extends MockSocket {
   public passthrough(): void {
     const socket = this.createConnection()
 
-    // Write the buffered request body chunks.
+    // Flush the buffered "socket.write()" calls onto
+    // the original socket instance (i.e. write request body).
     // Exhaust the "requestBuffer" in case this Socket
     // gets reused for different requests.
     let writeArgs: NormalizedWriteArgs | undefined
@@ -190,6 +191,7 @@ export class MockHttpSocket extends MockSocket {
       .on('prefinish', () => this.emit('prefinish'))
       .on('finish', () => this.emit('finish'))
       .on('close', (hadError) => this.emit('close', hadError))
+      .on('end', () => this.emit('end'))
   }
 
   /**
@@ -207,6 +209,10 @@ export class MockHttpSocket extends MockSocket {
     // to emulate a successful connection.
     this.mockConnect()
     this.responseType = 'mock'
+
+    // Flush the write buffer to trigger write callbacks
+    // if it hasn't been flushed already (e.g. someone started reading request stream).
+    this.flushWriteBuffer()
 
     const httpHeaders: Array<Buffer> = []
 
@@ -305,6 +311,13 @@ export class MockHttpSocket extends MockSocket {
     }
   }
 
+  private flushWriteBuffer(): void {
+    let args: NormalizedWriteArgs | undefined
+    while ((args = this.writeBuffer.shift())) {
+      args?.[2]?.()
+    }
+  }
+
   private onRequestStart: RequestHeadersCompleteCallback = (
     versionMajor,
     versionMinor,
@@ -344,7 +357,13 @@ export class MockHttpSocket extends MockSocket {
          * used as the actual request body (the stream calls "read()").
          * We control the queue in the onRequestBody/End functions.
          */
-        read: () => {},
+        read: () => {
+          // If the user attempts to read the request body,
+          // flush the write buffer to trigger the callbacks.
+          // This way, if the request stream ends in the write callback,
+          // it will indeed end correctly.
+          this.flushWriteBuffer()
+        },
       })
     }
 
