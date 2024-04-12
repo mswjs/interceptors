@@ -5,6 +5,7 @@ import { CancelableMessageEvent, CloseEvent } from './utils/events'
 import { createRequestId } from '../../createRequestId'
 
 const kEmitter = Symbol('kEmitter')
+const kBoundListener = Symbol('kBoundListener')
 
 interface WebSocketClientEventMap {
   message: MessageEvent<WebSocketData>
@@ -85,9 +86,17 @@ export class WebSocketClientConnection
     listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
     options?: AddEventListenerOptions | boolean
   ): void {
+    const boundListener = listener.bind(this.socket)
+
+    // Store the bound listener on the original listener
+    // so the exact bound function can be accessed in "removeEventListener()".
+    Object.defineProperty(listener, kBoundListener, {
+      value: boundListener,
+      enumerable: false,
+    })
     this[kEmitter].addEventListener(
       type,
-      listener.bind(this.socket) as EventListener,
+      boundListener as EventListener,
       options
     )
   }
@@ -102,7 +111,7 @@ export class WebSocketClientConnection
   ): void {
     this[kEmitter].removeEventListener(
       event,
-      listener as EventListener,
+      Reflect.get(listener, kBoundListener) as EventListener,
       options
     )
   }
