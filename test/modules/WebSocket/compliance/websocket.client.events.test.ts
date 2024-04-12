@@ -21,11 +21,11 @@ afterAll(() => {
 })
 
 it('emits "message" event when the client sends data', async () => {
-  const messageListener = vi.fn<[MessageEvent<WebSocketData>]>()
+  const messageListener = vi.fn<[WebSocket, MessageEvent<WebSocketData>]>()
   const errorListener = vi.fn()
   interceptor.once('connection', ({ client }) => {
-    client.addEventListener('message', (event) => {
-      messageListener(event)
+    client.addEventListener('message', function (event) {
+      messageListener(this, event)
       queueMicrotask(() => client.close())
     })
   })
@@ -36,8 +36,9 @@ it('emits "message" event when the client sends data', async () => {
 
   await waitForWebSocketEvent('close', ws)
 
-  const [messageEvent] = messageListener.mock.calls[0]
+  const [thisArg, messageEvent] = messageListener.mock.calls[0]
 
+  expect(thisArg).toEqual(ws)
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toBe('hello')
   expect(messageEvent.currentTarget).toEqual(ws)
@@ -50,15 +51,18 @@ it('emits "message" event when the client sends data', async () => {
 it('emits "close" event when the client closes itself', async () => {
   const closeListener = vi.fn()
   interceptor.once('connection', ({ client }) => {
-    client.addEventListener('close', closeListener)
+    client.addEventListener('close', function (event) {
+      closeListener(this, event)
+    })
   })
 
   const ws = new WebSocket('wss://localhost')
   ws.onopen = () => ws.close(3123)
 
   await vi.waitFor(() => {
-    const [closeEvent] = closeListener.mock.calls[0]
+    const [thisArg, closeEvent] = closeListener.mock.calls[0]
 
+    expect(thisArg).toEqual(ws)
     expect(closeEvent.type).toBe('close')
     expect(closeEvent.code).toBe(3123)
     expect(closeEvent.reason).toBe('')
