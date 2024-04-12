@@ -210,15 +210,9 @@ export class MockHttpSocket extends MockSocket {
     this.mockConnect()
     this.responseType = 'mock'
 
-    // Exhaust the "socket.write()" callbacks to
-    // transition the Writable into the right state
-    // (i.e. "request body written" state). There's nowhere
-    // to actually write the data so we disregard it.
-    // It has been used by the request parser to construct
-    // a Fetch API Request instance representing this request.
-    for (const [_, __, writeCallback] of this.writeBuffer) {
-      writeCallback?.()
-    }
+    // Flush the write buffer to trigger write callbacks
+    // if it hasn't been flushed already (e.g. someone started reading request stream).
+    this.flushWriteBuffer()
 
     const httpHeaders: Array<Buffer> = []
 
@@ -317,6 +311,13 @@ export class MockHttpSocket extends MockSocket {
     }
   }
 
+  private flushWriteBuffer(): void {
+    let args: NormalizedWriteArgs | undefined
+    while ((args = this.writeBuffer.shift())) {
+      args?.[2]?.()
+    }
+  }
+
   private onRequestStart: RequestHeadersCompleteCallback = (
     versionMajor,
     versionMinor,
@@ -356,7 +357,13 @@ export class MockHttpSocket extends MockSocket {
          * used as the actual request body (the stream calls "read()").
          * We control the queue in the onRequestBody/End functions.
          */
-        read: () => {},
+        read: () => {
+          // If the user attempts to read the request body,
+          // flush the write buffer to trigger the callbacks.
+          // This way, if the request stream ends in the write callback,
+          // it will indeed end correctly.
+          this.flushWriteBuffer()
+        },
       })
     }
 
