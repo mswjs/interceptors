@@ -3,17 +3,36 @@
  */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
+import { Readable } from 'node:stream'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
-const interceptor = new ClientRequestInterceptor()
+function createErrorStream() {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('hello'))
+      controller.error(new Error('stream error'))
+    },
+  })
+}
 
-beforeAll(() => {
-  interceptor.apply()
+const httpServer = new HttpServer((app) => {
+  app.get('/resource', (req, res) => {
+    res.pipe(Readable.fromWeb(createErrorStream()))
+  })
 })
 
-afterAll(() => {
+const interceptor = new ClientRequestInterceptor()
+
+beforeAll(async () => {
+  interceptor.apply()
+  await httpServer.listen()
+})
+
+afterAll(async () => {
   interceptor.dispose()
+  await httpServer.close()
 })
 
 it('supports ReadableStream as a mocked response', async () => {
@@ -36,29 +55,33 @@ it('supports ReadableStream as a mocked response', async () => {
 })
 
 it('forwards ReadableStream errors to the request', async () => {
-  const responseListener = vi.fn()
-  const endListener = vi.fn()
+  const requestErrorListener = vi.fn()
+  const responseErrorListener = vi.fn()
+
   interceptor.once('request', ({ request }) => {
-    const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode('hello'))
-        controller.error(new Error('stream error'))
-      },
-    })
-    request.respondWith(new Response(stream))
+    request.respondWith(new Response(createErrorStream()))
   })
 
-  const request = http.get('http://example.com/resource')
-  request.on('response', responseListener)
-  request.on('end', endListener)
+  const request = http.get(httpServer.http.url('/resource'))
+  request.on('error', requestErrorListener)
+  request.on('response', (response) => {
+    response.on('error', responseErrorListener)
+  })
 
-  const requestError = await vi.waitFor(() => {
-    return new Promise<Error>((resolve) => {
-      request.on('error', resolve)
+  await vi.waitFor(() => {
+    return new Promise<http.IncomingMessage>((resolve) => {
+      request.on('response', resolve)
     })
   })
 
-  expect(requestError).toEqual(new Error('stream error'))
-  expect(responseListener).not.toHaveBeenCalled()
-  expect(endListener).not.toHaveBeenCalled()
+  // Response stream errors are not request errors.
+  expect(requestErrorListener).not.toHaveBeenCalled()
+  expect(request.destroyed).toBe(false)
+
+  // Response stream errors are "error" events on the response.
+  await vi.waitFor(() => {
+    expect(responseErrorListener).toHaveBeenCalledWith(
+      new Error('stream error')
+    )
+  })
 })

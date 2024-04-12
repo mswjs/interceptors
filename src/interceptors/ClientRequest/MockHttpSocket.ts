@@ -262,8 +262,15 @@ export class MockHttpSocket extends MockSocket {
         }
       } catch (error) {
         if (error instanceof Error) {
+          // Flush the headers on response stream errors.
+          // This way, the client still receives the "response" event,
+          // and the actual stream error is forwarded as the "error"
+          // event on the http.IncomingMessage instance.
+          flushHeaders()
+
           // Forward response streaming errors as response errors.
-          this.errorWith(error)
+          /** @todo This doesn't quite do it. */
+          // this.destroy(error)
         }
         return
       }
@@ -272,9 +279,7 @@ export class MockHttpSocket extends MockSocket {
     // If the headers were not flushed up to this point,
     // this means the response either had no body or had
     // an empty body stream. Flush the headers.
-    if (httpHeaders.length > 0) {
-      flushHeaders()
-    }
+    flushHeaders()
 
     // Close the socket if the connection wasn't marked as keep-alive.
     if (!this.shouldKeepAlive) {
