@@ -163,3 +163,40 @@ it('mocks response to a non-existing host', async () => {
   expect(await text()).toBe('howdy, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
+
+it('returns mocked socket address', async () => {
+  interceptor.on('request', async ({ request }) => {
+    request.respondWith(new Response())
+  })
+
+  const connectPromise = new DeferredPromise<object>()
+  const req = http.get('http://example.com')
+  req.once('socket', socket => {
+    socket.once('connect', () => {
+      connectPromise.resolve(socket.address())
+    })
+  })
+
+  await expect(connectPromise).resolves.toEqual({
+    address: '::1',
+    family: 'IPv4',
+    port: 1,
+  })
+});
+
+
+it.only('returns real socket address', async () => {
+  const connectPromise = new DeferredPromise<object>()
+  const req = http.get(httpServer.http.url('/user'))
+  req.once('socket', socket => {
+    socket.once('connect', () => {
+      connectPromise.resolve(socket.address())
+    })
+  })
+
+  await expect(connectPromise).resolves.toEqual({
+    address: '::1',
+    family: 'IPv4',
+    port: 2,
+  })
+});

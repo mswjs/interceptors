@@ -205,10 +205,10 @@ export class MockHttpSocket extends MockSocket {
       return
     }
 
+    this.responseType = 'mock'
     // First, emit all the connection events
     // to emulate a successful connection.
     this.mockConnect()
-    this.responseType = 'mock'
 
     // Flush the write buffer to trigger write callbacks
     // if it hasn't been flushed already (e.g. someone started reading request stream).
@@ -374,6 +374,7 @@ export class MockHttpSocket extends MockSocket {
       credentials: 'same-origin',
       // @ts-expect-error Undocumented Fetch property.
       duplex: canHaveBody ? 'half' : undefined,
+      // @ts-ignore
       body: canHaveBody ? (Readable.toWeb(this.requestStream!) as any) : null,
     })
 
@@ -435,6 +436,7 @@ export class MockHttpSocket extends MockSocket {
     }
 
     const response = new Response(
+      // @ts-ignore
       canHaveBody ? (Readable.toWeb(this.responseStream!) as any) : null,
       {
         status,
