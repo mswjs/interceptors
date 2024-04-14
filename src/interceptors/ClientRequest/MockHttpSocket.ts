@@ -124,6 +124,7 @@ export class MockHttpSocket extends MockSocket {
    */
   public passthrough(): void {
     const socket = this.createConnection()
+    this.address = () => socket.address()
 
     // Flush the buffered "socket.write()" calls onto
     // the original socket instance (i.e. write request body).
@@ -205,10 +206,17 @@ export class MockHttpSocket extends MockSocket {
       return
     }
 
-    this.responseType = 'mock'
+    // Return fake address information for the socket.
+    this.address = () => ({ 
+      address: '0.0.0.0',
+      family: 'IPv4',
+      port: 0,
+    })
+
     // First, emit all the connection events
     // to emulate a successful connection.
     this.mockConnect()
+    this.responseType = 'mock'
 
     // Flush the write buffer to trigger write callbacks
     // if it hasn't been flushed already (e.g. someone started reading request stream).
@@ -374,7 +382,6 @@ export class MockHttpSocket extends MockSocket {
       credentials: 'same-origin',
       // @ts-expect-error Undocumented Fetch property.
       duplex: canHaveBody ? 'half' : undefined,
-      // @ts-ignore
       body: canHaveBody ? (Readable.toWeb(this.requestStream!) as any) : null,
     })
 
@@ -436,7 +443,6 @@ export class MockHttpSocket extends MockSocket {
     }
 
     const response = new Response(
-      // @ts-ignore
       canHaveBody ? (Readable.toWeb(this.responseStream!) as any) : null,
       {
         status,

@@ -170,33 +170,33 @@ it('returns mocked socket address', async () => {
   })
 
   const connectPromise = new DeferredPromise<object>()
-  const req = http.get('http://example.com')
-  req.once('socket', socket => {
+  const request = http.get('http://example.com')
+  request.once('socket', socket => {
     socket.once('connect', () => {
       connectPromise.resolve(socket.address())
     })
   })
 
   await expect(connectPromise).resolves.toEqual({
-    address: '::1',
+    address: '0.0.0.0',
     family: 'IPv4',
-    port: 1,
+    port: 0,
   })
 });
 
 
 it.only('returns real socket address', async () => {
   const connectPromise = new DeferredPromise<object>()
-  const req = http.get(httpServer.http.url('/user'))
-  req.once('socket', socket => {
+  const request = http.get(httpServer.http.url('/user'))
+  request.once('socket', socket => {
     socket.once('connect', () => {
       connectPromise.resolve(socket.address())
     })
   })
 
   await expect(connectPromise).resolves.toEqual({
-    address: '::1',
+    address: '127.0.0.1',
     family: 'IPv4',
-    port: 2,
+    port: expect.any(Number),
   })
 });

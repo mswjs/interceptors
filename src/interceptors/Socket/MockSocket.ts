@@ -35,19 +35,6 @@ export class MockSocket extends net.Socket {
     return this
   }
 
-  public address(): {} | net.AddressInfo {
-    // @ts-ignore
-    if (this.responseType === 'mock') {
-      return {
-        address: '::1', // should be this.connectionOptions.host?
-        family: 'IPv4',
-        port: 1,
-      }
-    }
-
-    return super.address()
-  }
-
   public write(...args: Array<unknown>): boolean {
     const [chunk, encoding, callback] = normalizeWriteArgs(args as WriteArgs)
     this.options.write(chunk, encoding, callback)
