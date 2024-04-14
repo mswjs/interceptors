@@ -185,7 +185,7 @@ it('returns mocked socket address', async () => {
 });
 
 
-it.only('returns real socket address', async () => {
+it('returns real socket address', async () => {
   const connectPromise = new DeferredPromise<object>()
   const request = http.get(httpServer.http.url('/user'))
   request.once('socket', socket => {
