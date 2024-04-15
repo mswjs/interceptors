@@ -1,6 +1,7 @@
 /**
  * @vitest-environment node
  */
+import { Socket } from 'node:net'
 import { vi, it, expect } from 'vitest'
 import { MockSocket } from './MockSocket'
 
@@ -117,6 +118,20 @@ it('calls the "write" on "socket.end()" without any arguments', () => {
   expect(writeCallback).toHaveBeenCalledWith(undefined, undefined, undefined)
 })
 
+it('emits "finished" on .end() without any arguments', async () => {
+  const finishListener = vi.fn()
+  const socket = new MockSocket({
+    write: vi.fn(),
+    read: vi.fn(),
+  })
+  socket.on('finish', finishListener)
+  socket.end()
+
+  await vi.waitFor(() => {
+    expect(finishListener).toHaveBeenCalledTimes(1)
+  })
+})
+
 it('calls the "read" on "socket.read(chunk)"', () => {
   const readCallback = vi.fn()
   const socket = new MockSocket({
@@ -150,43 +165,74 @@ it('calls the "read" on "socket.read(null)"', () => {
   expect(readCallback).toHaveBeenCalledWith(null, undefined)
 })
 
-it('updates the readable/writable state on "socket.end()"', async () => {
+it('updates the writable state on "socket.end()"', async () => {
+  const finishListener = vi.fn()
+  const endListener = vi.fn()
   const socket = new MockSocket({
     write: vi.fn(),
     read: vi.fn(),
   })
+  socket.on('finish', finishListener)
+  socket.on('end', endListener)
 
   expect(socket.writable).toBe(true)
   expect(socket.writableEnded).toBe(false)
   expect(socket.writableFinished).toBe(false)
-  expect(socket.readable).toBe(true)
-  expect(socket.readableEnded).toBe(false)
 
   socket.write('hello')
+  // Finish the writable stream.
   socket.end()
 
   expect(socket.writable).toBe(false)
   expect(socket.writableEnded).toBe(true)
-  expect(socket.readable).toBe(true)
 
+  // The "finish" event is emitted when writable is done.
+  // I.e. "socket.end()" is called.
   await vi.waitFor(() => {
-    socket.once('finish', () => {
-      expect(socket.writableFinished).toBe(true)
-    })
+    expect(finishListener).toHaveBeenCalledTimes(1)
   })
-
-  await vi.waitFor(() => {
-    socket.once('end', () => {
-      expect(socket.readableEnded).toBe(true)
-    })
-  })
+  expect(socket.writableFinished).toBe(true)
 })
 
-it('updates the readable/writable state on "socket.destroy()"', async () => {
+it('updates the readable state on "socket.push(null)"', async () => {
+  const endListener = vi.fn()
   const socket = new MockSocket({
     write: vi.fn(),
     read: vi.fn(),
   })
+  socket.on('end', endListener)
+
+  expect(socket.readable).toBe(true)
+  expect(socket.readableEnded).toBe(false)
+
+  socket.push('hello')
+  socket.push(null)
+
+  expect(socket.readable).toBe(true)
+  expect(socket.readableEnded).toBe(false)
+
+  // Read the data to free the buffer and
+  // make Socket emit "end".
+  socket.read()
+
+  await vi.waitFor(() => {
+    expect(endListener).toHaveBeenCalledTimes(1)
+  })
+  expect(socket.readable).toBe(false)
+  expect(socket.readableEnded).toBe(true)
+})
+
+it('updates the readable/writable state on "socket.destroy()"', async () => {
+  const finishListener = vi.fn()
+  const endListener = vi.fn()
+  const closeListener = vi.fn()
+  const socket = new MockSocket({
+    write: vi.fn(),
+    read: vi.fn(),
+  })
+  socket.on('finish', finishListener)
+  socket.on('end', endListener)
+  socket.on('close', closeListener)
 
   expect(socket.writable).toBe(true)
   expect(socket.writableEnded).toBe(false)
@@ -198,17 +244,21 @@ it('updates the readable/writable state on "socket.destroy()"', async () => {
   expect(socket.writable).toBe(false)
   // The ".end()" wasn't called.
   expect(socket.writableEnded).toBe(false)
+  expect(socket.writableFinished).toBe(false)
   expect(socket.readable).toBe(false)
 
   await vi.waitFor(() => {
-    socket.once('finish', () => {
-      expect(socket.writableFinished).toBe(true)
-    })
+    expect(closeListener).toHaveBeenCalledTimes(1)
   })
 
-  await vi.waitFor(() => {
-    socket.once('end', () => {
-      expect(socket.readableEnded).toBe(true)
-    })
-  })
+  // Neither "finish" nor "end" events are emitted
+  // when you destroy the stream. If you want those,
+  // call ".end()", then destroy the stream.
+  expect(finishListener).not.toHaveBeenCalled()
+  expect(endListener).not.toHaveBeenCalled()
+  expect(socket.writableFinished).toBe(false)
+
+  // The "end" event was never emitted so "readableEnded"
+  // remains false.
+  expect(socket.readableEnded).toBe(false)
 })

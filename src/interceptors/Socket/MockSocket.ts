@@ -22,6 +22,10 @@ export class MockSocket extends net.Socket {
     super()
     this.connecting = false
     this.connect()
+
+    this._final = (callback) => {
+      callback(null)
+    }
   }
 
   public connect() {
@@ -46,13 +50,6 @@ export class MockSocket extends net.Socket {
 
   public push(chunk: any, encoding?: BufferEncoding): boolean {
     this.options.read(chunk, encoding)
-
-    if (chunk !== null) {
-      this.emit('data', chunk)
-    } else {
-      this.emit('end')
-    }
-
-    return true
+    return super.push(chunk, encoding)
   }
 }

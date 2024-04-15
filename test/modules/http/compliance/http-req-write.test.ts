@@ -95,7 +95,7 @@ it('writes Buffer request body', async () => {
 })
 
 it('supports Readable as the request body', async () => {
-  const req = http.request(httpServer.http.url('/resource'), {
+  const request = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -104,22 +104,19 @@ it('supports Readable as the request body', async () => {
 
   const input = ['hello', ' ', 'world', null]
   const readable = new Readable({
-    read: async function() {
+    read: async function () {
       await sleep(10)
       this.push(input.shift())
     },
   })
 
-  readable.pipe(req)
+  readable.pipe(request)
 
-  const { text } = await waitForClientRequest(req)
-  const expectedBody = 'hello world'
-
-  expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(await text()).toEqual(expectedBody)
+  await waitForClientRequest(request)
+  expect(interceptedRequestBody).toHaveBeenCalledWith('hello world')
 })
 
-it('calls the callback when writing an empty string', async () => {
+it('calls the write callback when writing an empty string', async () => {
   const request = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
@@ -132,7 +129,7 @@ it('calls the callback when writing an empty string', async () => {
   expect(writeCallback).toHaveBeenCalledTimes(1)
 })
 
-it('calls the callback when writing an empty Buffer', async () => {
+it('calls the write callback when writing an empty Buffer', async () => {
   const request = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
   })
@@ -144,4 +141,57 @@ it('calls the callback when writing an empty Buffer', async () => {
   await waitForClientRequest(request)
 
   expect(writeCallback).toHaveBeenCalledTimes(1)
+})
+
+it('emits "finish" for a passthrough request', async () => {
+  const prefinishListener = vi.fn()
+  const finishListener = vi.fn()
+  const request = http.request(httpServer.http.url('/resource'))
+  request.on('prefinish', prefinishListener)
+  request.on('finish', finishListener)
+  request.end()
+
+  await waitForClientRequest(request)
+
+  expect(prefinishListener).toHaveBeenCalledTimes(1)
+  expect(finishListener).toHaveBeenCalledTimes(1)
+})
+
+it('emits "finish" for a mocked request', async () => {
+  interceptor.once('request', ({ request }) => {
+    request.respondWith(new Response())
+  })
+
+  const prefinishListener = vi.fn()
+  const finishListener = vi.fn()
+  const request = http.request(httpServer.http.url('/resource'))
+  request.on('prefinish', prefinishListener)
+  request.on('finish', finishListener)
+  request.end()
+
+  await waitForClientRequest(request)
+
+  expect(prefinishListener).toHaveBeenCalledTimes(1)
+  expect(finishListener).toHaveBeenCalledTimes(1)
+})
+
+it('calls all write callbacks before the mocked response', async () => {
+  const requestBodyCallback = vi.fn()
+  interceptor.once('request', async ({ request }) => {
+    requestBodyCallback(await request.text())
+    request.respondWith(new Response('hello world'))
+  })
+
+  const request = http.request(httpServer.http.url('/resource'), {
+    method: 'POST',
+  })
+  request.write('one', () => {
+    console.log('write callback!')
+    request.end()
+  })
+
+  const { text } = await waitForClientRequest(request)
+
+  expect(requestBodyCallback).toHaveBeenCalledWith('one')
+  expect(await text()).toBe('hello world')
 })
