@@ -3,7 +3,7 @@ import fetch from 'node-fetch'
 import { RequestHandler } from 'express'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
-import { UUID_REGEXP } from '../../../helpers'
+import { REQUEST_ID_REGEXP } from '../../../helpers'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 
@@ -58,7 +58,7 @@ it('intercepts an HTTP HEAD request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP GET request', async () => {
@@ -79,7 +79,7 @@ it('intercepts an HTTP GET request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP POST request', async () => {
@@ -105,7 +105,7 @@ it('intercepts an HTTP POST request', async () => {
   expect(await request.json()).toEqual({ body: true })
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP PUT request', async () => {
@@ -130,7 +130,7 @@ it('intercepts an HTTP PUT request', async () => {
   expect(await request.text()).toBe('request-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP DELETE request', async () => {
@@ -154,7 +154,7 @@ it('intercepts an HTTP DELETE request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP PATCH request', async () => {
@@ -179,7 +179,7 @@ it('intercepts an HTTP PATCH request', async () => {
   expect(await request.text()).toBe('request-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS HEAD request', async () => {
@@ -204,7 +204,7 @@ it('intercepts an HTTPS HEAD request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS GET request', async () => {
@@ -228,7 +228,7 @@ it('intercepts an HTTPS GET request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS POST request', async () => {
@@ -254,7 +254,7 @@ it('intercepts an HTTPS POST request', async () => {
   expect(await request.json()).toEqual({ body: true })
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS PUT request', async () => {
@@ -280,7 +280,7 @@ it('intercepts an HTTPS PUT request', async () => {
   expect(await request.text()).toBe('request-payload')
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS DELETE request', async () => {
@@ -305,7 +305,7 @@ it('intercepts an HTTPS DELETE request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS PATCH request', async () => {
@@ -330,5 +330,5 @@ it('intercepts an HTTPS PATCH request', async () => {
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })

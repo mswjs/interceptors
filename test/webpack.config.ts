@@ -12,12 +12,6 @@ const webpackConfig: webpack.Configuration = {
     alias: {
       '@mswjs/interceptors': path.resolve(__dirname, '..'),
     },
-    fallback: {
-      /**
-       * @note webpack has trouble understanding the "crypto" global in the browser.
-       */
-      crypto: false,
-    },
   },
 }
 

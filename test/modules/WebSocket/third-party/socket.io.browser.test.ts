@@ -110,20 +110,15 @@ test('intercepts and modifies data sent to socket.io server', async ({
     interceptor.on('connection', ({ client, server }) => {
       server.connect()
 
-      client.addEventListener('message', (event) => {
+      client.addEventListener('message', async (event) => {
         const data = decodeMessage(event.data)
 
         if (data?.[0] === 'hello') {
-          event.stopImmediatePropagation()
-          encodeMessage('mocked hello!').then((packet) => {
-            // @ts-expect-error TS in Playwright is hard.
-            server.send(packet)
-          })
+          event.preventDefault()
+          const packet = await encodeMessage('mocked hello!')
+          // @ts-expect-error TS in Playwright is hard.
+          server.send(packet)
         }
-      })
-
-      client.addEventListener('message', (event) => {
-        server.send(event.data)
       })
     })
 

@@ -22,6 +22,7 @@ import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { isNodeLikeError } from '../../utils/isNodeLikeError'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
+import { createRequestId } from '../../createRequestId'
 
 export type Protocol = 'http' | 'https'
 
@@ -152,7 +153,7 @@ export class NodeClientRequest extends ClientRequest {
   end(...args: any): this {
     this.logger.info('end', args)
 
-    const requestId = crypto.randomUUID()
+    const requestId = createRequestId()
 
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.logger.info('normalized arguments:', { chunk, encoding, callback })

@@ -33,6 +33,24 @@ it('throws "InvalidStateError" when sending while the connection is not open yet
   expect(() => ws.send('hello')).toThrow('InvalidStateError')
 })
 
+it('sends data to the original server immediately after connecting', async () => {
+  const messagePromise = new DeferredPromise<Data>()
+
+  wsServer.once('connection', (ws) => {
+    ws.addEventListener('message', (event) => {
+      messagePromise.resolve(event.data)
+    })
+  })
+
+  interceptor.once('connection', ({ server }) => {
+    server.connect()
+    server.send('hello from interceptor')
+  })
+
+  new WebSocket(getWsUrl(wsServer))
+  expect(await messagePromise).toBe('hello from interceptor')
+})
+
 it('sends text data to the original server', async () => {
   const messagePromise = new DeferredPromise<Data>()
 
@@ -42,9 +60,8 @@ it('sends text data to the original server', async () => {
     })
   })
 
-  interceptor.once('connection', ({ client, server }) => {
+  interceptor.once('connection', ({ server }) => {
     server.connect()
-    client.addEventListener('message', (event) => server.send(event.data))
   })
 
   const ws = new WebSocket(getWsUrl(wsServer))
@@ -68,9 +85,8 @@ it('sends Blob data to the original server', async () => {
     })
   })
 
-  interceptor.once('connection', ({ client, server }) => {
+  interceptor.once('connection', ({ server }) => {
     server.connect()
-    client.addEventListener('message', (event) => server.send(event.data))
   })
 
   const ws = new WebSocket(getWsUrl(wsServer))
@@ -95,9 +111,8 @@ it('sends ArrayBuffer data to the original server', async () => {
     ws.on('message', (data) => messagePromise.resolve(data))
   })
 
-  interceptor.once('connection', ({ client, server }) => {
+  interceptor.once('connection', ({ server }) => {
     server.connect()
-    client.addEventListener('message', (event) => server.send(event.data))
   })
 
   const ws = new WebSocket(getWsUrl(wsServer))
