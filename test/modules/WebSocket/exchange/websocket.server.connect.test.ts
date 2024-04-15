@@ -88,9 +88,9 @@ it('closes the actual server connection when the client closes', async () => {
 
     client.addEventListener('message', (event) => {
       if (event.data === 'close') {
+        event.preventDefault()
         return client.close()
       }
-      server.send(event.data)
     })
   })
 
@@ -116,5 +116,37 @@ it('throw an error when connecting to a non-existing server', async () => {
 
   await vi.waitFor(() => {
     expect(errorListener).toHaveBeenCalledTimes(1)
+  })
+})
+
+it('inherits the "binaryType" from the mock WebSocket', async () => {
+  const clientMessageListener = vi.fn<[ArrayBuffer]>()
+  const interceptorMessageListener = vi.fn<[ArrayBuffer]>()
+
+  wsServer.on('connection', (ws) => {
+    // Set the "binaryType" for the "ws" package also
+    // so it sends ArrayBuffer and not internal "nodebuffer".
+    ws.binaryType = 'arraybuffer'
+    ws.send(new TextEncoder().encode('hello'))
+  })
+
+  interceptor.once('connection', ({ server }) => {
+    server.connect()
+    server.addEventListener('message', (event) => {
+      interceptorMessageListener(event.data)
+    })
+  })
+
+  const ws = new WebSocket(getWsUrl(wsServer))
+  // Set a custom binary type for this socket instance.
+  ws.binaryType = 'arraybuffer'
+  ws.onmessage = (event) => clientMessageListener(event.data)
+
+  await vi.waitFor(() => {
+    const interceptorData = interceptorMessageListener.mock.calls[0][0]
+    expect(new TextDecoder().decode(interceptorData)).toBe('hello')
+
+    const clientData = clientMessageListener.mock.calls[0][0]
+    expect(new TextDecoder().decode(clientData)).toBe('hello')
   })
 })

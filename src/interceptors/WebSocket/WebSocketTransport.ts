@@ -1,40 +1,39 @@
+import { CloseEvent } from './utils/events'
+
 export type WebSocketData = string | ArrayBufferLike | Blob | ArrayBufferView
 
-export type WebSocketTransportOnIncomingCallback = (
-  event: MessageEvent<WebSocketData>
-) => void
+export type WebSocketTransportEventMap = {
+  incoming: MessageEvent<WebSocketData>
+  outgoing: MessageEvent<WebSocketData>
+  close: CloseEvent
+}
 
-export type WebSocketTransportOnOutgoingCallback = (data: WebSocketData) => void
+export type StrictEventListenerOrEventListenerObject<EventType extends Event> =
+  | ((this: WebSocket, event: EventType) => void)
+  | {
+      handleEvent(this: WebSocket, event: EventType): void
+    }
 
-export type WebSocketTransportOnCloseCallback = (event: CloseEvent) => void
+export interface WebSocketTransport {
+  addEventListener<EventType extends keyof WebSocketTransportEventMap>(
+    event: EventType,
+    listener: StrictEventListenerOrEventListenerObject<
+      WebSocketTransportEventMap[EventType]
+    > | null,
+    options?: boolean | AddEventListenerOptions
+  ): void
 
-export abstract class WebSocketTransport {
-  /**
-   * A callback for the incoming server events.
-   * This is called when the WebSocket client receives
-   * a message from the server.
-   */
-  abstract onIncoming: WebSocketTransportOnIncomingCallback
-
-  /**
-   * A callback for outgoing client events.
-   * This is called when the WebSocket client sends data.
-   */
-  abstract onOutgoing: WebSocketTransportOnOutgoingCallback
-
-  /**
-   * A callback for the close client event.
-   * This is called when the WebSocket client is closed.
-   */
-  abstract onClose: WebSocketTransportOnCloseCallback
+  dispatchEvent<EventType extends keyof WebSocketTransportEventMap>(
+    event: WebSocketTransportEventMap[EventType]
+  ): boolean
 
   /**
    * Send the data from the server to this client.
    */
-  abstract send(data: WebSocketData): void
+  send(data: WebSocketData): void
 
   /**
    * Close the client connection.
    */
-  abstract close(code?: number, reason?: string): void
+  close(code?: number, reason?: string): void
 }

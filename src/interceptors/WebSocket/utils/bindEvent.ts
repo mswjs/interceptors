@@ -4,10 +4,18 @@ export function bindEvent<E extends Event, T>(
   target: T,
   event: E
 ): EventWithTarget<E, T> {
-  Object.defineProperty(event, 'target', {
-    enumerable: true,
-    writable: true,
-    value: target,
+  Object.defineProperties(event, {
+    target: {
+      value: target,
+      enumerable: true,
+      writable: true,
+    },
+    currentTarget: {
+      value: target,
+      enumerable: true,
+      writable: true,
+    },
   })
+
   return event as EventWithTarget<E, T>
 }

@@ -1,4 +1,4 @@
-import { ClientRequest, IncomingMessage } from 'http'
+import { ClientRequest, IncomingMessage } from 'node:http'
 import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'
@@ -17,10 +17,11 @@ import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
 import { createResponse } from './utils/createResponse'
 import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
-import { uuidv4 } from '../../utils/uuid'
 import { emitAsync } from '../../utils/emitAsync'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
+import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
+import { createRequestId } from '../../createRequestId'
 
 export type Protocol = 'http' | 'https'
 
@@ -151,7 +152,7 @@ export class NodeClientRequest extends ClientRequest {
   end(...args: any): this {
     this.logger.info('end', args)
 
-    const requestId = uuidv4()
+    const requestId = createRequestId()
 
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.logger.info('normalized arguments:', { chunk, encoding, callback })
@@ -189,8 +190,8 @@ export class NodeClientRequest extends ClientRequest {
     // in another (parent) interceptor (like XMLHttpRequest -> ClientRequest).
     // That means some interceptor up the chain has concluded that
     // this request must be performed as-is.
-    if (this.getHeader('X-Request-Id') != null) {
-      this.removeHeader('X-Request-Id')
+    if (this.hasHeader(INTERNAL_REQUEST_ID_HEADER_NAME)) {
+      this.removeHeader(INTERNAL_REQUEST_ID_HEADER_NAME)
       return this.passthrough(chunk, encoding, callback)
     }
 

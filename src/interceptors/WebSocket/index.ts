@@ -15,19 +15,19 @@ export {
 }
 
 export type WebSocketEventMap = {
-  connection: [
-    args: {
-      /**
-       * The incoming WebSocket client connection.
-       */
-      client: WebSocketClientConnection
+  connection: [args: WebSocketConnectionData]
+}
 
-      /**
-       * The original WebSocket server connection.
-       */
-      server: WebSocketServerConnection
-    },
-  ]
+export type WebSocketConnectionData = {
+  /**
+   * The incoming WebSocket client connection.
+   */
+  client: WebSocketClientConnection
+
+  /**
+   * The original WebSocket server connection.
+   */
+  server: WebSocketServerConnection
 }
 
 /**
@@ -48,7 +48,9 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
   }
 
   protected setup(): void {
-    const webSocketProxy = Proxy.revocable(globalThis.WebSocket, {
+    const originalWebSocket = globalThis.WebSocket
+
+    const webSocketProxy = new Proxy(globalThis.WebSocket, {
       construct: (
         target,
         args: ConstructorParameters<typeof globalThis.WebSocket>,
@@ -66,26 +68,31 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
         const socket = new WebSocketOverride(url, protocols)
         const transport = new WebSocketClassTransport(socket)
 
-        // The "globalThis.WebSocket" class stands for
-        // the client-side connection. Assume it's established
-        // as soon as the WebSocket instance is constructed.
-        this.emitter.emit('connection', {
-          client: new WebSocketClientConnection(socket, transport),
-          server: new WebSocketServerConnection(
-            socket,
-            transport,
-            createConnection
-          ),
+        // Emit the "connection" event to the interceptor on the next tick
+        // so the client can modify WebSocket options, like "binaryType"
+        // while the connection is already pending.
+        queueMicrotask(() => {
+          // The "globalThis.WebSocket" class stands for
+          // the client-side connection. Assume it's established
+          // as soon as the WebSocket instance is constructed.
+          this.emitter.emit('connection', {
+            client: new WebSocketClientConnection(socket, transport),
+            server: new WebSocketServerConnection(
+              socket,
+              transport,
+              createConnection
+            ),
+          })
         })
 
         return socket
       },
     })
 
-    globalThis.WebSocket = webSocketProxy.proxy
+    globalThis.WebSocket = webSocketProxy
 
     this.subscriptions.push(() => {
-      webSocketProxy.revoke()
+      globalThis.WebSocket = originalWebSocket
     })
   }
 }
