@@ -178,7 +178,7 @@ it('returns mocked socket address', async () => {
   })
 
   await expect(connectPromise).resolves.toEqual({
-    address: '0.0.0.0',
+    address: '127.0.0.1',
     family: 'IPv4',
     port: 0,
   })
@@ -194,6 +194,7 @@ it('returns real socket address', async () => {
     })
   })
 
+  await waitForClientRequest(request);
   await expect(connectPromise).resolves.toEqual({
     address: '127.0.0.1',
     family: 'IPv4',
