@@ -7,11 +7,12 @@ import { Readable } from 'node:stream'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
+import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 
 function createErrorStream() {
   return new ReadableStream({
     start(controller) {
-      controller.enqueue(new TextEncoder().encode('hello'))
+      controller.enqueue(new TextEncoder().encode('original'))
       controller.error(new Error('stream error'))
     },
   })
@@ -68,20 +69,30 @@ it('forwards ReadableStream errors to the request', async () => {
     response.on('error', responseErrorListener)
   })
 
-  await vi.waitFor(() => {
+  // request.on('abort', () => console.log('REQ ABORT'))
+  // request.on('error', () => console.log('REQ ERROR'))
+  // request.on('socket', (socket) => {
+  //   socket.on('error', () => console.log('SOCKET ERROR'))
+  // })
+  // request.on('response', (response) => {
+  //   console.log('response', response.statusCode, response.statusMessage)
+  //   response.on('error', () => console.log('RESPONSE ERROR'))
+  //   response.on('end', () => console.log('RESPONSE END'))
+  // })
+
+  const response = await vi.waitFor(() => {
     return new Promise<http.IncomingMessage>((resolve) => {
       request.on('response', resolve)
     })
   })
 
+  // Response stream errors are translated to unhandled exceptions,
+  // and then the server decides how to handle them. This is often
+  // done as returning a 500 response.
+  expect(response.statusCode).toBe(500)
+  expect(response.statusMessage).toBe('Internal Server Error')
+
   // Response stream errors are not request errors.
   expect(requestErrorListener).not.toHaveBeenCalled()
   expect(request.destroyed).toBe(false)
-
-  // Response stream errors are "error" events on the response.
-  await vi.waitFor(() => {
-    expect(responseErrorListener).toHaveBeenCalledWith(
-      new Error('stream error')
-    )
-  })
 })

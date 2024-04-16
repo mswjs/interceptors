@@ -277,9 +277,9 @@ export class MockHttpSocket extends MockSocket {
           // event on the http.IncomingMessage instance.
           flushHeaders()
 
-          // Forward response streaming errors as response errors.
-          /** @todo This doesn't quite do it. */
-          // this.destroy(error)
+          // Forward the exception so it's caught by the interceptor
+          // and coerces to a 500 response.
+          throw error
         }
         return
       }
