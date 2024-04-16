@@ -271,15 +271,22 @@ export class MockHttpSocket extends MockSocket {
         }
       } catch (error) {
         if (error instanceof Error) {
-          // Flush the headers on response stream errors.
-          // This way, the client still receives the "response" event,
-          // and the actual stream error is forwarded as the "error"
-          // event on the http.IncomingMessage instance.
-          flushHeaders()
-
           // Forward the exception so it's caught by the interceptor
-          // and coerces to a 500 response.
-          throw error
+          // and coerces to a 500 response. Don't flush the original
+          // response headers because unhandled errors translate to
+          // 500 error responses forcefully.
+          this.respondWith(
+            new Response(
+              JSON.stringify({
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+              }),
+              { status: 500, statusText: 'Unhandled Exception' }
+            )
+          )
+
+          return
         }
         return
       }
