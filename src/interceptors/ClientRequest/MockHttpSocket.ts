@@ -124,6 +124,7 @@ export class MockHttpSocket extends MockSocket {
    */
   public passthrough(): void {
     const socket = this.createConnection()
+    this.address = socket.address.bind(socket)
 
     // Flush the buffered "socket.write()" calls onto
     // the original socket instance (i.e. write request body).
@@ -218,7 +219,9 @@ export class MockHttpSocket extends MockSocket {
 
     httpHeaders.push(
       Buffer.from(
-        `HTTP/1.1 ${response.status} ${response.statusText || STATUS_CODES[response.status]}\r\n`
+        `HTTP/1.1 ${response.status} ${
+          response.statusText || STATUS_CODES[response.status]
+        }\r\n`
       )
     )
 
@@ -311,7 +314,20 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private mockConnect(): void {
-    this.emit('lookup', null, '::1', 6, this.connectionOptions.host)
+    const addressInfo = {
+      address: '127.0.0.1',
+      family: 'IPv4',
+      port: this.connectionOptions.port,
+    }
+    // Return fake address information for the socket.
+    this.address = () => addressInfo
+    this.emit(
+      'lookup',
+      null,
+      addressInfo.address,
+      addressInfo.family === 'IPv6' ? 6 : 4,
+      this.connectionOptions.host
+    )
     this.emit('connect')
     this.emit('ready')
 

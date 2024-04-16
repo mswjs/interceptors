@@ -163,3 +163,45 @@ it('mocks response to a non-existing host', async () => {
   expect(await text()).toBe('howdy, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
+
+it('returns socket address for a mocked request', async () => {
+  interceptor.on('request', async ({ request }) => {
+    request.respondWith(new Response())
+  })
+
+  const addressPromise = new DeferredPromise<object>()
+  const request = http.get('http://example.com')
+  request.once('socket', (socket) => {
+    socket.once('connect', () => {
+      addressPromise.resolve(socket.address())
+    })
+  })
+
+  await expect(addressPromise).resolves.toEqual({
+    address: '127.0.0.1',
+    family: 'IPv4',
+    port: 80,
+  })
+})
+
+it('returns socket address for a bypassed request', async () => {
+  const addressPromise = new DeferredPromise<object>()
+  const request = http.get(httpServer.http.url('/user'))
+  request.once('socket', (socket) => {
+    socket.once('connect', () => {
+      addressPromise.resolve(socket.address())
+    })
+  })
+
+  await waitForClientRequest(request)
+
+  await expect(addressPromise).resolves.toEqual({
+    address: httpServer.http.address.host,
+    family: 'IPv4',
+    /**
+     * @fixme Looks like every "http" request has an agent set.
+     * That agent, for some reason, wants to connect to a different port.
+     */
+    port: expect.any(Number),
+  })
+})
