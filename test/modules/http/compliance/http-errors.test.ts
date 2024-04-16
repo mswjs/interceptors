@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment node
+ */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import { DeferredPromise } from '@open-draft/deferred-promise'

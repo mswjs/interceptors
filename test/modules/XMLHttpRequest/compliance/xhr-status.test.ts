@@ -12,7 +12,8 @@ interceptor.on('request', ({ request }) => {
   const url = new URL(request.url)
 
   if (url.pathname === '/cors') {
-    throw new Error('CORS emulation')
+    request.respondWith(Response.error())
+    return
   }
 
   const status = url.searchParams.get('status')
