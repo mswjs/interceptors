@@ -186,7 +186,6 @@ it('calls all write callbacks before the mocked response', async () => {
     method: 'POST',
   })
   request.write('one', () => {
-    console.log('write callback!')
     request.end()
   })
 
