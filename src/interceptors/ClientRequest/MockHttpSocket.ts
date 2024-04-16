@@ -306,7 +306,13 @@ export class MockHttpSocket extends MockSocket {
     }
     // Return fake address information for the socket.
     this.address = () => addressInfo
-    this.emit('lookup', null, addressInfo.address, 4, this.connectionOptions.host)
+    this.emit(
+      'lookup',
+      null,
+      addressInfo.address,
+      addressInfo.family === 'IPv6' ? 6 : 4,
+      this.connectionOptions.host
+    )
     this.emit('connect')
     this.emit('ready')
 
