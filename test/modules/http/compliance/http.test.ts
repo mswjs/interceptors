@@ -180,7 +180,7 @@ it('returns mocked socket address', async () => {
   await expect(connectPromise).resolves.toEqual({
     address: '127.0.0.1',
     family: 'IPv4',
-    port: 0,
+    port: 80,
   })
 });
 

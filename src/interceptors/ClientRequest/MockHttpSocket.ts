@@ -206,13 +206,6 @@ export class MockHttpSocket extends MockSocket {
       return
     }
 
-    // Return fake address information for the socket.
-    this.address = () => ({ 
-      address: '127.0.0.1',
-      family: 'IPv4',
-      port: 0,
-    })
-
     // First, emit all the connection events
     // to emulate a successful connection.
     this.mockConnect()
@@ -306,7 +299,14 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private mockConnect(): void {
-    this.emit('lookup', null, '127.0.0.1', 4, this.connectionOptions.host)
+    const addressInfo = {
+      address: '127.0.0.1',
+      family: 'IPv4',
+      port: this.connectionOptions.port,
+    }
+    // Return fake address information for the socket.
+    this.address = () => addressInfo
+    this.emit('lookup', null, addressInfo.address, 4, this.connectionOptions.host)
     this.emit('connect')
     this.emit('ready')
 
