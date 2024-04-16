@@ -271,10 +271,9 @@ export class MockHttpSocket extends MockSocket {
         }
       } catch (error) {
         if (error instanceof Error) {
-          // Forward the exception so it's caught by the interceptor
-          // and coerces to a 500 response. Don't flush the original
-          // response headers because unhandled errors translate to
-          // 500 error responses forcefully.
+          // Coerce response stream errors to 500 responses.
+          // Don't flush the original response headers because
+          // unhandled errors translate to 500 error responses forcefully.
           this.respondWith(
             new Response(
               JSON.stringify({

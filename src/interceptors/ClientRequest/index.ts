@@ -144,13 +144,32 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     })
 
     if (listenerResult.error) {
-      socket.errorWith(listenerResult.error)
+      socket.respondWith(
+        new Response(
+          JSON.stringify({
+            name: listenerResult.error.name,
+            message: listenerResult.error.message,
+            stack: listenerResult.error.stack,
+          }),
+          {
+            status: 500,
+            statusText: 'Unhandled Exception',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      )
       return
     }
 
     const mockedResponse = listenerResult.data
 
     if (mockedResponse) {
+      /**
+       * @note The `.respondWith()` method will handle "Response.error()".
+       * Maybe we should make all interceptors do that?
+       */
       socket.respondWith(mockedResponse)
       return
     }
