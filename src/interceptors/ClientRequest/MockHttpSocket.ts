@@ -219,7 +219,9 @@ export class MockHttpSocket extends MockSocket {
 
     httpHeaders.push(
       Buffer.from(
-        `HTTP/1.1 ${response.status} ${response.statusText || STATUS_CODES[response.status]}\r\n`
+        `HTTP/1.1 ${response.status} ${
+          response.statusText || STATUS_CODES[response.status]
+        }\r\n`
       )
     )
 

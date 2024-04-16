@@ -194,9 +194,14 @@ it('returns socket address for a bypassed request', async () => {
   })
 
   await waitForClientRequest(request)
+
   await expect(addressPromise).resolves.toEqual({
-    address: '127.0.0.1',
+    address: httpServer.http.address.host,
     family: 'IPv4',
+    /**
+     * @fixme Looks like every "http" request has an agent set.
+     * That agent, for some reason, wants to connect to a different port.
+     */
     port: expect.any(Number),
   })
 })
