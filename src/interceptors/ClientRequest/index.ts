@@ -12,6 +12,7 @@ import { MockAgent, MockHttpsAgent } from './agents'
 import { emitAsync } from '../../utils/emitAsync'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
+import { isNodeLikeError } from '../../utils/isNodeLikeError'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -144,6 +145,12 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     })
 
     if (listenerResult.error) {
+      // Allow mocking Node-like errors.
+      if (isNodeLikeError(listenerResult.error)) {
+        socket.errorWith(listenerResult.error)
+        return
+      }
+
       socket.respondWith(
         new Response(
           JSON.stringify({
