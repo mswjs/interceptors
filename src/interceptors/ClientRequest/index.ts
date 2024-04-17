@@ -12,6 +12,8 @@ import { MockAgent, MockHttpsAgent } from './agents'
 import { emitAsync } from '../../utils/emitAsync'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
+import { isNodeLikeError } from '../../utils/isNodeLikeError'
+import { createServerErrorResponse } from '../../utils/responseUtils'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -144,13 +146,32 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     })
 
     if (listenerResult.error) {
-      socket.errorWith(listenerResult.error)
+      // Treat thrown Responses as mocked responses.
+      if (listenerResult.error instanceof Response) {
+        socket.respondWith(listenerResult.error)
+        return
+      }
+
+      // Allow mocking Node-like errors.
+      if (isNodeLikeError(listenerResult.error)) {
+        socket.errorWith(listenerResult.error)
+        return
+      }
+
+      // Unhandled exceptions in the request listeners are
+      // synonymous to unhandled exceptions on the server.
+      // Those are represented as 500 error responses.
+      socket.respondWith(createServerErrorResponse(listenerResult.error))
       return
     }
 
     const mockedResponse = listenerResult.data
 
     if (mockedResponse) {
+      /**
+       * @note The `.respondWith()` method will handle "Response.error()".
+       * Maybe we should make all interceptors do that?
+       */
       socket.respondWith(mockedResponse)
       return
     }

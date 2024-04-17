@@ -14,7 +14,10 @@ import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
 import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
-import { RESPONSE_STATUS_CODES_WITHOUT_BODY } from '../../utils/responseUtils'
+import {
+  createServerErrorResponse,
+  RESPONSE_STATUS_CODES_WITHOUT_BODY,
+} from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 
 type HttpConnectionOptions = any
@@ -248,34 +251,41 @@ export class MockHttpSocket extends MockSocket {
     }
 
     if (response.body) {
-      const reader = response.body.getReader()
+      try {
+        const reader = response.body.getReader()
 
-      while (true) {
-        const { done, value } = await reader.read()
+        while (true) {
+          const { done, value } = await reader.read()
 
-        if (done) {
-          break
+          if (done) {
+            break
+          }
+
+          // Flush the headers upon the first chunk in the stream.
+          // This ensures the consumer will start receiving the response
+          // as it streams in (subsequent chunks are pushed).
+          if (httpHeaders.length > 0) {
+            flushHeaders(value)
+            continue
+          }
+
+          // Subsequent body chukns are push to the stream.
+          this.push(value)
         }
+      } catch (error) {
+        // Coerce response stream errors to 500 responses.
+        // Don't flush the original response headers because
+        // unhandled errors translate to 500 error responses forcefully.
+        this.respondWith(createServerErrorResponse(error))
 
-        // Flush the headers upon the first chunk in the stream.
-        // This ensures the consumer will start receiving the response
-        // as it streams in (subsequent chunks are pushed).
-        if (httpHeaders.length > 0) {
-          flushHeaders(value)
-          continue
-        }
-
-        // Subsequent body chukns are push to the stream.
-        this.push(value)
+        return
       }
     }
 
     // If the headers were not flushed up to this point,
     // this means the response either had no body or had
     // an empty body stream. Flush the headers.
-    if (httpHeaders.length > 0) {
-      flushHeaders()
-    }
+    flushHeaders()
 
     // Close the socket if the connection wasn't marked as keep-alive.
     if (!this.shouldKeepAlive) {
