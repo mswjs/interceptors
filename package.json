@@ -19,8 +19,12 @@
       "default": "./lib/node/index.js"
     },
     "./ClientRequest": {
-      "browser": null,
       "types": "./lib/node/interceptors/ClientRequest/index.d.ts",
+      "node": {
+        "require": "./lib/node/interceptors/ClientRequest/index.js",
+        "import": "./lib/node/interceptors/ClientRequest/index.mjs"
+      },
+      "browser": null,
       "require": "./lib/node/interceptors/ClientRequest/index.js",
       "import": "./lib/node/interceptors/ClientRequest/index.mjs",
       "default": "./lib/node/interceptors/ClientRequest/index.js"
@@ -56,15 +60,23 @@
       "default": "./lib/browser/interceptors/WebSocket/index.js"
     },
     "./RemoteHttpInterceptor": {
-      "browser": null,
       "types": "./lib/node/RemoteHttpInterceptor.d.ts",
+      "node": {
+        "require": "./lib/node/RemoteHttpInterceptor.js",
+        "import": "./lib/node/RemoteHttpInterceptor.mjs"
+      },
+      "browser": null,
       "require": "./lib/node/RemoteHttpInterceptor.js",
       "import": "./lib/node/RemoteHttpInterceptor.mjs",
       "default": "./lib/node/RemoteHttpInterceptor.js"
     },
     "./presets/node": {
-      "browser": null,
       "types": "./lib/node/presets/node.d.ts",
+      "node": {
+        "require": "./lib/node/presets/node.js",
+        "import": "./lib/node/presets/node.mjs"
+      },
+      "browser": null,
       "require": "./lib/node/presets/node.js",
       "import": "./lib/node/presets/node.mjs",
       "default": "./lib/node/presets/node.js"
