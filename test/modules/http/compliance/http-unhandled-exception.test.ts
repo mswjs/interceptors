@@ -5,6 +5,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const interceptor = new ClientRequestInterceptor()
 

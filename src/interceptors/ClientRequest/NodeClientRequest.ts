@@ -23,6 +23,7 @@ import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { isNodeLikeError } from '../../utils/isNodeLikeError'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { createRequestId } from '../../createRequestId'
+import { createServerErrorResponse } from '../../utils/responseUtils'
 
 export type Protocol = 'http' | 'https'
 
@@ -220,7 +221,7 @@ export class NodeClientRequest extends ClientRequest {
 
     // Execute the resolver Promise like a side-effect.
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
-    until(async () => {
+    until<unknown, Response | undefined>(async () => {
       // Notify the interceptor about the request.
       // This will call any "request" listeners the users have.
       this.logger.info(
@@ -266,6 +267,7 @@ export class NodeClientRequest extends ClientRequest {
           resolverResult.error
         )
 
+        // Treat thrown Responses as mocked responses.
         if (resolverResult.error instanceof Response) {
           this.respondWith(resolverResult.error)
           return
@@ -275,26 +277,13 @@ export class NodeClientRequest extends ClientRequest {
         // Treat them as request errors.
         if (isNodeLikeError(resolverResult.error)) {
           this.errorWith(resolverResult.error)
-        } else {
-          // Coerce unhandled exceptions in the "request" listeners
-          // as 500 responses.
-          this.respondWith(
-            new Response(
-              JSON.stringify({
-                name: resolverResult.error.name,
-                message: resolverResult.error.message,
-                stack: resolverResult.error.stack,
-              }),
-              {
-                status: 500,
-                statusText: 'Unhandled Exception',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              }
-            )
-          )
+          return this
         }
+
+        // Unhandled exceptions in the request listeners are
+        // synonymous to unhandled exceptions on the server.
+        // Those are represented as 500 error responses.
+        this.respondWith(createServerErrorResponse(resolverResult.error))
 
         return this
       }
