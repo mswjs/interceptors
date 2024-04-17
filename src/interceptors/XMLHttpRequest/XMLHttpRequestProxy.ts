@@ -4,6 +4,7 @@ import { XMLHttpRequestEmitter } from '.'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
+import { createServerErrorResponse } from '../../utils/responseUtils'
 
 export interface XMLHttpRequestProxyOptions {
   emitter: XMLHttpRequestEmitter
@@ -94,31 +95,18 @@ export function createXMLHttpRequestProxy({
             resolverResult.error
           )
 
-          // Treat unhandled exceptions in the "request" listener
-          // as 500 server errors.
+          // Treat thrown Responses as mocked responses.
+          if (resolverResult.error instanceof Response) {
+            this.respondWith(resolverResult.error)
+            return
+          }
+          // Unhandled exceptions in the request listeners are
+          // synonymous to unhandled exceptions on the server.
+          // Those are represented as 500 error responses.
           xhrRequestController.respondWith(
-            new Response(
-              JSON.stringify({
-                name: resolverResult.error.name,
-                message: resolverResult.error.message,
-                stack: resolverResult.error.stack,
-              }),
-              {
-                status: 500,
-                statusText: 'Unhandled Exception',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              }
-            )
+            createServerErrorResponse(resolverResult.error)
           )
 
-          /**
-           * @todo Consider forwarding this error to the stderr as well
-           * since not all consumers are expecting to handle errors.
-           * If they don't, this error will be swallowed.
-           */
-          // xhrRequestController.errorWith(resolverResult.error)
           return
         }
 

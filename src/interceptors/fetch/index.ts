@@ -8,6 +8,7 @@ import { emitAsync } from '../../utils/emitAsync'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { canParseUrl } from '../../utils/canParseUrl'
 import { createRequestId } from '../../createRequestId'
+import { createServerErrorResponse } from '../../utils/responseUtils'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -85,51 +86,69 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         )
       }
 
-      const resolverResult = await until(async () => {
-        const listenersFinished = emitAsync(this.emitter, 'request', {
+      const respondWith = (response: Response): Response => {
+        // Clone the mocked response for the "response" event listener.
+        // This way, the listener can read the response and not lock its body
+        // for the actual fetch consumer.
+        const responseClone = response.clone()
+
+        this.emitter.emit('response', {
+          response: responseClone,
+          isMockedResponse: true,
           request: interactiveRequest,
           requestId,
         })
 
-        await Promise.race([
-          requestAborted,
-          // Put the listeners invocation Promise in the same race condition
-          // with the request abort Promise because otherwise awaiting the listeners
-          // would always yield some response (or undefined).
-          listenersFinished,
-          requestController.responsePromise,
-        ])
+        // Set the "response.url" property to equal the intercepted request URL.
+        Object.defineProperty(response, 'url', {
+          writable: false,
+          enumerable: true,
+          configurable: false,
+          value: request.url,
+        })
 
-        this.logger.info('all request listeners have been resolved!')
+        return response
+      }
 
-        const mockedResponse = await requestController.responsePromise
-        this.logger.info('event.respondWith called with:', mockedResponse)
+      const resolverResult = await until<unknown, Response | undefined>(
+        async () => {
+          const listenersFinished = emitAsync(this.emitter, 'request', {
+            request: interactiveRequest,
+            requestId,
+          })
 
-        return mockedResponse
-      })
+          await Promise.race([
+            requestAborted,
+            // Put the listeners invocation Promise in the same race condition
+            // with the request abort Promise because otherwise awaiting the listeners
+            // would always yield some response (or undefined).
+            listenersFinished,
+            requestController.responsePromise,
+          ])
+
+          this.logger.info('all request listeners have been resolved!')
+
+          const mockedResponse = await requestController.responsePromise
+          this.logger.info('event.respondWith called with:', mockedResponse)
+
+          return mockedResponse
+        }
+      )
 
       if (requestAborted.state === 'rejected') {
         return Promise.reject(requestAborted.rejectionReason)
       }
 
       if (resolverResult.error) {
-        // Treat unhandled exceptions from the "request" listeners
-        // as 500 errors from the server. Fetch API doesn't respect
-        // Node.js internal errors so no special treatment for those.
-        return new Response(
-          JSON.stringify({
-            name: resolverResult.error.name,
-            message: resolverResult.error.message,
-            stack: resolverResult.error.stack,
-          }),
-          {
-            status: 500,
-            statusText: 'Unhandled Exception',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        )
+        // Treat thrown Responses as mocked responses.
+        if (resolverResult.error instanceof Response) {
+          return respondWith(resolverResult.error)
+        }
+
+        // Unhandled exceptions in the request listeners are
+        // synonymous to unhandled exceptions on the server.
+        // Those are represented as 500 error responses.
+        return createServerErrorResponse(resolverResult.error)
       }
 
       const mockedResponse = resolverResult.data
@@ -148,7 +167,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           /**
            * Set the cause of the request promise rejection to the
-           * network error Response instance. This different from Undici.
+           * network error Response instance. This differs from Undici.
            * Undici will forward the "response.error" custom property
            * as the rejection reason but for "Response.error()" static method
            * "response.error" will equal to undefined, making "cause" an empty Error.
@@ -157,27 +176,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           return Promise.reject(createNetworkError(mockedResponse))
         }
 
-        // Clone the mocked response for the "response" event listener.
-        // This way, the listener can read the response and not lock its body
-        // for the actual fetch consumer.
-        const responseClone = mockedResponse.clone()
-
-        this.emitter.emit('response', {
-          response: responseClone,
-          isMockedResponse: true,
-          request: interactiveRequest,
-          requestId,
-        })
-
-        // Set the "response.url" property to equal the intercepted request URL.
-        Object.defineProperty(mockedResponse, 'url', {
-          writable: false,
-          enumerable: true,
-          configurable: false,
-          value: request.url,
-        })
-
-        return mockedResponse
+        return respondWith(mockedResponse)
       }
 
       this.logger.info('no mocked response received!')
