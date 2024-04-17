@@ -50,17 +50,3 @@ it('treats unhandled interceptor errors as 500 responses', async () => {
     stack: expect.any(String),
   })
 })
-
-it('treats thrown non-errors as request errors', async () => {
-  interceptor.on('request', () => {
-    throw 123
-  })
-
-  const request = http.get('http://localhost/resource')
-  const requestErrorPromise = new DeferredPromise<Error>()
-  request.on('error', (error) => requestErrorPromise.resolve(error))
-
-  const requestError = await requestErrorPromise
-
-  expect(requestError).toBe(123)
-})

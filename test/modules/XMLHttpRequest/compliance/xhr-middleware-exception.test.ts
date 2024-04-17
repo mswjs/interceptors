@@ -78,9 +78,9 @@ it('treats a thrown Response instance as a mocked response', async () => {
   expect(request.responseText).toBe('hello world')
 })
 
-it('forwards thrown non-errors as request errors', async () => {
-  interceptor.on('request', () => {
-    throw 123
+it('treats Response.error() as a network error', async () => {
+  interceptor.on('request', ({ request }) => {
+    request.respondWith(Response.error())
   })
 
   const requestErrorListener = vi.fn()

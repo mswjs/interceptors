@@ -46,9 +46,9 @@ it('treats a thrown Response as a mocked response', async () => {
   expect(await response.text()).toBe('hello world')
 })
 
-it('treats thrown non-errors a network error', async () => {
-  interceptor.on('request', () => {
-    throw 123
+it('treats Response.error() as a network error', async () => {
+  interceptor.on('request', ({ request }) => {
+    request.respondWith(Response.error())
   })
 
   const requestError = await fetch('http://localhost:3001/resource')
@@ -59,5 +59,5 @@ it('treats thrown non-errors a network error', async () => {
 
   expect(requestError.name).toBe('TypeError')
   expect(requestError.message).toBe('Failed to fetch')
-  expect(requestError.cause).toBe(123)
+  expect(requestError.cause).toBeInstanceOf(Response)
 })
