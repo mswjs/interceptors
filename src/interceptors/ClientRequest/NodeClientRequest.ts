@@ -1,4 +1,4 @@
-import { ClientRequest, IncomingMessage } from 'node:http'
+import { ClientRequest, IncomingMessage, STATUS_CODES } from 'node:http'
 import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'
@@ -266,6 +266,11 @@ export class NodeClientRequest extends ClientRequest {
           resolverResult.error
         )
 
+        if (resolverResult.error instanceof Response) {
+          this.respondWith(resolverResult.error)
+          return
+        }
+
         // Allow throwing Node.js-like errors, like connection rejection errors.
         // Treat them as request errors.
         if (isNodeLikeError(resolverResult.error)) {
@@ -522,7 +527,7 @@ export class NodeClientRequest extends ClientRequest {
 
     const { status, statusText, headers, body } = mockedResponse
     this.response.statusCode = status
-    this.response.statusMessage = statusText
+    this.response.statusMessage = statusText || STATUS_CODES[status]
 
     // Try extracting the raw headers from the headers instance.
     // If not possible, fallback to the headers instance as-is.
