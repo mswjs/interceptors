@@ -99,31 +99,30 @@ export function createXMLHttpRequestProxy({
             return
           }
 
-          // Treat unhandled exceptions in the "request" listener
-          // as 500 server errors.
-          xhrRequestController.respondWith(
-            new Response(
-              JSON.stringify({
-                name: resolverResult.error.name,
-                message: resolverResult.error.message,
-                stack: resolverResult.error.stack,
-              }),
-              {
-                status: 500,
-                statusText: 'Unhandled Exception',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              }
+          if (resolverResult.error instanceof Error) {
+            // Treat unhandled exceptions in the "request" listener
+            // as 500 server errors.
+            xhrRequestController.respondWith(
+              new Response(
+                JSON.stringify({
+                  name: resolverResult.error.name,
+                  message: resolverResult.error.message,
+                  stack: resolverResult.error.stack,
+                }),
+                {
+                  status: 500,
+                  statusText: 'Unhandled Exception',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                }
+              )
             )
-          )
+            return
+          }
 
-          /**
-           * @todo Consider forwarding this error to the stderr as well
-           * since not all consumers are expecting to handle errors.
-           * If they don't, this error will be swallowed.
-           */
-          // xhrRequestController.errorWith(resolverResult.error)
+          // Otherwise, error the request with the thrown data.
+          xhrRequestController.errorWith(resolverResult.error)
           return
         }
 

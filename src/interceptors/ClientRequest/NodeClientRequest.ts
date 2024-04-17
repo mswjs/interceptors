@@ -275,7 +275,10 @@ export class NodeClientRequest extends ClientRequest {
         // Treat them as request errors.
         if (isNodeLikeError(resolverResult.error)) {
           this.errorWith(resolverResult.error)
-        } else {
+          return this
+        }
+
+        if (resolverResult.error instanceof Error) {
           // Coerce unhandled exceptions in the "request" listeners
           // as 500 responses.
           this.respondWith(
@@ -294,8 +297,10 @@ export class NodeClientRequest extends ClientRequest {
               }
             )
           )
+          return this
         }
 
+        this.errorWith(resolverResult.error)
         return this
       }
 

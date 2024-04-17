@@ -142,23 +142,27 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           return respondWith(resolverResult.error)
         }
 
-        // Treat unhandled exceptions from the "request" listeners
-        // as 500 errors from the server. Fetch API doesn't respect
-        // Node.js internal errors so no special treatment for those.
-        return new Response(
-          JSON.stringify({
-            name: resolverResult.error.name,
-            message: resolverResult.error.message,
-            stack: resolverResult.error.stack,
-          }),
-          {
-            status: 500,
-            statusText: 'Unhandled Exception',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        )
+        if (resolverResult.error instanceof Error) {
+          // Treat unhandled exceptions from the "request" listeners
+          // as 500 errors from the server. Fetch API doesn't respect
+          // Node.js internal errors so no special treatment for those.
+          return new Response(
+            JSON.stringify({
+              name: resolverResult.error.name,
+              message: resolverResult.error.message,
+              stack: resolverResult.error.stack,
+            }),
+            {
+              status: 500,
+              statusText: 'Unhandled Exception',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          )
+        }
+
+        return Promise.reject(createNetworkError(resolverResult.error))
       }
 
       const mockedResponse = resolverResult.data
@@ -177,7 +181,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           /**
            * Set the cause of the request promise rejection to the
-           * network error Response instance. This different from Undici.
+           * network error Response instance. This differs from Undici.
            * Undici will forward the "response.error" custom property
            * as the rejection reason but for "Response.error()" static method
            * "response.error" will equal to undefined, making "cause" an empty Error.

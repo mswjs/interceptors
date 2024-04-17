@@ -2,7 +2,7 @@
 /**
  * @see https://github.com/mswjs/msw/issues/355
  */
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import axios from 'axios'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
@@ -76,4 +76,21 @@ it('treats a thrown Response instance as a mocked response', async () => {
   expect(request.status).toBe(200)
   expect(request.response).toBe('hello world')
   expect(request.responseText).toBe('hello world')
+})
+
+it('forwards thrown non-errors as request errors', async () => {
+  interceptor.on('request', () => {
+    throw 123
+  })
+
+  const requestErrorListener = vi.fn()
+  const request = await createXMLHttpRequest((request) => {
+    request.responseType = 'text'
+    request.open('GET', 'http://localhost/api')
+    request.addEventListener('error', requestErrorListener)
+    request.send()
+  })
+
+  expect(request.status).toBe(0)
+  expect(requestErrorListener).toHaveBeenCalledTimes(1)
 })
