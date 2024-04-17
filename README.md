@@ -11,81 +11,98 @@ This library supports intercepting the following protocols:
 
 ## Motivation
 
-While there are a lot of network communication mocking libraries, they tend to use request interception as an implementation detail, giving you a high-level API that includes request matching, timeouts, retries, and so forth.
+While there are a lot of network mocking libraries, they tend to use request interception as an implementation detail, giving you a high-level API that includes request matching, timeouts, recording, and so forth.
 
-This library is a strip-to-bone implementation that provides as little abstraction as possible to execute arbitrary logic upon any request. It's primarily designed as an underlying component for high-level API mocking solutions such as [Mock Service Worker](https://github.com/mswjs/msw).
+This library is a barebones implementation that provides as little abstraction as possible to execute arbitrary logic upon any request. It's primarily designed as an underlying component for high-level API mocking solutions such as [Mock Service Worker](https://github.com/mswjs/msw).
 
 ### How is this library different?
 
 A traditional API mocking implementation in Node.js looks roughly like this:
 
 ```js
-import http from 'http'
+import http from 'node:http'
 
-function applyMock() {
-  // Store the original request module.
-  const originalHttpRequest = http.request
+// Store the original request function.
+const originalHttpRequest = http.request
 
-  // Rewrite the request module entirely.
-  http.request = function (...args) {
-    // Decide whether to handle this request before
-    // the actual request happens.
-    if (shouldMock(args)) {
-      // If so, never create a request, respond to it
-      // using the mocked response from this blackbox.
-      return coerceToResponse.bind(this, mock)
-    }
-
-    // Otherwise, construct the original request
-    // and perform it as-is (receives the original response).
-    return originalHttpRequest(...args)
+// Override the request function entirely.
+http.request = function (...args) {
+  // Decide if the outgoing request matches a predicate.
+  if (predicate(args)) {
+    // If it does, never create a request, respond to it
+    // using the mocked response from this blackbox.
+    return coerceToResponse.bind(this, mock)
   }
+
+  // Otherwise, construct the original request
+  // and perform it as-is.
+  return originalHttpRequest(...args)
 }
 ```
 
-This library deviates from such implementation and uses _class extensions_ instead of module rewrites. Such deviation is necessary because, unlike other solutions that include request matching and can determine whether to mock requests _before_ they actually happen, this library is not opinionated about the mocked/bypassed nature of the requests. Instead, it _intercepts all requests_ and delegates the decision of mocking to the end consumer.
+The core philosophy of Interceptors is to _run as much of the underlying network code as possible_. Strange for a network mocking library, isn't it? Turns out, respecting the system's integrity and executing more of the network code leads to more resilient tests and also helps to uncover bugs in the code that would otherwise go unnoticed.
+
+Interceptors heavily rely on _class extension_ instead of function and module overrides. By extending the native network code, it can surgically insert the interception and mocking pieces only where necessary, leaving the rest of the system intact.
 
 ```js
-class NodeClientRequest extends ClientRequest {
-  async end(...args) {
-    // Check if there's a mocked response for this request.
-    // You control this in the "resolver" function.
-    const mockedResponse = await resolver(request)
+class XMLHttpRequestProxy extends XMLHttpRequest {
+  async send() {
+    // Call the request listeners and see if any of them
+    // returns a mocked response for this request.
+    const mockedResponse = await waitForRequestListeners({ request })
 
-    // If there is a mocked response, use it to respond to this
-    // request, finalizing it afterward as if it received that
-    // response from the actual server it connected to.
+    // If there is a mocked response, use it. This actually
+    // transitions the XMLHttpRequest instance into the correct
+    // response state (below is a simplified illustration).
     if (mockedResponse) {
-      this.respondWith(mockedResponse)
-      this.finish()
+      // Handle the response headers.
+      this.request.status = mockedResponse.status
+      this.request.statusText = mockedResponse.statusText
+      this.request.responseUrl = mockedResponse.url
+      this.readyState = 2
+      this.trigger('readystatechange')
+
+      // Start streaming the response body.
+      this.trigger('loadstart')
+      this.readyState = 3
+      this.trigger('readystatechange')
+      await streamResponseBody(mockedResponse)
+
+      // Finish the response.
+      this.trigger('load')
+      this.trigger('loadend')
+      this.readyState = 4
       return
     }
 
-    // Otherwise, perform the original "ClientRequest.prototype.end" call.
-    return super.end(...args)
+    // Otherwise, perform the original "XMLHttpRequest.prototype.send" call.
+    return super.send(...args)
   }
 }
 ```
 
-By extending the native modules, this library actually constructs requests as soon as they are constructed by the consumer. This enables all the request input validation and transformations done natively by Node.js—something that traditional solutions simply cannot do (they replace `http.ClientRequest` entirely). The class extension allows to fully utilize Node.js internals instead of polyfilling them, which results in more resilient mocks.
+> The request interception algorithms differ dramatically based on the request API. Interceptors acommodate for them all, bringing the intercepted requests to a common ground—the Fetch API `Request` instance. The same applies for responses, where a Fetch API `Response` instance is translated to the appropriate response format.
+
+This library aims to provide _full specification compliance_ with the APIs and protocols it extends.
 
 ## What this library does
 
-This library extends (or patches, where applicable) the following native modules:
+This library extends the following native modules:
 
 - `http.get`/`http.request`
 - `https.get`/`https.request`
 - `XMLHttpRequest`
 - `fetch`
+- `WebSocket`
 
 Once extended, it intercepts and normalizes all requests to the Fetch API `Request` instances. This way, no matter the request source (`http.ClientRequest`, `XMLHttpRequest`, `window.Request`, etc), you always get a specification-compliant request instance to work with.
 
-You can respond to the intercepted request by constructing a Fetch API Response instance. Instead of designing custom abstractions, this library respects the Fetch API specification and takes the responsibility to coerce a single response declaration to the appropriate response formats based on the request-issuing modules (like `http.OutgoingMessage` to respond to `http.ClientRequest`, or updating `XMLHttpRequest` response-related properties).
+You can respond to the intercepted HTTP request by constructing a Fetch API Response instance. Instead of designing custom abstractions, this library respects the Fetch API specification and takes the responsibility to coerce a single response declaration to the appropriate response formats based on the request-issuing modules (like `http.OutgoingMessage` to respond to `http.ClientRequest`, or updating `XMLHttpRequest` response-related properties).
 
 ## What this library doesn't do
 
 - Does **not** provide any request matching logic;
-- Does **not** decide how to handle requests.
+- Does **not** handle requests by default.
 
 ## Getting started
 
