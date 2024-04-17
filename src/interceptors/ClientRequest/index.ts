@@ -13,6 +13,7 @@ import { emitAsync } from '../../utils/emitAsync'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { isNodeLikeError } from '../../utils/isNodeLikeError'
+import { createServerErrorResponse } from '../../utils/responseUtils'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -145,28 +146,22 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     })
 
     if (listenerResult.error) {
+      // Treat thrown Responses as mocked responses.
+      if (listenerResult.error instanceof Response) {
+        socket.respondWith(listenerResult.error)
+        return
+      }
+
       // Allow mocking Node-like errors.
       if (isNodeLikeError(listenerResult.error)) {
         socket.errorWith(listenerResult.error)
         return
       }
 
-      socket.respondWith(
-        new Response(
-          JSON.stringify({
-            name: listenerResult.error.name,
-            message: listenerResult.error.message,
-            stack: listenerResult.error.stack,
-          }),
-          {
-            status: 500,
-            statusText: 'Unhandled Exception',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        )
-      )
+      // Unhandled exceptions in the request listeners are
+      // synonymous to unhandled exceptions on the server.
+      // Those are represented as 500 error responses.
+      socket.respondWith(createServerErrorResponse(listenerResult.error))
       return
     }
 

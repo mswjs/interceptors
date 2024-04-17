@@ -14,7 +14,10 @@ import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
 import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
-import { RESPONSE_STATUS_CODES_WITHOUT_BODY } from '../../utils/responseUtils'
+import {
+  createServerErrorResponse,
+  RESPONSE_STATUS_CODES_WITHOUT_BODY,
+} from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 
 type HttpConnectionOptions = any
@@ -270,23 +273,11 @@ export class MockHttpSocket extends MockSocket {
           this.push(value)
         }
       } catch (error) {
-        if (error instanceof Error) {
-          // Coerce response stream errors to 500 responses.
-          // Don't flush the original response headers because
-          // unhandled errors translate to 500 error responses forcefully.
-          this.respondWith(
-            new Response(
-              JSON.stringify({
-                name: error.name,
-                message: error.message,
-                stack: error.stack,
-              }),
-              { status: 500, statusText: 'Unhandled Exception' }
-            )
-          )
+        // Coerce response stream errors to 500 responses.
+        // Don't flush the original response headers because
+        // unhandled errors translate to 500 error responses forcefully.
+        this.respondWith(createServerErrorResponse(error))
 
-          return
-        }
         return
       }
     }
