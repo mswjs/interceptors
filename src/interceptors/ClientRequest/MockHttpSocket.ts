@@ -169,6 +169,28 @@ export class MockHttpSocket extends MockSocket {
       }
     }
 
+    // Forward TLS Socket properties onto this Socket instance
+    // in the case of a TLS/SSL connection.
+    if (Reflect.get(socket, 'encrypted')) {
+      const tlsProperties = [
+        'encrypted',
+        'authorized',
+        'getProtocol',
+        'getSession',
+        'isSessionReused',
+      ]
+
+      tlsProperties.forEach((propertyName) => {
+        Object.defineProperty(this, propertyName, {
+          enumerable: true,
+          get: () => {
+            const value = Reflect.get(socket, propertyName)
+            return typeof value === 'function' ? value.bind(socket) : value
+          },
+        })
+      })
+    }
+
     socket
       .on('lookup', (...args) => this.emit('lookup', ...args))
       .on('connect', () => {
@@ -331,9 +353,22 @@ export class MockHttpSocket extends MockSocket {
     if (this.baseUrl.protocol === 'https:') {
       this.emit('secure')
       this.emit('secureConnect')
+
       // A single TLS connection is represented by two "session" events.
-      this.emit('session', Buffer.from('mock-session-renegotiate'))
+      this.emit(
+        'session',
+        this.connectionOptions.session ||
+          Buffer.from('mock-session-renegotiate')
+      )
       this.emit('session', Buffer.from('mock-session-resume'))
+
+      Reflect.set(this, 'encrypted', true)
+      // The server certificate is not the same as a CA
+      // passed to the TLS socket connection options.
+      Reflect.set(this, 'authorized', false)
+      Reflect.set(this, 'getProtocol', () => 'TLSv1.3')
+      Reflect.set(this, 'getSession', () => undefined)
+      Reflect.set(this, 'isSessionReused', () => false)
     }
   }
 
