@@ -94,6 +94,11 @@ export function createXMLHttpRequestProxy({
             resolverResult.error
           )
 
+          if (resolverResult.error instanceof Response) {
+            this.respondWith(resolverResult.error)
+            return
+          }
+
           // Treat unhandled exceptions in the "request" listener
           // as 500 server errors.
           xhrRequestController.respondWith(

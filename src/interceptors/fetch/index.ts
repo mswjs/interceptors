@@ -85,6 +85,30 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         )
       }
 
+      const respondWith = (response: Response): Response => {
+        // Clone the mocked response for the "response" event listener.
+        // This way, the listener can read the response and not lock its body
+        // for the actual fetch consumer.
+        const responseClone = response.clone()
+
+        this.emitter.emit('response', {
+          response: responseClone,
+          isMockedResponse: true,
+          request: interactiveRequest,
+          requestId,
+        })
+
+        // Set the "response.url" property to equal the intercepted request URL.
+        Object.defineProperty(response, 'url', {
+          writable: false,
+          enumerable: true,
+          configurable: false,
+          value: request.url,
+        })
+
+        return response
+      }
+
       const resolverResult = await until(async () => {
         const listenersFinished = emitAsync(this.emitter, 'request', {
           request: interactiveRequest,
@@ -113,6 +137,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       }
 
       if (resolverResult.error) {
+        // Treat thrown Responses as mocked responses.
+        if (resolverResult.error instanceof Response) {
+          return respondWith(resolverResult.error)
+        }
+
         // Treat unhandled exceptions from the "request" listeners
         // as 500 errors from the server. Fetch API doesn't respect
         // Node.js internal errors so no special treatment for those.
@@ -157,27 +186,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           return Promise.reject(createNetworkError(mockedResponse))
         }
 
-        // Clone the mocked response for the "response" event listener.
-        // This way, the listener can read the response and not lock its body
-        // for the actual fetch consumer.
-        const responseClone = mockedResponse.clone()
-
-        this.emitter.emit('response', {
-          response: responseClone,
-          isMockedResponse: true,
-          request: interactiveRequest,
-          requestId,
-        })
-
-        // Set the "response.url" property to equal the intercepted request URL.
-        Object.defineProperty(mockedResponse, 'url', {
-          writable: false,
-          enumerable: true,
-          configurable: false,
-          value: request.url,
-        })
-
-        return mockedResponse
+        return respondWith(mockedResponse)
       }
 
       this.logger.info('no mocked response received!')
