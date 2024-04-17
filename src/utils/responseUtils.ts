@@ -13,3 +13,27 @@ export const RESPONSE_STATUS_CODES_WITHOUT_BODY = new Set([
 export function isResponseWithoutBody(status: number): boolean {
   return RESPONSE_STATUS_CODES_WITHOUT_BODY.has(status)
 }
+
+/**
+ * Creates a generic 500 Unhandled Exception response.
+ */
+export function createServerErrorResponse(body: unknown): Response {
+  return new Response(
+    JSON.stringify(
+      body instanceof Error
+        ? {
+            name: body.name,
+            message: body.message,
+            stack: body.stack,
+          }
+        : body
+    ),
+    {
+      status: 500,
+      statusText: 'Unhandled Exception',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  )
+}
