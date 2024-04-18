@@ -19,33 +19,28 @@ interface MockAgentOptions {
   onResponse: MockHttpSocketResponseCallback
 }
 
-export class MockAgent extends http.Agent {
-  private customAgent?: http.RequestOptions['agent']
-  private onRequest: MockHttpSocketRequestCallback
-  private onResponse: MockHttpSocketResponseCallback
+export function createHttpAgent(options: MockAgentOptions): http.Agent {
+  const agent =
+    typeof options.customAgent === 'undefined'
+      ? http.globalAgent
+      : options.customAgent instanceof http.Agent
+        ? options.customAgent
+        : new http.Agent()
 
-  constructor(options: MockAgentOptions) {
-    super()
-    this.customAgent = options.customAgent
-    this.onRequest = options.onRequest
-    this.onResponse = options.onResponse
-  }
+  agent.createConnection = new Proxy(agent.createConnection, {
+    apply(target, thisArg, args) {
+      const socket = new MockHttpSocket({
+        connectionOptions: options,
+        createConnection: Reflect.apply.bind(this, target, thisArg, args),
+        onRequest: options.onRequest,
+        onResponse: options.onRequest,
+      })
 
-  public createConnection(options: any, callback: any) {
-    const createConnection =
-      (this.customAgent instanceof http.Agent &&
-        this.customAgent.createConnection) ||
-      super.createConnection
+      return socket
+    },
+  })
 
-    const socket = new MockHttpSocket({
-      connectionOptions: options,
-      createConnection: createConnection.bind(this, options, callback),
-      onRequest: this.onRequest.bind(this),
-      onResponse: this.onResponse.bind(this),
-    })
-
-    return socket
-  }
+  return agent
 }
 
 export class MockHttpsAgent extends https.Agent {
