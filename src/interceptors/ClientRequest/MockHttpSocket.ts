@@ -9,7 +9,7 @@ import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { MockSocket } from '../Socket/MockSocket'
-import type { NormalizedWriteArgs } from '../Socket/utils/normalizeWriteArgs'
+import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
 import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
@@ -53,7 +53,7 @@ export class MockHttpSocket extends MockSocket {
   private onRequest: MockHttpSocketRequestCallback
   private onResponse: MockHttpSocketResponseCallback
 
-  private writeBuffer: Array<NormalizedWriteArgs> = []
+  private writeBuffer: Array<NormalizedSocketWriteArgs> = []
   private request?: Request
   private requestParser: HTTPParser<0>
   private requestStream?: Readable
@@ -133,7 +133,7 @@ export class MockHttpSocket extends MockSocket {
     // the original socket instance (i.e. write request body).
     // Exhaust the "requestBuffer" in case this Socket
     // gets reused for different requests.
-    let writeArgs: NormalizedWriteArgs | undefined
+    let writeArgs: NormalizedSocketWriteArgs | undefined
     let headersWritten = false
 
     while ((writeArgs = this.writeBuffer.shift())) {
@@ -373,7 +373,7 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private flushWriteBuffer(): void {
-    let args: NormalizedWriteArgs | undefined
+    let args: NormalizedSocketWriteArgs | undefined
     while ((args = this.writeBuffer.shift())) {
       args?.[2]?.()
     }
