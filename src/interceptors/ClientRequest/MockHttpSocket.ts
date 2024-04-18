@@ -126,6 +126,10 @@ export class MockHttpSocket extends MockSocket {
    * its data/events through this Socket.
    */
   public passthrough(): void {
+    if (this.destroyed) {
+      return
+    }
+
     const socket = this.createConnection()
     this.address = socket.address.bind(socket)
 
@@ -225,6 +229,12 @@ export class MockHttpSocket extends MockSocket {
    * HTTP message and push it to the socket.
    */
   public async respondWith(response: Response): Promise<void> {
+    // Ignore the mocked response if the socket has been destroyed
+    // (e.g. aborted or timed out),
+    if (this.destroyed) {
+      return
+    }
+
     // Handle "type: error" responses.
     if (isPropertyAccessible(response, 'type') && response.type === 'error') {
       this.errorWith(new TypeError('Network error'))
@@ -326,7 +336,7 @@ export class MockHttpSocket extends MockSocket {
   }
 
   /**
-   * Close this Socket connection with the given error.
+   * Close this socket connection with the given error.
    */
   public errorWith(error: Error): void {
     this.destroy(error)
