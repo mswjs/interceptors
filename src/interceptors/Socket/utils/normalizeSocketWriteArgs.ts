@@ -4,7 +4,7 @@ export type WriteArgs =
   | [chunk: unknown, callback?: WriteCallback]
   | [chunk: unknown, encoding: BufferEncoding, callback?: WriteCallback]
 
-export type NormalizedWriteArgs = [
+export type NormalizedSocketWriteArgs = [
   chunk: any,
   encoding?: BufferEncoding,
   callback?: WriteCallback,
@@ -14,8 +14,10 @@ export type NormalizedWriteArgs = [
  * Normalizes the arguments provided to the `Writable.prototype.write()`
  * and `Writable.prototype.end()`.
  */
-export function normalizeWriteArgs(args: WriteArgs): NormalizedWriteArgs {
-  const normalized: NormalizedWriteArgs = [args[0], undefined, undefined]
+export function normalizeSocketWriteArgs(
+  args: WriteArgs
+): NormalizedSocketWriteArgs {
+  const normalized: NormalizedSocketWriteArgs = [args[0], undefined, undefined]
 
   if (typeof args[1] === 'string') {
     normalized[1] = args[1]

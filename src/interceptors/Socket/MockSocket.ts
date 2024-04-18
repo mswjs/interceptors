@@ -1,9 +1,9 @@
 import net from 'node:net'
 import {
-  normalizeWriteArgs,
+  normalizeSocketWriteArgs,
   type WriteArgs,
   type WriteCallback,
-} from './utils/normalizeWriteArgs'
+} from './utils/normalizeSocketWriteArgs'
 
 export interface MockSocketOptions {
   write: (
@@ -36,13 +36,17 @@ export class MockSocket extends net.Socket {
   }
 
   public write(...args: Array<unknown>): boolean {
-    const [chunk, encoding, callback] = normalizeWriteArgs(args as WriteArgs)
+    const [chunk, encoding, callback] = normalizeSocketWriteArgs(
+      args as WriteArgs
+    )
     this.options.write(chunk, encoding, callback)
     return true
   }
 
   public end(...args: Array<unknown>) {
-    const [chunk, encoding, callback] = normalizeWriteArgs(args as WriteArgs)
+    const [chunk, encoding, callback] = normalizeSocketWriteArgs(
+      args as WriteArgs
+    )
     this.options.write(chunk, encoding, callback)
 
     return super.end.apply(this, args as any)
