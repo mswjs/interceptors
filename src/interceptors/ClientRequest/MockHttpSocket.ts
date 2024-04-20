@@ -111,6 +111,16 @@ export class MockHttpSocket extends MockSocket {
     // Once the socket is finished, nothing can write to it
     // anymore. It has also flushed any buffered chunks.
     this.once('finish', () => this.requestParser.free())
+
+    if (this.baseUrl.protocol === 'https:') {
+      Reflect.set(this, 'encrypted', true)
+      // The server certificate is not the same as a CA
+      // passed to the TLS socket connection options.
+      Reflect.set(this, 'authorized', false)
+      Reflect.set(this, 'getProtocol', () => 'TLSv1.3')
+      Reflect.set(this, 'getSession', () => undefined)
+      Reflect.set(this, 'isSessionReused', () => false)
+    }
   }
 
   public destroy(error?: Error | undefined): this {
@@ -371,14 +381,6 @@ export class MockHttpSocket extends MockSocket {
           Buffer.from('mock-session-renegotiate')
       )
       this.emit('session', Buffer.from('mock-session-resume'))
-
-      Reflect.set(this, 'encrypted', true)
-      // The server certificate is not the same as a CA
-      // passed to the TLS socket connection options.
-      Reflect.set(this, 'authorized', false)
-      Reflect.set(this, 'getProtocol', () => 'TLSv1.3')
-      Reflect.set(this, 'getSession', () => undefined)
-      Reflect.set(this, 'isSessionReused', () => false)
     }
   }
 

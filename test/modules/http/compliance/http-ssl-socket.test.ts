@@ -28,9 +28,7 @@ it('emits a correct TLS Socket instance for a handled HTTPS request', async () =
 
   const request = https.get('https://example.com')
   const socketPromise = new DeferredPromise<TLSSocket>()
-  request.on('socket', (socket) => {
-    socket.on('connect', () => socketPromise.resolve(socket as TLSSocket))
-  })
+  request.on('socket', socketPromise.resolve)
 
   const socket = await socketPromise
 
@@ -48,9 +46,7 @@ it('emits a correct TLS Socket instance for a handled HTTPS request', async () =
 it('emits a correct TLS Socket instance for a bypassed HTTPS request', async () => {
   const request = https.get('https://example.com')
   const socketPromise = new DeferredPromise<TLSSocket>()
-  request.on('socket', (socket) => {
-    socket.on('connect', () => socketPromise.resolve(socket as TLSSocket))
-  })
+  request.on('socket', socketPromise.resolve)
 
   const socket = await socketPromise
 
