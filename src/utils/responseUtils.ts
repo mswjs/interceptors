@@ -1,3 +1,5 @@
+import { isPropertyAccessible } from './isPropertyAccessible'
+
 /**
  * Response status codes for responses that cannot have body.
  * @see https://fetch.spec.whatwg.org/#statuses
@@ -36,4 +38,18 @@ export function createServerErrorResponse(body: unknown): Response {
       },
     }
   )
+}
+
+/**
+ * Checks if the given response is a `Response.error()`.
+ *
+ * @note Some environments, like Miniflare (Cloudflare) do not
+ * implement the "Response.type" property and throw on its access.
+ * Safely check if we can access "type" on "Response" before continuing.
+ * @see https://github.com/mswjs/msw/issues/1834
+ */
+export function isResponseError(
+  response: Response
+): response is Response & { type: 'error' } {
+  return isPropertyAccessible(response, 'type') && response.type === 'error'
 }

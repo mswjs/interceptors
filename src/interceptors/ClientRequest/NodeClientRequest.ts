@@ -19,11 +19,13 @@ import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
-import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { isNodeLikeError } from '../../utils/isNodeLikeError'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { createRequestId } from '../../createRequestId'
-import { createServerErrorResponse } from '../../utils/responseUtils'
+import {
+  createServerErrorResponse,
+  isResponseError,
+} from '../../utils/responseUtils'
 
 export type Protocol = 'http' | 'https'
 
@@ -267,9 +269,20 @@ export class NodeClientRequest extends ClientRequest {
           resolverResult.error
         )
 
-        // Treat thrown Responses as mocked responses.
+        // Handle thrown Response instances.
         if (resolverResult.error instanceof Response) {
-          this.respondWith(resolverResult.error)
+          // Treat thrown Response.error() as a request error.
+          if (isResponseError(resolverResult.error)) {
+            this.logger.info(
+              'received network error response, erroring request...'
+            )
+
+            this.errorWith(new TypeError('Network error'))
+          } else {
+            // Handle a thrown Response as a mocked response.
+            this.respondWith(resolverResult.error)
+          }
+
           return
         }
 
@@ -304,16 +317,7 @@ export class NodeClientRequest extends ClientRequest {
         this.destroyed = false
 
         // Handle mocked "Response.error" network error responses.
-        if (
-          /**
-           * @note Some environments, like Miniflare (Cloudflare) do not
-           * implement the "Response.type" property and throw on its access.
-           * Safely check if we can access "type" on "Response" before continuing.
-           * @see https://github.com/mswjs/msw/issues/1834
-           */
-          isPropertyAccessible(mockedResponse, 'type') &&
-          mockedResponse.type === 'error'
-        ) {
+        if (isResponseError(mockedResponse)) {
           this.logger.info(
             'received network error response, erroring request...'
           )
