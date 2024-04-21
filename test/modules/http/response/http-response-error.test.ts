@@ -1,32 +1,63 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import http from 'node:http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const interceptor = new ClientRequestInterceptor()
 
-interceptor.on('request', ({ request }) => {
-  request.respondWith(Response.error())
-})
-
 beforeAll(() => {
   interceptor.apply()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(() => {
   interceptor.dispose()
 })
 
-it('treats "Response.error()" as a request error', async () => {
-  const requestErrorPromise = new DeferredPromise<Error>()
+it('treats "Response.error()" as a network error', async () => {
+  const requestErrorListener = vi.fn()
+  const responseListener = vi.fn()
+
+  interceptor.on('request', ({ request }) => {
+    request.respondWith(Response.error())
+  })
+  interceptor.on('response', responseListener)
 
   const request = http.get('http://localhost:3001/resource')
+  request.on('error', requestErrorListener)
 
-  // In ClientRequest, network errors are forwarded as
-  // request errors.
-  request.on('error', requestErrorPromise.resolve)
-  const requestError = await requestErrorPromise
+  // Must handle Response.error() as a network error.
+  await vi.waitFor(() => {
+    expect(requestErrorListener).toHaveBeenNthCalledWith(
+      1,
+      new TypeError('Network error')
+    )
+  })
 
-  expect(requestError).toBeInstanceOf(TypeError)
-  expect(requestError.message).toBe('Network error')
+  expect(responseListener).not.toHaveBeenCalled()
+})
+
+it('treats a thrown Response.error() as a network error', async () => {
+  const requestErrorListener = vi.fn()
+  const responseListener = vi.fn()
+
+  interceptor.on('request', () => {
+    throw Response.error()
+  })
+  interceptor.on('response', responseListener)
+
+  const request = http.get('http://localhost:3001/resource')
+  request.on('error', requestErrorListener)
+
+  // Must handle Response.error() as a request error.
+  await vi.waitFor(() => {
+    expect(requestErrorListener).toHaveBeenNthCalledWith(
+      1,
+      new TypeError('Network error')
+    )
+  })
+
+  expect(responseListener).not.toHaveBeenCalled()
 })
