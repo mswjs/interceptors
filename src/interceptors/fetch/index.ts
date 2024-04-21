@@ -3,10 +3,14 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
-import { uuidv4 } from '../../utils/uuid'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
-import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
+import { canParseUrl } from '../../utils/canParseUrl'
+import { createRequestId } from '../../createRequestId'
+import {
+  createServerErrorResponse,
+  isResponseError,
+} from '../../utils/responseUtils'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -22,7 +26,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     )
   }
 
-  protected setup() {
+  protected async setup() {
     const pureFetch = globalThis.fetch
 
     invariant(
@@ -31,8 +35,22 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     )
 
     globalThis.fetch = async (input, init) => {
-      const requestId = uuidv4()
-      const request = new Request(input, init)
+      const requestId = createRequestId()
+
+      /**
+       * @note Resolve potentially relative request URL
+       * against the present `location`. This is mainly
+       * for native `fetch` in JSDOM.
+       * @see https://github.com/mswjs/msw/issues/1625
+       */
+      const resolvedInput =
+        typeof input === 'string' &&
+        typeof location !== 'undefined' &&
+        !canParseUrl(input)
+          ? new URL(input, location.origin)
+          : input
+
+      const request = new Request(resolvedInput, init)
 
       this.logger.info('[%s] %s', request.method, request.url)
 
@@ -59,71 +77,22 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       const signal = interactiveRequest.signal
       const requestAborted = new DeferredPromise()
 
-      signal.addEventListener(
-        'abort',
-        () => {
-          requestAborted.reject(signal.reason)
-        },
-        { once: true }
-      )
-
-      const resolverResult = await until(async () => {
-        const listenersFinished = emitAsync(this.emitter, 'request', {
-          request: interactiveRequest,
-          requestId,
-        })
-
-        await Promise.race([
-          requestAborted,
-          // Put the listeners invocation Promise in the same race condition
-          // with the request abort Promise because otherwise awaiting the listeners
-          // would always yield some response (or undefined).
-          listenersFinished,
-          requestController.responsePromise,
-        ])
-
-        this.logger.info('all request listeners have been resolved!')
-
-        const mockedResponse = await requestController.responsePromise
-        this.logger.info('event.respondWith called with:', mockedResponse)
-
-        return mockedResponse
-      })
-
-      if (requestAborted.state === 'rejected') {
-        return Promise.reject(requestAborted.rejectionReason)
+      // Signal isn't always defined in react-native.
+      if (signal) {
+        signal.addEventListener(
+          'abort',
+          () => {
+            requestAborted.reject(signal.reason)
+          },
+          { once: true }
+        )
       }
 
-      if (resolverResult.error) {
-        return Promise.reject(createNetworkError(resolverResult.error))
-      }
-
-      const mockedResponse = resolverResult.data
-
-      if (mockedResponse && !request.signal?.aborted) {
-        this.logger.info('received mocked response:', mockedResponse)
-
-        // Reject the request Promise on mocked "Response.error" responses.
-        if (
-          isPropertyAccessible(mockedResponse, 'type') &&
-          mockedResponse.type === 'error'
-        ) {
-          this.logger.info(
-            'received a network error response, rejecting the request promise...'
-          )
-
-          /**
-           * Set the cause of the request promise rejection to the
-           * network error Response instance. This different from Undici.
-           * Undici will forward the "response.error" custom property
-           * as the rejection reason but for "Response.error()" static method
-           * "response.error" will equal to undefined, making "cause" an empty Error.
-           * @see https://github.com/nodejs/undici/blob/83cb522ae0157a19d149d72c7d03d46e34510d0a/lib/fetch/response.js#L344
-           */
-          return Promise.reject(createNetworkError(mockedResponse))
-        }
-
-        const responseClone = mockedResponse.clone()
+      const respondWith = (response: Response): Response => {
+        // Clone the mocked response for the "response" event listener.
+        // This way, the listener can read the response and not lock its body
+        // for the actual fetch consumer.
+        const responseClone = response.clone()
 
         this.emitter.emit('response', {
           response: responseClone,
@@ -131,8 +100,6 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           request: interactiveRequest,
           requestId,
         })
-
-        const response = new Response(mockedResponse.body, mockedResponse)
 
         // Set the "response.url" property to equal the intercepted request URL.
         Object.defineProperty(response, 'url', {
@@ -143,6 +110,78 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         })
 
         return response
+      }
+
+      const resolverResult = await until<unknown, Response | undefined>(
+        async () => {
+          const listenersFinished = emitAsync(this.emitter, 'request', {
+            request: interactiveRequest,
+            requestId,
+          })
+
+          await Promise.race([
+            requestAborted,
+            // Put the listeners invocation Promise in the same race condition
+            // with the request abort Promise because otherwise awaiting the listeners
+            // would always yield some response (or undefined).
+            listenersFinished,
+            requestController.responsePromise,
+          ])
+
+          this.logger.info('all request listeners have been resolved!')
+
+          const mockedResponse = await requestController.responsePromise
+          this.logger.info('event.respondWith called with:', mockedResponse)
+
+          return mockedResponse
+        }
+      )
+
+      if (requestAborted.state === 'rejected') {
+        return Promise.reject(requestAborted.rejectionReason)
+      }
+
+      if (resolverResult.error) {
+        // Treat thrown Responses as mocked responses.
+        if (resolverResult.error instanceof Response) {
+          // Treat thrown Response.error() as a request error.
+          if (isResponseError(resolverResult.error)) {
+            return Promise.reject(createNetworkError(resolverResult.error))
+          }
+
+          // Treat the rest of thrown Responses as mocked responses.
+          return respondWith(resolverResult.error)
+        }
+
+        // Unhandled exceptions in the request listeners are
+        // synonymous to unhandled exceptions on the server.
+        // Those are represented as 500 error responses.
+        return createServerErrorResponse(resolverResult.error)
+      }
+
+      const mockedResponse = resolverResult.data
+
+      if (mockedResponse && !request.signal?.aborted) {
+        this.logger.info('received mocked response:', mockedResponse)
+
+        // Reject the request Promise on mocked "Response.error" responses.
+        if (isResponseError(mockedResponse)) {
+          this.logger.info(
+            'received a network error response, rejecting the request promise...'
+          )
+
+          /**
+           * Set the cause of the request promise rejection to the
+           * network error Response instance. This differs from Undici.
+           * Undici will forward the "response.error" custom property
+           * as the rejection reason but for "Response.error()" static method
+           * "response.error" will equal to undefined, making "cause" an empty Error.
+           * @see https://github.com/nodejs/undici/blob/83cb522ae0157a19d149d72c7d03d46e34510d0a/lib/fetch/response.js#L344
+           */
+          return Promise.reject(createNetworkError(mockedResponse))
+        }
+
+        return respondWith(mockedResponse)
       }
 
       this.logger.info('no mocked response received!')

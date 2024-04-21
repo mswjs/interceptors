@@ -1,17 +1,18 @@
 import { it, expect } from 'vitest'
 import { isObject } from './isObject'
 
-it('resolves given an object', () => {
+it('returns true given an object', () => {
   expect(isObject({})).toBe(true)
   expect(isObject({ a: 1 })).toBe(true)
 })
 
-it('rejects given an object-like instance', () => {
+it('returns false given an object-like instance', () => {
   expect(isObject([1])).toBe(false)
   expect(isObject(function () {})).toBe(false)
+  expect(isObject(new Response())).toBe(false)
 })
 
-it('rejects given a non-object instance', () => {
+it('returns false given a non-object instance', () => {
   expect(isObject(null)).toBe(false)
   expect(isObject(undefined)).toBe(false)
   expect(isObject(false)).toBe(false)

@@ -5,6 +5,12 @@
  */
 import { beforeAll, afterAll, it, expect } from 'vitest'
 import axios from 'axios'
+/**
+ * @note Use `Response` from Undici because "happy-dom"
+ * does not implement ReadableStream at all. They use
+ * Node's Readable instead, which is completely incompatible.
+ */
+import { Response as UndiciResponse } from 'undici'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 
 const request = axios.create({
@@ -24,7 +30,9 @@ afterAll(() => {
 
 it('performs a request with the "xhr" axios adapter', async () => {
   interceptor.once('request', ({ request }) => {
-    request.respondWith(new Response('Hello world'))
+    request.respondWith(
+      new UndiciResponse('Hello world') as unknown as Response
+    )
   })
 
   const res = await request('/resource')

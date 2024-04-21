@@ -11,8 +11,9 @@ import {
 import { createProxy } from '../../utils/createProxy'
 import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
-import { uuidv4 } from '../../utils/uuid'
 import { createResponse } from './utils/createResponse'
+import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
+import { createRequestId } from '../../createRequestId'
 
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
 const IS_NODE = isNodeProcess()
@@ -48,9 +49,12 @@ export class XMLHttpRequestController {
   private responseBuffer: Uint8Array
   private events: Map<keyof XMLHttpRequestEventTargetEventMap, Array<Function>>
 
-  constructor(readonly initialRequest: XMLHttpRequest, public logger: Logger) {
+  constructor(
+    readonly initialRequest: XMLHttpRequest,
+    public logger: Logger
+  ) {
     this.events = new Map()
-    this.requestId = uuidv4()
+    this.requestId = createRequestId()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
 
@@ -99,7 +103,7 @@ export class XMLHttpRequestController {
           case 'addEventListener': {
             const [eventName, listener] = args as [
               keyof XMLHttpRequestEventTargetEventMap,
-              Function
+              Function,
             ]
 
             this.registerEvent(eventName, listener)
@@ -119,7 +123,7 @@ export class XMLHttpRequestController {
 
           case 'send': {
             const [body] = args as [
-              body?: XMLHttpRequestBodyInit | Document | null
+              body?: XMLHttpRequestBodyInit | Document | null,
             ]
 
             if (body != null) {
@@ -180,7 +184,10 @@ export class XMLHttpRequestController {
                  * handle the same request at the same time (e.g. emit the "response" event twice).
                  */
                 if (IS_NODE) {
-                  this.request.setRequestHeader('X-Request-Id', this.requestId!)
+                  this.request.setRequestHeader(
+                    INTERNAL_REQUEST_ID_HEADER_NAME,
+                    this.requestId!
+                  )
                 }
 
                 return invoke()
@@ -517,7 +524,7 @@ export class XMLHttpRequestController {
   private trigger<
     EventName extends keyof (XMLHttpRequestEventTargetEventMap & {
       readystatechange: ProgressEvent<XMLHttpRequestEventTarget>
-    })
+    }),
   >(eventName: EventName, options?: ProgressEventInit): void {
     const callback = this.request[`on${eventName}`]
     const event = createEvent(this.request, eventName, options)
@@ -559,7 +566,7 @@ export class XMLHttpRequestController {
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
       body: ['GET', 'HEAD'].includes(this.method)
         ? null
-        : (this.requestBody as any),
+        : (this.requestBody as BodyInit),
     })
 
     const proxyHeaders = createProxy(fetchRequest.headers, {

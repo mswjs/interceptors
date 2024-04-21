@@ -2,15 +2,12 @@
 
 # `@mswjs/interceptors`
 
-Low-level HTTP/HTTPS/XHR/fetch request interception library.
+Low-level network interception library.
 
-**Intercepts any requests issued by:**
+This library supports intercepting the following protocols:
 
-- `http.get`/`http.request`
-- `https.get`/`https.request`
-- `XMLHttpRequest`
-- `window.fetch`
-- Any third-party libraries that use the modules above (i.e. `axios`, `request`, `node-fetch`, `supertest`, etc.)
+- HTTP (via the `http` module, `XMLHttpRequest`, or `globalThis.fetch`);
+- [WebSocket](#websocket-interception) (the `WebSocket` class in Undici and in the browser).
 
 ## Motivation
 
@@ -290,6 +287,163 @@ interceptor.on(
 ```
 
 > Note that the `isMockedResponse` property will only be set to `true` if you resolved this request in the "request" event listener using the `request.respondWith()` method and providing a mocked `Response` instance.
+
+## WebSocket interception
+
+You can intercept a WebSocket communication using the `WebSocketInterceptor` class.
+
+> [!IMPORTANT]
+> This library only supports intercepting WebSocket connections created using the global WHATWG `WebSocket` class. Third-party transports, such as HTTP/XHR polling, are not supported by design due to their contrived nature.
+
+```js
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+
+const interceptor = new WebSocketInterceptor()
+```
+
+Unlike the HTTP-based interceptors that share the same `request`/`response` events, the WebSocket interceptor only emits the `connection` event and let's you handle the incoming/outgoing events in its listener.
+
+### Important defaults
+
+1. Intercepted WebSocket connections are _not opened_. To open the actual WebSocket connection, call [`server.connect()`](#connect) in the interceptor.
+1. Once connected to the actual server, the outgoing client events are _forwarded to that server by default_. If you wish to prevent a client message from reaching the server, call `event.preventDefault()` for that client message event.
+1. Once connected to the actual server, the incoming server events are _forwarded to the client by default_. If you wish to prevent a server message from reaching the client, call `event.preventDefault()` for the server message event.
+1. Once connected to the actual server, the `close` event received from that server is _forwarded to the client by default_. If you wish to prevent that, call `event.preventDefault()` for that close event of the server.
+
+### WebSocket connection
+
+Whenever a WebSocket instance is constructed, the `connection` event is emitted on the WebSocket interceptor.
+
+```js
+intereceptor.on('connection', ({ client }) => {
+  console.log(client.url)
+})
+```
+
+The `connection` event exposes the following arguments:
+
+| Name     | Type                                                      | Description                                                      |
+| -------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
+| `client` | [`WebSocketClientConnection`](#websocketclientconnection) | An object representing a connected WebSocket client instance.    |
+| `server` | [`WebSocketServerConnection`](#websocketserverconnection) | An object representing the original WebSocket server connection. |
+
+### `WebSocketClientConnection`
+
+#### `.addEventListener(type, listener)`
+
+- `type`, `string`
+- `listener`, `EventListener`
+
+Adds an event listener to the given event type of the WebSocket client.
+
+```ts
+interface WebSocketServerConnectionEventMap {
+  // Dispatched when the WebSocket client sends data.
+  message: (this: WebSocket, event: MessageEvent<WebSocketData>) => void
+
+  // Dispatched when the WebSocket client is closed.
+  close: (this: WebSocket, event: CloseEvent) => void
+}
+```
+
+```js
+client.addEventListener('message', (event) => {
+  console.log('outgoing:', event.data)
+})
+```
+
+#### `.removeEventListener(type, listener)`
+
+- `type`, `string`
+- `listener`, `EventListener`
+
+Removes the listener for the given event type.
+
+#### `.send(data)`
+
+- `data`, `string | Blob | ArrayBuffer`
+
+Sends the data to the intercepted WebSocket client.
+
+```js
+client.send('text')
+client.send(new Blob(['blob']))
+client.send(new TextEncoder().encode('array buffer'))
+```
+
+#### `.close(code, reason)`
+
+- `code`, close [status code](https://www.rfc-editor.org/rfc/rfc6455#section-7.4.1).
+- `reason`, [close reason](https://www.rfc-editor.org/rfc/rfc6455#section-7.1.6).
+
+Closes the client connection. Unlike the regular `WebSocket.prototype.close()`, the `client.close()` method can accept a non-configurable status codes, such as 1001, 1003, etc.
+
+```js
+// Gracefully close the connection with the
+// intercepted WebSocket client.
+client.close()
+```
+
+```js
+// Terminate the connection by emulating
+// the server unable to process the received data.
+client.close(1003)
+```
+
+### `WebSocketServerConnection`
+
+#### `.connect()`
+
+Establishes the connection to the original WebSocket server. Connection cannot be awaited. Any data sent via `server.send()` while connecting is buffered and flushed once the connection is open.
+
+#### `.addEventListener(type, listener)`
+
+- `type`, `string`
+- `listener`, `EventListener`
+
+Adds an event listener to the given event type of the WebSocket server.
+
+```ts
+interface WebSocketServerConnectionEventMap {
+  // Dispatched when the server connection is open.
+  open: (this: WebSocket, event: Event) => void
+
+  // Dispatched when the server sends data to the client.
+  message: (this: WebSocket, event: MessageEvent<WebSocketData>) => void
+
+  // Dispatched when the server connection closes.
+  close: (this: WebSocket, event: CloseEvent) => void
+}
+```
+
+```js
+server.addEventListener('message', (event) => {
+  console.log('incoming:', event.data)
+})
+```
+
+#### `.removeEventListener(type, listener)`
+
+- `type`, `string`
+- `listener`, `EventListener`
+
+Removes the listener for the given event type.
+
+#### `.send(data)`
+
+- `data`, `string | Blob | ArrayBuffer`
+
+Sends the data to the original WebSocket server. Useful in a combination with the client-sent events forwarding:
+
+```js
+client.addEventListener('message', (event) => {
+  server.send(event.data)
+})
+```
+
+#### `.close()`
+
+Closes the connection with the original WebSocket server. Unlike `client.close()`, closing the server connection does not accept any arguments and always asumes a graceful closure. Sending data via `server.send()` after the connection has been closed will have no effect.
 
 ## API
 

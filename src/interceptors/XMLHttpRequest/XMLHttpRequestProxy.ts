@@ -4,6 +4,10 @@ import { XMLHttpRequestEmitter } from '.'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
+import {
+  createServerErrorResponse,
+  isResponseError,
+} from '../../utils/responseUtils'
 
 export interface XMLHttpRequestProxyOptions {
   emitter: XMLHttpRequestEmitter
@@ -23,7 +27,11 @@ export function createXMLHttpRequestProxy({
     construct(target, args, newTarget) {
       logger.info('constructed new XMLHttpRequest')
 
-      const originalRequest = Reflect.construct(target, args, newTarget)
+      const originalRequest = Reflect.construct(
+        target,
+        args,
+        newTarget
+      ) as XMLHttpRequest
 
       /**
        * @note Forward prototype descriptors onto the proxied object.
@@ -90,12 +98,23 @@ export function createXMLHttpRequestProxy({
             resolverResult.error
           )
 
-          /**
-           * @todo Consider forwarding this error to the stderr as well
-           * since not all consumers are expecting to handle errors.
-           * If they don't, this error will be swallowed.
-           */
-          xhrRequestController.errorWith(resolverResult.error)
+          // Treat thrown Responses as mocked responses.
+          if (resolverResult.error instanceof Response) {
+            if (isResponseError(resolverResult.error)) {
+              xhrRequestController.errorWith(new TypeError('Network error'))
+            } else {
+              this.respondWith(resolverResult.error)
+            }
+
+            return
+          }
+          // Unhandled exceptions in the request listeners are
+          // synonymous to unhandled exceptions on the server.
+          // Those are represented as 500 error responses.
+          xhrRequestController.respondWith(
+            createServerErrorResponse(resolverResult.error)
+          )
+
           return
         }
 
@@ -108,7 +127,7 @@ export function createXMLHttpRequestProxy({
             mockedResponse.statusText
           )
 
-          if (mockedResponse.type === 'error') {
+          if (isResponseError(mockedResponse)) {
             this.logger.info(
               'received a network error response, rejecting the request promise...'
             )

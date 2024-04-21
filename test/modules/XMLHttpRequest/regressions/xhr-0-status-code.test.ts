@@ -8,10 +8,6 @@ import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-interceptor.on('request', () => {
-  throw new Error('Network error')
-})
-
 beforeAll(() => {
   interceptor.apply()
 })
@@ -20,13 +16,13 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('does not construct a Response when the request fails', async () => {
-  const responseListener = vi.fn()
+it('handles Response.error() as a request error', async () => {
+  interceptor.once('request', ({ request }) => {
+    request.respondWith(Response.error())
+  })
+
   const loadListener = vi.fn()
   const errorListener = vi.fn()
-
-  interceptor.on('response', responseListener)
-
   const request = await createXMLHttpRequest((request) => {
     request.open('GET', 'http://localhost')
     request.addEventListener('load', loadListener)
@@ -35,9 +31,29 @@ it('does not construct a Response when the request fails', async () => {
   })
 
   expect(request.status).toBe(0)
-  expect(request.statusText).toBe('')
   expect(request.readyState).toBe(4)
-  expect(responseListener).not.toHaveBeenCalled()
-  expect(loadListener).not.toHaveBeenCalled()
+  expect(request.response).toBe('')
+  expect(loadListener).not.toBeCalled()
   expect(errorListener).toHaveBeenCalledTimes(1)
+})
+
+it('handles interceptor exceptions as 500 error responses', async () => {
+  interceptor.once('request', () => {
+    throw new Error('Network error')
+  })
+
+  const request = await createXMLHttpRequest((request) => {
+    request.responseType = 'json'
+    request.open('GET', 'http://localhost')
+    request.send()
+  })
+
+  expect(request.status).toBe(500)
+  expect(request.statusText).toBe('Unhandled Exception')
+  expect(request.readyState).toBe(4)
+  expect(request.response).toEqual({
+    name: 'Error',
+    message: 'Network error',
+    stack: expect.any(String),
+  })
 })

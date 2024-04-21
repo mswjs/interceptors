@@ -48,8 +48,12 @@ interceptor.on('request', ({ request }) => {
     )
   }
 
-  if (request.url === 'https://error.me/') {
-    throw new Error('Custom exception message')
+  if (request.url.endsWith('/network-error')) {
+    return request.respondWith(Response.error())
+  }
+
+  if (request.url.endsWith('/exception')) {
+    throw new Error('Custom message')
   }
 })
 
@@ -126,10 +130,10 @@ it('responds to an HTTP request to a relative URL that is handled in the middlew
   expect(req.responseURL).toEqual(httpServer.https.url('/login'))
 })
 
-it('produces a request error when the middleware throws an exception', async () => {
+it('produces a request error for a mocked Response.error() response', async () => {
   const errorListener = vi.fn()
   const req = await createXMLHttpRequest((req) => {
-    req.open('GET', 'https://error.me')
+    req.open('GET', 'http://localhost/network-error')
     req.addEventListener('error', errorListener)
     req.send()
   })
@@ -142,6 +146,22 @@ it('produces a request error when the middleware throws an exception', async () 
 
   // Request must still exist.
   expect(req.status).toBe(0)
+})
+
+it('produces a 500 response for an unhandled exception in the interceptor', async () => {
+  const request = await createXMLHttpRequest((request) => {
+    request.responseType = 'json'
+    request.open('GET', 'http://localhost/exception')
+    request.send()
+  })
+
+  expect(request.status).toBe(500)
+  expect(request.statusText).toBe('Unhandled Exception')
+  expect(request.response).toEqual({
+    name: 'Error',
+    message: 'Custom message',
+    stack: expect.any(String),
+  })
 })
 
 it('does not propagate the forbidden "cookie" header on the bypassed response', async () => {

@@ -11,11 +11,6 @@ import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { sleep } from '../../../test/helpers'
 import { HttpRequestEventMap } from '../../glossary'
 
-interface ErrorConnectionRefused extends NodeJS.ErrnoException {
-  address: string
-  port: number
-}
-
 const httpServer = new HttpServer((app) => {
   app.post('/comment', (_req, res) => {
     res.status(200).send('original-response')

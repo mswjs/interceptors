@@ -34,10 +34,9 @@ afterAll(() => {
 })
 
 test('responds to fetch', async () => {
-  const res = await fetch('https://example.com')
-  const body = await res.text()
-  expect(res.status).toEqual(200)
-  expect(body).toEqual('mocked-body')
+  const response = await fetch('https://example.com')
+  expect(response.status).toEqual(200)
+  expect(await response.text()).toEqual('mocked-body')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
@@ -57,12 +56,20 @@ test('throws when responding with a network error', async () => {
   requestListener.mockImplementationOnce(({ request }) => {
     /**
      * @note "Response.error()" static method is NOT implemented in Miniflare.
-     * This expression will throw, resulting in a request error.
+     * This expression will throw.
      */
     request.respondWith(Response.error())
   })
 
-  await expect(() => httpGet('http://example.com')).rejects.toThrow(
-    'Response.error is not a function'
-  )
+  const { res, resBody } = await httpGet('http://example.com')
+
+  // Unhandled exceptions in the interceptor are coerced
+  // to 500 error responses.
+  expect(res.statusCode).toEqual(500)
+  expect(res.statusMessage).toEqual('Unhandled Exception')
+  expect(JSON.parse(resBody)).toEqual({
+    name: 'TypeError',
+    message: 'Response.error is not a function',
+    stack: expect.any(String),
+  })
 })

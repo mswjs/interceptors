@@ -12,6 +12,7 @@ const nodeConfig: Options = {
   outDir: './lib/node',
   platform: 'node',
   format: ['cjs', 'esm'],
+  sourcemap: true,
   dts: true,
 }
 
@@ -21,10 +22,12 @@ const browserConfig: Options = {
     './src/presets/browser.ts',
     './src/interceptors/XMLHttpRequest/index.ts',
     './src/interceptors/fetch/index.ts',
+    './src/interceptors/WebSocket/index.ts',
   ],
   outDir: './lib/browser',
   platform: 'browser',
   format: ['cjs', 'esm'],
+  sourcemap: true,
   dts: true,
 }
 

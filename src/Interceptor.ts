@@ -1,8 +1,18 @@
 import { Logger } from '@open-draft/logger'
-import { Emitter, EventMap, Listener } from 'strict-event-emitter'
+import { Emitter, Listener } from 'strict-event-emitter'
 
 export type InterceptorEventMap = Record<string, any>
 export type InterceptorSubscription = () => void
+
+/**
+ * Request header name to detect when a single request
+ * is being handled by nested interceptors (XHR -> ClientRequest).
+ * Obscure by design to prevent collisions with user-defined headers.
+ * Ideally, come up with the Interceptor-level mechanism for this.
+ * @see https://github.com/mswjs/interceptors/issues/378
+ */
+export const INTERNAL_REQUEST_ID_HEADER_NAME =
+  'x-interceptors-internal-request-id'
 
 export function getGlobalSymbol<V>(symbol: Symbol): V | undefined {
   return (

@@ -1,4 +1,4 @@
-import { ClientRequest, IncomingMessage } from 'http'
+import { ClientRequest, IncomingMessage, STATUS_CODES } from 'node:http'
 import type { Logger } from '@open-draft/logger'
 import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'
@@ -17,10 +17,15 @@ import { cloneIncomingMessage } from './utils/cloneIncomingMessage'
 import { createResponse } from './utils/createResponse'
 import { createRequest } from './utils/createRequest'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
-import { uuidv4 } from '../../utils/uuid'
 import { emitAsync } from '../../utils/emitAsync'
 import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
-import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
+import { isNodeLikeError } from '../../utils/isNodeLikeError'
+import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
+import { createRequestId } from '../../createRequestId'
+import {
+  createServerErrorResponse,
+  isResponseError,
+} from '../../utils/responseUtils'
 
 export type Protocol = 'http' | 'https'
 
@@ -151,7 +156,7 @@ export class NodeClientRequest extends ClientRequest {
   end(...args: any): this {
     this.logger.info('end', args)
 
-    const requestId = uuidv4()
+    const requestId = createRequestId()
 
     const [chunk, encoding, callback] = normalizeClientRequestEndArgs(...args)
     this.logger.info('normalized arguments:', { chunk, encoding, callback })
@@ -189,8 +194,8 @@ export class NodeClientRequest extends ClientRequest {
     // in another (parent) interceptor (like XMLHttpRequest -> ClientRequest).
     // That means some interceptor up the chain has concluded that
     // this request must be performed as-is.
-    if (this.getHeader('X-Request-Id') != null) {
-      this.removeHeader('X-Request-Id')
+    if (this.hasHeader(INTERNAL_REQUEST_ID_HEADER_NAME)) {
+      this.removeHeader(INTERNAL_REQUEST_ID_HEADER_NAME)
       return this.passthrough(chunk, encoding, callback)
     }
 
@@ -218,7 +223,7 @@ export class NodeClientRequest extends ClientRequest {
 
     // Execute the resolver Promise like a side-effect.
     // Node.js 16 forces "ClientRequest.end" to be synchronous and return "this".
-    until(async () => {
+    until<unknown, Response | undefined>(async () => {
       // Notify the interceptor about the request.
       // This will call any "request" listeners the users have.
       this.logger.info(
@@ -258,16 +263,40 @@ export class NodeClientRequest extends ClientRequest {
         }
       }
 
-      // Halt the request whenever the resolver throws an exception.
       if (resolverResult.error) {
         this.logger.info(
-          'encountered resolver exception, aborting request...',
+          'unhandled resolver exception, coercing to an error response...',
           resolverResult.error
         )
 
-        this.destroyed = true
-        this.emit('error', resolverResult.error)
-        this.terminate()
+        // Handle thrown Response instances.
+        if (resolverResult.error instanceof Response) {
+          // Treat thrown Response.error() as a request error.
+          if (isResponseError(resolverResult.error)) {
+            this.logger.info(
+              'received network error response, erroring request...'
+            )
+
+            this.errorWith(new TypeError('Network error'))
+          } else {
+            // Handle a thrown Response as a mocked response.
+            this.respondWith(resolverResult.error)
+          }
+
+          return
+        }
+
+        // Allow throwing Node.js-like errors, like connection rejection errors.
+        // Treat them as request errors.
+        if (isNodeLikeError(resolverResult.error)) {
+          this.errorWith(resolverResult.error)
+          return this
+        }
+
+        // Unhandled exceptions in the request listeners are
+        // synonymous to unhandled exceptions on the server.
+        // Those are represented as 500 error responses.
+        this.respondWith(createServerErrorResponse(resolverResult.error))
 
         return this
       }
@@ -288,26 +317,16 @@ export class NodeClientRequest extends ClientRequest {
         this.destroyed = false
 
         // Handle mocked "Response.error" network error responses.
-        if (
-          /**
-           * @note Some environments, like Miniflare (Cloudflare) do not
-           * implement the "Response.type" property and throw on its access.
-           * Safely check if we can access "type" on "Response" before continuing.
-           * @see https://github.com/mswjs/msw/issues/1834
-           */
-          isPropertyAccessible(mockedResponse, 'type') &&
-          mockedResponse.type === 'error'
-        ) {
+        if (isResponseError(mockedResponse)) {
           this.logger.info(
-            'received network error response, aborting request...'
+            'received network error response, erroring request...'
           )
 
           /**
            * There is no standardized error format for network errors
            * in Node.js. Instead, emit a generic TypeError.
            */
-          this.emit('error', new TypeError('Network error'))
-          this.terminate()
+          this.errorWith(new TypeError('Network error'))
 
           return this
         }
@@ -501,7 +520,7 @@ export class NodeClientRequest extends ClientRequest {
 
     const { status, statusText, headers, body } = mockedResponse
     this.response.statusCode = status
-    this.response.statusMessage = statusText
+    this.response.statusMessage = statusText || STATUS_CODES[status]
 
     // Try extracting the raw headers from the headers instance.
     // If not possible, fallback to the headers instance as-is.
@@ -578,6 +597,12 @@ export class NodeClientRequest extends ClientRequest {
 
       this.logger.info('request complete!')
     })
+  }
+
+  private errorWith(error: Error): void {
+    this.destroyed = true
+    this.emit('error', error)
+    this.terminate()
   }
 
   /**

@@ -2,7 +2,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { UUID_REGEXP, waitForClientRequest } from '../../../helpers'
+import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
 
 const httpServer = new HttpServer((app) => {
@@ -45,14 +45,14 @@ it('intercepts an http.get request', async () => {
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toContain({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
   expect(await text()).toBe('user-body')
@@ -81,7 +81,7 @@ it('intercepts an http.get request given RequestOptions without a protocol', asy
   expect(request.body).toBe(null)
   expect(request.respondWith).toBeInstanceOf(Function)
 
-  expect(requestId).toMatch(UUID_REGEXP)
+  expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
   expect(await text()).toBe('user-body')
