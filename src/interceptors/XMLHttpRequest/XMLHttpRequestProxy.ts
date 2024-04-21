@@ -5,6 +5,7 @@ import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
 import { createServerErrorResponse } from '../../utils/responseUtils'
+import { RequestError } from '../../utils/RequestError'
 
 export interface XMLHttpRequestProxyOptions {
   emitter: XMLHttpRequestEmitter
@@ -100,6 +101,13 @@ export function createXMLHttpRequestProxy({
             this.respondWith(resolverResult.error)
             return
           }
+
+          // Support explicit request errors.
+          if (resolverResult.error instanceof RequestError) {
+            this.errorWith(resolverResult.error)
+            return
+          }
+
           // Unhandled exceptions in the request listeners are
           // synonymous to unhandled exceptions on the server.
           // Those are represented as 500 error responses.

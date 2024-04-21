@@ -24,6 +24,7 @@ import { isNodeLikeError } from '../../utils/isNodeLikeError'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { createRequestId } from '../../createRequestId'
 import { createServerErrorResponse } from '../../utils/responseUtils'
+import { RequestError } from '../../utils/RequestError'
 
 export type Protocol = 'http' | 'https'
 
@@ -270,12 +271,16 @@ export class NodeClientRequest extends ClientRequest {
         // Treat thrown Responses as mocked responses.
         if (resolverResult.error instanceof Response) {
           this.respondWith(resolverResult.error)
-          return
+          return this
         }
 
         // Allow throwing Node.js-like errors, like connection rejection errors.
         // Treat them as request errors.
-        if (isNodeLikeError(resolverResult.error)) {
+        // Also allow throwing an explicit "RequestError" instance.
+        if (
+          isNodeLikeError(resolverResult.error) ||
+          resolverResult.error instanceof RequestError
+        ) {
           this.errorWith(resolverResult.error)
           return this
         }

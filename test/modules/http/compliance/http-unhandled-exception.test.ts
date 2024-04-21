@@ -5,7 +5,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
-import { DeferredPromise } from '@open-draft/deferred-promise'
+import { RequestError } from '../../../../src'
 
 const interceptor = new ClientRequestInterceptor()
 
@@ -48,5 +48,21 @@ it('treats unhandled interceptor errors as 500 responses', async () => {
     name: 'Error',
     message: 'Custom error',
     stack: expect.any(String),
+  })
+})
+
+it('treats a thrown RequestError as a request error', async () => {
+  const requestError = new RequestError('Error message')
+
+  interceptor.on('request', () => {
+    throw requestError
+  })
+
+  const requestErrorListener = vi.fn()
+  const request = http.get('http://localhost/resource')
+  request.on('error', requestErrorListener)
+
+  await vi.waitFor(() => {
+    expect(requestErrorListener).toHaveBeenNthCalledWith(1, requestError)
   })
 })

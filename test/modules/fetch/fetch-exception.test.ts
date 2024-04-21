@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { RequestError } from '../../../src'
 import { FetchInterceptor } from '../../../src/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
@@ -60,4 +61,21 @@ it('treats Response.error() as a network error', async () => {
   expect(requestError.name).toBe('TypeError')
   expect(requestError.message).toBe('Failed to fetch')
   expect(requestError.cause).toBeInstanceOf(Response)
+})
+
+it('treats RequestError as a request error', async () => {
+  const requestError = new RequestError('Error message')
+  interceptor.on('request', () => {
+    throw requestError
+  })
+
+  const error = await fetch('http://localhost:3001/resource')
+    .then(() => {
+      throw new Error('Must not resolve')
+    })
+    .catch<TypeError & { cause?: unknown }>((error) => error)
+
+  expect(error.name).toBe('TypeError')
+  expect(error.message).toBe('Failed to fetch')
+  expect(error.cause).toEqual(requestError)
 })

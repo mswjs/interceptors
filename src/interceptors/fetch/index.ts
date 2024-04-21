@@ -9,6 +9,7 @@ import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { canParseUrl } from '../../utils/canParseUrl'
 import { createRequestId } from '../../createRequestId'
 import { createServerErrorResponse } from '../../utils/responseUtils'
+import { RequestError } from '../../utils/RequestError'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -143,6 +144,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         // Treat thrown Responses as mocked responses.
         if (resolverResult.error instanceof Response) {
           return respondWith(resolverResult.error)
+        }
+
+        // Support explicit request errors.
+        if (resolverResult.error instanceof RequestError) {
+          return Promise.reject(createNetworkError(resolverResult.error))
         }
 
         // Unhandled exceptions in the request listeners are

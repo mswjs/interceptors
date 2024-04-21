@@ -6,6 +6,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import axios from 'axios'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
+import { RequestError } from '../../../../src'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -81,6 +82,25 @@ it('treats a thrown Response instance as a mocked response', async () => {
 it('treats Response.error() as a network error', async () => {
   interceptor.on('request', ({ request }) => {
     request.respondWith(Response.error())
+  })
+
+  const requestErrorListener = vi.fn()
+  const request = await createXMLHttpRequest((request) => {
+    request.responseType = 'text'
+    request.open('GET', 'http://localhost/api')
+    request.addEventListener('error', requestErrorListener)
+    request.send()
+  })
+
+  expect(request.status).toBe(0)
+  expect(requestErrorListener).toHaveBeenCalledTimes(1)
+})
+
+it('treats RequestError as a request error', async () => {
+  const requestError = new RequestError('Error message')
+
+  interceptor.on('request', () => {
+    throw requestError
   })
 
   const requestErrorListener = vi.fn()
