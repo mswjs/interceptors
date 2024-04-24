@@ -1,4 +1,4 @@
-import { it, expect, describe } from 'vitest'
+import { it, expect } from 'vitest'
 import { Agent as HttpAgent } from 'http'
 import { RequestOptions, Agent as HttpsAgent } from 'https'
 import { getUrlByRequestOptions } from './getUrlByRequestOptions'
