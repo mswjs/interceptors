@@ -4,7 +4,10 @@ import { XMLHttpRequestEmitter } from '.'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
-import { createServerErrorResponse } from '../../utils/responseUtils'
+import {
+  createServerErrorResponse,
+  isResponseError,
+} from '../../utils/responseUtils'
 
 export interface XMLHttpRequestProxyOptions {
   emitter: XMLHttpRequestEmitter
@@ -97,7 +100,12 @@ export function createXMLHttpRequestProxy({
 
           // Treat thrown Responses as mocked responses.
           if (resolverResult.error instanceof Response) {
-            this.respondWith(resolverResult.error)
+            if (isResponseError(resolverResult.error)) {
+              xhrRequestController.errorWith(new TypeError('Network error'))
+            } else {
+              this.respondWith(resolverResult.error)
+            }
+
             return
           }
           // Unhandled exceptions in the request listeners are
@@ -119,7 +127,7 @@ export function createXMLHttpRequestProxy({
             mockedResponse.statusText
           )
 
-          if (mockedResponse.type === 'error') {
+          if (isResponseError(mockedResponse)) {
             this.logger.info(
               'received a network error response, rejecting the request promise...'
             )

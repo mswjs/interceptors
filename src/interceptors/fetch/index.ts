@@ -5,10 +5,12 @@ import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { emitAsync } from '../../utils/emitAsync'
-import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { canParseUrl } from '../../utils/canParseUrl'
 import { createRequestId } from '../../createRequestId'
-import { createServerErrorResponse } from '../../utils/responseUtils'
+import {
+  createServerErrorResponse,
+  isResponseError,
+} from '../../utils/responseUtils'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -142,6 +144,12 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       if (resolverResult.error) {
         // Treat thrown Responses as mocked responses.
         if (resolverResult.error instanceof Response) {
+          // Treat thrown Response.error() as a request error.
+          if (isResponseError(resolverResult.error)) {
+            return Promise.reject(createNetworkError(resolverResult.error))
+          }
+
+          // Treat the rest of thrown Responses as mocked responses.
           return respondWith(resolverResult.error)
         }
 
@@ -157,10 +165,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         this.logger.info('received mocked response:', mockedResponse)
 
         // Reject the request Promise on mocked "Response.error" responses.
-        if (
-          isPropertyAccessible(mockedResponse, 'type') &&
-          mockedResponse.type === 'error'
-        ) {
+        if (isResponseError(mockedResponse)) {
           this.logger.info(
             'received a network error response, rejecting the request promise...'
           )
