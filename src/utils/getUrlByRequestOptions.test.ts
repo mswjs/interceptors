@@ -130,37 +130,34 @@ it('use "hostname" if both "hostname" and "host" are specified', () => {
     path: '/resource',
   }
 
-  // TODO: we should ignore the port
   expect(getUrlByRequestOptions(options).href).toBe(
     'https://hostname/resource'
   )
 })
 
-describe('IP v6', () => {
-  it('supports "host"', () => {
-    expect(
-      getUrlByRequestOptions({
-        host: '::1',
-        path: '/resource',
-      }).href
-    ).toBe('http://[::1]/resource')
+it('parses "host" in IPv6', () => {
+  expect(
+    getUrlByRequestOptions({
+      host: '::1',
+      path: '/resource',
+    }).href
+  ).toBe('http://[::1]/resource')
 
-    expect(
-      getUrlByRequestOptions({
-        host: '[::1]',
-        path: '/resource',
-      }).href
-    ).toBe('http://[::1]/resource')
+  expect(
+    getUrlByRequestOptions({
+      host: '[::1]',
+      path: '/resource',
+    }).href
+  ).toBe('http://[::1]/resource')
 
-  })
+})
 
-  it('support "host" and "port"', () => {
-    expect(
-      getUrlByRequestOptions({
-        host: '::1',
-        port: 3001,
-        path: '/resource',
-      }).href
-    ).toBe('http://[::1]:3001/resource')
-  })
+it('parses "host" and "port" in IPv6', () => {
+  expect(
+    getUrlByRequestOptions({
+      host: '::1',
+      port: 3001,
+      path: '/resource',
+    }).href
+  ).toBe('http://[::1]:3001/resource')
 })
