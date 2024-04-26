@@ -63,25 +63,26 @@ it('performs request as-is if "unhandledException" listener is provided but does
   const requestErrorListener = vi.fn()
   request.on('error', requestErrorListener)
 
-  // Must emit the "unhandledException" interceptor event.
-  await vi.waitFor(() => {
-    expect(unhandledExceptionListener).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: new Error('Custom error'),
-      })
-    )
-  })
+  const { res, text } = await waitForClientRequest(request)
 
-  // Since the interceptor didn't handle the exception,
-  // it got swallowed. The request will continue as-is,
-  // and since it requests non-existing resource, it will error.
-  expect(requestErrorListener).toHaveBeenCalledWith(
+  // Must emit the "unhandledException" interceptor event.
+  expect(unhandledExceptionListener).toHaveBeenCalledWith(
     expect.objectContaining({
-      code: 'ECONNREFUSED',
-      address: '::1',
-      port: 80,
+      error: new Error('Custom error'),
     })
   )
+  expect(unhandledExceptionListener).toHaveBeenCalledOnce()
+
+  // Since the "unhandledException" listener didn't handle the
+  // exception, it will be translated to the 500 error response
+  // (the default behavior).
+  expect(res.statusCode).toBe(500)
+  expect(res.statusMessage).toBe('Unhandled Exception')
+  expect(JSON.parse(await text())).toEqual({
+    name: 'Error',
+    message: 'Custom error',
+    stack: expect.any(String),
+  })
 })
 
 it('handles exceptions as instructed in "unhandledException" listener (mock response)', async () => {
@@ -91,7 +92,7 @@ it('handles exceptions as instructed in "unhandledException" listener (mock resp
     throw new Error('Custom error')
   })
   interceptor.on('unhandledException', (args) => {
-    const { request, controller } = args
+    const { controller } = args
     unhandledExceptionListener(args)
 
     // Handle exceptions as a fallback 200 OK response.
@@ -114,6 +115,7 @@ it('handles exceptions as instructed in "unhandledException" listener (mock resp
       error: new Error('Custom error'),
     })
   )
+  expect(unhandledExceptionListener).toHaveBeenCalledOnce()
   expect(requestErrorListener).not.toHaveBeenCalled()
 })
 
@@ -149,4 +151,5 @@ it('handles exceptions as instructed in "unhandledException" listener (request e
       error: new Error('Custom error'),
     })
   )
+  expect(unhandledExceptionListener).toHaveBeenCalledOnce()
 })

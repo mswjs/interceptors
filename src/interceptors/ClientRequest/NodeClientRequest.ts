@@ -293,25 +293,34 @@ export class NodeClientRequest extends ClientRequest {
           return this
         }
 
-        // Emit the "unhandledException" event to allow the client
-        // to opt-out from the default handling of exceptions
-        // as 500 error responses.
-        if (
-          !this.emitter.emit('unhandledException', {
-            error: resolverResult.error,
-            request: capturedRequest,
-            requestId,
-            controller: {
-              respondWith: this.respondWith.bind(this),
-              errorWith: this.errorWith.bind(this),
-            },
-          })
-        ) {
+        until(async () => {
+          if (this.emitter.listenerCount('unhandledException') > 0) {
+            // Emit the "unhandledException" event to allow the client
+            // to opt-out from the default handling of exceptions
+            // as 500 error responses.
+            await emitAsync(this.emitter, 'unhandledException', {
+              error: resolverResult.error,
+              request: capturedRequest,
+              requestId,
+              controller: {
+                respondWith: this.respondWith.bind(this),
+                errorWith: this.errorWith.bind(this),
+              },
+            })
+
+            // If after the "unhandledException" listeners are done,
+            // the request is either not writable (was mocked) or
+            // destroyed (has errored), do nothing.
+            if (this.writableEnded || this.destroyed) {
+              return
+            }
+          }
+
           // Unhandled exceptions in the request listeners are
           // synonymous to unhandled exceptions on the server.
           // Those are represented as 500 error responses.
           this.respondWith(createServerErrorResponse(resolverResult.error))
-        }
+        })
 
         return this
       }
