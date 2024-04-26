@@ -78,7 +78,7 @@ it('treats a thrown Response.error() as a network error', async () => {
   expect(requestError.cause).toBeInstanceOf(Response)
 })
 
-it('performs request as-is if "unhandledException" is provided but does nothing', async () => {
+it('handles exceptions by default if "unhandledException" is provided but does nothing', async () => {
   const unhandledExceptionListener = vi.fn()
 
   interceptor.on('request', () => {

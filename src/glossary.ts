@@ -26,7 +26,7 @@ export type HttpRequestEventMap = {
       requestId: string
       controller: {
         respondWith(response: Response): void
-        errorWith(reason: unknown): void
+        errorWith(error?: Error): void
       }
     }
   ]

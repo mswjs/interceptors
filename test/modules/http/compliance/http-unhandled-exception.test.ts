@@ -50,7 +50,7 @@ it('treats unhandled interceptor errors as 500 responses', async () => {
   })
 })
 
-it('performs request as-is if "unhandledException" listener is provided but does nothing', async () => {
+it('handles exceptions by default if "unhandledException" listener is provided but does nothing', async () => {
   const unhandledExceptionListener = vi.fn()
 
   interceptor.on('request', () => {
