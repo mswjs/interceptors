@@ -105,10 +105,15 @@ it('resolves hostname to localhost if none provided', () => {
   expect(getUrlByRequestOptions({}).hostname).toBe('localhost')
 })
 
-it('supports "hostname" instead of "host" and "port"', () => {
+it('resolves host to localhost if none provided', () => {
+  expect(getUrlByRequestOptions({}).host).toBe('localhost')
+})
+
+it('supports "hostname" and "port"', () => {
   const options: RequestOptions = {
     protocol: 'https:',
-    hostname: '127.0.0.1:1234',
+    hostname: '127.0.0.1',
+    port: 1234,
     path: '/resource',
   }
 
@@ -117,7 +122,20 @@ it('supports "hostname" instead of "host" and "port"', () => {
   )
 })
 
-it('handles IPv6 hostnames', () => {
+it('use "hostname" if both "hostname" and "host" are specified', () => {
+  const options: RequestOptions = {
+    protocol: 'https:',
+    host: 'host',
+    hostname: 'hostname',
+    path: '/resource',
+  }
+
+  expect(getUrlByRequestOptions(options).href).toBe(
+    'https://hostname/resource'
+  )
+})
+
+it('parses "host" in IPv6', () => {
   expect(
     getUrlByRequestOptions({
       host: '::1',
@@ -125,6 +143,16 @@ it('handles IPv6 hostnames', () => {
     }).href
   ).toBe('http://[::1]/resource')
 
+  expect(
+    getUrlByRequestOptions({
+      host: '[::1]',
+      path: '/resource',
+    }).href
+  ).toBe('http://[::1]/resource')
+
+})
+
+it('parses "host" and "port" in IPv6', () => {
   expect(
     getUrlByRequestOptions({
       host: '::1',
