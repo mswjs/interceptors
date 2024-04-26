@@ -49,10 +49,7 @@ export class XMLHttpRequestController {
   private responseBuffer: Uint8Array
   private events: Map<keyof XMLHttpRequestEventTargetEventMap, Array<Function>>
 
-  constructor(
-    readonly initialRequest: XMLHttpRequest,
-    public logger: Logger
-  ) {
+  constructor(readonly initialRequest: XMLHttpRequest, public logger: Logger) {
     this.events = new Map()
     this.requestId = createRequestId()
     this.requestHeaders = new Headers()
@@ -103,7 +100,7 @@ export class XMLHttpRequestController {
           case 'addEventListener': {
             const [eventName, listener] = args as [
               keyof XMLHttpRequestEventTargetEventMap,
-              Function,
+              Function
             ]
 
             this.registerEvent(eventName, listener)
@@ -123,7 +120,7 @@ export class XMLHttpRequestController {
 
           case 'send': {
             const [body] = args as [
-              body?: XMLHttpRequestBodyInit | Document | null,
+              body?: XMLHttpRequestBodyInit | Document | null
             ]
 
             if (body != null) {
@@ -524,7 +521,7 @@ export class XMLHttpRequestController {
   private trigger<
     EventName extends keyof (XMLHttpRequestEventTargetEventMap & {
       readystatechange: ProgressEvent<XMLHttpRequestEventTarget>
-    }),
+    })
   >(eventName: EventName, options?: ProgressEventInit): void {
     const callback = this.request[`on${eventName}`]
     const event = createEvent(this.request, eventName, options)

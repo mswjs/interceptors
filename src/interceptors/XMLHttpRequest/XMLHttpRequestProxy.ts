@@ -108,6 +108,31 @@ export function createXMLHttpRequestProxy({
 
             return
           }
+
+          if (emitter.listenerCount('unhandledException') > 0) {
+            // Emit the "unhandledException" event so the client can opt-out
+            // from the default exception handling (producing 500 error responses).
+            await emitAsync(emitter, 'unhandledException', {
+              error: resolverResult.error,
+              request,
+              requestId,
+              controller: {
+                respondWith:
+                  xhrRequestController.respondWith.bind(xhrRequestController),
+                errorWith:
+                  xhrRequestController.errorWith.bind(xhrRequestController),
+              },
+            })
+
+            // If any of the "unhandledException" listeners handled the request,
+            // do nothing. Note that mocked responses will dispatch
+            // HEADERS_RECEIVED (2), then LOADING (3), and DONE (4) can take
+            // time as the mocked response body finishes streaming.
+            if (originalRequest.readyState > XMLHttpRequest.OPENED) {
+              return
+            }
+          }
+
           // Unhandled exceptions in the request listeners are
           // synonymous to unhandled exceptions on the server.
           // Those are represented as 500 error responses.
