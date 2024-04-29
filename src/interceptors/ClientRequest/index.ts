@@ -158,6 +158,29 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         return
       }
 
+      // Emit the "unhandledException" event to allow the client
+      //  to opt-out from the default handling of exceptions
+      // as 500 error responses.
+      if (this.emitter.listenerCount('unhandledException') > 0) {
+        await emitAsync(this.emitter, 'unhandledException', {
+          error: listenerResult.error,
+          request,
+          requestId,
+          controller: {
+            respondWith: socket.respondWith.bind(socket),
+            errorWith: socket.errorWith.bind(socket),
+          },
+        })
+
+        // After the listeners are done, if the socket is
+        // not connecting anymore, the response was mocked.
+        // If the socket has been destroyed, the error was mocked.
+        // Treat both as the result of the listener's call.
+        if (!socket.connecting || socket.destroyed) {
+          return
+        }
+      }
+
       // Unhandled exceptions in the request listeners are
       // synonymous to unhandled exceptions on the server.
       // Those are represented as 500 error responses.

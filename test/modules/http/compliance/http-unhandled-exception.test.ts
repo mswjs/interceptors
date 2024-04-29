@@ -126,7 +126,7 @@ it('handles exceptions as instructed in "unhandledException" listener (request e
     throw new Error('Custom error')
   })
   interceptor.on('unhandledException', (args) => {
-    const { request, controller } = args
+    const { controller } = args
     unhandledExceptionListener(args)
 
     // Handle exceptions as request errors.

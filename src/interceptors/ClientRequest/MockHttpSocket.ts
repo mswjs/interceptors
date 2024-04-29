@@ -353,8 +353,11 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private mockConnect(): void {
+    // Calling this method immediately puts the socket
+    // into the connected state.
+    this.connecting = false
+
     const isIPv6  = net.isIPv6(this.connectionOptions.hostname) || this.connectionOptions.family === 6
-    
     const addressInfo = {
       address: isIPv6 ? '::1' : '127.0.0.1',
       family: isIPv6 ? 'IPv6' : 'IPv4',
