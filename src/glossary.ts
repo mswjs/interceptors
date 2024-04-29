@@ -19,4 +19,15 @@ export type HttpRequestEventMap = {
       requestId: string
     }
   ]
+  unhandledException: [
+    args: {
+      error: unknown
+      request: Request
+      requestId: string
+      controller: {
+        respondWith(response: Response): void
+        errorWith(error?: Error): void
+      }
+    }
+  ]
 }
