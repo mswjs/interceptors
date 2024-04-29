@@ -184,6 +184,46 @@ it('returns socket address for a mocked request', async () => {
   })
 })
 
+it('returns socket address for a mocked request with family: 6', async () => {
+  interceptor.on('request', async ({ request }) => {
+    request.respondWith(new Response())
+  })
+
+  const addressPromise = new DeferredPromise<object>()
+  const request = http.get('http://example.com', { family: 6 })
+  request.once('socket', (socket) => {
+    socket.once('connect', () => {
+      addressPromise.resolve(socket.address())
+    })
+  })
+
+  await expect(addressPromise).resolves.toEqual({
+    address: '::1',
+    family: 'IPv6',
+    port: 80,
+  })
+})
+
+it('returns socket address for a mocked request with IPv6 hostname', async () => {
+  interceptor.on('request', async ({ request }) => {
+    request.respondWith(new Response())
+  })
+
+  const addressPromise = new DeferredPromise<object>()
+  const request = http.get('http://[::1]')
+  request.once('socket', (socket) => {
+    socket.once('connect', () => {
+      addressPromise.resolve(socket.address())
+    })
+  })
+
+  await expect(addressPromise).resolves.toEqual({
+    address: '::1',
+    family: 'IPv6',
+    port: 80,
+  })
+})
+
 it('returns socket address for a bypassed request', async () => {
   const addressPromise = new DeferredPromise<object>()
   const request = http.get(httpServer.http.url('/user'))
