@@ -125,6 +125,7 @@ it('preserves "auth" (Authorization)', async () => {
 
   // Construct an Axios request with "auth".
   await axios.get(httpServer.http.url('/books'), {
+    adapter: 'http',
     auth: {
       // Use an email address as the username.
       // This must NOT be encoded.
