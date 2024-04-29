@@ -353,6 +353,10 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private mockConnect(): void {
+    // Calling this method immediately puts the socket
+    // into the connected state.
+    this.connecting = false
+
     const addressInfo = {
       address: '127.0.0.1',
       family: 'IPv4',
