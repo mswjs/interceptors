@@ -357,9 +357,10 @@ export class MockHttpSocket extends MockSocket {
     // into the connected state.
     this.connecting = false
 
+    const isIPv6  = net.isIPv6(this.connectionOptions.hostname) || this.connectionOptions.family === 6
     const addressInfo = {
-      address: '127.0.0.1',
-      family: 'IPv4',
+      address: isIPv6 ? '::1' : '127.0.0.1',
+      family: isIPv6 ? 'IPv6' : 'IPv4',
       port: this.connectionOptions.port,
     }
     // Return fake address information for the socket.
