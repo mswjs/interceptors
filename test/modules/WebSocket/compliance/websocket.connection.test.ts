@@ -57,7 +57,9 @@ it('emits the correct "connection" event on the interceptor', async () => {
         addEventListener: expect.any(Function),
         removeEventListener: expect.any(Function),
       }),
-      protocols: undefined,
+      info: {
+        protocols: undefined,
+      },
     })
   )
 })
@@ -76,7 +78,7 @@ it('does not connect to the actual WebSocket server by default', async () => {
   expect(realConnectionListener).not.toHaveBeenCalled()
 })
 
-it('passes client protocols to the "connection" event on the interceptor', async () => {
+it('includes connection information in the "connection" event payload', async () => {
   const connectionListener = vi.fn()
   interceptor.once('connection', connectionListener)
 
@@ -87,7 +89,10 @@ it('passes client protocols to the "connection" event on the interceptor', async
   expect(connectionListener).toHaveBeenNthCalledWith(
     1,
     expect.objectContaining({
-      protocols: ['protocol1', 'protocol2'],
+      info: {
+        // Preserves the client protocols as-is.
+        protocols: ['protocol1', 'protocol2'],
+      },
     })
   )
 })
