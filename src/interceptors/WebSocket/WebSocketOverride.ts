@@ -51,7 +51,12 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
     Reflect.set(this, 'readyState', this.CONNECTING)
     queueMicrotask(() => {
       Reflect.set(this, 'readyState', this.OPEN)
-      this.protocol = protocols ? protocols[0] : 'ws'
+      this.protocol =
+        typeof protocols === 'string'
+          ? protocols
+          : Array.isArray(protocols) && protocols.length > 0
+          ? protocols[0]
+          : ''
 
       this.dispatchEvent(bindEvent(this, new Event('open')))
     })
