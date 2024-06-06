@@ -322,11 +322,11 @@ intereceptor.on('connection', ({ client }) => {
 
 The `connection` event exposes the following arguments:
 
-| Name        | Type                                                      | Description                                                      |
-| ----------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
-| `client`    | [`WebSocketClientConnection`](#websocketclientconnection) | An object representing a connected WebSocket client instance.    |
-| `server`    | [`WebSocketServerConnection`](#websocketserverconnection) | An object representing the original WebSocket server connection. |
-| `protocols` | <code>string &#124; string[] &#124; undefined</code>      | The protocols supported by the WebSocket client.                 |
+| Name     | Type                                                      | Description                                                                         |
+| -------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `client` | [`WebSocketClientConnection`](#websocketclientconnection) | An object representing a connected WebSocket client instance.                       |
+| `server` | [`WebSocketServerConnection`](#websocketserverconnection) | An object representing the original WebSocket server connection.                    |
+| `info`   | `object`                                                  | Additional WebSocket connection information (like the original client `protocols`). |
 
 ### `WebSocketClientConnection`
 
