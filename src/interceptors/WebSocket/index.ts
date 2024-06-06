@@ -28,6 +28,16 @@ export type WebSocketConnectionData = {
    * The original WebSocket server connection.
    */
   server: WebSocketServerConnection
+
+  /**
+   * The connection information.
+   */
+  info: {
+    /**
+     * The protocols supported by the WebSocket client.
+     */
+    protocols: string | Array<string> | undefined
+  }
 }
 
 /**
@@ -82,6 +92,9 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
               transport,
               createConnection
             ),
+            info: {
+              protocols,
+            },
           })
         })
 
