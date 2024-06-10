@@ -8,7 +8,7 @@ import {
   MockHttpSocketRequestCallback,
   MockHttpSocketResponseCallback,
 } from './MockHttpSocket'
-import { MockAgent, MockHttpsAgent } from './agents'
+import { createHttpAgent, MockAgent, MockHttpsAgent } from './agents'
 import { emitAsync } from '../../utils/emitAsync'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
@@ -35,12 +35,11 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           'http:',
           args
         )
-        const mockAgent = new MockAgent({
+        options.agent = createHttpAgent({
           customAgent: options.agent,
           onRequest,
           onResponse,
         })
-        options.agent = mockAgent
 
         return Reflect.apply(target, thisArg, [url, options, callback])
       },
@@ -53,12 +52,11 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           args
         )
 
-        const mockAgent = new MockAgent({
+        options.agent = createHttpAgent({
           customAgent: options.agent,
           onRequest,
           onResponse,
         })
-        options.agent = mockAgent
 
         return Reflect.apply(target, thisArg, [url, options, callback])
       },

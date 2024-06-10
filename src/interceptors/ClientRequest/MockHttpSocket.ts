@@ -124,6 +124,8 @@ export class MockHttpSocket extends MockSocket {
   }
 
   public destroy(error?: Error | undefined): this {
+    console.trace('socket.destroy()')
+
     // Destroy the response parser when the socket gets destroyed.
     // Normally, we shoud listen to the "close" event but it
     // can be suppressed by using the "emitClose: false" option.
@@ -329,18 +331,23 @@ export class MockHttpSocket extends MockSocket {
     // an empty body stream. Flush the headers.
     flushHeaders()
 
-    // Close the socket if the connection wasn't marked as keep-alive.
-    if (!this.shouldKeepAlive) {
-      this.emit('readable')
+    console.trace('respondWith()', this.shouldKeepAlive)
 
+    // Explicitly end the response HTTPParser.
+    // This doesn't necessarily means the end of the socket
+    // since a single socket can be reused for multiple requests.
+    this.responseStream?.push(null)
+
+    if (this.shouldKeepAlive) {
       /**
-       * @todo @fixme This is likely a hack.
-       * Since we push null to the socket, it never propagates to the
-       * parser, and the parser never calls "onResponseEnd" to close
-       * the response stream. We are closing the stream here manually
-       * but that shouldn't be the case.
+       * @fixme Emitting "end" means "destroy forever".
+       * @see https://github.com/nodejs/node/blob/29ec7e9331c4944006ffe28e126cc31cc3de271b/lib/_http_client.js#L774
+       * @see https://github.com/nodejs/node/blob/29ec7e9331c4944006ffe28e126cc31cc3de271b/lib/_http_client.js#L713
        */
-      this.responseStream?.push(null)
+      this.emit('end')
+    } else {
+      this.emit('readable')
+      // Close the socket if the connection wasn't marked as keep-alive.
       this.push(null)
     }
   }
@@ -554,6 +561,8 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private onResponseEnd(): void {
+    console.log('onResponseEnd()')
+
     // Response end can be called for responses without body.
     if (this.responseStream) {
       this.responseStream.push(null)
