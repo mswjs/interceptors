@@ -560,9 +560,8 @@ export class NodeClientRequest extends ClientRequest {
         this.response.rawHeaders.push(headerName, headerValue)
 
         const insensitiveHeaderName = headerName.toLowerCase()
-        const prevHeaders = this.response.headers[insensitiveHeaderName]
-        this.response.headers[insensitiveHeaderName] = prevHeaders
-          ? Array.prototype.concat([], prevHeaders, headerValue)
+        this.response.headers[insensitiveHeaderName] = insensitiveHeaderName === 'set-cookie'
+          ? headers.getSetCookie()
           : headerValue
       })
     }
