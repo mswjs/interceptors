@@ -634,12 +634,13 @@ export class NodeClientRequest extends ClientRequest {
    */
   private terminate(): void {
     /**
-     * @note Some request clients (e.g. Octokit) create a ClientRequest
-     * in a way that it has no Agent set. Now, whether that's correct is
+     * @note Some request clients (e.g. Octokit, or proxy providers like
+     * `global-agent`) create a ClientRequest in a way that it has no Agent set,
+     * or does not have a destroy method on it. Now, whether that's correct is
      * debatable, but we should still handle this case gracefully.
      * @see https://github.com/mswjs/interceptors/issues/304
      */
     // @ts-ignore
-    this.agent?.destroy()
+    this.agent?.destroy?.()
   }
 }
