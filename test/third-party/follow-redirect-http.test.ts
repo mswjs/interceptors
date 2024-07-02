@@ -24,6 +24,14 @@ const server = new HttpServer((app) => {
   app.post('/user', (req, res) => {
     res.status(200).send('hello from the server')
   })
+
+  app.get('/resource-a', (req, res) => {
+    res.status(200).send('hello from the server with resource a')
+  })
+
+  app.get('/resource-b', (req, res) => {
+    res.status(200).send('hello from the server with resource b')
+  })
 })
 
 beforeAll(async () => {
@@ -91,4 +99,43 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
   // Response (original).
   expect(catchResponseUrl).toHaveBeenCalledWith(server.https.url('/user'))
   expect(await text()).toBe('hello from the server')
+})
+
+it('can return redirects in intercepts which are followable by "follow-redirects"', async () => {
+  const { address } = server.https
+
+  // Intercept the initial request and return a redirect response.
+  interceptor.once('request', ({ request }) => {
+    // Return a redirect response.
+    request.respondWith(Response.redirect(server.https.url('/resource-b'), 307))
+  })
+
+  const catchResponseUrl = vi.fn()
+  const req = https.request(
+    {
+      method: 'GET',
+      hostname: address.host,
+      port: address.port,
+      path: '/resource-a',
+      agent: httpsAgent,
+    },
+    (res) => {
+      catchResponseUrl(res.responseUrl)
+    }
+  )
+
+  req.end()
+
+  const { text } = await waitForClientRequest(req as any)
+
+  // Intercepted redirect request (issued by "follow-redirects").
+  const [{ request: redirectedRequest }] = resolver.mock.calls[0]
+
+  expect(redirectedRequest.method).toBe('GET')
+  expect(redirectedRequest.url).toBe(server.https.url('/resource-b'))
+  expect(redirectedRequest.credentials).toBe('same-origin')
+
+  // Response (original).
+  expect(catchResponseUrl).toHaveBeenCalledWith(server.https.url('/resource-b'))
+  expect(await text()).toBe('hello from the server with resource b')
 })
