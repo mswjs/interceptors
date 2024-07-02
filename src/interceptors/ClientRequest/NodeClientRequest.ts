@@ -640,7 +640,7 @@ export class NodeClientRequest extends ClientRequest {
      * debatable, but we should still handle this case gracefully.
      * @see https://github.com/mswjs/interceptors/issues/304
      */
-    // @ts-ignore
+    // @ts-ignore "agent" is a private property.
     this.agent?.destroy?.()
   }
 }
