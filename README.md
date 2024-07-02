@@ -537,6 +537,8 @@ resolver.on('request', ({ request, requestId }) => {
   // Optionally, return a mocked response
   // for a request that occurred in the "appProcess".
 })
+
+resolver.apply()
 ```
 
 ## Special mention
