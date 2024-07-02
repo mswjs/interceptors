@@ -1,10 +1,11 @@
 /**
+ * @vitest-environment node
  * Ensure that reading the response body stream for the internal "response"
  * event does not lock that stream for any further reading.
  * @see https://github.com/mswjs/interceptors/issues/161
  */
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import http, { IncomingMessage } from 'http'
+import http, { IncomingMessage } from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'

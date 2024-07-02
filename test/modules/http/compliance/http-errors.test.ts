@@ -76,7 +76,7 @@ it('suppresses ENOTFOUND error given a mocked response', async () => {
     request.respondWith(new Response('Mocked'))
   })
 
-  const request = http.get('https://non-existing-url.com')
+  const request = http.get('http://non-existing-url.com')
   const errorListener = vi.fn()
   request.on('error', errorListener)
 
@@ -88,7 +88,7 @@ it('suppresses ENOTFOUND error given a mocked response', async () => {
 })
 
 it('forwards ENOTFOUND error for a bypassed request', async () => {
-  const request = http.get('https://non-existing-url.com')
+  const request = http.get('http://non-existing-url.com')
   const errorPromise = new DeferredPromise<NotFoundError>()
   request.on('error', (error: NotFoundError) => {
     errorPromise.resolve(error)

@@ -1,10 +1,12 @@
-// @vitest-environment jsdom
-import { it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+/**
+ * @vitest-environment jsdom
+ */
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 import { useCors } from '../helpers'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 
 function createMockResponse() {
   return new Response(

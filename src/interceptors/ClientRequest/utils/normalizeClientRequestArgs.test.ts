@@ -6,11 +6,10 @@ import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions'
 import { normalizeClientRequestArgs } from './normalizeClientRequestArgs'
 
 it('handles [string, callback] input', () => {
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'https:',
+  const [url, options, callback] = normalizeClientRequestArgs('https:', [
     'https://mswjs.io/resource',
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   // URL string must be converted to a URL instance.
   expect(url.href).toEqual('https://mswjs.io/resource')
@@ -31,12 +30,11 @@ it('handles [string, RequestOptions, callback] input', () => {
       'Content-Type': 'text/plain',
     },
   }
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'https:',
+  const [url, options, callback] = normalizeClientRequestArgs('https:', [
     'https://mswjs.io/resource',
     initialOptions,
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   // URL must be created from the string.
   expect(url.href).toEqual('https://mswjs.io/resource')
@@ -49,11 +47,10 @@ it('handles [string, RequestOptions, callback] input', () => {
 })
 
 it('handles [URL, callback] input', () => {
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'https:',
+  const [url, options, callback] = normalizeClientRequestArgs('https:', [
     new URL('https://mswjs.io/resource'),
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   // URL must be preserved.
   expect(url.href).toEqual('https://mswjs.io/resource')
@@ -69,11 +66,10 @@ it('handles [URL, callback] input', () => {
 })
 
 it('handles [Absolute Legacy URL, callback] input', () => {
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'https:',
+  const [url, options, callback] = normalizeClientRequestArgs('https:', [
     parse('https://cherry:durian@mswjs.io:12345/resource?apple=banana'),
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   // URL must be preserved.
   expect(url.toJSON()).toEqual(
@@ -95,12 +91,11 @@ it('handles [Absolute Legacy URL, callback] input', () => {
 })
 
 it('handles [Relative Legacy URL, RequestOptions without path set, callback] input', () => {
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'http:',
+  const [url, options, callback] = normalizeClientRequestArgs('http:', [
     parse('/resource?apple=banana'),
     { host: 'mswjs.io' },
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   // Correct WHATWG URL generated.
   expect(url.toJSON()).toEqual(
@@ -117,12 +112,11 @@ it('handles [Relative Legacy URL, RequestOptions without path set, callback] inp
 })
 
 it('handles [Relative Legacy URL, RequestOptions with path set, callback] input', () => {
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'http:',
+  const [url, options, callback] = normalizeClientRequestArgs('http:', [
     parse('/resource?apple=banana'),
     { host: 'mswjs.io', path: '/other?cherry=durian' },
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   // Correct WHATWG URL generated.
   expect(url.toJSON()).toEqual(
@@ -139,11 +133,10 @@ it('handles [Relative Legacy URL, RequestOptions with path set, callback] input'
 })
 
 it('handles [Relative Legacy URL, callback] input', () => {
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'http:',
+  const [url, options, callback] = normalizeClientRequestArgs('http:', [
     parse('/resource?apple=banana'),
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   // Correct WHATWG URL generated.
   expect(url.toJSON()).toMatch(
@@ -155,14 +148,14 @@ it('handles [Relative Legacy URL, callback] input', () => {
   expect(options.path).toEqual('/resource?apple=banana')
 
   // Callback must be preserved.
+  expect(callback).toBeTypeOf('function')
   expect(callback?.name).toEqual('cb')
 })
 
 it('handles [Relative Legacy URL] input', () => {
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'http:',
-    parse('/resource?apple=banana')
-  )
+  const [url, options, callback] = normalizeClientRequestArgs('http:', [
+    parse('/resource?apple=banana'),
+  ])
 
   // Correct WHATWG URL generated.
   expect(url.toJSON()).toMatch(
@@ -178,8 +171,7 @@ it('handles [Relative Legacy URL] input', () => {
 })
 
 it('handles [URL, RequestOptions, callback] input', () => {
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'https:',
+  const [url, options, callback] = normalizeClientRequestArgs('https:', [
     new URL('https://mswjs.io/resource'),
     {
       agent: false,
@@ -187,8 +179,8 @@ it('handles [URL, RequestOptions, callback] input', () => {
         'Content-Type': 'text/plain',
       },
     },
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   // URL must be preserved.
   expect(url.href).toEqual('https://mswjs.io/resource')
@@ -209,17 +201,17 @@ it('handles [URL, RequestOptions, callback] input', () => {
   })
 
   // Callback must be preserved.
+  expect(callback).toBeTypeOf('function')
   expect(callback?.name).toEqual('cb')
 })
 
 it('handles [URL, RequestOptions] where options have custom "hostname"', () => {
-  const [url, options] = normalizeClientRequestArgs(
-    'http:',
+  const [url, options] = normalizeClientRequestArgs('http:', [
     new URL('http://example.com/path-from-url'),
     {
       hostname: 'host-from-options.com',
-    }
-  )
+    },
+  ])
   expect(url.href).toBe('http://host-from-options.com/path-from-url')
   expect(options).toMatchObject({
     host: 'host-from-options.com',
@@ -228,15 +220,14 @@ it('handles [URL, RequestOptions] where options have custom "hostname"', () => {
 })
 
 it('handles [URL, RequestOptions] where options contain "host" and "path" and "port"', () => {
-  const [url, options] = normalizeClientRequestArgs(
-    'http:',
+  const [url, options] = normalizeClientRequestArgs('http:', [
     new URL('http://example.com/path-from-url?a=b&c=d'),
     {
       hostname: 'host-from-options.com',
       path: '/path-from-options',
       port: 1234,
-    }
-  )
+    },
+  ])
   // Must remove the query string since it's not specified in "options.path"
   expect(url.href).toBe('http://host-from-options.com:1234/path-from-options')
   expect(options).toMatchObject({
@@ -247,13 +238,12 @@ it('handles [URL, RequestOptions] where options contain "host" and "path" and "p
 })
 
 it('handles [URL, RequestOptions] where options contain "path" with query string', () => {
-  const [url, options] = normalizeClientRequestArgs(
-    'http:',
+  const [url, options] = normalizeClientRequestArgs('http:', [
     new URL('http://example.com/path-from-url?a=b&c=d'),
     {
       path: '/path-from-options?foo=bar&baz=xyz',
-    }
-  )
+    },
+  ])
   expect(url.href).toBe('http://example.com/path-from-options?foo=bar&baz=xyz')
   expect(options).toMatchObject({
     host: 'example.com',
@@ -275,28 +265,27 @@ it('handles [RequestOptions, callback] input', () => {
       'Content-Type': 'text/plain',
     },
   }
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'https:',
+  const [url, options, callback] = normalizeClientRequestArgs('https:', [
     initialOptions,
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   // URL must be derived from request options.
   expect(url.href).toEqual('https://mswjs.io/resource')
 
   // Request options must be preserved.
-  expect(options).toEqual(initialOptions)
+  expect(options).toMatchObject(initialOptions)
 
   // Callback must be preserved.
+  expect(callback).toBeTypeOf('function')
   expect(callback?.name).toEqual('cb')
 })
 
 it('handles [Empty RequestOptions, callback] input', () => {
-  const [_, options, callback] = normalizeClientRequestArgs(
-    'https:',
+  const [_, options, callback] = normalizeClientRequestArgs('https:', [
     {},
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   expect(options.protocol).toEqual('https:')
 
@@ -320,11 +309,10 @@ it('handles [PartialRequestOptions, callback] input', () => {
     passphrase: undefined,
     agent: false,
   }
-  const [url, options, callback] = normalizeClientRequestArgs(
-    'https:',
+  const [url, options, callback] = normalizeClientRequestArgs('https:', [
     initialOptions,
-    function cb() {}
-  )
+    function cb() {},
+  ])
 
   // URL must be derived from request options.
   expect(url.toJSON()).toEqual(
@@ -332,20 +320,20 @@ it('handles [PartialRequestOptions, callback] input', () => {
   )
 
   // Request options must be preserved.
-  expect(options).toEqual(initialOptions)
+  expect(options).toMatchObject(initialOptions)
 
   // Options protocol must be inferred from the request issuing module.
   expect(options.protocol).toEqual('https:')
 
   // Callback must be preserved.
+  expect(callback).toBeTypeOf('function')
   expect(callback?.name).toEqual('cb')
 })
 
 it('sets fallback Agent based on the URL protocol', () => {
-  const [url, options] = normalizeClientRequestArgs(
-    'https:',
-    'https://github.com'
-  )
+  const [url, options] = normalizeClientRequestArgs('https:', [
+    'https://github.com',
+  ])
   const agent = options.agent as HttpsAgent
 
   expect(agent).toBeInstanceOf(HttpsAgent)
@@ -354,59 +342,54 @@ it('sets fallback Agent based on the URL protocol', () => {
 })
 
 it('does not set any fallback Agent given "agent: false" option', () => {
-  const [, options] = normalizeClientRequestArgs(
-    'https:',
+  const [, options] = normalizeClientRequestArgs('https:', [
     'https://github.com',
-    { agent: false }
-  )
+    { agent: false },
+  ])
 
   expect(options.agent).toEqual(false)
 })
 
 it('sets the default Agent for HTTP request', () => {
-  const [, options] = normalizeClientRequestArgs(
-    'http:',
+  const [, options] = normalizeClientRequestArgs('http:', [
     'http://github.com',
-    {}
-  )
+    {},
+  ])
 
   expect(options._defaultAgent).toEqual(httpGlobalAgent)
 })
 
 it('sets the default Agent for HTTPS request', () => {
-  const [, options] = normalizeClientRequestArgs(
-    'https:',
+  const [, options] = normalizeClientRequestArgs('https:', [
     'https://github.com',
-    {}
-  )
+    {},
+  ])
 
   expect(options._defaultAgent).toEqual(httpsGlobalAgent)
 })
 
 it('preserves a custom default Agent when set', () => {
-  const [, options] = normalizeClientRequestArgs(
-    'https:',
+  const [, options] = normalizeClientRequestArgs('https:', [
     'https://github.com',
     {
       /**
        * @note Intentionally incorrect Agent for HTTPS request.
        */
       _defaultAgent: httpGlobalAgent,
-    }
-  )
+    },
+  ])
 
   expect(options._defaultAgent).toEqual(httpGlobalAgent)
 })
 
 it('merges URL-based RequestOptions with the custom RequestOptions', () => {
-  const [url, options] = normalizeClientRequestArgs(
-    'https:',
+  const [url, options] = normalizeClientRequestArgs('https:', [
     'https://github.com/graphql',
     {
       method: 'GET',
       pfx: 'PFX_KEY',
-    }
-  )
+    },
+  ])
 
   expect(url.href).toEqual('https://github.com/graphql')
 
@@ -422,13 +405,12 @@ it('merges URL-based RequestOptions with the custom RequestOptions', () => {
 })
 
 it('respects custom "options.path" over URL path', () => {
-  const [url, options] = normalizeClientRequestArgs(
-    'http:',
+  const [url, options] = normalizeClientRequestArgs('http:', [
     new URL('http://example.com/path-from-url'),
     {
       path: '/path-from-options',
-    }
-  )
+    },
+  ])
 
   expect(url.href).toBe('http://example.com/path-from-options')
   expect(options.protocol).toBe('http:')
@@ -438,13 +420,12 @@ it('respects custom "options.path" over URL path', () => {
 })
 
 it('respects custom "options.path" over URL path with query string', () => {
-  const [url, options] = normalizeClientRequestArgs(
-    'http:',
+  const [url, options] = normalizeClientRequestArgs('http:', [
     new URL('http://example.com/path-from-url?a=b&c=d'),
     {
       path: '/path-from-options',
-    }
-  )
+    },
+  ])
 
   // Must replace both the path and the query string.
   expect(url.href).toBe('http://example.com/path-from-options')
@@ -455,10 +436,9 @@ it('respects custom "options.path" over URL path with query string', () => {
 })
 
 it('preserves URL query string', () => {
-  const [url, options] = normalizeClientRequestArgs(
-    'http:',
-    new URL('http://example.com/resource?a=b&c=d')
-  )
+  const [url, options] = normalizeClientRequestArgs('http:', [
+    new URL('http://example.com/resource?a=b&c=d'),
+  ])
 
   expect(url.href).toBe('http://example.com/resource?a=b&c=d')
   expect(options.protocol).toBe('http:')

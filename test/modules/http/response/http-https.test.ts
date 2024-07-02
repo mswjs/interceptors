@@ -1,9 +1,9 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'http'
 import https from 'https'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
@@ -61,7 +61,7 @@ it('responds to a handled request issued by "http.get"', async () => {
 })
 
 it('responds to a handled request issued by "https.get"', async () => {
-  const req = https.get('https://any.thing/non-existing', { agent: httpsAgent })
+  const req = https.get('https://any.thing/non-existing')
   const { res, text } = await waitForClientRequest(req)
 
   expect(res).toMatchObject<Partial<http.IncomingMessage>>({
@@ -86,7 +86,9 @@ it('bypasses an unhandled request issued by "http.get"', async () => {
 })
 
 it('bypasses an unhandled request issued by "https.get"', async () => {
-  const req = https.get(httpServer.https.url('/get'), { agent: httpsAgent })
+  const req = https.get(httpServer.https.url('/get'), {
+    rejectUnauthorized: false,
+  })
   const { res, text } = await waitForClientRequest(req)
 
   expect(res).toMatchObject<Partial<http.IncomingMessage>>({
@@ -108,9 +110,7 @@ it('responds to a handled request issued by "http.request"', async () => {
 })
 
 it('responds to a handled request issued by "https.request"', async () => {
-  const req = https.request('https://any.thing/non-existing', {
-    agent: httpsAgent,
-  })
+  const req = https.request('https://any.thing/non-existing')
 
   req.end()
   const { res, text } = await waitForClientRequest(req)
@@ -139,7 +139,7 @@ it('bypasses an unhandled request issued by "http.request"', async () => {
 
 it('bypasses an unhandled request issued by "https.request"', async () => {
   const req = https.request(httpServer.https.url('/get'), {
-    agent: httpsAgent,
+    rejectUnauthorized: false,
   })
   req.end()
   const { res, text } = await waitForClientRequest(req)

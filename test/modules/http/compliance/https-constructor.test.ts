@@ -1,14 +1,15 @@
 /**
+ * @vitest-environment node
  * @see https://github.com/mswjs/interceptors/issues/131
  */
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import { IncomingMessage } from 'http'
-import https from 'https'
-import { URL } from 'url'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { IncomingMessage } from 'node:http'
+import https from 'node:https'
+import { URL } from 'node:url'
+import { DeferredPromise } from '@open-draft/deferred-promise'
+import { HttpServer } from '@open-draft/test-server/http'
 import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
@@ -34,7 +35,7 @@ it('performs the original HTTPS request', async () => {
       new URL(httpServer.https.url('/resource')),
       {
         method: 'GET',
-        agent: httpsAgent,
+        rejectUnauthorized: false,
       },
       async (response) => {
         responseReceived.resolve(response)

@@ -29,7 +29,7 @@ it('supports custom delay before responding with a mock', async () => {
   })
 
   const requestStart = Date.now()
-  const request = http.get('https://non-existing-host.com')
+  const request = http.get('http://non-existing-host.com')
   const { res, text } = await waitForClientRequest(request)
   const requestEnd = Date.now()
 
