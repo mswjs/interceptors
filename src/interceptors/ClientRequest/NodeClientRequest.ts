@@ -368,20 +368,20 @@ export class NodeClientRequest extends ClientRequest {
 
         this.logger.info('emitting the custom "response" event...')
 
-        until(async () => {
-          await emitAsync(this.emitter, 'response', {
-            response: responseClone,
-            isMockedResponse: true,
-            request: capturedRequest,
-            requestId,
-          })
+        const responseListenersPromise = emitAsync(this.emitter, 'response', {
+          response: responseClone,
+          isMockedResponse: true,
+          request: capturedRequest,
+          requestId,
+        })
 
-          // Mark the response as complete once all the response
-          // listeners have finished.
-          this.response.emit('end')
-
+        responseListenersPromise.then(() => {
           this.logger.info('request (mock) is completed')
         })
+
+        // Defer the end of the response until all the response
+        // event listeners are done (those can be async).
+        this.deferResponseEndUntil(responseListenersPromise, this.response)
 
         return this
       }
@@ -403,21 +403,9 @@ export class NodeClientRequest extends ClientRequest {
             requestId,
           })
 
-          originalMessage.emit = new Proxy(originalMessage.emit, {
-            apply(target, thisArg, args) {
-              const [event] = args
-              const callEmit = () => Reflect.apply(target, thisArg, args)
-
-              if (event === 'end') {
-                // Delay emitting the "end" event of the original IncomingMessage
-                // until all the response listeners are done.
-                responseListenersPromise.then(() => callEmit())
-                return
-              }
-
-              return callEmit()
-            },
-          })
+          // Defer the end of the response until all the response
+          // event listeners are done (those can be async).
+          this.deferResponseEndUntil(responseListenersPromise, originalMessage)
         }
       )
 
@@ -643,7 +631,7 @@ export class NodeClientRequest extends ClientRequest {
 
     isResponseStreamFinished.then(() => {
       this.logger.info('finalizing response...')
-      // this.response.emit('end')
+      this.response.emit('end')
       this.terminate()
 
       this.logger.info('request complete!')
@@ -669,5 +657,24 @@ export class NodeClientRequest extends ClientRequest {
      */
     // @ts-ignore "agent" is a private property.
     this.agent?.destroy?.()
+  }
+
+  private deferResponseEndUntil(
+    promise: Promise<unknown>,
+    response: IncomingMessage
+  ): void {
+    response.emit = new Proxy(response.emit, {
+      apply(target, thisArg, args) {
+        const [event] = args
+        const callEmit = () => Reflect.apply(target, thisArg, args)
+
+        if (event === 'end') {
+          promise.then(() => callEmit())
+          return
+        }
+
+        return callEmit()
+      },
+    })
   }
 }
