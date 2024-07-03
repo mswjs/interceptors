@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'https'
-import fetch from 'node-fetch'
+import nodeFetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
 import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
@@ -69,6 +69,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
+  interceptor.removeAllListeners('response')
   vi.resetAllMocks()
 })
 
@@ -79,7 +80,7 @@ afterAll(async () => {
 
 it('ClientRequest: emits the "response" event for a mocked response', async () => {
   const responseListener = vi.fn<HttpRequestEventMap['response']>()
-  interceptor.on('response', responseListener)
+  interceptor.once('response', responseListener)
 
   const req = https.request(httpServer.https.url('/user'), {
     method: 'GET',
@@ -228,9 +229,9 @@ it('XMLHttpRequest: emits the "response" event upon the original response', asyn
 
 it('fetch: emits the "response" event upon a mocked response', async () => {
   const responseListener = vi.fn<HttpRequestEventMap['response']>()
-  interceptor.on('response', responseListener)
+  interceptor.once('response', responseListener)
 
-  await fetch(httpServer.https.url('/user'), {
+  await nodeFetch(httpServer.https.url('/user'), {
     headers: {
       'x-request-custom': 'yes',
     },
@@ -259,7 +260,7 @@ it('fetch: emits the "response" event upon the original response', async () => {
   const responseListener = vi.fn<HttpRequestEventMap['response']>()
   interceptor.on('response', responseListener)
 
-  await fetch(httpServer.https.url('/account'), {
+  await nodeFetch(httpServer.https.url('/account'), {
     agent: httpsAgent,
     method: 'POST',
     headers: {
