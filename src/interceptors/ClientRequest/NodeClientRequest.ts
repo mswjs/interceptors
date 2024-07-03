@@ -669,7 +669,7 @@ export class NodeClientRequest extends ClientRequest {
         const callEmit = () => Reflect.apply(target, thisArg, args)
 
         if (event === 'end') {
-          promise.then(() => callEmit())
+          promise.finally(() => callEmit())
           return
         }
 
