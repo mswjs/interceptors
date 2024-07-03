@@ -367,32 +367,47 @@ export class NodeClientRequest extends ClientRequest {
         callback?.()
 
         this.logger.info('emitting the custom "response" event...')
-        this.emitter.emit('response', {
+
+        const responseListenersPromise = emitAsync(this.emitter, 'response', {
           response: responseClone,
           isMockedResponse: true,
           request: capturedRequest,
           requestId,
         })
 
-        this.logger.info('request (mock) is completed')
+        responseListenersPromise.then(() => {
+          this.logger.info('request (mock) is completed')
+        })
+
+        // Defer the end of the response until all the response
+        // event listeners are done (those can be async).
+        this.deferResponseEndUntil(responseListenersPromise, this.response)
 
         return this
       }
 
       this.logger.info('no mocked response received!')
 
-      this.once('response-internal', (message: IncomingMessage) => {
-        this.logger.info(message.statusCode, message.statusMessage)
-        this.logger.info('original response headers:', message.headers)
+      this.once(
+        'response-internal',
+        (message: IncomingMessage, originalMessage: IncomingMessage) => {
+          this.logger.info(message.statusCode, message.statusMessage)
+          this.logger.info('original response headers:', message.headers)
 
-        this.logger.info('emitting the custom "response" event...')
-        this.emitter.emit('response', {
-          response: createResponse(message),
-          isMockedResponse: false,
-          request: capturedRequest,
-          requestId,
-        })
-      })
+          this.logger.info('emitting the custom "response" event...')
+
+          const responseListenersPromise = emitAsync(this.emitter, 'response', {
+            response: createResponse(message),
+            isMockedResponse: false,
+            request: capturedRequest,
+            requestId,
+          })
+
+          // Defer the end of the response until all the response
+          // event listeners are done (those can be async).
+          this.deferResponseEndUntil(responseListenersPromise, originalMessage)
+        }
+      )
 
       return this.passthrough(chunk, encoding, callback)
     })
@@ -419,7 +434,7 @@ export class NodeClientRequest extends ClientRequest {
         const firstClone = cloneIncomingMessage(response)
         const secondClone = cloneIncomingMessage(response)
 
-        this.emit('response-internal', secondClone)
+        this.emit('response-internal', secondClone, firstClone)
 
         this.logger.info(
           'response successfully cloned, emitting "response" event...'
@@ -642,5 +657,24 @@ export class NodeClientRequest extends ClientRequest {
      */
     // @ts-ignore "agent" is a private property.
     this.agent?.destroy?.()
+  }
+
+  private deferResponseEndUntil(
+    promise: Promise<unknown>,
+    response: IncomingMessage
+  ): void {
+    response.emit = new Proxy(response.emit, {
+      apply(target, thisArg, args) {
+        const [event] = args
+        const callEmit = () => Reflect.apply(target, thisArg, args)
+
+        if (event === 'end') {
+          promise.finally(() => callEmit())
+          return
+        }
+
+        return callEmit()
+      },
+    })
   }
 }
