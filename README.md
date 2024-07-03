@@ -305,6 +305,34 @@ interceptor.on(
 
 > Note that the `isMockedResponse` property will only be set to `true` if you resolved this request in the "request" event listener using the `request.respondWith()` method and providing a mocked `Response` instance.
 
+## Error handling
+
+By default, all unhandled exceptions thrown within the `request` listener are coerced to 500 error responses, emulating those exceptions occurring on the actual server. You can listen to the exceptions by adding the `unhandledException` listener to the interceptor:
+
+```js
+interceptor.on(
+  'unhandledException',
+  ({ error, request, requestId, controller }) => {
+    console.log(error)
+  }
+)
+```
+
+To opt out from the default coercion of unhandled exceptions to server responses, you need to either:
+
+1. Respond to the request with [a mocked response](#mocking-responses) (including error responses);
+1. Propagate the error up by throwing it explicitly in the `unhandledException` listener.
+
+Here's an example of propagating the unhandled exception up:
+
+```js
+interceptor.on('unhandledException', ({ error }) => {
+  // Now, any unhandled exception will NOT be coerced to a 500 error response,
+  // and instead will be thrown during the process execution as-is.
+  throw error
+})
+```
+
 ## WebSocket interception
 
 You can intercept a WebSocket communication using the `WebSocketInterceptor` class.
@@ -554,6 +582,8 @@ resolver.on('request', ({ request, requestId }) => {
   // Optionally, return a mocked response
   // for a request that occurred in the "appProcess".
 })
+
+resolver.apply()
 ```
 
 ## Special mention
