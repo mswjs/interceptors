@@ -59,7 +59,7 @@ devDependencies:
     specifier: ^27.0.3
     version: 27.5.2
   '@types/node':
-    specifier: '18'
+    specifier: ^18.19.31
     version: 18.19.31
   '@types/node-fetch':
     specifier: 2.5.12
