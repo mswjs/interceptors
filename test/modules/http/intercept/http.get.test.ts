@@ -3,7 +3,7 @@ import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
-import { HttpRequestEventMap } from '../../../../src'
+import { HttpRequestEventMap } from '../../../../src/glossary'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {

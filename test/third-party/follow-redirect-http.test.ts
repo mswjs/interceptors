@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { https } from 'follow-redirects'
-import { httpsAgent, HttpServer } from '@open-draft/test-server/http'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 import type { HttpRequestEventMap } from '../../src/glossary'
 import { waitForClientRequest } from '../helpers'
@@ -53,9 +53,9 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
       path: '/resource',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': payload.length,
+        'Content-Length': Buffer.from(payload).byteLength,
       },
-      agent: httpsAgent,
+      rejectUnauthorized: false,
     },
     (res) => {
       catchResponseUrl(res.responseUrl)

@@ -1,5 +1,8 @@
+/**
+ * @vitest-environment node
+ */
 import { it, expect, describe, beforeAll, afterAll } from 'vitest'
-import http, { IncomingMessage } from 'http'
+import http, { IncomingMessage } from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'

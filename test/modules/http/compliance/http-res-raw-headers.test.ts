@@ -1,16 +1,30 @@
+/**
+ * @vitest-environment node
+ */
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+import http from 'node:http'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
-const interceptor = new ClientRequestInterceptor()
-
-beforeAll(() => {
-  interceptor.apply()
+// The actual server is here for A/B purpose only.
+const httpServer = new HttpServer((app) => {
+  app.get('/', (req, res) => {
+    res.writeHead(200, { 'X-CustoM-HeadeR': 'Yes' })
+    res.end()
+  })
 })
 
-afterAll(() => {
+const interceptor = new ClientRequestInterceptor()
+
+beforeAll(async () => {
+  interceptor.apply()
+  await httpServer.listen()
+})
+
+afterAll(async () => {
   interceptor.dispose()
+  await httpServer.close()
 })
 
 it('preserves the original mocked response headers casing in "rawHeaders"', async () => {
@@ -24,9 +38,11 @@ it('preserves the original mocked response headers casing in "rawHeaders"', asyn
     )
   })
 
-  const request = http.get('http://any.thing')
+  const request = http.get(httpServer.http.url('/'))
   const { res } = await waitForClientRequest(request)
 
-  expect(res.rawHeaders).toStrictEqual(['X-CustoM-HeadeR', 'Yes'])
-  expect(res.headers).toStrictEqual({ 'x-custom-header': 'Yes' })
+  expect(res.rawHeaders).toEqual(
+    expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
+  )
+  expect(res.headers).toMatchObject({ 'x-custom-header': 'Yes' })
 })

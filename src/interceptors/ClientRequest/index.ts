@@ -1,61 +1,220 @@
-import http from 'http'
-import https from 'https'
-import type { Emitter } from 'strict-event-emitter'
-import { HttpRequestEventMap } from '../../glossary'
+import http from 'node:http'
+import https from 'node:https'
+import { until } from '@open-draft/until'
 import { Interceptor } from '../../Interceptor'
-import { get } from './http.get'
-import { request } from './http.request'
-import { NodeClientOptions, Protocol } from './NodeClientRequest'
+import type { HttpRequestEventMap } from '../../glossary'
+import {
+  kRequestId,
+  MockHttpSocketRequestCallback,
+  MockHttpSocketResponseCallback,
+} from './MockHttpSocket'
+import { MockAgent, MockHttpsAgent } from './agents'
+import { emitAsync } from '../../utils/emitAsync'
+import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
+import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
+import { isNodeLikeError } from '../../utils/isNodeLikeError'
+import { createServerErrorResponse } from '../../utils/responseUtils'
 
-export type ClientRequestEmitter = Emitter<HttpRequestEventMap>
-
-export type ClientRequestModules = Map<Protocol, typeof http | typeof https>
-
-/**
- * Intercept requests made via the `ClientRequest` class.
- * Such requests include `http.get`, `https.request`, etc.
- */
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static interceptorSymbol = Symbol('http')
-  private modules: ClientRequestModules
+  static symbol = Symbol('client-request-interceptor')
 
   constructor() {
-    super(ClientRequestInterceptor.interceptorSymbol)
-
-    this.modules = new Map()
-    this.modules.set('http', http)
-    this.modules.set('https', https)
+    super(ClientRequestInterceptor.symbol)
   }
 
   protected setup(): void {
-    const logger = this.logger.extend('setup')
+    const { get: originalGet, request: originalRequest } = http
+    const { get: originalHttpsGet, request: originalHttpsRequest } = https
 
-    for (const [protocol, requestModule] of this.modules) {
-      const { request: pureRequest, get: pureGet } = requestModule
+    const onRequest = this.onRequest.bind(this)
+    const onResponse = this.onResponse.bind(this)
 
-      this.subscriptions.push(() => {
-        requestModule.request = pureRequest
-        requestModule.get = pureGet
+    http.request = new Proxy(http.request, {
+      apply: (target, thisArg, args: Parameters<typeof http.request>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'http:',
+          args
+        )
+        const mockAgent = new MockAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
 
-        logger.info('native "%s" module restored!', protocol)
-      })
+        return Reflect.apply(target, thisArg, [url, options, callback])
+      },
+    })
 
-      const options: NodeClientOptions = {
-        emitter: this.emitter,
-        logger: this.logger,
+    http.get = new Proxy(http.get, {
+      apply: (target, thisArg, args: Parameters<typeof http.get>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'http:',
+          args
+        )
+
+        const mockAgent = new MockAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
+
+        return Reflect.apply(target, thisArg, [url, options, callback])
+      },
+    })
+
+    //
+    // HTTPS.
+    //
+
+    https.request = new Proxy(https.request, {
+      apply: (target, thisArg, args: Parameters<typeof https.request>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'https:',
+          args
+        )
+
+        const mockAgent = new MockHttpsAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
+
+        return Reflect.apply(target, thisArg, [url, options, callback])
+      },
+    })
+
+    https.get = new Proxy(https.get, {
+      apply: (target, thisArg, args: Parameters<typeof https.get>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'https:',
+          args
+        )
+
+        const mockAgent = new MockHttpsAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
+
+        return Reflect.apply(target, thisArg, [url, options, callback])
+      },
+    })
+
+    this.subscriptions.push(() => {
+      http.get = originalGet
+      http.request = originalRequest
+
+      https.get = originalHttpsGet
+      https.request = originalHttpsRequest
+    })
+  }
+
+  private onRequest: MockHttpSocketRequestCallback = async ({
+    request,
+    socket,
+  }) => {
+    const requestId = Reflect.get(request, kRequestId)
+    const { interactiveRequest, requestController } =
+      toInteractiveRequest(request)
+
+    // TODO: Abstract this bit. We are using it everywhere.
+    this.emitter.once('request', ({ requestId: pendingRequestId }) => {
+      if (pendingRequestId !== requestId) {
+        return
       }
 
-      // @ts-ignore
-      requestModule.request =
-        // Force a line break.
-        request(protocol, options)
+      if (requestController.responsePromise.state === 'pending') {
+        this.logger.info(
+          'request has not been handled in listeners, executing fail-safe listener...'
+        )
 
-      // @ts-ignore
-      requestModule.get =
-        // Force a line break.
-        get(protocol, options)
+        requestController.responsePromise.resolve(undefined)
+      }
+    })
 
-      logger.info('native "%s" module patched!', protocol)
+    const listenerResult = await until(async () => {
+      await emitAsync(this.emitter, 'request', {
+        requestId,
+        request: interactiveRequest,
+      })
+
+      return await requestController.responsePromise
+    })
+
+    if (listenerResult.error) {
+      // Treat thrown Responses as mocked responses.
+      if (listenerResult.error instanceof Response) {
+        socket.respondWith(listenerResult.error)
+        return
+      }
+
+      // Allow mocking Node-like errors.
+      if (isNodeLikeError(listenerResult.error)) {
+        socket.errorWith(listenerResult.error)
+        return
+      }
+
+      // Emit the "unhandledException" event to allow the client
+      //  to opt-out from the default handling of exceptions
+      // as 500 error responses.
+      if (this.emitter.listenerCount('unhandledException') > 0) {
+        await emitAsync(this.emitter, 'unhandledException', {
+          error: listenerResult.error,
+          request,
+          requestId,
+          controller: {
+            respondWith: socket.respondWith.bind(socket),
+            errorWith: socket.errorWith.bind(socket),
+          },
+        })
+
+        // After the listeners are done, if the socket is
+        // not connecting anymore, the response was mocked.
+        // If the socket has been destroyed, the error was mocked.
+        // Treat both as the result of the listener's call.
+        if (!socket.connecting || socket.destroyed) {
+          return
+        }
+      }
+
+      // Unhandled exceptions in the request listeners are
+      // synonymous to unhandled exceptions on the server.
+      // Those are represented as 500 error responses.
+      socket.respondWith(createServerErrorResponse(listenerResult.error))
+      return
     }
+
+    const mockedResponse = listenerResult.data
+
+    if (mockedResponse) {
+      /**
+       * @note The `.respondWith()` method will handle "Response.error()".
+       * Maybe we should make all interceptors do that?
+       */
+      socket.respondWith(mockedResponse)
+      return
+    }
+
+    socket.passthrough()
+  }
+
+  public onResponse: MockHttpSocketResponseCallback = async ({
+    requestId,
+    request,
+    response,
+    isMockedResponse,
+  }) => {
+    // Return the promise to when all the response event listeners
+    // are finished.
+    return emitAsync(this.emitter, 'response', {
+      requestId,
+      request,
+      response,
+      isMockedResponse,
+    })
   }
 }

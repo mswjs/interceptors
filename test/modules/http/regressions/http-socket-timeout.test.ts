@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment node
+ */
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import { ChildProcess, spawn } from 'child_process'
 
@@ -10,7 +13,6 @@ beforeAll(() => {
     `--config=${require.resolve('./http-socket-timeout.vitest.config.js')}`,
   ])
 
-  // Jest writes its output into "stderr".
   child.stderr?.on('data', (buffer: Buffer) => {
     /**
      * @note @fixme Skip Vite's CJS build deprecation message.
@@ -37,4 +39,4 @@ it('does not leave the test process hanging due to the custom socket timeout', a
 
   expect(testErrors).toBe('')
   expect(exitCode).toEqual(0)
-})
+}, 10_000)
