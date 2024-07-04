@@ -208,7 +208,9 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     response,
     isMockedResponse,
   }) => {
-    this.emitter.emit('response', {
+    // Return the promise to when all the response event listeners
+    // are finished.
+    return emitAsync(this.emitter, 'response', {
       requestId,
       request,
       response,

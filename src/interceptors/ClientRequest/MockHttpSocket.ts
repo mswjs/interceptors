@@ -34,7 +34,7 @@ export type MockHttpSocketResponseCallback = (args: {
   response: Response
   isMockedResponse: boolean
   socket: MockHttpSocket
-}) => void
+}) => Promise<void>
 
 interface MockHttpSocketOptions {
   connectionOptions: HttpConnectionOptions
@@ -52,6 +52,7 @@ export class MockHttpSocket extends MockSocket {
 
   private onRequest: MockHttpSocketRequestCallback
   private onResponse: MockHttpSocketResponseCallback
+  private responseListenersPromise?: Promise<void>
 
   private writeBuffer: Array<NormalizedSocketWriteArgs> = []
   private request?: Request
@@ -121,6 +122,17 @@ export class MockHttpSocket extends MockSocket {
       Reflect.set(this, 'getSession', () => undefined)
       Reflect.set(this, 'isSessionReused', () => false)
     }
+  }
+
+  public emit(event: string | symbol, ...args: any[]): boolean {
+    const emitEvent = super.emit.bind(this, event as any, ...args)
+
+    if (this.responseListenersPromise) {
+      this.responseListenersPromise.finally(emitEvent)
+      return this.listenerCount(event) > 0
+    }
+
+    return emitEvent()
   }
 
   public destroy(error?: Error | undefined): this {
@@ -357,7 +369,9 @@ export class MockHttpSocket extends MockSocket {
     // into the connected state.
     this.connecting = false
 
-    const isIPv6  = net.isIPv6(this.connectionOptions.hostname) || this.connectionOptions.family === 6
+    const isIPv6 =
+      net.isIPv6(this.connectionOptions.hostname) ||
+      this.connectionOptions.family === 6
     const addressInfo = {
       address: isIPv6 ? '::1' : '127.0.0.1',
       family: isIPv6 ? 'IPv6' : 'IPv4',
@@ -513,6 +527,13 @@ export class MockHttpSocket extends MockSocket {
     }
 
     const response = new Response(
+      /**
+       * @note The Fetch API response instance exposed to the consumer
+       * is created over the response stream of the HTTP parser. It is NOT
+       * related to the Socket instance. This way, you can read response body
+       * in response listener while the Socket instance delays the emission
+       * of "end" and other events until those response listeners are finished.
+       */
       canHaveBody ? (Readable.toWeb(this.responseStream!) as any) : null,
       {
         status,
@@ -535,7 +556,7 @@ export class MockHttpSocket extends MockSocket {
       return
     }
 
-    this.onResponse({
+    this.responseListenersPromise = this.onResponse({
       response,
       isMockedResponse: this.responseType === 'mock',
       requestId: Reflect.get(this.request, kRequestId),
