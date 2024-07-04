@@ -9,6 +9,7 @@ import {
   MockHttpSocketResponseCallback,
 } from './MockHttpSocket'
 import { MockAgent, MockHttpsAgent } from './agents'
+import { RequestController } from '../../RequestController'
 import { emitAsync } from '../../utils/emitAsync'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
@@ -166,10 +167,10 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           error: listenerResult.error,
           request,
           requestId,
-          controller: {
+          controller: new RequestController({
             respondWith: socket.respondWith.bind(socket),
             errorWith: socket.errorWith.bind(socket),
-          },
+          }),
         })
 
         // After the listeners are done, if the socket is

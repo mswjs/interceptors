@@ -2,6 +2,7 @@ import { until } from '@open-draft/until'
 import type { Logger } from '@open-draft/logger'
 import { XMLHttpRequestEmitter } from '.'
 import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
+import { RequestController } from '../../RequestController'
 import { emitAsync } from '../../utils/emitAsync'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
 import {
@@ -116,12 +117,12 @@ export function createXMLHttpRequestProxy({
               error: resolverResult.error,
               request,
               requestId,
-              controller: {
+              controller: new RequestController({
                 respondWith:
                   xhrRequestController.respondWith.bind(xhrRequestController),
                 errorWith:
                   xhrRequestController.errorWith.bind(xhrRequestController),
-              },
+              }),
             })
 
             // If any of the "unhandledException" listeners handled the request,

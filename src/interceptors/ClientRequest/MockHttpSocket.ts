@@ -360,7 +360,7 @@ export class MockHttpSocket extends MockSocket {
   /**
    * Close this socket connection with the given error.
    */
-  public errorWith(error: Error): void {
+  public errorWith(error?: Error): void {
     this.destroy(error)
   }
 
