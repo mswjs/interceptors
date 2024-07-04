@@ -664,13 +664,13 @@ export class NodeClientRequest extends ClientRequest {
     response: IncomingMessage
   ): void {
     response.emit = new Proxy(response.emit, {
-      apply(target, thisArg, args) {
+      apply: (target, thisArg, args) => {
         const [event] = args
         const callEmit = () => Reflect.apply(target, thisArg, args)
 
         if (event === 'end') {
           promise.finally(() => callEmit())
-          return
+          return this.listenerCount('end') > 0
         }
 
         return callEmit()
