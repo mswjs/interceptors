@@ -15,19 +15,20 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_ADMIN_TOKEN }}
 
-      - name: Setup Git
+      - name: Set up Git
         run: |
           git config --local user.name "Artem Zakharchenko"
           git config --local user.email "kettanaito@gmail.com"
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
           always-auth: true
           registry-url: https://registry.npmjs.org
 
-      - uses: pnpm/action-setup@v2
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 8.15
 
