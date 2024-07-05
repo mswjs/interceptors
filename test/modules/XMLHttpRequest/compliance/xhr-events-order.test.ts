@@ -18,17 +18,17 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new XMLHttpRequestInterceptor()
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 
   switch (url.pathname) {
     case '/user': {
-      request.respondWith(new Response())
+      controller.respondWith(new Response())
       break
     }
 
     case '/numbers-mock': {
-      request.respondWith(new Response(JSON.stringify([1, 2, 3])))
+      controller.respondWith(new Response(JSON.stringify([1, 2, 3])))
       break
     }
   }

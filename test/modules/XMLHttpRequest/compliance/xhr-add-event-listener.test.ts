@@ -7,9 +7,9 @@ import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpR
 import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   if (request.url === 'https://test.mswjs.io/user') {
-    request.respondWith(
+    controller.respondWith(
       new Response(JSON.stringify({ mocked: true }), {
         status: 200,
         statusText: 'OK',

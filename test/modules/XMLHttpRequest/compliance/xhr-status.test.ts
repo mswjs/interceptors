@@ -8,11 +8,11 @@ import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 
   if (url.pathname === '/cors') {
-    request.respondWith(Response.error())
+    controller.respondWith(Response.error())
     return
   }
 
@@ -21,7 +21,7 @@ interceptor.on('request', ({ request }) => {
     return
   }
 
-  request.respondWith(new Response(null, { status: Number(status) }))
+  controller.respondWith(new Response(null, { status: Number(status) }))
 })
 
 beforeAll(() => {

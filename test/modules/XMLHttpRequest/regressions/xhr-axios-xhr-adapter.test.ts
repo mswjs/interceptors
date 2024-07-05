@@ -29,8 +29,8 @@ afterAll(() => {
 })
 
 it('performs a request with the "xhr" axios adapter', async () => {
-  interceptor.once('request', ({ request }) => {
-    request.respondWith(
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(
       new UndiciResponse('Hello world') as unknown as Response
     )
   })

@@ -4,8 +4,8 @@ import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpR
 import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
-interceptor.on('request', ({ request }) => {
-  request.respondWith(
+interceptor.on('request', ({ controller }) => {
+  controller.respondWith(
     new Response(null, {
       status: 401,
       statusText: 'Unauthorized',

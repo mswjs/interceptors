@@ -3,7 +3,7 @@
  * @see https://github.com/mswjs/interceptors/issues/335
  */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
-import { XMLHttpRequestInterceptor } from '../../../../lib/node/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
@@ -17,8 +17,8 @@ afterAll(() => {
 })
 
 it('handles Response.error() as a request error', async () => {
-  interceptor.once('request', ({ request }) => {
-    request.respondWith(Response.error())
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(Response.error())
   })
 
   const loadListener = vi.fn()

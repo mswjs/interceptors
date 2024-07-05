@@ -2,7 +2,7 @@ import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-interceptor.on('request', async ({ request, requestId }) => {
+interceptor.on('request', async ({ request, requestId, controller }) => {
   window.dispatchEvent(
     new CustomEvent('resolver', {
       detail: {
@@ -29,7 +29,7 @@ interceptor.on('request', async ({ request, requestId }) => {
       req.addEventListener('error', reject)
     })
 
-    request.respondWith(
+    controller.respondWith(
       new Response(`${req.responseText} world`, {
         status: req.status,
         statusText: req.statusText,

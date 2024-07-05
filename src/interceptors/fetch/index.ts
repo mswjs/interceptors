@@ -53,6 +53,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       this.logger.info('[%s] %s', request.method, request.url)
       this.logger.info('awaiting for the mocked response...')
 
+      this.logger.info(
+        'emitting the "request" event for %s listener(s)...',
+        this.emitter.listenerCount('request')
+      )
+
       const isRequestHandled = await handleRequest({
         request,
         requestId,
