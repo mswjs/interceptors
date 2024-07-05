@@ -1,25 +1,28 @@
 /**
  * @vitest-environment jsdom
  */
-import { it, expect, afterAll, beforeAll } from 'vitest'
+import { it, expect, afterAll, afterEach, beforeAll } from 'vitest'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
-interceptor.once('request', ({ request }) => {
-  if (request.url.endsWith('/numbers')) {
-    return request.respondWith(Response.json([1, 2, 3]))
-  }
-})
 
 beforeAll(() => {
   interceptor.apply()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(() => {
   interceptor.dispose()
 })
 
-it('intercepts a fetch request to a relative URL', async () => {
+it('intercepts a fetch request to a relative URL (jsdom)', async () => {
+  interceptor.on('request', ({ controller }) => {
+    return controller.respondWith(Response.json([1, 2, 3]))
+  })
+
   const response = await fetch('/numbers')
 
   expect(response.status).toBe(200)

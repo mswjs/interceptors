@@ -6,7 +6,6 @@ const interceptor = new FetchInterceptor()
 
 beforeAll(() => {
   vi.spyOn(console, 'error').mockImplementation(() => void 0)
-
   interceptor.apply()
 })
 
@@ -47,8 +46,8 @@ it('treats a thrown Response as a mocked response', async () => {
 })
 
 it('treats a Response.error() as a network error', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(Response.error())
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(Response.error())
   })
 
   const requestError = await fetch('http://localhost:3001/resource')
@@ -147,7 +146,7 @@ it('handles exceptions as instructed in "unhandledException" listener (request e
     .then(() => {
       throw new Error('Must not resolve')
     })
-    .catch<TypeError & { cause?: unknown }>((error) => error)
+    .catch<Error & { cause?: unknown }>((error) => error)
 
   expect(requestError.name).toBe('Error')
   expect(requestError.message).toBe('Fallback error')

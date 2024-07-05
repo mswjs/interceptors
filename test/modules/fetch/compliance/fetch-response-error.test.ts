@@ -4,16 +4,6 @@ import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 
-interceptor.on('request', ({ request }) => {
-  /**
-   * Responding with "Response.error()" is equivalent to
-   * network error occurring during the request processing.
-   * This must reject the request promise.
-   * @see https://developer.mozilla.org/en-US/docs/Web/API/Response/error_static
-   */
-  request.respondWith(Response.error())
-})
-
 beforeAll(() => {
   vi.spyOn(console, 'error').mockImplementation(() => void 0)
   interceptor.apply()
@@ -25,6 +15,16 @@ afterAll(() => {
 })
 
 it('treats "Response.error()" as a network error', async () => {
+  interceptor.on('request', ({ controller }) => {
+    /**
+     * Responding with "Response.error()" is equivalent to
+     * network error occurring during the request processing.
+     * This must reject the request promise.
+     * @see https://developer.mozilla.org/en-US/docs/Web/API/Response/error_static
+     */
+    controller.respondWith(Response.error())
+  })
+
   const error = await fetch('http://localhost:3001/resource').then<
     null,
     TypeError & { cause: unknown }
@@ -36,5 +36,10 @@ it('treats "Response.error()" as a network error', async () => {
   expect(error).toBeInstanceOf(TypeError)
   expect(error!.message).toBe('Failed to fetch')
   // Internal: preserve the original Response error.
-  expect(error!.cause).toEqual(Response.error())
+  const responseError = Response.error()
+  Object.defineProperty(responseError, 'url', {
+    value: 'http://localhost:3001/resource',
+    enumerable: true,
+  })
+  expect(error!.cause).toEqual(responseError)
 })

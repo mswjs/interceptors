@@ -57,10 +57,10 @@ it('aborts a pending request when the original request is aborted', async () => 
   const requestListenerCalled = new DeferredPromise<void>()
   const requestAborted = new DeferredPromise<Error>()
 
-  interceptor.once('request', async ({ request }) => {
+  interceptor.once('request', async ({ controller }) => {
     requestListenerCalled.resolve()
-    await sleep(1_000)
-    request.respondWith(new Response())
+    await sleep(1000)
+    controller.respondWith(new Response())
   })
 
   const controller = new AbortController()
@@ -106,10 +106,10 @@ it('forwards custom abort reason to the request if pending', async () => {
   const requestListenerCalled = new DeferredPromise<void>()
   const requestAborted = new DeferredPromise<Error>()
 
-  interceptor.once('request', async ({ request }) => {
+  interceptor.once('request', async ({ controller }) => {
     requestListenerCalled.resolve()
-    await sleep(1_000)
-    request.respondWith(new Response())
+    await sleep(1000)
+    controller.respondWith(new Response())
   })
 
   const controller = new AbortController()

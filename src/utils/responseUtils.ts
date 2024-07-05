@@ -41,7 +41,7 @@ export function createServerErrorResponse(body: unknown): Response {
 }
 
 /**
- * Checks if the given response is a `Response.error()`.
+ * Check if the given response is a `Response.error()`.
  *
  * @note Some environments, like Miniflare (Cloudflare) do not
  * implement the "Response.type" property and throw on its access.
