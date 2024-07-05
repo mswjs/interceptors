@@ -29,14 +29,14 @@ afterAll(async () => {
 it('forbids calling "respondWith" multiple times for the same request', async () => {
   const requestUrl = httpServer.http.url('/')
 
-  interceptor.on('request', function firstRequestListener({ request }) {
-    request.respondWith(new Response())
+  interceptor.on('request', function firstRequestListener({ controller }) {
+    controller.respondWith(new Response())
   })
 
   const secondRequestEmitted = new DeferredPromise<void>()
-  interceptor.on('request', function secondRequestListener({ request }) {
+  interceptor.on('request', function secondRequestListener({ controller }) {
     expect(() =>
-      request.respondWith(new Response(null, { status: 301 }))
+      controller.respondWith(new Response(null, { status: 301 }))
     ).toThrow(
       `Failed to respond to "GET ${requestUrl}" request: the "request" event has already been responded to.`
     )
@@ -61,10 +61,10 @@ it('abort the request if the abort signal is emitted', async () => {
   const requestUrl = httpServer.http.url('/')
 
   const requestEmitted = new DeferredPromise<void>()
-  interceptor.on('request', async function delayedResponse({ request }) {
+  interceptor.on('request', async function delayedResponse({ controller }) {
     requestEmitted.resolve()
     await sleep(10_000)
-    request.respondWith(new Response())
+    controller.respondWith(new Response())
   })
 
   const abortController = new AbortController()
