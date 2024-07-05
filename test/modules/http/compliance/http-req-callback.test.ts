@@ -15,12 +15,12 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   if ([httpServer.https.url('/get')].includes(request.url)) {
     return
   }
 
-  request.respondWith(
+  controller.respondWith(
     new Response('mocked-body', {
       status: 403,
       statusText: 'Forbidden',

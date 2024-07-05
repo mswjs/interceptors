@@ -17,13 +17,13 @@ afterAll(() => {
 })
 
 it('responds to a request with an empty ReadableStream', async () => {
-  interceptor.once('request', ({ request }) => {
+  interceptor.once('request', ({ controller }) => {
     const stream = new ReadableStream({
       start(controller) {
         controller.close()
       },
     })
-    request.respondWith(new Response(stream))
+    controller.respondWith(new Response(stream))
   })
 
   const request = http.get('http://example.com')

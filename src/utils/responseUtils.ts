@@ -40,6 +40,8 @@ export function createServerErrorResponse(body: unknown): Response {
   )
 }
 
+export type ResponseError = Response & { type: 'error' }
+
 /**
  * Check if the given response is a `Response.error()`.
  *
@@ -48,8 +50,6 @@ export function createServerErrorResponse(body: unknown): Response {
  * Safely check if we can access "type" on "Response" before continuing.
  * @see https://github.com/mswjs/msw/issues/1834
  */
-export function isResponseError(
-  response: Response
-): response is Response & { type: 'error' } {
+export function isResponseError(response: Response): response is ResponseError {
   return isPropertyAccessible(response, 'type') && response.type === 'error'
 }

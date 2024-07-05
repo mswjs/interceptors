@@ -29,7 +29,7 @@ afterAll(async () => {
 
 it('supports ReadableStream as a mocked response', async () => {
   const encoder = new TextEncoder()
-  interceptor.once('request', ({ request }) => {
+  interceptor.once('request', ({ controller }) => {
     const stream = new ReadableStream({
       start(controller) {
         controller.enqueue(encoder.encode('hello'))
@@ -38,7 +38,7 @@ it('supports ReadableStream as a mocked response', async () => {
         controller.close()
       },
     })
-    request.respondWith(new Response(stream))
+    controller.respondWith(new Response(stream))
   })
 
   const request = http.get('http://example.com/resource')
@@ -47,7 +47,7 @@ it('supports ReadableStream as a mocked response', async () => {
 })
 
 it('supports delays when enqueuing chunks', async () => {
-  interceptor.once('request', ({ request }) => {
+  interceptor.once('request', ({ controller }) => {
     const stream = new ReadableStream({
       async start(controller) {
         controller.enqueue(encoder.encode('first'))
@@ -63,7 +63,7 @@ it('supports delays when enqueuing chunks', async () => {
       },
     })
 
-    request.respondWith(
+    controller.respondWith(
       new Response(stream, {
         headers: {
           'Content-Type': 'text/event-stream',
@@ -109,7 +109,7 @@ it('forwards ReadableStream errors to the request', async () => {
   const requestErrorListener = vi.fn()
   const responseErrorListener = vi.fn()
 
-  interceptor.once('request', ({ request }) => {
+  interceptor.once('request', ({ controller }) => {
     const stream = new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode('original'))
@@ -118,7 +118,7 @@ it('forwards ReadableStream errors to the request', async () => {
         })
       },
     })
-    request.respondWith(new Response(stream))
+    controller.respondWith(new Response(stream))
   })
 
   const request = http.get('http://localhost/resource')

@@ -3,6 +3,7 @@ import https from 'https'
 import { HttpServer } from '@open-draft/test-server/http'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src/glossary'
+import { RequestController } from '../../../../src/RequestController'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
@@ -42,7 +43,8 @@ it('intercepts a GET request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request: requestFromListener, requestId }] = resolver.mock.calls[0]
+  const [{ request: requestFromListener, requestId, controller }] =
+    resolver.mock.calls[0]
 
   expect(requestFromListener.method).toBe('GET')
   expect(requestFromListener.url).toBe(url)
@@ -53,7 +55,7 @@ it('intercepts a GET request', async () => {
   })
   expect(requestFromListener.credentials).toBe('same-origin')
   expect(requestFromListener.body).toBe(null)
-  expect(requestFromListener.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -72,7 +74,7 @@ it('intercepts an https.get request given RequestOptions without a protocol', as
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -81,7 +83,7 @@ it('intercepts an https.get request given RequestOptions without a protocol', as
   )
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })

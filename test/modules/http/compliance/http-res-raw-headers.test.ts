@@ -28,8 +28,8 @@ afterAll(async () => {
 })
 
 it('preserves the original mocked response headers casing in "rawHeaders"', async () => {
-  interceptor.once('request', ({ request }) => {
-    request.respondWith(
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(
       new Response(null, {
         headers: {
           'X-CustoM-HeadeR': 'Yes',

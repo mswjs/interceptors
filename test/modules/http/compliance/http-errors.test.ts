@@ -27,9 +27,9 @@ afterAll(() => {
 })
 
 it('suppresses ECONNREFUSED error given a mocked response', async () => {
-  interceptor.once('request', async ({ request }) => {
+  interceptor.once('request', async ({ controller }) => {
     await sleep(250)
-    request.respondWith(new Response('Mocked'))
+    controller.respondWith(new Response('Mocked'))
   })
 
   // Connecting to a non-existing host will
@@ -71,9 +71,9 @@ it('forwards ECONNREFUSED error given a bypassed request', async () => {
 })
 
 it('suppresses ENOTFOUND error given a mocked response', async () => {
-  interceptor.once('request', async ({ request }) => {
+  interceptor.once('request', async ({ controller }) => {
     await sleep(250)
-    request.respondWith(new Response('Mocked'))
+    controller.respondWith(new Response('Mocked'))
   })
 
   const request = http.get('http://non-existing-url.com')
@@ -104,9 +104,9 @@ it('forwards ENOTFOUND error for a bypassed request', async () => {
 })
 
 it('suppresses EHOSTUNREACH error given a mocked response', async () => {
-  interceptor.once('request', async ({ request }) => {
+  interceptor.once('request', async ({ controller }) => {
     await sleep(250)
-    request.respondWith(new Response('Mocked'))
+    controller.respondWith(new Response('Mocked'))
   })
 
   // Connecting to an IPv6 address that's out of the network's
@@ -147,10 +147,7 @@ it('allows throwing connection errors in the request listener', async () => {
     errno?: number
     syscall?: string
 
-    constructor(
-      public address: string,
-      public port: number
-    ) {
+    constructor(public address: string, public port: number) {
       super()
       this.code = 'ECONNREFUSED'
       this.errno = -61

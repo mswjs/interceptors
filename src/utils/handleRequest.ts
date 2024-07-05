@@ -4,8 +4,13 @@ import { until } from '@open-draft/until'
 import type { HttpRequestEventMap } from '../glossary'
 import { emitAsync } from './emitAsync'
 import { kResponsePromise, RequestController } from '../RequestController'
-import { createServerErrorResponse, isResponseError } from './responseUtils'
+import {
+  createServerErrorResponse,
+  isResponseError,
+  ResponseError,
+} from './responseUtils'
 import { InterceptorError } from '../InterceptorError'
+import { isNodeLikeError } from './isNodeLikeError'
 
 interface HandleRequestOptions {
   requestId: string
@@ -14,7 +19,7 @@ interface HandleRequestOptions {
   controller: RequestController
 
   onResponse: (response: Response) => void
-  onRequestError: (response?: Response) => void
+  onRequestError: (response: ResponseError) => void
   onAborted: (reason: unknown) => void
 }
 
@@ -44,6 +49,12 @@ export async function handleRequest(
     // to the developer. These must not be handled in any way.
     if (error instanceof InterceptorError) {
       throw result.error
+    }
+
+    // Support mocking Node.js-like errors.
+    if (isNodeLikeError(error)) {
+      options.onAborted(error)
+      return true
     }
 
     // Handle thrown responses.

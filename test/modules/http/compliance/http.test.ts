@@ -86,11 +86,11 @@ it('errors on a request to a non-existing host', async () => {
 
 it('mocked request to an existing host', async () => {
   const requestListener = vi.fn()
-  interceptor.on('request', async ({ request }) => {
+  interceptor.on('request', async ({ request, controller }) => {
     requestListener(request.clone())
 
     const data = await request.json()
-    request.respondWith(
+    controller.respondWith(
       new Response(`howdy, ${data.name}`, {
         headers: {
           'x-custom-header': 'mocked',
@@ -126,11 +126,11 @@ it('mocked request to an existing host', async () => {
 
 it('mocks response to a non-existing host', async () => {
   const requestListener = vi.fn()
-  interceptor.on('request', async ({ request }) => {
+  interceptor.on('request', async ({ request, controller }) => {
     requestListener(request.clone())
 
     const data = await request.json()
-    request.respondWith(
+    controller.respondWith(
       new Response(`howdy, ${data.name}`, {
         headers: {
           'x-custom-header': 'mocked',
@@ -165,8 +165,8 @@ it('mocks response to a non-existing host', async () => {
 })
 
 it('returns socket address for a mocked request', async () => {
-  interceptor.on('request', async ({ request }) => {
-    request.respondWith(new Response())
+  interceptor.on('request', async ({ controller }) => {
+    controller.respondWith(new Response())
   })
 
   const addressPromise = new DeferredPromise<object>()
@@ -185,8 +185,8 @@ it('returns socket address for a mocked request', async () => {
 })
 
 it('returns socket address for a mocked request with family: 6', async () => {
-  interceptor.on('request', async ({ request }) => {
-    request.respondWith(new Response())
+  interceptor.on('request', async ({ controller }) => {
+    controller.respondWith(new Response())
   })
 
   const addressPromise = new DeferredPromise<object>()
@@ -205,8 +205,8 @@ it('returns socket address for a mocked request with family: 6', async () => {
 })
 
 it('returns socket address for a mocked request with IPv6 hostname', async () => {
-  interceptor.on('request', async ({ request }) => {
-    request.respondWith(new Response())
+  interceptor.on('request', async ({ controller }) => {
+    controller.respondWith(new Response())
   })
 
   const addressPromise = new DeferredPromise<object>()

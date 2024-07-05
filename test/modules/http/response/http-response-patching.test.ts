@@ -46,11 +46,11 @@ async function getResponse(request: Request): Promise<Response | undefined> {
   }
 }
 
-interceptor.on('request', async ({ request }) => {
+interceptor.on('request', async ({ request, controller }) => {
   const response = await getResponse(request)
 
   if (response) {
-    request.respondWith(response)
+    controller.respondWith(response)
   }
 })
 
