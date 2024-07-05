@@ -35,11 +35,5 @@ it('treats "Response.error()" as a network error', async () => {
 
   expect(error).toBeInstanceOf(TypeError)
   expect(error!.message).toBe('Failed to fetch')
-  // Internal: preserve the original Response error.
-  const responseError = Response.error()
-  Object.defineProperty(responseError, 'url', {
-    value: 'http://localhost:3001/resource',
-    enumerable: true,
-  })
-  expect(error!.cause).toEqual(responseError)
+  expect(error!.cause).toEqual(Response.error())
 })

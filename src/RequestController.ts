@@ -5,12 +5,6 @@ import { InterceptorError } from './InterceptorError'
 const kRequestHandled = Symbol('kRequestHandled')
 export const kResponsePromise = Symbol('kResponsePromise')
 
-export interface RequestControllerInit {
-  request: Request
-  respondWith: (response: Response) => void
-  errorWith: (error?: Error) => void
-}
-
 export class RequestController {
   /**
    * Internal response promise.
@@ -19,7 +13,7 @@ export class RequestController {
    * @note This promise cannot be rejected. It's either infinitely
    * pending or resolved with whichever Response was passed to `respondWith()`.
    */
-  [kResponsePromise]: DeferredPromise<Response | undefined>;
+  [kResponsePromise]: DeferredPromise<Response | Error | undefined>;
 
   /**
    * Internal flag indicating if this request has been handled.
@@ -27,7 +21,7 @@ export class RequestController {
    */
   [kRequestHandled]: boolean
 
-  constructor(private init: RequestControllerInit) {
+  constructor(private request: Request) {
     this[kRequestHandled] = false
     this[kResponsePromise] = new DeferredPromise()
   }
@@ -40,19 +34,24 @@ export class RequestController {
    * controller.respondWith(Response.error())
    */
   public respondWith(response: Response): void {
-    const { request, respondWith } = this.init
-
     invariant.as(
       InterceptorError,
       !this[kRequestHandled],
       'Failed to respond to the "%s %s" request: the "request" event has already been handled.',
-      request.method,
-      request.url
+      this.request.method,
+      this.request.url
     )
 
     this[kRequestHandled] = true
-    respondWith(response)
     this[kResponsePromise].resolve(response)
+
+    /**
+     * @note The request conrtoller doesn't do anything
+     * apart from letting the interceptor await the response
+     * provided by the developer through the response promise.
+     * Each interceptor implements the actual respondWith/errorWith
+     * logic based on that interceptor's needs.
+     */
   }
 
   /**
@@ -62,17 +61,21 @@ export class RequestController {
    * controller.errorWith(new Error('Oops!'))
    */
   public errorWith(error?: Error): void {
-    const { request, errorWith } = this.init
-
     invariant.as(
       InterceptorError,
       !this[kRequestHandled],
       'Failed to error the "%s %s" request: the "request" event has already been handled.',
-      request.method,
-      request.url
+      this.request.method,
+      this.request.url
     )
 
     this[kRequestHandled] = true
-    errorWith(error)
+
+    /**
+     * @note Resolve the response promise, not reject.
+     * This helps us differentiate between unhandled exceptions
+     * and intended errors ("errorWith") while waiting for the response.
+     */
+    this[kResponsePromise].resolve(error)
   }
 }
