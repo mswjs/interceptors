@@ -56,8 +56,8 @@ afterAll(async () => {
 })
 
 it('responds with a mocked response to an "axios()" request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(createMockResponse())
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(createMockResponse())
   })
 
   const res = await axios('/user')
@@ -68,8 +68,8 @@ it('responds with a mocked response to an "axios()" request', async () => {
 })
 
 it('responds with a mocked response to an "axios.get()" request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(createMockResponse())
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(createMockResponse())
   })
 
   const res = await axios.get('/user')
@@ -80,8 +80,8 @@ it('responds with a mocked response to an "axios.get()" request', async () => {
 })
 
 it('responds with a mocked response to an "axios.post()" request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(createMockResponse())
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(createMockResponse())
   })
 
   const res = await axios.post('/user')
