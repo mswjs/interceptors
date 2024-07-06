@@ -4,8 +4,8 @@ import {
   type RequestHeadersCompleteCallback,
   type ResponseHeadersCompleteCallback,
 } from '_http_common'
-import { STATUS_CODES } from 'node:http'
-import { Readable } from 'node:stream'
+import { IncomingMessage, ServerResponse } from 'node:http'
+import { Readable, Writable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { MockSocket } from '../Socket/MockSocket'
@@ -272,36 +272,22 @@ export class MockHttpSocket extends MockSocket {
     // if it hasn't been flushed already (e.g. someone started reading request stream).
     this.flushWriteBuffer()
 
-    const httpHeaders: Array<Buffer> = []
-
-    httpHeaders.push(
-      Buffer.from(
-        `HTTP/1.1 ${response.status} ${
-          response.statusText || STATUS_CODES[response.status]
-        }\r\n`
-      )
-    )
+    const w = new Writable({
+      write: (chunk, encoding, callback) => {
+        this.push(chunk, encoding);
+        callback()
+      },
+    })
+    const fakeResponse = new ServerResponse(new IncomingMessage(new net.Socket()))
+    // @ts-expect-error Node has test for this: https://github.com/nodejs/node/blob/10099bb3f7fd97bb9dd9667188426866b3098e07/test/parallel/test-http-server-response-standalone.js#L32
+    fakeResponse.assignSocket(w)
+    fakeResponse.statusCode = response.status;
+    fakeResponse.statusMessage = response.statusText;
 
     // Get the raw headers stored behind the symbol to preserve name casing.
     const headers = getRawFetchHeaders(response.headers) || response.headers
     for (const [name, value] of headers) {
-      httpHeaders.push(Buffer.from(`${name}: ${value}\r\n`))
-    }
-
-    // An empty line separating headers from the body.
-    httpHeaders.push(Buffer.from('\r\n'))
-
-    const flushHeaders = (value?: Uint8Array) => {
-      if (httpHeaders.length === 0) {
-        return
-      }
-
-      if (typeof value !== 'undefined') {
-        httpHeaders.push(Buffer.from(value))
-      }
-
-      this.push(Buffer.concat(httpHeaders))
-      httpHeaders.length = 0
+      fakeResponse.setHeader(name, value);
     }
 
     if (response.body) {
@@ -312,19 +298,10 @@ export class MockHttpSocket extends MockSocket {
           const { done, value } = await reader.read()
 
           if (done) {
+            fakeResponse.end()
             break
           }
-
-          // Flush the headers upon the first chunk in the stream.
-          // This ensures the consumer will start receiving the response
-          // as it streams in (subsequent chunks are pushed).
-          if (httpHeaders.length > 0) {
-            flushHeaders(value)
-            continue
-          }
-
-          // Subsequent body chukns are push to the stream.
-          this.push(value)
+          fakeResponse.write(value);
         }
       } catch (error) {
         // Coerce response stream errors to 500 responses.
@@ -334,12 +311,9 @@ export class MockHttpSocket extends MockSocket {
 
         return
       }
+    } else {
+      fakeResponse.end()
     }
-
-    // If the headers were not flushed up to this point,
-    // this means the response either had no body or had
-    // an empty body stream. Flush the headers.
-    flushHeaders()
 
     // Close the socket if the connection wasn't marked as keep-alive.
     if (!this.shouldKeepAlive) {
