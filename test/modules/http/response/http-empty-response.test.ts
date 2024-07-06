@@ -27,5 +27,9 @@ it('supports responding with an empty mocked response', async () => {
   const { res, text } = await waitForClientRequest(request)
 
   expect(res.statusCode).toBe(200)
+  // Must not set any response headers that were not
+  // explicitly provided in the mocked response.
+  expect(res.headers).toEqual({})
+  expect(res.rawHeaders).toEqual([])
   expect(await text()).toBe('')
 })

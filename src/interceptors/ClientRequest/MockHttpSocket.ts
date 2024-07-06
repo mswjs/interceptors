@@ -296,6 +296,18 @@ export class MockHttpSocket extends MockSocket {
     serverResponse.statusCode = response.status
     serverResponse.statusMessage = response.statusText
 
+    /**
+     * @note Remove the `Connection` and `Date` response headers
+     * injected by `ServerResponse` by default. Those are required
+     * from the server but the interceptor is NOT technically a server.
+     * It's confusing to add response headers that the developer didn't
+     * specify themselves. They can always add these if they wish.
+     * @see https://www.rfc-editor.org/rfc/rfc9110#field.date
+     * @see https://www.rfc-editor.org/rfc/rfc9110#field.connection
+     */
+    serverResponse.removeHeader('connection')
+    serverResponse.removeHeader('date')
+
     // Get the raw headers stored behind the symbol to preserve name casing.
     const headers = getRawFetchHeaders(response.headers) || response.headers
     for (const [name, value] of headers) {
