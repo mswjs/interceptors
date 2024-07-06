@@ -140,6 +140,11 @@ export class MockHttpSocket extends MockSocket {
     // Normally, we shoud listen to the "close" event but it
     // can be suppressed by using the "emitClose: false" option.
     this.responseParser.free()
+
+    if (error) {
+      this.emit('error', error)
+    }
+
     return super.destroy(error)
   }
 
@@ -153,6 +158,12 @@ export class MockHttpSocket extends MockSocket {
     }
 
     const socket = this.createConnection()
+
+    // If the developer destroys the socket, destroy the original connection.
+    this.once('error', (error) => {
+      socket.destroy(error)
+    })
+
     this.address = socket.address.bind(socket)
 
     // Flush the buffered "socket.write()" calls onto
@@ -307,6 +318,11 @@ export class MockHttpSocket extends MockSocket {
      */
     serverResponse.removeHeader('connection')
     serverResponse.removeHeader('date')
+
+    // If the developer destroy the socket, gracefully destroy the response.
+    this.once('error', () => {
+      serverResponse.destroy()
+    })
 
     // Get the raw headers stored behind the symbol to preserve name casing.
     const headers = getRawFetchHeaders(response.headers) || response.headers
