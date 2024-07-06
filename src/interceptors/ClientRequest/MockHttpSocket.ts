@@ -272,10 +272,19 @@ export class MockHttpSocket extends MockSocket {
     // if it hasn't been flushed already (e.g. someone started reading request stream).
     this.flushWriteBuffer()
 
-    const fakeResponse = new ServerResponse(new IncomingMessage(this))
+    // Create a `ServerResponse` instance to delegate HTTP message parsing,
+    // Transfer-Encoding, and other things to Node.js internals.
+    const serverResponse = new ServerResponse(new IncomingMessage(this))
 
-    // Node has test for this: https://github.com/nodejs/node/blob/10099bb3f7fd97bb9dd9667188426866b3098e07/test/parallel/test-http-server-response-standalone.js#L32
-    fakeResponse.assignSocket(
+    /**
+     * Assign a mock socket instance to the server response to
+     * spy on the response chunk writes. Push the transformed response chunks
+     * to this `MockHttpSocket` instance to trigger the "data" event.
+     * @note Providing the same `MockSocket` instance when creating `ServerResponse`
+     * does not have the same effect.
+     * @see https://github.com/nodejs/node/blob/10099bb3f7fd97bb9dd9667188426866b3098e07/test/parallel/test-http-server-response-standalone.js#L32
+     */
+    serverResponse.assignSocket(
       new MockSocket({
         write: (chunk, encoding, callback) => {
           this.push(chunk, encoding)
@@ -284,13 +293,13 @@ export class MockHttpSocket extends MockSocket {
         read() {},
       })
     )
-    fakeResponse.statusCode = response.status
-    fakeResponse.statusMessage = response.statusText
+    serverResponse.statusCode = response.status
+    serverResponse.statusMessage = response.statusText
 
     // Get the raw headers stored behind the symbol to preserve name casing.
     const headers = getRawFetchHeaders(response.headers) || response.headers
     for (const [name, value] of headers) {
-      fakeResponse.setHeader(name, value)
+      serverResponse.setHeader(name, value)
     }
 
     if (response.body) {
@@ -301,21 +310,19 @@ export class MockHttpSocket extends MockSocket {
           const { done, value } = await reader.read()
 
           if (done) {
-            fakeResponse.end()
+            serverResponse.end()
             break
           }
-          fakeResponse.write(value)
+
+          serverResponse.write(value)
         }
       } catch (error) {
         // Coerce response stream errors to 500 responses.
-        // Don't flush the original response headers because
-        // unhandled errors translate to 500 error responses forcefully.
         this.respondWith(createServerErrorResponse(error))
-
         return
       }
     } else {
-      fakeResponse.end()
+      serverResponse.end()
     }
 
     // Close the socket if the connection wasn't marked as keep-alive.
