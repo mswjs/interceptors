@@ -5,7 +5,7 @@ import {
   type ResponseHeadersCompleteCallback,
 } from '_http_common'
 import { IncomingMessage, ServerResponse } from 'node:http'
-import { Readable, Writable } from 'node:stream'
+import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { MockSocket } from '../Socket/MockSocket'
@@ -272,22 +272,25 @@ export class MockHttpSocket extends MockSocket {
     // if it hasn't been flushed already (e.g. someone started reading request stream).
     this.flushWriteBuffer()
 
-    const w = new Writable({
-      write: (chunk, encoding, callback) => {
-        this.push(chunk, encoding);
-        callback()
-      },
-    })
-    const fakeResponse = new ServerResponse(new IncomingMessage(new net.Socket()))
-    // @ts-expect-error Node has test for this: https://github.com/nodejs/node/blob/10099bb3f7fd97bb9dd9667188426866b3098e07/test/parallel/test-http-server-response-standalone.js#L32
-    fakeResponse.assignSocket(w)
-    fakeResponse.statusCode = response.status;
-    fakeResponse.statusMessage = response.statusText;
+    const fakeResponse = new ServerResponse(new IncomingMessage(this))
+
+    // Node has test for this: https://github.com/nodejs/node/blob/10099bb3f7fd97bb9dd9667188426866b3098e07/test/parallel/test-http-server-response-standalone.js#L32
+    fakeResponse.assignSocket(
+      new MockSocket({
+        write: (chunk, encoding, callback) => {
+          this.push(chunk, encoding)
+          callback?.()
+        },
+        read() {},
+      })
+    )
+    fakeResponse.statusCode = response.status
+    fakeResponse.statusMessage = response.statusText
 
     // Get the raw headers stored behind the symbol to preserve name casing.
     const headers = getRawFetchHeaders(response.headers) || response.headers
     for (const [name, value] of headers) {
-      fakeResponse.setHeader(name, value);
+      fakeResponse.setHeader(name, value)
     }
 
     if (response.body) {
@@ -301,7 +304,7 @@ export class MockHttpSocket extends MockSocket {
             fakeResponse.end()
             break
           }
-          fakeResponse.write(value);
+          fakeResponse.write(value)
         }
       } catch (error) {
         // Coerce response stream errors to 500 responses.
