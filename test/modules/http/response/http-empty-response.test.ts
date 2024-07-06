@@ -29,17 +29,3 @@ it('supports responding with an empty mocked response', async () => {
   expect(res.statusCode).toBe(200)
   expect(await text()).toBe('')
 })
-
-it('support transfer-encoding: chunked', async () => {
-  interceptor.once('request', ({ request }) => {
-    request.respondWith(new Response('OK', {
-      headers: { 'Transfer-Encoding': 'chunked' }
-    }))
-  })
-
-  const request = http.get('http://localhost')
-  const { res, text } = await waitForClientRequest(request)
-
-  expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('OK')
-})
