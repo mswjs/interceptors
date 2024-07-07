@@ -5,6 +5,8 @@ const kRawHeaders = Symbol('kRawHeaders')
 const kRestoreHeaders = Symbol('kRestoreHeaders')
 
 function recordRawHeader(headers: Headers, args: HeaderTuple) {
+  console.trace(args)
+
   if (!Reflect.has(headers, kRawHeaders)) {
     Object.defineProperty(headers, kRawHeaders, {
       value: [],
@@ -32,8 +34,11 @@ function recordRawHeader(headers: Headers, args: HeaderTuple) {
  * h[Symbol('headers map')] // Map { 'X-Custom' => 'one, two' }
  */
 export function recordRawFetchHeaders() {
+  console.log('patching headers...')
+
   // Prevent patching the Headers prototype multiple times.
   if (Reflect.get(Headers, kRestoreHeaders)) {
+    console.log('already patched...')
     return Reflect.get(Headers, kRestoreHeaders)
   }
 
@@ -76,17 +81,26 @@ export function recordRawFetchHeaders() {
       return Reflect.apply(target, thisArg, args)
     },
   })
+
+  console.log('headers patched!')
 }
 
 export function restoreHeadersPrototype() {
+  console.log('restoring headers...')
+
   if (!Reflect.get(Headers, kRestoreHeaders)) {
+    console.log('not patched, skipped')
     return
   }
 
   Reflect.get(Headers, kRestoreHeaders)()
+  console.log('restored!')
 }
 
 export function getRawFetchHeaders(headers: Headers): RawHeaders {
+  console.log('get raw: headers...', Reflect.get(headers, kRawHeaders))
+  console.log('get entries:', Array.from(headers.entries()))
+
   // Return the raw headers, if recorded (i.e. `.set()` or `.append()` was called).
   // If no raw headers were recorded, return all the headers.
   return Reflect.get(headers, kRawHeaders) || Array.from(headers.entries())
