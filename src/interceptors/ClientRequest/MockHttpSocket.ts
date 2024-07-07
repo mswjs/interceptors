@@ -4,7 +4,7 @@ import {
   type RequestHeadersCompleteCallback,
   type ResponseHeadersCompleteCallback,
 } from '_http_common'
-import { IncomingMessage, ServerResponse } from 'node:http'
+import { STATUS_CODES, IncomingMessage, ServerResponse } from 'node:http'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
@@ -13,12 +13,15 @@ import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketW
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
 import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
-import { getRawFetchHeaders } from '../../utils/getRawFetchHeaders'
 import {
   createServerErrorResponse,
   RESPONSE_STATUS_CODES_WITHOUT_BODY,
 } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
+import {
+  getRawFetchHeaders,
+  recordRawFetchHeaders,
+} from './utils/recordRawHeaders'
 
 type HttpConnectionOptions = any
 
@@ -122,6 +125,11 @@ export class MockHttpSocket extends MockSocket {
       Reflect.set(this, 'getSession', () => undefined)
       Reflect.set(this, 'isSessionReused', () => false)
     }
+
+    // Spy on `Header.prototype.set` and `Header.prototype.append` calls
+    // and record the raw header names provided. This is to support
+    // `IncomingMessage.prototype.rawHeaders`.
+    recordRawFetchHeaders()
   }
 
   public emit(event: string | symbol, ...args: any[]): boolean {
@@ -185,11 +193,12 @@ export class MockHttpSocket extends MockSocket {
           const chunkAfterRequestHeaders = chunkString.slice(
             chunk.indexOf('\r\n\r\n')
           )
-          const requestHeaders =
-            getRawFetchHeaders(this.request!.headers) || this.request!.headers
-          const requestHeadersString = Array.from(requestHeaders.entries())
+          const rawRequestHeaders = getRawFetchHeaders(this.request!.headers)
+          const requestHeadersString = rawRequestHeaders
             // Skip the internal request ID deduplication header.
-            .filter(([name]) => name !== INTERNAL_REQUEST_ID_HEADER_NAME)
+            .filter(([name]) => {
+              return name.toLowerCase() !== INTERNAL_REQUEST_ID_HEADER_NAME
+            })
             .map(([name, value]) => `${name}: ${value}`)
             .join('\r\n')
 
@@ -304,8 +313,6 @@ export class MockHttpSocket extends MockSocket {
         read() {},
       })
     )
-    serverResponse.statusCode = response.status
-    serverResponse.statusMessage = response.statusText
 
     /**
      * @note Remove the `Connection` and `Date` response headers
@@ -319,16 +326,23 @@ export class MockHttpSocket extends MockSocket {
     serverResponse.removeHeader('connection')
     serverResponse.removeHeader('date')
 
+    const rawResponseHeaders = getRawFetchHeaders(response.headers)
+
+    /**
+     * @note Call `.writeHead` in order to set the raw response headers
+     * in the same case as they were provided by the developer. Using
+     * `.setHeader()`/`.appendHeader()` normalizes header names.
+     */
+    serverResponse.writeHead(
+      response.status,
+      response.statusText || STATUS_CODES[response.status],
+      rawResponseHeaders
+    )
+
     // If the developer destroy the socket, gracefully destroy the response.
     this.once('error', () => {
       serverResponse.destroy()
     })
-
-    // Get the raw headers stored behind the symbol to preserve name casing.
-    const headers = getRawFetchHeaders(response.headers) || response.headers
-    for (const [name, value] of headers) {
-      serverResponse.setHeader(name, value)
-    }
 
     if (response.body) {
       try {
