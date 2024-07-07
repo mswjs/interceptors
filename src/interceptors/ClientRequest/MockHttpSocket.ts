@@ -18,10 +18,7 @@ import {
   RESPONSE_STATUS_CODES_WITHOUT_BODY,
 } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
-import {
-  getRawFetchHeaders,
-  recordRawFetchHeaders,
-} from './utils/recordRawHeaders'
+import { getRawFetchHeaders } from './utils/recordRawHeaders'
 
 type HttpConnectionOptions = any
 
@@ -125,11 +122,6 @@ export class MockHttpSocket extends MockSocket {
       Reflect.set(this, 'getSession', () => undefined)
       Reflect.set(this, 'isSessionReused', () => false)
     }
-
-    // Spy on `Header.prototype.set` and `Header.prototype.append` calls
-    // and record the raw header names provided. This is to support
-    // `IncomingMessage.prototype.rawHeaders`.
-    recordRawFetchHeaders()
   }
 
   public emit(event: string | symbol, ...args: any[]): boolean {

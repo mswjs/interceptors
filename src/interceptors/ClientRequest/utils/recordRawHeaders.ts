@@ -2,7 +2,7 @@ type HeaderTuple = [string, string]
 type RawHeaders = Array<HeaderTuple>
 
 const kRawHeaders = Symbol('kRawHeaders')
-const kHeadersPatched = Symbol('kHeadersPatched')
+const kRestoreHeaders = Symbol('kRestoreHeaders')
 
 function recordRawHeader(headers: Headers, args: HeaderTuple) {
   if (!Reflect.has(headers, kRawHeaders)) {
@@ -32,9 +32,21 @@ function recordRawHeader(headers: Headers, args: HeaderTuple) {
  * h[Symbol('headers map')] // Map { 'X-Custom' => 'one, two' }
  */
 export function recordRawFetchHeaders() {
-  if (Reflect.get(Headers.prototype.set, kHeadersPatched)) {
-    return
+  // Prevent patching the Headers prototype multiple times.
+  if (Reflect.get(Headers, kRestoreHeaders)) {
+    return Reflect.get(Headers, kRestoreHeaders)
   }
+
+  const { set, append, delete: headersDeleteMethod } = Headers.prototype
+
+  Object.defineProperty(Headers, kRestoreHeaders, {
+    value: () => {
+      Headers.prototype.set = set
+      Headers.prototype.append = append
+      Headers.prototype.delete = headersDeleteMethod
+    },
+    enumerable: false,
+  })
 
   Headers.prototype.set = new Proxy(Headers.prototype.set, {
     apply(target, thisArg, args: HeaderTuple) {
@@ -64,8 +76,14 @@ export function recordRawFetchHeaders() {
       return Reflect.apply(target, thisArg, args)
     },
   })
+}
 
-  Reflect.set(Headers.prototype.set, kHeadersPatched, true)
+export function restoreHeadersPrototype() {
+  if (!Reflect.get(Headers, kRestoreHeaders)) {
+    return
+  }
+
+  Reflect.get(Headers, kRestoreHeaders)()
 }
 
 export function getRawFetchHeaders(headers: Headers): RawHeaders {
