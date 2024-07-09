@@ -36,7 +36,7 @@ jobs:
         run: pnpm build
 
       - name: Node.js tests
-        run: pnpm test:node test/modules/http/compliance/http-res-raw-headers.test.ts
+        run: pnpm test:node
 
       - name: Install Playwright browsers
         run: npx playwright install
