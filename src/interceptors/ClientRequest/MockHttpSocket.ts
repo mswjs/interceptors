@@ -320,8 +320,6 @@ export class MockHttpSocket extends MockSocket {
 
     const rawResponseHeaders = getRawFetchHeaders(response.headers)
 
-    console.log({ rawResponseHeaders })
-
     /**
      * @note Call `.writeHead` in order to set the raw response headers
      * in the same case as they were provided by the developer. Using
@@ -543,7 +541,7 @@ export class MockHttpSocket extends MockSocket {
 
     // Similarly, create a new stream for each response.
     if (canHaveBody) {
-      this.responseStream = new Readable()
+      this.responseStream = new Readable({ read() {} })
     }
 
     const response = new Response(
