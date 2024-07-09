@@ -163,7 +163,7 @@ it('preserves raw response headers (standalone Headers)', async () => {
   expect(res.headers).toStrictEqual({ 'x-custom-header': 'Yes' })
 })
 
-it('preserves raw response headers (standalone Headers) for unmocked request', async () => {
+it('preserves raw response headers for unmocked request', async () => {
   const request = http.get(httpServer.http.url('/'))
   const { res } = await waitForClientRequest(request)
 
