@@ -162,3 +162,14 @@ it('preserves raw response headers (standalone Headers)', async () => {
   )
   expect(res.headers).toStrictEqual({ 'x-custom-header': 'Yes' })
 })
+
+it('preserves raw response headers (standalone Headers) for unmocked request', async () => {
+  const request = http.get(httpServer.http.url('/'))
+  const { res } = await waitForClientRequest(request)
+
+  expect(res.rawHeaders).toEqual(
+    expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
+  )
+  expect(res.headers['x-custom-header']).toEqual('Yes')
+})
+
