@@ -64,14 +64,8 @@ it('intercepts and mocks an XMLHttpRequest (jsdom)', async () => {
 
 it('intercepts and mocks a fetch request', async () => {
   // Perform a fetch request.
-  const response = await fetch('http://localhost:3001/resource').then(async (response) => {
-    return {
-      status: response.status,
-      statusText: response.statusText,
-      text: await response.text(),
-    }
-  })
+  const response = await fetch('http://localhost:3001/resource') 
 
   expect(response.status).toBe(200)
-  expect(response.text).toBe('mocked')
+  expect(await response.text()).toBe('mocked')
 })
