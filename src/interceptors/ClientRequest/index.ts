@@ -14,6 +14,10 @@ import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { isNodeLikeError } from '../../utils/isNodeLikeError'
 import { createServerErrorResponse } from '../../utils/responseUtils'
+import {
+  recordRawFetchHeaders,
+  restoreHeadersPrototype,
+} from './utils/recordRawHeaders'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -104,12 +108,19 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       },
     })
 
+    // Spy on `Header.prototype.set` and `Header.prototype.append` calls
+    // and record the raw header names provided. This is to support
+    // `IncomingMessage.prototype.rawHeaders`.
+    recordRawFetchHeaders()
+
     this.subscriptions.push(() => {
       http.get = originalGet
       http.request = originalRequest
 
       https.get = originalHttpsGet
       https.request = originalHttpsRequest
+
+      restoreHeadersPrototype()
     })
   }
 

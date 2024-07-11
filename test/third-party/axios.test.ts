@@ -60,11 +60,11 @@ it('responds with a mocked response to an "axios()" request', async () => {
     request.respondWith(createMockResponse())
   })
 
-  const res = await axios('/user')
+  const response = await axios('/user')
 
-  expect(res.status).toEqual(200)
-  expect(res.headers).toHaveProperty('x-header', 'yes')
-  expect(res.data).toEqual({ mocked: true })
+  expect(response.status).toEqual(200)
+  expect(response.headers).toHaveProperty('x-header', 'yes')
+  expect(response.data).toEqual({ mocked: true })
 })
 
 it('responds with a mocked response to an "axios.get()" request', async () => {
