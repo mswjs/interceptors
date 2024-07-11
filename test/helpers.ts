@@ -173,7 +173,9 @@ export function createXMLHttpRequest(
     request.addEventListener('loadend', () => {
       resolve(request)
     })
-    request.addEventListener('abort', reject)
+    request.addEventListener('abort', (error) => {
+      reject(error)
+    })
   })
 }
 

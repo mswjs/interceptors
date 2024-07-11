@@ -177,7 +177,7 @@ it('handles exceptions as instructed in "unhandledException" listener (mock resp
   expect(requestErrorListener).not.toHaveBeenCalled()
 })
 
-it.only('handles exceptions as instructed in "unhandledException" listener (request error)', async () => {
+it('handles exceptions as instructed in "unhandledException" listener (request error)', async () => {
   const unhandledExceptionListener = vi.fn()
 
   interceptor.on('request', () => {
