@@ -46,8 +46,13 @@ export function recordRawFetchHeaders() {
 
       globalThis.Request = OriginalRequest
       globalThis.Response = OriginalResponse
+
+      Object.defineProperty(Headers, kRestorePatches, {
+        value: undefined
+      });
     },
     enumerable: false,
+    configurable: true,
   })
 
   Headers = new Proxy(Headers, {
