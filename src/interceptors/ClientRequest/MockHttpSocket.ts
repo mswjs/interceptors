@@ -4,7 +4,7 @@ import {
   type RequestHeadersCompleteCallback,
   type ResponseHeadersCompleteCallback,
 } from '_http_common'
-import { STATUS_CODES } from 'node:http'
+import { IncomingMessage, ServerResponse } from 'node:http'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
@@ -140,6 +140,11 @@ export class MockHttpSocket extends MockSocket {
     // Normally, we shoud listen to the "close" event but it
     // can be suppressed by using the "emitClose: false" option.
     this.responseParser.free()
+
+    if (error) {
+      this.emit('error', error)
+    }
+
     return super.destroy(error)
   }
 
@@ -153,6 +158,12 @@ export class MockHttpSocket extends MockSocket {
     }
 
     const socket = this.createConnection()
+
+    // If the developer destroys the socket, destroy the original connection.
+    this.once('error', (error) => {
+      socket.destroy(error)
+    })
+
     this.address = socket.address.bind(socket)
 
     // Flush the buffered "socket.write()" calls onto
@@ -272,36 +283,51 @@ export class MockHttpSocket extends MockSocket {
     // if it hasn't been flushed already (e.g. someone started reading request stream).
     this.flushWriteBuffer()
 
-    const httpHeaders: Array<Buffer> = []
+    // Create a `ServerResponse` instance to delegate HTTP message parsing,
+    // Transfer-Encoding, and other things to Node.js internals.
+    const serverResponse = new ServerResponse(new IncomingMessage(this))
 
-    httpHeaders.push(
-      Buffer.from(
-        `HTTP/1.1 ${response.status} ${
-          response.statusText || STATUS_CODES[response.status]
-        }\r\n`
-      )
+    /**
+     * Assign a mock socket instance to the server response to
+     * spy on the response chunk writes. Push the transformed response chunks
+     * to this `MockHttpSocket` instance to trigger the "data" event.
+     * @note Providing the same `MockSocket` instance when creating `ServerResponse`
+     * does not have the same effect.
+     * @see https://github.com/nodejs/node/blob/10099bb3f7fd97bb9dd9667188426866b3098e07/test/parallel/test-http-server-response-standalone.js#L32
+     */
+    serverResponse.assignSocket(
+      new MockSocket({
+        write: (chunk, encoding, callback) => {
+          this.push(chunk, encoding)
+          callback?.()
+        },
+        read() {},
+      })
     )
+    serverResponse.statusCode = response.status
+    serverResponse.statusMessage = response.statusText
+
+    /**
+     * @note Remove the `Connection` and `Date` response headers
+     * injected by `ServerResponse` by default. Those are required
+     * from the server but the interceptor is NOT technically a server.
+     * It's confusing to add response headers that the developer didn't
+     * specify themselves. They can always add these if they wish.
+     * @see https://www.rfc-editor.org/rfc/rfc9110#field.date
+     * @see https://www.rfc-editor.org/rfc/rfc9110#field.connection
+     */
+    serverResponse.removeHeader('connection')
+    serverResponse.removeHeader('date')
+
+    // If the developer destroy the socket, gracefully destroy the response.
+    this.once('error', () => {
+      serverResponse.destroy()
+    })
 
     // Get the raw headers stored behind the symbol to preserve name casing.
     const headers = getRawFetchHeaders(response.headers) || response.headers
     for (const [name, value] of headers) {
-      httpHeaders.push(Buffer.from(`${name}: ${value}\r\n`))
-    }
-
-    // An empty line separating headers from the body.
-    httpHeaders.push(Buffer.from('\r\n'))
-
-    const flushHeaders = (value?: Uint8Array) => {
-      if (httpHeaders.length === 0) {
-        return
-      }
-
-      if (typeof value !== 'undefined') {
-        httpHeaders.push(Buffer.from(value))
-      }
-
-      this.push(Buffer.concat(httpHeaders))
-      httpHeaders.length = 0
+      serverResponse.setHeader(name, value)
     }
 
     if (response.body) {
@@ -312,34 +338,20 @@ export class MockHttpSocket extends MockSocket {
           const { done, value } = await reader.read()
 
           if (done) {
+            serverResponse.end()
             break
           }
 
-          // Flush the headers upon the first chunk in the stream.
-          // This ensures the consumer will start receiving the response
-          // as it streams in (subsequent chunks are pushed).
-          if (httpHeaders.length > 0) {
-            flushHeaders(value)
-            continue
-          }
-
-          // Subsequent body chukns are push to the stream.
-          this.push(value)
+          serverResponse.write(value)
         }
       } catch (error) {
         // Coerce response stream errors to 500 responses.
-        // Don't flush the original response headers because
-        // unhandled errors translate to 500 error responses forcefully.
         this.respondWith(createServerErrorResponse(error))
-
         return
       }
+    } else {
+      serverResponse.end()
     }
-
-    // If the headers were not flushed up to this point,
-    // this means the response either had no body or had
-    // an empty body stream. Flush the headers.
-    flushHeaders()
 
     // Close the socket if the connection wasn't marked as keep-alive.
     if (!this.shouldKeepAlive) {

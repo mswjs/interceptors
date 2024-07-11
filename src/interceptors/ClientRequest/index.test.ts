@@ -1,5 +1,5 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '.'
@@ -19,6 +19,10 @@ const interceptor = new ClientRequestInterceptor()
 beforeAll(async () => {
   interceptor.apply()
   await httpServer.listen()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -60,25 +64,23 @@ it('forbids calling "respondWith" multiple times for the same request', async ()
 it('abort the request if the abort signal is emitted', async () => {
   const requestUrl = httpServer.http.url('/')
 
-  const requestEmitted = new DeferredPromise<void>()
   interceptor.on('request', async function delayedResponse({ controller }) {
-    requestEmitted.resolve()
-    await sleep(10_000)
+    await sleep(1_000)
     controller.respondWith(new Response())
   })
 
   const abortController = new AbortController()
   const request = http.get(requestUrl, { signal: abortController.signal })
 
-  await requestEmitted
-
   abortController.abort()
 
-  const requestAborted = new DeferredPromise<void>()
-  request.on('error', function (err) {
-    expect(err.name).toEqual('AbortError')
-    requestAborted.resolve()
+  const abortErrorPromise = new DeferredPromise<Error>()
+  request.on('error', function (error) {
+    abortErrorPromise.resolve(error)
   })
 
-  await requestAborted
+  const abortError = await abortErrorPromise
+  expect(abortError.name).toEqual('AbortError')
+
+  expect(request.destroyed).toBe(true)
 })
