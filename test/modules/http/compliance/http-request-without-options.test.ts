@@ -8,9 +8,9 @@ import { waitForClientRequest } from '../../../helpers'
 
 const interceptor = new ClientRequestInterceptor()
 
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   if (request.url === 'http://localhost/') {
-    request.respondWith(new Response('Mocked'))
+    controller.respondWith(new Response('Mocked'))
   }
 })
 

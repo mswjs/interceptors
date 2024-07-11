@@ -32,8 +32,8 @@ afterAll(async () => {
 })
 
 it('respects the "signal" for a handled request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(new Response('hello world'))
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
   })
 
   const abortController = new AbortController()
@@ -80,8 +80,8 @@ it('respects the "signal" for a bypassed request', async () => {
 })
 
 it('respects "AbortSignal.timeout()" for a handled request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(new Response('hello world'))
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
   })
 
   const timeoutListener = vi.fn()

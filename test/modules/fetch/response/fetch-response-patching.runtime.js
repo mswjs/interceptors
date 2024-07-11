@@ -2,7 +2,7 @@ import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 
-interceptor.on('request', async ({ request }) => {
+interceptor.on('request', async ({ request, controller }) => {
   const url = new URL(request.url)
 
   if (url.pathname === '/mocked') {
@@ -11,7 +11,9 @@ interceptor.on('request', async ({ request }) => {
     const originalResponse = await fetch(window.originalUrl)
     const originalText = await originalResponse.text()
 
-    request.respondWith(new Response(`${originalText} world`, originalResponse))
+    controller.respondWith(
+      new Response(`${originalText} world`, originalResponse)
+    )
   }
 })
 

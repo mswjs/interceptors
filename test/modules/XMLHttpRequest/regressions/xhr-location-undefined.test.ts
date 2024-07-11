@@ -14,8 +14,8 @@ afterAll(() => {
 })
 
 it('responds to a request with an absolute URL', async () => {
-  interceptor.once('request', ({ request }) => {
-    request.respondWith(new Response('Hello world'))
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(new Response('Hello world'))
   })
 
   const request = await createXMLHttpRequest((request) => {

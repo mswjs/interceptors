@@ -15,14 +15,14 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', async ({ request }) => {
+interceptor.on('request', async ({ request, controller }) => {
   if (request.headers.get('x-bypass')) {
     return
   }
 
   await sleep(250)
 
-  request.respondWith(new Response('mocked-response', { status: 201 }))
+  controller.respondWith(new Response('mocked-response', { status: 201 }))
 })
 
 beforeAll(async () => {

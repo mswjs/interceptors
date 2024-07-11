@@ -481,7 +481,7 @@ export class XMLHttpRequestController {
     return null
   }
 
-  public errorWith(error: Error): void {
+  public errorWith(error?: Error): void {
     this.logger.info('responding with an error')
 
     this.setReadyState(this.request.DONE)

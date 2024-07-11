@@ -32,8 +32,8 @@ afterAll(async () => {
 })
 
 it('preserves raw response headers (object init)', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
       new Response(null, {
         headers: {
           'X-CustoM-HeadeR': 'Yes',
@@ -52,8 +52,8 @@ it('preserves raw response headers (object init)', async () => {
 })
 
 it('preserves raw response headers (array init)', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
       new Response(null, {
         headers: [['X-CustoM-HeadeR', 'Yes']],
       })
@@ -70,13 +70,13 @@ it('preserves raw response headers (array init)', async () => {
 })
 
 it('preserves raw response headers (set after init)', async () => {
-  interceptor.on('request', ({ request }) => {
+  interceptor.on('request', ({ controller }) => {
     const response = new Response(null, {
       headers: { 'X-CustoM-HeadeR': 'Yes' },
     })
     response.headers.set('x-My-Header', '1')
 
-    request.respondWith(response)
+    controller.respondWith(response)
   })
 
   const request = http.get(httpServer.http.url('/'))
@@ -92,14 +92,14 @@ it('preserves raw response headers (set after init)', async () => {
 })
 
 it('preserves raw response headers (append after init)', async () => {
-  interceptor.on('request', ({ request }) => {
+  interceptor.on('request', ({ controller }) => {
     const response = new Response(null, {
       headers: { 'X-CustoM-HeadeR': 'Yes' },
     })
     response.headers.append('x-my-header', '1')
     response.headers.append('x-My-Header', '2')
 
-    request.respondWith(response)
+    controller.respondWith(response)
   })
 
   const request = http.get(httpServer.http.url('/'))
@@ -122,7 +122,7 @@ it('preserves raw response headers (append after init)', async () => {
 })
 
 it('preserves raw response headers (delete after init)', async () => {
-  interceptor.on('request', ({ request }) => {
+  interceptor.on('request', ({ controller }) => {
     const response = new Response(null, {
       headers: {
         'X-CustoM-HeadeR': 'Yes',
@@ -132,7 +132,7 @@ it('preserves raw response headers (delete after init)', async () => {
     })
     response.headers.delete('x-my-header')
 
-    request.respondWith(response)
+    controller.respondWith(response)
   })
 
   const request = http.get(httpServer.http.url('/'))
@@ -147,11 +147,11 @@ it('preserves raw response headers (delete after init)', async () => {
 })
 
 it('preserves raw response headers (standalone Headers)', async () => {
-  interceptor.on('request', ({ request }) => {
+  interceptor.on('request', ({ controller }) => {
     const headers = new Headers({
       'X-CustoM-HeadeR': 'Yes',
     })
-    request.respondWith(new Response(null, { headers }))
+    controller.respondWith(new Response(null, { headers }))
   })
 
   const request = http.get(httpServer.http.url('/'))
@@ -172,4 +172,3 @@ it('preserves raw response headers for unmocked request', async () => {
   )
   expect(res.headers['x-custom-header']).toEqual('Yes')
 })
-

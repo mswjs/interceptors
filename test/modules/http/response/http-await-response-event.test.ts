@@ -27,8 +27,8 @@ afterAll(async () => {
 })
 
 it('awaits asynchronous response event listener for a mocked response', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(new Response('hello world'))
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
   })
 
   const responseDone = vi.fn()

@@ -17,10 +17,10 @@ afterAll(() => {
 })
 
 it('supports responding with an empty mocked response', async () => {
-  interceptor.once('request', ({ request }) => {
+  interceptor.once('request', ({ controller }) => {
     // Responding with an empty response must
     // translate to 200 OK with an empty body.
-    request.respondWith(new Response())
+    controller.respondWith(new Response())
   })
 
   const request = http.get('http://localhost')

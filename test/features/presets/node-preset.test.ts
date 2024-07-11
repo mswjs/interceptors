@@ -14,9 +14,9 @@ const requestListener = vi.fn()
 
 beforeAll(() => {
   interceptor.apply()
-  interceptor.on('request', ({ request }) => {
+  interceptor.on('request', ({ request, controller }) => {
     requestListener(request)
-    request.respondWith(new Response('mocked'))
+    controller.respondWith(new Response('mocked'))
   })
 })
 

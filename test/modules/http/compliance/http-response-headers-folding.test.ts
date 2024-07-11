@@ -19,8 +19,8 @@ afterAll(() => {
 })
 
 it('preserves the original mocked response headers casing in "rawHeaders"', async () => {
-  interceptor.once('request', ({ request }) => {
-    request.respondWith(
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(
       new Response(null, {
         headers: {
           'X-CustoM-HeadeR': 'Yes',
@@ -58,12 +58,12 @@ it('folds duplicate response headers for a mocked response', async () => {
     'custom3',
   ]
 
-  interceptor.once('request', ({ request }) => {
+  interceptor.once('request', ({ controller }) => {
     const response = new Response(null)
     for (let i = 0; i < responseHeaders.length; i += 2) {
       response.headers.append(responseHeaders[i], responseHeaders[i + 1])
     }
-    request.respondWith(response)
+    controller.respondWith(response)
   })
 
   const request = http.get('http://localhost/resource')

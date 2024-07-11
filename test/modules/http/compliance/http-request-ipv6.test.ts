@@ -17,10 +17,10 @@ it('supports requests with IPv6 request url', async () => {
   const url = 'http://[2607:f0d0:1002:51::4]:8080/'
   const listenerUrlPromise = new DeferredPromise<string>()
 
-  interceptor.on('request', ({ request }) => {
+  interceptor.on('request', ({ request, controller }) => {
     listenerUrlPromise.resolve(request.url)
-    request.respondWith(new Response('test'))
-  });
+    controller.respondWith(new Response('test'))
+  })
 
   const { resBody } = await httpGet(url)
   const requestUrl = await listenerUrlPromise

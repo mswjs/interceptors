@@ -44,11 +44,11 @@ const interceptor = new BatchInterceptor({
   ],
 })
 
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 
   if (url.pathname === '/user') {
-    request.respondWith(
+    controller.respondWith(
       new Response('mocked-response-text', {
         status: 200,
         statusText: 'OK',

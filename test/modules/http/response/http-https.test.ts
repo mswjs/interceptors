@@ -15,11 +15,11 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 
   if (url.pathname === '/non-existing') {
-    request.respondWith(
+    controller.respondWith(
       new Response('mocked', {
         status: 301,
         statusText: 'Moved Permanently',

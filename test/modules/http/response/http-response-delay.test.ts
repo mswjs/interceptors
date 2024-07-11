@@ -23,9 +23,9 @@ afterAll(async () => {
 })
 
 it('supports custom delay before responding with a mock', async () => {
-  interceptor.once('request', async ({ request }) => {
+  interceptor.once('request', async ({ controller }) => {
     await sleep(750)
-    request.respondWith(new Response('mocked response'))
+    controller.respondWith(new Response('mocked response'))
   })
 
   const requestStart = Date.now()

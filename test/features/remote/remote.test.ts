@@ -13,8 +13,8 @@ const resolver = new RemoteHttpResolver({
   process: child,
 })
 
-resolver.on('request', ({ request }) => {
-  request.respondWith(
+resolver.on('request', ({ controller }) => {
+  controller.respondWith(
     new Response(
       JSON.stringify({
         mockedFromParent: true,

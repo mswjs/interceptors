@@ -160,21 +160,22 @@ export async function readBlob(
 export function createXMLHttpRequest(
   middleware: (req: XMLHttpRequest) => void
 ): Promise<XMLHttpRequest> {
-  const req = new XMLHttpRequest()
-  middleware(req)
+  const request = new XMLHttpRequest()
+  middleware(request)
 
-  if (req.readyState < 1) {
+  if (request.readyState < 1) {
     throw new Error(
       'Failed to create an XMLHttpRequest. Did you forget to call `req.open()` in the middleware function?'
     )
   }
 
   return new Promise((resolve, reject) => {
-    req.addEventListener('loadend', () => {
-      resolve(req)
+    request.addEventListener('loadend', () => {
+      resolve(request)
     })
-
-    req.addEventListener('abort', reject)
+    request.addEventListener('abort', (error) => {
+      reject(error)
+    })
   })
 }
 
@@ -237,7 +238,7 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
         string,
         Record<string, string> | undefined,
         string | undefined,
-        boolean | undefined,
+        boolean | undefined
       ]
     >(
       (args) => {

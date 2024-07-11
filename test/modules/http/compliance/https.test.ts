@@ -26,8 +26,8 @@ afterAll(async () => {
 })
 
 it('emits correct events for a mocked HTTPS request', async () => {
-  interceptor.once('request', ({ request }) => {
-    request.respondWith(new Response())
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(new Response())
   })
 
   const request = https.get('https://example.com')
