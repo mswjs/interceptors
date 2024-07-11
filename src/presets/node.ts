@@ -1,3 +1,4 @@
+import { FetchInterceptor } from 'src/interceptors/fetch'
 import { ClientRequestInterceptor } from '../interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '../interceptors/XMLHttpRequest'
 
@@ -8,4 +9,5 @@ import { XMLHttpRequestInterceptor } from '../interceptors/XMLHttpRequest'
 export default [
   new ClientRequestInterceptor(),
   new XMLHttpRequestInterceptor(),
+  new FetchInterceptor(),
 ] as const
