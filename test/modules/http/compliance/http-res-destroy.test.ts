@@ -45,8 +45,8 @@ it('emits the "error" event when a bypassed response is destroyed', async () => 
 })
 
 it('emits the "error" event when a mocked response is destroyed', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(new Response('hello world'))
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
   })
 
   const socketErrorListener = vi.fn()

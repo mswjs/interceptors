@@ -12,6 +12,10 @@ import { RequestController } from '../../RequestController'
 import { emitAsync } from '../../utils/emitAsync'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { handleRequest } from '../../utils/handleRequest'
+import {
+  recordRawFetchHeaders,
+  restoreHeadersPrototype,
+} from './utils/recordRawHeaders'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -102,12 +106,19 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       },
     })
 
+    // Spy on `Header.prototype.set` and `Header.prototype.append` calls
+    // and record the raw header names provided. This is to support
+    // `IncomingMessage.prototype.rawHeaders`.
+    recordRawFetchHeaders()
+
     this.subscriptions.push(() => {
       http.get = originalGet
       http.request = originalRequest
 
       https.get = originalHttpsGet
       https.request = originalHttpsRequest
+
+      restoreHeadersPrototype()
     })
   }
 
