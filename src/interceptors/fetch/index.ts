@@ -99,9 +99,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           this.logger.info('request has errored!', { response })
           responsePromise.reject(createNetworkError(response))
         },
-        onAborted: (reason) => {
-          this.logger.info('request has been aborted!', { reason })
-          responsePromise.reject(reason)
+        onError: (error) => {
+          this.logger.info('request has been aborted!', { error })
+          responsePromise.reject(error)
         },
       })
 

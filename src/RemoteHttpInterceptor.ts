@@ -221,8 +221,8 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
           this.logger.info('received a network error!', { response })
           throw new Error('Not implemented')
         },
-        onAborted: (reason) => {
-          this.logger.info('request has been aborted!', { reason })
+        onError: (error) => {
+          this.logger.info('request has errored!', { error })
           throw new Error('Not implemented')
         },
       })

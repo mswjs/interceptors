@@ -18,9 +18,23 @@ interface HandleRequestOptions {
   emitter: Emitter<HttpRequestEventMap>
   controller: RequestController
 
+  /**
+   * Called when the request has been handled
+   * with the given `Response` instance.
+   */
   onResponse: (response: Response) => void
+
+  /**
+   * Called when the request has been handled
+   * with the given `Response.error()` instance.
+   */
   onRequestError: (response: ResponseError) => void
-  onAborted: (reason: unknown) => void
+
+  /**
+   * Called when an unhandled error happens during the
+   * request handling. This is never a thrown error/response.
+   */
+  onError: (error: unknown) => void
 }
 
 /**
@@ -31,7 +45,7 @@ export async function handleRequest(
 ): Promise<boolean> {
   const handleResponse = (response: Response | Error): true => {
     if (response instanceof Error) {
-      options.onAborted(response)
+      options.onError(response)
     }
 
     // Handle "Response.error()" instances.
@@ -53,7 +67,7 @@ export async function handleRequest(
 
     // Support mocking Node.js-like errors.
     if (isNodeLikeError(error)) {
-      options.onAborted(error)
+      options.onError(error)
       return true
     }
 
@@ -119,7 +133,7 @@ export async function handleRequest(
 
   // Handle the request being aborted while waiting for the request listeners.
   if (requestAbortPromise.state === 'rejected') {
-    options.onAborted(requestAbortPromise.rejectionReason)
+    options.onError(requestAbortPromise.rejectionReason)
     return true
   }
 

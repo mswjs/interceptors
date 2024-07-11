@@ -72,9 +72,12 @@ export function createXMLHttpRequestProxy({
           onRequestError: () => {
             this.errorWith(new TypeError('Network error'))
           },
-          onAborted: (reason) => {
-            this.logger.info('request errored!', { reason })
-            this.errorWith(reason as Error)
+          onError: (error) => {
+            this.logger.info('request errored!', { error })
+
+            if (error instanceof Error) {
+              this.errorWith(error)
+            }
           },
         })
 

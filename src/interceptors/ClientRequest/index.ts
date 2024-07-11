@@ -129,9 +129,9 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       onRequestError: (response) => {
         socket.respondWith(response)
       },
-      onAborted: (reason) => {
-        if (reason instanceof Error) {
-          socket.errorWith(reason)
+      onError: (error) => {
+        if (error instanceof Error) {
+          socket.errorWith(error)
         }
       },
     })
