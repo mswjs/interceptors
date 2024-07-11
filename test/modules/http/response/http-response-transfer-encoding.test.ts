@@ -21,8 +21,8 @@ afterAll(() => {
 })
 
 it('responds with a mocked "transfer-encoding: chunked" response', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
       new Response('mock', {
         headers: { 'Transfer-Encoding': 'chunked' },
       })
