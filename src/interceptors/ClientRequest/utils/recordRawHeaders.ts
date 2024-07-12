@@ -175,9 +175,14 @@ export function restoreHeadersPrototype() {
 }
 
 export function getRawFetchHeaders(headers: Headers): RawHeaders {
-  // Return the raw headers, if recorded (i.e. `.set()` or `.append()` was called).
-  // If no raw headers were recorded, return all the headers.
-  return Reflect.get(headers, kRawHeaders) || Array.from(headers.entries())
+  // If the raw headers recording failed for some reason,
+  // use the normalized header entries instead.
+  if (!Reflect.has(headers, kRawHeaders)) {
+    return Array.from(headers.entries())
+  }
+
+  const rawHeaders = Reflect.get(headers, kRawHeaders) as RawHeaders
+  return rawHeaders.length > 0 ? rawHeaders : Array.from(headers.entries())
 }
 
 /**
