@@ -1,4 +1,5 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import zlib from "zlib";
 import fetch from 'node-fetch'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
@@ -328,4 +329,23 @@ it('intercepts an HTTPS PATCH request', async () => {
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
+})
+
+it.only('support content-encoding: gzip, br', async () => {
+  const message = 'Lorem ipsum dolor sit amet'
+  const compressed = zlib.brotliCompressSync(zlib.gzipSync(message))
+
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(new Response(compressed, {
+      headers: { 
+        'Content-Length': String(compressed.length),
+        'Content-Encoding': 'gzip, br',
+       }
+    }))
+  })
+
+  const response = await fetch('http://localhost')
+
+  expect(response.status).toBe(200)
+  expect(await response.text()).toBe(message)
 })
