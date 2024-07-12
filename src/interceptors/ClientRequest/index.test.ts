@@ -54,7 +54,7 @@ it('abort the request if the abort signal is emitted', async () => {
   expect(request.destroyed).toBe(true)
 })
 
-it.only('patch the Headers object correctly after dispose and reapply', async () => {
+it('patch the Headers object correctly after dispose and reapply', async () => {
   interceptor.dispose()
   interceptor.apply()
 
