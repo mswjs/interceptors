@@ -57,6 +57,35 @@ it('records raw headers (Headers / Headers as init', () => {
   ])
 })
 
+it('records raw headers added via ".set()"', () => {
+  recordRawFetchHeaders()
+  const headers = new Headers([['X-My-Header', '1']])
+  headers.set('X-Another-Header', '2')
+
+  expect(getRawFetchHeaders(headers)).toEqual([
+    ['X-My-Header', '1'],
+    ['X-Another-Header', '2'],
+  ])
+})
+
+it('records raw headers added via ".append()"', () => {
+  recordRawFetchHeaders()
+  const headers = new Headers([['X-My-Header', '1']])
+  headers.append('X-My-Header', '2')
+
+  expect(getRawFetchHeaders(headers)).toEqual([
+    ['X-My-Header', '1'],
+    ['X-My-Header', '2'],
+  ])
+})
+
+it('deletes the header when called ".delete()"', () => {
+  const headers = new Headers([['X-My-Header', '1']])
+  headers.delete('X-My-Header')
+
+  expect(getRawFetchHeaders(headers)).toEqual([])
+})
+
 it('records raw headers (Request / object as init)', () => {
   recordRawFetchHeaders()
   const request = new Request(url, {
