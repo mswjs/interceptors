@@ -47,9 +47,7 @@ export function recordRawFetchHeaders() {
       globalThis.Request = OriginalRequest
       globalThis.Response = OriginalResponse
 
-      Object.defineProperty(Headers, kRestorePatches, {
-        value: undefined
-      });
+      Reflect.deleteProperty(Headers, kRestorePatches)
     },
     enumerable: false,
     configurable: true,

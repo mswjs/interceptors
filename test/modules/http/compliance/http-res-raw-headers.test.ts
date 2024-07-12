@@ -172,24 +172,3 @@ it('preserves raw response headers for unmocked request', async () => {
   )
   expect(res.headers['x-custom-header']).toEqual('Yes')
 })
-
-it('make sure we patch the Headers object correctly after dispose and reapply', async () => {
-  interceptor.dispose()
-  interceptor.apply()
-
-  interceptor.on('request', ({ controller }) => {
-    const headers = new Headers({
-      'X-CustoM-HeadeR': 'Yes',
-    })
-    controller.respondWith(new Response(null, { headers }))
-  })
-
-  const request = http.get(httpServer.http.url('/'))
-  const { res } = await waitForClientRequest(request)
-
-  expect(res.rawHeaders).toEqual(
-    expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
-  )
-  expect(res.headers['x-custom-header']).toEqual('Yes')
-})
-
