@@ -5,14 +5,22 @@ const kRawHeaders = Symbol('kRawHeaders')
 const kRestorePatches = Symbol('kRestorePatches')
 
 function recordRawHeader(headers: Headers, args: HeaderTuple) {
-  if (Reflect.get(headers, kRawHeaders) == null) {
-    Object.defineProperty(headers, kRawHeaders, {
-      value: [],
-      enumerable: false,
-    })
+  if (!Reflect.has(headers, kRawHeaders)) {
+    defineRawHeaders(headers, [])
   }
   const rawHeaders = Reflect.get(headers, kRawHeaders) as RawHeaders
   rawHeaders.push(args)
+}
+
+function defineRawHeaders(headers: Headers, rawHeaders: RawHeaders): void {
+  if (Reflect.has(headers, kRawHeaders)) {
+    return
+  }
+
+  Object.defineProperty(headers, kRawHeaders, {
+    value: rawHeaders,
+    enumerable: false,
+  })
 }
 
 /**
@@ -35,7 +43,11 @@ export function recordRawFetchHeaders() {
     return Reflect.get(Headers, kRestorePatches)
   }
 
-  const { Request: OriginalRequest, Response: OriginalResponse } = globalThis
+  const {
+    Headers: OriginalHeaders,
+    Request: OriginalRequest,
+    Response: OriginalResponse,
+  } = globalThis
   const { set, append, delete: headersDeleteMethod } = Headers.prototype
 
   Object.defineProperty(Headers, kRestorePatches, {
@@ -43,30 +55,49 @@ export function recordRawFetchHeaders() {
       Headers.prototype.set = set
       Headers.prototype.append = append
       Headers.prototype.delete = headersDeleteMethod
+      globalThis.Headers = OriginalHeaders
 
       globalThis.Request = OriginalRequest
       globalThis.Response = OriginalResponse
+
+      Reflect.deleteProperty(Headers, kRestorePatches)
     },
     enumerable: false,
+    /**
+     * @note Mark this property as configurable
+     * so we can delete it using `Reflect.delete` during cleanup.
+     */
+    configurable: true,
   })
 
   Headers = new Proxy(Headers, {
     construct(target, args, newTarget) {
+      const headersInit = args[0] || []
+
+      if (
+        headersInit instanceof Headers &&
+        Reflect.has(headersInit, kRawHeaders)
+      ) {
+        const headers = Reflect.construct(
+          target,
+          [Reflect.get(headersInit, kRawHeaders)],
+          newTarget
+        )
+        defineRawHeaders(headers, Reflect.get(headersInit, kRawHeaders))
+        return headers
+      }
+
       const headers = Reflect.construct(target, args, newTarget)
-      const initialHeaders = args[0] || []
-      const initialRawHeaders = Array.isArray(initialHeaders)
-        ? initialHeaders
-        : Object.entries(initialHeaders)
 
       // Request/Response constructors will set the symbol
       // upon creating a new instance, using the raw developer
       // input as the raw headers. Skip the symbol altogether
       // in those cases because the input to Headers will be normalized.
       if (!Reflect.has(headers, kRawHeaders)) {
-        Object.defineProperty(headers, kRawHeaders, {
-          value: initialRawHeaders,
-          enumerable: false,
-        })
+        const rawHeadersInit = Array.isArray(headersInit)
+          ? headersInit
+          : Object.entries(headersInit)
+        defineRawHeaders(headers, rawHeadersInit)
       }
 
       return headers
@@ -105,14 +136,27 @@ export function recordRawFetchHeaders() {
 
   Request = new Proxy(Request, {
     construct(target, args, newTarget) {
-      const request = Reflect.construct(target, args, newTarget)
-
+      /**
+       * @note If the headers init argument of Request
+       * is existing Headers instance, use its raw headers
+       * as the headers init instead.
+       * This is needed because the Headers constructor copies
+       * all normalized headers from the given Headers instance
+       * and uses ".append()" to add it to the new instance.
+       */
       if (
         typeof args[1] === 'object' &&
         args[1].headers != null &&
-        !request.headers[kRawHeaders]
+        args[1].headers instanceof Headers &&
+        Reflect.has(args[1].headers, kRawHeaders)
       ) {
-        request.headers[kRawHeaders] = inferRawHeaders(args[1].headers)
+        args[1].headers = args[1].headers[kRawHeaders]
+      }
+
+      const request = Reflect.construct(target, args, newTarget)
+
+      if (typeof args[1] === 'object' && args[1].headers != null) {
+        defineRawHeaders(request.headers, inferRawHeaders(args[1].headers))
       }
 
       return request
@@ -121,15 +165,19 @@ export function recordRawFetchHeaders() {
 
   Response = new Proxy(Response, {
     construct(target, args, newTarget) {
+      if (
+        typeof args[1] === 'object' &&
+        args[1].headers != null &&
+        args[1].headers instanceof Headers &&
+        Reflect.has(args[1].headers, kRawHeaders)
+      ) {
+        args[1].headers = args[1].headers[kRawHeaders]
+      }
+
       const response = Reflect.construct(target, args, newTarget)
 
       if (typeof args[1] === 'object' && args[1].headers != null) {
-        /**
-         * @note Pass the init argument directly because it gets
-         * transformed into a normalized Headers instance once it
-         * passes the Response constructor.
-         */
-        response.headers[kRawHeaders] = inferRawHeaders(args[1].headers)
+        defineRawHeaders(response.headers, inferRawHeaders(args[1].headers))
       }
 
       return response
@@ -146,9 +194,14 @@ export function restoreHeadersPrototype() {
 }
 
 export function getRawFetchHeaders(headers: Headers): RawHeaders {
-  // Return the raw headers, if recorded (i.e. `.set()` or `.append()` was called).
-  // If no raw headers were recorded, return all the headers.
-  return Reflect.get(headers, kRawHeaders) || Array.from(headers.entries())
+  // If the raw headers recording failed for some reason,
+  // use the normalized header entries instead.
+  if (!Reflect.has(headers, kRawHeaders)) {
+    return Array.from(headers.entries())
+  }
+
+  const rawHeaders = Reflect.get(headers, kRawHeaders) as RawHeaders
+  return rawHeaders.length > 0 ? rawHeaders : Array.from(headers.entries())
 }
 
 /**
