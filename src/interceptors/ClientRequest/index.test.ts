@@ -73,4 +73,3 @@ it('patch the Headers object correctly after dispose and reapply', async () => {
   )
   expect(res.headers['x-custom-header']).toEqual('Yes')
 })
-
