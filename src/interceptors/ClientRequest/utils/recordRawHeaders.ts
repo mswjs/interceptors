@@ -152,18 +152,16 @@ export function recordRawFetchHeaders() {
 
   Response = new Proxy(Response, {
     construct(target, args, newTarget) {
-      const response = Reflect.construct(target, args, newTarget)
-
-      if (typeof args[1] === 'object' && args[1].headers != null) {
-        /**
-         * @note Pass the init argument directly because it gets
-         * transformed into a normalized Headers instance once it
-         * passes the Response constructor.
-         */
-        response.headers[kRawHeaders] = inferRawHeaders(args[1].headers)
+      if (
+        typeof args[1] === 'object' &&
+        args[1].headers != null &&
+        args[1].headers instanceof Headers &&
+        Reflect.has(args[1].headers, kRawHeaders)
+      ) {
+        args[1].headers = args[1].headers[kRawHeaders]
       }
 
-      return response
+      return Reflect.construct(target, args, newTarget)
     },
   })
 }
