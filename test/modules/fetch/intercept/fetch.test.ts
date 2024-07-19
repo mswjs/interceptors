@@ -1,5 +1,4 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import zlib from "zlib";
 import fetch from 'node-fetch'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
