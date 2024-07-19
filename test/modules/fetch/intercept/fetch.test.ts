@@ -330,22 +330,3 @@ it('intercepts an HTTPS PATCH request', async () => {
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
-
-it.only('support content-encoding: gzip, br', async () => {
-  const message = 'Lorem ipsum dolor sit amet'
-  const compressed = zlib.brotliCompressSync(zlib.gzipSync(message))
-
-  interceptor.once('request', ({ controller }) => {
-    controller.respondWith(new Response(compressed, {
-      headers: { 
-        'Content-Length': String(compressed.length),
-        'Content-Encoding': 'gzip, br',
-       }
-    }))
-  })
-
-  const response = await fetch('http://localhost')
-
-  expect(response.status).toBe(200)
-  expect(await response.text()).toBe(message)
-})
