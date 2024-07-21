@@ -1,22 +1,19 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import zlib from "zlib";
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import zlib from 'zlib'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestEventMap } from '../../../../src'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+
+function compress(value: string): Buffer {
+  return zlib.gzipSync(zlib.brotliCompressSync(value))
+}
 
 const httpServer = new HttpServer((app) => {
   app.get('/compressed', (_req, res) => {
-    res
-      .set('Content-Encoding', 'gzip, br')
-      .send(zlib.gzipSync(zlib.brotliCompressSync('Lorem ipsum dolor sit amet')))
-      .end()
+    res.set('Content-Encoding', 'gzip, br').end(compress('hello world'))
   })
 })
 
-const resolver = vi.fn<HttpRequestEventMap['request']>()
-
 const interceptor = new FetchInterceptor()
-interceptor.on('request', resolver)
 
 beforeAll(async () => {
   interceptor.apply()
@@ -24,7 +21,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -32,28 +29,28 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('support content-encoding: gzip, br for mocked request', async () => {
-  const message = 'Lorem ipsum dolor sit amet'
-  const compressed = zlib.brotliCompressSync(zlib.gzipSync(message))
-
-  interceptor.once('request', ({ controller }) => {
-    controller.respondWith(new Response(compressed, {
-      headers: { 
-        'Content-Encoding': 'gzip, br',
-       }
-    }))
+it('decompresses a mocked "content-encoding: gzip, br" response body', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(compress('hello world'), {
+        headers: {
+          'Content-Encoding': 'gzip, br',
+        },
+      })
+    )
   })
 
-  const response = await fetch('http://localhost')
+  const response = await fetch('http://localhost/resource')
 
   expect(response.status).toBe(200)
-  expect(await response.text()).toBe(message)
+  // Must read as decompressed response.
+  expect(await response.text()).toBe('hello world')
 })
 
-it('support content-encoding: gzip, br for unmocked request', async () => {
-  const message = 'Lorem ipsum dolor sit amet'
+it('decompresses a bypassed "content-encoding: gzip, br" response body', async () => {
   const response = await fetch(httpServer.http.url('/compressed'))
 
   expect(response.status).toBe(200)
-  expect(await response.text()).toBe(message)
+  // Must read as decompressed response.
+  expect(await response.text()).toBe('hello world')
 })
