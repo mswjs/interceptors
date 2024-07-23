@@ -7,6 +7,9 @@ import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientReq
 import { waitForClientRequest } from '../../../helpers'
 
 const interceptor = new ClientRequestInterceptor()
+interceptor.on('request', async ({ controller }) => {
+  controller.respondWith(new Response())
+})
 
 beforeAll(() => {
   interceptor.apply()
