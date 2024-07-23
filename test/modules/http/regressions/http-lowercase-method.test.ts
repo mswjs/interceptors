@@ -17,7 +17,7 @@ afterAll(() => {
 })
 
 it('Lowercased get method should work', async () => {
-  const request = http.get('http://example.com', { method: 'get' })
+  const request = http.request('http://example.com', { method: 'get' }).end()
   const { res } = await waitForClientRequest(request)
 
   expect(res.statusCode).toBe(200)
