@@ -7,11 +7,6 @@ import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientReq
 import { waitForClientRequest } from '../../../helpers'
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', async ({ request, controller }) => {
-  if (request.method === 'GET') {
-    controller.respondWith(new Response('hello world'))
-  }
-})
 
 beforeAll(() => {
   interceptor.apply()
@@ -26,6 +21,12 @@ afterAll(() => {
 })
 
 it('supports lowercase HTTP methods', async () => {
+  interceptor.on('request', async ({ request, controller }) => {
+    if (request.method === 'GET') {
+      controller.respondWith(new Response('hello world'))
+    }
+  })
+
   /**
    * @note The HTTP specification has no requirement for the request
    * methods to be uppercase. Some Node.js request client, like "chai-http",
