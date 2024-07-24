@@ -1,28 +1,41 @@
 /**
  * @vitest-environment node
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', async ({ controller }) => {
-  controller.respondWith(new Response())
+interceptor.on('request', async ({ request, controller }) => {
+  if (request.method === 'GET') {
+    controller.respondWith(new Response('hello world'))
+  }
 })
 
 beforeAll(() => {
   interceptor.apply()
 })
 
+afterEach(() => {
+  interceptor.removeAllListeners()
+})
+
 afterAll(() => {
   interceptor.dispose()
 })
 
-it('Lowercased get method should work', async () => {
-  const request = http.request('http://example.com', { method: 'get' }).end()
-  const { res } = await waitForClientRequest(request)
+it('supports lowercase HTTP methods', async () => {
+  /**
+   * @note The HTTP specification has no requirement for the request
+   * methods to be uppercase. Some Node.js request client, like "chai-http",
+   * uses lowercase request methods.
+   */
+  const request = http
+    .request('http://localhost/resource', { method: 'get' })
+    .end()
+  const { res, text } = await waitForClientRequest(request)
 
   expect(res.statusCode).toBe(200)
+  await expect(text()).resolves.toBe('hello world')
 })
-
