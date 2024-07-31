@@ -3,7 +3,7 @@
  * This test suite asserts that the "client" connection object
  * dispatches the right events in different scenarios.
  */
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import {
   WebSocketData,
   WebSocketInterceptor,
@@ -14,6 +14,10 @@ const interceptor = new WebSocketInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(() => {
@@ -73,3 +77,25 @@ it('emits "close" event when the client closes itself', async () => {
     expect(closeListener).toHaveBeenCalledTimes(1)
   })
 })
+
+it('emits "error" event on client connection failure', async () => {
+  // Connecting to a non-existing server URL without any
+  // interceptor listener set up MUST establish the connection as-is
+  // (no "open" event; "error" event; no "close" event).
+  const ws = new WebSocket('wss://localhost/non-existing-url')
+
+  const openListener = vi.fn()
+  const errorListener = vi.fn()
+  const closeListener = vi.fn()
+  ws.onopen = openListener
+  ws.onerror = errorListener
+  ws.onclose = closeListener
+
+  await vi.waitFor(() => {
+    expect(openListener).not.toHaveBeenCalled()
+    expect(errorListener).toHaveBeenCalledTimes(1)
+    expect(closeListener).not.toHaveBeenCalled()
+  })
+})
+
+it('does not emit "error" event on user non-configurable closure codes', async () => {})
