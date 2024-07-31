@@ -1,6 +1,4 @@
-/**
- * @vitest-environment node-with-websocket
- */
+// @vitest-environment node-with-websocket
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket/index'
@@ -17,14 +15,27 @@ beforeAll(() => {
   interceptor.apply()
 })
 
-afterEach(() => {
+afterEach(async () => {
   interceptor.removeAllListeners()
-  wsServer.clients.forEach((client) => client.close())
+
+  for (const client of wsServer.clients) {
+    client.close()
+    await new Promise((resolve, reject) => {
+      client.onerror = reject
+      client.onclose = resolve
+    })
+  }
 })
 
-afterAll(() => {
+afterAll(async () => {
   interceptor.dispose()
-  wsServer.close()
+
+  await new Promise<void>((resolve, reject) => {
+    wsServer.close((error) => {
+      if (error) reject(error)
+      resolve()
+    })
+  })
 })
 
 it('emits "open" event when the server connection is open', async () => {
@@ -78,7 +89,12 @@ it('emits "close" event when the server connection is closed by the interceptor'
   interceptor.once('connection', ({ server }) => {
     server.connect()
     server.addEventListener('close', serverCloseListener)
-    queueMicrotask(() => server.close())
+    /**
+     * @note Make sure to close the connection AFTER it's been open.
+     * Closing before open results in an error, and may lead to
+     * false positive test results.
+     */
+    server.addEventListener('open', () => server.close())
   })
 
   new WebSocket(getWsUrl(wsServer))
@@ -86,4 +102,46 @@ it('emits "close" event when the server connection is closed by the interceptor'
   await vi.waitFor(() => {
     expect(serverCloseListener).toHaveBeenCalledTimes(1)
   })
+
+  const [closeEvent] = serverCloseListener.mock.calls[0]
+  expect(closeEvent).toHaveProperty('code', 1000)
+  expect(closeEvent).toHaveProperty('reason', '')
+})
+
+it('emits both "error" and "close" events when the server connection errors', async () => {
+  const clientCloseListener = vi.fn()
+  const serverErrorListener = vi.fn()
+  const serverCloseListener = vi.fn()
+
+  interceptor.once('connection', ({ client, server }) => {
+    client.addEventListener('close', clientCloseListener)
+
+    server.connect()
+    server.addEventListener('error', serverErrorListener)
+    server.addEventListener('close', serverCloseListener)
+  })
+
+  /**
+   * @note `server.connect()` will attempt to establish connection
+   * to a valid, non-existing URL. That will trigger an error.
+   */
+  const client = new WebSocket('https://example.com/non-existing-url')
+
+  const instanceErrorListener = vi.fn()
+  const instanceCloseListener = vi.fn()
+  client.addEventListener('error', instanceErrorListener)
+  client.addEventListener('close', instanceCloseListener)
+
+  await vi.waitFor(() => {
+    expect(serverErrorListener).toHaveBeenCalledTimes(1)
+  })
+
+  // Must not emit the "close" event because the connection
+  // was never established (it errored).
+  expect(serverCloseListener).not.toHaveBeenCalled()
+  expect(clientCloseListener).not.toHaveBeenCalled()
+  expect(instanceCloseListener).not.toHaveBeenCalled()
+
+  // Must emit the correct events on the WebSocket client.
+  expect(instanceErrorListener).toHaveBeenCalledTimes(1)
 })
