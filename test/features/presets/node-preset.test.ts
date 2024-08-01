@@ -63,8 +63,14 @@ it('intercepts and mocks an XMLHttpRequest (jsdom)', async () => {
 })
 
 it('intercepts and mocks a fetch request', async () => {
-  // Perform a fetch request.
-  const response = await fetch('http://localhost:3001/resource') 
+  const response = await fetch('http://localhost:3001/resource')
+
+  expect(requestListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      method: 'GET',
+      url: 'http://localhost:3001/resource',
+    })
+  )
 
   expect(response.status).toBe(200)
   expect(await response.text()).toBe('mocked')
