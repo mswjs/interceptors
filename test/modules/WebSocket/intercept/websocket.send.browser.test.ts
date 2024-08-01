@@ -1,17 +1,21 @@
 import { test, expect } from '../../../playwright.extend'
 import type { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
-import { WebSocketSendData } from '../../../../src/interceptors/WebSocket/WebSocketTransport'
+import { WebSocketData } from '../../../../src/interceptors/WebSocket/WebSocketTransport'
 
 declare global {
   interface Window {
     interceptor: WebSocketInterceptor
-    outgoingData: WebSocketSendData
+    outgoingData: WebSocketData
   }
 }
 
 test('errors when sending data before open', async ({ loadExample, page }) => {
   await loadExample(require.resolve('../websocket.runtime.js'))
-  await page.evaluate(() => window.interceptor.apply())
+  await page.evaluate(() => {
+    const { interceptor } = window
+    interceptor.apply()
+    interceptor.on('connection', () => {})
+  })
 
   const sendError = await page.evaluate(() => {
     const ws = new WebSocket('wss://example.com')
@@ -124,6 +128,7 @@ test('increases "bufferedAmount" before the data is sent', async ({
   await page.evaluate(() => {
     const { interceptor } = window
     interceptor.apply()
+    interceptor.on('connection', () => {})
   })
 
   const bufferedAmount = await page.evaluate(() => {
