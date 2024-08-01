@@ -561,7 +561,7 @@ export class XMLHttpRequestController {
        * @see https://xhr.spec.whatwg.org/#cross-origin-credentials
        */
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
-      body: ['GET', 'HEAD'].includes(this.method)
+      body: ['GET', 'HEAD'].includes(this.method.toUpperCase())
         ? null
         : (this.requestBody as BodyInit),
     })

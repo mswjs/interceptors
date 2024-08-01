@@ -3,7 +3,7 @@
  * This test suite asserts that the "client" connection object
  * dispatches the right events in different scenarios.
  */
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import {
   WebSocketData,
   WebSocketInterceptor,
@@ -14,6 +14,10 @@ const interceptor = new WebSocketInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(() => {

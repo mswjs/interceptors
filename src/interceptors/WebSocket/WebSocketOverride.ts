@@ -2,6 +2,7 @@ import { invariant } from 'outvariant'
 import type { WebSocketData } from './WebSocketTransport'
 import { bindEvent } from './utils/bindEvent'
 import { CloseEvent } from './utils/events'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 
 export type WebSocketEventListener<
   EventType extends WebSocketEventMap[keyof WebSocketEventMap] = Event
@@ -10,6 +11,7 @@ export type WebSocketEventListener<
 const WEBSOCKET_CLOSE_CODE_RANGE_ERROR =
   'InvalidAccessError: close code out of user configurable range'
 
+export const kPassthroughPromise = Symbol('kPassthroughPromise')
 export const kOnSend = Symbol('kOnSend')
 export const kClose = Symbol('kClose')
 
@@ -37,6 +39,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
   private _onerror: WebSocketEventListener | null = null
   private _onclose: WebSocketEventListener<CloseEvent> | null = null
 
+  private [kPassthroughPromise]: DeferredPromise<boolean>
   private [kOnSend]?: (data: WebSocketData) => void
 
   constructor(url: string | URL, protocols?: string | Array<string>) {
@@ -48,9 +51,15 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
     this.readyState = this.CONNECTING
     this.bufferedAmount = 0
 
-    Reflect.set(this, 'readyState', this.CONNECTING)
-    queueMicrotask(() => {
-      Reflect.set(this, 'readyState', this.OPEN)
+    this[kPassthroughPromise] = new DeferredPromise<boolean>()
+
+    queueMicrotask(async () => {
+      if (await this[kPassthroughPromise]) {
+        return
+      }
+
+      this.readyState = this.OPEN
+
       this.protocol =
         typeof protocols === 'string'
           ? protocols
@@ -151,25 +160,23 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
       WEBSOCKET_CLOSE_CODE_RANGE_ERROR
     )
 
-    if (this.readyState === this.CLOSING || this.readyState === this.CLOSED) {
-      return
-    }
-
     this[kClose](code, reason)
   }
 
   private [kClose](code: number = 1000, reason?: string): void {
+    /**
+     * @note Move this check here so that even internall closures,
+     * like those triggered by the `server` connection, are not
+     * performed twice.
+     */
+    if (this.readyState === this.CLOSING || this.readyState === this.CLOSED) {
+      return
+    }
+
     this.readyState = this.CLOSING
 
     queueMicrotask(() => {
       this.readyState = this.CLOSED
-
-      // Non-user-configurable close status codes
-      // represent connection termination and must
-      // emit the "error" event before closing.
-      if (code > 1000 && code <= 1015) {
-        this.dispatchEvent(bindEvent(this, new Event('error')))
-      }
 
       this.dispatchEvent(
         bindEvent(

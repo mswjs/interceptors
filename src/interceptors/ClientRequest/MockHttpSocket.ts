@@ -442,7 +442,7 @@ export class MockHttpSocket extends MockSocket {
     this.shouldKeepAlive = shouldKeepAlive
 
     const url = new URL(path, this.baseUrl)
-    const method = this.connectionOptions.method || 'GET'
+    const method = this.connectionOptions.method?.toUpperCase() || 'GET'
     const headers = parseRawHeaders(rawHeaders)
     const canHaveBody = method !== 'GET' && method !== 'HEAD'
 

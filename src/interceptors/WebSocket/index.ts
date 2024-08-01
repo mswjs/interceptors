@@ -5,7 +5,8 @@ import {
 } from './WebSocketClientConnection'
 import { WebSocketServerConnection } from './WebSocketServerConnection'
 import { WebSocketClassTransport } from './WebSocketClassTransport'
-import { WebSocketOverride } from './WebSocketOverride'
+import { kPassthroughPromise, WebSocketOverride } from './WebSocketOverride'
+import { bindEvent } from './utils/bindEvent'
 
 export { type WebSocketData, WebSocketTransport } from './WebSocketTransport'
 export {
@@ -82,20 +83,42 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
         // so the client can modify WebSocket options, like "binaryType"
         // while the connection is already pending.
         queueMicrotask(() => {
+          const server = new WebSocketServerConnection(
+            socket,
+            transport,
+            createConnection
+          )
+
           // The "globalThis.WebSocket" class stands for
           // the client-side connection. Assume it's established
           // as soon as the WebSocket instance is constructed.
-          this.emitter.emit('connection', {
+          const hasConnectionListeners = this.emitter.emit('connection', {
             client: new WebSocketClientConnection(socket, transport),
-            server: new WebSocketServerConnection(
-              socket,
-              transport,
-              createConnection
-            ),
+            server,
             info: {
               protocols,
             },
           })
+
+          if (hasConnectionListeners) {
+            socket[kPassthroughPromise].resolve(false)
+          } else {
+            socket[kPassthroughPromise].resolve(true)
+
+            server.connect()
+
+            // Forward the "open" event from the original server
+            // to the mock WebSocket client in the case of a passthrough connection.
+            server.addEventListener('open', () => {
+              socket.dispatchEvent(bindEvent(socket, new Event('open')))
+
+              // Forward the original connection protocol to the
+              // mock WebSocket client.
+              if (server['realWebSocket']) {
+                socket.protocol = server['realWebSocket'].protocol
+              }
+            })
+          }
         })
 
         return socket

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node-with-websocket
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
+import { it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
 
@@ -11,11 +11,16 @@ beforeAll(() => {
   interceptor.apply()
 })
 
+afterEach(() => {
+  interceptor.removeAllListeners()
+})
+
 afterAll(() => {
   interceptor.dispose()
 })
 
 it('errors when sending data before open', async () => {
+  interceptor.once('connection', () => {})
   const ws = new WebSocket('ws://example.com')
   expect(() => ws.send('no-op')).toThrow('InvalidStateError')
 })
@@ -68,6 +73,8 @@ it('intercepts ArrayBuffer sent over websocket', async () => {
 })
 
 it('increases "bufferAmmount" before data is sent', async () => {
+  interceptor.once('connection', () => {})
+
   const bufferAmountPromise = new DeferredPromise<{
     beforeSend: number
     afterSend: number
