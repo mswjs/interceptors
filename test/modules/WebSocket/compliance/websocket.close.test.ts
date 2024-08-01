@@ -2,10 +2,16 @@
  * @vitest-environment node-with-websocket
  * @see https://websockets.spec.whatwg.org/#dom-websocket-close
  */
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
-import { DeferredPromise } from '@open-draft/deferred-promise'
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
 import { waitForNextTick } from '../utils/waitForNextTick'
+import { getWsUrl } from '../utils/getWsUrl'
+
+const wsServer = new WebSocketServer({
+  host: '127.0.0.1',
+  port: 0,
+})
 
 const interceptor = new WebSocketInterceptor()
 
@@ -13,53 +19,65 @@ beforeAll(() => {
   interceptor.apply()
 })
 
+afterEach(() => {
+  interceptor.removeAllListeners()
+  wsServer.clients.forEach((client) => client.close())
+})
+
 afterAll(() => {
   interceptor.dispose()
+  wsServer.close()
 })
 
 it('errors when calling "close" with a non-configurable status code', () => {
-  const ws = new WebSocket('wss://example.com')
+  const ws = new WebSocket(getWsUrl(wsServer))
   expect(() => {
     ws.close(1003)
   }).toThrow('InvalidAccessError: close code out of user configurable range')
 })
 
-it('closes the connection normally given no status code', async () => {
-  const closeEventPromise = new DeferredPromise<CloseEvent>()
+it('closes the connection gracefully given no closure code', async () => {
+  const ws = new WebSocket(getWsUrl(wsServer))
+  const closeListener = vi.fn()
   const errorListener = vi.fn()
-
-  const ws = new WebSocket('wss://example.com')
   ws.onerror = errorListener
-  ws.onclose = closeEventPromise.resolve
-  ws.close()
+  ws.onclose = closeListener
+  ws.onopen = () => ws.close()
 
-  expect(ws.readyState).toBe(WebSocket.CLOSING)
-
-  const closeEvent = await closeEventPromise
+  await vi.waitFor(() => {
+    expect(closeListener).toHaveBeenCalledTimes(1)
+  })
   expect(ws.readyState).toBe(WebSocket.CLOSED)
-  expect(errorListener).not.toHaveBeenCalled()
+
+  const [closeEvent] = closeListener.mock.calls[0]
   expect(closeEvent.code).toBe(1000)
   expect(closeEvent.reason).toBe('')
   expect(closeEvent.wasClean).toBe(true)
+
+  // Graceful connection closures do NOT result in errors.
+  expect(errorListener).not.toHaveBeenCalled()
 })
 
 it('closes the connection with a custom code and reason', async () => {
-  const closeEventPromise = new DeferredPromise<CloseEvent>()
+  const ws = new WebSocket(getWsUrl(wsServer))
+  const closeListener = vi.fn()
   const errorListener = vi.fn()
-
-  const ws = new WebSocket('wss://example.com')
   ws.onerror = errorListener
-  ws.onclose = closeEventPromise.resolve
-  ws.close(3000, 'Oops!')
+  ws.onclose = closeListener
+  ws.onopen = () => ws.close(3000, 'Oops!')
 
-  expect(ws.readyState).toBe(WebSocket.CLOSING)
+  await vi.waitFor(() => {
+    expect(closeListener).toHaveBeenCalledTimes(1)
+  })
 
-  const closeEvent = await closeEventPromise
   expect(ws.readyState).toBe(WebSocket.CLOSED)
-  expect(errorListener).not.toHaveBeenCalled()
+
+  const [closeEvent] = closeListener.mock.calls[0]
   expect(closeEvent.code).toBe(3000)
   expect(closeEvent.reason).toBe('Oops!')
   expect(closeEvent.wasClean).toBe(false)
+
+  expect(errorListener).not.toHaveBeenCalled()
 })
 
 it('removes all listeners after calling "close"', async () => {

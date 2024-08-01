@@ -55,8 +55,8 @@ it('emits "open" event when the server connection is open', async () => {
 it('emits "open" event if the listener was added before calling "connect()"', async () => {
   const serverOpenListener = vi.fn()
   interceptor.once('connection', ({ server }) => {
-    server.addEventListener('open', serverOpenListener)
     server.connect()
+    server.addEventListener('open', serverOpenListener)
   })
 
   new WebSocket(getWsUrl(wsServer))
@@ -71,9 +71,12 @@ it('emits "close" event when the server connection is closed', async () => {
     queueMicrotask(() => ws.close())
   })
 
+  const serverErrorListener = vi.fn()
   const serverCloseListener = vi.fn()
+
   interceptor.once('connection', ({ server }) => {
     server.connect()
+    server.addEventListener('error', serverErrorListener)
     server.addEventListener('close', serverCloseListener)
   })
 
@@ -82,12 +85,17 @@ it('emits "close" event when the server connection is closed', async () => {
   await vi.waitFor(() => {
     expect(serverCloseListener).toHaveBeenCalledTimes(1)
   })
+
+  expect(serverErrorListener).not.toHaveBeenCalled()
 })
 
 it('emits "close" event when the server connection is closed by the interceptor', async () => {
+  const serverErrorListener = vi.fn()
   const serverCloseListener = vi.fn()
+
   interceptor.once('connection', ({ server }) => {
     server.connect()
+    server.addEventListener('error', serverErrorListener)
     server.addEventListener('close', serverCloseListener)
     /**
      * @note Make sure to close the connection AFTER it's been open.
@@ -106,6 +114,8 @@ it('emits "close" event when the server connection is closed by the interceptor'
   const [closeEvent] = serverCloseListener.mock.calls[0]
   expect(closeEvent).toHaveProperty('code', 1000)
   expect(closeEvent).toHaveProperty('reason', '')
+
+  expect(serverErrorListener).not.toHaveBeenCalled()
 })
 
 it('emits both "error" and "close" events when the server connection errors', async () => {
