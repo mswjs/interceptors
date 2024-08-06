@@ -26,22 +26,51 @@ it('handles interceptor exception as WebSocket connection closure with error', a
   })
 
   const ws = new WebSocket('ws://localhost')
-  const closeListener = vi.fn<[CloseEvent]>()
-  const errorListener = vi.fn()
-  ws.onerror = errorListener
-  ws.onclose = closeListener
+  const closeCallback = vi.fn<[CloseEvent]>()
+  const errorCallback = vi.fn()
+  ws.onerror = errorCallback
+  ws.onclose = closeCallback
 
   await vi.waitFor(() => {
-    expect(errorListener).toHaveBeenCalledOnce()
-    expect(closeListener).toHaveBeenCalledOnce()
+    expect(errorCallback).toHaveBeenCalledOnce()
+    expect(closeCallback).toHaveBeenCalledOnce()
   })
 
   expect(ws.readyState).toBe(WebSocket.CLOSED)
 
-  const [closeEvent] = closeListener.mock.calls[0]
+  const [closeEvent] = closeCallback.mock.calls[0]
   expect(closeEvent.code).toBe(1000)
   expect(closeEvent.reason).toBe('Interceptor error')
   expect(closeEvent.wasClean).toBe(true)
+
+  expect(console.error).toHaveBeenCalledWith(interceptorError)
+})
+
+it('does not emit "close" event twice on already closing WebSocket connections', async () => {
+  const interceptorError = new Error('Interceptor error')
+  interceptor.on('connection', ({ client }) => {
+    client.close(1001, 'Custom close reason')
+    throw interceptorError
+  })
+
+  const ws = new WebSocket('ws://localhost')
+  const closeCallback = vi.fn<[CloseEvent]>()
+  const errorCallback = vi.fn()
+  ws.onerror = errorCallback
+  ws.onclose = closeCallback
+
+  await vi.waitFor(() => {
+    expect(errorCallback).toHaveBeenCalledOnce()
+  })
+
+  expect(ws.readyState).toBe(WebSocket.CLOSED)
+
+  expect(closeCallback).toHaveBeenCalledOnce()
+
+  const [closeEvent] = closeCallback.mock.calls[0]
+  expect(closeEvent.code).toBe(1001)
+  expect(closeEvent.reason).toBe('Custom close reason')
+  expect(closeEvent.wasClean).toBe(false)
 
   expect(console.error).toHaveBeenCalledWith(interceptorError)
 })

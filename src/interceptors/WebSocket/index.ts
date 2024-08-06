@@ -129,7 +129,16 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
              */
             if (error instanceof Error) {
               socket.dispatchEvent(new Event('error'))
-              socket.close(1000, error.message)
+
+              // No need to close the connection if it's already being closed.
+              // E.g. the interceptor called `client.close()` and then threw an error.
+              if (
+                socket.readyState !== WebSocket.CLOSING &&
+                socket.readyState !== WebSocket.CLOSED
+              ) {
+                socket.close(1000, error.message)
+              }
+
               console.error(error)
             }
           }
