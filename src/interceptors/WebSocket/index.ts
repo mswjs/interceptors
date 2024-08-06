@@ -83,41 +83,64 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
         // so the client can modify WebSocket options, like "binaryType"
         // while the connection is already pending.
         queueMicrotask(() => {
-          const server = new WebSocketServerConnection(
-            socket,
-            transport,
-            createConnection
-          )
+          try {
+            const server = new WebSocketServerConnection(
+              socket,
+              transport,
+              createConnection
+            )
 
-          // The "globalThis.WebSocket" class stands for
-          // the client-side connection. Assume it's established
-          // as soon as the WebSocket instance is constructed.
-          const hasConnectionListeners = this.emitter.emit('connection', {
-            client: new WebSocketClientConnection(socket, transport),
-            server,
-            info: {
-              protocols,
-            },
-          })
-
-          if (hasConnectionListeners) {
-            socket[kPassthroughPromise].resolve(false)
-          } else {
-            socket[kPassthroughPromise].resolve(true)
-
-            server.connect()
-
-            // Forward the "open" event from the original server
-            // to the mock WebSocket client in the case of a passthrough connection.
-            server.addEventListener('open', () => {
-              socket.dispatchEvent(bindEvent(socket, new Event('open')))
-
-              // Forward the original connection protocol to the
-              // mock WebSocket client.
-              if (server['realWebSocket']) {
-                socket.protocol = server['realWebSocket'].protocol
-              }
+            // The "globalThis.WebSocket" class stands for
+            // the client-side connection. Assume it's established
+            // as soon as the WebSocket instance is constructed.
+            const hasConnectionListeners = this.emitter.emit('connection', {
+              client: new WebSocketClientConnection(socket, transport),
+              server,
+              info: {
+                protocols,
+              },
             })
+
+            if (hasConnectionListeners) {
+              socket[kPassthroughPromise].resolve(false)
+            } else {
+              socket[kPassthroughPromise].resolve(true)
+
+              server.connect()
+
+              // Forward the "open" event from the original server
+              // to the mock WebSocket client in the case of a passthrough connection.
+              server.addEventListener('open', () => {
+                socket.dispatchEvent(bindEvent(socket, new Event('open')))
+
+                // Forward the original connection protocol to the
+                // mock WebSocket client.
+                if (server['realWebSocket']) {
+                  socket.protocol = server['realWebSocket'].protocol
+                }
+              })
+            }
+          } catch (error) {
+            /**
+             * @note Translate unhandled exceptions during the connection
+             * handling (i.e. interceptor exceptions) as WebSocket connection
+             * closures with error. This prevents from the exceptions occurring
+             * in `queueMicrotask` from being process-wide and uncatchable.
+             */
+            if (error instanceof Error) {
+              socket.dispatchEvent(new Event('error'))
+
+              // No need to close the connection if it's already being closed.
+              // E.g. the interceptor called `client.close()` and then threw an error.
+              if (
+                socket.readyState !== WebSocket.CLOSING &&
+                socket.readyState !== WebSocket.CLOSED
+              ) {
+                socket.close(1000, error.message)
+              }
+
+              console.error(error)
+            }
           }
         })
 
