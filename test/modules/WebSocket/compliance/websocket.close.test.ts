@@ -75,7 +75,7 @@ it('closes the connection with a custom code and reason', async () => {
   const [closeEvent] = closeListener.mock.calls[0]
   expect(closeEvent.code).toBe(3000)
   expect(closeEvent.reason).toBe('Oops!')
-  expect(closeEvent.wasClean).toBe(false)
+  expect(closeEvent.wasClean).toBe(true)
 
   expect(errorListener).not.toHaveBeenCalled()
 })

@@ -5,7 +5,11 @@ import {
 } from './WebSocketClientConnection'
 import { WebSocketServerConnection } from './WebSocketServerConnection'
 import { WebSocketClassTransport } from './WebSocketClassTransport'
-import { kPassthroughPromise, WebSocketOverride } from './WebSocketOverride'
+import {
+  kClose,
+  kPassthroughPromise,
+  WebSocketOverride,
+} from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 
 export { type WebSocketData, WebSocketTransport } from './WebSocketTransport'
@@ -136,7 +140,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
                 socket.readyState !== WebSocket.CLOSING &&
                 socket.readyState !== WebSocket.CLOSED
               ) {
-                socket.close(1000, error.message)
+                socket[kClose](1000, error.message, false)
               }
 
               console.error(error)
