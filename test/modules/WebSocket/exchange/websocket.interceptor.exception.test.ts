@@ -39,7 +39,7 @@ it('handles interceptor exception as WebSocket connection closure with error', a
   expect(ws.readyState).toBe(WebSocket.CLOSED)
 
   const [closeEvent] = closeCallback.mock.calls[0]
-  expect(closeEvent.code).toBe(1000)
+  expect(closeEvent.code).toBe(1011)
   expect(closeEvent.reason).toBe('Interceptor error')
   /**
    * @note Since the connection has been aborted due to the
