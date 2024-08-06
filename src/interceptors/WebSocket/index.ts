@@ -140,7 +140,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
                 socket.readyState !== WebSocket.CLOSING &&
                 socket.readyState !== WebSocket.CLOSED
               ) {
-                socket[kClose](1000, error.message, false)
+                socket[kClose](1011, error.message, false)
               }
 
               console.error(error)
