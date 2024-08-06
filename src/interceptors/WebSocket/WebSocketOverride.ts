@@ -163,7 +163,11 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
     this[kClose](code, reason)
   }
 
-  private [kClose](code: number = 1000, reason?: string): void {
+  private [kClose](
+    code: number = 1000,
+    reason?: string,
+    wasClean = true
+  ): void {
     /**
      * @note Move this check here so that even internall closures,
      * like those triggered by the `server` connection, are not
@@ -184,7 +188,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
           new CloseEvent('close', {
             code,
             reason,
-            wasClean: code === 1000,
+            wasClean,
           })
         )
       )

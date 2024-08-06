@@ -41,7 +41,13 @@ it('handles interceptor exception as WebSocket connection closure with error', a
   const [closeEvent] = closeCallback.mock.calls[0]
   expect(closeEvent.code).toBe(1000)
   expect(closeEvent.reason).toBe('Interceptor error')
-  expect(closeEvent.wasClean).toBe(true)
+  /**
+   * @note Since the connection has been aborted due to the
+   * unhandled interceptor error, this closure is NOT clean.
+   * In other words, the server/client closing handhsake couldn't
+   * have happened (the process terminated due to the exception).
+   */
+  expect(closeEvent.wasClean).toBe(false)
 
   expect(console.error).toHaveBeenCalledWith(interceptorError)
 })
@@ -70,7 +76,11 @@ it('does not emit "close" event twice on already closing WebSocket connections',
   const [closeEvent] = closeCallback.mock.calls[0]
   expect(closeEvent.code).toBe(1001)
   expect(closeEvent.reason).toBe('Custom close reason')
-  expect(closeEvent.wasClean).toBe(false)
+  /**
+   * @note Since the connection has been closed by the interceptor,
+   * this closure is considered clean.
+   */
+  expect(closeEvent.wasClean).toBe(true)
 
   expect(console.error).toHaveBeenCalledWith(interceptorError)
 })

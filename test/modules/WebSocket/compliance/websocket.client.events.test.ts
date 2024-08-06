@@ -70,7 +70,7 @@ it('emits "close" event when the client closes itself', async () => {
     expect(closeEvent.type).toBe('close')
     expect(closeEvent.code).toBe(3123)
     expect(closeEvent.reason).toBe('')
-    expect(closeEvent.wasClean).toBe(false)
+    expect(closeEvent.wasClean).toBe(true)
     expect(closeEvent.currentTarget).toEqual(ws)
     expect(closeEvent.target).toEqual(ws)
 

@@ -68,5 +68,9 @@ test('closes the client connection with a custom error', async ({
     })
   })
 
-  expect(closeEvent).toEqual({ code: 3000, reason: 'Oops!', wasClean: false })
+  expect(closeEvent).toEqual({
+    code: 3000,
+    reason: 'Oops!',
+    wasClean: true,
+  })
 })
