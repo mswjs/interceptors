@@ -187,6 +187,8 @@ export class XMLHttpRequestController {
                   )
                 }
 
+                console.log('bypass!')
+
                 return invoke()
               }
             })
