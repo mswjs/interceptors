@@ -755,22 +755,19 @@ async function getXMLHttpRequestBodyInitLength(
         lines.push(``)
         lines.push(await entry.text())
       }
-
-      lines.push('------WebKitFormBoundary1234567890123456--')
     }
 
+    lines.push('------WebKitFormBoundary1234567890123456--')
     lines.push(``)
 
-    return lines.join('\r\n').length
-  }
+    console.log({ lines }, lines.join('\r\n').length)
 
-  if (body instanceof URLSearchParams) {
-    return body.size
+    return lines.join('\r\n').length
   }
 
   if (body instanceof Document) {
     return body.documentElement.innerHTML.length
   }
 
-  return body.length
+  return body.toString().length
 }
