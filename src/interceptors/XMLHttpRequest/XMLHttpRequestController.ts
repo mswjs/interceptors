@@ -48,9 +48,14 @@ export class XMLHttpRequestController {
   private requestBody?: XMLHttpRequestBodyInit | Document | null
   private responseBuffer: Uint8Array
   private events: Map<keyof XMLHttpRequestEventTargetEventMap, Array<Function>>
+  private uploadEvents: Map<
+    keyof XMLHttpRequestEventTargetEventMap,
+    Array<Function>
+  >
 
   constructor(readonly initialRequest: XMLHttpRequest, public logger: Logger) {
     this.events = new Map()
+    this.uploadEvents = new Map()
     this.requestId = createRequestId()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
@@ -187,8 +192,6 @@ export class XMLHttpRequestController {
                   )
                 }
 
-                console.log('bypass!')
-
                 return invoke()
               }
             })
@@ -202,6 +205,49 @@ export class XMLHttpRequestController {
         }
       },
     })
+
+    /**
+     * Proxy the `.upload` property to gather the event listeners/callbacks.
+     */
+    define(
+      this.request,
+      'upload',
+      createProxy(this.request.upload, {
+        setProperty: ([propertyName, nextValue], invoke) => {
+          switch (propertyName) {
+            case 'onloadstart':
+            case 'onprogress':
+            case 'onaboart':
+            case 'onerror':
+            case 'onload':
+            case 'ontimeout':
+            case 'onloadend': {
+              const eventName = propertyName.slice(
+                2
+              ) as keyof XMLHttpRequestEventTargetEventMap
+
+              this.registerUploadEvent(eventName, nextValue as Function)
+            }
+          }
+
+          return invoke()
+        },
+        methodCall: ([methodName, args], invoke) => {
+          switch (methodName) {
+            case 'addEventListener': {
+              const [eventName, listener] = args as [
+                keyof XMLHttpRequestEventTargetEventMap,
+                Function
+              ]
+              this.registerUploadEvent(eventName, listener)
+              this.logger.info('upload.addEventListener', eventName, listener)
+
+              return invoke()
+            }
+          }
+        },
+      })
+    )
   }
 
   private registerEvent(
@@ -215,11 +261,52 @@ export class XMLHttpRequestController {
     this.logger.info('registered event "%s"', eventName, listener)
   }
 
+  private registerUploadEvent(
+    eventName: keyof XMLHttpRequestEventTargetEventMap,
+    listener: Function
+  ): void {
+    const prevEvents = this.uploadEvents.get(eventName) || []
+    const nextEvents = prevEvents.concat(listener)
+    this.uploadEvents.set(eventName, nextEvents)
+
+    this.logger.info('registered upload event "%s"', eventName, listener)
+  }
+
   /**
    * Responds to the current request with the given
    * Fetch API `Response` instance.
    */
-  public respondWith(response: Response): void {
+  public async respondWith(response: Response): Promise<void> {
+    /**
+     * Dispatch request upload events for requests with a body.
+     * @see https://github.com/mswjs/interceptors/issues/573
+     */
+    if (this.requestBody != null) {
+      const totalRequestBodyLength = this.requestHeaders.has('content-length')
+        ? Number(this.requestHeaders.get('content-length'))
+        : await getXMLHttpRequestBodyInitLength(
+            this.requestBody,
+            this.requestHeaders
+          )
+
+      this.trigger('loadstart', this.request.upload, {
+        loaded: 0,
+        total: totalRequestBodyLength,
+      })
+      this.trigger('progress', this.request.upload, {
+        loaded: totalRequestBodyLength,
+        total: totalRequestBodyLength,
+      })
+      this.trigger('load', this.request.upload, {
+        loaded: totalRequestBodyLength,
+        total: totalRequestBodyLength,
+      })
+      this.trigger('loadend', this.request.upload, {
+        loaded: totalRequestBodyLength,
+        total: totalRequestBodyLength,
+      })
+    }
+
     this.logger.info(
       'responding with a mocked response: %d %s',
       response.status,
@@ -305,7 +392,7 @@ export class XMLHttpRequestController {
       },
     })
 
-    const totalResponseBodyLength = response.headers.has('Content-Length')
+    const totalResponseBodyLength = response.headers.has('content-length')
       ? Number(response.headers.get('Content-Length'))
       : /**
          * @todo Infer the response body length from the response body.
@@ -314,7 +401,7 @@ export class XMLHttpRequestController {
 
     this.logger.info('calculated response body length', totalResponseBodyLength)
 
-    this.trigger('loadstart', {
+    this.trigger('loadstart', this.request, {
       loaded: 0,
       total: totalResponseBodyLength,
     })
@@ -327,12 +414,12 @@ export class XMLHttpRequestController {
 
       this.setReadyState(this.request.DONE)
 
-      this.trigger('load', {
+      this.trigger('load', this.request, {
         loaded: this.responseBuffer.byteLength,
         total: totalResponseBodyLength,
       })
 
-      this.trigger('loadend', {
+      this.trigger('loadend', this.request, {
         loaded: this.responseBuffer.byteLength,
         total: totalResponseBodyLength,
       })
@@ -356,7 +443,7 @@ export class XMLHttpRequestController {
           this.logger.info('read response body chunk:', value)
           this.responseBuffer = concatArrayBuffer(this.responseBuffer, value)
 
-          this.trigger('progress', {
+          this.trigger('progress', this.request, {
             loaded: this.responseBuffer.byteLength,
             total: totalResponseBodyLength,
           })
@@ -487,8 +574,8 @@ export class XMLHttpRequestController {
     this.logger.info('responding with an error')
 
     this.setReadyState(this.request.DONE)
-    this.trigger('error')
-    this.trigger('loadend')
+    this.trigger('error', this.request)
+    this.trigger('loadend', this.request)
   }
 
   /**
@@ -513,7 +600,7 @@ export class XMLHttpRequestController {
     if (nextReadyState !== this.request.UNSENT) {
       this.logger.info('triggerring "readystatechange" event...')
 
-      this.trigger('readystatechange')
+      this.trigger('readystatechange', this.request)
     }
   }
 
@@ -524,20 +611,27 @@ export class XMLHttpRequestController {
     EventName extends keyof (XMLHttpRequestEventTargetEventMap & {
       readystatechange: ProgressEvent<XMLHttpRequestEventTarget>
     })
-  >(eventName: EventName, options?: ProgressEventInit): void {
-    const callback = this.request[`on${eventName}`]
-    const event = createEvent(this.request, eventName, options)
+  >(
+    eventName: EventName,
+    target: XMLHttpRequest | XMLHttpRequestUpload,
+    options?: ProgressEventInit
+  ): void {
+    const callback = (target as XMLHttpRequest)[`on${eventName}`]
+    const event = createEvent(target, eventName, options)
 
     this.logger.info('trigger "%s"', eventName, options || '')
 
     // Invoke direct callbacks.
     if (typeof callback === 'function') {
       this.logger.info('found a direct "%s" callback, calling...', eventName)
-      callback.call(this.request, event)
+      callback.call(target as XMLHttpRequest, event)
     }
 
     // Invoke event listeners.
-    for (const [registeredEventName, listeners] of this.events) {
+    const events =
+      target instanceof XMLHttpRequestUpload ? this.uploadEvents : this.events
+
+    for (const [registeredEventName, listeners] of events) {
       if (registeredEventName === eventName) {
         this.logger.info(
           'found %d listener(s) for "%s" event, calling...',
@@ -545,7 +639,7 @@ export class XMLHttpRequestController {
           eventName
         )
 
-        listeners.forEach((listener) => listener.call(this.request, event))
+        listeners.forEach((listener) => listener.call(target, event))
       }
     }
   }
@@ -553,7 +647,7 @@ export class XMLHttpRequestController {
   /**
    * Converts this `XMLHttpRequest` instance into a Fetch API `Request` instance.
    */
-  public toFetchApiRequest(): Request {
+  private toFetchApiRequest(): Request {
     this.logger.info('converting request to a Fetch API Request...')
 
     const fetchRequest = new Request(this.url.href, {
@@ -627,4 +721,56 @@ function define(
     enumerable: true,
     value,
   })
+}
+
+async function getXMLHttpRequestBodyInitLength(
+  body: XMLHttpRequestBodyInit | Document,
+  headers: Headers
+): Promise<number> {
+  if (typeof body === 'object' && 'byteLength' in body) {
+    return body.byteLength
+  }
+
+  if (body instanceof Blob) {
+    return body.size
+  }
+
+  if (body instanceof FormData) {
+    const lines: Array<string> = []
+    const contentType =
+      headers.get('content-type') || 'application/octet-stream'
+
+    for (const [name, entry] of body) {
+      lines.push(`------WebKitFormBoundary1234567890123456`)
+      lines.push(`content-type: ${contentType}`)
+
+      if (typeof entry === 'string') {
+        lines.push(`content-disposition: form-data; name="${name}"`)
+        lines.push(``)
+        lines.push(entry)
+      } else {
+        lines.push(
+          `content-disposition: form-data; name="${name}"; filename="${entry.name}"`
+        )
+        lines.push(``)
+        lines.push(await entry.text())
+      }
+
+      lines.push('------WebKitFormBoundary1234567890123456--')
+    }
+
+    lines.push(``)
+
+    return lines.join('\r\n').length
+  }
+
+  if (body instanceof URLSearchParams) {
+    return body.size
+  }
+
+  if (body instanceof Document) {
+    return body.documentElement.innerHTML.length
+  }
+
+  return body.length
 }

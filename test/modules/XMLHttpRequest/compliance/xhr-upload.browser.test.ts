@@ -1,9 +1,12 @@
+/**
+ * @see https://github.com/mswjs/interceptors/issues/573
+ */
+import type { Page } from '@playwright/test'
 import fileUpload from 'express-fileupload'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { test, expect } from '../../../playwright.extend'
 import { useCors } from '../../../helpers'
-import { Page } from '@playwright/test'
 
 declare global {
   interface Window {
@@ -69,7 +72,6 @@ test('supports uploading a file to the original server', async ({
   page,
 }) => {
   await loadExample(require.resolve('./xhr-upload.browser.runtime.js'))
-
   const events = await createFileUpload(httpServer.http.url('/upload'), page)
 
   expect(events).toEqual([
@@ -85,7 +87,6 @@ test('supports uploading a file to a mock', async ({ loadExample, page }) => {
 
   await page.evaluate(() => {
     window.interceptor.on('request', ({ request, controller }) => {
-      console.log(request)
       controller.respondWith(new Response())
     })
   })
