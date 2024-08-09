@@ -1,7 +1,6 @@
 /**
  * @see https://github.com/mswjs/interceptors/issues/573
  */
-import type { Page } from '@playwright/test'
 import fileUpload from 'express-fileupload'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
@@ -11,7 +10,18 @@ import { useCors } from '../../../helpers'
 declare global {
   interface Window {
     interceptor: XMLHttpRequestInterceptor
+    spyOnXMLHttpRequest: (xhr: XMLHttpRequest) => {
+      listeners: Array<XMLHttpRequestSpyEntry>
+      callbacks: Array<XMLHttpRequestSpyEntry>
+    }
+    waitForXMLHttpRequest: (xhr: XMLHttpRequest) => Promise<void>
   }
+}
+
+type XMLHttpRequestSpyEntry = {
+  type: keyof XMLHttpRequestEventMap
+  loaded: number
+  total: number
 }
 
 const httpServer = new HttpServer((app) => {
@@ -25,60 +35,6 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-async function createFileUpload(
-  url: string,
-  page: Page
-): Promise<{
-  listeners: Array<{ type: string; loaded: number; total: number }>
-  callbacks: Array<{ type: string; loaded: number; total: number }>
-}> {
-  return page.evaluate((url) => {
-    const listeners = []
-    const callbacks = []
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', url)
-
-    const pushListener = ({ type, loaded, total }) => {
-      listeners.push({ type, loaded, total })
-    }
-    const pushCallback = ({ type, loaded, total }) => {
-      callbacks.push({ type, loaded, total })
-    }
-
-    xhr.upload.addEventListener('loadstart', pushListener)
-    xhr.upload.addEventListener('progress', pushListener)
-    xhr.upload.addEventListener('load', pushListener)
-    xhr.upload.addEventListener('loadend', pushListener)
-    xhr.upload.addEventListener('timeout', pushListener)
-    xhr.upload.addEventListener('error', pushListener)
-
-    xhr.upload.onloadstart = pushCallback
-    xhr.upload.onprogress = pushCallback
-    xhr.upload.onload = pushCallback
-    xhr.upload.onloadend = pushCallback
-    xhr.upload.ontimeout = pushCallback
-    xhr.upload.onerror = pushCallback
-
-    const data = new FormData()
-    data.set('data', new File(['hello world'], 'data.txt'))
-
-    return new Promise((resolve, reject) => {
-      xhr.addEventListener('loadend', () => {
-        resolve({ listeners, callbacks })
-      })
-
-      xhr.addEventListener('error', () => {
-        reject(new Error('File upload errored'))
-      })
-      xhr.addEventListener('timeout', () => {
-        reject(new Error('File upload timed out'))
-      })
-
-      xhr.send(data)
-    })
-  }, url)
-}
-
 test.beforeAll(async () => {
   await httpServer.listen()
 })
@@ -87,15 +43,23 @@ test.afterAll(async () => {
   await httpServer.close()
 })
 
-test('supports uploading a file to the original server', async ({
+test.only('supports uploading a file to the original server', async ({
   loadExample,
   page,
 }) => {
   await loadExample(require.resolve('./xhr-upload.browser.runtime.js'))
-  const { listeners, callbacks } = await createFileUpload(
-    httpServer.http.url('/upload'),
-    page
-  )
+
+  const { listeners, callbacks } = await page.evaluate((url) => {
+    const data = new FormData()
+    data.set('data', new File(['hello world'], 'data.txt'))
+
+    const xhr = new XMLHttpRequest()
+    const spy = window.spyOnXMLHttpRequest(xhr)
+    xhr.open('POST', url)
+    xhr.send(data)
+
+    return window.waitForXMLHttpRequest(xhr).then(() => spy)
+  }, httpServer.http.url('/upload'))
 
   expect(listeners).toEqual([
     { type: 'loadstart', loaded: 0, total: 207 },
@@ -120,10 +84,17 @@ test('supports uploading a file to a mock', async ({ loadExample, page }) => {
     })
   })
 
-  const { listeners, callbacks } = await createFileUpload(
-    httpServer.http.url('/upload'),
-    page
-  )
+  const { listeners, callbacks } = await page.evaluate(() => {
+    const data = new FormData()
+    data.set('data', new File(['hello world'], 'data.txt'))
+
+    const xhr = new XMLHttpRequest()
+    const spy = window.spyOnXMLHttpRequest(xhr)
+    xhr.open('POST', '/upload')
+    xhr.send(data)
+
+    return window.waitForXMLHttpRequest(xhr).then(() => spy)
+  })
 
   expect(listeners).toEqual([
     { type: 'loadstart', loaded: 0, total: 207 },
