@@ -4,7 +4,7 @@ import { ProgressEventPolyfill } from '../polyfills/ProgressEventPolyfill'
 const SUPPORTS_PROGRESS_EVENT = typeof ProgressEvent !== 'undefined'
 
 export function createEvent(
-  target: XMLHttpRequest,
+  target: XMLHttpRequest | XMLHttpRequestUpload,
   type: string,
   init?: ProgressEventInit
 ): EventPolyfill {
