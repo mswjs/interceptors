@@ -305,10 +305,11 @@ export class XMLHttpRequestController {
 
     const totalResponseBodyLength = response.headers.has('Content-Length')
       ? Number(response.headers.get('Content-Length'))
-      : /**
-         * @todo Infer the response body length from the response body.
-         */
-        undefined
+      : (async () => {
+          const buffer = await response.clone().arrayBuffer();
+          return buffer.byteLength;
+        })()
+
 
     this.logger.info('calculated response body length', totalResponseBodyLength)
 
