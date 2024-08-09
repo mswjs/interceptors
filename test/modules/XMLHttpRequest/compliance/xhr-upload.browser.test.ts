@@ -25,28 +25,48 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-async function createFileUpload(url: string, page: Page) {
+async function createFileUpload(
+  url: string,
+  page: Page
+): Promise<{
+  listeners: Array<{ type: string; loaded: number; total: number }>
+  callbacks: Array<{ type: string; loaded: number; total: number }>
+}> {
   return page.evaluate((url) => {
-    const events = []
+    const listeners = []
+    const callbacks = []
     const xhr = new XMLHttpRequest()
     xhr.open('POST', url)
 
-    const pushEvent = ({ type, loaded, total }) => {
-      events.push({ type, loaded, total })
+    const pushListener = ({ type, loaded, total }) => {
+      listeners.push({ type, loaded, total })
+    }
+    const pushCallback = ({ type, loaded, total }) => {
+      callbacks.push({ type, loaded, total })
     }
 
-    xhr.upload.addEventListener('loadstart', pushEvent)
-    xhr.upload.addEventListener('progress', pushEvent)
-    xhr.upload.addEventListener('load', pushEvent)
-    xhr.upload.addEventListener('loadend', pushEvent)
-    xhr.upload.addEventListener('timeout', pushEvent)
-    xhr.upload.addEventListener('error', pushEvent)
+    xhr.upload.addEventListener('loadstart', pushListener)
+    xhr.upload.addEventListener('progress', pushListener)
+    xhr.upload.addEventListener('load', pushListener)
+    xhr.upload.addEventListener('loadend', pushListener)
+    xhr.upload.addEventListener('timeout', pushListener)
+    xhr.upload.addEventListener('error', pushListener)
+
+    xhr.upload.onloadstart = pushCallback
+    xhr.upload.onprogress = pushCallback
+    xhr.upload.onload = pushCallback
+    xhr.upload.onloadend = pushCallback
+    xhr.upload.ontimeout = pushCallback
+    xhr.upload.onerror = pushCallback
 
     const data = new FormData()
     data.set('data', new File(['hello world'], 'data.txt'))
 
     return new Promise((resolve, reject) => {
-      xhr.addEventListener('loadend', () => resolve(events))
+      xhr.addEventListener('loadend', () => {
+        resolve({ listeners, callbacks })
+      })
+
       xhr.addEventListener('error', () => {
         reject(new Error('File upload errored'))
       })
@@ -72,9 +92,18 @@ test('supports uploading a file to the original server', async ({
   page,
 }) => {
   await loadExample(require.resolve('./xhr-upload.browser.runtime.js'))
-  const events = await createFileUpload(httpServer.http.url('/upload'), page)
+  const { listeners, callbacks } = await createFileUpload(
+    httpServer.http.url('/upload'),
+    page
+  )
 
-  expect(events).toEqual([
+  expect(listeners).toEqual([
+    { type: 'loadstart', loaded: 0, total: 207 },
+    { type: 'progress', loaded: 207, total: 207 },
+    { type: 'load', loaded: 207, total: 207 },
+    { type: 'loadend', loaded: 207, total: 207 },
+  ])
+  expect(callbacks).toEqual([
     { type: 'loadstart', loaded: 0, total: 207 },
     { type: 'progress', loaded: 207, total: 207 },
     { type: 'load', loaded: 207, total: 207 },
@@ -91,9 +120,18 @@ test('supports uploading a file to a mock', async ({ loadExample, page }) => {
     })
   })
 
-  const events = await createFileUpload(httpServer.http.url('/upload'), page)
+  const { listeners, callbacks } = await createFileUpload(
+    httpServer.http.url('/upload'),
+    page
+  )
 
-  expect(events).toEqual([
+  expect(listeners).toEqual([
+    { type: 'loadstart', loaded: 0, total: 207 },
+    { type: 'progress', loaded: 207, total: 207 },
+    { type: 'load', loaded: 207, total: 207 },
+    { type: 'loadend', loaded: 207, total: 207 },
+  ])
+  expect(callbacks).toEqual([
     { type: 'loadstart', loaded: 0, total: 207 },
     { type: 'progress', loaded: 207, total: 207 },
     { type: 'load', loaded: 207, total: 207 },
