@@ -6,7 +6,7 @@ window.interceptor = interceptor
 
 window.waitForXMLHttpRequest = (xhr) => {
   return new Promise((resolve, reject) => {
-    xhr.onload = resolve
+    xhr.onloadend = resolve
     xhr.onerror = () => reject(new Error('XMLHttpRequest errored'))
   })
 }

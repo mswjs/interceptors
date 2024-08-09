@@ -760,8 +760,6 @@ async function getXMLHttpRequestBodyInitLength(
     lines.push('------WebKitFormBoundary1234567890123456--')
     lines.push(``)
 
-    console.log({ lines }, lines.join('\r\n').length)
-
     return lines.join('\r\n').length
   }
 
