@@ -392,12 +392,9 @@ export class XMLHttpRequestController {
       },
     })
 
-    const totalResponseBodyLength = response.headers.has('content-length')
-      ? Number(response.headers.get('Content-Length'))
-      : (async () => {
-          const buffer = await response.clone().arrayBuffer();
-          return buffer.byteLength;
-        })()
+      const totalResponseBodyLength = response.headers.has('content-length')
+      ? Number(response.headers.get('content-length'))
+      : await inferResponseBodyLength(response)
 
 
     this.logger.info('calculated response body length', totalResponseBodyLength)
@@ -769,4 +766,9 @@ async function getXMLHttpRequestBodyInitLength(
   }
 
   return body.toString().length
+}
+
+async function inferResponseBodyLength(response: Response): Promise<number> {
+  const buffer = await response.clone().arrayBuffer();
+  return buffer.byteLength;
 }
