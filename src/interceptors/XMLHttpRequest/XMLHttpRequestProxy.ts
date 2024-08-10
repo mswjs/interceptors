@@ -66,8 +66,8 @@ export function createXMLHttpRequestProxy({
           requestId,
           controller,
           emitter,
-          onResponse: (response) => {
-            this.respondWith(response)
+          onResponse: async (response) => {
+            await this.respondWith(response)
           },
           onRequestError: () => {
             this.errorWith(new TypeError('Network error'))

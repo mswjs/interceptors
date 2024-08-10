@@ -22,7 +22,7 @@ interface HandleRequestOptions {
    * Called when the request has been handled
    * with the given `Response` instance.
    */
-  onResponse: (response: Response) => void
+  onResponse: (response: Response) => void | Promise<void>
 
   /**
    * Called when the request has been handled
@@ -43,7 +43,7 @@ interface HandleRequestOptions {
 export async function handleRequest(
   options: HandleRequestOptions
 ): Promise<boolean> {
-  const handleResponse = (response: Response | Error): true => {
+  const handleResponse = async (response: Response | Error) => {
     if (response instanceof Error) {
       options.onError(response)
     }
@@ -52,13 +52,13 @@ export async function handleRequest(
     else if (isResponseError(response)) {
       options.onRequestError(response)
     } else {
-      options.onResponse(response)
+      await options.onResponse(response)
     }
 
     return true
   }
 
-  const handleResponseError = (error: unknown): boolean => {
+  const handleResponseError = async (error: unknown): Promise<boolean> => {
     // Forward the special interceptor error instances
     // to the developer. These must not be handled in any way.
     if (error instanceof InterceptorError) {
@@ -73,7 +73,7 @@ export async function handleRequest(
 
     // Handle thrown responses.
     if (error instanceof Response) {
-      return handleResponse(error)
+      return await handleResponse(error)
     }
 
     return false
@@ -140,7 +140,7 @@ export async function handleRequest(
   if (result.error) {
     // Handle the error during the request listener execution.
     // These can be thrown responses or request errors.
-    if (handleResponseError(result.error)) {
+    if (await handleResponseError(result.error)) {
       return true
     }
 
