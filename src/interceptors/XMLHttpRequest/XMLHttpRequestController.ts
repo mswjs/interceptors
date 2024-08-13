@@ -16,7 +16,7 @@ import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { createRequestId } from '../../createRequestId'
 import { getBodyByteLength } from './utils/getBodyByteLength'
 
-const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
+const kIsRequestHandled = Symbol('kIsRequestHandled')
 const IS_NODE = isNodeProcess()
 const kFetchRequest = Symbol('kFetchRequest')
 
@@ -44,6 +44,7 @@ export class XMLHttpRequestController {
     }
   ) => void;
 
+  [kIsRequestHandled]: boolean;
   [kFetchRequest]?: Request
   private method: string = 'GET'
   private url: URL = null as any
@@ -56,6 +57,8 @@ export class XMLHttpRequestController {
   >
 
   constructor(readonly initialRequest: XMLHttpRequest, public logger: Logger) {
+    this[kIsRequestHandled] = false
+
     this.events = new Map()
     this.uploadEvents = new Map()
     this.requestId = createRequestId()
@@ -148,7 +151,7 @@ export class XMLHttpRequestController {
                 // Notify the consumer about the response.
                 this.onResponse.call(this, {
                   response: fetchResponse,
-                  isMockedResponse: IS_MOCKED_RESPONSE in this.request,
+                  isMockedResponse: this[kIsRequestHandled],
                   request: fetchRequest,
                   requestId: this.requestId!,
                 })
@@ -169,10 +172,8 @@ export class XMLHttpRequestController {
               }) || Promise.resolve()
 
             onceRequestSettled.finally(() => {
-              // If the consumer didn't handle the request perform it as-is.
-              // Note that the request may not yet be DONE and may, in fact,
-              // be LOADING while the "respondWith" method does its magic.
-              if (this.request.readyState < this.request.LOADING) {
+              // If the consumer didn't handle the request (called `.respondWith()`) perform it as-is.
+              if (!this[kIsRequestHandled]) {
                 this.logger.info(
                   'request callback settled but request has not been handled (readystate %d), performing as-is...',
                   this.request.readyState
@@ -280,6 +281,16 @@ export class XMLHttpRequestController {
    */
   public async respondWith(response: Response): Promise<void> {
     /**
+     * @note Since `XMLHttpRequestController` delegates the handling of the responses
+     * to the "load" event listener that doesn't distinguish between the mocked and original
+     * responses, mark the request that had a mocked response with a corresponding symbol.
+     *
+     * Mark this request as having a mocked response immediately since
+     * calculating request/response total body length is asynchronous.
+     */
+    this[kIsRequestHandled] = true
+
+    /**
      * Dispatch request upload events for requests with a body.
      * @see https://github.com/mswjs/interceptors/issues/573
      */
@@ -311,13 +322,6 @@ export class XMLHttpRequestController {
       response.status,
       response.statusText
     )
-
-    /**
-     * @note Since `XMLHttpRequestController` delegates the handling of the responses
-     * to the "load" event listener that doesn't distinguish between the mocked and original
-     * responses, mark the request that had a mocked response with a corresponding symbol.
-     */
-    define(this.request, IS_MOCKED_RESPONSE, true)
 
     define(this.request, 'status', response.status)
     define(this.request, 'statusText', response.statusText)
@@ -565,6 +569,11 @@ export class XMLHttpRequestController {
   }
 
   public errorWith(error?: Error): void {
+    /**
+     * @note Mark this request as handled even if it received a mock error.
+     * This prevents the controller from trying to perform this request as-is.
+     */
+    this[kIsRequestHandled] = true
     this.logger.info('responding with an error')
 
     this.setReadyState(this.request.DONE)
