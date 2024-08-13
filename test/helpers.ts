@@ -19,20 +19,14 @@ export interface PromisifiedResponse {
 
 export function httpGet(
   url: string,
-  options?: RequestOptions
+  options: RequestOptions = {}
 ): Promise<PromisifiedResponse> {
   const parsedUrl = new URL(url)
-  const resolvedOptions = Object.assign(
-    {},
-    urlToHttpOptions(parsedUrl),
-    options
-  )
-
   return new Promise((resolve, reject) => {
-    const req = http.get(resolvedOptions, async (res) => {
+    const req = http.get(parsedUrl, options, async (res) => {
       res.setEncoding('utf8')
       const resBody = await getIncomingMessageBody(res)
-      resolve({ req, res, resBody, url, options: resolvedOptions })
+      resolve({ req, res, resBody, url, options })
     })
 
     req.on('error', reject)
