@@ -288,3 +288,27 @@ it('fetch: emits the "response" event upon the original response', async () => {
 
   expect(isMockedResponse).toBe(false)
 })
+
+it('supports reading the request and response bodies in the "response" listener', async () => {
+  const requestCallback = vi.fn()
+  const responseCallback = vi.fn()
+  const responseListener = vi.fn<HttpRequestEventMap['response']>(
+    async ({ request, response }) => {
+      requestCallback(await request.clone().text())
+      responseCallback(await response.clone().text())
+    }
+  )
+  interceptor.on('response', responseListener)
+
+  await nodeFetch(httpServer.https.url('/user'), {
+    method: 'POST',
+    body: 'request-body',
+  })
+
+  await waitForExpect(() => {
+    expect(responseListener).toHaveBeenCalledTimes(1)
+  })
+
+  expect(requestCallback).toHaveBeenCalledWith('request-body')
+  expect(responseCallback).toHaveBeenCalledWith('mocked-response-text')
+})
