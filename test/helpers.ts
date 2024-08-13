@@ -283,22 +283,24 @@ export function createBrowserXMLHttpRequest(page: Page) {
   }
 }
 
-export async function waitForClientRequest(req: http.ClientRequest): Promise<{
+export async function waitForClientRequest(
+  request: http.ClientRequest
+): Promise<{
   res: http.IncomingMessage
   text(): Promise<string>
 }> {
   return new Promise((resolve, reject) => {
-    req.on('response', async (res) => {
-      res.setEncoding('utf8')
+    request.on('response', async (response) => {
+      response.setEncoding('utf8')
       resolve({
-        res,
-        text: getIncomingMessageBody.bind(null, res),
+        res: response,
+        text: getIncomingMessageBody.bind(null, response),
       })
     })
 
-    req.on('error', reject)
-    req.on('abort', reject)
-    req.on('timeout', reject)
+    request.on('error', reject)
+    request.on('abort', reject)
+    request.on('timeout', reject)
   })
 }
 
