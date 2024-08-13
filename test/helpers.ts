@@ -159,7 +159,7 @@ export function createXMLHttpRequest(
 
   if (request.readyState < 1) {
     throw new Error(
-      'Failed to create an XMLHttpRequest. Did you forget to call `req.open()` in the middleware function?'
+      'Failed to create an XMLHttpRequest. Did you forget to call `.open()` in the middleware function?'
     )
   }
 
@@ -186,6 +186,7 @@ export interface BrowserXMLHttpRequestInit {
   headers?: Record<string, string>
   body?: string
   withCredentials?: boolean
+  async?: boolean
 }
 
 export async function extractRequestFromPage(page: Page): Promise<Request> {
@@ -223,7 +224,7 @@ export async function extractRequestFromPage(page: Page): Promise<Request> {
 
 export function createRawBrowserXMLHttpRequest(page: Page) {
   return (requestInit: BrowserXMLHttpRequestInit) => {
-    const { method, url, headers, body, withCredentials } = requestInit
+    const { method, url, headers, body, withCredentials, async } = requestInit
 
     return page.evaluate<
       XMLHttpResponse,
@@ -232,7 +233,8 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
         string,
         Record<string, string> | undefined,
         string | undefined,
-        boolean | undefined
+        boolean | undefined,
+        boolean
       ]
     >(
       (args) => {
@@ -247,9 +249,8 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
           const request = new XMLHttpRequest()
           if (typeof withCredentials !== 'undefined') {
             Reflect.set(request, 'withCredentials', withCredentials)
-            // request.withCredentials = withCredentials
           }
-          request.open(method, url)
+          request.open(method, url, args[5])
 
           for (const headerName in headers) {
             request.setRequestHeader(headerName, headers[headerName])
@@ -267,7 +268,7 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
           request.send(body)
         })
       },
-      [method, url, headers, body, withCredentials]
+      [method, url, headers, body, withCredentials, async ?? true]
     )
   }
 }
