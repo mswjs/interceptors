@@ -14,9 +14,11 @@ import { parseJson } from '../../utils/parseJson'
 import { createResponse } from './utils/createResponse'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { createRequestId } from '../../createRequestId'
+import { getBodyByteLength } from './utils/getBodyByteLength'
 
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
 const IS_NODE = isNodeProcess()
+const kFetchRequest = Symbol('kFetchRequest')
 
 /**
  * An `XMLHttpRequest` instance controller that allows us
@@ -40,12 +42,12 @@ export class XMLHttpRequestController {
       request: Request
       requestId: string
     }
-  ) => void
+  ) => void;
 
+  [kFetchRequest]?: Request
   private method: string = 'GET'
   private url: URL = null as any
   private requestHeaders: Headers
-  private requestBody?: XMLHttpRequestBodyInit | Document | null
   private responseBuffer: Uint8Array
   private events: Map<keyof XMLHttpRequestEventTargetEventMap, Array<Function>>
   private uploadEvents: Map<
@@ -128,11 +130,6 @@ export class XMLHttpRequestController {
               body?: XMLHttpRequestBodyInit | Document | null
             ]
 
-            if (body != null) {
-              this.requestBody =
-                typeof body === 'string' ? encodeBuffer(body) : body
-            }
-
             this.request.addEventListener('load', () => {
               if (typeof this.onResponse !== 'undefined') {
                 // Create a Fetch API Response representation of whichever
@@ -158,8 +155,13 @@ export class XMLHttpRequestController {
               }
             })
 
+            const requestBody =
+              typeof body === 'string' ? encodeBuffer(body) : body
+
             // Delegate request handling to the consumer.
-            const fetchRequest = this.toFetchApiRequest()
+            const fetchRequest = this.toFetchApiRequest(requestBody)
+            this[kFetchRequest] = fetchRequest
+
             const onceRequestSettled =
               this.onRequest?.call(this, {
                 request: fetchRequest,
@@ -281,13 +283,10 @@ export class XMLHttpRequestController {
      * Dispatch request upload events for requests with a body.
      * @see https://github.com/mswjs/interceptors/issues/573
      */
-    if (this.requestBody != null) {
-      const totalRequestBodyLength = this.requestHeaders.has('content-length')
-        ? Number(this.requestHeaders.get('content-length'))
-        : await getXMLHttpRequestBodyInitLength(
-            this.requestBody,
-            this.requestHeaders
-          )
+    if (this[kFetchRequest]) {
+      const totalRequestBodyLength = await getBodyByteLength(
+        this[kFetchRequest].clone()
+      )
 
       this.trigger('loadstart', this.request.upload, {
         loaded: 0,
@@ -392,10 +391,7 @@ export class XMLHttpRequestController {
       },
     })
 
-      const totalResponseBodyLength = response.headers.has('content-length')
-      ? Number(response.headers.get('content-length'))
-      : await inferResponseBodyLength(response)
-
+    const totalResponseBodyLength = await getBodyByteLength(response.clone())
 
     this.logger.info('calculated response body length', totalResponseBodyLength)
 
@@ -645,8 +641,15 @@ export class XMLHttpRequestController {
   /**
    * Converts this `XMLHttpRequest` instance into a Fetch API `Request` instance.
    */
-  private toFetchApiRequest(): Request {
+  private toFetchApiRequest(
+    body: XMLHttpRequestBodyInit | Document | null | undefined
+  ): Request {
     this.logger.info('converting request to a Fetch API Request...')
+
+    // If the `Document` is used as the body of this XMLHttpRequest,
+    // set its inner text as the Fetch API Request body.
+    const resolvedBody =
+      body instanceof Document ? body.documentElement.innerText : body
 
     const fetchRequest = new Request(this.url.href, {
       method: this.method,
@@ -657,7 +660,7 @@ export class XMLHttpRequestController {
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
       body: ['GET', 'HEAD'].includes(this.method.toUpperCase())
         ? null
-        : (this.requestBody as BodyInit),
+        : resolvedBody,
     })
 
     const proxyHeaders = createProxy(fetchRequest.headers, {
@@ -719,56 +722,4 @@ function define(
     enumerable: true,
     value,
   })
-}
-
-async function getXMLHttpRequestBodyInitLength(
-  body: XMLHttpRequestBodyInit | Document,
-  headers: Headers
-): Promise<number> {
-  if (typeof body === 'object' && 'byteLength' in body) {
-    return body.byteLength
-  }
-
-  if (body instanceof Blob) {
-    return body.size
-  }
-
-  if (body instanceof FormData) {
-    const lines: Array<string> = []
-    const contentType =
-      headers.get('content-type') || 'application/octet-stream'
-
-    for (const [name, entry] of body) {
-      lines.push(`------WebKitFormBoundary1234567890123456`)
-      lines.push(`content-type: ${contentType}`)
-
-      if (typeof entry === 'string') {
-        lines.push(`content-disposition: form-data; name="${name}"`)
-        lines.push(``)
-        lines.push(entry)
-      } else {
-        lines.push(
-          `content-disposition: form-data; name="${name}"; filename="${entry.name}"`
-        )
-        lines.push(``)
-        lines.push(await entry.text())
-      }
-    }
-
-    lines.push('------WebKitFormBoundary1234567890123456--')
-    lines.push(``)
-
-    return lines.join('\r\n').length
-  }
-
-  if (body instanceof Document) {
-    return body.documentElement.innerHTML.length
-  }
-
-  return body.toString().length
-}
-
-async function inferResponseBodyLength(response: Response): Promise<number> {
-  const buffer = await response.clone().arrayBuffer();
-  return buffer.byteLength;
 }
