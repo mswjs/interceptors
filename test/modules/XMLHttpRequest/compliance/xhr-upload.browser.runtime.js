@@ -6,12 +6,14 @@ window.interceptor = interceptor
 
 window.waitForXMLHttpRequest = (xhr) => {
   return new Promise((resolve, reject) => {
-    xhr.onloadend = resolve
-    xhr.onerror = () => reject(new Error('XMLHttpRequest errored'))
+    xhr.addEventListener('loadend', resolve)
+    xhr.addEventListener('error', () => {
+      reject(new Error('XMLHttpRequest errored'))
+    })
   })
 }
 
-window.spyOnXMLHttpRequest = (xhr) => {
+window.spyOnXMLHttpRequest = (target) => {
   const listeners = []
   const callbacks = []
 
@@ -22,19 +24,19 @@ window.spyOnXMLHttpRequest = (xhr) => {
     callbacks.push({ type, loaded, total })
   }
 
-  xhr.upload.addEventListener('loadstart', pushListener)
-  xhr.upload.addEventListener('progress', pushListener)
-  xhr.upload.addEventListener('load', pushListener)
-  xhr.upload.addEventListener('loadend', pushListener)
-  xhr.upload.addEventListener('timeout', pushListener)
-  xhr.upload.addEventListener('error', pushListener)
+  target.addEventListener('loadstart', pushListener)
+  target.addEventListener('progress', pushListener)
+  target.addEventListener('load', pushListener)
+  target.addEventListener('loadend', pushListener)
+  target.addEventListener('timeout', pushListener)
+  target.addEventListener('error', pushListener)
 
-  xhr.upload.onloadstart = pushCallback
-  xhr.upload.onprogress = pushCallback
-  xhr.upload.onload = pushCallback
-  xhr.upload.onloadend = pushCallback
-  xhr.upload.ontimeout = pushCallback
-  xhr.upload.onerror = pushCallback
+  target.onloadstart = pushCallback
+  target.onprogress = pushCallback
+  target.onload = pushCallback
+  target.onloadend = pushCallback
+  target.ontimeout = pushCallback
+  target.onerror = pushCallback
 
   return { listeners, callbacks }
 }

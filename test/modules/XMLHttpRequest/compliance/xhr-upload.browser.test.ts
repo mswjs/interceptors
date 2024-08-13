@@ -10,7 +10,7 @@ import { useCors } from '../../../helpers'
 declare global {
   interface Window {
     interceptor: XMLHttpRequestInterceptor
-    spyOnXMLHttpRequest: (xhr: XMLHttpRequest) => {
+    spyOnXMLHttpRequest: (xhr: XMLHttpRequest | XMLHttpRequestUpload) => {
       listeners: Array<XMLHttpRequestSpyEntry>
       callbacks: Array<XMLHttpRequestSpyEntry>
     }
@@ -51,7 +51,7 @@ test('supports uploading a plain string to the original server', async ({
 
   const { xhr, listeners, callbacks } = await page.evaluate((url) => {
     const xhr = new XMLHttpRequest()
-    const spy = window.spyOnXMLHttpRequest(xhr)
+    const spy = window.spyOnXMLHttpRequest(xhr.upload)
     xhr.open('POST', url)
     xhr.send('hello world')
 
@@ -81,7 +81,7 @@ test('supports uploading a Blob to the original server', async ({
 
   const { xhr, listeners, callbacks } = await page.evaluate((url) => {
     const xhr = new XMLHttpRequest()
-    const spy = window.spyOnXMLHttpRequest(xhr)
+    const spy = window.spyOnXMLHttpRequest(xhr.upload)
     xhr.open('POST', url)
     xhr.send(new Blob(['hello world']))
 
@@ -111,7 +111,7 @@ test('supports uploading URLSearchParams to the original server', async ({
 
   const { xhr, listeners, callbacks } = await page.evaluate((url) => {
     const xhr = new XMLHttpRequest()
-    const spy = window.spyOnXMLHttpRequest(xhr)
+    const spy = window.spyOnXMLHttpRequest(xhr.upload)
     xhr.open('POST', url)
     xhr.send(new URLSearchParams({ hello: 'world' }))
 
@@ -144,7 +144,7 @@ test('supports uploading FormData (single file) to the original server', async (
     data.set('data', new File(['hello world'], 'data.txt'))
 
     const xhr = new XMLHttpRequest()
-    const spy = window.spyOnXMLHttpRequest(xhr)
+    const spy = window.spyOnXMLHttpRequest(xhr.upload)
     xhr.open('POST', url)
     xhr.send(data)
 
@@ -178,7 +178,7 @@ test('supports uploading FormData (multiple files) to the original server', asyn
     data.set('file2', new File(['goodbye cosm'], 'goodbye.txt'))
 
     const xhr = new XMLHttpRequest()
-    const spy = window.spyOnXMLHttpRequest(xhr)
+    const spy = window.spyOnXMLHttpRequest(xhr.upload)
     xhr.open('POST', url)
     xhr.send(data)
 
@@ -217,7 +217,7 @@ test('supports uploading a plain string to a mocked server', async ({
 
   const { xhr, listeners, callbacks } = await page.evaluate(() => {
     const xhr = new XMLHttpRequest()
-    const spy = window.spyOnXMLHttpRequest(xhr)
+    const spy = window.spyOnXMLHttpRequest(xhr.upload)
     xhr.open('POST', '/upload')
     xhr.send('hello world')
 
@@ -252,7 +252,7 @@ test('supports uploading a Blob to a mocked server', async ({
 
   const { xhr, listeners, callbacks } = await page.evaluate(() => {
     const xhr = new XMLHttpRequest()
-    const spy = window.spyOnXMLHttpRequest(xhr)
+    const spy = window.spyOnXMLHttpRequest(xhr.upload)
     xhr.open('POST', '/upload')
     xhr.send(new Blob(['hello world']))
 
@@ -287,7 +287,7 @@ test('supports uploading URLSearchParams to a mocked server', async ({
 
   const { xhr, listeners, callbacks } = await page.evaluate(() => {
     const xhr = new XMLHttpRequest()
-    const spy = window.spyOnXMLHttpRequest(xhr)
+    const spy = window.spyOnXMLHttpRequest(xhr.upload)
     xhr.open('POST', '/upload')
     xhr.send(new URLSearchParams({ hello: 'world' }))
 
@@ -325,7 +325,7 @@ test('supports uploading FormData (single file) to a mocked server', async ({
     data.set('data', new File(['hello world'], 'data.txt'))
 
     const xhr = new XMLHttpRequest()
-    const spy = window.spyOnXMLHttpRequest(xhr)
+    const spy = window.spyOnXMLHttpRequest(xhr.upload)
     xhr.open('POST', '/upload')
     xhr.send(data)
 
@@ -364,7 +364,7 @@ test('supports uploading FormData (multiple files) to a mocked server', async ({
     data.set('file2', new File(['goodbye cosm'], 'goodbye.txt'))
 
     const xhr = new XMLHttpRequest()
-    const spy = window.spyOnXMLHttpRequest(xhr)
+    const spy = window.spyOnXMLHttpRequest(xhr.upload)
     xhr.open('POST', '/upload')
     xhr.send(data)
 
