@@ -1,8 +1,8 @@
-import https from 'https'
-import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
+import { urlToHttpOptions } from 'node:url'
+import https from 'node:https'
+import http, { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { Page } from '@playwright/test'
-import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
 import { RequestHandler } from 'express'
@@ -24,7 +24,7 @@ export function httpGet(
   const parsedUrl = new URL(url)
   const resolvedOptions = Object.assign(
     {},
-    getRequestOptionsByUrl(parsedUrl),
+    urlToHttpOptions(parsedUrl),
     options
   )
 
@@ -46,7 +46,7 @@ export function httpsGet(
   const parsedUrl = new URL(url)
   const resolvedOptions = Object.assign(
     {},
-    getRequestOptionsByUrl(parsedUrl),
+    urlToHttpOptions(parsedUrl),
     options
   )
 
@@ -69,7 +69,7 @@ export function httpRequest(
   const parsedUrl = new URL(url)
   const resolvedOptions = Object.assign(
     {},
-    getRequestOptionsByUrl(parsedUrl),
+    urlToHttpOptions(parsedUrl),
     options
   )
 
@@ -96,7 +96,7 @@ export function httpsRequest(
   const parsedUrl = new URL(url)
   const resolvedOptions = Object.assign(
     {},
-    getRequestOptionsByUrl(parsedUrl),
+    urlToHttpOptions(parsedUrl),
     options
   )
 
