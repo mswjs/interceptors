@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()

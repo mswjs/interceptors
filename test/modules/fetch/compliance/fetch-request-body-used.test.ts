@@ -1,29 +1,29 @@
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import * as express from 'express'
+// @vitest-environment node
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpServer } from '@open-draft/test-server/http'
+import { createTestHttpServer } from '@open-draft/test-server/http'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
-
-const httpServer = new HttpServer((app) => {
-  app.post('/resource', express.text(), (req, res) =>
-    res.send(`received: ${req.body}`)
-  )
+const server = createTestHttpServer({
+  defineRoutes(router) {
+    router.post('/resource', async ({ req }) => {
+      return new Response('received: ' + (await req.text()))
+    })
+  },
 })
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  await server.listen()
 })
 
 afterEach(() => {
-  interceptor['emitter'].removeAllListeners()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
   interceptor.dispose()
-  await httpServer.close()
+  await server.close()
 })
 
 it('request body is unused in the listener when using Request argument', async () => {
@@ -32,7 +32,7 @@ it('request body is unused in the listener when using Request argument', async (
     requestInListenerPromise.resolve(request)
   })
 
-  const request = new Request(httpServer.http.url('/resource'), {
+  const request = new Request(server.http.url('/resource'), {
     method: 'POST',
     body: 'Hello server',
   })
@@ -62,7 +62,7 @@ it('request body is unused in the listener when using input and init arguments',
     requestInListenerPromise.resolve(request)
   })
 
-  const responsePromise = fetch(httpServer.http.url('/resource'), {
+  const responsePromise = fetch(server.http.url('/resource'), {
     method: 'POST',
     body: 'Hello server',
   })
@@ -73,6 +73,5 @@ it('request body is unused in the listener when using input and init arguments',
   const response = await responsePromise
 
   expect(bodyUsedInListener).toBe(false)
-
   expect(await response.text()).toBe('received: Hello server')
 })

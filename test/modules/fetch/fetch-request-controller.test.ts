@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { vi, beforeAll, afterEach, afterAll, it, expect } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { InterceptorError } from '../../../src/InterceptorError'
 import { FetchInterceptor } from '../../../src/interceptors/fetch'

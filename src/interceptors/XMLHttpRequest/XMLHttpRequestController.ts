@@ -569,6 +569,11 @@ export class XMLHttpRequestController {
   }
 
   public errorWith(error?: Error): void {
+    // Trigger the "loadstart" event for request errors.
+    if (error?.message === 'Network error') {
+      this.trigger('loadstart', this.request)
+    }
+
     /**
      * @note Mark this request as handled even if it received a mock error.
      * This prevents the controller from trying to perform this request as-is.
