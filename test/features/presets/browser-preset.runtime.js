@@ -8,7 +8,7 @@ const interceptor = new BatchInterceptor({
 
 interceptor.apply()
 
-interceptor.on('request', async ({ request, requestId }) => {
+interceptor.on('request', async ({ request, requestId, controller }) => {
   window.dispatchEvent(
     new CustomEvent('resolver', {
       detail: {
@@ -22,5 +22,5 @@ interceptor.on('request', async ({ request, requestId }) => {
     })
   )
 
-  request.respondWith(new Response('mocked'))
+  controller.respondWith(new Response('mocked'))
 })

@@ -4,6 +4,7 @@ import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
+import { RequestController } from '../../../../src/RequestController'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
@@ -51,13 +52,13 @@ it('intercepts a HEAD request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -76,13 +77,13 @@ it('intercepts a GET request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -102,13 +103,13 @@ it('intercepts a POST request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('post-payload')
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -128,13 +129,13 @@ it('intercepts a PUT request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('put-payload')
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -154,13 +155,13 @@ it('intercepts a PATCH request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('patch-payload')
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -179,13 +180,13 @@ it('intercepts a DELETE request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('')
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -202,13 +203,13 @@ it('intercepts an http.request request given RequestOptions without a protocol',
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })

@@ -17,8 +17,8 @@ afterAll(() => {
 })
 
 it('ignores response body in a mocked response to a HEAD request', async () => {
-  interceptor.once('request', ({ request }) => {
-    request.respondWith(
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(
       new Response('hello world', {
         headers: {
           'x-custom-header': 'yes',

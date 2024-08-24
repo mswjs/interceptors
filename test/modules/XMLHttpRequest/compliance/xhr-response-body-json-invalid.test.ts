@@ -5,17 +5,17 @@ import { createXMLHttpRequest } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 
   switch (url.pathname) {
     case '/no-body': {
-      request.respondWith(new Response(null, { status: 204 }))
+      controller.respondWith(new Response(null, { status: 204 }))
       break
     }
 
     case '/invalid-json': {
-      request.respondWith(
+      controller.respondWith(
         new Response(`{"invalid: js'on`, {
           headers: {
             'Content-Type': 'application/json',

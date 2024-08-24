@@ -1,6 +1,4 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { waitForClientRequest } from '../../../helpers'
@@ -21,8 +19,8 @@ afterAll(() => {
 })
 
 it('responds with a mocked "transfer-encoding: chunked" response', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
       new Response('mock', {
         headers: { 'Transfer-Encoding': 'chunked' },
       })

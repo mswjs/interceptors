@@ -30,6 +30,7 @@ export class WebSocketServerConnection {
    */
   private realWebSocket?: WebSocket
   private mockCloseController: AbortController
+  private realCloseController: AbortController
   private [kEmitter]: EventTarget
 
   constructor(
@@ -39,6 +40,7 @@ export class WebSocketServerConnection {
   ) {
     this[kEmitter] = new EventTarget()
     this.mockCloseController = new AbortController()
+    this.realCloseController = new AbortController()
 
     // Automatically forward outgoing client events
     // to the actual server unless the outgoing message event
@@ -126,18 +128,24 @@ export class WebSocketServerConnection {
     })
 
     // Close the original connection when the mock client closes.
-    // E.g. "client.close()" was called.
+    // E.g. "client.close()" was called. This is never forwarded anywhere.
     this.socket.addEventListener('close', this.handleMockClose.bind(this), {
       signal: this.mockCloseController.signal,
     })
 
     // Forward the "close" event to let the interceptor handle
     // closures initiated by the original server.
-    realWebSocket.addEventListener('close', this.handleRealClose.bind(this))
+    realWebSocket.addEventListener('close', this.handleRealClose.bind(this), {
+      signal: this.realCloseController.signal,
+    })
 
-    // Forward server errors to the WebSocket client as-is.
-    // We may consider exposing them to the interceptor in the future.
     realWebSocket.addEventListener('error', () => {
+      // Emit the "error" event on the `server` connection
+      // to let the interceptor react to original server errors.
+      this[kEmitter].dispatchEvent(bindEvent(realWebSocket, new Event('error')))
+
+      // Forward original server errors to the WebSocket client.
+      // This ensures the client is closed if the original server errors.
       this.socket.dispatchEvent(bindEvent(this.socket, new Event('error')))
     })
 
@@ -239,8 +247,9 @@ export class WebSocketServerConnection {
 
     // Remove the "close" event listener from the server
     // so it doesn't close the underlying WebSocket client
-    // when you call "server.close()".
-    realWebSocket.removeEventListener('close', this.handleRealClose)
+    // when you call "server.close()". This also prevents the
+    // `close` event on the `server` connection from being dispatched twice.
+    this.realCloseController.abort()
 
     if (
       realWebSocket.readyState === WebSocket.CLOSING ||
@@ -251,10 +260,19 @@ export class WebSocketServerConnection {
 
     realWebSocket.close()
 
-    // Dispatch the "close" event on the server connection.
+    // Dispatch the "close" event on the `server` connection.
     queueMicrotask(() => {
       this[kEmitter].dispatchEvent(
-        bindEvent(this.realWebSocket, new CloseEvent('close'))
+        bindEvent(
+          this.realWebSocket,
+          new CloseEvent('close', {
+            /**
+             * @note `server.close()` in the interceptor
+             * always results in clean closures.
+             */
+            code: 1000,
+          })
+        )
       )
     })
   }
@@ -316,7 +334,7 @@ export class WebSocketServerConnection {
   private handleRealClose(event: CloseEvent): void {
     // For closures originating from the original server,
     // remove the "close" listener from the mock client.
-    // original close -> (?) client[kClose]() --X-> "close" (again).
+    // original close -> (?) client[kClose]() --X--> "close" (again).
     this.mockCloseController.abort()
 
     const closeEvent = bindEvent(

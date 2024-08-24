@@ -31,8 +31,8 @@ afterAll(async () => {
 })
 
 it('emits the "connect" event for a mocked request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(new Response('hello world'))
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
   })
 
   const connectListener = vi.fn()
@@ -59,8 +59,8 @@ it('emits the "connect" event for a bypassed request', async () => {
 })
 
 it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(new Response('hello world'))
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
   })
 
   const connectListener = vi.fn<[string]>()

@@ -3,9 +3,16 @@
  * This test suite asserts that the intercepted WebSocket client
  * still dispatches the correct events in mocked/bypassed scenarios.
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
+import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { getWsUrl } from '../utils/getWsUrl'
+
+const wsServer = new WebSocketServer({
+  host: '127.0.0.1',
+  port: 0,
+})
 
 const interceptor = new WebSocketInterceptor()
 
@@ -13,33 +20,67 @@ beforeAll(() => {
   interceptor.apply()
 })
 
-afterAll(() => {
-  interceptor.dispose()
+afterEach(() => {
+  interceptor.removeAllListeners()
+  wsServer.removeAllListeners()
+  wsServer.clients.forEach((client) => client.close())
 })
 
-it('emits "open" event when the connection is opened', async () => {
-  const openEventPromise = new DeferredPromise<Event>()
+afterAll(() => {
+  interceptor.dispose()
+  wsServer.close()
+})
 
-  const ws = new WebSocket('wss://example.com')
-  ws.onopen = openEventPromise.resolve
+it('emits "open" event when mocked connection is opened', async () => {
+  /**
+   * @note At least one "connection" listener has to be added
+   * in order for the WebSocket connections to be mock-first.
+   */
+  interceptor.once('connection', () => {})
 
-  const openEvent = await openEventPromise
+  const ws = new WebSocket('wss://localhost')
+  const openListener = vi.fn()
+  ws.onopen = openListener
+
+  await vi.waitFor(() => {
+    expect(openListener).toHaveBeenCalledTimes(1)
+  })
+
+  const [openEvent] = openListener.mock.calls[0]
   expect(openEvent.type).toBe('open')
   expect(openEvent.target).toBe(ws)
   expect(openEvent.currentTarget).toBe(ws)
 })
 
-it('emits "message" event on the incoming event from the server', async () => {
+it('emits "open" event when original connection is opened', async () => {
+  const ws = new WebSocket(getWsUrl(wsServer))
+  const openListener = vi.fn()
+  ws.onopen = openListener
+
+  await vi.waitFor(() => {
+    expect(openListener).toHaveBeenCalledTimes(1)
+  })
+
+  const [openEvent] = openListener.mock.calls[0]
+  expect(openEvent.type).toBe('open')
+  expect(openEvent.target).toBe(ws)
+  expect(openEvent.currentTarget).toBe(ws)
+})
+
+it('emits "message" event on incoming mock server data', async () => {
   interceptor.once('connection', ({ client }) => {
     client.send('hello')
   })
 
-  const messageEventPromise = new DeferredPromise<MessageEvent>()
+  const ws = new WebSocket('wss://localhost')
+  const messageListener = vi.fn()
+  ws.onmessage = messageListener
 
-  const ws = new WebSocket('wss://example.com')
-  ws.onmessage = messageEventPromise.resolve
+  await vi.waitFor(() => {
+    expect(messageListener).toHaveBeenCalledTimes(1)
+  })
 
-  const messageEvent = await messageEventPromise
+  const [messageEvent] = messageListener.mock.calls[0]
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toBe('hello')
   expect(messageEvent.target).toBe(ws)
@@ -47,75 +88,184 @@ it('emits "message" event on the incoming event from the server', async () => {
   expect(messageEvent.origin).toBe(ws.url)
 })
 
-it('emits "close" event when the connection is closed', async () => {
-  const closeEventPromise = new DeferredPromise<CloseEvent>()
-
-  const ws = new WebSocket('wss://example.com')
-  ws.onclose = closeEventPromise.resolve
-  ws.close()
-
-  expect(await closeEventPromise).toMatchObject({
-    type: 'close',
-    target: ws,
+it('emits "message" event on incoming original server data', async () => {
+  wsServer.once('connection', (ws) => {
+    ws.send('hello')
   })
+
+  const ws = new WebSocket(getWsUrl(wsServer))
+  const messageListener = vi.fn()
+  ws.onmessage = messageListener
+
+  await vi.waitFor(() => {
+    expect(messageListener).toHaveBeenCalledTimes(1)
+  })
+
+  const [messageEvent] = messageListener.mock.calls[0]
+  expect(messageEvent.type).toBe('message')
+  expect(messageEvent.data).toBe('hello')
+  expect(messageEvent.target).toBe(ws)
+  expect(messageEvent.currentTarget).toBe(ws)
+  expect(messageEvent.origin).toBe(ws.url)
 })
 
-it('emits "close" event when the connection is closed normally by the server', async () => {
-  interceptor.once('connection', ({ client }) => {
-    client.close()
+it('emits "close" event when the mocked client closes the connection', async () => {
+  interceptor.once('connection', () => {})
+
+  const ws = new WebSocket('wss://localhost')
+  const closeListener = vi.fn()
+  ws.onclose = closeListener
+  /**
+   * @note Closing the connection before it has been open
+   * results in an error.
+   */
+  ws.onopen = () => ws.close()
+
+  await vi.waitFor(() => {
+    expect(closeListener).toHaveBeenCalledTimes(1)
   })
 
-  const closeEventPromise = new DeferredPromise<CloseEvent>()
-
-  const ws = new WebSocket('wss://example.com')
-  ws.onclose = closeEventPromise.resolve
-
-  const closeEvent = await closeEventPromise
+  const [closeEvent] = closeListener.mock.calls[0]
   expect(closeEvent.type).toBe('close')
+  expect(closeEvent.code).toBe(1000)
+  expect(closeEvent.reason).toBe('')
+  expect(closeEvent.wasClean).toBe(true)
   expect(closeEvent.target).toBe(ws)
+  expect(closeEvent.currentTarget).toBe(ws)
 })
 
-it('emits "close" event when the connection is closed by the server with a code and a reason', async () => {
+it('emits "close" event when the original server closes the connection', async () => {
+  wsServer.once('connection', (ws) => {
+    ws.close(1000)
+  })
+
+  const ws = new WebSocket(getWsUrl(wsServer))
+  const closeListener = vi.fn()
+  ws.onclose = closeListener
+
+  await vi.waitFor(() => {
+    expect(closeListener).toHaveBeenCalledTimes(1)
+  })
+
+  const [closeEvent] = closeListener.mock.calls[0]
+  expect(closeEvent.type).toBe('close')
+  expect(closeEvent.code).toBe(1000)
+  expect(closeEvent.reason).toBe('')
+  expect(closeEvent.wasClean).toBe(true)
+  expect(closeEvent.target).toBe(ws)
+  expect(closeEvent.currentTarget).toBe(ws)
+})
+
+it('emits "close" event when the interceptor gracefully closes the connection', async () => {
+  interceptor.once('connection', ({ client }) => {
+    queueMicrotask(() => client.close())
+  })
+
+  const ws = new WebSocket('wss://localhost')
+  const closeListener = vi.fn()
+  ws.onclose = closeListener
+
+  await vi.waitFor(() => {
+    expect(closeListener).toHaveBeenCalledTimes(1)
+  })
+
+  const [closeEvent] = closeListener.mock.calls[0]
+  expect(closeEvent.type).toBe('close')
+  expect(closeEvent.code).toBe(1000)
+  expect(closeEvent.reason).toBe('')
+  expect(closeEvent.wasClean).toBe(true)
+  expect(closeEvent.target).toBe(ws)
+  expect(closeEvent.currentTarget).toBe(ws)
+})
+
+it('emits "close" event when the interceptor closes the connection with error code', async () => {
   interceptor.once('connection', ({ client }) => {
     client.close(3000, 'Oops!')
   })
 
   const closeEventPromise = new DeferredPromise<CloseEvent>()
 
-  const ws = new WebSocket('wss://example.com')
+  const ws = new WebSocket('wss://localhost')
   ws.onclose = closeEventPromise.resolve
 
   const closeEvent = await closeEventPromise
   expect(closeEvent.type).toBe('close')
   expect(closeEvent.code).toBe(3000)
   expect(closeEvent.reason).toBe('Oops!')
+  expect(closeEvent.wasClean).toBe(true)
   expect(closeEvent.target).toBe(ws)
   expect(closeEvent.currentTarget).toBe(ws)
 })
 
-it('emits "error" event when the connection is closed due to an error', async () => {
+it('emits "close" event when the original server closes the connection with error code', async () => {
+  wsServer.once('connection', (ws) => {
+    ws.close(1003, 'Server reason')
+  })
+
+  const ws = new WebSocket(getWsUrl(wsServer))
+  const closeListener = vi.fn()
+  ws.onclose = closeListener
+
+  await vi.waitFor(() => {
+    expect(closeListener).toHaveBeenCalledTimes(1)
+  })
+
+  const [closeEvent] = closeListener.mock.calls[0]
+  expect(closeEvent.type).toBe('close')
+  expect(closeEvent.code).toBe(1003)
+  expect(closeEvent.reason).toBe('Server reason')
+  expect(closeEvent.wasClean).toBe(true)
+  expect(closeEvent.target).toBe(ws)
+  expect(closeEvent.currentTarget).toBe(ws)
+})
+
+it('emits "error" event on passthrough client connection failure', async () => {
+  // Connecting to a non-existing server URL without any
+  // interceptor listener set up MUST establish the connection as-is
+  // (no "open" event; "error" event; no "close" event).
+  const ws = new WebSocket('wss://localhost/non-existing-url')
+
+  const openListener = vi.fn()
+  const errorListener = vi.fn()
+  const closeListener = vi.fn()
+  ws.onopen = openListener
+  ws.onerror = errorListener
+  ws.onclose = closeListener
+
+  await vi.waitFor(() => {
+    expect(openListener).not.toHaveBeenCalled()
+    expect(errorListener).toHaveBeenCalledTimes(1)
+    expect(closeListener).not.toHaveBeenCalled()
+  })
+})
+
+it('does not emit "error" event on mocked error code closures', async () => {
   interceptor.once('connection', ({ client }) => {
-    // Mock a connection close due to receiving the data
-    // the server cannot accept.
+    /**
+     * @note Closing the connection with non-configurable code
+     * does NOT result in the "error" event.
+     */
     client.close(1003)
   })
 
-  const errorEventPromise = new DeferredPromise<Event>()
-  const closeEventPromise = new DeferredPromise<CloseEvent>()
+  const ws = new WebSocket('wss://localhost')
 
-  const ws = new WebSocket('wss://example.com')
-  ws.onerror = errorEventPromise.resolve
-  ws.onclose = closeEventPromise.resolve
+  const errorListener = vi.fn()
+  const closeListener = vi.fn()
+  ws.onerror = errorListener
+  ws.onclose = closeListener
 
-  const errorEvent = await errorEventPromise
-  expect(errorEvent.type).toBe('error')
-  expect(errorEvent.target).toBe(ws)
+  await vi.waitFor(() => {
+    expect(closeListener).toHaveBeenCalledTimes(1)
+  })
 
-  const closeEvent = await closeEventPromise
+  const [closeEvent] = closeListener.mock.calls[0]
   expect(closeEvent.type).toBe('close')
   expect(closeEvent.code).toBe(1003)
   expect(closeEvent.reason).toBe('')
-  expect(closeEvent.wasClean).toBe(false)
+  expect(closeEvent.wasClean).toBe(true)
   expect(closeEvent.target).toBe(ws)
   expect(closeEvent.currentTarget).toBe(ws)
+
+  expect(errorListener).not.toHaveBeenCalled()
 })

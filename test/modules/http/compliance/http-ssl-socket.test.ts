@@ -22,8 +22,8 @@ afterAll(() => {
 })
 
 it('emits a correct TLS Socket instance for a handled HTTPS request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(new Response('hello world'))
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
   })
 
   const request = https.get('https://example.com')

@@ -82,8 +82,8 @@ it('emits the "request" event for an outgoing request with a body', async () => 
 
 it('emits the "response" event for a mocked response', async () => {
   const responseListener = vi.fn<HttpRequestEventMap['response']>()
-  interceptor.once('request', ({ request }) => {
-    request.respondWith(new Response('hello world'))
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
   })
   interceptor.once('response', responseListener)
 

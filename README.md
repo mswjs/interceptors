@@ -220,7 +220,7 @@ All HTTP request interceptors emit a "request" event. In the listener to this ev
 > There are many ways to describe a request in Node.js but this library coerces different request definitions to a single specification-compliant `Request` instance to make the handling consistent.
 
 ```js
-interceptor.on('request', ({ request, requestId }) => {
+interceptor.on('request', ({ request, requestId, controller }) => {
   console.log(request.method, request.url)
 })
 ```
@@ -251,11 +251,11 @@ interceptor.on('request', ({ request }) => {
 
 Although this library can be used purely for request introspection purposes, you can also affect request resolution by responding to any intercepted request within the "request" event.
 
-Use the `request.respondWith()` method to respond to a request with a mocked response:
+Access the `controller` object from the request event listener arguments and call its `controller.respondWith()` method, providing it with a mocked `Response` instance:
 
 ```js
-interceptor.on('request', ({ request, requestId }) => {
-  request.respondWith(
+interceptor.on('request', ({ request, controller }) => {
+  controller.respondWith(
     new Response(
       JSON.stringify({
         firstName: 'John',
@@ -284,11 +284,39 @@ Requests must be responded to within the same tick as the request listener. This
 ```js
 // Respond to all requests with a 500 response
 // delayed by 500ms.
-interceptor.on('request', async ({ request, requestId }) => {
+interceptor.on('request', async ({ controller }) => {
   await sleep(500)
-  request.respondWith(new Response(null, { status: 500 }))
+  controller.respondWith(new Response(null, { status: 500 }))
 })
 ```
+
+### Mocking response errors
+
+You can provide an instance of `Response.error()` to error the pending request.
+
+```js
+interceptor.on('request', ({ request, controller }) => {
+  controller.respondWith(Response.error())
+})
+```
+
+This will automatically translate to the appropriate request error based on the request client that issued the request. **Use this method to produce a generic network error**.
+
+> Note that the standard `Response.error()` API does not accept an error message.
+
+## Mocking errors
+
+Use the `controller.errorWith()` method to error the request.
+
+```js
+interceptor.on('request', ({ request, controller }) => {
+  controller.errorWith(new Error('reason'))
+})
+```
+
+Unlike responding with `Response.error()`, you can provide an exact error reason to use to `.errorWith()`. **Use this method to error the request**.
+
+> Note that it is up to the request client to respect your custom error. Some clients, like `ClientRequest` will use the provided error message, while others, like `fetch`, will produce a generic `TypeError: failed to fetch` responses. Interceptors will try to preserve the original error in the `cause` property of such generic errors.
 
 ## Observing responses
 
@@ -303,7 +331,7 @@ interceptor.on(
 )
 ```
 
-> Note that the `isMockedResponse` property will only be set to `true` if you resolved this request in the "request" event listener using the `request.respondWith()` method and providing a mocked `Response` instance.
+> Note that the `isMockedResponse` property will only be set to `true` if you resolved this request in the "request" event listener using the `controller.respondWith()` method and providing a mocked `Response` instance.
 
 ## Error handling
 

@@ -20,8 +20,8 @@ it('treats "Response.error()" as a network error', async () => {
   const requestErrorListener = vi.fn()
   const responseListener = vi.fn()
 
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(Response.error())
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(Response.error())
   })
   interceptor.on('response', responseListener)
 

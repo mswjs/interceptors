@@ -1,8 +1,8 @@
 export class EventPolyfill implements Event {
-  readonly AT_TARGET: number = 0
-  readonly BUBBLING_PHASE: number = 0
-  readonly CAPTURING_PHASE: number = 0
-  readonly NONE: number = 0
+  readonly NONE = 0
+  readonly CAPTURING_PHASE = 1
+  readonly AT_TARGET = 2
+  readonly BUBBLING_PHASE = 3
 
   public type: string = ''
   public srcElement: EventTarget | null = null

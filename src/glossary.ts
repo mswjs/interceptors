@@ -1,4 +1,4 @@
-import type { InteractiveRequest } from './utils/toInteractiveRequest'
+import type { RequestController } from './RequestController'
 
 export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
 
@@ -7,8 +7,9 @@ export type RequestCredentials = 'omit' | 'include' | 'same-origin'
 export type HttpRequestEventMap = {
   request: [
     args: {
-      request: InteractiveRequest
+      request: Request
       requestId: string
+      controller: RequestController
     }
   ]
   response: [
@@ -24,10 +25,7 @@ export type HttpRequestEventMap = {
       error: unknown
       request: Request
       requestId: string
-      controller: {
-        respondWith(response: Response): void
-        errorWith(error?: Error): void
-      }
+      controller: RequestController
     }
   ]
 }

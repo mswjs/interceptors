@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
@@ -18,6 +18,10 @@ const interceptor = new ClientRequestInterceptor()
 beforeAll(async () => {
   await server.listen()
   interceptor.apply()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {

@@ -32,9 +32,9 @@ afterAll(async () => {
 })
 
 it('respects the "timeout" option for a handled request', async () => {
-  interceptor.on('request', async ({ request }) => {
+  interceptor.on('request', async ({ controller }) => {
     await sleep(200)
-    request.respondWith(new Response('hello world'))
+    controller.respondWith(new Response('hello world'))
   })
 
   const errorListener = vi.fn()
@@ -95,7 +95,7 @@ it('respects the "timeout" option for a bypassed request', async () => {
 })
 
 it('respects a "setTimeout()" on a handled request', async () => {
-  interceptor.on('request', async ({ request }) => {
+  interceptor.on('request', async ({ controller }) => {
     const stream = new ReadableStream({
       async start(controller) {
         // Emulate a long pending response stream
@@ -104,7 +104,7 @@ it('respects a "setTimeout()" on a handled request', async () => {
         controller.enqueue(new TextEncoder().encode('hello'))
       },
     })
-    request.respondWith(new Response(stream))
+    controller.respondWith(new Response(stream))
   })
 
   const errorListener = vi.fn()
@@ -180,7 +180,7 @@ it('respects a "setTimeout()" on a bypassed request', async () => {
 })
 
 it('respects the "socket.setTimeout()" for a handled request', async () => {
-  interceptor.on('request', async ({ request }) => {
+  interceptor.on('request', async ({ controller }) => {
     const stream = new ReadableStream({
       async start(controller) {
         // Emulate a long pending response stream
@@ -189,7 +189,7 @@ it('respects the "socket.setTimeout()" for a handled request', async () => {
         controller.enqueue(new TextEncoder().encode('hello'))
       },
     })
-    request.respondWith(new Response(stream))
+    controller.respondWith(new Response(stream))
   })
 
   const errorListener = vi.fn()

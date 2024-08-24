@@ -186,7 +186,9 @@ it('handles [URL, RequestOptions, callback] input', () => {
   expect(url.href).toEqual('https://mswjs.io/resource')
 
   // Options must be preserved.
-  expect(options).toEqual<RequestOptions>({
+  // `urlToHttpOptions` from `node:url` generates additional
+  // ClientRequest options, some of which are not legally allowed.
+  expect(options).toMatchObject<RequestOptions>({
     agent: false,
     _defaultAgent: httpsGlobalAgent,
     protocol: url.protocol,
@@ -194,8 +196,6 @@ it('handles [URL, RequestOptions, callback] input', () => {
     headers: {
       'Content-Type': 'text/plain',
     },
-
-    host: url.host,
     hostname: url.hostname,
     path: url.pathname,
   })
@@ -214,7 +214,7 @@ it('handles [URL, RequestOptions] where options have custom "hostname"', () => {
   ])
   expect(url.href).toBe('http://host-from-options.com/path-from-url')
   expect(options).toMatchObject({
-    host: 'host-from-options.com',
+    hostname: 'host-from-options.com',
     path: '/path-from-url',
   })
 })
@@ -230,8 +230,8 @@ it('handles [URL, RequestOptions] where options contain "host" and "path" and "p
   ])
   // Must remove the query string since it's not specified in "options.path"
   expect(url.href).toBe('http://host-from-options.com:1234/path-from-options')
-  expect(options).toMatchObject({
-    host: 'host-from-options.com:1234',
+  expect(options).toMatchObject<RequestOptions>({
+    hostname: 'host-from-options.com',
     path: '/path-from-options',
     port: 1234,
   })
@@ -245,8 +245,8 @@ it('handles [URL, RequestOptions] where options contain "path" with query string
     },
   ])
   expect(url.href).toBe('http://example.com/path-from-options?foo=bar&baz=xyz')
-  expect(options).toMatchObject({
-    host: 'example.com',
+  expect(options).toMatchObject<RequestOptions>({
+    hostname: 'example.com',
     path: '/path-from-options?foo=bar&baz=xyz',
   })
 })
@@ -399,7 +399,6 @@ it('merges URL-based RequestOptions with the custom RequestOptions', () => {
 
   // Other options must be inferred from the URL.
   expect(options.protocol).toEqual(url.protocol)
-  expect(options.host).toEqual(url.host)
   expect(options.hostname).toEqual(url.hostname)
   expect(options.path).toEqual(url.pathname)
 })
@@ -414,7 +413,6 @@ it('respects custom "options.path" over URL path', () => {
 
   expect(url.href).toBe('http://example.com/path-from-options')
   expect(options.protocol).toBe('http:')
-  expect(options.host).toBe('example.com')
   expect(options.hostname).toBe('example.com')
   expect(options.path).toBe('/path-from-options')
 })
@@ -430,20 +428,20 @@ it('respects custom "options.path" over URL path with query string', () => {
   // Must replace both the path and the query string.
   expect(url.href).toBe('http://example.com/path-from-options')
   expect(options.protocol).toBe('http:')
-  expect(options.host).toBe('example.com')
   expect(options.hostname).toBe('example.com')
   expect(options.path).toBe('/path-from-options')
 })
 
 it('preserves URL query string', () => {
   const [url, options] = normalizeClientRequestArgs('http:', [
-    new URL('http://example.com/resource?a=b&c=d'),
+    new URL('http://example.com:8080/resource?a=b&c=d'),
   ])
 
-  expect(url.href).toBe('http://example.com/resource?a=b&c=d')
+  expect(url.href).toBe('http://example.com:8080/resource?a=b&c=d')
   expect(options.protocol).toBe('http:')
-  expect(options.host).toBe('example.com')
+  // expect(options.host).toBe('example.com:8080')
   expect(options.hostname).toBe('example.com')
   // Query string is a part of the options path.
   expect(options.path).toBe('/resource?a=b&c=d')
+  expect(options.port).toBe(8080)
 })

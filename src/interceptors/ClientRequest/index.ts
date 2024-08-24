@@ -1,6 +1,5 @@
 import http from 'node:http'
 import https from 'node:https'
-import { until } from '@open-draft/until'
 import { Interceptor } from '../../Interceptor'
 import type { HttpRequestEventMap } from '../../glossary'
 import {
@@ -9,11 +8,14 @@ import {
   MockHttpSocketResponseCallback,
 } from './MockHttpSocket'
 import { MockAgent, MockHttpsAgent } from './agents'
+import { RequestController } from '../../RequestController'
 import { emitAsync } from '../../utils/emitAsync'
-import { toInteractiveRequest } from '../../utils/toInteractiveRequest'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
-import { isNodeLikeError } from '../../utils/isNodeLikeError'
-import { createServerErrorResponse } from '../../utils/responseUtils'
+import { handleRequest } from '../../utils/handleRequest'
+import {
+  recordRawFetchHeaders,
+  restoreHeadersPrototype,
+} from './utils/recordRawHeaders'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -104,12 +106,19 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       },
     })
 
+    // Spy on `Header.prototype.set` and `Header.prototype.append` calls
+    // and record the raw header names provided. This is to support
+    // `IncomingMessage.prototype.rawHeaders`.
+    recordRawFetchHeaders()
+
     this.subscriptions.push(() => {
       http.get = originalGet
       http.request = originalRequest
 
       https.get = originalHttpsGet
       https.request = originalHttpsRequest
+
+      restoreHeadersPrototype()
     })
   }
 
@@ -118,88 +127,29 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     socket,
   }) => {
     const requestId = Reflect.get(request, kRequestId)
-    const { interactiveRequest, requestController } =
-      toInteractiveRequest(request)
+    const controller = new RequestController(request)
 
-    // TODO: Abstract this bit. We are using it everywhere.
-    this.emitter.once('request', ({ requestId: pendingRequestId }) => {
-      if (pendingRequestId !== requestId) {
-        return
-      }
-
-      if (requestController.responsePromise.state === 'pending') {
-        this.logger.info(
-          'request has not been handled in listeners, executing fail-safe listener...'
-        )
-
-        requestController.responsePromise.resolve(undefined)
-      }
-    })
-
-    const listenerResult = await until(async () => {
-      await emitAsync(this.emitter, 'request', {
-        requestId,
-        request: interactiveRequest,
-      })
-
-      return await requestController.responsePromise
-    })
-
-    if (listenerResult.error) {
-      // Treat thrown Responses as mocked responses.
-      if (listenerResult.error instanceof Response) {
-        socket.respondWith(listenerResult.error)
-        return
-      }
-
-      // Allow mocking Node-like errors.
-      if (isNodeLikeError(listenerResult.error)) {
-        socket.errorWith(listenerResult.error)
-        return
-      }
-
-      // Emit the "unhandledException" event to allow the client
-      //  to opt-out from the default handling of exceptions
-      // as 500 error responses.
-      if (this.emitter.listenerCount('unhandledException') > 0) {
-        await emitAsync(this.emitter, 'unhandledException', {
-          error: listenerResult.error,
-          request,
-          requestId,
-          controller: {
-            respondWith: socket.respondWith.bind(socket),
-            errorWith: socket.errorWith.bind(socket),
-          },
-        })
-
-        // After the listeners are done, if the socket is
-        // not connecting anymore, the response was mocked.
-        // If the socket has been destroyed, the error was mocked.
-        // Treat both as the result of the listener's call.
-        if (!socket.connecting || socket.destroyed) {
-          return
+    const isRequestHandled = await handleRequest({
+      request,
+      requestId,
+      controller,
+      emitter: this.emitter,
+      onResponse: (response) => {
+        socket.respondWith(response)
+      },
+      onRequestError: (response) => {
+        socket.respondWith(response)
+      },
+      onError: (error) => {
+        if (error instanceof Error) {
+          socket.errorWith(error)
         }
-      }
+      },
+    })
 
-      // Unhandled exceptions in the request listeners are
-      // synonymous to unhandled exceptions on the server.
-      // Those are represented as 500 error responses.
-      socket.respondWith(createServerErrorResponse(listenerResult.error))
-      return
+    if (!isRequestHandled) {
+      return socket.passthrough()
     }
-
-    const mockedResponse = listenerResult.data
-
-    if (mockedResponse) {
-      /**
-       * @note The `.respondWith()` method will handle "Response.error()".
-       * Maybe we should make all interceptors do that?
-       */
-      socket.respondWith(mockedResponse)
-      return
-    }
-
-    socket.passthrough()
   }
 
   public onResponse: MockHttpSocketResponseCallback = async ({

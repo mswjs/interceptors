@@ -158,8 +158,8 @@ it('emits "finish" for a passthrough request', async () => {
 })
 
 it('emits "finish" for a mocked request', async () => {
-  interceptor.once('request', ({ request }) => {
-    request.respondWith(new Response())
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(new Response())
   })
 
   const prefinishListener = vi.fn()
@@ -177,9 +177,9 @@ it('emits "finish" for a mocked request', async () => {
 
 it('calls all write callbacks before the mocked response', async () => {
   const requestBodyCallback = vi.fn()
-  interceptor.once('request', async ({ request }) => {
+  interceptor.once('request', async ({ request, controller }) => {
     requestBodyCallback(await request.text())
-    request.respondWith(new Response('hello world'))
+    controller.respondWith(new Response('hello world'))
   })
 
   const request = http.request(httpServer.http.url('/resource'), {

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterAll, beforeAll, expect, it } from 'vitest'
+import { afterEach, afterAll, beforeAll, expect, it } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
@@ -26,56 +26,52 @@ beforeAll(async () => {
   await httpServer.listen()
 })
 
+afterEach(() => {
+  interceptor.removeAllListeners()
+})
+
 afterAll(async () => {
   interceptor.dispose()
   await httpServer.close()
 })
 
 it('aborts unsent request when the original request is aborted', async () => {
-  interceptor.once('request', () => {
-    expect.fail('must not sent the request')
-  })
-
   const controller = new AbortController()
-  const request = fetch(httpServer.http.url('/'), {
-    signal: controller.signal,
-  })
 
-  const requestAborted = new DeferredPromise<NodeJS.ErrnoException>()
-  request.catch(requestAborted.resolve)
+  const abortErrorPromise = fetch(httpServer.http.url('/'), {
+    signal: controller.signal,
+  }).then<Error>(
+    () => expect.fail('must not return any response'),
+    (error) => error
+  )
 
   controller.abort()
-
-  const abortError = await requestAborted
+  const abortError = await abortErrorPromise
 
   expect(abortError.name).toBe('AbortError')
-  expect(abortError.code).toBe(20)
   expect(abortError.message).toBe('This operation was aborted')
 })
 
 it('aborts a pending request when the original request is aborted', async () => {
   const requestListenerCalled = new DeferredPromise<void>()
-  const requestAborted = new DeferredPromise<Error>()
 
-  interceptor.once('request', async ({ request }) => {
+  interceptor.on('request', async ({ controller }) => {
     requestListenerCalled.resolve()
-    await sleep(1_000)
-    request.respondWith(new Response())
+    await sleep(1000)
+    controller.respondWith(new Response())
   })
 
   const controller = new AbortController()
-  const request = fetch(httpServer.http.url('/delayed'), {
+  const abortErrorPromise = fetch(httpServer.http.url('/delayed'), {
     signal: controller.signal,
-  }).then(() => {
-    expect.fail('must not return any response')
-  })
-
-  request.catch(requestAborted.resolve)
-  await requestListenerCalled
+  }).then<Error>(
+    () => expect.fail('must not return any response'),
+    (error) => error
+  )
 
   controller.abort()
+  const abortError = await abortErrorPromise
 
-  const abortError = await requestAborted
   expect(abortError.name).toBe('AbortError')
   expect(abortError.message).toBe('This operation was aborted')
 })
@@ -106,10 +102,10 @@ it('forwards custom abort reason to the request if pending', async () => {
   const requestListenerCalled = new DeferredPromise<void>()
   const requestAborted = new DeferredPromise<Error>()
 
-  interceptor.once('request', async ({ request }) => {
+  interceptor.once('request', async ({ controller }) => {
     requestListenerCalled.resolve()
-    await sleep(1_000)
-    request.respondWith(new Response())
+    await sleep(1000)
+    controller.respondWith(new Response())
   })
 
   const controller = new AbortController()

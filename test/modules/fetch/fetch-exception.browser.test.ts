@@ -14,8 +14,8 @@ test('treats Response.error() mocked responses as TypeError: Failed to fetch', a
   await loadExample(require.resolve('./fetch-exception.runtime.js'))
 
   await page.evaluate(() => {
-    window.interceptor.once('request', ({ request }) => {
-      request.respondWith(Response.error())
+    window.interceptor.once('request', ({ controller }) => {
+      controller.respondWith(Response.error())
     })
   })
 

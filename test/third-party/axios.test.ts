@@ -56,20 +56,20 @@ afterAll(async () => {
 })
 
 it('responds with a mocked response to an "axios()" request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(createMockResponse())
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(createMockResponse())
   })
 
-  const res = await axios('/user')
+  const response = await axios('/user')
 
-  expect(res.status).toEqual(200)
-  expect(res.headers).toHaveProperty('x-header', 'yes')
-  expect(res.data).toEqual({ mocked: true })
+  expect(response.status).toEqual(200)
+  expect(response.headers).toHaveProperty('x-header', 'yes')
+  expect(response.data).toEqual({ mocked: true })
 })
 
 it('responds with a mocked response to an "axios.get()" request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(createMockResponse())
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(createMockResponse())
   })
 
   const res = await axios.get('/user')
@@ -80,8 +80,8 @@ it('responds with a mocked response to an "axios.get()" request', async () => {
 })
 
 it('responds with a mocked response to an "axios.post()" request', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(createMockResponse())
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(createMockResponse())
   })
 
   const res = await axios.post('/user')

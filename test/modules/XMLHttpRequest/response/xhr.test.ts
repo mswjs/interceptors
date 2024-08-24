@@ -29,7 +29,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new XMLHttpRequestInterceptor()
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 
   const shouldMock =
@@ -37,7 +37,7 @@ interceptor.on('request', ({ request }) => {
     ['/login'].includes(url.pathname)
 
   if (shouldMock) {
-    return request.respondWith(
+    return controller.respondWith(
       new Response('foo', {
         status: 301,
         statusText: 'Moved Permantently',
@@ -49,7 +49,7 @@ interceptor.on('request', ({ request }) => {
   }
 
   if (request.url.endsWith('/network-error')) {
-    return request.respondWith(Response.error())
+    return controller.respondWith(Response.error())
   }
 
   if (request.url.endsWith('/exception')) {
