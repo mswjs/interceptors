@@ -19,7 +19,7 @@ beforeAll(() => {
 })
 
 afterEach(() => {
-  wsServer.clients.forEach((client) => client.close(1000))
+  wsServer.clients.forEach((client) => client.close())
 })
 
 afterAll(() => {

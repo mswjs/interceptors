@@ -1,4 +1,6 @@
-// @vitest-environment jsdom
+/**
+ * @vitest-environment jsdom
+ */
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
@@ -8,6 +10,7 @@ import {
   REQUEST_ID_REGEXP,
 } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
+import { RequestController } from '../../../../src/RequestController'
 
 const server = new HttpServer((app) => {
   app.use(useCors)
@@ -18,9 +21,9 @@ const server = new HttpServer((app) => {
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   if (request.url.endsWith('/user')) {
-    return request.respondWith(
+    return controller.respondWith(
       new Response('mocked response', {
         status: 200,
         statusText: 'OK',
@@ -98,10 +101,7 @@ it('emits events for a bypassed request', async () => {
   expect(requestParams.request).toBeInstanceOf(Request)
   expect(requestParams.request.method).toBe('GET')
   expect(requestParams.request.url).toBe(server.http.url('/bypassed'))
-  expect(requestParams.request).toHaveProperty(
-    'respondWith',
-    expect.any(Function)
-  )
+  expect(requestParams.controller).toBeInstanceOf(RequestController)
 
   // The last argument of the request listener is the request ID.
   expect(requestParams.requestId).toMatch(REQUEST_ID_REGEXP)

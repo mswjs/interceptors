@@ -23,24 +23,24 @@ const httpServer = new HttpServer((app) => {
 
 beforeAll(async () => {
   interceptor.apply()
-  interceptor.on('request', ({ request }) => {
+  interceptor.on('request', ({ request, controller }) => {
     switch (true) {
       case request.url.endsWith('/exception'): {
         throw new Error('Custom error')
       }
 
       case request.url.endsWith('/network-error'): {
-        return request.respondWith(Response.error())
+        return controller.respondWith(Response.error())
       }
 
       case request.url.endsWith('/error-response'): {
-        return request.respondWith(
+        return controller.respondWith(
           new Response('Internal Server Error', { status: 500 })
         )
       }
 
       default:
-        return request.respondWith(new Response('hello'))
+        return controller.respondWith(new Response('hello'))
     }
   })
 

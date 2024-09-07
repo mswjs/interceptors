@@ -2,7 +2,7 @@ import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-interceptor.on('request', async ({ request, requestId }) => {
+interceptor.on('request', async ({ request, requestId, controller }) => {
   window.dispatchEvent(
     new CustomEvent('resolver', {
       detail: {
@@ -19,7 +19,7 @@ interceptor.on('request', async ({ request, requestId }) => {
   const { serverHttpUrl, serverHttpsUrl } = window
 
   if ([serverHttpUrl, serverHttpsUrl].includes(request.url)) {
-    request.respondWith(
+    controller.respondWith(
       new Response(JSON.stringify({ mocked: true }), {
         status: 201,
         statusText: 'Created',

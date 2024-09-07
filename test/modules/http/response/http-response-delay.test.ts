@@ -23,13 +23,13 @@ afterAll(async () => {
 })
 
 it('supports custom delay before responding with a mock', async () => {
-  interceptor.once('request', async ({ request }) => {
+  interceptor.once('request', async ({ controller }) => {
     await sleep(750)
-    request.respondWith(new Response('mocked response'))
+    controller.respondWith(new Response('mocked response'))
   })
 
   const requestStart = Date.now()
-  const request = http.get('https://non-existing-host.com')
+  const request = http.get('http://non-existing-host.com')
   const { res, text } = await waitForClientRequest(request)
   const requestEnd = Date.now()
 

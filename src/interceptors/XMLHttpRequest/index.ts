@@ -1,14 +1,8 @@
 import { invariant } from 'outvariant'
 import { Emitter } from 'strict-event-emitter'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
-import { InteractiveRequest } from '../../utils/toInteractiveRequest'
 import { Interceptor } from '../../Interceptor'
 import { createXMLHttpRequestProxy } from './XMLHttpRequestProxy'
-
-export type XMLHttpRequestEventListener = (args: {
-  request: InteractiveRequest
-  requestId: string
-}) => Promise<void> | void
 
 export type XMLHttpRequestEmitter = Emitter<HttpRequestEventMap>
 

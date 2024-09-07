@@ -15,17 +15,12 @@ const interceptor = new BatchInterceptor({
   ],
 })
 
-const requestListener = vi.fn().mockImplementation(({ request }) => {
-  request.respondWith(new Response('mocked-body'))
-})
-
-interceptor.on('request', requestListener)
-
 beforeAll(() => {
   interceptor.apply()
 })
 
 afterEach(() => {
+  interceptor.removeAllListeners()
   vi.clearAllMocks()
 })
 
@@ -34,31 +29,40 @@ afterAll(() => {
 })
 
 test('responds to fetch', async () => {
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked-body'))
+  })
+
   const response = await fetch('https://example.com')
   expect(response.status).toEqual(200)
   expect(await response.text()).toEqual('mocked-body')
-  expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
 test('responds to http.get', async () => {
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked-body'))
+  })
+
   const { resBody } = await httpGet('http://example.com')
   expect(resBody).toEqual('mocked-body')
-  expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
 test('responds to https.get', async () => {
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked-body'))
+  })
+
   const { resBody } = await httpsGet('https://example.com')
   expect(resBody).toEqual('mocked-body')
-  expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
 test('throws when responding with a network error', async () => {
-  requestListener.mockImplementationOnce(({ request }) => {
+  interceptor.once('request', ({ controller }) => {
     /**
      * @note "Response.error()" static method is NOT implemented in Miniflare.
      * This expression will throw.
      */
-    request.respondWith(Response.error())
+    controller.respondWith(Response.error())
   })
 
   const { res, resBody } = await httpGet('http://example.com')

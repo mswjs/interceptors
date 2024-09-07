@@ -1,7 +1,6 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { BatchInterceptor } from '../../../../src'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
@@ -11,10 +10,7 @@ const server = new HttpServer((app) => {
   })
 })
 
-const interceptor = new BatchInterceptor({
-  name: 'response-patching',
-  interceptors: [new ClientRequestInterceptor()],
-})
+const interceptor = new ClientRequestInterceptor()
 
 async function getResponse(request: Request): Promise<Response | undefined> {
   const url = new URL(request.url)
@@ -50,11 +46,11 @@ async function getResponse(request: Request): Promise<Response | undefined> {
   }
 }
 
-interceptor.on('request', async ({ request }) => {
+interceptor.on('request', async ({ request, controller }) => {
   const response = await getResponse(request)
 
   if (response) {
-    request.respondWith(response)
+    controller.respondWith(response)
   }
 })
 

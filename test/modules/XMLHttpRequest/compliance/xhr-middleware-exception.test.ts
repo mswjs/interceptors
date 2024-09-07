@@ -79,8 +79,8 @@ it('treats a thrown Response instance as a mocked response', async () => {
 })
 
 it('treats a Response.error() as a network error', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(Response.error())
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(Response.error())
   })
 
   const requestErrorListener = vi.fn()

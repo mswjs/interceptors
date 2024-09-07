@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'https'
-import fetch from 'node-fetch'
+import nodeFetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
 import {
   createXMLHttpRequest,
@@ -44,11 +44,11 @@ const interceptor = new BatchInterceptor({
   ],
 })
 
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 
   if (url.pathname === '/user') {
-    request.respondWith(
+    controller.respondWith(
       new Response('mocked-response-text', {
         status: 200,
         statusText: 'OK',
@@ -63,12 +63,14 @@ interceptor.on('request', ({ request }) => {
 beforeAll(async () => {
   // Allow XHR requests to the local HTTPS server with a self-signed certificate.
   window._resourceLoader._strictSSL = false
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
   await httpServer.listen()
   interceptor.apply()
 })
 
 afterEach(() => {
+  interceptor.removeAllListeners('response')
   vi.resetAllMocks()
 })
 
@@ -79,7 +81,7 @@ afterAll(async () => {
 
 it('ClientRequest: emits the "response" event for a mocked response', async () => {
   const responseListener = vi.fn<HttpRequestEventMap['response']>()
-  interceptor.on('response', responseListener)
+  interceptor.once('response', responseListener)
 
   const req = https.request(httpServer.https.url('/user'), {
     method: 'GET',
@@ -123,7 +125,6 @@ it('ClientRequest: emits the "response" event upon the original response', async
     headers: {
       'x-request-custom': 'yes',
     },
-    agent: httpsAgent,
   })
   req.write('request-body')
   req.end()
@@ -228,9 +229,9 @@ it('XMLHttpRequest: emits the "response" event upon the original response', asyn
 
 it('fetch: emits the "response" event upon a mocked response', async () => {
   const responseListener = vi.fn<HttpRequestEventMap['response']>()
-  interceptor.on('response', responseListener)
+  interceptor.once('response', responseListener)
 
-  await fetch(httpServer.https.url('/user'), {
+  await nodeFetch(httpServer.https.url('/user'), {
     headers: {
       'x-request-custom': 'yes',
     },
@@ -259,8 +260,7 @@ it('fetch: emits the "response" event upon the original response', async () => {
   const responseListener = vi.fn<HttpRequestEventMap['response']>()
   interceptor.on('response', responseListener)
 
-  await fetch(httpServer.https.url('/account'), {
-    agent: httpsAgent,
+  await nodeFetch(httpServer.https.url('/account'), {
     method: 'POST',
     headers: {
       'x-request-custom': 'yes',
@@ -287,4 +287,28 @@ it('fetch: emits the "response" event upon the original response', async () => {
   expect(await response.text()).toBe('original-response-text')
 
   expect(isMockedResponse).toBe(false)
+})
+
+it('supports reading the request and response bodies in the "response" listener', async () => {
+  const requestCallback = vi.fn()
+  const responseCallback = vi.fn()
+  const responseListener = vi.fn<HttpRequestEventMap['response']>(
+    async ({ request, response }) => {
+      requestCallback(await request.clone().text())
+      responseCallback(await response.clone().text())
+    }
+  )
+  interceptor.on('response', responseListener)
+
+  await nodeFetch(httpServer.https.url('/user'), {
+    method: 'POST',
+    body: 'request-body',
+  })
+
+  await waitForExpect(() => {
+    expect(responseListener).toHaveBeenCalledTimes(1)
+  })
+
+  expect(requestCallback).toHaveBeenCalledWith('request-body')
+  expect(responseCallback).toHaveBeenCalledWith('mocked-response-text')
 })

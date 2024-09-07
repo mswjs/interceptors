@@ -7,8 +7,8 @@ const XML_STRING = '<node key="value">Content</node>'
 
 describe('Content-Type: application/xml', () => {
   const interceptor = new XMLHttpRequestInterceptor()
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
       new Response(XML_STRING, {
         status: 200,
         headers: { 'Content-Type': 'application/xml' },
@@ -38,8 +38,8 @@ describe('Content-Type: application/xml', () => {
 
 describe('Content-Type: text/xml', () => {
   const interceptor = new XMLHttpRequestInterceptor()
-  interceptor.on('request', ({ request }) => {
-    request.respondWith(
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
       new Response(XML_STRING, {
         status: 200,
         headers: { 'Content-Type': 'text/xml' },

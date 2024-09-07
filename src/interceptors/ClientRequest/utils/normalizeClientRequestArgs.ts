@@ -1,16 +1,26 @@
+import { urlToHttpOptions } from 'node:url'
 import {
   Agent as HttpAgent,
   globalAgent as httpGlobalAgent,
   IncomingMessage,
-} from 'http'
+} from 'node:http'
 import {
   RequestOptions,
   Agent as HttpsAgent,
   globalAgent as httpsGlobalAgent,
-} from 'https'
-import { Url as LegacyURL, parse as parseUrl } from 'url'
+} from 'node:https'
+import {
+  /**
+   * @note Use the Node.js URL instead of the global URL
+   * because environments like JSDOM may override the global,
+   * breaking the compatibility with Node.js.
+   * @see https://github.com/node-fetch/node-fetch/issues/1376#issuecomment-966435555
+   */
+  URL,
+  Url as LegacyURL,
+  parse as parseUrl,
+} from 'node:url'
 import { Logger } from '@open-draft/logger'
-import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
 import {
   ResolvedRequestOptions,
   getUrlByRequestOptions,
@@ -37,12 +47,12 @@ function resolveRequestOptions(
   // without any `RequestOptions` or callback.
   if (typeof args[1] === 'undefined' || typeof args[1] === 'function') {
     logger.info('request options not provided, deriving from the url', url)
-    return getRequestOptionsByUrl(url)
+    return urlToHttpOptions(url)
   }
 
   if (args[1]) {
     logger.info('has custom RequestOptions!', args[1])
-    const requestOptionsFromUrl = getRequestOptionsByUrl(url)
+    const requestOptionsFromUrl = urlToHttpOptions(url)
 
     logger.info('derived RequestOptions from the URL:', requestOptionsFromUrl)
 
@@ -102,7 +112,7 @@ export type NormalizedClientRequestArgs = [
  */
 export function normalizeClientRequestArgs(
   defaultProtocol: string,
-  ...args: ClientRequestArgs
+  args: ClientRequestArgs
 ): NormalizedClientRequestArgs {
   let url: URL
   let options: ResolvedRequestOptions
@@ -127,7 +137,7 @@ export function normalizeClientRequestArgs(
     url = new URL(args[0])
     logger.info('created a url:', url)
 
-    const requestOptionsFromUrl = getRequestOptionsByUrl(url)
+    const requestOptionsFromUrl = urlToHttpOptions(url)
     logger.info('request options from url:', requestOptionsFromUrl)
 
     options = resolveRequestOptions(args, url)
@@ -172,16 +182,14 @@ export function normalizeClientRequestArgs(
       logger.info('given legacy URL is relative (no hostname)')
 
       return isObject(args[1])
-        ? normalizeClientRequestArgs(
-            defaultProtocol,
+        ? normalizeClientRequestArgs(defaultProtocol, [
             { path: legacyUrl.path, ...args[1] },
-            args[2]
-          )
-        : normalizeClientRequestArgs(
-            defaultProtocol,
+            args[2],
+          ])
+        : normalizeClientRequestArgs(defaultProtocol, [
             { path: legacyUrl.path },
-            args[1] as HttpRequestCallback
-          )
+            args[1] as HttpRequestCallback,
+          ])
     }
 
     logger.info('given legacy url is absolute')
@@ -190,20 +198,19 @@ export function normalizeClientRequestArgs(
     const resolvedUrl = new URL(legacyUrl.href)
 
     return args[1] === undefined
-      ? normalizeClientRequestArgs(defaultProtocol, resolvedUrl)
+      ? normalizeClientRequestArgs(defaultProtocol, [resolvedUrl])
       : typeof args[1] === 'function'
-      ? normalizeClientRequestArgs(defaultProtocol, resolvedUrl, args[1])
-      : normalizeClientRequestArgs(
-          defaultProtocol,
+      ? normalizeClientRequestArgs(defaultProtocol, [resolvedUrl, args[1]])
+      : normalizeClientRequestArgs(defaultProtocol, [
           resolvedUrl,
           args[1],
-          args[2]
-        )
+          args[2],
+        ])
   }
   // Handle a given "RequestOptions" object as-is
   // and derive the URL instance from it.
   else if (isObject(args[0])) {
-    options = args[0] as any
+    options = { ...(args[0] as any) }
     logger.info('first argument is RequestOptions:', options)
 
     // When handling a "RequestOptions" object without an explicit "protocol",
@@ -265,6 +272,17 @@ export function normalizeClientRequestArgs(
   logger.info('successfully resolved url:', url.href)
   logger.info('successfully resolved options:', options)
   logger.info('successfully resolved callback:', callback)
+
+  /**
+   * @note If the user-provided URL is not a valid URL in Node.js,
+   * (e.g. the one provided by the JSDOM polyfills), case it to
+   * string. Otherwise, this throws on Node.js incompatibility
+   * (`ERR_INVALID_ARG_TYPE` on the connection listener)
+   * @see https://github.com/node-fetch/node-fetch/issues/1376#issuecomment-966435555
+   */
+  if (!(url instanceof URL)) {
+    url = (url as any).toString()
+  }
 
   return [url, options, callback]
 }

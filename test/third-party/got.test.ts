@@ -12,9 +12,9 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new ClientRequestInterceptor()
 
-interceptor.on('request', function rootListener({ request }) {
+interceptor.on('request', function rootListener({ request, controller }) {
   if (request.url.toString() === httpServer.http.url('/test')) {
-    request.respondWith(new Response('mocked-body'))
+    controller.respondWith(new Response('mocked-body'))
   }
 })
 
@@ -43,9 +43,9 @@ it('bypasses an unhandled request made with "got"', async () => {
 })
 
 it('supports timeout before resolving request as-is', async () => {
-  interceptor.once('request', async ({ request }) => {
+  interceptor.once('request', async ({ controller }) => {
     await sleep(750)
-    request.respondWith(new Response('mocked response'))
+    controller.respondWith(new Response('mocked response'))
   })
 
   const requestStart = Date.now()

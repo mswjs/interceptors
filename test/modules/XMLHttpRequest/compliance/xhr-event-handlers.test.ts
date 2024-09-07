@@ -23,24 +23,24 @@ const httpServer = new HttpServer((app) => {
 
 beforeAll(async () => {
   interceptor.apply()
-  interceptor.on('request', ({ request }) => {
+  interceptor.on('request', ({ request, controller }) => {
     switch (true) {
       case request.url.endsWith('/exception'): {
         throw new Error('Custom error')
       }
 
       case request.url.endsWith('/network-error'): {
-        return request.respondWith(Response.error())
+        return controller.respondWith(Response.error())
       }
 
       case request.url.endsWith('/error-response'): {
-        return request.respondWith(
+        return controller.respondWith(
           new Response('Internal Server Error', { status: 500 })
         )
       }
 
       default:
-        return request.respondWith(new Response('hello'))
+        return controller.respondWith(new Response('hello'))
     }
   })
 
@@ -248,6 +248,7 @@ it('dispatched relevant events upon an unhandled exception in the interceptor', 
   const onProgressHandler = vi.fn()
   const onLoadHandler = vi.fn()
   const onLoadEndHandler = vi.fn()
+  const onErrorHandler = vi.fn()
 
   const onReadyStateChangeListener = vi.fn(function (this: XMLHttpRequest) {
     return this.readyState
@@ -256,23 +257,29 @@ it('dispatched relevant events upon an unhandled exception in the interceptor', 
   const progressListener = vi.fn()
   const loadListener = vi.fn()
   const loadEndListener = vi.fn()
+  const errorListener = vi.fn()
 
   const request = await createXMLHttpRequest((request) => {
     request.responseType = 'json'
-    request.open('GET', httpServer.https.url('/exception'))
 
     request.onreadystatechange = onReadyStateChangeHandler
     request.onloadstart = onLoadStartHandler
     request.onprogress = onProgressHandler
     request.onload = onLoadHandler
     request.onloadend = onLoadEndHandler
+    request.onerror = onErrorHandler
 
     request.addEventListener('readystatechange', onReadyStateChangeListener)
     request.addEventListener('loadstart', loadStartListener)
     request.addEventListener('progress', progressListener)
     request.addEventListener('load', loadListener)
     request.addEventListener('loadend', loadEndListener)
+    request.addEventListener('error', errorListener)
 
+    // Open the connection after the callbacks/listeners have been added.
+    // Some XHR interactions, like file uploads, require you to add the
+    // progress listeners BEFORE the request is open.
+    request.open('GET', httpServer.https.url('/exception'))
     request.send()
   })
 
@@ -285,21 +292,25 @@ it('dispatched relevant events upon an unhandled exception in the interceptor', 
     stack: expect.any(String),
   })
 
-  expect(onReadyStateChangeHandler).toHaveBeenCalledTimes(3)
-  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(1, 2)
-  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(2, 3)
-  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(3, 4)
+  expect(onReadyStateChangeHandler).toHaveBeenCalledTimes(4)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(1, 1)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(2, 2)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(3, 3)
+  expect(onReadyStateChangeHandler).toHaveNthReturnedWith(4, 4)
   expect(onLoadStartHandler).toHaveBeenCalledTimes(1)
   expect(onProgressHandler).toHaveBeenCalledTimes(1)
   expect(onLoadHandler).toHaveBeenCalledTimes(1)
   expect(onLoadEndHandler).toHaveBeenCalledTimes(1)
+  expect(onErrorHandler).not.toHaveBeenCalled()
 
-  expect(onReadyStateChangeListener).toHaveBeenCalledTimes(3)
-  expect(onReadyStateChangeListener).toHaveNthReturnedWith(1, 2)
-  expect(onReadyStateChangeListener).toHaveNthReturnedWith(2, 3)
-  expect(onReadyStateChangeListener).toHaveNthReturnedWith(3, 4)
+  expect(onReadyStateChangeListener).toHaveBeenCalledTimes(4)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(1, 1)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(2, 2)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(3, 3)
+  expect(onReadyStateChangeListener).toHaveNthReturnedWith(4, 4)
   expect(loadStartListener).toHaveBeenCalledTimes(1)
   expect(progressListener).toHaveBeenCalledTimes(1)
   expect(loadListener).toHaveBeenCalledTimes(1)
   expect(loadEndListener).toHaveBeenCalledTimes(1)
+  expect(errorListener).not.toHaveBeenCalled()
 })

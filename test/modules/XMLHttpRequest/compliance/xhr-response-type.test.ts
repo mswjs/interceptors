@@ -6,8 +6,8 @@ import { toArrayBuffer } from '../../../../src/utils/bufferUtils'
 import { createXMLHttpRequest, readBlob } from '../../../helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
-interceptor.on('request', ({ request }) => {
-  request.respondWith(
+interceptor.on('request', ({ controller }) => {
+  controller.respondWith(
     new Response(
       JSON.stringify({
         firstName: 'John',

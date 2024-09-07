@@ -1,5 +1,8 @@
+/**
+ * @vitest-environment node
+ */
 import { it, expect, describe, beforeAll, afterAll } from 'vitest'
-import http, { IncomingMessage } from 'http'
+import http, { IncomingMessage } from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
@@ -11,14 +14,14 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 
   if (!url.searchParams.has('mock')) {
     return
   }
 
-  request.respondWith(
+  controller.respondWith(
     new Response('hello world', {
       status: 200,
       headers: {

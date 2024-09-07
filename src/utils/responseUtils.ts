@@ -40,16 +40,16 @@ export function createServerErrorResponse(body: unknown): Response {
   )
 }
 
+export type ResponseError = Response & { type: 'error' }
+
 /**
- * Checks if the given response is a `Response.error()`.
+ * Check if the given response is a `Response.error()`.
  *
  * @note Some environments, like Miniflare (Cloudflare) do not
  * implement the "Response.type" property and throw on its access.
  * Safely check if we can access "type" on "Response" before continuing.
  * @see https://github.com/mswjs/msw/issues/1834
  */
-export function isResponseError(
-  response: Response
-): response is Response & { type: 'error' } {
+export function isResponseError(response: Response): response is ResponseError {
   return isPropertyAccessible(response, 'type') && response.type === 'error'
 }

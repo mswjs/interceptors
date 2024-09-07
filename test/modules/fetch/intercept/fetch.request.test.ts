@@ -3,6 +3,7 @@ import { Request } from 'node-fetch'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
 import { fetch, REQUEST_ID_REGEXP } from '../../../helpers'
+import { RequestController } from '../../../../src/RequestController'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
@@ -48,7 +49,8 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request: capturedRequest, requestId }] = resolver.mock.calls[0]
+  const [{ request: capturedRequest, requestId, controller }] =
+    resolver.mock.calls[0]
 
   expect(capturedRequest.method).toBe('POST')
   expect(capturedRequest.url).toBe(httpServer.http.url('/user'))
@@ -58,7 +60,7 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
   })
   expect(capturedRequest.credentials).toBe('same-origin')
   expect(await capturedRequest.text()).toBe('hello world')
-  expect(capturedRequest.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })

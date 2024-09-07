@@ -1,5 +1,8 @@
+/**
+ * @vitest-environment node
+ */
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import http from 'http'
+import http from 'node:http'
 import rateLimit from 'express-rate-limit'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
@@ -22,14 +25,14 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 
   if (!url.searchParams.has('mock')) {
     return
   }
 
-  request.respondWith(
+  controller.respondWith(
     new Response('mocked-body', { status: 403, statusText: 'Forbidden' })
   )
 })

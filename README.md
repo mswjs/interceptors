@@ -11,81 +11,98 @@ This library supports intercepting the following protocols:
 
 ## Motivation
 
-While there are a lot of network communication mocking libraries, they tend to use request interception as an implementation detail, giving you a high-level API that includes request matching, timeouts, retries, and so forth.
+While there are a lot of network mocking libraries, they tend to use request interception as an implementation detail, giving you a high-level API that includes request matching, timeouts, recording, and so forth.
 
-This library is a strip-to-bone implementation that provides as little abstraction as possible to execute arbitrary logic upon any request. It's primarily designed as an underlying component for high-level API mocking solutions such as [Mock Service Worker](https://github.com/mswjs/msw).
+This library is a barebones implementation that provides as little abstraction as possible to execute arbitrary logic upon any request. It's primarily designed as an underlying component for high-level API mocking solutions such as [Mock Service Worker](https://github.com/mswjs/msw).
 
 ### How is this library different?
 
 A traditional API mocking implementation in Node.js looks roughly like this:
 
 ```js
-import http from 'http'
+import http from 'node:http'
 
-function applyMock() {
-  // Store the original request module.
-  const originalHttpRequest = http.request
+// Store the original request function.
+const originalHttpRequest = http.request
 
-  // Rewrite the request module entirely.
-  http.request = function (...args) {
-    // Decide whether to handle this request before
-    // the actual request happens.
-    if (shouldMock(args)) {
-      // If so, never create a request, respond to it
-      // using the mocked response from this blackbox.
-      return coerceToResponse.bind(this, mock)
-    }
-
-    // Otherwise, construct the original request
-    // and perform it as-is (receives the original response).
-    return originalHttpRequest(...args)
+// Override the request function entirely.
+http.request = function (...args) {
+  // Decide if the outgoing request matches a predicate.
+  if (predicate(args)) {
+    // If it does, never create a request, respond to it
+    // using the mocked response from this blackbox.
+    return coerceToResponse.bind(this, mock)
   }
+
+  // Otherwise, construct the original request
+  // and perform it as-is.
+  return originalHttpRequest(...args)
 }
 ```
 
-This library deviates from such implementation and uses _class extensions_ instead of module rewrites. Such deviation is necessary because, unlike other solutions that include request matching and can determine whether to mock requests _before_ they actually happen, this library is not opinionated about the mocked/bypassed nature of the requests. Instead, it _intercepts all requests_ and delegates the decision of mocking to the end consumer.
+The core philosophy of Interceptors is to _run as much of the underlying network code as possible_. Strange for a network mocking library, isn't it? Turns out, respecting the system's integrity and executing more of the network code leads to more resilient tests and also helps to uncover bugs in the code that would otherwise go unnoticed.
+
+Interceptors heavily rely on _class extension_ instead of function and module overrides. By extending the native network code, it can surgically insert the interception and mocking pieces only where necessary, leaving the rest of the system intact.
 
 ```js
-class NodeClientRequest extends ClientRequest {
-  async end(...args) {
-    // Check if there's a mocked response for this request.
-    // You control this in the "resolver" function.
-    const mockedResponse = await resolver(request)
+class XMLHttpRequestProxy extends XMLHttpRequest {
+  async send() {
+    // Call the request listeners and see if any of them
+    // returns a mocked response for this request.
+    const mockedResponse = await waitForRequestListeners({ request })
 
-    // If there is a mocked response, use it to respond to this
-    // request, finalizing it afterward as if it received that
-    // response from the actual server it connected to.
+    // If there is a mocked response, use it. This actually
+    // transitions the XMLHttpRequest instance into the correct
+    // response state (below is a simplified illustration).
     if (mockedResponse) {
-      this.respondWith(mockedResponse)
-      this.finish()
+      // Handle the response headers.
+      this.request.status = mockedResponse.status
+      this.request.statusText = mockedResponse.statusText
+      this.request.responseUrl = mockedResponse.url
+      this.readyState = 2
+      this.trigger('readystatechange')
+
+      // Start streaming the response body.
+      this.trigger('loadstart')
+      this.readyState = 3
+      this.trigger('readystatechange')
+      await streamResponseBody(mockedResponse)
+
+      // Finish the response.
+      this.trigger('load')
+      this.trigger('loadend')
+      this.readyState = 4
       return
     }
 
-    // Otherwise, perform the original "ClientRequest.prototype.end" call.
-    return super.end(...args)
+    // Otherwise, perform the original "XMLHttpRequest.prototype.send" call.
+    return super.send(...args)
   }
 }
 ```
 
-By extending the native modules, this library actually constructs requests as soon as they are constructed by the consumer. This enables all the request input validation and transformations done natively by Node.js—something that traditional solutions simply cannot do (they replace `http.ClientRequest` entirely). The class extension allows to fully utilize Node.js internals instead of polyfilling them, which results in more resilient mocks.
+> The request interception algorithms differ dramatically based on the request API. Interceptors acommodate for them all, bringing the intercepted requests to a common ground—the Fetch API `Request` instance. The same applies for responses, where a Fetch API `Response` instance is translated to the appropriate response format.
+
+This library aims to provide _full specification compliance_ with the APIs and protocols it extends.
 
 ## What this library does
 
-This library extends (or patches, where applicable) the following native modules:
+This library extends the following native modules:
 
 - `http.get`/`http.request`
 - `https.get`/`https.request`
 - `XMLHttpRequest`
 - `fetch`
+- `WebSocket`
 
 Once extended, it intercepts and normalizes all requests to the Fetch API `Request` instances. This way, no matter the request source (`http.ClientRequest`, `XMLHttpRequest`, `window.Request`, etc), you always get a specification-compliant request instance to work with.
 
-You can respond to the intercepted request by constructing a Fetch API Response instance. Instead of designing custom abstractions, this library respects the Fetch API specification and takes the responsibility to coerce a single response declaration to the appropriate response formats based on the request-issuing modules (like `http.OutgoingMessage` to respond to `http.ClientRequest`, or updating `XMLHttpRequest` response-related properties).
+You can respond to the intercepted HTTP request by constructing a Fetch API Response instance. Instead of designing custom abstractions, this library respects the Fetch API specification and takes the responsibility to coerce a single response declaration to the appropriate response formats based on the request-issuing modules (like `http.OutgoingMessage` to respond to `http.ClientRequest`, or updating `XMLHttpRequest` response-related properties).
 
 ## What this library doesn't do
 
 - Does **not** provide any request matching logic;
-- Does **not** decide how to handle requests.
+- Does **not** handle requests by default.
 
 ## Getting started
 
@@ -203,7 +220,7 @@ All HTTP request interceptors emit a "request" event. In the listener to this ev
 > There are many ways to describe a request in Node.js but this library coerces different request definitions to a single specification-compliant `Request` instance to make the handling consistent.
 
 ```js
-interceptor.on('request', ({ request, requestId }) => {
+interceptor.on('request', ({ request, requestId, controller }) => {
   console.log(request.method, request.url)
 })
 ```
@@ -234,11 +251,11 @@ interceptor.on('request', ({ request }) => {
 
 Although this library can be used purely for request introspection purposes, you can also affect request resolution by responding to any intercepted request within the "request" event.
 
-Use the `request.respondWith()` method to respond to a request with a mocked response:
+Access the `controller` object from the request event listener arguments and call its `controller.respondWith()` method, providing it with a mocked `Response` instance:
 
 ```js
-interceptor.on('request', ({ request, requestId }) => {
-  request.respondWith(
+interceptor.on('request', ({ request, controller }) => {
+  controller.respondWith(
     new Response(
       JSON.stringify({
         firstName: 'John',
@@ -267,11 +284,39 @@ Requests must be responded to within the same tick as the request listener. This
 ```js
 // Respond to all requests with a 500 response
 // delayed by 500ms.
-interceptor.on('request', async ({ request, requestId }) => {
+interceptor.on('request', async ({ controller }) => {
   await sleep(500)
-  request.respondWith(new Response(null, { status: 500 }))
+  controller.respondWith(new Response(null, { status: 500 }))
 })
 ```
+
+### Mocking response errors
+
+You can provide an instance of `Response.error()` to error the pending request.
+
+```js
+interceptor.on('request', ({ request, controller }) => {
+  controller.respondWith(Response.error())
+})
+```
+
+This will automatically translate to the appropriate request error based on the request client that issued the request. **Use this method to produce a generic network error**.
+
+> Note that the standard `Response.error()` API does not accept an error message.
+
+## Mocking errors
+
+Use the `controller.errorWith()` method to error the request.
+
+```js
+interceptor.on('request', ({ request, controller }) => {
+  controller.errorWith(new Error('reason'))
+})
+```
+
+Unlike responding with `Response.error()`, you can provide an exact error reason to use to `.errorWith()`. **Use this method to error the request**.
+
+> Note that it is up to the request client to respect your custom error. Some clients, like `ClientRequest` will use the provided error message, while others, like `fetch`, will produce a generic `TypeError: failed to fetch` responses. Interceptors will try to preserve the original error in the `cause` property of such generic errors.
 
 ## Observing responses
 
@@ -286,7 +331,35 @@ interceptor.on(
 )
 ```
 
-> Note that the `isMockedResponse` property will only be set to `true` if you resolved this request in the "request" event listener using the `request.respondWith()` method and providing a mocked `Response` instance.
+> Note that the `isMockedResponse` property will only be set to `true` if you resolved this request in the "request" event listener using the `controller.respondWith()` method and providing a mocked `Response` instance.
+
+## Error handling
+
+By default, all unhandled exceptions thrown within the `request` listener are coerced to 500 error responses, emulating those exceptions occurring on the actual server. You can listen to the exceptions by adding the `unhandledException` listener to the interceptor:
+
+```js
+interceptor.on(
+  'unhandledException',
+  ({ error, request, requestId, controller }) => {
+    console.log(error)
+  }
+)
+```
+
+To opt out from the default coercion of unhandled exceptions to server responses, you need to either:
+
+1. Respond to the request with [a mocked response](#mocking-responses) (including error responses);
+1. Propagate the error up by throwing it explicitly in the `unhandledException` listener.
+
+Here's an example of propagating the unhandled exception up:
+
+```js
+interceptor.on('unhandledException', ({ error }) => {
+  // Now, any unhandled exception will NOT be coerced to a 500 error response,
+  // and instead will be thrown during the process execution as-is.
+  throw error
+})
+```
 
 ## WebSocket interception
 
@@ -537,6 +610,8 @@ resolver.on('request', ({ request, requestId }) => {
   // Optionally, return a mocked response
   // for a request that occurred in the "appProcess".
 })
+
+resolver.apply()
 ```
 
 ## Special mention

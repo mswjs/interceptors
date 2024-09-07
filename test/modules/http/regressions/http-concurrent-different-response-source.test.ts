@@ -1,8 +1,11 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
+/**
+ * @vitest-environment node
+ */
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { httpGet } from '../../../helpers'
 import { sleep } from '../../../../test/helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (req, res) => {
@@ -12,19 +15,14 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', async ({ request }) => {
-  if (request.headers.get('x-bypass')) {
-    return
-  }
-
-  await sleep(250)
-
-  request.respondWith(new Response('mocked-response', { status: 201 }))
-})
 
 beforeAll(async () => {
   interceptor.apply()
   await httpServer.listen()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -33,11 +31,21 @@ afterAll(async () => {
 })
 
 it('handles concurrent requests with different response sources', async () => {
+  interceptor.on('request', async ({ request, controller }) => {
+    if (request.headers.get('x-ignore-request')) {
+      return
+    }
+
+    await sleep(250)
+
+    controller.respondWith(new Response('mocked-response', { status: 201 }))
+  })
+
   const requests = await Promise.all([
     httpGet(httpServer.http.url('/')),
     httpGet(httpServer.http.url('/'), {
       headers: {
-        'x-bypass': 'yes',
+        'x-ignore-request': 'yes',
       },
     }),
   ])

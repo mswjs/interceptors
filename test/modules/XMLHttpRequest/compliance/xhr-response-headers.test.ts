@@ -19,14 +19,14 @@ const httpServer = new HttpServer((app) => {
 })
 
 const interceptor = new XMLHttpRequestInterceptor()
-interceptor.on('request', ({ request }) => {
+interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 
   if (!url.searchParams.has('mock')) {
     return
   }
 
-  request.respondWith(
+  controller.respondWith(
     new Response(null, {
       headers: {
         etag: '123',

@@ -1,61 +1,170 @@
-import http from 'http'
-import https from 'https'
-import type { Emitter } from 'strict-event-emitter'
-import { HttpRequestEventMap } from '../../glossary'
+import http from 'node:http'
+import https from 'node:https'
 import { Interceptor } from '../../Interceptor'
-import { get } from './http.get'
-import { request } from './http.request'
-import { NodeClientOptions, Protocol } from './NodeClientRequest'
+import type { HttpRequestEventMap } from '../../glossary'
+import {
+  kRequestId,
+  MockHttpSocketRequestCallback,
+  MockHttpSocketResponseCallback,
+} from './MockHttpSocket'
+import { MockAgent, MockHttpsAgent } from './agents'
+import { RequestController } from '../../RequestController'
+import { emitAsync } from '../../utils/emitAsync'
+import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
+import { handleRequest } from '../../utils/handleRequest'
+import {
+  recordRawFetchHeaders,
+  restoreHeadersPrototype,
+} from './utils/recordRawHeaders'
 
-export type ClientRequestEmitter = Emitter<HttpRequestEventMap>
-
-export type ClientRequestModules = Map<Protocol, typeof http | typeof https>
-
-/**
- * Intercept requests made via the `ClientRequest` class.
- * Such requests include `http.get`, `https.request`, etc.
- */
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static interceptorSymbol = Symbol('http')
-  private modules: ClientRequestModules
+  static symbol = Symbol('client-request-interceptor')
 
   constructor() {
-    super(ClientRequestInterceptor.interceptorSymbol)
-
-    this.modules = new Map()
-    this.modules.set('http', http)
-    this.modules.set('https', https)
+    super(ClientRequestInterceptor.symbol)
   }
 
   protected setup(): void {
-    const logger = this.logger.extend('setup')
+    const { get: originalGet, request: originalRequest } = http
+    const { get: originalHttpsGet, request: originalHttpsRequest } = https
 
-    for (const [protocol, requestModule] of this.modules) {
-      const { request: pureRequest, get: pureGet } = requestModule
+    const onRequest = this.onRequest.bind(this)
+    const onResponse = this.onResponse.bind(this)
 
-      this.subscriptions.push(() => {
-        requestModule.request = pureRequest
-        requestModule.get = pureGet
+    http.request = new Proxy(http.request, {
+      apply: (target, thisArg, args: Parameters<typeof http.request>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'http:',
+          args
+        )
+        const mockAgent = new MockAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
 
-        logger.info('native "%s" module restored!', protocol)
-      })
+        return Reflect.apply(target, thisArg, [url, options, callback])
+      },
+    })
 
-      const options: NodeClientOptions = {
-        emitter: this.emitter,
-        logger: this.logger,
-      }
+    http.get = new Proxy(http.get, {
+      apply: (target, thisArg, args: Parameters<typeof http.get>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'http:',
+          args
+        )
 
-      // @ts-ignore
-      requestModule.request =
-        // Force a line break.
-        request(protocol, options)
+        const mockAgent = new MockAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
 
-      // @ts-ignore
-      requestModule.get =
-        // Force a line break.
-        get(protocol, options)
+        return Reflect.apply(target, thisArg, [url, options, callback])
+      },
+    })
 
-      logger.info('native "%s" module patched!', protocol)
+    //
+    // HTTPS.
+    //
+
+    https.request = new Proxy(https.request, {
+      apply: (target, thisArg, args: Parameters<typeof https.request>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'https:',
+          args
+        )
+
+        const mockAgent = new MockHttpsAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
+
+        return Reflect.apply(target, thisArg, [url, options, callback])
+      },
+    })
+
+    https.get = new Proxy(https.get, {
+      apply: (target, thisArg, args: Parameters<typeof https.get>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'https:',
+          args
+        )
+
+        const mockAgent = new MockHttpsAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
+
+        return Reflect.apply(target, thisArg, [url, options, callback])
+      },
+    })
+
+    // Spy on `Header.prototype.set` and `Header.prototype.append` calls
+    // and record the raw header names provided. This is to support
+    // `IncomingMessage.prototype.rawHeaders`.
+    recordRawFetchHeaders()
+
+    this.subscriptions.push(() => {
+      http.get = originalGet
+      http.request = originalRequest
+
+      https.get = originalHttpsGet
+      https.request = originalHttpsRequest
+
+      restoreHeadersPrototype()
+    })
+  }
+
+  private onRequest: MockHttpSocketRequestCallback = async ({
+    request,
+    socket,
+  }) => {
+    const requestId = Reflect.get(request, kRequestId)
+    const controller = new RequestController(request)
+
+    const isRequestHandled = await handleRequest({
+      request,
+      requestId,
+      controller,
+      emitter: this.emitter,
+      onResponse: (response) => {
+        socket.respondWith(response)
+      },
+      onRequestError: (response) => {
+        socket.respondWith(response)
+      },
+      onError: (error) => {
+        if (error instanceof Error) {
+          socket.errorWith(error)
+        }
+      },
+    })
+
+    if (!isRequestHandled) {
+      return socket.passthrough()
     }
+  }
+
+  public onResponse: MockHttpSocketResponseCallback = async ({
+    requestId,
+    request,
+    response,
+    isMockedResponse,
+  }) => {
+    // Return the promise to when all the response event listeners
+    // are finished.
+    return emitAsync(this.emitter, 'response', {
+      requestId,
+      request,
+      response,
+      isMockedResponse,
+    })
   }
 }

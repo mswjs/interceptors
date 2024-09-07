@@ -3,8 +3,9 @@ import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
+import { HttpRequestEventMap } from '../../../../src/glossary'
+import { RequestController } from '../../../../src/RequestController'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { HttpRequestEventMap } from '../../../../src'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {
@@ -48,17 +49,17 @@ it('intercepts a HEAD request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -76,17 +77,17 @@ it('intercepts a GET request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -96,26 +97,28 @@ it('intercepts a POST request', async () => {
   const req = http.request(url, {
     method: 'POST',
     headers: {
+      'content-length': '12',
       'x-custom-header': 'yes',
     },
   })
   req.write('post-payload')
   req.end()
+
   await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('post-payload')
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -125,6 +128,7 @@ it('intercepts a PUT request', async () => {
   const req = http.request(url, {
     method: 'PUT',
     headers: {
+      'content-length': '11',
       'x-custom-header': 'yes',
     },
   })
@@ -134,17 +138,17 @@ it('intercepts a PUT request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('put-payload')
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -154,6 +158,7 @@ it('intercepts a PATCH request', async () => {
   const req = http.request(url, {
     method: 'PATCH',
     headers: {
+      'content-length': '13',
       'x-custom-header': 'yes',
     },
   })
@@ -163,17 +168,17 @@ it('intercepts a PATCH request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
   expect(await request.text()).toBe('patch-payload')
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -191,17 +196,17 @@ it('intercepts a DELETE request', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(url)
-  expect(Object.fromEntries(request.headers.entries())).toEqual({
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     host: new URL(url).host,
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -219,13 +224,13 @@ it('intercepts an http.request given RequestOptions without a protocol', async (
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -242,13 +247,13 @@ it('intercepts an http.request path in url and options', async () => {
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.http.url('/two'))
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
   expect(callback).toHaveBeenCalledTimes(1)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)

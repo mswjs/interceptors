@@ -12,6 +12,7 @@ import {
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
+import { RequestController } from '../../../src/RequestController'
 
 const httpServer = new HttpServer((app) => {
   app.use(useCors)
@@ -59,14 +60,14 @@ it('ClientRequest: emits the "request" event upon the request', async () => {
 
   expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId }] = requestListener.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
   expect(request.headers.get('content-type')).toBe('application/json')
   expect(request.credentials).toBe('same-origin')
   expect(await request.json()).toEqual({ userId: 'abc-123' })
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
@@ -80,21 +81,27 @@ it('XMLHttpRequest: emits the "request" event upon the request', async () => {
   })
 
   /**
-   * @note There are two "request" events emitted because XMLHttpRequest
-   * is polyfilled by "http.ClientRequest" in JSDOM. When this request gets
-   * bypassed by XMLHttpRequest interceptor, JSDOM constructs "http.ClientRequest"
-   * to perform it as-is. This issues an additional OPTIONS request first.
+   * @note There are 3 requests that happen:
+   * 1. POST by XMLHttpRequestInterceptor.
+   * 2. OPTIONS request by ClientRequestInterceptor.
+   * 3. POST by ClientRequestInterceptor (XHR in JSDOM relies on ClientRequest).
+   *
+   * But there will only be 2 "request" events emitted:
+   * 1. POST by XMLHttpRequestInterceptor.
+   * 2. OPTIONS request by ClientRequestInterceptor.
+   * The second POST that bubbles down from XHR to ClientRequest is deduped
+   * via the "INTERNAL_REQUEST_ID_HEADER_NAME" request header.
    */
   expect(requestListener).toHaveBeenCalledTimes(2)
 
-  const [{ request, requestId }] = requestListener.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
   expect(request.headers.get('content-type')).toBe('application/json')
   expect(request.credentials).toBe('same-origin')
   expect(await request.json()).toEqual({ userId: 'abc-123' })
-  expect(request.respondWith).toBeInstanceOf(Function)
+  expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })

@@ -4,8 +4,8 @@ import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
-import { toInteractiveRequest } from './utils/toInteractiveRequest'
-import { emitAsync } from './utils/emitAsync'
+import { handleRequest } from './utils/handleRequest'
+import { RequestController } from './RequestController'
 
 export interface SerializedRequest {
   id: string
@@ -46,7 +46,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
 
     let handleParentMessage: NodeJS.MessageListener
 
-    this.on('request', async ({ request, requestId }) => {
+    this.on('request', async ({ request, requestId, controller }) => {
       // Send the stringified intercepted request to
       // the parent process where the remote resolver is established.
       const serializedRequest = JSON.stringify({
@@ -64,6 +64,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
         'sent serialized request to the child:',
         serializedRequest
       )
+
       process.send?.(`request:${serializedRequest}`)
 
       const responsePromise = new Promise<void>((resolve) => {
@@ -90,7 +91,12 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
               headers: responseInit.headers,
             })
 
-            request.respondWith(mockedResponse)
+            /**
+             * @todo Support "errorWith" as well.
+             * This response handling from the child is incomplete.
+             */
+
+            controller.respondWith(mockedResponse)
             return resolve()
           }
         }
@@ -158,69 +164,68 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
         serializedRequest,
         requestReviver
       ) as RevivedRequest
+
       logger.info('parsed intercepted request', requestJson)
 
-      const capturedRequest = new Request(requestJson.url, {
+      const request = new Request(requestJson.url, {
         method: requestJson.method,
         headers: new Headers(requestJson.headers),
         credentials: requestJson.credentials,
         body: requestJson.body,
       })
 
-      const { interactiveRequest, requestController } =
-        toInteractiveRequest(capturedRequest)
-
-      this.emitter.once('request', () => {
-        if (requestController.responsePromise.state === 'pending') {
-          requestController.respondWith(undefined)
-        }
-      })
-
-      await emitAsync(this.emitter, 'request', {
-        request: interactiveRequest,
+      const controller = new RequestController(request)
+      await handleRequest({
+        request,
         requestId: requestJson.id,
+        controller,
+        emitter: this.emitter,
+        onResponse: async (response) => {
+          this.logger.info('received mocked response!', { response })
+
+          const responseClone = response.clone()
+          const responseText = await responseClone.text()
+
+          // // Send the mocked response to the child process.
+          const serializedResponse = JSON.stringify({
+            status: response.status,
+            statusText: response.statusText,
+            headers: Array.from(response.headers.entries()),
+            body: responseText,
+          } as SerializedResponse)
+
+          this.process.send(
+            `response:${requestJson.id}:${serializedResponse}`,
+            (error) => {
+              if (error) {
+                return
+              }
+
+              // Emit an optimistic "response" event at this point,
+              // not to rely on the back-and-forth signaling for the sake of the event.
+              this.emitter.emit('response', {
+                request,
+                requestId: requestJson.id,
+                response: responseClone,
+                isMockedResponse: true,
+              })
+            }
+          )
+
+          logger.info(
+            'sent serialized mocked response to the parent:',
+            serializedResponse
+          )
+        },
+        onRequestError: (response) => {
+          this.logger.info('received a network error!', { response })
+          throw new Error('Not implemented')
+        },
+        onError: (error) => {
+          this.logger.info('request has errored!', { error })
+          throw new Error('Not implemented')
+        },
       })
-
-      const mockedResponse = await requestController.responsePromise
-
-      if (!mockedResponse) {
-        return
-      }
-
-      logger.info('event.respondWith called with:', mockedResponse)
-      const responseClone = mockedResponse.clone()
-      const responseText = await mockedResponse.text()
-
-      // Send the mocked response to the child process.
-      const serializedResponse = JSON.stringify({
-        status: mockedResponse.status,
-        statusText: mockedResponse.statusText,
-        headers: Array.from(mockedResponse.headers.entries()),
-        body: responseText,
-      } as SerializedResponse)
-
-      this.process.send(
-        `response:${requestJson.id}:${serializedResponse}`,
-        (error) => {
-          if (error) {
-            return
-          }
-
-          // Emit an optimistic "response" event at this point,
-          // not to rely on the back-and-forth signaling for the sake of the event.
-          this.emitter.emit('response', {
-            response: responseClone,
-            isMockedResponse: true,
-            request: capturedRequest,
-            requestId: requestJson.id,
-          })
-        }
-      )
-
-      logger.info(
-        'sent serialized mocked response to the parent:',
-        serializedResponse
-      )
     }
 
     this.subscriptions.push(() => {
