@@ -41,6 +41,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   vi.resetAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -53,7 +54,7 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
   const payload = JSON.stringify({ todo: 'Buy the milk' })
 
   const catchResponseUrl = vi.fn()
-  const req = https.request(
+  const request = https.request(
     {
       method: 'POST',
       hostname: address.host,
@@ -70,9 +71,9 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
     }
   )
 
-  req.end(payload)
+  request.end(payload)
 
-  const { text } = await waitForClientRequest(req as any)
+  const { text } = await waitForClientRequest(request as any)
 
   expect(resolver).toHaveBeenCalledTimes(2)
 
@@ -102,31 +103,29 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
 })
 
 it('can return redirects in intercepts which are followable by "follow-redirects"', async () => {
-  const { address } = server.https
-
-  // Intercept the initial request and return a redirect response.
-  interceptor.once('request', ({ request }) => {
-    // Return a redirect response.
-    request.respondWith(Response.redirect(server.https.url('/resource-b'), 307))
+  interceptor.once('request', ({ controller }) => {
+    controller.respondWith(
+      Response.redirect(server.https.url('/resource-b'), 307)
+    )
   })
 
   const catchResponseUrl = vi.fn()
-  const req = https.request(
+  const request = https.request(
     {
       method: 'GET',
-      hostname: address.host,
-      port: address.port,
+      hostname: server.https.address.host,
+      port: server.https.address.port,
       path: '/resource-a',
-      agent: httpsAgent,
+      rejectUnauthorized: false,
     },
     (res) => {
       catchResponseUrl(res.responseUrl)
     }
   )
 
-  req.end()
+  request.end()
 
-  const { text } = await waitForClientRequest(req as any)
+  const { text } = await waitForClientRequest(request as any)
 
   // Intercepted redirect request (issued by "follow-redirects").
   const [{ request: redirectedRequest }] = resolver.mock.calls[0]
