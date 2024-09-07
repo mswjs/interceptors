@@ -1,15 +1,11 @@
-// @vitest-environment jsdom
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { https } from 'follow-redirects'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
-import type { HttpRequestEventMap } from '../../src/glossary'
 import { waitForClientRequest } from '../helpers'
 
-const resolver = vi.fn<HttpRequestEventMap['request']>()
-
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', resolver)
 
 const server = new HttpServer((app) => {
   app.post('/resource', (req, res) => {
@@ -25,12 +21,12 @@ const server = new HttpServer((app) => {
     res.status(200).send('hello from the server')
   })
 
-  app.get('/resource-a', (req, res) => {
-    res.status(200).send('hello from the server with resource a')
+  app.get('/original', (req, res) => {
+    res.writeHead(307, { Location: server.https.url('/redirected') })
   })
 
-  app.get('/resource-b', (req, res) => {
-    res.status(200).send('hello from the server with resource b')
+  app.get('/redirected', (req, res) => {
+    res.status(200).send('redirected response')
   })
 })
 
@@ -49,7 +45,10 @@ afterAll(async () => {
   await server.close()
 })
 
-it('intercepts a POST request issued by "follow-redirects"', async () => {
+it('intercepts a request issued by "follow-redirects"', async () => {
+  const requestListener = vi.fn<[Request]>()
+  interceptor.on('request', ({ request }) => requestListener(request))
+
   const { address } = server.https
   const payload = JSON.stringify({ todo: 'Buy the milk' })
 
@@ -75,10 +74,12 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
 
   const { text } = await waitForClientRequest(request as any)
 
-  expect(resolver).toHaveBeenCalledTimes(2)
+  await vi.waitFor(() => {
+    expect(requestListener).toHaveBeenCalledTimes(2)
+  })
 
   // Intercepted initial request.
-  const [{ request: initialRequest }] = resolver.mock.calls[0]
+  const [initialRequest] = requestListener.mock.calls[0]
 
   expect(initialRequest.method).toBe('POST')
   expect(initialRequest.url).toBe(server.https.url('/resource'))
@@ -88,7 +89,7 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
   expect(await initialRequest.json()).toEqual({ todo: 'Buy the milk' })
 
   // Intercepted redirect request (issued by "follow-redirects").
-  const [{ request: redirectedRequest }] = resolver.mock.calls[1]
+  const [redirectedRequest] = requestListener.mock.calls[1]
 
   expect(redirectedRequest.method).toBe('POST')
   expect(redirectedRequest.url).toBe(server.https.url('/user'))
@@ -102,11 +103,17 @@ it('intercepts a POST request issued by "follow-redirects"', async () => {
   expect(await text()).toBe('hello from the server')
 })
 
-it('can return redirects in intercepts which are followable by "follow-redirects"', async () => {
-  interceptor.once('request', ({ controller }) => {
-    controller.respondWith(
-      Response.redirect(server.https.url('/resource-b'), 307)
-    )
+it('supports mocking a redirect response to the original response', async () => {
+  const requestListener = vi.fn<[Request]>()
+
+  interceptor.once('request', ({ request, controller }) => {
+    requestListener(request)
+
+    if (request.url.endsWith('/original')) {
+      controller.respondWith(
+        Response.redirect(server.https.url('/redirected'), 307)
+      )
+    }
   })
 
   const catchResponseUrl = vi.fn()
@@ -115,7 +122,7 @@ it('can return redirects in intercepts which are followable by "follow-redirects
       method: 'GET',
       hostname: server.https.address.host,
       port: server.https.address.port,
-      path: '/resource-a',
+      path: '/original',
       rejectUnauthorized: false,
     },
     (res) => {
@@ -128,13 +135,67 @@ it('can return redirects in intercepts which are followable by "follow-redirects
   const { text } = await waitForClientRequest(request as any)
 
   // Intercepted redirect request (issued by "follow-redirects").
-  const [{ request: redirectedRequest }] = resolver.mock.calls[0]
+  const [redirectedRequest] = requestListener.mock.calls[0]
 
   expect(redirectedRequest.method).toBe('GET')
-  expect(redirectedRequest.url).toBe(server.https.url('/resource-b'))
-  expect(redirectedRequest.credentials).toBe('same-origin')
+  expect(redirectedRequest.url).toBe(server.https.url('/original'))
 
   // Response (original).
-  expect(catchResponseUrl).toHaveBeenCalledWith(server.https.url('/resource-b'))
-  expect(await text()).toBe('hello from the server with resource b')
+  expect(catchResponseUrl).toHaveBeenCalledWith(server.https.url('/redirected'))
+  expect(await text()).toBe('redirected response')
+})
+
+/**
+ * @note `follow-redirects` requires `http` and `https` before the interceptor
+ * can patch them.
+ */
+it.skip('supports mocking a redirect response to a mocked response', async () => {
+  const requestListener = vi.fn<[Request]>()
+
+  interceptor.once('request', ({ request, controller }) => {
+    requestListener(request)
+
+    if (request.url.endsWith('/original')) {
+      return controller.respondWith(
+        Response.redirect('https://localhost:3000/redirected', 307)
+      )
+    }
+
+    if (request.url.endsWith('/redirected')) {
+      return controller.respondWith(new Response('mocked response'))
+    }
+  })
+
+  const catchResponseUrl = vi.fn()
+  const request = followRedirects.https.request(
+    {
+      method: 'GET',
+      hostname: server.https.address.host,
+      port: server.https.address.port,
+      path: '/original',
+      rejectUnauthorized: false,
+      agents: {
+        http: new http.Agent(),
+        https: https.globalAgent,
+      },
+    },
+
+    (res) => {
+      catchResponseUrl(res.responseUrl)
+    }
+  )
+
+  request.end()
+
+  const { text } = await waitForClientRequest(request as any)
+
+  // Intercepted redirect request (issued by "follow-redirects").
+  const [redirectedRequest] = requestListener.mock.calls[0]
+
+  expect(redirectedRequest.method).toBe('GET')
+  expect(redirectedRequest.url).toBe(server.https.url('/original'))
+
+  // Response (original).
+  expect(catchResponseUrl).toHaveBeenCalledWith('http://localhost/redirected')
+  expect(await text()).toBe('mocked response')
 })
