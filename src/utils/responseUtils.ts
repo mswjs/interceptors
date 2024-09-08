@@ -8,6 +8,10 @@ export const RESPONSE_STATUS_CODES_WITHOUT_BODY = new Set([
   101, 103, 204, 205, 304,
 ])
 
+export const RESPONSE_STATUS_CODES_WITH_REDIRECT = new Set([
+  301, 302, 303, 307, 308,
+])
+
 /**
  * Returns a boolean indicating whether the given response status
  * code represents a response that cannot have a body.
