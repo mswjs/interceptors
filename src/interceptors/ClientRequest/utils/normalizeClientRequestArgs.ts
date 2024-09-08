@@ -1,3 +1,4 @@
+import { urlToHttpOptions } from 'node:url'
 import {
   Agent as HttpAgent,
   globalAgent as httpGlobalAgent,
@@ -20,7 +21,6 @@ import {
   parse as parseUrl,
 } from 'node:url'
 import { Logger } from '@open-draft/logger'
-import { getRequestOptionsByUrl } from '../../../utils/getRequestOptionsByUrl'
 import {
   ResolvedRequestOptions,
   getUrlByRequestOptions,
@@ -47,12 +47,12 @@ function resolveRequestOptions(
   // without any `RequestOptions` or callback.
   if (typeof args[1] === 'undefined' || typeof args[1] === 'function') {
     logger.info('request options not provided, deriving from the url', url)
-    return getRequestOptionsByUrl(url)
+    return urlToHttpOptions(url)
   }
 
   if (args[1]) {
     logger.info('has custom RequestOptions!', args[1])
-    const requestOptionsFromUrl = getRequestOptionsByUrl(url)
+    const requestOptionsFromUrl = urlToHttpOptions(url)
 
     logger.info('derived RequestOptions from the URL:', requestOptionsFromUrl)
 
@@ -103,7 +103,7 @@ function resolveCallback(
 export type NormalizedClientRequestArgs = [
   url: URL,
   options: ResolvedRequestOptions,
-  callback?: HttpRequestCallback,
+  callback?: HttpRequestCallback
 ]
 
 /**
@@ -137,7 +137,7 @@ export function normalizeClientRequestArgs(
     url = new URL(args[0])
     logger.info('created a url:', url)
 
-    const requestOptionsFromUrl = getRequestOptionsByUrl(url)
+    const requestOptionsFromUrl = urlToHttpOptions(url)
     logger.info('request options from url:', requestOptionsFromUrl)
 
     options = resolveRequestOptions(args, url)
@@ -200,17 +200,17 @@ export function normalizeClientRequestArgs(
     return args[1] === undefined
       ? normalizeClientRequestArgs(defaultProtocol, [resolvedUrl])
       : typeof args[1] === 'function'
-        ? normalizeClientRequestArgs(defaultProtocol, [resolvedUrl, args[1]])
-        : normalizeClientRequestArgs(defaultProtocol, [
-            resolvedUrl,
-            args[1],
-            args[2],
-          ])
+      ? normalizeClientRequestArgs(defaultProtocol, [resolvedUrl, args[1]])
+      : normalizeClientRequestArgs(defaultProtocol, [
+          resolvedUrl,
+          args[1],
+          args[2],
+        ])
   }
   // Handle a given "RequestOptions" object as-is
   // and derive the URL instance from it.
   else if (isObject(args[0])) {
-    options = { ... args[0] as any }
+    options = { ...(args[0] as any) }
     logger.info('first argument is RequestOptions:', options)
 
     // When handling a "RequestOptions" object without an explicit "protocol",

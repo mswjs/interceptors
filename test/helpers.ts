@@ -1,8 +1,8 @@
-import https from 'https'
-import http, { ClientRequest, IncomingMessage, RequestOptions } from 'http'
+import { urlToHttpOptions } from 'node:url'
+import https from 'node:https'
+import http, { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { Page } from '@playwright/test'
-import { getRequestOptionsByUrl } from '../src/utils/getRequestOptionsByUrl'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
 import { RequestHandler } from 'express'
@@ -19,20 +19,14 @@ export interface PromisifiedResponse {
 
 export function httpGet(
   url: string,
-  options?: RequestOptions
+  options: RequestOptions = {}
 ): Promise<PromisifiedResponse> {
   const parsedUrl = new URL(url)
-  const resolvedOptions = Object.assign(
-    {},
-    getRequestOptionsByUrl(parsedUrl),
-    options
-  )
-
   return new Promise((resolve, reject) => {
-    const req = http.get(resolvedOptions, async (res) => {
+    const req = http.get(parsedUrl, options, async (res) => {
       res.setEncoding('utf8')
       const resBody = await getIncomingMessageBody(res)
-      resolve({ req, res, resBody, url, options: resolvedOptions })
+      resolve({ req, res, resBody, url, options })
     })
 
     req.on('error', reject)
@@ -46,7 +40,7 @@ export function httpsGet(
   const parsedUrl = new URL(url)
   const resolvedOptions = Object.assign(
     {},
-    getRequestOptionsByUrl(parsedUrl),
+    urlToHttpOptions(parsedUrl),
     options
   )
 
@@ -69,7 +63,7 @@ export function httpRequest(
   const parsedUrl = new URL(url)
   const resolvedOptions = Object.assign(
     {},
-    getRequestOptionsByUrl(parsedUrl),
+    urlToHttpOptions(parsedUrl),
     options
   )
 
@@ -96,7 +90,7 @@ export function httpsRequest(
   const parsedUrl = new URL(url)
   const resolvedOptions = Object.assign(
     {},
-    getRequestOptionsByUrl(parsedUrl),
+    urlToHttpOptions(parsedUrl),
     options
   )
 
@@ -165,7 +159,7 @@ export function createXMLHttpRequest(
 
   if (request.readyState < 1) {
     throw new Error(
-      'Failed to create an XMLHttpRequest. Did you forget to call `req.open()` in the middleware function?'
+      'Failed to create an XMLHttpRequest. Did you forget to call `.open()` in the middleware function?'
     )
   }
 
@@ -192,6 +186,7 @@ export interface BrowserXMLHttpRequestInit {
   headers?: Record<string, string>
   body?: string
   withCredentials?: boolean
+  async?: boolean
 }
 
 export async function extractRequestFromPage(page: Page): Promise<Request> {
@@ -229,7 +224,7 @@ export async function extractRequestFromPage(page: Page): Promise<Request> {
 
 export function createRawBrowserXMLHttpRequest(page: Page) {
   return (requestInit: BrowserXMLHttpRequestInit) => {
-    const { method, url, headers, body, withCredentials } = requestInit
+    const { method, url, headers, body, withCredentials, async } = requestInit
 
     return page.evaluate<
       XMLHttpResponse,
@@ -238,7 +233,8 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
         string,
         Record<string, string> | undefined,
         string | undefined,
-        boolean | undefined
+        boolean | undefined,
+        boolean
       ]
     >(
       (args) => {
@@ -253,9 +249,8 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
           const request = new XMLHttpRequest()
           if (typeof withCredentials !== 'undefined') {
             Reflect.set(request, 'withCredentials', withCredentials)
-            // request.withCredentials = withCredentials
           }
-          request.open(method, url)
+          request.open(method, url, args[5])
 
           for (const headerName in headers) {
             request.setRequestHeader(headerName, headers[headerName])
@@ -273,7 +268,7 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
           request.send(body)
         })
       },
-      [method, url, headers, body, withCredentials]
+      [method, url, headers, body, withCredentials, async ?? true]
     )
   }
 }
@@ -289,22 +284,24 @@ export function createBrowserXMLHttpRequest(page: Page) {
   }
 }
 
-export async function waitForClientRequest(req: http.ClientRequest): Promise<{
+export async function waitForClientRequest(
+  request: http.ClientRequest
+): Promise<{
   res: http.IncomingMessage
   text(): Promise<string>
 }> {
   return new Promise((resolve, reject) => {
-    req.on('response', async (res) => {
-      res.setEncoding('utf8')
+    request.on('response', async (response) => {
+      response.setEncoding('utf8')
       resolve({
-        res,
-        text: getIncomingMessageBody.bind(null, res),
+        res: response,
+        text: getIncomingMessageBody.bind(null, response),
       })
     })
 
-    req.on('error', reject)
-    req.on('abort', reject)
-    req.on('timeout', reject)
+    request.on('error', reject)
+    request.on('abort', reject)
+    request.on('timeout', reject)
   })
 }
 

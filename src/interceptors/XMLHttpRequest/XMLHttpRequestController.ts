@@ -14,9 +14,11 @@ import { parseJson } from '../../utils/parseJson'
 import { createResponse } from './utils/createResponse'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { createRequestId } from '../../createRequestId'
+import { getBodyByteLength } from './utils/getBodyByteLength'
 
-const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
+const kIsRequestHandled = Symbol('kIsRequestHandled')
 const IS_NODE = isNodeProcess()
+const kFetchRequest = Symbol('kFetchRequest')
 
 /**
  * An `XMLHttpRequest` instance controller that allows us
@@ -40,17 +42,25 @@ export class XMLHttpRequestController {
       request: Request
       requestId: string
     }
-  ) => void
+  ) => void;
 
+  [kIsRequestHandled]: boolean;
+  [kFetchRequest]?: Request
   private method: string = 'GET'
   private url: URL = null as any
   private requestHeaders: Headers
-  private requestBody?: XMLHttpRequestBodyInit | Document | null
   private responseBuffer: Uint8Array
   private events: Map<keyof XMLHttpRequestEventTargetEventMap, Array<Function>>
+  private uploadEvents: Map<
+    keyof XMLHttpRequestEventTargetEventMap,
+    Array<Function>
+  >
 
   constructor(readonly initialRequest: XMLHttpRequest, public logger: Logger) {
+    this[kIsRequestHandled] = false
+
     this.events = new Map()
+    this.uploadEvents = new Map()
     this.requestId = createRequestId()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
@@ -123,11 +133,6 @@ export class XMLHttpRequestController {
               body?: XMLHttpRequestBodyInit | Document | null
             ]
 
-            if (body != null) {
-              this.requestBody =
-                typeof body === 'string' ? encodeBuffer(body) : body
-            }
-
             this.request.addEventListener('load', () => {
               if (typeof this.onResponse !== 'undefined') {
                 // Create a Fetch API Response representation of whichever
@@ -146,15 +151,20 @@ export class XMLHttpRequestController {
                 // Notify the consumer about the response.
                 this.onResponse.call(this, {
                   response: fetchResponse,
-                  isMockedResponse: IS_MOCKED_RESPONSE in this.request,
+                  isMockedResponse: this[kIsRequestHandled],
                   request: fetchRequest,
                   requestId: this.requestId!,
                 })
               }
             })
 
+            const requestBody =
+              typeof body === 'string' ? encodeBuffer(body) : body
+
             // Delegate request handling to the consumer.
-            const fetchRequest = this.toFetchApiRequest()
+            const fetchRequest = this.toFetchApiRequest(requestBody)
+            this[kFetchRequest] = fetchRequest
+
             const onceRequestSettled =
               this.onRequest?.call(this, {
                 request: fetchRequest,
@@ -162,10 +172,8 @@ export class XMLHttpRequestController {
               }) || Promise.resolve()
 
             onceRequestSettled.finally(() => {
-              // If the consumer didn't handle the request perform it as-is.
-              // Note that the request may not yet be DONE and may, in fact,
-              // be LOADING while the "respondWith" method does its magic.
-              if (this.request.readyState < this.request.LOADING) {
+              // If the consumer didn't handle the request (called `.respondWith()`) perform it as-is.
+              if (!this[kIsRequestHandled]) {
                 this.logger.info(
                   'request callback settled but request has not been handled (readystate %d), performing as-is...',
                   this.request.readyState
@@ -200,6 +208,49 @@ export class XMLHttpRequestController {
         }
       },
     })
+
+    /**
+     * Proxy the `.upload` property to gather the event listeners/callbacks.
+     */
+    define(
+      this.request,
+      'upload',
+      createProxy(this.request.upload, {
+        setProperty: ([propertyName, nextValue], invoke) => {
+          switch (propertyName) {
+            case 'onloadstart':
+            case 'onprogress':
+            case 'onaboart':
+            case 'onerror':
+            case 'onload':
+            case 'ontimeout':
+            case 'onloadend': {
+              const eventName = propertyName.slice(
+                2
+              ) as keyof XMLHttpRequestEventTargetEventMap
+
+              this.registerUploadEvent(eventName, nextValue as Function)
+            }
+          }
+
+          return invoke()
+        },
+        methodCall: ([methodName, args], invoke) => {
+          switch (methodName) {
+            case 'addEventListener': {
+              const [eventName, listener] = args as [
+                keyof XMLHttpRequestEventTargetEventMap,
+                Function
+              ]
+              this.registerUploadEvent(eventName, listener)
+              this.logger.info('upload.addEventListener', eventName, listener)
+
+              return invoke()
+            }
+          }
+        },
+      })
+    )
   }
 
   private registerEvent(
@@ -213,23 +264,64 @@ export class XMLHttpRequestController {
     this.logger.info('registered event "%s"', eventName, listener)
   }
 
+  private registerUploadEvent(
+    eventName: keyof XMLHttpRequestEventTargetEventMap,
+    listener: Function
+  ): void {
+    const prevEvents = this.uploadEvents.get(eventName) || []
+    const nextEvents = prevEvents.concat(listener)
+    this.uploadEvents.set(eventName, nextEvents)
+
+    this.logger.info('registered upload event "%s"', eventName, listener)
+  }
+
   /**
    * Responds to the current request with the given
    * Fetch API `Response` instance.
    */
-  public respondWith(response: Response): void {
+  public async respondWith(response: Response): Promise<void> {
+    /**
+     * @note Since `XMLHttpRequestController` delegates the handling of the responses
+     * to the "load" event listener that doesn't distinguish between the mocked and original
+     * responses, mark the request that had a mocked response with a corresponding symbol.
+     *
+     * Mark this request as having a mocked response immediately since
+     * calculating request/response total body length is asynchronous.
+     */
+    this[kIsRequestHandled] = true
+
+    /**
+     * Dispatch request upload events for requests with a body.
+     * @see https://github.com/mswjs/interceptors/issues/573
+     */
+    if (this[kFetchRequest]) {
+      const totalRequestBodyLength = await getBodyByteLength(
+        this[kFetchRequest].clone()
+      )
+
+      this.trigger('loadstart', this.request.upload, {
+        loaded: 0,
+        total: totalRequestBodyLength,
+      })
+      this.trigger('progress', this.request.upload, {
+        loaded: totalRequestBodyLength,
+        total: totalRequestBodyLength,
+      })
+      this.trigger('load', this.request.upload, {
+        loaded: totalRequestBodyLength,
+        total: totalRequestBodyLength,
+      })
+      this.trigger('loadend', this.request.upload, {
+        loaded: totalRequestBodyLength,
+        total: totalRequestBodyLength,
+      })
+    }
+
     this.logger.info(
       'responding with a mocked response: %d %s',
       response.status,
       response.statusText
     )
-
-    /**
-     * @note Since `XMLHttpRequestController` delegates the handling of the responses
-     * to the "load" event listener that doesn't distinguish between the mocked and original
-     * responses, mark the request that had a mocked response with a corresponding symbol.
-     */
-    define(this.request, IS_MOCKED_RESPONSE, true)
 
     define(this.request, 'status', response.status)
     define(this.request, 'statusText', response.statusText)
@@ -303,16 +395,11 @@ export class XMLHttpRequestController {
       },
     })
 
-    const totalResponseBodyLength = response.headers.has('Content-Length')
-      ? Number(response.headers.get('Content-Length'))
-      : /**
-         * @todo Infer the response body length from the response body.
-         */
-        undefined
+    const totalResponseBodyLength = await getBodyByteLength(response.clone())
 
     this.logger.info('calculated response body length', totalResponseBodyLength)
 
-    this.trigger('loadstart', {
+    this.trigger('loadstart', this.request, {
       loaded: 0,
       total: totalResponseBodyLength,
     })
@@ -325,12 +412,12 @@ export class XMLHttpRequestController {
 
       this.setReadyState(this.request.DONE)
 
-      this.trigger('load', {
+      this.trigger('load', this.request, {
         loaded: this.responseBuffer.byteLength,
         total: totalResponseBodyLength,
       })
 
-      this.trigger('loadend', {
+      this.trigger('loadend', this.request, {
         loaded: this.responseBuffer.byteLength,
         total: totalResponseBodyLength,
       })
@@ -354,7 +441,7 @@ export class XMLHttpRequestController {
           this.logger.info('read response body chunk:', value)
           this.responseBuffer = concatArrayBuffer(this.responseBuffer, value)
 
-          this.trigger('progress', {
+          this.trigger('progress', this.request, {
             loaded: this.responseBuffer.byteLength,
             total: totalResponseBodyLength,
           })
@@ -482,11 +569,16 @@ export class XMLHttpRequestController {
   }
 
   public errorWith(error?: Error): void {
+    /**
+     * @note Mark this request as handled even if it received a mock error.
+     * This prevents the controller from trying to perform this request as-is.
+     */
+    this[kIsRequestHandled] = true
     this.logger.info('responding with an error')
 
     this.setReadyState(this.request.DONE)
-    this.trigger('error')
-    this.trigger('loadend')
+    this.trigger('error', this.request)
+    this.trigger('loadend', this.request)
   }
 
   /**
@@ -511,7 +603,7 @@ export class XMLHttpRequestController {
     if (nextReadyState !== this.request.UNSENT) {
       this.logger.info('triggerring "readystatechange" event...')
 
-      this.trigger('readystatechange')
+      this.trigger('readystatechange', this.request)
     }
   }
 
@@ -522,20 +614,27 @@ export class XMLHttpRequestController {
     EventName extends keyof (XMLHttpRequestEventTargetEventMap & {
       readystatechange: ProgressEvent<XMLHttpRequestEventTarget>
     })
-  >(eventName: EventName, options?: ProgressEventInit): void {
-    const callback = this.request[`on${eventName}`]
-    const event = createEvent(this.request, eventName, options)
+  >(
+    eventName: EventName,
+    target: XMLHttpRequest | XMLHttpRequestUpload,
+    options?: ProgressEventInit
+  ): void {
+    const callback = (target as XMLHttpRequest)[`on${eventName}`]
+    const event = createEvent(target, eventName, options)
 
     this.logger.info('trigger "%s"', eventName, options || '')
 
     // Invoke direct callbacks.
     if (typeof callback === 'function') {
       this.logger.info('found a direct "%s" callback, calling...', eventName)
-      callback.call(this.request, event)
+      callback.call(target as XMLHttpRequest, event)
     }
 
     // Invoke event listeners.
-    for (const [registeredEventName, listeners] of this.events) {
+    const events =
+      target instanceof XMLHttpRequestUpload ? this.uploadEvents : this.events
+
+    for (const [registeredEventName, listeners] of events) {
       if (registeredEventName === eventName) {
         this.logger.info(
           'found %d listener(s) for "%s" event, calling...',
@@ -543,7 +642,7 @@ export class XMLHttpRequestController {
           eventName
         )
 
-        listeners.forEach((listener) => listener.call(this.request, event))
+        listeners.forEach((listener) => listener.call(target, event))
       }
     }
   }
@@ -551,8 +650,15 @@ export class XMLHttpRequestController {
   /**
    * Converts this `XMLHttpRequest` instance into a Fetch API `Request` instance.
    */
-  public toFetchApiRequest(): Request {
+  private toFetchApiRequest(
+    body: XMLHttpRequestBodyInit | Document | null | undefined
+  ): Request {
     this.logger.info('converting request to a Fetch API Request...')
+
+    // If the `Document` is used as the body of this XMLHttpRequest,
+    // set its inner text as the Fetch API Request body.
+    const resolvedBody =
+      body instanceof Document ? body.documentElement.innerText : body
 
     const fetchRequest = new Request(this.url.href, {
       method: this.method,
@@ -561,9 +667,9 @@ export class XMLHttpRequestController {
        * @see https://xhr.spec.whatwg.org/#cross-origin-credentials
        */
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
-      body: ['GET', 'HEAD'].includes(this.method)
+      body: ['GET', 'HEAD'].includes(this.method.toUpperCase())
         ? null
-        : (this.requestBody as BodyInit),
+        : resolvedBody,
     })
 
     const proxyHeaders = createProxy(fetchRequest.headers, {

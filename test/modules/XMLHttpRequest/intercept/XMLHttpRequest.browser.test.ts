@@ -178,3 +178,24 @@ test('ignores the body for GET requests', async ({
   const [request] = await call
   expect(request.body).toBe(null)
 })
+
+test('intercepts a synchronous XMLHttpRequest', async ({
+  loadExample,
+  callXMLHttpRequest,
+}) => {
+  await loadExample(require.resolve('./XMLHttpRequest.browser.runtime.js'))
+
+  const url = httpServer.http.url('/user')
+  const call = callXMLHttpRequest({
+    method: 'POST',
+    url,
+    body: 'hello world',
+    async: false,
+  })
+
+  await expect(call).resolves.not.toThrowError()
+
+  const [request] = await call
+  expect(request.method).toBe('POST')
+  await expect(request.text()).resolves.toBe('hello world')
+})

@@ -48,5 +48,8 @@ it('closes the client connection with a custom error', async () => {
   const closeEvent = await socketClosePromise
   expect(closeEvent.code).toBe(3000)
   expect(closeEvent.reason).toBe('Oops!')
-  expect(closeEvent.wasClean).toBe(false)
+  /**
+   * @note Closure is still clean regardless of the `code`.
+   */
+  expect(closeEvent.wasClean).toBe(true)
 })
