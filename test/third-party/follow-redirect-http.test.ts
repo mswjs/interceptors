@@ -167,17 +167,13 @@ it.skip('supports mocking a redirect response to a mocked response', async () =>
   })
 
   const catchResponseUrl = vi.fn()
-  const request = followRedirects.https.request(
+  const request = https.request(
     {
       method: 'GET',
       hostname: server.https.address.host,
       port: server.https.address.port,
       path: '/original',
       rejectUnauthorized: false,
-      agents: {
-        http: new http.Agent(),
-        https: https.globalAgent,
-      },
     },
 
     (res) => {
