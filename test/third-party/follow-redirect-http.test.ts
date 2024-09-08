@@ -145,14 +145,10 @@ it('supports mocking a redirect response to the original response', async () => 
   expect(await text()).toBe('redirected response')
 })
 
-/**
- * @note `follow-redirects` requires `http` and `https` before the interceptor
- * can patch them.
- */
-it.skip('supports mocking a redirect response to a mocked response', async () => {
+it('supports mocking a redirect response to a mocked response', async () => {
   const requestListener = vi.fn<[Request]>()
 
-  interceptor.once('request', ({ request, controller }) => {
+  interceptor.on('request', ({ request, controller }) => {
     requestListener(request)
 
     if (request.url.endsWith('/original')) {
@@ -192,6 +188,8 @@ it.skip('supports mocking a redirect response to a mocked response', async () =>
   expect(redirectedRequest.url).toBe(server.https.url('/original'))
 
   // Response (original).
-  expect(catchResponseUrl).toHaveBeenCalledWith('http://localhost/redirected')
+  expect(catchResponseUrl).toHaveBeenCalledWith(
+    'https://localhost:3000/redirected'
+  )
   expect(await text()).toBe('mocked response')
 })
