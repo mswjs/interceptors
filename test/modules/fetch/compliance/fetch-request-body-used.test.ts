@@ -18,7 +18,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  interceptor['emitter'].removeAllListeners()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
