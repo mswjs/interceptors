@@ -1,6 +1,4 @@
-/**
- * @vitest-environment jsdom
- */
+// @vitest-environment jsdom
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'
@@ -114,7 +112,7 @@ it('bypass the interceptor and return the original response', async () => {
 /**
  * @see https://github.com/mswjs/interceptors/issues/564
  */
-it('preserves "auth" (Authorization)', async () => {
+it('preserves the "auth" options', async () => {
   const getRequestPromise = new DeferredPromise<Request>()
 
   interceptor.on('request', ({ request }) => {
@@ -140,4 +138,46 @@ it('preserves "auth" (Authorization)', async () => {
   expect(request.headers.get('Authorization')).toBe(
     `Basic ${btoa('foo@bar.com:secret123')}`
   )
+})
+
+it('follows a mocked redirect response (xhr)', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.url.endsWith('/original')) {
+      return controller.respondWith(
+        Response.redirect('http://localhost:3000/redirected', 307)
+      )
+    }
+
+    if (request.url.endsWith('/redirected')) {
+      controller.respondWith(new Response('redirected response'))
+    }
+  })
+
+  const response = await axios.get('http://localhost:3000/original', {
+    adapter: 'xhr',
+  })
+
+  expect(response.status).toBe(200)
+  expect(response.data).toBe('redirected response')
+})
+
+it('follows a mocked redirect response (http)', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.url.endsWith('/original')) {
+      return controller.respondWith(
+        Response.redirect('http://localhost/redirected', 307)
+      )
+    }
+
+    if (request.url.endsWith('/redirected')) {
+      controller.respondWith(new Response('redirected response'))
+    }
+  })
+
+  const response = await axios.get('http://localhost/original', {
+    adapter: 'http',
+  })
+
+  expect(response.status).toBe(200)
+  expect(response.data).toBe('redirected response')
 })
