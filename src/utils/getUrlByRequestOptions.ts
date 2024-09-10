@@ -1,6 +1,7 @@
 import { Agent } from 'http'
 import { RequestOptions, Agent as HttpsAgent } from 'https'
 import { Logger } from '@open-draft/logger'
+import { canParseUrl } from './canParseUrl'
 
 const logger = new Logger('utils getUrlByRequestOptions')
 
@@ -94,7 +95,7 @@ function getHostname(options: ResolvedRequestOptions): string | undefined {
 
   if (host) {
     if (isRawIPv6Address(host)) {
-       host = `[${host}]`
+      host = `[${host}]`
     }
 
     // Check the presence of the port, and if it's present,
@@ -141,12 +142,32 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
     : ''
   logger.info('auth string:', authString)
 
-  const portString = typeof port !== 'undefined' ? `:${port}` : ''
-  const url = new URL(`${protocol}//${hostname}${portString}${path}`)
+  if (canParseUrl(path)) {
+    return new URL(path)
+  }
+
+  /**
+   * @fixme Path scenarios:
+   * "www.google.com is" NOT valid.
+   * "www.google.com:80" IS valid.
+   * "127.0.0.1" is NOT valid.
+   *
+   * See how Node understands what is a URL pathname and what is a proxy
+   * target `path`?
+   */
+  const resolvedPath = canParseUrl(path) ? '' : path
+
+  console.log({ protocol, hostname, path, port })
+
+  const url = new URL(`${protocol}//${hostname}${resolvedPath}`)
+
+  url.port = port ? port.toString() : ''
   url.username = credentials?.username || ''
   url.password = credentials?.password || ''
 
   logger.info('created url:', url)
+
+  console.log('RESULT:', url.href)
 
   return url
 }
