@@ -1,29 +1,15 @@
 // @vitest-environment node
-import { afterEach, afterAll, beforeAll, expect, it } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpServer } from '@open-draft/test-server/http'
+import { createTestHttpServer } from '@open-draft/test-server/http'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 import { sleep } from '../../../helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (_req, res) => {
-    res.status(200).send('/')
-  })
-  app.get('/get', (_req, res) => {
-    res.status(200).send('/get')
-  })
-  app.get('/delayed', (_req, res) => {
-    setTimeout(() => {
-      res.status(200).send('/delayed')
-    }, 1000)
-  })
-})
-
 const interceptor = new FetchInterceptor()
+const server = createTestHttpServer()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  await server.listen()
 })
 
 afterEach(() => {
@@ -32,13 +18,18 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.dispose()
-  await httpServer.close()
+  await server.close()
 })
 
 it('aborts unsent request when the original request is aborted', async () => {
+  await using room = server.http.createRoom({
+    defineRoutes(router) {
+      router.get('/', () => new Response())
+    }
+  })
   const controller = new AbortController()
 
-  const abortErrorPromise = fetch(httpServer.http.url('/'), {
+  const abortErrorPromise = fetch(room.url('/'), {
     signal: controller.signal,
   }).then<Error>(
     () => expect.fail('must not return any response'),
@@ -62,7 +53,7 @@ it('aborts a pending request when the original request is aborted', async () => 
   })
 
   const controller = new AbortController()
-  const abortErrorPromise = fetch(httpServer.http.url('/delayed'), {
+  const abortErrorPromise = fetch(server.http.url('/delayed'), {
     signal: controller.signal,
   }).then<Error>(
     () => expect.fail('must not return any response'),
@@ -82,7 +73,7 @@ it('forwards custom abort reason to the request if aborted before it starts', as
   })
 
   const controller = new AbortController()
-  const request = fetch(httpServer.http.url('/'), {
+  const request = fetch(server.http.url('/'), {
     signal: controller.signal,
   })
 
@@ -109,7 +100,7 @@ it('forwards custom abort reason to the request if pending', async () => {
   })
 
   const controller = new AbortController()
-  const request = fetch(httpServer.http.url('/delayed'), {
+  const request = fetch(server.http.url('/delayed'), {
     signal: controller.signal,
   }).then(() => {
     expect.fail('must not return any response')

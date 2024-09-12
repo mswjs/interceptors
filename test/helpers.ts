@@ -3,9 +3,10 @@ import https from 'node:https'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { Page } from '@playwright/test'
+import { RequestHandler } from 'express'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
-import { RequestHandler } from 'express'
+import { Mock } from 'vitest'
 
 export const REQUEST_ID_REGEXP = /^\w{10,}$/
 
@@ -152,9 +153,34 @@ export async function readBlob(
 }
 
 export function createXMLHttpRequest(
-  middleware: (req: XMLHttpRequest) => void
-): Promise<XMLHttpRequest> {
+  middleware: (request: XMLHttpRequest) => void,
+  options?: { spyOnEvents?: boolean }
+): Promise<[XMLHttpRequest, { eventHandlers: Mock; eventListeners: Mock }]> {
   const request = new XMLHttpRequest()
+  const spies = { eventHandlers: vi.fn(), eventListeners: vi.fn() }
+
+  if (options?.spyOnEvents) {
+    const eventNames: Array<keyof XMLHttpRequestEventMap> = [
+      'readystatechange',
+      'loadstart',
+      'progress',
+      'load',
+      'loadend',
+      'abort',
+      'error',
+      'timeout',
+    ]
+
+    for (const eventName of eventNames) {
+      request[`on${eventName}`] = function () {
+        spies.eventHandlers(eventName, this.readyState)
+      }
+      request.addEventListener(eventName, function () {
+        spies.eventListeners(eventName, this.readyState)
+      })
+    }
+  }
+
   middleware(request)
 
   if (request.readyState < 1) {
@@ -165,7 +191,7 @@ export function createXMLHttpRequest(
 
   return new Promise((resolve, reject) => {
     request.addEventListener('loadend', () => {
-      resolve(request)
+      resolve([request, spies] as const)
     })
     request.addEventListener('abort', (error) => {
       reject(error)

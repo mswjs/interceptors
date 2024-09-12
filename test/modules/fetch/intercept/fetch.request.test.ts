@@ -1,15 +1,18 @@
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { Request } from 'node-fetch'
-import { HttpServer } from '@open-draft/test-server/http'
+import { createTestHttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
 import { fetch, REQUEST_ID_REGEXP } from '../../../helpers'
 import { RequestController } from '../../../../src/RequestController'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-const httpServer = new HttpServer((app) => {
-  app.post('/user', (_req, res) => {
-    res.status(200).send('mocked')
-  })
+const server = createTestHttpServer({
+  defineRoutes(router) {
+    router.post('/user', () => {
+      return new Response('mocked')
+    })
+  },
 })
 
 const resolver = vi.fn<HttpRequestEventMap['request']>()
@@ -19,7 +22,7 @@ interceptor.on('request', resolver)
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  await server.listen()
 })
 
 afterEach(() => {
@@ -28,11 +31,11 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.dispose()
-  await httpServer.close()
+  await server.close()
 })
 
 it('intercepts fetch requests constructed via a "Request" instance', async () => {
-  const request = new Request(httpServer.http.url('/user'), {
+  const request = new Request(server.http.url('/user'), {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain',
@@ -53,7 +56,7 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
     resolver.mock.calls[0]
 
   expect(capturedRequest.method).toBe('POST')
-  expect(capturedRequest.url).toBe(httpServer.http.url('/user'))
+  expect(capturedRequest.url).toBe(server.http.url('/user').href)
   expect(Object.fromEntries(capturedRequest.headers.entries())).toMatchObject({
     'content-type': 'text/plain',
     'user-agent': 'interceptors',
