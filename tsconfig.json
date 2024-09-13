@@ -14,7 +14,7 @@
     "types": ["@types/node"],
     "baseUrl": ".",
     "paths": {
-      "_http_commons": ["./_http.common.d.ts"]
+      "_http_common": ["./_http_common.d.ts"]
     }
   },
   "include": ["src/**/*.ts"],
