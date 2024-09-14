@@ -163,7 +163,7 @@ export class XMLHttpRequestController {
 
             // Delegate request handling to the consumer.
             const fetchRequest = this.toFetchApiRequest(requestBody)
-            this[kFetchRequest] = fetchRequest
+            this[kFetchRequest] = fetchRequest.clone()
 
             const onceRequestSettled =
               this.onRequest?.call(this, {
@@ -296,7 +296,7 @@ export class XMLHttpRequestController {
      */
     if (this[kFetchRequest]) {
       const totalRequestBodyLength = await getBodyByteLength(
-        this[kFetchRequest].clone()
+        this[kFetchRequest]
       )
 
       this.trigger('loadstart', this.request.upload, {
