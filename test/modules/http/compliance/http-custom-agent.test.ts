@@ -1,41 +1,16 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
-import type { Mock } from 'vitest'
 import http from 'node:http'
 import https from 'node:https'
-import type { Socket } from 'node:net'
-import { HttpServer, httpsAgent } from '@open-draft/test-server/http'
+import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index'
 import { waitForClientRequest } from '../../../../test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => {
-    res.send('original')
-  })
-})
-
 const interceptor = new ClientRequestInterceptor()
 
-const createAgent = (BaseClass: http.Agent | https.Agent) => {
-  // @ts-expect-error T2507
-  class CustomAgent extends BaseClass {
-    mockFunction: Mock;
-
-    constructor () {
-      super()
-      this.mockFunction = vi.fn()
-    }
-
-    createConnection (options: any, callback: any): Socket {
-      const result = super.createConnection(options, callback)
-      this.mockFunction()
-      return result
-    }
-  }
-  return new CustomAgent()
-}
+const httpServer = new HttpServer((app) => {
+  app.get('/resource', (req, res) => res.send('hello world'))
+})
 
 beforeAll(async () => {
   interceptor.apply()
@@ -51,29 +26,39 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('binds the custom agent context for an http createConnection', async () => {
-  const agent = createAgent(http.Agent)
-  const httpUrl = httpServer.http.url('/')
-  const options = {
-    agent,
+it('preserves the context of the "createConnection" function in a custom http agent', async () => {
+  const createConnectionContextSpy = vi.fn()
+  class CustomHttpAgent extends http.Agent {
+    createConnection(options: any, callback: any) {
+      createConnectionContextSpy(this)
+      return super.createConnection(options, callback)
+    }
   }
-  const request = http.get(httpUrl, options)
+  const agent = new CustomHttpAgent()
 
+  const request = http.get(httpServer.http.url('/resource'), { agent })
   await waitForClientRequest(request)
 
-  expect(agent.mockFunction).toHaveBeenCalledTimes(1)
+  const [context] = createConnectionContextSpy.mock.calls[0]
+  expect(context.constructor.name).toBe('CustomHttpAgent')
 })
 
-it('binds the custom agent context for an https createConnection', async () => {
-  const agent = createAgent(https.Agent)
-  const httpUrl = httpServer.https.url('/')
-  const options = {
+it('preserves the context of the "createConnection" function in a custom https agent', async () => {
+  const createConnectionContextSpy = vi.fn()
+  class CustomHttpsAgent extends https.Agent {
+    createConnection(options: any, callback: any) {
+      createConnectionContextSpy(this)
+      return super.createConnection(options, callback)
+    }
+  }
+  const agent = new CustomHttpsAgent()
+
+  const request = https.get(httpServer.https.url('/resource'), {
     agent,
     rejectUnauthorized: false,
-  }
-  const request = https.get(httpUrl, options)
-
+  })
   await waitForClientRequest(request)
 
-  expect(agent.mockFunction).toHaveBeenCalledTimes(1)
+  const [context] = createConnectionContextSpy.mock.calls[0]
+  expect(context.constructor.name).toBe('CustomHttpsAgent')
 })
