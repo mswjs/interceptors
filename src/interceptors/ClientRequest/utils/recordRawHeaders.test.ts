@@ -157,3 +157,12 @@ it('stops recording once the patches are restored', () => {
   // Must return the normalized headers (no access to raw headers).
   expect(getRawFetchHeaders(headers)).toEqual([['x-my-header', '1']])
 })
+
+it('rawHeaders should not interfere with the real API - need better name', () => {
+  recordRawFetchHeaders()
+  const headers = new Headers({ "x-header": "old" });
+  headers.set("x-header", "new");
+  const response = new Request(url, { headers })
+
+  expect(response.headers.get('x-header')).toEqual('new')
+})
