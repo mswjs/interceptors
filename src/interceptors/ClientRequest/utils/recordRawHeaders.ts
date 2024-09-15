@@ -5,9 +5,7 @@ const kRawHeaders = Symbol('kRawHeaders')
 const kRestorePatches = Symbol('kRestorePatches')
 
 function recordRawHeader(headers: Headers, args: HeaderTuple) {
-  if (!Reflect.has(headers, kRawHeaders)) {
-    defineRawHeaders(headers, [])
-  }
+  defineRawHeaders(headers, [])
   const rawHeaders = Reflect.get(headers, kRawHeaders) as RawHeaders
   rawHeaders.push(args)
 }
@@ -70,38 +68,42 @@ export function recordRawFetchHeaders() {
     configurable: true,
   })
 
-  Headers = new Proxy(Headers, {
-    construct(target, args, newTarget) {
-      const headersInit = args[0] || []
+  Object.defineProperty(globalThis, 'Headers', {
+    enumerable: true,
+    writable: true,
+    value: new Proxy(Headers, {
+      construct(target, args, newTarget) {
+        const headersInit = args[0] || []
 
-      if (
-        headersInit instanceof Headers &&
-        Reflect.has(headersInit, kRawHeaders)
-      ) {
-        const headers = Reflect.construct(
-          target,
-          [Reflect.get(headersInit, kRawHeaders)],
-          newTarget
-        )
-        defineRawHeaders(headers, Reflect.get(headersInit, kRawHeaders))
+        if (
+          headersInit instanceof Headers &&
+          Reflect.has(headersInit, kRawHeaders)
+        ) {
+          const headers = Reflect.construct(
+            target,
+            [Reflect.get(headersInit, kRawHeaders)],
+            newTarget
+          )
+          defineRawHeaders(headers, Reflect.get(headersInit, kRawHeaders))
+          return headers
+        }
+
+        const headers = Reflect.construct(target, args, newTarget)
+
+        // Request/Response constructors will set the symbol
+        // upon creating a new instance, using the raw developer
+        // input as the raw headers. Skip the symbol altogether
+        // in those cases because the input to Headers will be normalized.
+        if (!Reflect.has(headers, kRawHeaders)) {
+          const rawHeadersInit = Array.isArray(headersInit)
+            ? headersInit
+            : Object.entries(headersInit)
+          defineRawHeaders(headers, rawHeadersInit)
+        }
+
         return headers
-      }
-
-      const headers = Reflect.construct(target, args, newTarget)
-
-      // Request/Response constructors will set the symbol
-      // upon creating a new instance, using the raw developer
-      // input as the raw headers. Skip the symbol altogether
-      // in those cases because the input to Headers will be normalized.
-      if (!Reflect.has(headers, kRawHeaders)) {
-        const rawHeadersInit = Array.isArray(headersInit)
-          ? headersInit
-          : Object.entries(headersInit)
-        defineRawHeaders(headers, rawHeadersInit)
-      }
-
-      return headers
-    },
+      },
+    }),
   })
 
   Headers.prototype.set = new Proxy(Headers.prototype.set, {
@@ -134,54 +136,62 @@ export function recordRawFetchHeaders() {
     },
   })
 
-  Request = new Proxy(Request, {
-    construct(target, args, newTarget) {
-      /**
-       * @note If the headers init argument of Request
-       * is existing Headers instance, use its raw headers
-       * as the headers init instead.
-       * This is needed because the Headers constructor copies
-       * all normalized headers from the given Headers instance
-       * and uses ".append()" to add it to the new instance.
-       */
-      if (
-        typeof args[1] === 'object' &&
-        args[1].headers != null &&
-        args[1].headers instanceof Headers &&
-        Reflect.has(args[1].headers, kRawHeaders)
-      ) {
-        args[1].headers = args[1].headers[kRawHeaders]
-      }
+  Object.defineProperty(globalThis, 'Request', {
+    enumerable: true,
+    writable: true,
+    value: new Proxy(Request, {
+      construct(target, args, newTarget) {
+        /**
+         * @note If the headers init argument of Request
+         * is existing Headers instance, use its raw headers
+         * as the headers init instead.
+         * This is needed because the Headers constructor copies
+         * all normalized headers from the given Headers instance
+         * and uses ".append()" to add it to the new instance.
+         */
+        if (
+          typeof args[1] === 'object' &&
+          args[1].headers != null &&
+          args[1].headers instanceof Headers &&
+          Reflect.has(args[1].headers, kRawHeaders)
+        ) {
+          args[1].headers = args[1].headers[kRawHeaders]
+        }
 
-      const request = Reflect.construct(target, args, newTarget)
+        const request = Reflect.construct(target, args, newTarget)
 
-      if (typeof args[1] === 'object' && args[1].headers != null) {
-        defineRawHeaders(request.headers, inferRawHeaders(args[1].headers))
-      }
+        if (typeof args[1] === 'object' && args[1].headers != null) {
+          defineRawHeaders(request.headers, inferRawHeaders(args[1].headers))
+        }
 
-      return request
-    },
+        return request
+      },
+    }),
   })
 
-  Response = new Proxy(Response, {
-    construct(target, args, newTarget) {
-      if (
-        typeof args[1] === 'object' &&
-        args[1].headers != null &&
-        args[1].headers instanceof Headers &&
-        Reflect.has(args[1].headers, kRawHeaders)
-      ) {
-        args[1].headers = args[1].headers[kRawHeaders]
-      }
+  Object.defineProperty(globalThis, 'Response', {
+    enumerable: true,
+    writable: true,
+    value: new Proxy(Response, {
+      construct(target, args, newTarget) {
+        if (
+          typeof args[1] === 'object' &&
+          args[1].headers != null &&
+          args[1].headers instanceof Headers &&
+          Reflect.has(args[1].headers, kRawHeaders)
+        ) {
+          args[1].headers = args[1].headers[kRawHeaders]
+        }
 
-      const response = Reflect.construct(target, args, newTarget)
+        const response = Reflect.construct(target, args, newTarget)
 
-      if (typeof args[1] === 'object' && args[1].headers != null) {
-        defineRawHeaders(response.headers, inferRawHeaders(args[1].headers))
-      }
+        if (typeof args[1] === 'object' && args[1].headers != null) {
+          defineRawHeaders(response.headers, inferRawHeaders(args[1].headers))
+        }
 
-      return response
-    },
+        return response
+      },
+    }),
   })
 }
 
