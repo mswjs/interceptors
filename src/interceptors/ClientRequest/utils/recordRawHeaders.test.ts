@@ -157,3 +157,27 @@ it('stops recording once the patches are restored', () => {
   // Must return the normalized headers (no access to raw headers).
   expect(getRawFetchHeaders(headers)).toEqual([['x-my-header', '1']])
 })
+
+it('overrides an existing header when calling ".set()"', () => {
+  recordRawFetchHeaders()
+  const headers = new Headers([['a', '1']])
+  expect(headers.get('a')).toBe('1')
+
+  headers.set('a', '2')
+  expect(headers.get('a')).toBe('2')
+
+  const headersClone = new Headers(headers)
+  expect(headersClone.get('a')).toBe('2')
+})
+
+it('overrides an existing multi-value header when calling ".set()"', () => {
+  recordRawFetchHeaders()
+  const headers = new Headers([
+    ['a', '1'],
+    ['a', '2'],
+  ])
+  expect(headers.get('a')).toBe('1, 2')
+
+  headers.set('a', '3')
+  expect(headers.get('a')).toBe('3')
+})

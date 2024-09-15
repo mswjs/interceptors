@@ -1,16 +1,34 @@
 type HeaderTuple = [string, string]
 type RawHeaders = Array<HeaderTuple>
+type SetHeaderBehavior = 'set' | 'append'
 
 const kRawHeaders = Symbol('kRawHeaders')
 const kRestorePatches = Symbol('kRestorePatches')
 
-function recordRawHeader(headers: Headers, args: HeaderTuple) {
-  defineRawHeaders(headers, [])
+function recordRawHeader(
+  headers: Headers,
+  args: HeaderTuple,
+  behavior: SetHeaderBehavior
+) {
+  ensureRawHeadersSymbol(headers, [])
   const rawHeaders = Reflect.get(headers, kRawHeaders) as RawHeaders
+
+  if (behavior === 'set') {
+    // When recording a set header, ensure we remove any matching existing headers.
+    for (let index = rawHeaders.length - 1; index >= 0; index--) {
+      if (rawHeaders[index][0].toLowerCase() === args[0].toLowerCase()) {
+        rawHeaders.splice(index, 1)
+      }
+    }
+  }
+
   rawHeaders.push(args)
 }
 
-function defineRawHeaders(headers: Headers, rawHeaders: RawHeaders): void {
+function ensureRawHeadersSymbol(
+  headers: Headers,
+  rawHeaders: RawHeaders
+): void {
   if (Reflect.has(headers, kRawHeaders)) {
     return
   }
@@ -84,7 +102,7 @@ export function recordRawFetchHeaders() {
             [Reflect.get(headersInit, kRawHeaders)],
             newTarget
           )
-          defineRawHeaders(headers, Reflect.get(headersInit, kRawHeaders))
+          ensureRawHeadersSymbol(headers, Reflect.get(headersInit, kRawHeaders))
           return headers
         }
 
@@ -98,7 +116,7 @@ export function recordRawFetchHeaders() {
           const rawHeadersInit = Array.isArray(headersInit)
             ? headersInit
             : Object.entries(headersInit)
-          defineRawHeaders(headers, rawHeadersInit)
+          ensureRawHeadersSymbol(headers, rawHeadersInit)
         }
 
         return headers
@@ -108,14 +126,14 @@ export function recordRawFetchHeaders() {
 
   Headers.prototype.set = new Proxy(Headers.prototype.set, {
     apply(target, thisArg, args: HeaderTuple) {
-      recordRawHeader(thisArg, args)
+      recordRawHeader(thisArg, args, 'set')
       return Reflect.apply(target, thisArg, args)
     },
   })
 
   Headers.prototype.append = new Proxy(Headers.prototype.append, {
     apply(target, thisArg, args: HeaderTuple) {
-      recordRawHeader(thisArg, args)
+      recordRawHeader(thisArg, args, 'append')
       return Reflect.apply(target, thisArg, args)
     },
   })
@@ -161,7 +179,10 @@ export function recordRawFetchHeaders() {
         const request = Reflect.construct(target, args, newTarget)
 
         if (typeof args[1] === 'object' && args[1].headers != null) {
-          defineRawHeaders(request.headers, inferRawHeaders(args[1].headers))
+          ensureRawHeadersSymbol(
+            request.headers,
+            inferRawHeaders(args[1].headers)
+          )
         }
 
         return request
@@ -186,7 +207,10 @@ export function recordRawFetchHeaders() {
         const response = Reflect.construct(target, args, newTarget)
 
         if (typeof args[1] === 'object' && args[1].headers != null) {
-          defineRawHeaders(response.headers, inferRawHeaders(args[1].headers))
+          ensureRawHeadersSymbol(
+            response.headers,
+            inferRawHeaders(args[1].headers)
+          )
         }
 
         return response
