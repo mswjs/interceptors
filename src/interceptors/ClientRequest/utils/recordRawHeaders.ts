@@ -25,6 +25,10 @@ function recordRawHeader(
   rawHeaders.push(args)
 }
 
+/**
+ * Define the raw headers symbol on the given `Headers` instance.
+ * If the symbol already exists, this function does nothing.
+ */
 function ensureRawHeadersSymbol(
   headers: Headers,
   rawHeaders: RawHeaders
@@ -33,9 +37,21 @@ function ensureRawHeadersSymbol(
     return
   }
 
+  defineRawHeadersSymbol(headers, rawHeaders)
+}
+
+/**
+ * Define the raw headers symbol on the given `Headers` instance.
+ * If the symbol already exists, it gets overridden.
+ */
+function defineRawHeadersSymbol(headers: Headers, rawHeaders: RawHeaders) {
   Object.defineProperty(headers, kRawHeaders, {
     value: rawHeaders,
     enumerable: false,
+    // Mark the symbol as configurable so its value can be overridden.
+    // Overrides happen when merging raw headers from multiple sources.
+    // E.g. new Request(new Request(url, { headers }), { headers })
+    configurable: true,
   })
 }
 
@@ -159,6 +175,21 @@ export function recordRawFetchHeaders() {
     writable: true,
     value: new Proxy(Request, {
       construct(target, args, newTarget) {
+        // Handle a `Request` instance as init.
+        if (
+          typeof args[0] === 'object' &&
+          args[0] instanceof Request &&
+          args[0].headers != null &&
+          args[0].headers instanceof Headers &&
+          Reflect.has(args[0].headers, kRawHeaders)
+        ) {
+          Object.defineProperty(args[0], 'headers', {
+            enumerable: false,
+            configurable: true,
+            value: Reflect.get(args[0].headers, kRawHeaders),
+          })
+        }
+
         /**
          * @note If the headers init argument of Request
          * is existing Headers instance, use its raw headers
@@ -173,16 +204,29 @@ export function recordRawFetchHeaders() {
           args[1].headers instanceof Headers &&
           Reflect.has(args[1].headers, kRawHeaders)
         ) {
-          args[1].headers = args[1].headers[kRawHeaders]
+          Object.defineProperty(args[1], 'headers', {
+            enumerable: false,
+            configurable: true,
+            value: Reflect.get(args[1].headers, kRawHeaders),
+          })
         }
 
         const request = Reflect.construct(target, args, newTarget)
 
+        const inferredRawHeaders: RawHeaders = []
+
+        // Infer raw headers from a `Request` instance used as init.
+        if (typeof args[0] === 'object' && args[0].headers != null) {
+          inferredRawHeaders.push(...inferRawHeaders(args[0].headers))
+        }
+
+        // Infer raw headers from the "headers" init argument.
         if (typeof args[1] === 'object' && args[1].headers != null) {
-          ensureRawHeadersSymbol(
-            request.headers,
-            inferRawHeaders(args[1].headers)
-          )
+          inferredRawHeaders.push(...inferRawHeaders(args[1].headers))
+        }
+
+        if (inferRawHeaders.length > 0) {
+          defineRawHeadersSymbol(request.headers, inferredRawHeaders)
         }
 
         return request
