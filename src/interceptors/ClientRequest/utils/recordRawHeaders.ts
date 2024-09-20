@@ -294,7 +294,7 @@ export function getRawFetchHeaders(headers: Headers): RawHeaders {
  */
 function inferRawHeaders(headers: HeadersInit): RawHeaders {
   if (headers instanceof Headers) {
-    return Reflect.get(headers, kRawHeaders)
+    return Reflect.get(headers, kRawHeaders) || []
   }
 
   return Reflect.get(new Headers(headers), kRawHeaders)
