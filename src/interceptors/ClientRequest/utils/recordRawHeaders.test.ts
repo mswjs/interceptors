@@ -206,3 +206,16 @@ it('overrides an existing multi-value header when calling ".set()"', () => {
   headers.set('a', '3')
   expect(headers.get('a')).toBe('3')
 })
+
+it('does not throw on using Headers before recording', () => {
+  // If the consumer constructs a Headers instance before
+  // the interceptor is enabled, it will have no internal symbol set.
+  const headers = new Headers()
+  recordRawFetchHeaders()
+  const request = new Request(url, { headers })
+
+  expect(getRawFetchHeaders(request.headers)).toEqual([])
+
+  request.headers.set('X-My-Header', '1')
+  expect(getRawFetchHeaders(request.headers)).toEqual([['X-My-Header', '1']])
+})
