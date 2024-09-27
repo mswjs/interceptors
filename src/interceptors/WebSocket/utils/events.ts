@@ -52,7 +52,7 @@ export class CloseEvent extends Event {
   public reason: string
   public wasClean: boolean
 
-  constructor(type: string, init: CloseEventInit) {
+  constructor(type: string, init: CloseEventInit = {}) {
     super(type, init)
     this.code = init.code === undefined ? 0 : init.code
     this.reason = init.reason === undefined ? '' : init.reason
@@ -64,7 +64,7 @@ export class CancelableCloseEvent extends CloseEvent {
   [kCancelable]: boolean;
   [kDefaultPrevented]: boolean
 
-  constructor(type: string, init: CloseEventInit) {
+  constructor(type: string, init: CloseEventInit = {}) {
     super(type, init)
     this[kCancelable] = !!init.cancelable
     this[kDefaultPrevented] = false
