@@ -345,7 +345,9 @@ export class WebSocketServerConnection {
     const closeEvent = bindEvent(
       this.realWebSocket,
       new CancelableCloseEvent('close', {
-        ...event,
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
         cancelable: true,
       })
     )
