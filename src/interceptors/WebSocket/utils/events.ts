@@ -1,51 +1,6 @@
 const kCancelable = Symbol('kCancelable')
 const kDefaultPrevented = Symbol('kDefaultPrevented')
 
-function makeCancelableEvent(event: Event) {
-  if (typeof Reflect.get(event, kCancelable) !== 'undefined') {
-    return event
-  }
-
-  Object.defineProperties(event, {
-    [kCancelable]: {
-      value: event.cancelable,
-      enumerable: false,
-      writable: true,
-    },
-    [kDefaultPrevented]: {
-      value: event.defaultPrevented,
-      enumerable: false,
-      writable: true,
-    },
-    cancelable: {
-      get() {
-        return this[kCancelable]
-      },
-      set(nextCancelable) {
-        this[kCancelable] = nextCancelable
-      },
-    },
-    defaultPrevented: {
-      get() {
-        return this[kDefaultPrevented]
-      },
-      set(nextDefaultPrevented) {
-        return (this[kDefaultPrevented] = nextDefaultPrevented)
-      },
-    },
-    preventDefault: {
-      value() {
-        if (this.cancelable && !this[kDefaultPrevented]) {
-          this[kDefaultPrevented] = true
-        }
-      },
-      enumerable: true,
-    },
-  })
-
-  return event
-}
-
 /**
  * A `MessageEvent` superset that supports event cancellation
  * in Node.js. It's rather non-intrusive so it can be safely
@@ -54,10 +9,35 @@ function makeCancelableEvent(event: Event) {
  * @see https://github.com/nodejs/node/issues/51767
  */
 export class CancelableMessageEvent<T = any> extends MessageEvent<T> {
+  [kCancelable]: boolean;
+  [kDefaultPrevented]: boolean
+
   constructor(type: string, init: MessageEventInit<T>) {
     super(type, init)
+    this[kCancelable] = !!init.cancelable
+    this[kDefaultPrevented] = false
+  }
 
-    makeCancelableEvent(this)
+  get cancelable() {
+    return this[kCancelable]
+  }
+
+  set cancelable(nextCancelable) {
+    this[kCancelable] = nextCancelable
+  }
+
+  get defaultPrevented() {
+    return this[kDefaultPrevented]
+  }
+
+  set defaultPrevented(nextDefaultPrevented) {
+    this[kDefaultPrevented] = nextDefaultPrevented
+  }
+
+  public preventDefault(): void {
+    if (this.cancelable && !this[kDefaultPrevented]) {
+      this[kDefaultPrevented] = true
+    }
   }
 }
 
@@ -81,8 +61,34 @@ export class CloseEvent extends Event {
 }
 
 export class CancelableCloseEvent extends CloseEvent {
-  constructor(type: string, init: CloseEventInit) {
+  [kCancelable]: boolean;
+  [kDefaultPrevented]: boolean
+
+  constructor(type: string, init: CloseEventInit = {}) {
     super(type, init)
-    makeCancelableEvent(this)
+    this[kCancelable] = !!init.cancelable
+    this[kDefaultPrevented] = false
+  }
+
+  get cancelable() {
+    return this[kCancelable]
+  }
+
+  set cancelable(nextCancelable) {
+    this[kCancelable] = nextCancelable
+  }
+
+  get defaultPrevented() {
+    return this[kDefaultPrevented]
+  }
+
+  set defaultPrevented(nextDefaultPrevented) {
+    this[kDefaultPrevented] = nextDefaultPrevented
+  }
+
+  public preventDefault(): void {
+    if (this.cancelable && !this[kDefaultPrevented]) {
+      this[kDefaultPrevented] = true
+    }
   }
 }
