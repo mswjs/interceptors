@@ -68,12 +68,6 @@ export class MockHttpSocket extends MockSocket {
   constructor(options: MockHttpSocketOptions) {
     super({
       write: (chunk, encoding, callback) => {
-        // Mark the request header as sent once the
-        // socket receives its first write (which is the request header).
-        if (!this.requestHeaderSent) {
-          this.requestHeaderSent = true
-        }
-
         this.writeBuffer.push([chunk, encoding, callback])
 
         if (chunk) {
@@ -470,6 +464,7 @@ export class MockHttpSocket extends MockSocket {
   }) {
     const { path, headers, keepAlive } = args
 
+    this.requestHeaderSent = true
     this.shouldKeepAlive = keepAlive
 
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
