@@ -7,7 +7,11 @@ import {
 import type { WebSocketData } from './WebSocketTransport'
 import type { WebSocketClassTransport } from './WebSocketClassTransport'
 import { bindEvent } from './utils/bindEvent'
-import { CancelableMessageEvent, CloseEvent } from './utils/events'
+import {
+  CancelableMessageEvent,
+  CancelableCloseEvent,
+  CloseEvent,
+} from './utils/events'
 
 const kEmitter = Symbol('kEmitter')
 const kBoundListener = Symbol('kBoundListener')
@@ -265,12 +269,13 @@ export class WebSocketServerConnection {
       this[kEmitter].dispatchEvent(
         bindEvent(
           this.realWebSocket,
-          new CloseEvent('close', {
+          new CancelableCloseEvent('close', {
             /**
              * @note `server.close()` in the interceptor
              * always results in clean closures.
              */
             code: 1000,
+            cancelable: true,
           })
         )
       )
@@ -339,7 +344,12 @@ export class WebSocketServerConnection {
 
     const closeEvent = bindEvent(
       this.realWebSocket,
-      new CloseEvent('close', event)
+      new CancelableCloseEvent('close', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        cancelable: true,
+      })
     )
 
     this[kEmitter].dispatchEvent(closeEvent)

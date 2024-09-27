@@ -59,3 +59,36 @@ export class CloseEvent extends Event {
     this.wasClean = init.wasClean === undefined ? false : init.wasClean
   }
 }
+
+export class CancelableCloseEvent extends CloseEvent {
+  [kCancelable]: boolean;
+  [kDefaultPrevented]: boolean
+
+  constructor(type: string, init: CloseEventInit = {}) {
+    super(type, init)
+    this[kCancelable] = !!init.cancelable
+    this[kDefaultPrevented] = false
+  }
+
+  get cancelable() {
+    return this[kCancelable]
+  }
+
+  set cancelable(nextCancelable) {
+    this[kCancelable] = nextCancelable
+  }
+
+  get defaultPrevented() {
+    return this[kDefaultPrevented]
+  }
+
+  set defaultPrevented(nextDefaultPrevented) {
+    this[kDefaultPrevented] = nextDefaultPrevented
+  }
+
+  public preventDefault(): void {
+    if (this.cancelable && !this[kDefaultPrevented]) {
+      this[kDefaultPrevented] = true
+    }
+  }
+}

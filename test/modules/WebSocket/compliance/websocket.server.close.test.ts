@@ -170,7 +170,7 @@ it('forwards "close" events from the original server', async () => {
     })
   })
 
-  interceptor.once('connection', ({ client, server }) => {
+  interceptor.once('connection', ({ server }) => {
     server.connect()
     server.addEventListener('close', (event) => {
       interceptorServerCloseListener(event.code, event.reason)
