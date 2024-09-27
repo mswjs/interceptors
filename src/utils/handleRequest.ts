@@ -3,7 +3,11 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
 import type { HttpRequestEventMap } from '../glossary'
 import { emitAsync } from './emitAsync'
-import { kResponsePromise, RequestController } from '../RequestController'
+import {
+  kResponsePromise,
+  RequestAbortError,
+  RequestController,
+} from '../RequestController'
 import {
   createServerErrorResponse,
   isResponseError,
@@ -20,7 +24,9 @@ interface HandleRequestOptions {
 
   /**
    * Called when the request has been handled
-   * with the given `Response` instance.
+   * with the given `Response` instance. This covers
+   * both returning a mocked response from the interceptor
+   * as well as throwing it.
    */
   onResponse: (response: Response) => void | Promise<void>
 
@@ -35,6 +41,11 @@ interface HandleRequestOptions {
    * request handling. This is never a thrown error/response.
    */
   onError: (error: unknown) => void
+
+  /**
+   * Called when the request has been aborted.
+   */
+  onAbort: (reason: RequestAbortError) => void
 }
 
 /**
@@ -43,37 +54,47 @@ interface HandleRequestOptions {
 export async function handleRequest(
   options: HandleRequestOptions
 ): Promise<boolean> {
-  const handleResponse = async (response: Response | Error) => {
-    if (response instanceof Error) {
-      options.onError(response)
+  const handleResponse = async (responseOrError: Response | Error) => {
+    // Handle `controller.abort()`.
+    if (responseOrError instanceof RequestAbortError) {
+      // Provide the entire error reference so that individual request clients
+      // can decide whether to expose it as-is or extract `reason`.
+      options.onAbort(responseOrError)
+      return true
     }
 
-    // Handle "Response.error()" instances.
-    else if (isResponseError(response)) {
-      options.onRequestError(response)
+    if (responseOrError instanceof Error) {
+      options.onError(responseOrError)
+    }
+
+    // Handle `controller.respondWith(Response.error())`.
+    else if (isResponseError(responseOrError)) {
+      options.onRequestError(responseOrError)
     } else {
-      await options.onResponse(response)
+      // Handle `controller.respondWith(new Response())`.
+      await options.onResponse(responseOrError)
     }
 
     return true
   }
 
-  const handleResponseError = async (error: unknown): Promise<boolean> => {
-    // Forward the special interceptor error instances
-    // to the developer. These must not be handled in any way.
-    if (error instanceof InterceptorError) {
+  const handleResponseError = async (
+    errorOrResponse: unknown
+  ): Promise<boolean> => {
+    // Ignore the special, developer-facing errors.
+    if (errorOrResponse instanceof InterceptorError) {
       throw result.error
     }
 
-    // Support mocking Node.js-like errors.
-    if (isNodeLikeError(error)) {
-      options.onError(error)
+    // Handle Node.js-like errors (e.g. ECONNREFUSED).
+    if (isNodeLikeError(errorOrResponse)) {
+      options.onError(errorOrResponse)
       return true
     }
 
-    // Handle thrown responses.
-    if (error instanceof Response) {
-      return await handleResponse(error)
+    // Handle `throw new Response()`.
+    if (errorOrResponse instanceof Response) {
+      return await handleResponse(errorOrResponse)
     }
 
     return false
@@ -98,9 +119,12 @@ export async function handleRequest(
    * @note `signal` is not always defined in React Native.
    */
   if (options.request.signal) {
+    // Handle user-issued request aborts by short-circuiting the request handling.
+    // No need to call the `onAbort` callback because the user is handling the abort.
     options.request.signal.addEventListener(
       'abort',
       () => {
+        console.log('handleRequest: REQ ABORTED!')
         requestAbortPromise.reject(options.request.signal.reason)
       },
       { once: true }

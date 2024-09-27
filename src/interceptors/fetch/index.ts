@@ -49,7 +49,22 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           ? new URL(input, location.origin)
           : input
 
-      const request = new Request(resolvedInput, init)
+      // Wrap whichever `abort` signal with a custom `AbortController`
+      // to be able to abort this request from the interceptor.
+      const abortController = new AbortController()
+
+      if (init?.signal) {
+        // Forward the custom `AbortSignal` abort events to the custom
+        // abort controller so it respects user-issued aborts.
+        init.signal.addEventListener('abort', (event) => {
+          abortController.abort(request.signal.reason)
+        })
+      }
+
+      const request = new Request(resolvedInput, {
+        ...(init || {}),
+        signal: abortController.signal,
+      })
       const responsePromise = new DeferredPromise<Response>()
       const controller = new RequestController(request)
 
@@ -132,6 +147,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         onError: (error) => {
           this.logger.info('request has been aborted!', { error })
           responsePromise.reject(error)
+        },
+        onAbort: (error) => {
+          this.logger.info('request has been aborted!', { error })
+          abortController.abort(error.reason)
         },
       })
 

@@ -145,6 +145,9 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           socket.errorWith(error)
         }
       },
+      onAbort: (reason) => {
+        socket.destroy(reason)
+      },
     })
 
     if (!isRequestHandled) {

@@ -78,4 +78,21 @@ export class RequestController {
      */
     this[kResponsePromise].resolve(error)
   }
+
+  /**
+   * Abort this requesst with an optional reason.
+   * @example
+   * controller.abort()
+   * controller.abort(new Error('Abort reason'))
+   */
+  public abort(reason?: any): void {
+    this[kResponsePromise].resolve(new RequestAbortError(reason))
+  }
+}
+
+export class RequestAbortError extends Error {
+  constructor(public readonly reason?: string) {
+    super(reason)
+    this.name = 'RequestAbortError'
+  }
 }

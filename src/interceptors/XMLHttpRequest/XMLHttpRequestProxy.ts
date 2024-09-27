@@ -79,6 +79,12 @@ export function createXMLHttpRequestProxy({
               this.errorWith(error)
             }
           },
+          onAbort: () => {
+            /**
+             * @note `XMLHttpRequest.prototype.abort` doesn't accept an abort reason.
+             */
+            originalRequest.abort()
+          },
         })
 
         if (!isRequestHandled) {
