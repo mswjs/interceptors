@@ -3,6 +3,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket/index'
 import { getWsUrl } from '../utils/getWsUrl'
+import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -154,4 +155,35 @@ it('emits both "error" and "close" events when the server connection errors', as
 
   // Must emit the correct events on the WebSocket client.
   expect(instanceErrorListener).toHaveBeenCalledTimes(1)
+})
+
+it('prevents "close" event forwarding by calling "event.preventDefault()"', async () => {
+  wsServer.once('connection', (ws) => {
+    ws.close(1003, 'Server reason')
+  })
+
+  interceptor.once('connection', ({ server, client }) => {
+    server.connect()
+    server.addEventListener('close', (event) => {
+      expect(event.defaultPrevented).toBe(false)
+      event.preventDefault()
+      expect(event.defaultPrevented).toBe(true)
+    })
+  })
+
+  const client = new WebSocket(getWsUrl(wsServer))
+  const closeListener = vi.fn()
+  const errorListener = vi.fn()
+  client.addEventListener('close', closeListener)
+  client.addEventListener('error', errorListener)
+
+  await waitForWebSocketEvent('open', client)
+
+  const closePromise = vi.waitFor(() => {
+    expect(closeListener).toHaveBeenCalledTimes(1)
+    return closeListener.mock.calls.length
+  })
+
+  await expect(closePromise).rejects.toThrow()
+  expect(errorListener).not.toHaveBeenCalled()
 })
