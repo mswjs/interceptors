@@ -1,6 +1,4 @@
-/**
- * @vitest-environment node-with-websocket
- */
+// @vitest-environment node-with-websocket
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { WebSocketServer } from 'ws'
 import { DeferredPromise } from '@open-draft/deferred-promise'
@@ -80,11 +78,11 @@ it('forwards outgoing client data to the original server', async () => {
 
 it('closes the actual server connection when the client closes', async () => {
   const clientClosePromise = new DeferredPromise<CloseEvent>()
-  let realWebSocket: WebSocket | undefined
+  const serverSocketPromise = new DeferredPromise<WebSocket>()
 
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
-    realWebSocket = server['realWebSocket']
+    serverSocketPromise.resolve(server.socket)
 
     client.addEventListener('message', (event) => {
       if (event.data === 'close') {
@@ -101,8 +99,10 @@ it('closes the actual server connection when the client closes', async () => {
   ws.addEventListener('close', (event) => clientClosePromise.resolve(event))
 
   await clientClosePromise
+  const serverSocket = await serverSocketPromise
+
   expect(ws.readyState).toBe(WebSocket.CLOSED)
-  expect(realWebSocket?.readyState).toBe(WebSocket.CLOSING)
+  expect(serverSocket.readyState).toBe(WebSocket.CLOSING)
 })
 
 it('throw an error when connecting to a non-existing server', async () => {
