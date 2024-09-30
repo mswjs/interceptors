@@ -1,6 +1,4 @@
-/**
- * @vitest-environment node-with-websocket
- */
+// @vitest-environment node-with-websocket
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { WebSocketServer, Data } from 'ws'
@@ -59,13 +57,10 @@ it('closes the actual server connection when called "server.close()"', async () 
 
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
-    serverCallback(server.readyState)
+    serverCallback(server.socket.readyState)
 
-    /**
-     * @fixme Tapping into internals isn't nice.
-     */
-    server['realWebSocket']?.addEventListener('close', () => {
-      serverCallback(server.readyState)
+    server.socket.addEventListener('close', () => {
+      serverCallback(server.socket.readyState)
     })
 
     client.addEventListener('message', (event) => {

@@ -38,7 +38,7 @@ export class WebSocketServerConnection {
   private [kEmitter]: EventTarget
 
   constructor(
-    private readonly socket: WebSocketOverride,
+    private readonly client: WebSocketOverride,
     private readonly transport: WebSocketClassTransport,
     private readonly createConnection: () => WebSocket
   ) {
@@ -53,7 +53,7 @@ export class WebSocketServerConnection {
     this.transport.addEventListener('outgoing', (event) => {
       // Ignore client messages if the server connection
       // hasn't been established yet. Nowhere to forward.
-      if (this.readyState === -1) {
+      if (typeof this.realWebSocket === 'undefined') {
         return
       }
 
@@ -75,17 +75,16 @@ export class WebSocketServerConnection {
   }
 
   /**
-   * Server ready state.
-   * Proxies the ready state of the original WebSocket instance,
-   * if set. If the original connection hasn't been established,
-   * defaults to `-1`.
+   * The `WebSocket` instance connected to the original server.
+   * Accessing this before calling `server.connect()` will throw.
    */
-  public get readyState(): number {
-    if (this.realWebSocket) {
-      return this.realWebSocket.readyState
-    }
+  public get socket(): WebSocket {
+    invariant(
+      this.realWebSocket,
+      'Cannot access "socket" on the original WebSocket server object: the connection is not open. Did you forget to call `server.connect()`?'
+    )
 
-    return -1
+    return this.realWebSocket
   }
 
   /**
@@ -100,7 +99,7 @@ export class WebSocketServerConnection {
     const realWebSocket = this.createConnection()
 
     // Inherit the binary type from the mock WebSocket client.
-    realWebSocket.binaryType = this.socket.binaryType
+    realWebSocket.binaryType = this.client.binaryType
 
     // Allow the interceptor to listen to when the server connection
     // has been established. This isn't necessary to operate with the connection
@@ -133,7 +132,7 @@ export class WebSocketServerConnection {
 
     // Close the original connection when the mock client closes.
     // E.g. "client.close()" was called. This is never forwarded anywhere.
-    this.socket.addEventListener('close', this.handleMockClose.bind(this), {
+    this.client.addEventListener('close', this.handleMockClose.bind(this), {
       signal: this.mockCloseController.signal,
     })
 
@@ -150,7 +149,7 @@ export class WebSocketServerConnection {
 
       // Forward original server errors to the WebSocket client.
       // This ensures the client is closed if the original server errors.
-      this.socket.dispatchEvent(bindEvent(this.socket, new Event('error')))
+      this.client.dispatchEvent(bindEvent(this.client, new Event('error')))
     })
 
     this.realWebSocket = realWebSocket
@@ -164,7 +163,7 @@ export class WebSocketServerConnection {
     listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
     options?: AddEventListenerOptions | boolean
   ): void {
-    const boundListener = listener.bind(this.socket)
+    const boundListener = listener.bind(this.client)
 
     // Store the bound listener on the original listener
     // so the exact bound function can be accessed in "removeEventListener()".
@@ -208,7 +207,7 @@ export class WebSocketServerConnection {
     invariant(
       realWebSocket,
       'Failed to call "server.send()" for "%s": the connection is not open. Did you forget to call "server.connect()"?',
-      this.socket.url
+      this.client.url
     )
 
     // Silently ignore writes on the closed original WebSocket.
@@ -246,7 +245,7 @@ export class WebSocketServerConnection {
     invariant(
       realWebSocket,
       'Failed to close server connection for "%s": the connection is not open. Did you forget to call "server.connect()"?',
-      this.socket.url
+      this.client.url
     )
 
     // Remove the "close" event listener from the server
@@ -310,14 +309,14 @@ export class WebSocketServerConnection {
      * Preventing the default on the message event stops this.
      */
     if (!messageEvent.defaultPrevented) {
-      this.socket.dispatchEvent(
+      this.client.dispatchEvent(
         bindEvent(
           /**
            * @note Bind the forwarded original server events
            * to the mock WebSocket instance so it would
            * dispatch them straight away.
            */
-          this.socket,
+          this.client,
           // Clone the message event again to prevent
           // the "already being dispatched" exception.
           new MessageEvent('message', {
@@ -361,7 +360,7 @@ export class WebSocketServerConnection {
       // allow non-configurable status codes from the server.
       // If the socket has been closed by now, no harm calling
       // this again—it will have no effect.
-      this.socket[kClose](event.code, event.reason)
+      this.client[kClose](event.code, event.reason)
     }
   }
 }
