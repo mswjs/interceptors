@@ -53,7 +53,7 @@ export class WebSocketServerConnection {
     this.transport.addEventListener('outgoing', (event) => {
       // Ignore client messages if the server connection
       // hasn't been established yet. Nowhere to forward.
-      if (this.readyState === -1) {
+      if (typeof this.realWebSocket === 'undefined') {
         return
       }
 
@@ -72,20 +72,6 @@ export class WebSocketServerConnection {
       'incoming',
       this.handleIncomingMessage.bind(this)
     )
-  }
-
-  /**
-   * Server ready state.
-   * Proxies the ready state of the original WebSocket instance,
-   * if set. If the original connection hasn't been established,
-   * defaults to `-1`.
-   */
-  public get readyState(): number {
-    if (this.realWebSocket) {
-      return this.realWebSocket.readyState
-    }
-
-    return -1
   }
 
   /**

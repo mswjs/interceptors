@@ -59,13 +59,13 @@ it('closes the actual server connection when called "server.close()"', async () 
 
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
-    serverCallback(server.readyState)
+    serverCallback(server.socket.readyState)
 
     /**
      * @fixme Tapping into internals isn't nice.
      */
     server['realWebSocket']?.addEventListener('close', () => {
-      serverCallback(server.readyState)
+      serverCallback(server.socket.readyState)
     })
 
     client.addEventListener('message', (event) => {
