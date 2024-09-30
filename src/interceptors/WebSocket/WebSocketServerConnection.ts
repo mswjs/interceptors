@@ -89,6 +89,19 @@ export class WebSocketServerConnection {
   }
 
   /**
+   * The `WebSocket` instance connected to the original server.
+   * Accessing this before calling `server.connect()` will throw.
+   */
+  public get socket(): WebSocket {
+    invariant(
+      this.realWebSocket,
+      'Cannot access "socket" on the original WebSocket server object: the connection is not open. Did you forget to call `server.connect()`?'
+    )
+
+    return this.realWebSocket
+  }
+
+  /**
    * Open connection to the original WebSocket server.
    */
   public connect(): void {
