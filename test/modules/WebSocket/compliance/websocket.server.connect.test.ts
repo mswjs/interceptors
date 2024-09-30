@@ -1,6 +1,4 @@
-/**
- * @vitest-environment node-with-websocket
- */
+// @vitest-environment node-with-websocket
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { Data, WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
@@ -40,7 +38,7 @@ it('forwards client messages to the server by default', async () => {
     })
   })
 
-  interceptor.once('connection', ({ client, server }) => {
+  interceptor.once('connection', ({ server }) => {
     server.connect()
   })
 
