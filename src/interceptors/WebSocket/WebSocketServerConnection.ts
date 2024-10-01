@@ -15,6 +15,7 @@ import {
 
 const kEmitter = Symbol('kEmitter')
 const kBoundListener = Symbol('kBoundListener')
+const kSend = Symbol('kSend')
 
 interface WebSocketServerEventMap {
   open: Event
@@ -63,7 +64,12 @@ export class WebSocketServerConnection {
       // so execute the logic on the next tick.
       queueMicrotask(() => {
         if (!event.defaultPrevented) {
-          this.send(event.data)
+          /**
+           * @note Use the internal send mechanism so consumers can tell
+           * apart direct user calls to `server.send()` and internal calls.
+           * E.g. MSW has to ignore this internal call to log out messages correctly.
+           */
+          this[kSend](event.data)
         }
       })
     })
@@ -203,6 +209,10 @@ export class WebSocketServerConnection {
    * server.send(new TextEncoder().encode('hello'))
    */
   public send(data: WebSocketData): void {
+    this[kSend](data)
+  }
+
+  private [kSend](data: WebSocketData): void {
     const { realWebSocket } = this
 
     invariant(
