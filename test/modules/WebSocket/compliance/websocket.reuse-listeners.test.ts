@@ -34,7 +34,14 @@ it('allows reusing the same function for multiple client listeners', async () =>
     client.addEventListener('message', clientMessageListener)
     client.addEventListener('message', clientMessageListener)
 
-    queueMicrotask(() => client.close())
+    /**
+     * @note Use `process.nextTick()` because `queueMicrotask()` has a
+     * higher priority. We need the connection to open, handle messages,
+     * and then close.
+     */
+    process.nextTick(() => {
+      client.close()
+    })
   })
 
   const socket = new WebSocket('wss://example.com')

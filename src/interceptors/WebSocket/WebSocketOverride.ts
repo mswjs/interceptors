@@ -58,8 +58,6 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
         return
       }
 
-      this.readyState = this.OPEN
-
       this.protocol =
         typeof protocols === 'string'
           ? protocols
@@ -67,7 +65,15 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
           ? protocols[0]
           : ''
 
-      this.dispatchEvent(bindEvent(this, new Event('open')))
+      /**
+       * @note Check that nothing has prevented this connection
+       * (e.g. called `client.close()` in the connection listener).
+       * If the connection has been prevented, never dispatch the open event,.
+       */
+      if (this.readyState === this.CONNECTING) {
+        this.readyState = this.OPEN
+        this.dispatchEvent(bindEvent(this, new Event('open')))
+      }
     })
   }
 
