@@ -169,18 +169,20 @@ export class WebSocketServerConnection {
     listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
     options?: AddEventListenerOptions | boolean
   ): void {
-    const boundListener = listener.bind(this.client)
+    if (!Reflect.has(listener, kBoundListener)) {
+      const boundListener = listener.bind(this.client)
 
-    // Store the bound listener on the original listener
-    // so the exact bound function can be accessed in "removeEventListener()".
-    Object.defineProperty(listener, kBoundListener, {
-      value: boundListener,
-      enumerable: false,
-    })
+      // Store the bound listener on the original listener
+      // so the exact bound function can be accessed in "removeEventListener()".
+      Object.defineProperty(listener, kBoundListener, {
+        value: boundListener,
+        enumerable: false,
+      })
+    }
 
     this[kEmitter].addEventListener(
       event,
-      boundListener as EventListener,
+      Reflect.get(listener, kBoundListener) as EventListener,
       options
     )
   }
