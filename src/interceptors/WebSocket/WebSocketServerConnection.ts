@@ -138,24 +138,43 @@ export class WebSocketServerConnection {
 
     // Close the original connection when the mock client closes.
     // E.g. "client.close()" was called. This is never forwarded anywhere.
-    this.client.addEventListener('close', this.handleMockClose.bind(this), {
-      signal: this.mockCloseController.signal,
-    })
+    this.client.addEventListener(
+      'close',
+      (event) => {
+        this.handleMockClose(event)
+      },
+      {
+        signal: this.mockCloseController.signal,
+      }
+    )
 
     // Forward the "close" event to let the interceptor handle
     // closures initiated by the original server.
-    realWebSocket.addEventListener('close', this.handleRealClose.bind(this), {
-      signal: this.realCloseController.signal,
-    })
+    realWebSocket.addEventListener(
+      'close',
+      (event) => {
+        this.handleRealClose(event)
+      },
+      {
+        signal: this.realCloseController.signal,
+      }
+    )
 
     realWebSocket.addEventListener('error', () => {
+      const errorEvent = bindEvent(
+        realWebSocket,
+        new Event('error', { cancelable: true })
+      )
+
       // Emit the "error" event on the `server` connection
       // to let the interceptor react to original server errors.
-      this[kEmitter].dispatchEvent(bindEvent(realWebSocket, new Event('error')))
+      this[kEmitter].dispatchEvent(errorEvent)
 
-      // Forward original server errors to the WebSocket client.
-      // This ensures the client is closed if the original server errors.
-      this.client.dispatchEvent(bindEvent(this.client, new Event('error')))
+      // If the error event from the original server hasn't been prevented,
+      // forward it to the underlying client.
+      if (!errorEvent.defaultPrevented) {
+        this.client.dispatchEvent(bindEvent(this.client, new Event('error')))
+      }
     })
 
     this.realWebSocket = realWebSocket
@@ -273,6 +292,7 @@ export class WebSocketServerConnection {
       return
     }
 
+    // Close the actual client connection.
     realWebSocket.close()
 
     // Dispatch the "close" event on the `server` connection.

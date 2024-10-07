@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket/index'
 import { getWsUrl } from '../utils/getWsUrl'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
+import { waitForNextTick } from '../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -46,25 +47,32 @@ it('emits "open" event when the server connection is open', async () => {
     server.addEventListener('open', serverOpenListener)
   })
 
-  new WebSocket(getWsUrl(wsServer))
+  const client = new WebSocket(getWsUrl(wsServer))
+  expect(client.readyState).toBe(WebSocket.CONNECTING)
 
   await vi.waitFor(() => {
     expect(serverOpenListener).toHaveBeenCalledTimes(1)
   })
+
+  expect(client.readyState).toBe(WebSocket.OPEN)
 })
 
 it('emits "open" event if the listener was added before calling "connect()"', async () => {
   const serverOpenListener = vi.fn()
   interceptor.once('connection', ({ server }) => {
-    server.connect()
     server.addEventListener('open', serverOpenListener)
+
+    server.connect()
   })
 
-  new WebSocket(getWsUrl(wsServer))
+  const client = new WebSocket(getWsUrl(wsServer))
+  expect(client.readyState).toBe(WebSocket.CONNECTING)
 
   await vi.waitFor(() => {
     expect(serverOpenListener).toHaveBeenCalledTimes(1)
   })
+
+  expect(client.readyState).toBe(WebSocket.OPEN)
 })
 
 it('emits "close" event when the server connection is closed', async () => {
@@ -81,12 +89,14 @@ it('emits "close" event when the server connection is closed', async () => {
     server.addEventListener('close', serverCloseListener)
   })
 
-  new WebSocket(getWsUrl(wsServer))
+  const client = new WebSocket(getWsUrl(wsServer))
+  expect(client.readyState).toBe(WebSocket.CONNECTING)
 
   await vi.waitFor(() => {
     expect(serverCloseListener).toHaveBeenCalledTimes(1)
   })
 
+  expect(client.readyState).toBe(WebSocket.CLOSED)
   expect(serverErrorListener).not.toHaveBeenCalled()
 })
 
@@ -106,11 +116,19 @@ it('emits "close" event when the server connection is closed by the interceptor'
     server.addEventListener('open', () => server.close())
   })
 
-  new WebSocket(getWsUrl(wsServer))
+  const client = new WebSocket(getWsUrl(wsServer))
+  expect(client.readyState).toBe(WebSocket.CONNECTING)
 
   await vi.waitFor(() => {
     expect(serverCloseListener).toHaveBeenCalledTimes(1)
   })
+
+  /**
+   * @note Unlike receiving the "close" event from the original server,
+   * closing the real server connection via `server.close()` has NO effect
+   * on the client. It will remain open.
+   */
+  expect(client.readyState).toBe(WebSocket.OPEN)
 
   const [closeEvent] = serverCloseListener.mock.calls[0]
   expect(closeEvent).toHaveProperty('code', 1000)
@@ -119,7 +137,12 @@ it('emits "close" event when the server connection is closed by the interceptor'
   expect(serverErrorListener).not.toHaveBeenCalled()
 })
 
-it('emits both "error" and "close" events when the server connection errors', async () => {
+/**
+ * There's a bug in Undici that doesn't dispatch the "close" event upon "error" event.
+ * Unskip this test once that bug is resolved.
+ * @see https://github.com/nodejs/undici/issues/3697
+ */
+it.skip('emits both "error" and "close" events when the server connection errors', async () => {
   const clientCloseListener = vi.fn()
   const serverErrorListener = vi.fn()
   const serverCloseListener = vi.fn()
@@ -136,7 +159,8 @@ it('emits both "error" and "close" events when the server connection errors', as
    * @note `server.connect()` will attempt to establish connection
    * to a valid, non-existing URL. That will trigger an error.
    */
-  const client = new WebSocket('https://example.com/non-existing-url')
+  const client = new WebSocket('wss://example.com/non-existing-url')
+  expect(client.readyState).toBe(WebSocket.CONNECTING)
 
   const instanceErrorListener = vi.fn()
   const instanceCloseListener = vi.fn()
@@ -144,17 +168,44 @@ it('emits both "error" and "close" events when the server connection errors', as
   client.addEventListener('close', instanceCloseListener)
 
   await vi.waitFor(() => {
-    expect(serverErrorListener).toHaveBeenCalledTimes(1)
+    expect(serverCloseListener).toHaveBeenCalledTimes(1)
   })
 
-  // Must not emit the "close" event because the connection
-  // was never established (it errored).
-  expect(serverCloseListener).not.toHaveBeenCalled()
-  expect(clientCloseListener).not.toHaveBeenCalled()
-  expect(instanceCloseListener).not.toHaveBeenCalled()
+  expect(client.readyState).toBe(WebSocket.CLOSING)
 
-  // Must emit the correct events on the WebSocket client.
-  expect(instanceErrorListener).toHaveBeenCalledTimes(1)
+  await waitForNextTick()
+  expect(client.readyState).toBe(WebSocket.CLOSED)
+
+  // Must emit the "error" event.
+  expect(instanceErrorListener).toHaveBeenCalledOnce()
+
+  // Must emit the "close" event because:
+  // - The connection closed due to an error (non-existing host).
+  // - The "close" event wasn't prevented.
+  expect(serverCloseListener).toHaveBeenCalledOnce()
+  expect(clientCloseListener).toHaveBeenCalledOnce()
+  expect(instanceCloseListener).toHaveBeenCalledOnce()
+})
+
+it('prevents "error" event forwarding by calling "event.preventDefault()', async () => {
+  interceptor.once('connection', ({ server, client }) => {
+    server.connect()
+    server.addEventListener('error', (event) => {
+      expect(event.defaultPrevented).toBe(false)
+      event.preventDefault()
+      expect(event.defaultPrevented).toBe(true)
+
+      process.nextTick(() => client.close())
+    })
+  })
+
+  const client = new WebSocket('wss://non-existing-host.com/intentional')
+  const instanceErrorListener = vi.fn()
+  client.addEventListener('error', instanceErrorListener)
+
+  await waitForWebSocketEvent('close', client)
+
+  expect(instanceErrorListener).not.toHaveBeenCalled()
 })
 
 it('prevents "close" event forwarding by calling "event.preventDefault()"', async () => {
