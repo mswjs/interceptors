@@ -144,7 +144,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         'no mocked response received, performing request as-is...'
       )
 
-      return pureFetch(request).then((response) => {
+      return pureFetch(request).then(async (response) => {
         this.logger.info('original fetch performed', response)
 
         if (this.emitter.listenerCount('response') > 0) {
@@ -152,7 +152,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const responseClone = response.clone()
 
-          this.emitter.emit('response', {
+          await emitAsync(this.emitter, 'response', {
             response: responseClone,
             isMockedResponse: false,
             request,

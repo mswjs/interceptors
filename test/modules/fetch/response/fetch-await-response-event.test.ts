@@ -1,8 +1,7 @@
 import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
-import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { sleep, waitForClientRequest } from '../../../helpers'
+import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+import { sleep } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
@@ -10,7 +9,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new FetchInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -38,10 +37,9 @@ it('awaits asynchronous response event listener for a mocked response', async ()
     responseDone(text)
   })
 
-  const request = http.get('http://localhost/')
-  const { text } = await waitForClientRequest(request)
+  const response = await fetch('http://localhost/')
 
-  expect(await text()).toBe('hello world')
+  expect(await response.text()).toBe('hello world')
   expect(responseDone).toHaveBeenCalledWith('hello world')
 })
 
@@ -53,9 +51,9 @@ it('awaits asynchronous response event listener for the original response', asyn
     responseDone(text)
   })
 
-  const request = http.get(httpServer.http.url('/resource'))
-  const { text } = await waitForClientRequest(request)
+  
+  const response = await fetch(httpServer.http.url('/resource'))
 
-  expect(await text()).toBe('original response')
+  expect(await response.text()).toBe('original response')
   expect(responseDone).toHaveBeenCalledWith('original response')
 })
