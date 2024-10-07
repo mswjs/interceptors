@@ -1,8 +1,7 @@
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
-import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
@@ -10,7 +9,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new FetchInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -26,7 +25,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('awaits asynchronous response event listener for a mocked response', async () => {
+it('awaits response listener promise before resolving the mocked response promise', async () => {
   const markStep = vi.fn<[number]>()
 
   interceptor.on('request', ({ controller }) => {
@@ -40,11 +39,8 @@ it('awaits asynchronous response event listener for a mocked response', async ()
   })
 
   markStep(1)
-  const request = http.get('http://localhost/')
-  const { text } = await waitForClientRequest(request)
+  await fetch('http://localhost/')
   markStep(4)
-
-  expect(await text()).toBe('hello world')
 
   expect(markStep).toHaveBeenNthCalledWith(1, 1)
   expect(markStep).toHaveBeenNthCalledWith(2, 2)
@@ -52,7 +48,7 @@ it('awaits asynchronous response event listener for a mocked response', async ()
   expect(markStep).toHaveBeenNthCalledWith(4, 4)
 })
 
-it('awaits asynchronous response event listener for the original response', async () => {
+it('awaits response listener promise before resolving the original response promise', async () => {
   const markStep = vi.fn<[number]>()
 
   interceptor.on('response', async ({ response }) => {
@@ -62,11 +58,8 @@ it('awaits asynchronous response event listener for the original response', asyn
   })
 
   markStep(1)
-  const request = http.get(httpServer.http.url('/resource'))
-  const { text } = await waitForClientRequest(request)
+  await fetch(httpServer.http.url('/resource'))
   markStep(4)
-
-  expect(await text()).toBe('original response')
 
   expect(markStep).toHaveBeenNthCalledWith(1, 1)
   expect(markStep).toHaveBeenNthCalledWith(2, 2)
