@@ -63,6 +63,7 @@ export class MockHttpSocket extends MockSocket {
   private responseType: 'mock' | 'bypassed' = 'bypassed'
   private responseParser: HTTPParser<1>
   private responseStream?: Readable
+  private isPassthrough: boolean
 
   constructor(options: MockHttpSocketOptions) {
     super({
@@ -83,6 +84,8 @@ export class MockHttpSocket extends MockSocket {
         }
       },
     })
+
+    this.isPassthrough = false
 
     this.connectionOptions = options.connectionOptions
     this.createConnection = options.createConnection
@@ -156,6 +159,7 @@ export class MockHttpSocket extends MockSocket {
     if (this.destroyed) {
       return
     }
+    this.isPassthrough = true
 
     const socket = this.createConnection()
 
@@ -172,7 +176,6 @@ export class MockHttpSocket extends MockSocket {
     // gets reused for different requests.
     let writeArgs: NormalizedSocketWriteArgs | undefined
     let headersWritten = false
-
     while ((writeArgs = this.writeBuffer.shift())) {
       if (writeArgs !== undefined) {
         if (!headersWritten) {
@@ -441,6 +444,8 @@ export class MockHttpSocket extends MockSocket {
   ) => {
     this.shouldKeepAlive = shouldKeepAlive
 
+    this.isPassthrough = false
+
     const url = new URL(path, this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
     const headers = parseRawHeaders(rawHeaders)
@@ -472,7 +477,9 @@ export class MockHttpSocket extends MockSocket {
           // flush the write buffer to trigger the callbacks.
           // This way, if the request stream ends in the write callback,
           // it will indeed end correctly.
-          this.flushWriteBuffer()
+          if (!this.isPassthrough) {
+            this.flushWriteBuffer()
+          }
         },
       })
     }
