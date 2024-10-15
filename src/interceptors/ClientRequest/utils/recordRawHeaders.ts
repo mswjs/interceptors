@@ -245,7 +245,7 @@ export function recordRawFetchHeaders() {
           args[1].headers instanceof Headers &&
           Reflect.has(args[1].headers, kRawHeaders)
         ) {
-          args[1].headers = args[1].headers[kRawHeaders]
+          args[1].headers = new Headers(args[1].headers[kRawHeaders])
         }
 
         const response = Reflect.construct(target, args, newTarget)

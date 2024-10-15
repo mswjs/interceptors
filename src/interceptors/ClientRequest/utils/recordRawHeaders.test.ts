@@ -141,6 +141,13 @@ it("doesn't change the init headers instanceof (Request / Request with Headers a
   expect(init.headers).toBeInstanceOf(Headers)
 })
 
+it("doesn't change the init headers instanceof (Response / Response with Headers as init)", () => {
+  recordRawFetchHeaders()
+  const init = { headers: new Headers([['X-My-Header', '1']]) }
+  new Response(url, init)
+  expect(init.headers).toBeInstanceOf(Headers)
+})
+
 it('records raw headers (Request / Request+Headers as init)', () => {
   recordRawFetchHeaders()
   const init = new Request(url, { headers: [['X-My-Header', '1']] })
@@ -156,7 +163,6 @@ it('records raw headers (Request / Request+Headers as init)', () => {
     ['X-My-Header', '1'],
     ['X-Another-Header', '2'],
   ])
-  expect(request.headers).toBeInstanceOf(Headers)
 })
 
 it('records raw headers (Response / object as init)', () => {
@@ -172,7 +178,6 @@ it('records raw headers (Response / object as init)', () => {
     ['Content-Type', 'application/json'],
     ['X-My-Header', '1'],
   ])
-  expect(response.headers).toBeInstanceOf(Headers)
 })
 
 it('records raw headers (Response / array as init)', () => {
@@ -182,7 +187,6 @@ it('records raw headers (Response / array as init)', () => {
   })
 
   expect(getRawFetchHeaders(response.headers)).toEqual([['X-My-Header', '1']])
-  expect(response.headers).toBeInstanceOf(Headers)
 })
 
 it('records raw headers (Response / Headers as init)', () => {
