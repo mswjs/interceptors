@@ -186,7 +186,7 @@ export function recordRawFetchHeaders() {
           Object.defineProperty(args[0], 'headers', {
             enumerable: false,
             configurable: true,
-            value: Reflect.get(args[0].headers, kRawHeaders),
+            value: new Headers(Reflect.get(args[0].headers, kRawHeaders)),
           })
         }
 
@@ -207,7 +207,7 @@ export function recordRawFetchHeaders() {
           Object.defineProperty(args[1], 'headers', {
             enumerable: false,
             configurable: true,
-            value: Reflect.get(args[1].headers, kRawHeaders),
+            value: new Headers(Reflect.get(args[1].headers, kRawHeaders)),
           })
         }
 
@@ -225,7 +225,7 @@ export function recordRawFetchHeaders() {
           inferredRawHeaders.push(...inferRawHeaders(args[1].headers))
         }
 
-        if (inferRawHeaders.length > 0) {
+        if (inferredRawHeaders.length > 0) {
           defineRawHeadersSymbol(request.headers, inferredRawHeaders)
         }
 
