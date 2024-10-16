@@ -10,6 +10,7 @@ import { createRequestId } from '../../createRequestId'
 import { RESPONSE_STATUS_CODES_WITH_REDIRECT } from '../../utils/responseUtils'
 import { createNetworkError } from './utils/createNetworkError'
 import { followFetchRedirect } from './utils/followRedirect'
+import { decompressResponse } from './utils/compression'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -66,10 +67,17 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         requestId,
         emitter: this.emitter,
         controller,
-        onResponse: async (response) => {
+        onResponse: async (rawResponse) => {
           this.logger.info('received mocked response!', {
-            response,
+            rawResponse,
           })
+
+          // Decompress the mocked response body, if applicable.
+          const decompressedStream = decompressResponse(rawResponse)
+          const response =
+            decompressedStream === null
+              ? rawResponse
+              : new Response(decompressedStream, rawResponse)
 
           /**
            * Undici's handling of following redirect responses.
@@ -98,6 +106,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             }
           }
 
+          // Set the "response.url" property to equal the intercepted request URL.
+          Object.defineProperty(response, 'url', {
+            writable: false,
+            enumerable: true,
+            configurable: false,
+            value: request.url,
+          })
+
           if (this.emitter.listenerCount('response') > 0) {
             this.logger.info('emitting the "response" event...')
 
@@ -114,14 +130,6 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               requestId,
             })
           }
-
-          // Set the "response.url" property to equal the intercepted request URL.
-          Object.defineProperty(response, 'url', {
-            writable: false,
-            enumerable: true,
-            configurable: false,
-            value: request.url,
-          })
 
           responsePromise.resolve(response)
         },
