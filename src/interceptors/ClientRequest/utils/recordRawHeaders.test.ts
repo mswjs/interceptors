@@ -126,6 +126,28 @@ it('records raw headers (Reqest / Request as init)', () => {
   expect(getRawFetchHeaders(request.headers)).toEqual([['X-My-Header', '1']])
 })
 
+it('preserves headers instanceof (Request / Request as init)', () => {
+  recordRawFetchHeaders()
+  const init = new Request(url, { headers: [['X-My-Header', '1']] })
+  new Request(init)
+  expect(init.headers).toBeInstanceOf(Headers)
+})
+
+it('preserves headers instanceof (Request / Request with Headers as init)', () => {
+  recordRawFetchHeaders()
+  const headers = new Headers([['X-My-Header', '1']])
+  const init = new Request(url, { headers })
+  new Request(init)
+  expect(init.headers).toBeInstanceOf(Headers)
+})
+
+it('preserves headers instanceof (Response / Response with Headers as init)', () => {
+  recordRawFetchHeaders()
+  const init = { headers: new Headers([['X-My-Header', '1']]) }
+  new Response(url, init)
+  expect(init.headers).toBeInstanceOf(Headers)
+})
+
 it('records raw headers (Request / Request+Headers as init)', () => {
   recordRawFetchHeaders()
   const init = new Request(url, { headers: [['X-My-Header', '1']] })
