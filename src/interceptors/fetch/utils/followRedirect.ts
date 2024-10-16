@@ -25,7 +25,8 @@ export async function followFetchRedirect(
 
   let locationUrl: URL
   try {
-    locationUrl = new URL(response.headers.get('location')!)
+    // If the location is a relative URL, use the request URL as the base URL.
+    locationUrl = new URL(response.headers.get('location')!, request.url) 
   } catch (error) {
     return Promise.reject(createNetworkError(error))
   }

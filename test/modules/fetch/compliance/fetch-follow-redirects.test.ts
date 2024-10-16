@@ -48,6 +48,21 @@ it('follows a mocked redirect to the original server', async () => {
   await expect(response.text()).resolves.toBe('redirected')
 })
 
+it('follows a mocked relative redirect to the original server', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.url.endsWith('/original')) {
+      return controller.respondWith(
+        new Response(null, { status: 302, headers: { location: '/redirected' } })
+      )
+    }
+  })
+
+  const response = await fetch(httpServer.http.url('/original'))
+
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('redirected')
+})
+
 it('follows a mocked redirect to a mocked response', async () => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {

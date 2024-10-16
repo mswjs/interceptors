@@ -39,7 +39,11 @@ export class MockAgent extends http.Agent {
 
     const socket = new MockHttpSocket({
       connectionOptions: options,
-      createConnection: createConnection.bind(this, options, callback),
+      createConnection: createConnection.bind(
+        this.customAgent || this,
+        options,
+        callback
+      ),
       onRequest: this.onRequest.bind(this),
       onResponse: this.onResponse.bind(this),
     })
@@ -68,7 +72,11 @@ export class MockHttpsAgent extends https.Agent {
 
     const socket = new MockHttpSocket({
       connectionOptions: options,
-      createConnection: createConnection.bind(this, options, callback),
+      createConnection: createConnection.bind(
+        this.customAgent || this,
+        options,
+        callback
+      ),
       onRequest: this.onRequest.bind(this),
       onResponse: this.onResponse.bind(this),
     })

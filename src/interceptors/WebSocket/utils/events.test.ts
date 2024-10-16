@@ -17,7 +17,7 @@ describe(CancelableMessageEvent, () => {
     expect(event.defaultPrevented).toBe(false)
   })
 
-  it('initiates a canceaable event', () => {
+  it('initiates a cancelable event', () => {
     const event = new CancelableMessageEvent('message', {
       data: 'hello',
       cancelable: true,

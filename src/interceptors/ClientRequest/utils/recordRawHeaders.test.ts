@@ -118,6 +118,31 @@ it('records raw headers (Request / Headers as init)', () => {
   expect(getRawFetchHeaders(request.headers)).toEqual([['X-My-Header', '1']])
 })
 
+it('records raw headers (Reqest / Request as init)', () => {
+  recordRawFetchHeaders()
+  const init = new Request(url, { headers: [['X-My-Header', '1']] })
+  const request = new Request(init)
+
+  expect(getRawFetchHeaders(request.headers)).toEqual([['X-My-Header', '1']])
+})
+
+it('records raw headers (Request / Request+Headers as init)', () => {
+  recordRawFetchHeaders()
+  const init = new Request(url, { headers: [['X-My-Header', '1']] })
+  expect(getRawFetchHeaders(init.headers)).toEqual([['X-My-Header', '1']])
+
+  const request = new Request(init, {
+    headers: new Headers([['X-Another-Header', '2']]),
+  })
+
+  // Must merge the raw headers from the request init
+  // and the request instance itself.
+  expect(getRawFetchHeaders(request.headers)).toEqual([
+    ['X-My-Header', '1'],
+    ['X-Another-Header', '2'],
+  ])
+})
+
 it('records raw headers (Response / object as init)', () => {
   recordRawFetchHeaders()
   const response = new Response(null, {
@@ -156,4 +181,41 @@ it('stops recording once the patches are restored', () => {
   const headers = new Headers({ 'X-My-Header': '1' })
   // Must return the normalized headers (no access to raw headers).
   expect(getRawFetchHeaders(headers)).toEqual([['x-my-header', '1']])
+})
+
+it('overrides an existing header when calling ".set()"', () => {
+  recordRawFetchHeaders()
+  const headers = new Headers([['a', '1']])
+  expect(headers.get('a')).toBe('1')
+
+  headers.set('a', '2')
+  expect(headers.get('a')).toBe('2')
+
+  const headersClone = new Headers(headers)
+  expect(headersClone.get('a')).toBe('2')
+})
+
+it('overrides an existing multi-value header when calling ".set()"', () => {
+  recordRawFetchHeaders()
+  const headers = new Headers([
+    ['a', '1'],
+    ['a', '2'],
+  ])
+  expect(headers.get('a')).toBe('1, 2')
+
+  headers.set('a', '3')
+  expect(headers.get('a')).toBe('3')
+})
+
+it('does not throw on using Headers before recording', () => {
+  // If the consumer constructs a Headers instance before
+  // the interceptor is enabled, it will have no internal symbol set.
+  const headers = new Headers()
+  recordRawFetchHeaders()
+  const request = new Request(url, { headers })
+
+  expect(getRawFetchHeaders(request.headers)).toEqual([])
+
+  request.headers.set('X-My-Header', '1')
+  expect(getRawFetchHeaders(request.headers)).toEqual([['X-My-Header', '1']])
 })
