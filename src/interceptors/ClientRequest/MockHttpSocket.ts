@@ -19,6 +19,11 @@ import {
 } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
+import {
+  createRequest,
+  isBodyAllowedForMethod,
+} from '../../utils/createRequest'
+import { canParseUrl } from '../../../src/utils/canParseUrl'
 
 type HttpConnectionOptions = any
 
@@ -230,9 +235,16 @@ export class MockHttpSocket extends MockSocket {
     }
 
     socket
-      .on('lookup', (...args) => this.emit('lookup', ...args))
+      .on('lookup', (...args) => this.emit.call(this, 'lookup', args))
       .on('connect', () => {
         this.connecting = socket.connecting
+
+        /**
+         * @fixme @todo net.Socket does NOT provide any arguments
+         * on the `connect` event. The (res, socket, head) args
+         * must be http.ClientRequest's doing. Investigate.
+         */
+
         this.emit('connect')
       })
       .on('secureConnect', () => this.emit('secureConnect'))
@@ -336,6 +348,11 @@ export class MockHttpSocket extends MockSocket {
       serverResponse.destroy()
     })
 
+    if (this.request?.method === 'CONNECT') {
+      console.log('CONNECT!')
+      this.emit('connect', serverResponse, this)
+    }
+
     if (response.body) {
       try {
         const reader = response.body.getReader()
@@ -436,7 +453,7 @@ export class MockHttpSocket extends MockSocket {
     path,
     __,
     ___,
-    ____,
+    upgrade,
     shouldKeepAlive
   ) => {
     this.shouldKeepAlive = shouldKeepAlive
@@ -444,7 +461,7 @@ export class MockHttpSocket extends MockSocket {
     const url = new URL(path, this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
     const headers = parseRawHeaders(rawHeaders)
-    const canHaveBody = method !== 'GET' && method !== 'HEAD'
+    const canHaveBody = isBodyAllowedForMethod(method)
 
     // Translate the basic authorization in the URL to the request header.
     // Constructing a Request instance with a URL containing auth is no-op.
@@ -478,14 +495,23 @@ export class MockHttpSocket extends MockSocket {
     }
 
     const requestId = createRequestId()
-    this.request = new Request(url, {
+    this.request = createRequest(url, {
       method,
       headers,
       credentials: 'same-origin',
-      // @ts-expect-error Undocumented Fetch property.
-      duplex: canHaveBody ? 'half' : undefined,
-      body: canHaveBody ? (Readable.toWeb(this.requestStream!) as any) : null,
+      body: canHaveBody
+        ? (Readable.toWeb(this.requestStream!) as any)
+        : undefined,
     })
+
+    // this.request = new Request(url, {
+    //   method,
+    //   headers,
+    //   credentials: 'same-origin',
+    //   // @ts-expect-error Undocumented Fetch property.
+    //   duplex: canHaveBody ? 'half' : undefined,
+    //   body: canHaveBody ? (Readable.toWeb(this.requestStream!) as any) : null,
+    // })
 
     Reflect.set(this.request, kRequestId, requestId)
 
