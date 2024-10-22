@@ -2,30 +2,9 @@
 import zlib from 'node:zlib'
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
+import { compressResponse } from '../../../helpers'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 import { parseContentEncoding } from '../../../../src/interceptors/fetch/utils/decompression'
-
-function compose(...fns: Array<Function>) {
-  return fns.reduce((f, g) => {
-    return (...args: Array<unknown>) => f(g(...args))
-  })
-}
-
-function compress(codings: Array<string>) {
-  return compose(
-    ...codings.map((coding) => {
-      if (coding === 'gzip' || coding === 'x-gzip') {
-        return zlib.gzipSync
-      } else if (coding === 'deflate') {
-        return zlib.deflateSync
-      } else if (coding === 'br') {
-        return zlib.brotliCompressSync
-      }
-
-      return (data: string) => data
-    })
-  )
-}
 
 const httpServer = new HttpServer((app) => {
   app.get('/compressed', (req, res) => {
@@ -34,7 +13,7 @@ const httpServer = new HttpServer((app) => {
 
     res
       .set('content-encoding', acceptEncoding)
-      .end(compress(codings)('hello world'))
+      .end(compressResponse(codings)('hello world'))
   })
 })
 
@@ -145,7 +124,7 @@ it('decompresses a bypassed "content-encoding: br" response body', async () => {
 it('decompresses a mocked "content-encoding: gzip, br" response body', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(
-      new Response(compress(['gzip', 'br'])('hello world'), {
+      new Response(compressResponse(['gzip', 'br'])('hello world'), {
         headers: {
           'content-encoding': 'gzip, br',
         },

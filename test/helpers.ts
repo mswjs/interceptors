@@ -1,5 +1,6 @@
 import { urlToHttpOptions } from 'node:url'
 import https from 'node:https'
+import zlib from 'node:zlib'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { Page } from '@playwright/test'
@@ -316,4 +317,26 @@ export const useCors: RequestHandler = (req, res, next) => {
     'Access-Control-Allow-Origin': '*',
   })
   return next()
+}
+
+function compose(...fns: Array<Function>) {
+  return fns.reduce((f, g) => {
+    return (...args: Array<unknown>) => f(g(...args))
+  })
+}
+
+export function compressResponse(codings: Array<string>) {
+  return compose(
+    ...codings.map((coding) => {
+      if (coding === 'gzip' || coding === 'x-gzip') {
+        return zlib.gzipSync
+      } else if (coding === 'deflate') {
+        return zlib.deflateSync
+      } else if (coding === 'br') {
+        return zlib.brotliCompressSync
+      }
+
+      return (data: string) => data
+    })
+  )
 }
