@@ -10,7 +10,7 @@ import { createRequestId } from '../../createRequestId'
 import { RESPONSE_STATUS_CODES_WITH_REDIRECT } from '../../utils/responseUtils'
 import { createNetworkError } from './utils/createNetworkError'
 import { followFetchRedirect } from './utils/followRedirect'
-import { decompressResponse } from './utils/compression'
+import { decompressResponse } from './utils/decompression'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')

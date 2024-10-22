@@ -1,36 +1,32 @@
-function pipeline(streams: Array<TransformStream>): TransformStream {
-  if (streams.length === 0) {
-    throw new Error('At least one stream must be provided')
-  }
+// Import from an internal alias that resolves to different modules
+// depending on the environment. This way, we can keep the fetch interceptor
+// intact while using different strategies for Brotli decompression.
+import { BrotliDecompressionStream } from 'internal:brotli-decompress'
 
-  let composedStream = streams[0]
+class PipelineStream extends TransformStream {
+  constructor(
+    transformStreams: Array<TransformStream>,
+    ...strategies: Array<QueuingStrategy>
+  ) {
+    super({}, ...strategies)
 
-  for (let i = 1; i < streams.length; i++) {
-    const currentStream = streams[i]
+    const readable = [super.readable as any, ...transformStreams].reduce(
+      (readable, transform) => readable.pipeThrough(transform)
+    )
 
-    composedStream = new TransformStream({
-      async start(controller) {
-        const reader = streams[i - 1].readable.getReader()
-        const writer = currentStream.writable.getWriter()
-
-        while (true) {
-          const { value, done } = await reader.read()
-          if (done) {
-            break
-          }
-          await writer.write(value)
-        }
-
-        await writer.close()
-        controller.terminate()
-      },
-      transform(chunk, controller) {
-        controller.enqueue(chunk)
+    Object.defineProperty(this, 'readable', {
+      get() {
+        return readable
       },
     })
   }
+}
 
-  return composedStream
+export function parseContentEncoding(contentEncoding: string): Array<string> {
+  return contentEncoding
+    .toLowerCase()
+    .split(',')
+    .map((coding) => coding.trim())
 }
 
 function createDecompressionStream(
@@ -40,10 +36,7 @@ function createDecompressionStream(
     return null
   }
 
-  const codings = contentEncoding
-    .toLowerCase()
-    .split(',')
-    .map((coding) => coding.trim())
+  const codings = parseContentEncoding(contentEncoding)
 
   if (codings.length === 0) {
     return null
@@ -51,7 +44,7 @@ function createDecompressionStream(
 
   const transformers: Array<TransformStream> = []
 
-  for (let i = codings.length - 1; i >= 0; --i) {
+  for (let i = 0; i < codings.length; i++) {
     const coding = codings[i]
 
     if (coding === 'gzip' || coding === 'x-gzip') {
@@ -59,16 +52,13 @@ function createDecompressionStream(
     } else if (coding === 'deflate') {
       transformers.push(new DecompressionStream('deflate'))
     } else if (coding === 'br') {
-      /**
-       * @todo Support Brotli decompression.
-       * It's not a part of the web Compression Streams API.
-       */
+      transformers.push(new BrotliDecompressionStream())
     } else {
       transformers.length = 0
     }
   }
 
-  return pipeline(transformers)
+  return new PipelineStream(transformers)
 }
 
 export function decompressResponse(

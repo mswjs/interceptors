@@ -1,15 +1,40 @@
+// @vitest-environment node
+import zlib from 'node:zlib'
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import zlib from 'zlib'
 import { HttpServer } from '@open-draft/test-server/http'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+import { parseContentEncoding } from '../../../../src/interceptors/fetch/utils/decompression'
 
-function compress(value: string): Buffer {
-  return zlib.gzipSync(zlib.brotliCompressSync(value))
+function compose(...fns: Array<Function>) {
+  return fns.reduce((f, g) => {
+    return (...args: Array<unknown>) => f(g(...args))
+  })
+}
+
+function compress(codings: Array<string>) {
+  return compose(
+    ...codings.map((coding) => {
+      if (coding === 'gzip' || coding === 'x-gzip') {
+        return zlib.gzipSync
+      } else if (coding === 'deflate') {
+        return zlib.deflateSync
+      } else if (coding === 'br') {
+        return zlib.brotliCompressSync
+      }
+
+      return (data: string) => data
+    })
+  )
 }
 
 const httpServer = new HttpServer((app) => {
-  app.get('/compressed', (_req, res) => {
-    res.set('Content-Encoding', 'gzip, br').end(compress('hello world'))
+  app.get('/compressed', (req, res) => {
+    const acceptEncoding = req.header('accept-encoding')
+    const codings = parseContentEncoding(acceptEncoding || '')
+
+    res
+      .set('content-encoding', acceptEncoding)
+      .end(compress(codings)('hello world'))
   })
 })
 
@@ -29,12 +54,12 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('decompresses a mocked "gzip" encoded response body', async () => {
+it('decompresses a mocked "content-encoding: gzip" response body', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(
       new Response(zlib.gzipSync('hello world'), {
         headers: {
-          'Content-Encoding': 'gzip',
+          'content-encoding': 'gzip',
         },
       })
     )
@@ -44,27 +69,85 @@ it('decompresses a mocked "gzip" encoded response body', async () => {
   expect(await response.text()).toBe('hello world')
 })
 
-it('decompresses a mocked "deflate" encoded response body', async () => {
+it('decompresses a bypassed "content-encoding: gzip" response body', async () => {
+  const response = await fetch(httpServer.http.url('/compressed'), {
+    headers: { 'accept-encoding': 'gzip' },
+  })
+  expect(await response.text()).toBe('hello world')
+})
+
+it('decompresses a mocked "content-encoding: x-gzip" response body', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(
-      new Response(zlib.deflateSync('hello world'), {
+      new Response(zlib.gzipSync('hello world'), {
         headers: {
-          'Content-Encoding': 'deflate',
+          'content-encoding': 'x-gzip',
         },
       })
     )
   })
 
   const response = await fetch('http://localhost/resource')
+  expect(await response.text()).toBe('hello world')
+})
+
+it('decompresses a bypassed "content-encoding: x-gzip" response body', async () => {
+  const response = await fetch(httpServer.http.url('/compressed'), {
+    headers: { 'accept-encoding': 'x-gzip' },
+  })
+  expect(await response.text()).toBe('hello world')
+})
+
+it('decompresses a mocked "content-encoding: deflate" response body', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(zlib.deflateSync('hello world'), {
+        headers: {
+          'content-encoding': 'deflate',
+        },
+      })
+    )
+  })
+
+  const response = await fetch('http://localhost/resource')
+  expect(await response.text()).toBe('hello world')
+})
+
+it('decompresses a bypassed "content-encoding: deflate" response body', async () => {
+  const response = await fetch(httpServer.http.url('/compressed'), {
+    headers: { 'accept-encoding': 'deflate' },
+  })
+  expect(await response.text()).toBe('hello world')
+})
+
+it('decompresses a mocked "content-encoding: br" response body', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(zlib.brotliCompressSync('hello world'), {
+        headers: {
+          'content-encoding': 'br',
+        },
+      })
+    )
+  })
+
+  const response = await fetch('http://localhost/resource')
+  expect(await response.text()).toBe('hello world')
+})
+
+it('decompresses a bypassed "content-encoding: br" response body', async () => {
+  const response = await fetch(httpServer.http.url('/compressed'), {
+    headers: { 'accept-encoding': 'br' },
+  })
   expect(await response.text()).toBe('hello world')
 })
 
 it('decompresses a mocked "content-encoding: gzip, br" response body', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(
-      new Response(compress('hello world'), {
+      new Response(compress(['gzip', 'br'])('hello world'), {
         headers: {
-          'Content-Encoding': 'gzip, br',
+          'content-encoding': 'gzip, br',
         },
       })
     )
