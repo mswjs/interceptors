@@ -135,7 +135,11 @@ it('decompresses a mocked "content-encoding: gzip, deflate" response body', asyn
   expect(await response.text()).toBe('hello world')
 })
 
-it('decompresses a bypassed "content-encoding: gzip, deflate" response body', async () => {
+/**
+ * Undici throws an error decompressing a "gzip, deflate" response.
+ * @see https://github.com/nodejs/undici/issues/3762
+ */
+it.skip('decompresses a bypassed "content-encoding: gzip, deflate" response body', async () => {
   const response = await fetch(httpServer.http.url('/compressed'), {
     headers: { 'accept-encoding': 'gzip, deflate' },
   })
@@ -157,7 +161,11 @@ it('decompresses a mocked "content-encoding: gzip, br" response body', async () 
   expect(await response.text()).toBe('hello world')
 })
 
-it('decompresses a bypassed "content-encoding: gzip, br" response body', async () => {
+/**
+ * Undici throws an error decompressing a "gzip, deflate" response.
+ * @see https://github.com/nodejs/undici/issues/3762
+ */
+it.skip('decompresses a bypassed "content-encoding: gzip, br" response body', async () => {
   const response = await fetch(httpServer.http.url('/compressed'), {
     headers: { 'accept-encoding': 'gzip, br' },
   })
