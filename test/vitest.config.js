@@ -10,4 +10,12 @@ export default defineConfig({
       'vitest-environment-react-native-like': './envs/react-native-like',
     },
   },
+  resolve: {
+    alias: {
+      // Create a manual alias for Vitest so it could resolve this
+      // internal environment-dependent module in tests.
+      'internal:brotli-decompress':
+        '../../../../src/interceptors/fetch/utils/brotli-decompress.ts',
+    },
+  },
 })

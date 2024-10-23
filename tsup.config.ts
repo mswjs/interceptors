@@ -14,6 +14,12 @@ const nodeConfig: Options = {
   format: ['cjs', 'esm'],
   sourcemap: true,
   dts: true,
+  esbuildOptions(options) {
+    options.alias = {
+      [`internal:brotli-decompress`]:
+        './src/interceptors/fetch/utils/brotli-decompress.ts',
+    }
+  },
 }
 
 const browserConfig: Options = {
@@ -29,6 +35,12 @@ const browserConfig: Options = {
   format: ['cjs', 'esm'],
   sourcemap: true,
   dts: true,
+  esbuildOptions(options) {
+    options.alias = {
+      [`internal:brotli-decompress`]:
+        './src/interceptors/fetch/utils/brotli-decompress.browser.ts',
+    }
+  },
 }
 
 export default defineConfig([nodeConfig, browserConfig])

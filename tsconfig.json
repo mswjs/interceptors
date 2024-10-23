@@ -14,7 +14,10 @@
     "types": ["@types/node"],
     "baseUrl": ".",
     "paths": {
-      "_http_common": ["./_http_common.d.ts"]
+      "_http_common": ["./_http_common.d.ts"],
+      "internal:brotli-decompress": [
+        "./src/interceptors/fetch/utils/brotli-decompress.ts"
+      ]
     }
   },
   "include": ["src/**/*.ts"],

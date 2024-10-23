@@ -1,5 +1,6 @@
 import { urlToHttpOptions } from 'node:url'
 import https from 'node:https'
+import zlib from 'node:zlib'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
 import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { Page } from '@playwright/test'
@@ -316,4 +317,27 @@ export const useCors: RequestHandler = (req, res, next) => {
     'Access-Control-Allow-Origin': '*',
   })
   return next()
+}
+
+/**
+ * Compress the given data using the specified `Content-Encoding` codings
+ * left-to-right.
+ */
+export function compressResponse(
+  codings: Array<'gzip' | 'x-gzip' | 'deflate' | 'br'>,
+  input: string
+) {
+  let output = Buffer.from(input)
+
+  for (const coding of codings) {
+    if (coding === 'gzip' || coding === 'x-gzip') {
+      output = zlib.gzipSync(output)
+    } else if (coding === 'deflate') {
+      output = zlib.deflateSync(output)
+    } else if (coding === 'br') {
+      output = zlib.brotliCompressSync(output)
+    }
+  }
+
+  return output
 }
