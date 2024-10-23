@@ -18,6 +18,7 @@ export class BrotliDecompressionStream extends TransformStream {
 
           decompress.flush()
           decompress.once('data', (data) => resolve(data))
+          decompress.once('error', (error) => reject(error))
           decompress.once('end', () => controller.terminate())
         }).catch((error) => {
           controller.error(error)

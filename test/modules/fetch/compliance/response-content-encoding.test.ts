@@ -162,7 +162,7 @@ it('decompresses a mocked "content-encoding: gzip, br" response body', async () 
 })
 
 /**
- * Undici throws an error decompressing a "gzip, deflate" response.
+ * Undici throws an error decompressing a "gzip, br" response.
  * @see https://github.com/nodejs/undici/issues/3762
  */
 it.skip('decompresses a bypassed "content-encoding: gzip, br" response body', async () => {
@@ -170,4 +170,19 @@ it.skip('decompresses a bypassed "content-encoding: gzip, br" response body', as
     headers: { 'accept-encoding': 'gzip, br' },
   })
   expect(await response.text()).toBe('hello world')
+})
+
+it('throws error if decompression failed', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response('hello world', {
+        headers: {
+          'content-encoding': 'br',
+        },
+      })
+    )
+  })
+
+  const response = await fetch('http://localhost/resource')
+  await expect(response.text()).rejects.toThrowError('Decompression failed')
 })
