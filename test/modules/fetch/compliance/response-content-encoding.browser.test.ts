@@ -12,11 +12,11 @@ const server = new HttpServer((app) => {
   app.use(useCors)
   app.get('/resource', (req, res) => {
     const acceptEncoding = req.header('x-accept-encoding')
-    const codings = parseContentEncoding(acceptEncoding || '')
+    const codings = parseContentEncoding(acceptEncoding || '') as any[]
 
     res
       .set('content-encoding', acceptEncoding)
-      .end(compressResponse(codings)('hello world'))
+      .end(compressResponse(codings, 'hello world'))
   })
 })
 

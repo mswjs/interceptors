@@ -42,21 +42,22 @@ function createDecompressionStream(
     return null
   }
 
-  const transformers: Array<TransformStream> = []
+  const transformers = codings.reduceRight<Array<TransformStream>>(
+    (transformers, coding) => {
+      if (coding === 'gzip' || coding === 'x-gzip') {
+        return transformers.concat(new DecompressionStream('gzip'))
+      } else if (coding === 'deflate') {
+        return transformers.concat(new DecompressionStream('deflate'))
+      } else if (coding === 'br') {
+        return transformers.concat(new BrotliDecompressionStream())
+      } else {
+        transformers.length = 0
+      }
 
-  for (let i = 0; i < codings.length; i++) {
-    const coding = codings[i]
-
-    if (coding === 'gzip' || coding === 'x-gzip') {
-      transformers.push(new DecompressionStream('gzip'))
-    } else if (coding === 'deflate') {
-      transformers.push(new DecompressionStream('deflate'))
-    } else if (coding === 'br') {
-      transformers.push(new BrotliDecompressionStream())
-    } else {
-      transformers.length = 0
-    }
-  }
+      return transformers
+    },
+    []
+  )
 
   return new PipelineStream(transformers)
 }

@@ -319,24 +319,25 @@ export const useCors: RequestHandler = (req, res, next) => {
   return next()
 }
 
-function compose(...fns: Array<Function>) {
-  return fns.reduce((f, g) => {
-    return (...args: Array<unknown>) => f(g(...args))
-  })
-}
+/**
+ * Compress the given data using the specified `Content-Encoding` codings
+ * left-to-right.
+ */
+export function compressResponse(
+  codings: Array<'gzip' | 'x-gzip' | 'deflate' | 'br'>,
+  input: string
+) {
+  let output = Buffer.from(input)
 
-export function compressResponse(codings: Array<string>) {
-  return compose(
-    ...codings.map((coding) => {
-      if (coding === 'gzip' || coding === 'x-gzip') {
-        return zlib.gzipSync
-      } else if (coding === 'deflate') {
-        return zlib.deflateSync
-      } else if (coding === 'br') {
-        return zlib.brotliCompressSync
-      }
+  for (const coding of codings) {
+    if (coding === 'gzip' || coding === 'x-gzip') {
+      output = zlib.gzipSync(output)
+    } else if (coding === 'deflate') {
+      output = zlib.deflateSync(output)
+    } else if (coding === 'br') {
+      output = zlib.brotliCompressSync(output)
+    }
+  }
 
-      return (data: string) => data
-    })
-  )
+  return output
 }
