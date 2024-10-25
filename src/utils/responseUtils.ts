@@ -44,6 +44,35 @@ export function createServerErrorResponse(body: unknown): Response {
   )
 }
 
+/**
+ * Creates a Fetch API `Response` instance.
+ * Unlike the `Response` constructor, this function supports
+ * non-configurable status codes (e.g. 101).
+ */
+export function createResponse(
+  bodyInit?: BodyInit | null,
+  init?: ResponseInit
+): Response {
+  const status = init?.status || 200
+  const isAllowedStatus = status >= 200
+  const body = isResponseWithoutBody(status) ? null : bodyInit
+
+  const response = new Response(body, {
+    ...init,
+    status: isAllowedStatus ? status : 428,
+  })
+
+  if (!isAllowedStatus) {
+    Object.defineProperty(response, 'status', {
+      value: status,
+      enumerable: true,
+      writable: false,
+    })
+  }
+
+  return response
+}
+
 export type ResponseError = Response & { type: 'error' }
 
 /**

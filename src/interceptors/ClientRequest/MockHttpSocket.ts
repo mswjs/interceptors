@@ -9,13 +9,14 @@ import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { MockSocket } from '../Socket/MockSocket'
-import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
+import { type NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
 import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
 import {
+  createResponse,
   createServerErrorResponse,
-  RESPONSE_STATUS_CODES_WITHOUT_BODY,
+  isResponseWithoutBody,
 } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
@@ -128,7 +129,9 @@ export class MockHttpSocket extends MockSocket {
     const emitEvent = super.emit.bind(this, event as any, ...args)
 
     if (this.responseListenersPromise) {
-      this.responseListenersPromise.finally(emitEvent)
+      this.responseListenersPromise.finally(() => {
+        emitEvent()
+      })
       return this.listenerCount(event) > 0
     }
 
@@ -517,13 +520,20 @@ export class MockHttpSocket extends MockSocket {
       'Failed to write to a request stream: stream does not exist'
     )
 
+    console.log(
+      'REQ BODY!',
+      chunk.toString('utf8'),
+      this.request?.headers.has('expect')
+    )
     this.requestStream.push(chunk)
   }
 
   private onRequestEnd(): void {
+    // console.log('[MHS] REQ END', this.writableFinished)
+
     // Request end can be called for requests without body.
     if (this.requestStream) {
-      this.requestStream.push(null)
+      this.requestStream.push('\r\n')
     }
   }
 
@@ -537,14 +547,13 @@ export class MockHttpSocket extends MockSocket {
     statusText
   ) => {
     const headers = parseRawHeaders(rawHeaders)
-    const canHaveBody = !RESPONSE_STATUS_CODES_WITHOUT_BODY.has(status)
 
     // Similarly, create a new stream for each response.
-    if (canHaveBody) {
-      this.responseStream = new Readable({ read() {} })
-    }
+    this.responseStream = isResponseWithoutBody(status)
+      ? undefined
+      : new Readable({ read() {} })
 
-    const response = new Response(
+    const response = createResponse(
       /**
        * @note The Fetch API response instance exposed to the consumer
        * is created over the response stream of the HTTP parser. It is NOT
@@ -552,7 +561,9 @@ export class MockHttpSocket extends MockSocket {
        * in response listener while the Socket instance delays the emission
        * of "end" and other events until those response listeners are finished.
        */
-      canHaveBody ? (Readable.toWeb(this.responseStream!) as any) : null,
+      this.responseStream
+        ? (Readable.toWeb(this.responseStream) as ReadableStream<any>)
+        : null,
       {
         status,
         statusText,
