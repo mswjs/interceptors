@@ -112,7 +112,7 @@ export async function handleRequest(
     // for that event are finished (e.g. async listeners awaited).
     // By the end of this promise, the developer cannot affect the
     // request anymore.
-    const requestListtenersPromise = emitAsync(options.emitter, 'request', {
+    const requestListenersPromise = emitAsync(options.emitter, 'request', {
       requestId: options.requestId,
       request: options.request,
       controller: options.controller,
@@ -121,7 +121,7 @@ export async function handleRequest(
     await Promise.race([
       // Short-circuit the request handling promise if the request gets aborted.
       requestAbortPromise,
-      requestListtenersPromise,
+      requestListenersPromise,
       options.controller[kResponsePromise],
     ])
 
