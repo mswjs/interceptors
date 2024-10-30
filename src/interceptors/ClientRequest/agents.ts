@@ -10,6 +10,7 @@ import {
 declare module 'node:http' {
   interface Agent {
     createConnection(options: any, callback: any): net.Socket
+    addRequest(request: http.ClientRequest, options: http.RequestOptions): void
   }
 }
 
@@ -49,6 +50,18 @@ export class MockAgent extends http.Agent {
     })
 
     return socket
+  }
+
+  addRequest(request: http.ClientRequest, options: http.RequestOptions) {
+    // First, execute the base class method.
+    super.addRequest.apply(this, [request, options])
+
+    // If there's a custom HTTP agent, call its `addRequest` method.
+    // This way, if the agent has side effects that affect the request,
+    // those will be applied to the intercepted request instance as well.
+    if (this.customAgent instanceof http.Agent) {
+      this.customAgent.addRequest(request, options)
+    }
   }
 }
 
