@@ -11,6 +11,7 @@ import {
   WebSocketOverride,
 } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
+import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 
 export { type WebSocketData, WebSocketTransport } from './WebSocketTransport'
 export {
@@ -57,15 +58,16 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
   }
 
   protected checkEnvironment(): boolean {
-    // Enable this interceptor in any environment
-    // that has a global WebSocket API.
-    return typeof globalThis.WebSocket !== 'undefined'
+    return hasConfigurableGlobal('WebSocket')
   }
 
   protected setup(): void {
-    const originalWebSocket = globalThis.WebSocket
+    const originalWebSocketDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'WebSocket'
+    )
 
-    const webSocketProxy = new Proxy(globalThis.WebSocket, {
+    const WebSocketProxy = new Proxy(globalThis.WebSocket, {
       construct: (
         target,
         args: ConstructorParameters<typeof globalThis.WebSocket>,
@@ -152,10 +154,17 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
       },
     })
 
-    globalThis.WebSocket = webSocketProxy
+    Object.defineProperty(globalThis, 'WebSocket', {
+      value: WebSocketProxy,
+      configurable: true,
+    })
 
     this.subscriptions.push(() => {
-      globalThis.WebSocket = originalWebSocket
+      Object.defineProperty(
+        globalThis,
+        'WebSocket',
+        originalWebSocketDescriptor!
+      )
     })
   }
 }

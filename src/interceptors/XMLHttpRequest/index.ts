@@ -3,6 +3,7 @@ import { Emitter } from 'strict-event-emitter'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { createXMLHttpRequestProxy } from './XMLHttpRequestProxy'
+import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 
 export type XMLHttpRequestEmitter = Emitter<HttpRequestEventMap>
 
@@ -14,7 +15,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
   }
 
   protected checkEnvironment() {
-    return typeof globalThis.XMLHttpRequest !== 'undefined'
+    return hasConfigurableGlobal('XMLHttpRequest')
   }
 
   protected setup() {

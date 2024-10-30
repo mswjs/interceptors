@@ -1,0 +1,59 @@
+import { vi, beforeAll, afterEach, afterAll, it, expect } from 'vitest'
+import { hasConfigurableGlobal } from './hasConfigurableGlobal'
+
+beforeAll(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+afterEach(() => {
+  vi.resetAllMocks()
+})
+
+afterAll(() => {
+  vi.restoreAllMocks()
+})
+
+it('returns true if the global property exists and is configurable', () => {
+  Object.defineProperty(global, '_existsAndConfigurable', {
+    value: 'something',
+    configurable: true,
+  })
+
+  expect(hasConfigurableGlobal('_existsAndConfigurable')).toBe(true)
+})
+
+it('returns false if the global property does not exist', () => {
+  expect(hasConfigurableGlobal('_non-existing')).toBe(false)
+})
+
+it('returns false and prints an error for implicitly non-configurable global property', () => {
+  Object.defineProperty(global, '_implicitlyNonConfigurable', {
+    value: 'something',
+  })
+
+  expect(hasConfigurableGlobal('_implicitlyNonConfigurable')).toBe(false)
+  expect(console.error).toHaveBeenCalledWith(
+    '[MSW] Failed to apply interceptor: the global `_implicitlyNonConfigurable` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.'
+  )
+})
+
+it('returns false and prints an error for explicitly non-configurable global property', () => {
+  Object.defineProperty(global, '_explicitlyNonConfigurable', {
+    value: 'something',
+    configurable: false,
+  })
+
+  expect(hasConfigurableGlobal('_explicitlyNonConfigurable')).toBe(false)
+  expect(console.error).toHaveBeenCalledWith(
+    '[MSW] Failed to apply interceptor: the global `_explicitlyNonConfigurable` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.'
+  )
+})
+
+it('returns false and prints an error for global property that only has a getter', () => {
+  Object.defineProperty(global, '_onlyGetter', { get: () => 'something' })
+
+  expect(hasConfigurableGlobal('_onlyGetter')).toBe(false)
+  expect(console.error).toHaveBeenCalledWith(
+    '[MSW] Failed to apply interceptor: the global `_onlyGetter` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.'
+  )
+})

@@ -4,4 +4,7 @@ export default defineConfig({
   test: {
     include: ['./src/**/*.test.ts'],
   },
+  esbuild: {
+    target: 'es2022',
+  },
 })
