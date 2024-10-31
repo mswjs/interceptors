@@ -26,6 +26,15 @@ it('returns false if the global property does not exist', () => {
   expect(hasConfigurableGlobal('_non-existing')).toBe(false)
 })
 
+it('returns false if the global property exists and it\'s value is undefined', () => {
+  Object.defineProperty(global, '_existsAndUndefined', {
+    value: undefined,
+    configurable: true,
+  })
+
+  expect(hasConfigurableGlobal('_existsAndUndefined')).toBe(true)
+})
+
 it('returns false and prints an error for implicitly non-configurable global property', () => {
   Object.defineProperty(global, '_implicitlyNonConfigurable', {
     value: 'something',

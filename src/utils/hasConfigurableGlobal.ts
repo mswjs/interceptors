@@ -9,6 +9,10 @@ export function hasConfigurableGlobal(propertyName: string): boolean {
     return false
   }
 
+  if (descriptor.get != null && typeof descriptor.get() === "undefined") {
+    return false
+  }
+
   if (typeof descriptor.set === 'undefined' && !descriptor.configurable) {
     console.error(
       `[MSW] Failed to apply interceptor: the global \`${propertyName}\` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.`
