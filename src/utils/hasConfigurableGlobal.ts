@@ -5,11 +5,21 @@
 export function hasConfigurableGlobal(propertyName: string): boolean {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, propertyName)
 
+  // The property is not set at all.
   if (typeof descriptor === 'undefined') {
     return false
   }
 
-  if (descriptor.get != null && typeof descriptor.get() === "undefined") {
+  // The property is set to a getter that returns undefined.
+  if (
+    typeof descriptor.get === 'function' &&
+    typeof descriptor.get() === 'undefined'
+  ) {
+    return false
+  }
+
+  // The property is set to a value equal to undefined.
+  if (typeof descriptor.get === 'undefined' && descriptor.value == null) {
     return false
   }
 
