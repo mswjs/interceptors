@@ -26,6 +26,30 @@ it('returns false if the global property does not exist', () => {
   expect(hasConfigurableGlobal('_non-existing')).toBe(false)
 })
 
+it('returns false for existing global with undefined as a value', () => {
+  Object.defineProperty(global, '_existsAndUndefined', {
+    value: undefined,
+    configurable: true,
+  })
+  expect(hasConfigurableGlobal('_existsAndUndefined')).toBe(false)
+})
+
+it('returns false for existing global with null as a value', () => {
+  Object.defineProperty(global, '_existsAndNull', {
+    value: null,
+    configurable: true,
+  })
+  expect(hasConfigurableGlobal('_existsAndNull')).toBe(false)
+})
+
+it('returns false for existing global with a getter that returns undefined', () => {
+  Object.defineProperty(global, '_existsGetterUndefined', {
+    get: () => undefined,
+    configurable: true,
+  })
+  expect(hasConfigurableGlobal('_existsGetterUndefined')).toBe(false)
+})
+
 it('returns false and prints an error for implicitly non-configurable global property', () => {
   Object.defineProperty(global, '_implicitlyNonConfigurable', {
     value: 'something',
