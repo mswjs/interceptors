@@ -124,3 +124,23 @@ it('forwards custom abort reason to the request if pending', async () => {
   expect(abortError.name).toBe('Error')
   expect(abortError.message).toEqual('Custom abort reason')
 })
+
+it('respects requests aborted before they are dispatched', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
+  })
+
+  const controller = new AbortController()
+  const request = new Request(httpServer.http.url('/'), {
+    signal: controller.signal,
+  })
+  controller.abort()
+
+  const abortError = await fetch(request).then<Error>(
+    () => expect.fail('must not return any response'),
+    (error) => error
+  )
+
+  expect(abortError.name).toBe('AbortError')
+  expect(abortError.message).toBe('This operation was aborted')
+})
