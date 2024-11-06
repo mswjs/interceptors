@@ -7,7 +7,12 @@ import {
   MockHttpSocketRequestCallback,
   MockHttpSocketResponseCallback,
 } from './MockHttpSocket'
-import { MockAgent, MockHttpsAgent } from './agents'
+import {
+  DefaultMockAgent,
+  DefaultMockHttpsAgent,
+  MockAgent,
+  MockHttpsAgent,
+} from './agents'
 import { RequestController } from '../../RequestController'
 import { emitAsync } from '../../utils/emitAsync'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
@@ -25,11 +30,21 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected setup(): void {
-    const { get: originalGet, request: originalRequest } = http
-    const { get: originalHttpsGet, request: originalHttpsRequest } = https
+    const {
+      Agent: OriginalAgent,
+      get: originalGet,
+      request: originalRequest,
+    } = http
+    const {
+      Agent: OriginalHttpsAgent,
+      get: originalHttpsGet,
+      request: originalHttpsRequest,
+    } = https
 
     const onRequest = this.onRequest.bind(this)
     const onResponse = this.onResponse.bind(this)
+
+    http.Agent = DefaultMockAgent
 
     http.request = new Proxy(http.request, {
       apply: (target, thisArg, args: Parameters<typeof http.request>) => {
@@ -69,6 +84,8 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     //
     // HTTPS.
     //
+
+    https.Agent = DefaultMockHttpsAgent
 
     https.request = new Proxy(https.request, {
       apply: (target, thisArg, args: Parameters<typeof https.request>) => {
@@ -112,9 +129,11 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     recordRawFetchHeaders()
 
     this.subscriptions.push(() => {
+      http.Agent = OriginalAgent
       http.get = originalGet
       http.request = originalRequest
 
+      https.Agent = OriginalHttpsAgent
       https.get = originalHttpsGet
       https.request = originalHttpsRequest
 
