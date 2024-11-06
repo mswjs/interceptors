@@ -422,10 +422,7 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private flushWriteBuffer(): void {
-    let args: NormalizedSocketWriteArgs | undefined
-    while ((args = this.writeBuffer.shift())) {
-      args?.[2]?.()
-    }
+    this.writeBuffer[0]?.[2]?.()
   }
 
   private onRequestStart: RequestHeadersCompleteCallback = (
