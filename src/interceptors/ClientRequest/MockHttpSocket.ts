@@ -422,9 +422,13 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private flushWriteBuffer(): void {
-    let args: NormalizedSocketWriteArgs | undefined
-    while ((args = this.writeBuffer.shift())) {
-      args?.[2]?.()
+    for (const [, , callback] of this.writeBuffer) {
+      /**
+       * @note If the write callbacks are ever called twice,
+       * we need to mark them with a symbol so they aren't called
+       * again in the `passthrough` method.
+       */
+      callback?.()
     }
   }
 
