@@ -7,6 +7,7 @@ import {
 import { STATUS_CODES, IncomingMessage, ServerResponse } from 'node:http'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
+import { Emitter } from 'strict-event-emitter'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
@@ -19,6 +20,7 @@ import {
 } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
+import { emitAsync } from '../../utils/emitAsync'
 
 type HttpConnectionOptions = any
 
@@ -39,19 +41,33 @@ export type MockHttpSocketResponseCallback = (args: {
 interface MockHttpSocketOptions {
   connectionOptions: HttpConnectionOptions
   createConnection: () => net.Socket
-  onRequest: MockHttpSocketRequestCallback
-  onResponse: MockHttpSocketResponseCallback
 }
 
 export const kRequestId = Symbol('kRequestId')
+export const kEmitter = Symbol('kEmitter')
+
+type MockHttpSocketEventsMap = {
+  request: [
+    args: { requestId: string; request: Request; socket: MockHttpSocket }
+  ]
+  response: [
+    args: {
+      response: Response
+      isMockedResponse: boolean
+      requestId: string
+      request: Request
+      socket: MockHttpSocket
+    }
+  ]
+}
 
 export class MockHttpSocket extends MockSocket {
+  public [kEmitter]: Emitter<MockHttpSocketEventsMap>
+
   private connectionOptions: HttpConnectionOptions
   private createConnection: () => net.Socket
   private baseUrl: URL
 
-  private onRequest: MockHttpSocketRequestCallback
-  private onResponse: MockHttpSocketResponseCallback
   private responseListenersPromise?: Promise<void>
 
   private writeBuffer: Array<NormalizedSocketWriteArgs> = []
@@ -84,10 +100,10 @@ export class MockHttpSocket extends MockSocket {
       },
     })
 
+    this[kEmitter] = new Emitter()
+
     this.connectionOptions = options.connectionOptions
     this.createConnection = options.createConnection
-    this.onRequest = options.onRequest
-    this.onResponse = options.onResponse
 
     this.baseUrl = baseUrlFromConnectionOptions(this.connectionOptions)
 
@@ -508,7 +524,7 @@ export class MockHttpSocket extends MockSocket {
       return
     }
 
-    this.onRequest({
+    this[kEmitter].emit('request', {
       requestId,
       request: this.request,
       socket: this,
@@ -578,13 +594,21 @@ export class MockHttpSocket extends MockSocket {
       return
     }
 
-    this.responseListenersPromise = this.onResponse({
+    this.responseListenersPromise = emitAsync(this[kEmitter], 'response', {
       response,
       isMockedResponse: this.responseType === 'mock',
       requestId: Reflect.get(this.request, kRequestId),
       request: this.request,
       socket: this,
     })
+
+    // this.responseListenersPromise = this.onResponse({
+    //   response,
+    //   isMockedResponse: this.responseType === 'mock',
+    //   requestId: Reflect.get(this.request, kRequestId),
+    //   request: this.request,
+    //   socket: this,
+    // })
   }
 
   private onResponseBody(chunk: Buffer) {
