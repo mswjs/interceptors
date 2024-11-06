@@ -422,7 +422,14 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private flushWriteBuffer(): void {
-    this.writeBuffer[0]?.[2]?.()
+    for (const [, , callback] of this.writeBuffer) {
+      /**
+       * @note If the write callbacks are ever called twice,
+       * we need to mark them with a symbol so they aren't called
+       * again in the `passthrough` method.
+       */
+      callback?.()
+    }
   }
 
   private onRequestStart: RequestHeadersCompleteCallback = (
