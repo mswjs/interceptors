@@ -194,3 +194,29 @@ it('calls all write callbacks before the mocked response', async () => {
   expect(requestBodyCallback).toHaveBeenCalledWith('one')
   expect(await text()).toBe('hello world')
 })
+
+it('does not call write callbacks ...', async () => {
+  const requestBodyCallback = vi.fn()
+  const requestWriteCallback = vi.fn()
+
+  interceptor.once('request', async ({ request }) => {
+    requestBodyCallback(await request.text())
+  })
+
+  const request = http.request(httpServer.http.url('/resource'), {
+    method: 'POST',
+    headers: { 'content-type': 'text/plain' },
+  })
+  request.write('one', requestWriteCallback)
+  request.write('two', requestWriteCallback)
+  request.end('three', requestWriteCallback)
+
+  const { text } = await waitForClientRequest(request)
+
+  // Must call each write callback once.
+  expect(requestWriteCallback).toHaveBeenCalledTimes(3)
+  // Must be able to read the request stream in the interceptor.
+  expect(requestBodyCallback).toHaveBeenCalledWith('onetwothree')
+  // Must send the correct request body to the server.
+  expect(await text()).toBe('onetwothree')
+})

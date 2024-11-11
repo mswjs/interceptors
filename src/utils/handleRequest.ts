@@ -98,13 +98,17 @@ export async function handleRequest(
    * @note `signal` is not always defined in React Native.
    */
   if (options.request.signal) {
-    options.request.signal.addEventListener(
-      'abort',
-      () => {
-        requestAbortPromise.reject(options.request.signal.reason)
-      },
-      { once: true }
-    )
+    if (options.request.signal.aborted) {
+      requestAbortPromise.reject(options.request.signal.reason)
+    } else {
+      options.request.signal.addEventListener(
+        'abort',
+        () => {
+          requestAbortPromise.reject(options.request.signal.reason)
+        },
+        { once: true }
+      )
+    }
   }
 
   const result = await until(async () => {

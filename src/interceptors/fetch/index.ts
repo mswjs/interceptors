@@ -11,6 +11,7 @@ import { RESPONSE_STATUS_CODES_WITH_REDIRECT } from '../../utils/responseUtils'
 import { createNetworkError } from './utils/createNetworkError'
 import { followFetchRedirect } from './utils/followRedirect'
 import { decompressResponse } from './utils/decompression'
+import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -20,10 +21,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected checkEnvironment() {
-    return (
-      typeof globalThis !== 'undefined' &&
-      typeof globalThis.fetch !== 'undefined'
-    )
+    return hasConfigurableGlobal('fetch')
   }
 
   protected async setup() {
