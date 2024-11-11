@@ -43,19 +43,30 @@ interface HandleRequestOptions {
 export async function handleRequest(
   options: HandleRequestOptions
 ): Promise<boolean> {
-  const handleResponse = async (response: Response | Error) => {
+  const onResolve = async (response: Response): Promise<boolean> => {
+    // Handle "Response.error()" instances.
     if (response instanceof Error) {
       options.onError(response)
-    }
-
-    // Handle "Response.error()" instances.
-    else if (isResponseError(response)) {
+    } else if (isResponseError(response)) {
       options.onRequestError(response)
     } else {
-      await options.onResponse(response)
+      await handleResponse(response)
     }
 
     return true
+  }
+  const onReject = async (error: unknown): Promise<boolean> => {
+    // Handle thrown responses.
+    if (error instanceof Response) {
+      await handleResponse(error)
+      return true
+    }
+
+    return await handleResponseError(error);
+  }
+   
+  const handleResponse = async (response: Response) => {
+    await options.onResponse(response)
   }
 
   const handleResponseError = async (error: unknown): Promise<boolean> => {
@@ -69,12 +80,7 @@ export async function handleRequest(
     if (isNodeLikeError(error)) {
       options.onError(error)
       return true
-    }
-
-    // Handle thrown responses.
-    if (error instanceof Response) {
-      return await handleResponse(error)
-    }
+    } 
 
     return false
   }
@@ -144,7 +150,7 @@ export async function handleRequest(
   if (result.error) {
     // Handle the error during the request listener execution.
     // These can be thrown responses or request errors.
-    if (await handleResponseError(result.error)) {
+    if (await onReject(result.error)) {
       return true
     }
 
@@ -188,11 +194,11 @@ export async function handleRequest(
        * emit of the same event. They are forwarded as-is.
        */
       if (nextResult.error) {
-        return handleResponseError(nextResult.error)
+        return onReject(nextResult.error)
       }
 
       if (nextResult.data) {
-        return handleResponse(nextResult.data)
+        return onResolve(nextResult.data)
       }
     }
 
@@ -208,7 +214,7 @@ export async function handleRequest(
    * unhandled exceptions from intended errors.
    */
   if (result.data) {
-    return handleResponse(result.data)
+    return onResolve(result.data)
   }
 
   // In all other cases, consider the request unhandled.
