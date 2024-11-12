@@ -59,6 +59,7 @@ export class RequestController {
    * @example
    * controller.errorWith()
    * controller.errorWith(new Error('Oops!'))
+   * controller.errorWith({ message: 'Oops!'})
    */
   public errorWith(error?: Object): void {
     invariant.as(
