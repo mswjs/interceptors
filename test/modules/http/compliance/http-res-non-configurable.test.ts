@@ -15,8 +15,6 @@ const interceptor = new ClientRequestInterceptor()
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (_req, res) => {
     res.writeHead(101, 'Switching Protocols')
-    res.set('Connection', 'Upgrade')
-    res.set('Upgrade', 'WebSocket')
     res.end()
   })
 })
