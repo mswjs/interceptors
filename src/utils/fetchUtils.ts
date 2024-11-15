@@ -27,6 +27,23 @@ export class FetchResponse extends Response {
     return !FetchResponse.STATUS_CODES_WITHOUT_BODY.includes(status)
   }
 
+  static setUrl(url: string | undefined, response: Response): void {
+    if (!url) {
+      return
+    }
+
+    if (response.url != '') {
+      return
+    }
+
+    Object.defineProperty(response, 'url', {
+      value: url,
+      enumerable: true,
+      configurable: true,
+      writable: false,
+    })
+  }
+
   constructor(body?: BodyInit | null, init: FetchResponseInit = {}) {
     const status = init.status ?? 200
     const safeStatus = FetchResponse.isConfigurableStatusCode(status)
@@ -60,13 +77,6 @@ export class FetchResponse extends Response {
       }
     }
 
-    if (init.url) {
-      Object.defineProperty(this, 'url', {
-        value: init.url,
-        enumerable: true,
-        configurable: true,
-        writable: false,
-      })
-    }
+    FetchResponse.setUrl(init.url, this)
   }
 }
