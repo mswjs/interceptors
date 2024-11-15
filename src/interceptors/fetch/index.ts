@@ -75,7 +75,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           const response =
             decompressedStream === null
               ? rawResponse
-              : new Response(decompressedStream, rawResponse)
+              : new FetchResponse(decompressedStream, {
+                  ...rawResponse,
+                  url: request.url,
+                })
 
           /**
            * Undici's handling of following redirect responses.
@@ -103,14 +106,6 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               return
             }
           }
-
-          // Set the "response.url" property to equal the intercepted request URL.
-          Object.defineProperty(response, 'url', {
-            writable: false,
-            enumerable: true,
-            configurable: false,
-            value: request.url,
-          })
 
           if (this.emitter.listenerCount('response') > 0) {
             this.logger.info('emitting the "response" event...')

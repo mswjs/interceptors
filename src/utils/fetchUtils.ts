@@ -40,12 +40,24 @@ export class FetchResponse extends Response {
     })
 
     if (status !== safeStatus) {
-      Object.defineProperty(this, 'status', {
-        value: status,
-        enumerable: true,
-        configurable: true,
-        writable: false,
-      })
+      /**
+       * @note Undici keeps an internal "Symbol(state)" that holds
+       * the actual value of response status. Update that in Node.js.
+       */
+      const stateSymbol = Object.getOwnPropertySymbols(this).find(
+        (symbol) => symbol.description === 'state'
+      )
+      if (stateSymbol) {
+        const state = Reflect.get(this, stateSymbol) as object
+        Reflect.set(state, 'status', status)
+      } else {
+        Object.defineProperty(this, 'status', {
+          value: status,
+          enumerable: true,
+          configurable: true,
+          writable: false,
+        })
+      }
     }
 
     if (init.url) {
