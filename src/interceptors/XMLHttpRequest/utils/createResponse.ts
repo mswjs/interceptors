@@ -1,4 +1,4 @@
-import { isResponseWithoutBody } from '../../../utils/responseUtils'
+import { FetchResponse } from '../../../utils/fetchUtils'
 
 /**
  * Creates a Fetch API `Response` instance from the given
@@ -16,9 +16,12 @@ export function createResponse(
    * when constructing a Response instance.
    * @see https://github.com/mswjs/interceptors/issues/379
    */
-  const responseBodyOrNull = isResponseWithoutBody(request.status) ? null : body
+  const responseBodyOrNull = FetchResponse.isResponseWithBody(request.status)
+    ? body
+    : null
 
-  return new Response(responseBodyOrNull, {
+  return new FetchResponse(responseBodyOrNull, {
+    url: request.responseURL,
     status: request.status,
     statusText: request.statusText,
     headers: createHeadersFromXMLHttpReqestHeaders(

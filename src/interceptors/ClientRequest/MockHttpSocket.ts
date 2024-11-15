@@ -13,12 +13,10 @@ import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketW
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
 import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
-import {
-  createServerErrorResponse,
-  RESPONSE_STATUS_CODES_WITHOUT_BODY,
-} from '../../utils/responseUtils'
+import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
+import { FetchResponse } from '../../utils/fetchUtils'
 
 type HttpConnectionOptions = any
 
@@ -541,14 +539,8 @@ export class MockHttpSocket extends MockSocket {
     statusText
   ) => {
     const headers = parseRawHeaders(rawHeaders)
-    const canHaveBody = !RESPONSE_STATUS_CODES_WITHOUT_BODY.has(status)
 
-    // Similarly, create a new stream for each response.
-    if (canHaveBody) {
-      this.responseStream = new Readable({ read() {} })
-    }
-
-    const response = new Response(
+    const response = new FetchResponse(
       /**
        * @note The Fetch API response instance exposed to the consumer
        * is created over the response stream of the HTTP parser. It is NOT
@@ -556,8 +548,13 @@ export class MockHttpSocket extends MockSocket {
        * in response listener while the Socket instance delays the emission
        * of "end" and other events until those response listeners are finished.
        */
-      canHaveBody ? (Readable.toWeb(this.responseStream!) as any) : null,
+      FetchResponse.isResponseWithBody(status)
+        ? (Readable.toWeb(
+            (this.responseStream = new Readable({ read() {} }))
+          ) as any)
+        : null,
       {
+        url,
         status,
         statusText,
         headers,

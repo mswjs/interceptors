@@ -6,6 +6,7 @@ import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
 import { handleRequest } from './utils/handleRequest'
 import { RequestController } from './RequestController'
+import { FetchResponse } from './utils/fetchUtils'
 
 export interface SerializedRequest {
   id: string
@@ -85,7 +86,8 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
               serializedResponse
             ) as SerializedResponse
 
-            const mockedResponse = new Response(responseInit.body, {
+            const mockedResponse = new FetchResponse(responseInit.body, {
+              url: request.url,
               status: responseInit.status,
               statusText: responseInit.statusText,
               headers: responseInit.headers,
