@@ -20,7 +20,8 @@ export function createResponse(
     ? body
     : null
 
-  return new Response(responseBodyOrNull, {
+  return new FetchResponse(responseBodyOrNull, {
+    url: request.responseURL,
     status: request.status,
     statusText: request.statusText,
     headers: createHeadersFromXMLHttpReqestHeaders(
