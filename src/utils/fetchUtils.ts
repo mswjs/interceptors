@@ -3,6 +3,10 @@ export interface FetchResponseInit extends ResponseInit {
 }
 
 export class FetchResponse extends Response {
+  /**
+   * Response status codes for responses that cannot have body.
+   * @see https://fetch.spec.whatwg.org/#statuses
+   */
   static readonly STATUS_CODES_WITHOUT_BODY = [101, 103, 204, 205, 304]
 
   static readonly STATUS_CODES_WITH_REDIRECT = [301, 302, 303, 307, 308]
@@ -15,6 +19,10 @@ export class FetchResponse extends Response {
     return FetchResponse.STATUS_CODES_WITH_REDIRECT.includes(status)
   }
 
+  /**
+   * Returns a boolean indicating whether the given response status
+   * code represents a response that can have a body.
+   */
   static isResponseWithBody(status: number): boolean {
     return !FetchResponse.STATUS_CODES_WITHOUT_BODY.includes(status)
   }

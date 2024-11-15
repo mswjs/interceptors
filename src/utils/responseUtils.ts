@@ -1,26 +1,6 @@
 import { isPropertyAccessible } from './isPropertyAccessible'
 
 /**
- * Response status codes for responses that cannot have body.
- * @see https://fetch.spec.whatwg.org/#statuses
- */
-export const RESPONSE_STATUS_CODES_WITHOUT_BODY = new Set([
-  101, 103, 204, 205, 304,
-])
-
-export const RESPONSE_STATUS_CODES_WITH_REDIRECT = new Set([
-  301, 302, 303, 307, 308,
-])
-
-/**
- * Returns a boolean indicating whether the given response status
- * code represents a response that cannot have a body.
- */
-export function isResponseWithoutBody(status: number): boolean {
-  return RESPONSE_STATUS_CODES_WITHOUT_BODY.has(status)
-}
-
-/**
  * Creates a generic 500 Unhandled Exception response.
  */
 export function createServerErrorResponse(body: unknown): Response {

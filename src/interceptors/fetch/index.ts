@@ -7,11 +7,11 @@ import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest } from '../../utils/handleRequest'
 import { canParseUrl } from '../../utils/canParseUrl'
 import { createRequestId } from '../../createRequestId'
-import { RESPONSE_STATUS_CODES_WITH_REDIRECT } from '../../utils/responseUtils'
 import { createNetworkError } from './utils/createNetworkError'
 import { followFetchRedirect } from './utils/followRedirect'
 import { decompressResponse } from './utils/decompression'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
+import { FetchResponse } from '../../utils/fetchUtils'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -83,7 +83,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
            * This way, the client can manually follow the redirect it receives.
            * @see https://github.com/nodejs/undici/blob/a6dac3149c505b58d2e6d068b97f4dc993da55f0/lib/web/fetch/index.js#L1173
            */
-          if (RESPONSE_STATUS_CODES_WITH_REDIRECT.has(response.status)) {
+          if (FetchResponse.isRedirectResponse(response.status)) {
             // Reject the request promise if its `redirect` is set to `error`
             // and it receives a mocked redirect response.
             if (request.redirect === 'error') {
