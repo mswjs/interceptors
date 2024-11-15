@@ -1,4 +1,4 @@
-import { FetchResponse } from 'src/utils/fetchUtils'
+import { FetchResponse } from '../../../utils/fetchUtils'
 
 /**
  * Creates a Fetch API `Response` instance from the given
