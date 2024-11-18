@@ -1,6 +1,4 @@
-/**
- * @vitest-environment node-with-websocket
- */
+// @vitest-environment node-with-websocket
 import { it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
@@ -30,7 +28,11 @@ it('intercepts text sent over websocket', async () => {
 
   interceptor.once('connection', ({ client }) => {
     client.addEventListener('message', (event) => {
-      messageReceivedPromise.resolve(event.data)
+      if (typeof event.data === 'string') {
+        messageReceivedPromise.resolve(event.data)
+      } else {
+        messageReceivedPromise.reject(new Error('Expected string data'))
+      }
     })
   })
 
@@ -45,7 +47,11 @@ it('intercepts Blob sent over websocket', async () => {
 
   interceptor.once('connection', ({ client }) => {
     client.addEventListener('message', (event) => {
-      messageReceivedPromise.resolve(event.data)
+      if (event.data instanceof Blob) {
+        messageReceivedPromise.resolve(event.data)
+      } else {
+        messageReceivedPromise.reject(new Error('Expected Blob data'))
+      }
     })
   })
 
@@ -57,11 +63,18 @@ it('intercepts Blob sent over websocket', async () => {
 })
 
 it('intercepts ArrayBuffer sent over websocket', async () => {
-  const messageReceivedPromise = new DeferredPromise<ArrayBuffer>()
+  const messageReceivedPromise = new DeferredPromise<Uint8Array>()
 
   interceptor.once('connection', ({ client }) => {
     client.addEventListener('message', (event) => {
-      messageReceivedPromise.resolve(event.data)
+      /**
+       * @note ArrayBuffer data is represented as Buffer in Node.js.
+       */
+      if (event.data instanceof Uint8Array) {
+        messageReceivedPromise.resolve(event.data)
+      } else {
+        messageReceivedPromise.reject(new Error('Expected ArrayBuffer data'))
+      }
     })
   })
 
