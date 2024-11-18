@@ -15,7 +15,7 @@ const wsServer = new WebSocketServer({
   port: 0,
 })
 
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
 })
 
