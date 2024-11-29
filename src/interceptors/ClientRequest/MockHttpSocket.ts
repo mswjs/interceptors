@@ -157,6 +157,8 @@ export class MockHttpSocket extends MockSocket {
 
     const socket = this.createConnection()
 
+    console.log('MockHttpSocket.passthrough()', this.writeBuffer)
+
     // If the developer destroys the socket, destroy the original connection.
     this.once('error', (error) => {
       socket.destroy(error)
@@ -442,6 +444,8 @@ export class MockHttpSocket extends MockSocket {
     shouldKeepAlive
   ) => {
     this.shouldKeepAlive = shouldKeepAlive
+
+    console.log({ _, __, ___, ____ })
 
     const url = new URL(path, this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
