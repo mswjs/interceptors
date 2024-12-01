@@ -195,7 +195,7 @@ it('calls all write callbacks before the mocked response', async () => {
   expect(await text()).toBe('hello world')
 })
 
-it('does not call write callbacks ...', async () => {
+it('calls the write callbacks when reading request body in the interceptor', async () => {
   const requestBodyCallback = vi.fn()
   const requestWriteCallback = vi.fn()
 
