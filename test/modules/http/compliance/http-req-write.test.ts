@@ -195,7 +195,7 @@ it('calls all write callbacks before the mocked response', async () => {
   expect(await text()).toBe('hello world')
 })
 
-it('does not call write callbacks ...', async () => {
+it('calls the write callbacks when reading request body in the interceptor', async () => {
   const requestBodyCallback = vi.fn()
   const requestWriteCallback = vi.fn()
 
@@ -219,4 +219,23 @@ it('does not call write callbacks ...', async () => {
   expect(requestBodyCallback).toHaveBeenCalledWith('onetwothree')
   // Must send the correct request body to the server.
   expect(await text()).toBe('onetwothree')
+})
+
+/**
+ * @see https://github.com/mswjs/interceptors/issues/684
+ */
+it('calls the write callback once for a request that ends inside a write', async () => {
+  const requestWriteCallback = vi.fn()
+
+  const request = http.request(httpServer.http.url('/resource'), {
+    method: 'POST',
+    headers: { 'content-type': 'text/plain' },
+  })
+  request.write('one', 'utf8', () => {
+    requestWriteCallback()
+    request.end()
+  })
+
+  await waitForClientRequest(request)
+  expect(requestWriteCallback).toHaveBeenCalledTimes(1)
 })
