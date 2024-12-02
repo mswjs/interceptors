@@ -422,13 +422,17 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private flushWriteBuffer(): void {
-    for (const [, , callback] of this.writeBuffer) {
-      /**
-       * @note If the write callbacks are ever called twice,
-       * we need to mark them with a symbol so they aren't called
-       * again in the `passthrough` method.
-       */
-      callback?.()
+    for (const writeCall of this.writeBuffer) {
+      if (typeof writeCall[2] === 'function') {
+        writeCall[2]()
+        /**
+         * @note Remove the callback from the write call
+         * so it doesn't get called twice on passthrough
+         * if `request.end()` was called within `request.write()`.
+         * @see https://github.com/mswjs/interceptors/issues/684
+         */
+        writeCall[2] = undefined
+      }
     }
   }
 
