@@ -58,16 +58,31 @@ export class MockHttpSocket extends MockSocket {
   private requestStream?: Readable
   private shouldKeepAlive?: boolean
 
-  private responseType: 'mock' | 'bypassed' = 'bypassed'
+  private socketState: 'unknown' | 'mock' | 'passthrough' = 'unknown'
   private responseParser: HTTPParser<1>
   private responseStream?: Readable
+  private originalSocket?: net.Socket
 
   constructor(options: MockHttpSocketOptions) {
     super({
       write: (chunk, encoding, callback) => {
-        this.writeBuffer.push([chunk, encoding, callback])
+        // Buffer the writes so they can be flushed in case of the original connection
+        // and when reading the request body in the interceptor. If the connection has
+        // been established, no need to buffer the chunks anymore, they will be forwarded.
+        if (this.socketState !== 'passthrough') {
+          this.writeBuffer.push([chunk, encoding, callback])
+        }
 
         if (chunk) {
+          /**
+           * Forward any writes to the mock socket to the underlying original socket.
+           * This ensures functional duplex connections, like WebSocket.
+           * @see https://github.com/mswjs/interceptors/issues/682
+           */
+          if (this.socketState === 'passthrough') {
+            this.originalSocket?.write(chunk, encoding, callback)
+          }
+
           this.requestParser.execute(
             Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding)
           )
@@ -75,6 +90,11 @@ export class MockHttpSocket extends MockSocket {
       },
       read: (chunk) => {
         if (chunk !== null) {
+          /**
+           * @todo We need to free the parser if the connection has been
+           * upgraded to a non-HTTP protocol. It won't be able to parse data
+           * from that point onward anyway. No need to keep it in memory.
+           */
           this.responseParser.execute(
             Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
           )
@@ -151,11 +171,14 @@ export class MockHttpSocket extends MockSocket {
    * its data/events through this Socket.
    */
   public passthrough(): void {
+    this.socketState = 'passthrough'
+
     if (this.destroyed) {
       return
     }
 
     const socket = this.createConnection()
+    this.originalSocket = socket
 
     // If the developer destroys the socket, destroy the original connection.
     this.once('error', (error) => {
@@ -276,7 +299,7 @@ export class MockHttpSocket extends MockSocket {
     // First, emit all the connection events
     // to emulate a successful connection.
     this.mockConnect()
-    this.responseType = 'mock'
+    this.socketState = 'mock'
 
     // Flush the write buffer to trigger write callbacks
     // if it hasn't been flushed already (e.g. someone started reading request stream).
@@ -581,7 +604,7 @@ export class MockHttpSocket extends MockSocket {
 
     this.responseListenersPromise = this.onResponse({
       response,
-      isMockedResponse: this.responseType === 'mock',
+      isMockedResponse: this.socketState === 'mock',
       requestId: Reflect.get(this.request, kRequestId),
       request: this.request,
       socket: this,
