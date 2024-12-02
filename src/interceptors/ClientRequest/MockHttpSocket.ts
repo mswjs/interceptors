@@ -157,7 +157,14 @@ export class MockHttpSocket extends MockSocket {
 
     const socket = this.createConnection()
 
-    console.log('MockHttpSocket.passthrough()', this.writeBuffer)
+    /**
+     * Forward any writes to the mock socket to the underlying original socket.
+     * This ensures functional duplex connections, like WebSocket.
+     * @see https://github.com/mswjs/interceptors/issues/682
+     */
+    this._write = (chunk, encoding, callback) => {
+      socket.write(chunk, encoding, callback)
+    }
 
     // If the developer destroys the socket, destroy the original connection.
     this.once('error', (error) => {
@@ -448,8 +455,6 @@ export class MockHttpSocket extends MockSocket {
     shouldKeepAlive
   ) => {
     this.shouldKeepAlive = shouldKeepAlive
-
-    console.log({ _, __, ___, ____ })
 
     const url = new URL(path, this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
