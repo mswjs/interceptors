@@ -40,7 +40,6 @@ export class MockSocket extends net.Socket {
       args as WriteArgs
     )
     this.options.write(chunk, encoding, callback)
-    this._write?.apply(this, args as any)
     return true
   }
 
@@ -49,7 +48,6 @@ export class MockSocket extends net.Socket {
       args as WriteArgs
     )
     this.options.write(chunk, encoding, callback)
-
     return super.end.apply(this, args as any)
   }
 
