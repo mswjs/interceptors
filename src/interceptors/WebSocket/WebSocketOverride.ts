@@ -141,6 +141,14 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
       return
     }
 
+    // We should copy the buffer in case the buffer is reused and changed by the sender
+    if (ArrayBuffer.isView(data)) {
+      const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+      data = Reflect.construct(data.constructor, [buffer])
+    } else if (data instanceof ArrayBufer) {
+      data = data.slice(0)
+    }
+
     // Buffer the data to send in this even loop
     // but send it in the next.
     this.bufferedAmount += getDataSize(data)
