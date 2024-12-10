@@ -139,6 +139,7 @@ export class MockHttpSocket extends MockSocket {
       Reflect.set(this, 'getProtocol', () => 'TLSv1.3')
       Reflect.set(this, 'getSession', () => undefined)
       Reflect.set(this, 'isSessionReused', () => false)
+      Reflect.set(this, 'getCipher', () => ({ name: 'AES256-SHA', standardName: 'TLS_RSA_WITH_AES_256_CBC_SHA', version: 'TLSv1.3' }))
     }
   }
 
@@ -237,6 +238,7 @@ export class MockHttpSocket extends MockSocket {
         'getProtocol',
         'getSession',
         'isSessionReused',
+        'getCipher'
       ]
 
       tlsProperties.forEach((propertyName) => {
