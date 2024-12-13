@@ -3,9 +3,14 @@ import http from 'node:http'
 import { vi, beforeAll, beforeEach, afterAll, it, expect } from 'vitest'
 import { io } from 'socket.io-client'
 import { Server } from 'socket.io'
+import { BatchInterceptor } from '../../../../src'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-const interceptor = new WebSocketInterceptor()
+const interceptor = new BatchInterceptor({
+  name: 'test-interceptor',
+  interceptors: [new ClientRequestInterceptor(), new WebSocketInterceptor()],
+})
 
 const wss = new Server()
 const httpServer = new http.Server()
