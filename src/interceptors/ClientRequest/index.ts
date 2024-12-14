@@ -31,6 +31,24 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     const onRequest = this.onRequest.bind(this)
     const onResponse = this.onResponse.bind(this)
 
+    http.ClientRequest = new Proxy(http.ClientRequest, {
+      construct: (target, args: Parameters<typeof http.request>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          'http:',
+          args
+        )
+
+        const mockAgent = new MockAgent({
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        })
+        options.agent = mockAgent
+
+        return Reflect.construct(target, [url, options, callback])
+      },
+    })
+
     http.request = new Proxy(http.request, {
       apply: (target, thisArg, args: Parameters<typeof http.request>) => {
         const [url, options, callback] = normalizeClientRequestArgs(
