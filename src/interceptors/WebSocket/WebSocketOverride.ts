@@ -145,7 +145,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
     if (ArrayBuffer.isView(data)) {
       const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
       data = Reflect.construct(data.constructor, [buffer])
-    } else if (data instanceof ArrayBufer) {
+    } else if (data instanceof ArrayBuffer) {
       data = data.slice(0)
     }
 
