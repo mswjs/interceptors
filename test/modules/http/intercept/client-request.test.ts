@@ -12,10 +12,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = vi.fn<HttpRequestEventMap['request']>()
-
 const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', resolver)
 
 beforeAll(async () => {
   await httpServer.listen()
@@ -24,6 +21,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   vi.resetAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -33,6 +31,8 @@ afterAll(async () => {
 
 it('intercepts a ClientRequest request with options', async () => {
   const url = new URL(httpServer.http.url('/user?id=123'))
+  const requestListener = vi.fn<HttpRequestEventMap['request']>()
+  interceptor.on('request', requestListener)
 
   // send options object instead of (url, options) as in other tests
   // because the @types/node is incorrect and does not have the correct signature
@@ -47,9 +47,9 @@ it('intercepts a ClientRequest request with options', async () => {
   req.end()
   const { text } = await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url.toString())
