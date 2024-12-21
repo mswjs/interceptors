@@ -118,7 +118,7 @@ export function recordRawFetchHeaders() {
             [Reflect.get(headersInit, kRawHeaders)],
             newTarget
           )
-          ensureRawHeadersSymbol(headers, Reflect.get(headersInit, kRawHeaders))
+          ensureRawHeadersSymbol(headers, [...Reflect.get(headersInit, kRawHeaders)])
           return headers
         }
 

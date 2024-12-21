@@ -241,3 +241,15 @@ it('does not throw on using Headers before recording', () => {
   request.headers.set('X-My-Header', '1')
   expect(getRawFetchHeaders(request.headers)).toEqual([['X-My-Header', '1']])
 })
+
+it('does not use the same instance of rawHeaders', async () => {
+  recordRawFetchHeaders()
+  const original = new Headers();
+  const clone1 = new Headers(original);
+  clone1.set('Content-Type', 'application/json')
+  const clone2 = new Headers(original);
+
+  expect(original.get('Content-Type')).toBeNull()
+  expect(clone1.get('Content-Type')).toBe('application/json')
+  expect(clone2.get('Content-Type')).toBeNull()
+});
