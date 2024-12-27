@@ -111,6 +111,7 @@ it('ClientRequest: emits the "response" event for a mocked response', async () =
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('mocked')
+  expect(response.clone().url).toBe(request.url)
   expect(await response.text()).toBe('mocked-response-text')
 
   expect(isMockedResponse).toBe(true)
@@ -144,6 +145,7 @@ it('ClientRequest: emits the "response" event upon the original response', async
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('original')
+  expect(response.clone().url).toBe(request.url)
   expect(await response.text()).toBe('original-response-text')
 
   expect(isMockedResponse).toBe(false)
@@ -176,6 +178,7 @@ it('XMLHttpRequest: emits the "response" event upon a mocked response', async ()
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('mocked')
+  expect(response.clone().url).toBe(request.url)
   expect(await response.text()).toBe('mocked-response-text')
   expect(isMockedResponse).toBe(true)
 
@@ -219,6 +222,7 @@ it('XMLHttpRequest: emits the "response" event upon the original response', asyn
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('original')
+  expect(response.clone().url).toBe(request.url)
   expect(await response.text()).toBe('original-response-text')
 
   expect(isMockedResponse).toBe(false)
@@ -251,6 +255,7 @@ it('fetch: emits the "response" event upon a mocked response', async () => {
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('mocked')
+  expect(response.clone().url).toBe(request.url)
   expect(await response.text()).toBe('mocked-response-text')
 
   expect(isMockedResponse).toBe(true)
@@ -274,7 +279,6 @@ it('fetch: emits the "response" event upon the original response', async () => {
 
   const [{ response, request, isMockedResponse }] =
     responseListener.mock.calls[0]
-
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/account'))
   expect(request.headers.get('x-request-custom')).toBe('yes')
@@ -284,6 +288,7 @@ it('fetch: emits the "response" event upon the original response', async () => {
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('original')
+  expect(response.clone().url).toBe(request.url)
   expect(await response.text()).toBe('original-response-text')
 
   expect(isMockedResponse).toBe(false)
