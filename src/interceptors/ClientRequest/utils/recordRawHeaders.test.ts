@@ -242,14 +242,17 @@ it('does not throw on using Headers before recording', () => {
   expect(getRawFetchHeaders(request.headers)).toEqual([['X-My-Header', '1']])
 })
 
-it('does not use the same instance of rawHeaders', async () => {
+/**
+ * @see https://github.com/mswjs/interceptors/issues/681
+ */
+it('isolates headers between different headers instances', async () => {
   recordRawFetchHeaders()
-  const original = new Headers();
-  const clone1 = new Headers(original);
-  clone1.set('Content-Type', 'application/json')
-  const clone2 = new Headers(original);
+  const original = new Headers()
+  const firstClone = new Headers(original)
+  firstClone.set('Content-Type', 'application/json')
+  const secondClone = new Headers(original)
 
   expect(original.get('Content-Type')).toBeNull()
-  expect(clone1.get('Content-Type')).toBe('application/json')
-  expect(clone2.get('Content-Type')).toBeNull()
-});
+  expect(firstClone.get('Content-Type')).toBe('application/json')
+  expect(secondClone.get('Content-Type')).toBeNull()
+})
