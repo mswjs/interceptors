@@ -31,7 +31,7 @@ export class MockAgent extends http.Agent {
     this.onResponse = options.onResponse
   }
 
-  public createConnection(options: any, callback: any) {
+  public createConnection(options: any, callback: any): net.Socket {
     const createConnection =
       (this.customAgent instanceof http.Agent &&
         this.customAgent.createConnection) ||
@@ -64,7 +64,7 @@ export class MockHttpsAgent extends https.Agent {
     this.onResponse = options.onResponse
   }
 
-  public createConnection(options: any, callback: any) {
+  public createConnection(options: any, callback: any): net.Socket {
     const createConnection =
       (this.customAgent instanceof https.Agent &&
         this.customAgent.createConnection) ||
