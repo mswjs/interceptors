@@ -7,7 +7,7 @@ export function createEvent(
   target: XMLHttpRequest | XMLHttpRequestUpload,
   type: string,
   init?: ProgressEventInit
-): EventPolyfill {
+): EventPolyfill | ProgressEvent {
   const progressEvents = [
     'error',
     'progress',
