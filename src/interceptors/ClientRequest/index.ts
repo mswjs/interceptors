@@ -43,18 +43,18 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           onRequest,
           onResponse,
         }
-        const mockAgent = protocol === 'http:' ? new MockAgent(agentOpts) : new MockHttpsAgent(agentOpts);
+        const mockAgent = protocol === 'http:' ? new MockAgent(agentOpts) : new MockHttpsAgent(agentOpts)
         options.agent = mockAgent
 
         return Reflect.apply(target, thisArg, [url, options, callback])
       },
     }), {
       updateCallbacks: (_onRequest: MockHttpSocketRequestCallback, _onResponse: MockHttpSocketResponseCallback) => {
-        onRequest = _onRequest;
-        onResponse = _onResponse;
+        onRequest = _onRequest
+        onResponse = _onResponse
       },
       original: target,
-    });
+    })
   }
   protected setup(): void {
     const { get: httpGet, request: httpRequest } = http
@@ -64,36 +64,37 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     const onResponse = this.onResponse.bind(this)
 
     if (isMutableReqProxy(httpRequest)) {
-      httpRequest.updateCallbacks(onRequest, onResponse);
+      httpRequest.updateCallbacks(onRequest, onResponse)
+      this.logger.info('found existing proxy - updating for new request handlers')
     } else {
-      http.request = this.buildProxy('http:', httpRequest, onRequest, onResponse);
+      http.request = this.buildProxy('http:', httpRequest, onRequest, onResponse)
       this.subscriptions.push(() => {
         http.request = httpRequest
       })
     }
 
     if (isMutableReqProxy(httpGet)) {
-      httpGet.updateCallbacks(onRequest, onResponse);
+      httpGet.updateCallbacks(onRequest, onResponse)
     } else {
-      http.get = this.buildProxy('http:', httpGet, onRequest, onResponse);
+      http.get = this.buildProxy('http:', httpGet, onRequest, onResponse)
       this.subscriptions.push(() => {
         http.get = httpGet
       })
     }
 
     if (isMutableReqProxy(httpsRequest)) {
-      httpsRequest.updateCallbacks(onRequest, onResponse);
+      httpsRequest.updateCallbacks(onRequest, onResponse)
     } else {
-      https.request = this.buildProxy('https:', httpsRequest, onRequest, onResponse);
+      https.request = this.buildProxy('https:', httpsRequest, onRequest, onResponse)
       this.subscriptions.push(() => {
         https.request = httpsRequest
       })
     }
 
     if (isMutableReqProxy(httpsGet)) {
-      httpsGet.updateCallbacks(onRequest, onResponse);
+      httpsGet.updateCallbacks(onRequest, onResponse)
     } else {
-      https.get = this.buildProxy('https:', httpsGet, onRequest, onResponse);
+      https.get = this.buildProxy('https:', httpsGet, onRequest, onResponse)
       this.subscriptions.push(() => {
         https.get = httpsGet
       })
