@@ -42,6 +42,14 @@ export class FetchResponse extends Response {
       configurable: true,
       writable: false,
     })
+
+    const stateSymbol = Object.getOwnPropertySymbols(response).find(
+      (symbol) => symbol.description === 'state'
+    )
+    if (stateSymbol) {
+      const state = Reflect.get(response, stateSymbol) as object
+      Reflect.set(state, 'urlList', [new URL(url)])
+    }
   }
 
   constructor(body?: BodyInit | null, init: FetchResponseInit = {}) {

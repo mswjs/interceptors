@@ -63,6 +63,7 @@ export class MockHttpSocket extends MockSocket {
   private responseStream?: Readable
   private originalSocket?: net.Socket
 
+
   constructor(options: MockHttpSocketOptions) {
     super({
       write: (chunk, encoding, callback) => {
@@ -592,6 +593,7 @@ export class MockHttpSocket extends MockSocket {
       this.request,
       'Failed to handle a response: request does not exist'
     )
+    FetchResponse.setUrl(this.request.url, response)
 
     /**
      * @fixme Stop relying on the "X-Request-Id" request header
