@@ -16,6 +16,13 @@ import {
   recordRawFetchHeaders,
   restoreHeadersPrototype,
 } from './utils/recordRawHeaders'
+import { types } from 'node:util'
+
+type MutableReqProxy<T extends Function> = T & {original: T, updateCallbacks: (onRequest: MockHttpSocketRequestCallback, onResponse: MockHttpSocketResponseCallback) => void}
+
+function isMutableReqProxy<T extends Function>(target: T): target is MutableReqProxy<T> {
+  return types.isProxy(target) && 'updateCallbacks' in target && typeof target.updateCallbacks === 'function';
+}
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -24,87 +31,73 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     super(ClientRequestInterceptor.symbol)
   }
 
+  protected buildProxy<T extends typeof http.request>(protocol: 'http:' | 'https:', target: T, onRequest: MockHttpSocketRequestCallback, onResponse: MockHttpSocketResponseCallback): MutableReqProxy<T> {
+    return Object.assign(new Proxy(target, {
+      apply: (target, thisArg, args: Parameters<typeof http.request>) => {
+        const [url, options, callback] = normalizeClientRequestArgs(
+          protocol,
+          args
+        )
+        const agentOpts = {
+          customAgent: options.agent,
+          onRequest,
+          onResponse,
+        }
+        const mockAgent = protocol === 'http:' ? new MockAgent(agentOpts) : new MockHttpsAgent(agentOpts);
+        options.agent = mockAgent
+
+        return Reflect.apply(target, thisArg, [url, options, callback])
+      },
+    }), {
+      updateCallbacks: (_onRequest: MockHttpSocketRequestCallback, _onResponse: MockHttpSocketResponseCallback) => {
+        onRequest = _onRequest;
+        onResponse = _onResponse;
+      },
+      original: target,
+    });
+  }
   protected setup(): void {
-    const { get: originalGet, request: originalRequest } = http
-    const { get: originalHttpsGet, request: originalHttpsRequest } = https
+    const { get: httpGet, request: httpRequest } = http
+    const { get: httpsGet, request: httpsRequest } = https
 
     const onRequest = this.onRequest.bind(this)
     const onResponse = this.onResponse.bind(this)
 
-    http.request = new Proxy(http.request, {
-      apply: (target, thisArg, args: Parameters<typeof http.request>) => {
-        const [url, options, callback] = normalizeClientRequestArgs(
-          'http:',
-          args
-        )
-        const mockAgent = new MockAgent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
+    if (isMutableReqProxy(httpRequest)) {
+      httpRequest.updateCallbacks(onRequest, onResponse);
+    } else {
+      http.request = this.buildProxy('http:', httpRequest, onRequest, onResponse);
+      this.subscriptions.push(() => {
+        http.request = httpRequest
+      })
+    }
 
-        return Reflect.apply(target, thisArg, [url, options, callback])
-      },
-    })
+    if (isMutableReqProxy(httpGet)) {
+      httpGet.updateCallbacks(onRequest, onResponse);
+    } else {
+      http.get = this.buildProxy('http:', httpGet, onRequest, onResponse);
+      this.subscriptions.push(() => {
+        http.get = httpGet
+      })
+    }
 
-    http.get = new Proxy(http.get, {
-      apply: (target, thisArg, args: Parameters<typeof http.get>) => {
-        const [url, options, callback] = normalizeClientRequestArgs(
-          'http:',
-          args
-        )
+    if (isMutableReqProxy(httpsRequest)) {
+      httpsRequest.updateCallbacks(onRequest, onResponse);
+    } else {
+      https.request = this.buildProxy('https:', httpsRequest, onRequest, onResponse);
+      this.subscriptions.push(() => {
+        https.request = httpsRequest
+      })
+    }
 
-        const mockAgent = new MockAgent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
-
-        return Reflect.apply(target, thisArg, [url, options, callback])
-      },
-    })
-
-    //
-    // HTTPS.
-    //
-
-    https.request = new Proxy(https.request, {
-      apply: (target, thisArg, args: Parameters<typeof https.request>) => {
-        const [url, options, callback] = normalizeClientRequestArgs(
-          'https:',
-          args
-        )
-
-        const mockAgent = new MockHttpsAgent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
-
-        return Reflect.apply(target, thisArg, [url, options, callback])
-      },
-    })
-
-    https.get = new Proxy(https.get, {
-      apply: (target, thisArg, args: Parameters<typeof https.get>) => {
-        const [url, options, callback] = normalizeClientRequestArgs(
-          'https:',
-          args
-        )
-
-        const mockAgent = new MockHttpsAgent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
-
-        return Reflect.apply(target, thisArg, [url, options, callback])
-      },
-    })
+    if (isMutableReqProxy(httpsGet)) {
+      httpsGet.updateCallbacks(onRequest, onResponse);
+    } else {
+      https.get = this.buildProxy('https:', httpsGet, onRequest, onResponse);
+      this.subscriptions.push(() => {
+        https.get = httpsGet
+      })
+    }
 
     // Spy on `Header.prototype.set` and `Header.prototype.append` calls
     // and record the raw header names provided. This is to support
@@ -112,12 +105,6 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     recordRawFetchHeaders()
 
     this.subscriptions.push(() => {
-      http.get = originalGet
-      http.request = originalRequest
-
-      https.get = originalHttpsGet
-      https.request = originalHttpsRequest
-
       restoreHeadersPrototype()
     })
   }
