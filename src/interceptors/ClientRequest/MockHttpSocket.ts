@@ -57,6 +57,7 @@ export class MockHttpSocket extends MockSocket {
   private requestParser: HTTPParser<0>
   private requestStream?: Readable
   private shouldKeepAlive?: boolean
+  private requestHeaderSent: boolean
 
   private socketState: 'unknown' | 'mock' | 'passthrough' = 'unknown'
   private responseParser: HTTPParser<1>
@@ -107,6 +108,8 @@ export class MockHttpSocket extends MockSocket {
     this.onRequest = options.onRequest
     this.onResponse = options.onResponse
 
+    this.requestHeaderSent = false
+
     this.baseUrl = baseUrlFromConnectionOptions(this.connectionOptions)
 
     // Request parser.
@@ -139,6 +142,28 @@ export class MockHttpSocket extends MockSocket {
       Reflect.set(this, 'getProtocol', () => 'TLSv1.3')
       Reflect.set(this, 'getSession', () => undefined)
       Reflect.set(this, 'isSessionReused', () => false)
+    }
+  }
+
+  _read(): void {
+    /**
+     * @note If the request header hasn't been sent by the time the socket is read,
+     * it means that Node.js is buffering the socket writes in memory while
+     * the client finishes preparing the request. In that case, trigger the
+     * request start pipeline preemptively so the socket emits the "connect"
+     * event correctly.
+     *
+     * This is triggered if `.end()` is delegated to the "connect" socket event
+     * listener (i.e. finish the request once the connection is successful).
+     */
+    if (!this.requestHeaderSent) {
+      this._onRequestStart({
+        path: this.connectionOptions.pathname,
+        headers: new Headers(this.connectionOptions.headers || {}),
+        keepAlive: this.connectionOptions.agent?.keepAlive,
+      })
+
+      this.requestHeaderSent = true
     }
   }
 
@@ -457,22 +482,22 @@ export class MockHttpSocket extends MockSocket {
     }
   }
 
-  private onRequestStart: RequestHeadersCompleteCallback = (
-    versionMajor,
-    versionMinor,
-    rawHeaders,
-    _,
-    path,
-    __,
-    ___,
-    ____,
-    shouldKeepAlive
-  ) => {
-    this.shouldKeepAlive = shouldKeepAlive
+  /**
+   * Internal method that triggers the start of the request processing
+   * and lets the parent interceptor know that a request has happened.
+   */
+  private _onRequestStart(args: {
+    path: string
+    headers: Headers
+    keepAlive?: boolean
+  }) {
+    const { path, headers, keepAlive } = args
 
-    const url = new URL(path, this.baseUrl)
+    this.requestHeaderSent = true
+    this.shouldKeepAlive = keepAlive
+
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
-    const headers = parseRawHeaders(rawHeaders)
+    const url = new URL(path, this.baseUrl)
     const canHaveBody = method !== 'GET' && method !== 'HEAD'
 
     // Translate the basic authorization in the URL to the request header.
@@ -496,7 +521,7 @@ export class MockHttpSocket extends MockSocket {
          * used as the actual request body (the stream calls "read()").
          * We control the queue in the onRequestBody/End functions.
          */
-        read: () => {
+        read: (size) => {
           // If the user attempts to read the request body,
           // flush the write buffer to trigger the callbacks.
           // This way, if the request stream ends in the write callback,
@@ -537,6 +562,24 @@ export class MockHttpSocket extends MockSocket {
       requestId,
       request: this.request,
       socket: this,
+    })
+  }
+
+  private onRequestStart: RequestHeadersCompleteCallback = (
+    versionMajor,
+    versionMinor,
+    rawHeaders,
+    _,
+    path,
+    __,
+    ___,
+    ____,
+    keepAlive
+  ) => {
+    return this._onRequestStart({
+      path,
+      headers: parseRawHeaders(rawHeaders),
+      keepAlive,
     })
   }
 
