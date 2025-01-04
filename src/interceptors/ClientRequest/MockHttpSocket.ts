@@ -12,7 +12,6 @@ import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
-import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
 import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
@@ -472,7 +471,7 @@ export class MockHttpSocket extends MockSocket {
 
     const url = new URL(path, this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
-    const headers = parseRawHeaders(rawHeaders)
+    const headers = FetchResponse.parseRawHeaders(rawHeaders)
     const canHaveBody = method !== 'GET' && method !== 'HEAD'
 
     // Translate the basic authorization in the URL to the request header.
@@ -565,7 +564,7 @@ export class MockHttpSocket extends MockSocket {
     status,
     statusText
   ) => {
-    const headers = parseRawHeaders(rawHeaders)
+    const headers = FetchResponse.parseRawHeaders(rawHeaders)
 
     const response = new FetchResponse(
       /**
