@@ -44,6 +44,17 @@ export class FetchResponse extends Response {
     })
   }
 
+  /**
+   * Parses the given raw HTTP headers into a Fetch API `Headers` instance.
+   */
+  static parseRawHeaders(rawHeaders: Array<string>): Headers {
+    const headers = new Headers()
+    for (let line = 0; line < rawHeaders.length; line += 2) {
+      headers.append(rawHeaders[line], rawHeaders[line + 1])
+    }
+    return headers
+  }
+
   constructor(body?: BodyInit | null, init: FetchResponseInit = {}) {
     const status = init.status ?? 200
     const safeStatus = FetchResponse.isConfigurableStatusCode(status)
