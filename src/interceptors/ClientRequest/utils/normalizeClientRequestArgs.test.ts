@@ -341,6 +341,24 @@ it('sets fallback Agent based on the URL protocol', () => {
   expect(agent).toHaveProperty('protocol', url.protocol)
 })
 
+it.each([true, false, undefined])('keep the rejectUnauthorized value if set: %s', (value) => {
+  const [, options] = normalizeClientRequestArgs('https:', [
+    'https://github.com',
+    { rejectUnauthorized: value },
+  ])
+
+  expect((options.agent as HttpsAgent).options.rejectUnauthorized).toEqual(value)
+})
+
+it('does not add rejectUnauthorized value if not set', () => {
+  const agent = new HttpsAgent()
+  const [, options] = normalizeClientRequestArgs('https:', [
+    'https://github.com',
+  ])
+
+  expect((options.agent as HttpsAgent).options).not.toHaveProperty('rejectUnauthorized')
+})
+
 it('does not set any fallback Agent given "agent: false" option', () => {
   const [, options] = normalizeClientRequestArgs('https:', [
     'https://github.com',
