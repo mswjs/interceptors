@@ -244,7 +244,9 @@ export function normalizeClientRequestArgs(
       options.protocol === 'https:'
         ? new HttpsAgent({
             // Any other value other than false is considered as true, so we don't add this property if undefined.
-            ...('rejectUnauthorized' in options && { rejectUnauthorized: options.rejectUnauthorized }),
+            ...('rejectUnauthorized' in options && {
+              rejectUnauthorized: options.rejectUnauthorized,
+            }),
           })
         : new HttpAgent()
 
