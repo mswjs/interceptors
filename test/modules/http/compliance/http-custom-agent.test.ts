@@ -39,7 +39,7 @@ it('preserves the context of the "createConnection" function in a custom http ag
   const request = http.get(httpServer.http.url('/resource'), { agent })
   await waitForClientRequest(request)
 
-  const [context] = createConnectionContextSpy.mock.calls[0]
+  const [context] = createConnectionContextSpy.mock.calls[0] || []
   expect(context.constructor.name).toBe('CustomHttpAgent')
 })
 
