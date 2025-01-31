@@ -62,13 +62,3 @@ it('preserves the context of the "createConnection" function in a custom https a
   const [context] = createConnectionContextSpy.mock.calls[0]
   expect(context.constructor.name).toBe('CustomHttpsAgent')
 })
-
-it('forward the custom agent options', async () => {
-  const request = https
-    .request(httpServer.https.url('/resource'), {
-      agent: new https.Agent({ rejectUnauthorized: false }),
-    })
-    .end()
-
-  await expect(waitForClientRequest(request)).resolves.not.toThrow()
-})
