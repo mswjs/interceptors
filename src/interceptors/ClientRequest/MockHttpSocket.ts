@@ -128,7 +128,13 @@ export class MockHttpSocket extends MockSocket {
 
     // Once the socket is finished, nothing can write to it
     // anymore. It has also flushed any buffered chunks.
-    this.once('finish', () => this.requestParser.free())
+    this.once('finish', () => {
+      this.requestParser.free()
+      // @ts-ignore
+      this.parser = null
+      // @ts-ignore
+      this._httpMessage.parser = null
+    })
 
     if (this.baseUrl.protocol === 'https:') {
       Reflect.set(this, 'encrypted', true)
