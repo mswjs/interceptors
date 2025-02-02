@@ -118,7 +118,14 @@ export function recordRawFetchHeaders() {
             [Reflect.get(headersInit, kRawHeaders)],
             newTarget
           )
-          ensureRawHeadersSymbol(headers, Reflect.get(headersInit, kRawHeaders))
+          ensureRawHeadersSymbol(headers, [
+            /**
+             * @note Spread the retrieved headers to clone them.
+             * This prevents multiple Headers instances from pointing
+             * at the same internal "rawHeaders" array.
+             */
+            ...Reflect.get(headersInit, kRawHeaders),
+          ])
           return headers
         }
 
