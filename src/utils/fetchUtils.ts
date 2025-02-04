@@ -55,31 +55,32 @@ export class FetchResponse extends Response {
     return headers
   }
 
-  constructor(body?: BodyInit | null, init: FetchResponseInit = {}) {
+  constructor(body?: BodyInit | null, init: FetchResponseInit = {}) { 
+    super()
     const status = init.status ?? 200
     const safeStatus = FetchResponse.isConfigurableStatusCode(status)
       ? status
       : 200
     const finalBody = FetchResponse.isResponseWithBody(status) ? body : null
-
-    super(finalBody, {
+    // construct the response manually so it will use the Response proxy for raw headers
+    const response = Reflect.construct(Response, [finalBody, {
       ...init,
       status: safeStatus,
-    })
+    }], new.target);
 
     if (status !== safeStatus) {
       /**
        * @note Undici keeps an internal "Symbol(state)" that holds
        * the actual value of response status. Update that in Node.js.
        */
-      const stateSymbol = Object.getOwnPropertySymbols(this).find(
+      const stateSymbol = Object.getOwnPropertySymbols(response).find(
         (symbol) => symbol.description === 'state'
       )
       if (stateSymbol) {
-        const state = Reflect.get(this, stateSymbol) as object
+        const state = Reflect.get(response, stateSymbol) as object
         Reflect.set(state, 'status', status)
       } else {
-        Object.defineProperty(this, 'status', {
+        Object.defineProperty(response, 'status', {
           value: status,
           enumerable: true,
           configurable: true,
@@ -88,6 +89,7 @@ export class FetchResponse extends Response {
       }
     }
 
-    FetchResponse.setUrl(init.url, this)
+    FetchResponse.setUrl(init.url, response)
+    return response
   }
 }

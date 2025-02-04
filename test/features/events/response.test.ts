@@ -13,6 +13,7 @@ import {
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
+import { kRawHeaders } from '../../../src/interceptors/ClientRequest/utils/recordRawHeaders'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -144,6 +145,7 @@ it('ClientRequest: emits the "response" event upon the original response', async
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('original')
+  expect(response.headers[kRawHeaders]).toContainEqual(['x-response-type', 'original'])
   expect(await response.text()).toBe('original-response-text')
 
   expect(isMockedResponse).toBe(false)
