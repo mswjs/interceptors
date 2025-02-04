@@ -2,7 +2,7 @@ type HeaderTuple = [string, string]
 type RawHeaders = Array<HeaderTuple>
 type SetHeaderBehavior = 'set' | 'append'
 
-const kRawHeaders = Symbol('kRawHeaders')
+export const kRawHeaders = Symbol('kRawHeaders')
 const kRestorePatches = Symbol('kRestorePatches')
 
 function recordRawHeader(
