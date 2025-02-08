@@ -76,3 +76,25 @@ it('request body is unused in the listener when using input and init arguments',
 
   expect(await response.text()).toBe('received: Hello server')
 })
+
+it('request body is unused in the response listener after passthrough', async () => {
+  const requestInListenerPromise = new DeferredPromise<Request>()
+  interceptor.on('response', ({ request }) => {
+    requestInListenerPromise.resolve(request)
+  })
+
+  const responsePromise = fetch(httpServer.http.url('/resource'), {
+    method: 'POST',
+    body: 'Hello server',
+  })
+
+  const requestInListener = await requestInListenerPromise
+  const bodyUsedInListener = requestInListener.bodyUsed
+
+  const response = await responsePromise
+
+  expect(bodyUsedInListener).toBe(false)
+
+  expect(await response.text()).toBe('received: Hello server')
+})
+
