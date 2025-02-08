@@ -178,6 +178,7 @@ export class MockHttpSocket extends MockSocket {
 
     const socket = this.createConnection()
     this.originalSocket = socket
+    this._handle = { reading: true, close: () => {} }
 
     // If the developer destroys the socket, destroy the original connection.
     this.once('error', (error) => {
