@@ -1,5 +1,6 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap } from '../../../../src'
 import { REQUEST_ID_REGEXP } from '../../../helpers'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
@@ -11,10 +12,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
-
 const interceptor = new FetchInterceptor()
-interceptor.on('request', resolver)
 
 beforeAll(async () => {
   interceptor.apply()
@@ -22,7 +20,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -31,6 +29,16 @@ afterAll(async () => {
 })
 
 it('intercepts fetch requests constructed via a "Request" instance', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   const request = new Request(httpServer.http.url('/user'), {
     method: 'POST',
     headers: {
@@ -46,10 +54,11 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
   expect(response.status).toEqual(200)
   await expect(response.text()).resolves.toEqual('mocked')
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request: capturedRequest, requestId, controller }] =
-    resolver.mock.calls[0]
+  const {
+    request: capturedRequest,
+    requestId,
+    controller,
+  } = await requestListenerArgs
 
   expect(capturedRequest.method).toBe('POST')
   expect(capturedRequest.url).toBe(httpServer.http.url('/user'))
