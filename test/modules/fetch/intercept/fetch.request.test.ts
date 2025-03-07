@@ -1,5 +1,4 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { Request } from 'node-fetch'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
 import { fetch, REQUEST_ID_REGEXP } from '../../../helpers'

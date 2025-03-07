@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'https'
-import nodeFetch from 'node-fetch'
 import waitForExpect from 'wait-for-expect'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../src'
@@ -236,7 +235,7 @@ it('fetch: emits the "response" event upon a mocked response', async () => {
     vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.once('response', responseListener)
 
-  await nodeFetch(httpServer.https.url('/user'), {
+  await fetch(httpServer.https.url('/user'), {
     headers: {
       'x-request-custom': 'yes',
     },
@@ -266,7 +265,7 @@ it('fetch: emits the "response" event upon the original response', async () => {
     vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.on('response', responseListener)
 
-  await nodeFetch(httpServer.https.url('/account'), {
+  await fetch(httpServer.https.url('/account'), {
     method: 'POST',
     headers: {
       'x-request-custom': 'yes',
@@ -306,7 +305,7 @@ it('supports reading the request and response bodies in the "response" listener'
   })
   interceptor.on('response', responseListener)
 
-  await nodeFetch(httpServer.https.url('/user'), {
+  await fetch(httpServer.https.url('/user'), {
     method: 'POST',
     body: 'request-body',
   })
