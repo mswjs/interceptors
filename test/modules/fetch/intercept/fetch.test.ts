@@ -3,7 +3,7 @@ import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
 import { REQUEST_ID_REGEXP } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 import { RequestController } from '../../../../src/RequestController'
 
@@ -24,7 +24,7 @@ const httpServer = new HttpServer((app) => {
 
 const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new FetchInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -100,11 +100,10 @@ it('intercepts an HTTP POST request', async () => {
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
   expect(Object.fromEntries(request.headers.entries())).toMatchObject({
-    accept: '*/*',
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.json()).toEqual({ body: true })
+  await expect(request.json()).resolves.toEqual({ body: true })
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -129,7 +128,7 @@ it('intercepts an HTTP PUT request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('request-payload')
+  await expect(request.text()).resolves.toBe('request-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -178,7 +177,7 @@ it('intercepts an HTTP PATCH request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('request-payload')
+  await expect(request.text()).resolves.toBe('request-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -250,7 +249,8 @@ it('intercepts an HTTPS POST request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.json()).toEqual({ body: true })
+  expect(request.bodyUsed).toBe(false)
+  await expect(request.json()).resolves.toEqual({ body: true })
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -275,7 +275,7 @@ it('intercepts an HTTPS PUT request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('request-payload')
+  await expect(request.text()).resolves.toBe('request-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)

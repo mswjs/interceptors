@@ -1,9 +1,9 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
-import { fetch, REQUEST_ID_REGEXP } from '../../../helpers'
+import { REQUEST_ID_REGEXP } from '../../../helpers'
+import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 import { RequestController } from '../../../../src/RequestController'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (_req, res) => {
@@ -13,7 +13,7 @@ const httpServer = new HttpServer((app) => {
 
 const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new FetchInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -39,12 +39,12 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
     },
     body: 'hello world',
   })
-  const { res } = await fetch(request)
+  const response = await fetch(request)
 
   // There's no mocked response returned from the resolver
   // so this request must hit an actual (test) server.
-  expect(res.status).toEqual(200)
-  expect(await res.text()).toEqual('mocked')
+  expect(response.status).toEqual(200)
+  await expect(response.text()).resolves.toEqual('mocked')
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -58,7 +58,7 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
     'user-agent': 'interceptors',
   })
   expect(capturedRequest.credentials).toBe('same-origin')
-  expect(await capturedRequest.text()).toBe('hello world')
+  await expect(capturedRequest.text()).resolves.toBe('hello world')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
