@@ -165,7 +165,7 @@
     "tsup": "^6.5.0",
     "typescript": "^4.9.4",
     "undici": "^6.6.2",
-    "vitest": "^1.2.2",
+    "vitest": "^3.0.8",
     "vitest-environment-miniflare": "^2.14.1",
     "wait-for-expect": "^3.0.2",
     "web-encoding": "^1.1.5",

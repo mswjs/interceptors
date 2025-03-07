@@ -80,7 +80,8 @@ afterAll(async () => {
 })
 
 it('ClientRequest: emits the "response" event for a mocked response', async () => {
-  const responseListener = vi.fn<HttpRequestEventMap['response']>()
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.once('response', responseListener)
 
   const req = https.request(httpServer.https.url('/user'), {
@@ -117,7 +118,8 @@ it('ClientRequest: emits the "response" event for a mocked response', async () =
 })
 
 it('ClientRequest: emits the "response" event upon the original response', async () => {
-  const responseListener = vi.fn<HttpRequestEventMap['response']>()
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.on('response', responseListener)
 
   const req = https.request(httpServer.https.url('/account'), {
@@ -150,7 +152,8 @@ it('ClientRequest: emits the "response" event upon the original response', async
 })
 
 it('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
-  const responseListener = vi.fn<HttpRequestEventMap['response']>()
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.on('response', responseListener)
 
   const originalRequest = await createXMLHttpRequest((req) => {
@@ -184,7 +187,8 @@ it('XMLHttpRequest: emits the "response" event upon a mocked response', async ()
 })
 
 it('XMLHttpRequest: emits the "response" event upon the original response', async () => {
-  const responseListener = vi.fn<HttpRequestEventMap['response']>()
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.on('response', responseListener)
 
   const originalRequest = await createXMLHttpRequest((req) => {
@@ -228,7 +232,8 @@ it('XMLHttpRequest: emits the "response" event upon the original response', asyn
 })
 
 it('fetch: emits the "response" event upon a mocked response', async () => {
-  const responseListener = vi.fn<HttpRequestEventMap['response']>()
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.once('response', responseListener)
 
   await nodeFetch(httpServer.https.url('/user'), {
@@ -257,7 +262,8 @@ it('fetch: emits the "response" event upon a mocked response', async () => {
 })
 
 it('fetch: emits the "response" event upon the original response', async () => {
-  const responseListener = vi.fn<HttpRequestEventMap['response']>()
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.on('response', responseListener)
 
   await nodeFetch(httpServer.https.url('/account'), {
@@ -292,12 +298,12 @@ it('fetch: emits the "response" event upon the original response', async () => {
 it('supports reading the request and response bodies in the "response" listener', async () => {
   const requestCallback = vi.fn()
   const responseCallback = vi.fn()
-  const responseListener = vi.fn<HttpRequestEventMap['response']>(
-    async ({ request, response }) => {
-      requestCallback(await request.clone().text())
-      responseCallback(await response.clone().text())
-    }
-  )
+  const responseListener = vi.fn<
+    (...args: HttpRequestEventMap['response']) => void
+  >(async ({ request, response }) => {
+    requestCallback(await request.clone().text())
+    responseCallback(await response.clone().text())
+  })
   interceptor.on('response', responseListener)
 
   await nodeFetch(httpServer.https.url('/user'), {
