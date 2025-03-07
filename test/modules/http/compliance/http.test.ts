@@ -1,6 +1,4 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { vi, beforeAll, afterEach, afterAll, it, expect } from 'vitest'
 import http from 'node:http'
 import express from 'express'
@@ -54,11 +52,11 @@ it('bypasses a request to the existing host', async () => {
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
   )
-  expect(await requestFromListener.json()).toEqual({ name: 'john' })
+  await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' })
 
   // Must receive the correct response.
   expect(res.headers).toHaveProperty('x-custom-header', 'yes')
-  expect(await text()).toBe('hello, john')
+  await expect(text()).resolves.toBe('hello, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
@@ -77,8 +75,12 @@ it('errors on a request to a non-existing host', async () => {
   )
 
   // Must emit the "error" event on the request.
-  expect(await errorPromise).toEqual(
-    new Error('getaddrinfo ENOTFOUND abc123-non-existing.lol')
+  await expect(errorPromise).resolves.toEqual(
+    expect.objectContaining({
+      message: 'getaddrinfo ENOTFOUND abc123-non-existing.lol',
+      code: 'ENOTFOUND',
+      hostname: 'abc123-non-existing.lol',
+    })
   )
   // Must not call the "response" event.
   expect(responseListener).not.toHaveBeenCalled()
@@ -116,11 +118,11 @@ it('mocked request to an existing host', async () => {
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
   )
-  expect(await requestFromListener.json()).toEqual({ name: 'john' })
+  await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' })
 
   // Must receive the correct response.
   expect(res.headers).toHaveProperty('x-custom-header', 'mocked')
-  expect(await text()).toBe('howdy, john')
+  await expect(text()).resolves.toBe('howdy, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
@@ -156,11 +158,11 @@ it('mocks response to a non-existing host', async () => {
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
   )
-  expect(await requestFromListener.json()).toEqual({ name: 'john' })
+  await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' })
 
   // Must receive the correct response.
   expect(res.headers).toHaveProperty('x-custom-header', 'mocked')
-  expect(await text()).toBe('howdy, john')
+  await expect(text()).resolves.toBe('howdy, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 

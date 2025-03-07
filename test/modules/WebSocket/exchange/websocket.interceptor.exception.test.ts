@@ -11,7 +11,7 @@ beforeAll(() => {
 
 afterEach(() => {
   interceptor.removeAllListeners()
-  vi.resetAllMocks()
+  vi.clearAllMocks()
 })
 
 afterAll(() => {
@@ -26,7 +26,7 @@ it('handles interceptor exception as WebSocket connection closure with error', a
   })
 
   const ws = new WebSocket('ws://localhost')
-  const closeCallback = vi.fn<[CloseEvent]>()
+  const closeCallback = vi.fn<(event: CloseEvent) => void>()
   const errorCallback = vi.fn()
   ws.onerror = errorCallback
   ws.onclose = closeCallback
@@ -60,7 +60,7 @@ it('does not emit "close" event twice on already closing WebSocket connections',
   })
 
   const ws = new WebSocket('ws://localhost')
-  const closeCallback = vi.fn<[CloseEvent]>()
+  const closeCallback = vi.fn<(event: CloseEvent) => void>()
   const errorCallback = vi.fn()
   ws.onerror = errorCallback
   ws.onclose = closeCallback

@@ -46,11 +46,13 @@ it('calls a custom callback once when the request is bypassed', async () => {
   let text: string = ''
 
   const responseReceived = new DeferredPromise<void>()
-  const responseCallback = vi.fn<[IncomingMessage]>((response) => {
-    response.on('data', (chunk) => (text += chunk))
-    response.on('end', () => responseReceived.resolve())
-    response.on('error', (error) => responseReceived.reject(error))
-  })
+  const responseCallback = vi.fn<(response: IncomingMessage) => void>(
+    (response) => {
+      response.on('data', (chunk) => (text += chunk))
+      response.on('end', () => responseReceived.resolve())
+      response.on('error', (error) => responseReceived.reject(error))
+    }
+  )
 
   https.get(
     httpServer.https.url('/get'),
@@ -73,11 +75,13 @@ it('calls a custom callback once when the response is mocked', async () => {
   let text: string = ''
 
   const responseReceived = new DeferredPromise<void>()
-  const responseCallback = vi.fn<[IncomingMessage]>((response) => {
-    response.on('data', (chunk) => (text += chunk))
-    response.on('end', () => responseReceived.resolve())
-    response.on('error', (error) => responseReceived.reject(error))
-  })
+  const responseCallback = vi.fn<(response: IncomingMessage) => void>(
+    (response) => {
+      response.on('data', (chunk) => (text += chunk))
+      response.on('end', () => responseReceived.resolve())
+      response.on('error', (error) => responseReceived.reject(error))
+    }
+  )
 
   https.get(
     httpServer.https.url('/arbitrary'),

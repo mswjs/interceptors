@@ -46,8 +46,8 @@ it('throws if closing the unconnected server', async () => {
 })
 
 it('closes the actual server connection when called "server.close()"', async () => {
-  const serverCallback = vi.fn<[number]>()
-  const originalClientMessageListener = vi.fn<[Data]>()
+  const serverCallback = vi.fn<(input: number) => void>()
+  const originalClientMessageListener = vi.fn<(data: Data) => void>()
 
   wsServer.on('connection', (client) => {
     client.addEventListener('message', (event) => {
@@ -98,7 +98,7 @@ it('closes the actual server connection when called "server.close()"', async () 
 })
 
 it('resumes forwarding client events to the server once it is reconnected', async () => {
-  const originalClientMessageListener = vi.fn<[Data]>()
+  const originalClientMessageListener = vi.fn<(data: Data) => void>()
   wsServer.on('connection', (client) => {
     client.addEventListener('message', (event) => {
       originalClientMessageListener(event.data)

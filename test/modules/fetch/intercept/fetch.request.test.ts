@@ -1,10 +1,10 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { Request } from 'node-fetch'
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap } from '../../../../src'
-import { fetch, REQUEST_ID_REGEXP } from '../../../helpers'
+import { REQUEST_ID_REGEXP } from '../../../helpers'
+import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 import { RequestController } from '../../../../src/RequestController'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (_req, res) => {
@@ -12,10 +12,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = vi.fn<HttpRequestEventMap['request']>()
-
-const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', resolver)
+const interceptor = new FetchInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -23,7 +20,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -32,6 +29,16 @@ afterAll(async () => {
 })
 
 it('intercepts fetch requests constructed via a "Request" instance', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   const request = new Request(httpServer.http.url('/user'), {
     method: 'POST',
     headers: {
@@ -40,17 +47,18 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
     },
     body: 'hello world',
   })
-  const { res } = await fetch(request)
+  const response = await fetch(request)
 
   // There's no mocked response returned from the resolver
   // so this request must hit an actual (test) server.
-  expect(res.status).toEqual(200)
-  expect(await res.text()).toEqual('mocked')
+  expect(response.status).toEqual(200)
+  await expect(response.text()).resolves.toEqual('mocked')
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request: capturedRequest, requestId, controller }] =
-    resolver.mock.calls[0]
+  const {
+    request: capturedRequest,
+    requestId,
+    controller,
+  } = await requestListenerArgs
 
   expect(capturedRequest.method).toBe('POST')
   expect(capturedRequest.url).toBe(httpServer.http.url('/user'))
@@ -59,7 +67,7 @@ it('intercepts fetch requests constructed via a "Request" instance', async () =>
     'user-agent': 'interceptors',
   })
   expect(capturedRequest.credentials).toBe('same-origin')
-  expect(await capturedRequest.text()).toBe('hello world')
+  await expect(capturedRequest.text()).resolves.toBe('hello world')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)

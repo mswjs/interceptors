@@ -43,8 +43,10 @@ afterAll(async () => {
 })
 
 it('emits events for a handled request', async () => {
-  const requestListener = vi.fn<HttpRequestEventMap['request']>()
-  const responseListener = vi.fn<HttpRequestEventMap['response']>()
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.on('request', requestListener)
   interceptor.on('response', responseListener)
 
@@ -84,8 +86,10 @@ it('emits events for a handled request', async () => {
 })
 
 it('emits events for a bypassed request', async () => {
-  const requestListener = vi.fn<HttpRequestEventMap['request']>()
-  const responseListener = vi.fn<HttpRequestEventMap['response']>()
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.on('request', requestListener)
   interceptor.on('response', responseListener)
 

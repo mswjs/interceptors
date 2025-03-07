@@ -27,7 +27,7 @@ afterAll(async () => {
 })
 
 it('awaits asynchronous response event listener for a mocked response', async () => {
-  const markStep = vi.fn<[number]>()
+  const markStep = vi.fn<(input: number) => void>()
 
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('hello world'))
@@ -53,7 +53,7 @@ it('awaits asynchronous response event listener for a mocked response', async ()
 })
 
 it('awaits asynchronous response event listener for the original response', async () => {
-  const markStep = vi.fn<[number]>()
+  const markStep = vi.fn<(input: number) => void>()
 
   interceptor.on('response', async ({ response }) => {
     markStep(2)
