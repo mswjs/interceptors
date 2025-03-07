@@ -11,7 +11,7 @@ beforeAll(() => {
 
 afterEach(() => {
   interceptor.removeAllListeners()
-  vi.resetAllMocks()
+  vi.clearAllMocks()
 })
 
 afterAll(() => {

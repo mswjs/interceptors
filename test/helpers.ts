@@ -312,9 +312,9 @@ export function sleep(duration: number): Promise<void> {
   })
 }
 
-export const useCors: RequestHandler = (req, res, next) => {
+export const useCors: RequestHandler = (_req, res, next) => {
   res.set({
-    'Access-Control-Allow-Origin': '*',
+    'access-control-allow-origin': '*',
   })
   return next()
 }
