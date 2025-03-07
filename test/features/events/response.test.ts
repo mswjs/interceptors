@@ -12,6 +12,7 @@ import {
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
+import { FetchInterceptor } from '../../../src/interceptors/fetch'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -40,6 +41,7 @@ const interceptor = new BatchInterceptor({
   interceptors: [
     new ClientRequestInterceptor(),
     new XMLHttpRequestInterceptor(),
+    new FetchInterceptor(),
   ],
 })
 
