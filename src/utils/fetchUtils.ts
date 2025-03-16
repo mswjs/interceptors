@@ -1,3 +1,5 @@
+import { ensureRawHeadersSymbol, kRawHeaders } from "../interceptors/ClientRequest/utils/recordRawHeaders"
+
 export interface FetchResponseInit extends ResponseInit {
   url?: string
 }
@@ -89,5 +91,6 @@ export class FetchResponse extends Response {
     }
 
     FetchResponse.setUrl(init.url, this)
+    ensureRawHeadersSymbol(this.headers, Reflect.get(init.headers || {}, kRawHeaders) || [])
   }
 }
