@@ -91,6 +91,6 @@ export class FetchResponse extends Response {
     }
 
     FetchResponse.setUrl(init.url, this)
-    ensureRawHeadersSymbol(this.headers, Reflect.get(init.headers || {}, kRawHeaders))
+    ensureRawHeadersSymbol(this.headers, Reflect.get(init.headers || {}, kRawHeaders) || [])
   }
 }
