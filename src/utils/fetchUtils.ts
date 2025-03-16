@@ -1,3 +1,5 @@
+import { ensureRawHeadersSymbol, kRawHeaders } from "../interceptors/ClientRequest/utils/recordRawHeaders"
+
 export interface FetchResponseInit extends ResponseInit {
   url?: string
 }
@@ -55,32 +57,31 @@ export class FetchResponse extends Response {
     return headers
   }
 
-  constructor(body?: BodyInit | null, init: FetchResponseInit = {}) { 
-    super()
+  constructor(body?: BodyInit | null, init: FetchResponseInit = {}) {
     const status = init.status ?? 200
     const safeStatus = FetchResponse.isConfigurableStatusCode(status)
       ? status
       : 200
     const finalBody = FetchResponse.isResponseWithBody(status) ? body : null
-    // construct the response manually so it will use the Response proxy for raw headers
-    const response = Reflect.construct(Response, [finalBody, {
+
+    super(finalBody, {
       ...init,
       status: safeStatus,
-    }], new.target);
+    })
 
     if (status !== safeStatus) {
       /**
        * @note Undici keeps an internal "Symbol(state)" that holds
        * the actual value of response status. Update that in Node.js.
        */
-      const stateSymbol = Object.getOwnPropertySymbols(response).find(
+      const stateSymbol = Object.getOwnPropertySymbols(this).find(
         (symbol) => symbol.description === 'state'
       )
       if (stateSymbol) {
-        const state = Reflect.get(response, stateSymbol) as object
+        const state = Reflect.get(this, stateSymbol) as object
         Reflect.set(state, 'status', status)
       } else {
-        Object.defineProperty(response, 'status', {
+        Object.defineProperty(this, 'status', {
           value: status,
           enumerable: true,
           configurable: true,
@@ -89,7 +90,7 @@ export class FetchResponse extends Response {
       }
     }
 
-    FetchResponse.setUrl(init.url, response)
-    return response
+    FetchResponse.setUrl(init.url, this)
+    ensureRawHeadersSymbol(this.headers, Reflect.get(init.headers || {}, kRawHeaders))
   }
 }

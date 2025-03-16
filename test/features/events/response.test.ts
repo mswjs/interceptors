@@ -149,7 +149,7 @@ it('ClientRequest: emits the "response" event upon the original response', async
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
   expect(response.headers.get('x-response-type')).toBe('original')
-  expect(response.headers[kRawHeaders]).toContainEqual(['x-response-type', 'original'])
+  expect(Reflect.get(response.headers, kRawHeaders)).toContainEqual(['x-response-type', 'original'])
   await expect(response.text()).resolves.toBe('original-response-text')
 
   expect(isMockedResponse).toBe(false)

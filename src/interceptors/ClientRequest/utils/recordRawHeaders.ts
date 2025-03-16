@@ -29,7 +29,7 @@ function recordRawHeader(
  * Define the raw headers symbol on the given `Headers` instance.
  * If the symbol already exists, this function does nothing.
  */
-function ensureRawHeadersSymbol(
+export function ensureRawHeadersSymbol(
   headers: Headers,
   rawHeaders: RawHeaders
 ): void {
