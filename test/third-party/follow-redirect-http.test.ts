@@ -46,7 +46,7 @@ afterAll(async () => {
 })
 
 it('intercepts a request issued by "follow-redirects"', async () => {
-  const requestListener = vi.fn<[Request]>()
+  const requestListener = vi.fn<(request: Request) => void>()
   interceptor.on('request', ({ request }) => requestListener(request))
 
   const { address } = server.https
@@ -104,7 +104,7 @@ it('intercepts a request issued by "follow-redirects"', async () => {
 })
 
 it('supports mocking a redirect response to the original response', async () => {
-  const requestListener = vi.fn<[Request]>()
+  const requestListener = vi.fn<(request: Request) => void>()
 
   interceptor.once('request', ({ request, controller }) => {
     requestListener(request)
@@ -146,7 +146,7 @@ it('supports mocking a redirect response to the original response', async () => 
 })
 
 it('supports mocking a redirect response to a mocked response', async () => {
-  const requestListener = vi.fn<[Request]>()
+  const requestListener = vi.fn<(request: Request) => void>()
 
   interceptor.on('request', ({ request, controller }) => {
     requestListener(request)
