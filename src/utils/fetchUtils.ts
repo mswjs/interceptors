@@ -49,7 +49,7 @@ export class FetchResponse extends Response {
   }
 
   static setUrl(url: string | undefined, response: Response): void {
-    if (url == null) {
+    if (url == null || url === 'about:') {
       return
     }
 
