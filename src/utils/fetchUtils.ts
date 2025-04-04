@@ -1,3 +1,4 @@
+import { canParseUrl } from './canParseUrl'
 import { getValueBySymbol } from './getValueBySymbol'
 
 export interface FetchResponseInit extends ResponseInit {
@@ -49,7 +50,7 @@ export class FetchResponse extends Response {
   }
 
   static setUrl(url: string | undefined, response: Response): void {
-    if (url == null || url === 'about:') {
+    if (!url || url === 'about:' || !canParseUrl(url)) {
       return
     }
 
@@ -98,12 +99,10 @@ export class FetchResponse extends Response {
        * @note Undici keeps an internal "Symbol(state)" that holds
        * the actual value of response status. Update that in Node.js.
        */
-      const stateSymbol = Object.getOwnPropertySymbols(this).find(
-        (symbol) => symbol.description === 'state'
-      )
-      if (stateSymbol) {
-        const state = Reflect.get(this, stateSymbol) as object
-        Reflect.set(state, 'status', status)
+      const state = getValueBySymbol<UndiciFetchInternalState>('state', this)
+
+      if (state) {
+        state.status = status
       } else {
         Object.defineProperty(this, 'status', {
           value: status,
