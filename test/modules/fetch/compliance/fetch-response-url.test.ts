@@ -42,6 +42,24 @@ it('returns the request url for a mocked response', async () => {
   expect(response.url).toBe('http://localhost/does-not-matter')
 })
 
+it('returns an empty string for a cloned mocked response', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
+  })
+
+  const response = await fetch('about:')
+  expect(response.clone().url).toBe('')
+})
+
+it('returns the request url for a cloned mocked response', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
+  })
+
+  const response = await fetch('http://localhost/does-not-matter')
+  expect(response.clone().url).toBe('http://localhost/does-not-matter')
+})
+
 it('returns the request url for a bypassed response', async () => {
   const requestUrl = httpServer.http.url('/resource')
   const response = await fetch(requestUrl)
