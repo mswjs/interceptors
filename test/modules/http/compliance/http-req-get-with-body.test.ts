@@ -60,6 +60,7 @@ it('allows an HTTP GET request with a body', async () => {
     method: 'GET',
     headers: {
       'content-type': 'text/plain',
+      'content-length': '11',
     },
   })
 
