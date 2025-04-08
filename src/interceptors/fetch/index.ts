@@ -46,10 +46,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         typeof location !== 'undefined' &&
         !canParseUrl(input)
           ? new URL(
-              input.startsWith('?') 
-                ? `${location.pathname}${input}`
-                : input,
-              location.origin
+              input,
+              location.toString()
             )
           : input
 
