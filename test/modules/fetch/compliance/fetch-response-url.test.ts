@@ -88,7 +88,6 @@ it('returns the last response url in case of redirects', async () => {
   await expect(response.text()).resolves.toBe('hello world')
 })
 
-
 it('resolves relative URLs against location', async () => {
   const originalLocation = global.location
   Object.defineProperty(global, 'location', {
