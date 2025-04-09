@@ -47,7 +47,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         !canParseUrl(input)
           ? new URL(
               input,
-              location.toString()
+              location.href
             )
           : input
 
