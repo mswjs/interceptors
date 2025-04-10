@@ -89,6 +89,10 @@ it('returns the last response url in case of redirects', async () => {
 })
 
 it('resolves relative URLs against location', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('Hello world'))
+  })
+
   const originalLocation = global.location
   Object.defineProperty(global, 'location', {
     value: new URL('http://localhost/path/'),
