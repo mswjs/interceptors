@@ -488,22 +488,20 @@ export class MockHttpSocket extends MockSocket {
     // If this Socket is reused for multiple requests,
     // this ensures that each request gets its own stream.
     // One Socket instance can only handle one request at a time.
-    if (canHaveBody) {
-      this.requestStream = new Readable({
-        /**
-         * @note Provide the `read()` method so a `Readable` could be
-         * used as the actual request body (the stream calls "read()").
-         * We control the queue in the onRequestBody/End functions.
-         */
-        read: () => {
-          // If the user attempts to read the request body,
-          // flush the write buffer to trigger the callbacks.
-          // This way, if the request stream ends in the write callback,
-          // it will indeed end correctly.
-          this.flushWriteBuffer()
-        },
-      })
-    }
+    this.requestStream = new Readable({
+      /**
+       * @note Provide the `read()` method so a `Readable` could be
+       * used as the actual request body (the stream calls "read()").
+       * We control the queue in the onRequestBody/End functions.
+       */
+      read: () => {
+        // If the user attempts to read the request body,
+        // flush the write buffer to trigger the callbacks.
+        // This way, if the request stream ends in the write callback,
+        // it will indeed end correctly.
+        this.flushWriteBuffer()
+      },
+    })
 
     const requestId = createRequestId()
     this.request = new Request(url, {

@@ -11,11 +11,7 @@ const interceptor = new ClientRequestInterceptor()
 
 const httpServer = new http.Server((req, res) => {
   if (req.url === '/resource') {
-    req.on('data', (chunk) => {
-      console.log('server chunk:', chunk.toString())
-    })
-
-    res.end('TODO')
+    req.pipe(res)
     return
   }
 
@@ -52,7 +48,6 @@ it('allows an HTTP GET request with a body', async () => {
   const interceptedRequestPromise = new DeferredPromise<Request>()
 
   interceptor.on('request', ({ request }) => {
-    console.log('intercepted request body:', request.body)
     interceptedRequestPromise.resolve(request)
   })
 
