@@ -45,7 +45,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         typeof input === 'string' &&
         typeof location !== 'undefined' &&
         !canParseUrl(input)
-          ? new URL(input, location.origin)
+          ? new URL(
+              input,
+              location.href
+            )
           : input
 
       const request = new Request(resolvedInput, init)

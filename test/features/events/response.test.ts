@@ -113,6 +113,7 @@ it('ClientRequest: emits the "response" event for a mocked response', async () =
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
+  expect(response.url).toBe(request.url)
   expect(response.headers.get('x-response-type')).toBe('mocked')
   await expect(response.text()).resolves.toBe('mocked-response-text')
 
@@ -147,6 +148,7 @@ it('ClientRequest: emits the "response" event upon the original response', async
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
+  expect(response.url).toBe(request.url)
   expect(response.headers.get('x-response-type')).toBe('original')
   await expect(response.text()).resolves.toBe('original-response-text')
 
@@ -180,6 +182,7 @@ it('XMLHttpRequest: emits the "response" event upon a mocked response', async ()
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
+  expect(response.url).toBe(request.url)
   expect(response.headers.get('x-response-type')).toBe('mocked')
   await expect(response.text()).resolves.toBe('mocked-response-text')
   expect(isMockedResponse).toBe(true)
@@ -224,6 +227,7 @@ it('XMLHttpRequest: emits the "response" event upon the original response', asyn
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
+  expect(response.url).toBe(request.url)
   expect(response.headers.get('x-response-type')).toBe('original')
   await expect(response.text()).resolves.toBe('original-response-text')
 
@@ -260,6 +264,7 @@ it('fetch: emits the "response" event upon a mocked response', async () => {
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
+  expect(response.url).toBe(request.url)
   expect(response.headers.get('x-response-type')).toBe('mocked')
   await expect(response.text()).resolves.toBe('mocked-response-text')
 
@@ -295,6 +300,7 @@ it('fetch: emits the "response" event upon the original response', async () => {
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
+  expect(response.url).toBe(request.url)
   expect(response.headers.get('x-response-type')).toBe('original')
   await expect(response.text()).resolves.toBe('original-response-text')
 
