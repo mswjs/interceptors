@@ -87,3 +87,22 @@ it('returns the last response url in case of redirects', async () => {
   expect(response.url).toBe('http://localhost/destination')
   await expect(response.text()).resolves.toBe('hello world')
 })
+
+it('resolves relative URLs against location', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('Hello world'))
+  })
+
+  const originalLocation = global.location
+  Object.defineProperty(global, 'location', {
+    value: new URL('http://localhost/path/'),
+    configurable: true,
+  })
+
+  const response = await fetch('?x=y')
+  expect(response.url).toBe('http://localhost/path/?x=y')
+  Object.defineProperty(global, 'location', {
+    value: originalLocation,
+    configurable: true,
+  })
+})
