@@ -16,6 +16,7 @@ import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
+import { kRawRequest } from '../../getRawRequest'
 
 type HttpConnectionOptions = any
 
@@ -514,6 +515,7 @@ export class MockHttpSocket extends MockSocket {
     })
 
     Reflect.set(this.request, kRequestId, requestId)
+    Reflect.set(this.request, kRawRequest, Reflect.get(this, '_httpMessage'))
 
     // Skip handling the request that's already being handled
     // by another (parent) interceptor. For example, XMLHttpRequest
