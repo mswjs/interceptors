@@ -221,7 +221,7 @@ it('emits "close" event when the original server closes the connection with erro
 
 it('emits "error" event on passthrough client connection failure', async () => {
   // Connecting to a non-existing server URL without any
-  // interceptor listener set up MUST establish the connection as-is
+  // interceptor listener MUST establish the connection as-is
   // (no "open" event; "error" event; no "close" event).
   const ws = new WebSocket('wss://localhost/non-existing-url')
 
@@ -233,10 +233,16 @@ it('emits "error" event on passthrough client connection failure', async () => {
   ws.onclose = closeListener
 
   await vi.waitFor(() => {
-    expect(openListener).not.toHaveBeenCalled()
     expect(errorListener).toHaveBeenCalledTimes(1)
-    expect(closeListener).not.toHaveBeenCalled()
   })
+
+  expect(ws.readyState).toBe(ws.CLOSED)
+  expect(openListener).not.toHaveBeenCalled()
+  /**
+   * @note The update in `ws` makes it dispatch the "close" event
+   * if the handshake receives a network error (or non-101 response).
+   */
+  expect(closeListener).toHaveBeenCalledOnce()
 })
 
 it('does not emit "error" event on mocked error code closures', async () => {

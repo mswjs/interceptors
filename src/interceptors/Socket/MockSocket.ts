@@ -48,7 +48,6 @@ export class MockSocket extends net.Socket {
       args as WriteArgs
     )
     this.options.write(chunk, encoding, callback)
-
     return super.end.apply(this, args as any)
   }
 

@@ -26,7 +26,7 @@ afterAll(() => {
 })
 
 it('forwards client messages to the server by default', async () => {
-  const messageListener = vi.fn<[Data]>()
+  const messageListener = vi.fn<(data: Data) => void>()
 
   wsServer.once('connection', (ws) => {
     ws.addEventListener('message', (event) => {
@@ -55,7 +55,7 @@ it('forwards client messages to the server by default', async () => {
 })
 
 it('prevents client-to-server forwarding by calling "event.preventDefault()"', async () => {
-  const messageListener = vi.fn<[Data]>()
+  const messageListener = vi.fn<(data: Data) => void>()
 
   wsServer.once('connection', (ws) => {
     ws.addEventListener('message', (event) => {

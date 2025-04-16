@@ -12,13 +12,11 @@ import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
-import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
-import {
-  createServerErrorResponse,
-  RESPONSE_STATUS_CODES_WITHOUT_BODY,
-} from '../../utils/responseUtils'
+import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
+import { FetchResponse } from '../../utils/fetchUtils'
+import { kRawRequest } from '../../getRawRequest'
 
 type HttpConnectionOptions = any
 
@@ -60,16 +58,31 @@ export class MockHttpSocket extends MockSocket {
   private requestStream?: Readable
   private shouldKeepAlive?: boolean
 
-  private responseType: 'mock' | 'bypassed' = 'bypassed'
+  private socketState: 'unknown' | 'mock' | 'passthrough' = 'unknown'
   private responseParser: HTTPParser<1>
   private responseStream?: Readable
+  private originalSocket?: net.Socket
 
   constructor(options: MockHttpSocketOptions) {
     super({
       write: (chunk, encoding, callback) => {
-        this.writeBuffer.push([chunk, encoding, callback])
+        // Buffer the writes so they can be flushed in case of the original connection
+        // and when reading the request body in the interceptor. If the connection has
+        // been established, no need to buffer the chunks anymore, they will be forwarded.
+        if (this.socketState !== 'passthrough') {
+          this.writeBuffer.push([chunk, encoding, callback])
+        }
 
         if (chunk) {
+          /**
+           * Forward any writes to the mock socket to the underlying original socket.
+           * This ensures functional duplex connections, like WebSocket.
+           * @see https://github.com/mswjs/interceptors/issues/682
+           */
+          if (this.socketState === 'passthrough') {
+            this.originalSocket?.write(chunk, encoding, callback)
+          }
+
           this.requestParser.execute(
             Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding)
           )
@@ -77,6 +90,11 @@ export class MockHttpSocket extends MockSocket {
       },
       read: (chunk) => {
         if (chunk !== null) {
+          /**
+           * @todo We need to free the parser if the connection has been
+           * upgraded to a non-HTTP protocol. It won't be able to parse data
+           * from that point onward anyway. No need to keep it in memory.
+           */
           this.responseParser.execute(
             Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
           )
@@ -153,11 +171,14 @@ export class MockHttpSocket extends MockSocket {
    * its data/events through this Socket.
    */
   public passthrough(): void {
+    this.socketState = 'passthrough'
+
     if (this.destroyed) {
       return
     }
 
     const socket = this.createConnection()
+    this.originalSocket = socket
 
     // If the developer destroys the socket, destroy the original connection.
     this.once('error', (error) => {
@@ -278,7 +299,7 @@ export class MockHttpSocket extends MockSocket {
     // First, emit all the connection events
     // to emulate a successful connection.
     this.mockConnect()
-    this.responseType = 'mock'
+    this.socketState = 'mock'
 
     // Flush the write buffer to trigger write callbacks
     // if it hasn't been flushed already (e.g. someone started reading request stream).
@@ -422,13 +443,17 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private flushWriteBuffer(): void {
-    for (const [, , callback] of this.writeBuffer) {
-      /**
-       * @note If the write callbacks are ever called twice,
-       * we need to mark them with a symbol so they aren't called
-       * again in the `passthrough` method.
-       */
-      callback?.()
+    for (const writeCall of this.writeBuffer) {
+      if (typeof writeCall[2] === 'function') {
+        writeCall[2]()
+        /**
+         * @note Remove the callback from the write call
+         * so it doesn't get called twice on passthrough
+         * if `request.end()` was called within `request.write()`.
+         * @see https://github.com/mswjs/interceptors/issues/684
+         */
+        writeCall[2] = undefined
+      }
     }
   }
 
@@ -447,7 +472,7 @@ export class MockHttpSocket extends MockSocket {
 
     const url = new URL(path, this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
-    const headers = parseRawHeaders(rawHeaders)
+    const headers = FetchResponse.parseRawHeaders(rawHeaders)
     const canHaveBody = method !== 'GET' && method !== 'HEAD'
 
     // Translate the basic authorization in the URL to the request header.
@@ -464,22 +489,20 @@ export class MockHttpSocket extends MockSocket {
     // If this Socket is reused for multiple requests,
     // this ensures that each request gets its own stream.
     // One Socket instance can only handle one request at a time.
-    if (canHaveBody) {
-      this.requestStream = new Readable({
-        /**
-         * @note Provide the `read()` method so a `Readable` could be
-         * used as the actual request body (the stream calls "read()").
-         * We control the queue in the onRequestBody/End functions.
-         */
-        read: () => {
-          // If the user attempts to read the request body,
-          // flush the write buffer to trigger the callbacks.
-          // This way, if the request stream ends in the write callback,
-          // it will indeed end correctly.
-          this.flushWriteBuffer()
-        },
-      })
-    }
+    this.requestStream = new Readable({
+      /**
+       * @note Provide the `read()` method so a `Readable` could be
+       * used as the actual request body (the stream calls "read()").
+       * We control the queue in the onRequestBody/End functions.
+       */
+      read: () => {
+        // If the user attempts to read the request body,
+        // flush the write buffer to trigger the callbacks.
+        // This way, if the request stream ends in the write callback,
+        // it will indeed end correctly.
+        this.flushWriteBuffer()
+      },
+    })
 
     const requestId = createRequestId()
     this.request = new Request(url, {
@@ -492,6 +515,7 @@ export class MockHttpSocket extends MockSocket {
     })
 
     Reflect.set(this.request, kRequestId, requestId)
+    Reflect.set(this.request, kRawRequest, Reflect.get(this, '_httpMessage'))
 
     // Skip handling the request that's already being handled
     // by another (parent) interceptor. For example, XMLHttpRequest
@@ -540,15 +564,9 @@ export class MockHttpSocket extends MockSocket {
     status,
     statusText
   ) => {
-    const headers = parseRawHeaders(rawHeaders)
-    const canHaveBody = !RESPONSE_STATUS_CODES_WITHOUT_BODY.has(status)
+    const headers = FetchResponse.parseRawHeaders(rawHeaders)
 
-    // Similarly, create a new stream for each response.
-    if (canHaveBody) {
-      this.responseStream = new Readable({ read() {} })
-    }
-
-    const response = new Response(
+    const response = new FetchResponse(
       /**
        * @note The Fetch API response instance exposed to the consumer
        * is created over the response stream of the HTTP parser. It is NOT
@@ -556,8 +574,13 @@ export class MockHttpSocket extends MockSocket {
        * in response listener while the Socket instance delays the emission
        * of "end" and other events until those response listeners are finished.
        */
-      canHaveBody ? (Readable.toWeb(this.responseStream!) as any) : null,
+      FetchResponse.isResponseWithBody(status)
+        ? (Readable.toWeb(
+            (this.responseStream = new Readable({ read() {} }))
+          ) as any)
+        : null,
       {
+        url,
         status,
         statusText,
         headers,
@@ -568,6 +591,8 @@ export class MockHttpSocket extends MockSocket {
       this.request,
       'Failed to handle a response: request does not exist'
     )
+
+    FetchResponse.setUrl(this.request.url, response)
 
     /**
      * @fixme Stop relying on the "X-Request-Id" request header
@@ -580,7 +605,7 @@ export class MockHttpSocket extends MockSocket {
 
     this.responseListenersPromise = this.onResponse({
       response,
-      isMockedResponse: this.responseType === 'mock',
+      isMockedResponse: this.socketState === 'mock',
       requestId: Reflect.get(this.request, kRequestId),
       request: this.request,
       socket: this,

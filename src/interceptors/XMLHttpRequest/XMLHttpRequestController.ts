@@ -15,6 +15,7 @@ import { createResponse } from './utils/createResponse'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { createRequestId } from '../../createRequestId'
 import { getBodyByteLength } from './utils/getBodyByteLength'
+import { kRawRequest } from '../../getRawRequest'
 
 const kIsRequestHandled = Symbol('kIsRequestHandled')
 const IS_NODE = isNodeProcess()
@@ -698,6 +699,7 @@ export class XMLHttpRequestController {
       },
     })
     define(fetchRequest, 'headers', proxyHeaders)
+    Reflect.set(fetchRequest, kRawRequest, this.request)
 
     this.logger.info('converted request to a Fetch API Request!', fetchRequest)
 

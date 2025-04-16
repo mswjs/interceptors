@@ -64,23 +64,44 @@ export class WebSocketClassTransport
 
   public send(data: WebSocketData): void {
     queueMicrotask(() => {
-      this.socket.dispatchEvent(
-        bindEvent(
-          /**
-           * @note Setting this event's "target" to the
-           * WebSocket override instance is important.
-           * This way it can tell apart original incoming events
-           * (must be forwarded to the transport) from the
-           * mocked message events like the one below
-           * (must be dispatched on the client instance).
-           */
-          this.socket,
-          new MessageEvent('message', {
-            data,
-            origin: this.socket.url,
-          })
+      if (
+        this.socket.readyState === this.socket.CLOSING ||
+        this.socket.readyState === this.socket.CLOSED
+      ) {
+        return
+      }
+
+      const dispatchEvent = () => {
+        this.socket.dispatchEvent(
+          bindEvent(
+            /**
+             * @note Setting this event's "target" to the
+             * WebSocket override instance is important.
+             * This way it can tell apart original incoming events
+             * (must be forwarded to the transport) from the
+             * mocked message events like the one below
+             * (must be dispatched on the client instance).
+             */
+            this.socket,
+            new MessageEvent('message', {
+              data,
+              origin: this.socket.url,
+            })
+          )
         )
-      )
+      }
+
+      if (this.socket.readyState === this.socket.CONNECTING) {
+        this.socket.addEventListener(
+          'open',
+          () => {
+            dispatchEvent()
+          },
+          { once: true }
+        )
+      } else {
+        dispatchEvent()
+      }
     })
   }
 

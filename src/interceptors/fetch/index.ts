@@ -7,11 +7,12 @@ import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest } from '../../utils/handleRequest'
 import { canParseUrl } from '../../utils/canParseUrl'
 import { createRequestId } from '../../createRequestId'
-import { RESPONSE_STATUS_CODES_WITH_REDIRECT } from '../../utils/responseUtils'
 import { createNetworkError } from './utils/createNetworkError'
 import { followFetchRedirect } from './utils/followRedirect'
 import { decompressResponse } from './utils/decompression'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
+import { FetchResponse } from '../../utils/fetchUtils'
+import { kRawRequest } from '../../getRawRequest'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -45,10 +46,18 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         typeof input === 'string' &&
         typeof location !== 'undefined' &&
         !canParseUrl(input)
-          ? new URL(input, location.origin)
+          ? new URL(input, location.href)
           : input
 
       const request = new Request(resolvedInput, init)
+
+      /**
+       * @note Set the raw request only if a Request instance was provided to fetch.
+       */
+      if (input instanceof Request) {
+        Reflect.set(request, kRawRequest, input)
+      }
+
       const responsePromise = new DeferredPromise<Response>()
       const controller = new RequestController(request)
 
@@ -75,7 +84,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           const response =
             decompressedStream === null
               ? rawResponse
-              : new Response(decompressedStream, rawResponse)
+              : new FetchResponse(decompressedStream, rawResponse)
+
+          FetchResponse.setUrl(request.url, response)
 
           /**
            * Undici's handling of following redirect responses.
@@ -83,7 +94,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
            * This way, the client can manually follow the redirect it receives.
            * @see https://github.com/nodejs/undici/blob/a6dac3149c505b58d2e6d068b97f4dc993da55f0/lib/web/fetch/index.js#L1173
            */
-          if (RESPONSE_STATUS_CODES_WITH_REDIRECT.has(response.status)) {
+          if (FetchResponse.isRedirectResponse(response.status)) {
             // Reject the request promise if its `redirect` is set to `error`
             // and it receives a mocked redirect response.
             if (request.redirect === 'error') {
@@ -103,14 +114,6 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               return
             }
           }
-
-          // Set the "response.url" property to equal the intercepted request URL.
-          Object.defineProperty(response, 'url', {
-            writable: false,
-            enumerable: true,
-            configurable: false,
-            value: request.url,
-          })
 
           if (this.emitter.listenerCount('response') > 0) {
             this.logger.info('emitting the "response" event...')
@@ -150,6 +153,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         'no mocked response received, performing request as-is...'
       )
 
+      /**
+       * @note Clone the request instance right before performing it.
+       * This preserves any modifications made to the intercepted request
+       * in the "request" listener. This also allows the user to read the
+       * request body in the "response" listener (otherwise "unusable").
+       */
+      const requestCloneForResponseEvent = request.clone()
+
       return pureFetch(request).then(async (response) => {
         this.logger.info('original fetch performed', response)
 
@@ -161,7 +172,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           await emitAsync(this.emitter, 'response', {
             response: responseClone,
             isMockedResponse: false,
-            request,
+            request: requestCloneForResponseEvent,
             requestId,
           })
         }

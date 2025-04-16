@@ -120,8 +120,8 @@ it('throw an error when connecting to a non-existing server', async () => {
 })
 
 it('inherits the "binaryType" from the mock WebSocket', async () => {
-  const clientMessageListener = vi.fn<[ArrayBuffer]>()
-  const interceptorMessageListener = vi.fn<[ArrayBuffer]>()
+  const clientMessageListener = vi.fn<(buffer: ArrayBuffer) => void>()
+  const interceptorMessageListener = vi.fn<(buffer: ArrayBuffer) => void>()
 
   wsServer.on('connection', (ws) => {
     // Set the "binaryType" for the "ws" package also
@@ -133,7 +133,7 @@ it('inherits the "binaryType" from the mock WebSocket', async () => {
   interceptor.once('connection', ({ server }) => {
     server.connect()
     server.addEventListener('message', (event) => {
-      interceptorMessageListener(event.data)
+      interceptorMessageListener(event.data as ArrayBuffer)
     })
   })
 

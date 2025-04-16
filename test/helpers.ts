@@ -2,7 +2,6 @@ import { urlToHttpOptions } from 'node:url'
 import https from 'node:https'
 import zlib from 'node:zlib'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
-import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { Page } from '@playwright/test'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
@@ -117,11 +116,11 @@ interface PromisifiedFetchPayload {
 }
 
 export async function fetch(
-  info: RequestInfo,
+  info: RequestInfo | URL,
   init?: RequestInit
 ): Promise<PromisifiedFetchPayload> {
   let url: string = ''
-  const res = await nodeFetch(info, init)
+  const res = await globalThis.fetch(info, init)
 
   if (typeof info === 'string') {
     url = info
@@ -312,9 +311,9 @@ export function sleep(duration: number): Promise<void> {
   })
 }
 
-export const useCors: RequestHandler = (req, res, next) => {
+export const useCors: RequestHandler = (_req, res, next) => {
   res.set({
-    'Access-Control-Allow-Origin': '*',
+    'access-control-allow-origin': '*',
   })
   return next()
 }

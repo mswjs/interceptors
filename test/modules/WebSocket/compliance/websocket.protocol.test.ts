@@ -19,7 +19,7 @@ const wsServer = new WebSocketServer({
      * This is a workaround to make Undici work in Node.js v18.
      * @see https://github.com/nodejs/undici/issues/2844
      */
-    return Array.from(protocols).join(', ')
+    return Array.from(protocols)[0]
   },
 })
 
@@ -88,16 +88,11 @@ it('returns the first protocol from the array of provided protocols (mocked)', a
   expect(ws.protocol).toBe('superchat')
 })
 
-it('returns the first protocol from the array of provided protocols (original)(', async () => {
+it('returns the first protocol from the array of provided protocols (original)', async () => {
   const ws = new WebSocket(getWsUrl(wsServer), ['superchat', 'chat'])
   expect(ws.protocol).toBe('')
 
   await waitForWebSocketEvent('open', ws)
-  /**
-   * @fixme This must be `.toBe()`.
-   * Undici v5 has a bug in validating WebSocket protocols.
-   * This is fixed in Node.js v20 but not v18.
-   * @see https://github.com/nodejs/undici/issues/2844
-   */
-  expect(ws.protocol).toContain('superchat')
+
+  expect(ws.protocol).toBe('superchat')
 })

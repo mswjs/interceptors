@@ -1,6 +1,4 @@
-/**
- * @vitest-environment node-with-websocket
- */
+// @vitest-environment node-with-websocket
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
