@@ -26,7 +26,7 @@ it('resolves the response promise with the error provided to "errorWith"', async
   await expect(controller[kResponsePromise]).resolves.toEqual(error)
 })
 
-it('resolves the response promise with the object provided to "errorWith"', async () => {
+it('resolves the response promise with an arbitrary object provided to "errorWith"', async () => {
   const controller = new RequestController(new Request('http://localhost'))
   const error = { message: 'Oops!' }
   controller.errorWith(error)

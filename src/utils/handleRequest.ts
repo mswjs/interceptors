@@ -7,10 +7,12 @@ import { kResponsePromise, RequestController } from '../RequestController'
 import {
   createServerErrorResponse,
   isResponseError,
+  isResponseLike,
   ResponseError,
 } from './responseUtils'
 import { InterceptorError } from '../InterceptorError'
 import { isNodeLikeError } from './isNodeLikeError'
+import { isObject } from './isObject'
 
 interface HandleRequestOptions {
   requestId: string
@@ -43,30 +45,37 @@ interface HandleRequestOptions {
 export async function handleRequest(
   options: HandleRequestOptions
 ): Promise<boolean> {
-  const onResolve = async (response: Response): Promise<boolean> => {
-    // Handle "Response.error()" instances.
+  const handleResponse = async (
+    response: Response | Error | Record<string, any>
+  ) => {
     if (response instanceof Error) {
       options.onError(response)
-    } else if (isResponseError(response)) {
-      options.onRequestError(response)
-    } else {
-      await handleResponse(response)
-    }
-
-    return true
-  }
-  const onReject = async (error: unknown): Promise<boolean> => {
-    // Handle thrown responses.
-    if (error instanceof Response) {
-      await handleResponse(error)
       return true
     }
 
-    return await handleResponseError(error);
-  }
-   
-  const handleResponse = async (response: Response) => {
-    await options.onResponse(response)
+    // Handle "Response.error()" instances.
+    if (isResponseError(response)) {
+      options.onRequestError(response)
+      return true
+    }
+
+    /**
+     * Handle normal responses or response-like objects.
+     * @note This must come before the arbitrary object check
+     * since Response instances are, in fact, objects.
+     */
+    if (isResponseLike(response)) {
+      await options.onResponse(response)
+      return true
+    }
+
+    // Handle arbitrary objects provided to `.errorWith(reason)`.
+    if (isObject(response)) {
+      options.onError(response)
+      return true
+    }
+
+    return false
   }
 
   const handleResponseError = async (error: unknown): Promise<boolean> => {
@@ -80,7 +89,12 @@ export async function handleRequest(
     if (isNodeLikeError(error)) {
       options.onError(error)
       return true
-    } 
+    }
+
+    // Handle thrown responses.
+    if (error instanceof Response) {
+      return await handleResponse(error)
+    }
 
     return false
   }
@@ -137,8 +151,7 @@ export async function handleRequest(
 
     // The response promise will settle immediately once
     // the developer calls either "respondWith" or "errorWith".
-    const mockedResponse = await options.controller[kResponsePromise]
-    return mockedResponse
+    return await options.controller[kResponsePromise]
   })
 
   // Handle the request being aborted while waiting for the request listeners.
@@ -150,7 +163,7 @@ export async function handleRequest(
   if (result.error) {
     // Handle the error during the request listener execution.
     // These can be thrown responses or request errors.
-    if (await onReject(result.error)) {
+    if (await handleResponseError(result.error)) {
       return true
     }
 
@@ -194,11 +207,11 @@ export async function handleRequest(
        * emit of the same event. They are forwarded as-is.
        */
       if (nextResult.error) {
-        return onReject(nextResult.error)
+        return handleResponseError(nextResult.error)
       }
 
       if (nextResult.data) {
-        return onResolve(nextResult.data)
+        return handleResponse(nextResult.data)
       }
     }
 
@@ -214,10 +227,9 @@ export async function handleRequest(
    * unhandled exceptions from intended errors.
    */
   if (result.data) {
-    return onResolve(result.data)
+    return handleResponse(result.data)
   }
 
   // In all other cases, consider the request unhandled.
-  // The interceptor must perform it as-is.
   return false
 }
