@@ -4,7 +4,7 @@ const nodeConfig: Options = {
   entry: [
     './src/index.ts',
     './src/presets/node.ts',
-    './src/getRawRequestBodyStream.node.ts',
+    './src/getRawRequestBodyStream.ts',
     './src/RemoteHttpInterceptor.ts',
     './src/interceptors/ClientRequest/index.ts',
     './src/interceptors/XMLHttpRequest/index.ts',

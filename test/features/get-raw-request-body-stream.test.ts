@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, it, expect } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import interceptors from '../../src/presets/node'
 import { BatchInterceptor } from '../../src'
-import { getRawRequestBodyStream } from '../../src/getRawRequestBodyStream.node'
+import { getRawRequestBodyStream } from '../../src/getRawRequestBodyStream'
 import { waitForClientRequest } from '../helpers'
 
 const interceptor = new BatchInterceptor({
