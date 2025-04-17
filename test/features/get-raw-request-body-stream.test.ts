@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, it, expect } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { BatchInterceptor } from '../../src'
 import interceptors from '../../src/presets/node'
-import { getRawRequestBodyStream } from '../../src/utils/node'
+import { getClientRequestBodyStream } from '../../src/utils/node'
 import { waitForClientRequest } from '../helpers'
 
 const interceptor = new BatchInterceptor({
@@ -31,7 +31,7 @@ it('returns the underlying request body stream for http.ClientRequest', async ()
 
   interceptor.on('request', async ({ request, controller }) => {
     try {
-      const requestBodyStream = getRawRequestBodyStream(request)
+      const requestBodyStream = getClientRequestBodyStream(request)
       requestBodyStreamPromise.resolve(requestBodyStream)
     } catch (error) {
       requestBodyStreamPromise.reject(error)
@@ -64,7 +64,7 @@ it('throws if the request is not an instance of http.ClientRequest', async () =>
 
   interceptor.on('request', ({ request, controller }) => {
     try {
-      const requestBodyStream = getRawRequestBodyStream(request)
+      const requestBodyStream = getClientRequestBodyStream(request)
       requestBodyStreamPromise.resolve(requestBodyStream)
     } catch (error) {
       requestBodyStreamPromise.reject(error)
@@ -79,6 +79,6 @@ it('throws if the request is not an instance of http.ClientRequest', async () =>
   })
 
   await expect(requestBodyStreamPromise).rejects.toThrow(
-    `Failed to retrieve raw request body stream: request is not an instance of "http.ClientRequest". Note that you can only use the "getRawRequestBodyStream" function with the requests issued by "http.clientRequest".`
+    `Failed to retrieve raw request body stream: request is not an instance of "http.ClientRequest". Note that you can only use the "getClientRequestBodyStream" function with the requests issued by "http.clientRequest".`
   )
 })

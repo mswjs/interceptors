@@ -12,12 +12,12 @@ const kRawRequestBodyStream = Symbol('kRawRequestBodyStream')
  * the `http.ClientRequest` instance.
  * You must rely on the web stream consumers for other request clients.
  */
-export function getRawRequestBodyStream(request: Request): Readable {
+export function getClientRequestBodyStream(request: Request): Readable {
   const rawRequest = getRawRequest(request)
 
   invariant(
     rawRequest instanceof ClientRequest,
-    `Failed to retrieve raw request body stream: request is not an instance of "http.ClientRequest". Note that you can only use the "getRawRequestBodyStream" function with the requests issued by "http.clientRequest".`
+    `Failed to retrieve raw request body stream: request is not an instance of "http.ClientRequest". Note that you can only use the "getClientRequestBodyStream" function with the requests issued by "http.clientRequest".`
   )
 
   const requestBodyStream = Reflect.get(request, kRawRequestBodyStream)
