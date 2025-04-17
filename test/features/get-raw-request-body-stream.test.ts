@@ -4,9 +4,9 @@ import { Readable } from 'node:stream'
 import { text } from 'node:stream/consumers'
 import { afterAll, afterEach, beforeAll, it, expect } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import interceptors from '../../src/presets/node'
 import { BatchInterceptor } from '../../src'
-import { getRawRequestBodyStream } from '../../src/getRawRequestBodyStream'
+import interceptors from '../../src/presets/node'
+import { getRawRequestBodyStream } from '../../src/utils/node'
 import { waitForClientRequest } from '../helpers'
 
 const interceptor = new BatchInterceptor({

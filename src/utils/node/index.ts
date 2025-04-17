@@ -1,10 +1,7 @@
-/**
- * @note This module MUST only be included in the Node.js bundle.
- */
 import { ClientRequest } from 'node:http'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
-import { getRawRequest } from './getRawRequest'
+import { getRawRequest } from '../../getRawRequest'
 
 const kRawRequestBodyStream = Symbol('kRawRequestBodyStream')
 

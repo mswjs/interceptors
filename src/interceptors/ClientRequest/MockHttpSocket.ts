@@ -17,7 +17,7 @@ import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
 import { setRawRequest } from '../../getRawRequest'
-import { setRawRequestBodyStream } from '../../getRawRequestBodyStream'
+import { setRawRequestBodyStream } from '../../utils/node'
 
 type HttpConnectionOptions = any
 
