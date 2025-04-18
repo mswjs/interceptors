@@ -88,6 +88,17 @@
         "import": "./lib/browser/presets/browser.mjs",
         "default": "./lib/browser/presets/browser.js"
       }
+    },
+    "./utils/node": {
+      "types": "./lib/node/utils/node/index.d.ts",
+      "node": {
+        "require": "./lib/node/utils/node/index.js",
+        "import": "./lib/node/utils/node/index.mjs"
+      },
+      "browser": null,
+      "require": "./lib/node/utils/node/index.js",
+      "import": "./lib/node/utils/node/index.mjs",
+      "default": "./lib/node/utils/node/index.js"
     }
   },
   "author": "Artem Zakharchenko",
