@@ -236,13 +236,13 @@ it('emits "error" event on passthrough client connection failure', async () => {
     expect(errorListener).toHaveBeenCalledTimes(1)
   })
 
+  expect(ws.readyState).toBe(ws.CLOSED)
   expect(openListener).not.toHaveBeenCalled()
   /**
    * @note The update in `ws` makes it dispatch the "close" event
    * if the handshake receives a network error (or non-101 response).
    */
   expect(closeListener).toHaveBeenCalledOnce()
-  expect(ws.readyState).toBe(ws.CLOSED)
 })
 
 it('does not emit "error" event on mocked error code closures', async () => {
