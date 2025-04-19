@@ -11,14 +11,11 @@ import {
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
-    let count = 1
-    const i = setInterval(() => {
-      res.write('a')
-      if (++count > 20) {
-        clearInterval(i)
-        res.end()
-      }
-    }, 10)
+    // Triggers 2 reads in the MockHttpSocket
+    res.write('a')
+    res.flushHeaders()
+    res.write('a')
+    res.end()
   })
 })
 
@@ -36,12 +33,9 @@ afterAll(async () => {
 
 it('does ', async () => {
   const url = httpServer.http.url('/')
-  const warningListener = vi.fn()
-  process.on('warning', warningListener)
-
   const req = http.get(url)
   const { text } = await waitForClientRequest(req)
   
-  expect(await text()).toBe('a'.repeat(20))
-  expect(warningListener).not.toHaveBeenCalled() 
+  expect(await text()).toBe('aa')
+  expect(req.socket?.listenerCount('connect')).toBe(0);
 })
