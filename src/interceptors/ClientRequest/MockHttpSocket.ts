@@ -16,7 +16,8 @@ import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
-import { kRawRequest } from '../../getRawRequest'
+import { setRawRequest } from '../../getRawRequest'
+import { setRawRequestBodyStream } from '../../utils/node'
 
 type HttpConnectionOptions = any
 
@@ -515,7 +516,15 @@ export class MockHttpSocket extends MockSocket {
     })
 
     Reflect.set(this.request, kRequestId, requestId)
-    Reflect.set(this.request, kRawRequest, Reflect.get(this, '_httpMessage'))
+
+    // Set the raw `http.ClientRequest` instance on the request instance.
+    // This is useful for cases like getting the raw headers of the request.
+    setRawRequest(this.request, Reflect.get(this, '_httpMessage'))
+
+    // Create a copy of the request body stream and store it on the request.
+    // This is only needed for the consumers who wish to read the request body stream
+    // of requests that cannot have a body per Fetch API specification (i.e. GET, HEAD).
+    setRawRequestBodyStream(this.request, this.requestStream)
 
     // Skip handling the request that's already being handled
     // by another (parent) interceptor. For example, XMLHttpRequest
