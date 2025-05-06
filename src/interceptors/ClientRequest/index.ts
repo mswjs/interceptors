@@ -1,17 +1,17 @@
 import http from 'node:http'
 import https from 'node:https'
 import { Interceptor } from '../../Interceptor'
+import { RequestController } from '../../RequestController'
 import type { HttpRequestEventMap } from '../../glossary'
+import { emitAsync } from '../../utils/emitAsync'
+import { handleRequest } from '../../utils/handleRequest'
 import {
   kRequestId,
   MockHttpSocketRequestCallback,
   MockHttpSocketResponseCallback,
 } from './MockHttpSocket'
 import { MockAgent, MockHttpsAgent } from './agents'
-import { RequestController } from '../../RequestController'
-import { emitAsync } from '../../utils/emitAsync'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
-import { handleRequest } from '../../utils/handleRequest'
 import {
   recordRawFetchHeaders,
   restoreHeadersPrototype,
@@ -22,6 +22,24 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
   constructor() {
     super(ClientRequestInterceptor.symbol)
+  }
+
+  private createMockAgent(
+    options: any,
+    onRequest: MockHttpSocketRequestCallback,
+    onResponse: MockHttpSocketResponseCallback,
+    isHttps = false
+  ) {
+    const agentOptions = {
+      customAgent: options.agent,
+      onRequest,
+      onResponse,
+      ...(options.socketPath && { socketPath: options.socketPath }),
+    }
+
+    return isHttps
+      ? new MockHttpsAgent(agentOptions)
+      : new MockAgent(agentOptions)
   }
 
   protected setup(): void {
@@ -37,13 +55,8 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           'http:',
           args
         )
-        const mockAgent = new MockAgent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
 
+        options.agent = this.createMockAgent(options, onRequest, onResponse)
         return Reflect.apply(target, thisArg, [url, options, callback])
       },
     })
@@ -55,13 +68,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           args
         )
 
-        const mockAgent = new MockAgent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
-
+        options.agent = this.createMockAgent(options, onRequest, onResponse)
         return Reflect.apply(target, thisArg, [url, options, callback])
       },
     })
@@ -77,13 +84,12 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           args
         )
 
-        const mockAgent = new MockHttpsAgent({
-          customAgent: options.agent,
+        options.agent = this.createMockAgent(
+          options,
           onRequest,
           onResponse,
-        })
-        options.agent = mockAgent
-
+          true
+        )
         return Reflect.apply(target, thisArg, [url, options, callback])
       },
     })
@@ -95,13 +101,12 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           args
         )
 
-        const mockAgent = new MockHttpsAgent({
-          customAgent: options.agent,
+        options.agent = this.createMockAgent(
+          options,
           onRequest,
           onResponse,
-        })
-        options.agent = mockAgent
-
+          true
+        )
         return Reflect.apply(target, thisArg, [url, options, callback])
       },
     })
