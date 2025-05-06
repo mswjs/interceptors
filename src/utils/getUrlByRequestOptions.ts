@@ -1,6 +1,6 @@
-import { Agent } from 'http'
-import { RequestOptions, Agent as HttpsAgent } from 'https'
 import { Logger } from '@open-draft/logger'
+import { Agent } from 'http'
+import { Agent as HttpsAgent, RequestOptions } from 'https'
 
 const logger = new Logger('utils getUrlByRequestOptions')
 
@@ -11,7 +11,10 @@ export interface RequestSelf {
   uri?: URL
 }
 
-export type ResolvedRequestOptions = RequestOptions & RequestSelf
+export type ResolvedRequestOptions = RequestOptions &
+  RequestSelf & {
+    socketPath?: string
+  }
 
 export const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
@@ -94,7 +97,7 @@ function getHostname(options: ResolvedRequestOptions): string | undefined {
 
   if (host) {
     if (isRawIPv6Address(host)) {
-       host = `[${host}]`
+      host = `[${host}]`
     }
 
     // Check the presence of the port, and if it's present,
@@ -110,6 +113,19 @@ function getHostname(options: ResolvedRequestOptions): string | undefined {
  */
 export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   logger.info('request options', options)
+
+  // Handle Unix socket paths
+  if (options.socketPath) {
+    logger.info('socketPath detected:', options.socketPath)
+
+    // Create a URL with a special hostname that won't trigger TCP connections
+    const protocol = options.protocol || DEFAULT_PROTOCOL
+    const path = options.path || DEFAULT_PATH
+    const url = new URL(`${protocol}//unix-socket-placeholder${path}`)
+
+    logger.info('created URL for socketPath:', url)
+    return url
+  }
 
   if (options.uri) {
     logger.info(

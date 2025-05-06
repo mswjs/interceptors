@@ -1,15 +1,17 @@
-import { urlToHttpOptions } from 'node:url'
+import { Logger } from '@open-draft/logger'
 import {
   Agent as HttpAgent,
   globalAgent as httpGlobalAgent,
   IncomingMessage,
 } from 'node:http'
 import {
-  RequestOptions,
   Agent as HttpsAgent,
   globalAgent as httpsGlobalAgent,
+  RequestOptions,
 } from 'node:https'
 import {
+  Url as LegacyURL,
+  parse as parseUrl,
   /**
    * @note Use the Node.js URL instead of the global URL
    * because environments like JSDOM may override the global,
@@ -17,15 +19,13 @@ import {
    * @see https://github.com/node-fetch/node-fetch/issues/1376#issuecomment-966435555
    */
   URL,
-  Url as LegacyURL,
-  parse as parseUrl,
+  urlToHttpOptions,
 } from 'node:url'
-import { Logger } from '@open-draft/logger'
-import {
-  ResolvedRequestOptions,
-  getUrlByRequestOptions,
-} from '../../../utils/getUrlByRequestOptions'
 import { cloneObject } from '../../../utils/cloneObject'
+import {
+  getUrlByRequestOptions,
+  ResolvedRequestOptions,
+} from '../../../utils/getUrlByRequestOptions'
 import { isObject } from '../../../utils/isObject'
 
 const logger = new Logger('http normalizeClientRequestArgs')
@@ -42,7 +42,7 @@ export type ClientRequestArgs =
 function resolveRequestOptions(
   args: ClientRequestArgs,
   url: URL
-): RequestOptions {
+): ResolvedRequestOptions {
   // Calling `fetch` provides only URL to `ClientRequest`
   // without any `RequestOptions` or callback.
   if (typeof args[1] === 'undefined' || typeof args[1] === 'function') {
@@ -72,7 +72,7 @@ function resolveRequestOptions(
   }
 
   logger.info('using an empty object as request options')
-  return {} as RequestOptions
+  return {} as ResolvedRequestOptions
 }
 
 /**
@@ -230,6 +230,22 @@ export function normalizeClientRequestArgs(
 
   options.protocol = options.protocol || url.protocol
   options.method = options.method || 'GET'
+
+  // Ensure the socketPath is preserved in the options
+  if (args[0] && typeof args[0] === 'object' && 'socketPath' in args[0]) {
+    options.socketPath = args[0].socketPath
+    logger.info('preserved socketPath in options:', options.socketPath)
+  } else if (
+    args[1] &&
+    typeof args[1] === 'object' &&
+    'socketPath' in args[1]
+  ) {
+    options.socketPath = args[1].socketPath
+    logger.info(
+      'preserved socketPath from second argument:',
+      options.socketPath
+    )
+  }
 
   /**
    * Infer a fallback agent from the URL protocol.

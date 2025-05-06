@@ -1,23 +1,23 @@
-import net from 'node:net'
 import {
   HTTPParser,
   type RequestHeadersCompleteCallback,
   type ResponseHeadersCompleteCallback,
 } from '_http_common'
-import { STATUS_CODES, IncomingMessage, ServerResponse } from 'node:http'
+import { IncomingMessage, ServerResponse, STATUS_CODES } from 'node:http'
+import net from 'node:net'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
-import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
-import { MockSocket } from '../Socket/MockSocket'
-import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
-import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
-import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
-import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
-import { getRawFetchHeaders } from './utils/recordRawHeaders'
-import { FetchResponse } from '../../utils/fetchUtils'
 import { setRawRequest } from '../../getRawRequest'
+import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
+import { FetchResponse } from '../../utils/fetchUtils'
+import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { setRawRequestBodyStream } from '../../utils/node'
+import { createServerErrorResponse } from '../../utils/responseUtils'
+import { MockSocket } from '../Socket/MockSocket'
+import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
+import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
+import { getRawFetchHeaders } from './utils/recordRawHeaders'
 
 type HttpConnectionOptions = any
 
@@ -178,7 +178,15 @@ export class MockHttpSocket extends MockSocket {
       return
     }
 
-    const socket = this.createConnection()
+    let socket: net.Socket
+
+    // For Unix socket paths, create a direct socket connection
+    if (this.connectionOptions.socketPath) {
+      socket = net.createConnection({ path: this.connectionOptions.socketPath })
+    } else {
+      socket = this.createConnection()
+    }
+
     this.originalSocket = socket
 
     // If the developer destroys the socket, destroy the original connection.
