@@ -16,7 +16,7 @@ import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
-import { setRawRequest } from '../../getRawRequest'
+import { getRawRequest, setRawRequest, setRawResponse } from '../../getRawRequest'
 import { setRawRequestBodyStream } from '../../utils/node'
 
 type HttpConnectionOptions = any
@@ -571,7 +571,9 @@ export class MockHttpSocket extends MockSocket {
     method,
     url,
     status,
-    statusText
+    statusText,
+    upgrade,
+    shouldKeepAlive,
   ) => {
     const headers = FetchResponse.parseRawHeaders(rawHeaders)
 
@@ -611,6 +613,11 @@ export class MockHttpSocket extends MockSocket {
     if (this.request.headers.has(INTERNAL_REQUEST_ID_HEADER_NAME)) {
       return
     }
+
+    // this.responseParser.onIncoming = () => {}
+    this.parser[HTTPParser.kOnHeadersComplete](versionMajor, versionMinor, rawHeaders, method, url, status, statusText, upgrade, shouldKeepAlive)
+    const r = getRawRequest
+    setRawResponse(response, Reflect.get(this, 'parser').incoming)
 
     this.responseListenersPromise = this.onResponse({
       response,
