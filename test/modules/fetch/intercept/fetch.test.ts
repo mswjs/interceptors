@@ -422,3 +422,13 @@ it('intercepts an HTTPS PATCH request', async () => {
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
+
+it('response should return headers', async () => {
+  interceptor.once('request', ({ controller }) => {
+    // controller.respondWith(new Response(null, { headers: { 'x-custom-header': 'yes' } }))
+    controller.respondWith(new Response('not-really-compressed', { headers: new Headers({ 'content-encoding': 'gzip', 'x-custom-header': 'yes' })}))
+  })
+
+  const response = await fetch('http://example.test')
+  expect(response.headers.get('x-custom-header')).toBe('yes')
+})
