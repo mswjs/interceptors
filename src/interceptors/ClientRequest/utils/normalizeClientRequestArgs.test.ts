@@ -1,7 +1,7 @@
-import { it, expect } from 'vitest'
-import { parse } from 'url'
 import { globalAgent as httpGlobalAgent, RequestOptions } from 'http'
 import { Agent as HttpsAgent, globalAgent as httpsGlobalAgent } from 'https'
+import { parse } from 'url'
+import { expect, it } from 'vitest'
 import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions'
 import { normalizeClientRequestArgs } from './normalizeClientRequestArgs'
 
@@ -488,4 +488,98 @@ it('preserves URL query string', () => {
   // Query string is a part of the options path.
   expect(options.path).toBe('/resource?a=b&c=d')
   expect(options.port).toBe(8080)
+})
+
+// Tests for Unix socket path handling
+
+it('preserves socketPath in first argument (RequestOptions)', () => {
+  const socketPath = '/var/run/docker.sock'
+  const [url, options] = normalizeClientRequestArgs('http:', [
+    {
+      socketPath,
+      path: '/v1.41/containers/json',
+    },
+  ])
+
+  // URL should use the unix-socket-placeholder hostname
+  expect(url.hostname).toBe('unix-socket-placeholder')
+  expect(url.pathname).toBe('/v1.41/containers/json')
+
+  // Options should preserve the socketPath
+  expect(options.socketPath).toBe(socketPath)
+})
+
+it('preserves socketPath in second argument (RequestOptions after URL)', () => {
+  const socketPath = '/var/run/redis.sock'
+  const [url, options] = normalizeClientRequestArgs('http:', [
+    'http://placeholder.example.com/path',
+    {
+      socketPath,
+    },
+  ])
+
+  // Original URL's path should be preserved
+  expect(url.pathname).toBe('/path')
+
+  // Options should preserve the socketPath from the second argument
+  expect(options.socketPath).toBe(socketPath)
+})
+
+it('creates correct URL with unix-socket-placeholder when socketPath is present', () => {
+  const socketPath = '/tmp/test.sock'
+  const [url, options] = normalizeClientRequestArgs('http:', [
+    {
+      socketPath,
+      path: '/test',
+      method: 'GET',
+    },
+  ])
+
+  // Should use the placeholder hostname
+  expect(url.hostname).toBe('unix-socket-placeholder')
+  expect(url.href).toContain('unix-socket-placeholder')
+  expect(url.pathname).toBe('/test')
+
+  // Options are preserved correctly
+  expect(options.socketPath).toBe(socketPath)
+  expect(options.path).toBe('/test')
+  expect(options.method).toBe('GET')
+})
+
+it('preserves socketPath with HTTPS protocol', () => {
+  const socketPath = '/var/run/secure.sock'
+  const [url, options] = normalizeClientRequestArgs('https:', [
+    {
+      socketPath,
+      path: '/secure/endpoint',
+    },
+  ])
+
+  // URL should have https protocol
+  expect(url.protocol).toBe('https:')
+  expect(url.hostname).toBe('unix-socket-placeholder')
+  expect(url.pathname).toBe('/secure/endpoint')
+
+  // Options should preserve the socketPath
+  expect(options.socketPath).toBe(socketPath)
+  expect(options.protocol).toBe('https:')
+})
+
+it('handles complex case with socketPath and query parameters', () => {
+  const socketPath = '/var/run/app.sock'
+  const [url, options] = normalizeClientRequestArgs('http:', [
+    {
+      socketPath,
+      path: '/api/v1/query?filter=active&sort=desc',
+    },
+  ])
+
+  // URL should include query parameters
+  expect(url.hostname).toBe('unix-socket-placeholder')
+  expect(url.pathname).toBe('/api/v1/query')
+  expect(url.search).toBe('?filter=active&sort=desc')
+
+  // Options should preserve path with query string
+  expect(options.socketPath).toBe(socketPath)
+  expect(options.path).toBe('/api/v1/query?filter=active&sort=desc')
 })
