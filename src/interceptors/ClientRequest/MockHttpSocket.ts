@@ -191,6 +191,7 @@ export class MockHttpSocket extends MockSocket {
       Object.defineProperty(this, '_handle', {
         value: socket._handle,
         enumerable: true,
+        writable: true,
       })
     }
 
