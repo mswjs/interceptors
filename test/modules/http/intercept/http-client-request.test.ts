@@ -225,3 +225,18 @@ it('intercepts an HTTPS ClientRequest request with request options', async () =>
   // Must receive the original response.
   expect(await text()).toBe('user-body')
 })
+
+it('restores the original ClientRequest class after disposal', async () => {
+  interceptor.dispose()
+
+  expect(
+    http.ClientRequest,
+    'Failed to restore the ClientRequest class to its original implementation'
+  ).toEqual(await import('node:http').then((exports) => exports.ClientRequest))
+
+  const request = new http.ClientRequest('http://localhost/does-not-matter').on(
+    'error',
+    () => {}
+  )
+  expect(Reflect.get(request, 'agent')).toBeInstanceOf(http.Agent)
+})

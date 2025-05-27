@@ -25,7 +25,11 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected setup(): void {
-    const { get: originalGet, request: originalRequest } = http
+    const {
+      ClientRequest: OriginalClientRequest,
+      get: originalGet,
+      request: originalRequest,
+    } = http
     const { get: originalHttpsGet, request: originalHttpsRequest } = https
 
     const onRequest = this.onRequest.bind(this)
@@ -133,6 +137,8 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     recordRawFetchHeaders()
 
     this.subscriptions.push(() => {
+      http.ClientRequest = OriginalClientRequest
+
       http.get = originalGet
       http.request = originalRequest
 
