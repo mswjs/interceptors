@@ -31,6 +31,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     const onRequest = this.onRequest.bind(this)
     const onResponse = this.onResponse.bind(this)
 
+    // Support requests performed via the `ClientRequest` constructor directly.
     http.ClientRequest = new Proxy(http.ClientRequest, {
       construct: (target, args: Parameters<typeof http.request>) => {
         const [url, options, callback] = normalizeClientRequestArgs(
@@ -38,7 +39,9 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           args
         )
 
-        const mockAgent = new MockAgent({
+        // Create a mock agent instance appropriate for the request protocol.
+        const Agent = options.protocol === 'https:' ? MockHttpsAgent : MockAgent
+        const mockAgent = new Agent({
           customAgent: options.agent,
           onRequest,
           onResponse,
