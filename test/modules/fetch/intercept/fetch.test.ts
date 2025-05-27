@@ -1,12 +1,12 @@
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap } from '../../../../src'
 import { REQUEST_ID_REGEXP } from '../../../helpers'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 import { RequestController } from '../../../../src/RequestController'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
