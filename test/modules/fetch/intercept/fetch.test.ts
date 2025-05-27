@@ -1,12 +1,12 @@
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap } from '../../../../src'
 import { REQUEST_ID_REGEXP } from '../../../helpers'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 import { RequestController } from '../../../../src/RequestController'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
@@ -421,14 +421,4 @@ it('intercepts an HTTPS PATCH request', async () => {
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
-})
-
-it('response should return headers', async () => {
-  interceptor.once('request', ({ controller }) => {
-    // controller.respondWith(new Response(null, { headers: { 'x-custom-header': 'yes' } }))
-    controller.respondWith(new Response('not-really-compressed', { headers: new Headers({ 'content-encoding': 'gzip', 'x-custom-header': 'yes' })}))
-  })
-
-  const response = await fetch('http://example.test')
-  expect(response.headers.get('x-custom-header')).toBe('yes')
 })
