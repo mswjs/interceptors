@@ -25,7 +25,8 @@ afterAll(() => {
 })
 
 it('emits "message" event when the client sends data', async () => {
-  const messageListener = vi.fn<[WebSocket, MessageEvent<WebSocketData>]>()
+  const messageListener =
+    vi.fn<(ws: WebSocket, event: MessageEvent<WebSocketData>) => void>()
   const errorListener = vi.fn()
   interceptor.once('connection', ({ client }) => {
     client.addEventListener('message', function (event) {

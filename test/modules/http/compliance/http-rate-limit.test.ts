@@ -1,6 +1,4 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import rateLimit from 'express-rate-limit'
@@ -9,12 +7,17 @@ import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientReq
 
 const httpServer = new HttpServer((app) => {
   app.use(
+    // @ts-expect-error Old express type definitions.
     rateLimit({
-      max: 5,
+      limit: 5,
       windowMs: 100,
-      onLimitReached() {
-        console.warn('RATE LIMIT REACHED!')
-        handleLimitReached()
+      handler(request, response, next, options) {
+        // @ts-expect-error
+        if (request.rateLimit.used === request.rateLimit.limit + 1) {
+          console.warn('RATE LIMIT REACHED!')
+          return handleLimitReached()
+        }
+        response.status(options.statusCode).send(options.message)
       },
     })
   )

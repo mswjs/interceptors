@@ -12,6 +12,7 @@ import { followFetchRedirect } from './utils/followRedirect'
 import { decompressResponse } from './utils/decompression'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { FetchResponse } from '../../utils/fetchUtils'
+import { setRawRequest } from '../../getRawRequest'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -45,10 +46,18 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         typeof input === 'string' &&
         typeof location !== 'undefined' &&
         !canParseUrl(input)
-          ? new URL(input, location.origin)
+          ? new URL(input, location.href)
           : input
 
       const request = new Request(resolvedInput, init)
+
+      /**
+       * @note Set the raw request only if a Request instance was provided to fetch.
+       */
+      if (input instanceof Request) {
+        setRawRequest(request, input)
+      }
+
       const responsePromise = new DeferredPromise<Response>()
       const controller = new RequestController(request)
 
@@ -144,6 +153,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         'no mocked response received, performing request as-is...'
       )
 
+      /**
+       * @note Clone the request instance right before performing it.
+       * This preserves any modifications made to the intercepted request
+       * in the "request" listener. This also allows the user to read the
+       * request body in the "response" listener (otherwise "unusable").
+       */
+      const requestCloneForResponseEvent = request.clone()
+
       return pureFetch(request).then(async (response) => {
         this.logger.info('original fetch performed', response)
 
@@ -155,7 +172,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           await emitAsync(this.emitter, 'response', {
             response: responseClone,
             isMockedResponse: false,
-            request,
+            request: requestCloneForResponseEvent,
             requestId,
           })
         }

@@ -63,7 +63,7 @@ it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
     controller.respondWith(new Response('hello world'))
   })
 
-  const connectListener = vi.fn<[string]>()
+  const connectListener = vi.fn<(input: string) => void>()
   const request = https.get(httpServer.https.url('/'))
   request.on('socket', (socket) => {
     socket.on('connect', () => connectListener('connect'))
@@ -78,7 +78,7 @@ it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
 })
 
 it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
-  const connectListener = vi.fn<[string]>()
+  const connectListener = vi.fn<(input: string) => void>()
   const request = https.get(httpServer.https.url('/'), {
     rejectUnauthorized: false,
   })

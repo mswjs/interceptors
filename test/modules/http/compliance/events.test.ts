@@ -27,7 +27,8 @@ afterAll(async () => {
 })
 
 it('emits the "request" event for an outgoing request without body', async () => {
-  const requestListener = vi.fn<HttpRequestEventMap['request']>()
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
   interceptor.once('request', requestListener)
 
   await waitForClientRequest(
@@ -51,7 +52,8 @@ it('emits the "request" event for an outgoing request without body', async () =>
 })
 
 it('emits the "request" event for an outgoing request with a body', async () => {
-  const requestListener = vi.fn<HttpRequestEventMap['request']>()
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
   interceptor.once('request', requestListener)
 
   const request = http.request(httpServer.http.url('/'), {
@@ -81,7 +83,8 @@ it('emits the "request" event for an outgoing request with a body', async () => 
 })
 
 it('emits the "response" event for a mocked response', async () => {
-  const responseListener = vi.fn<HttpRequestEventMap['response']>()
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.once('request', ({ controller }) => {
     controller.respondWith(new Response('hello world'))
   })
@@ -124,7 +127,8 @@ it('emits the "response" event for a mocked response', async () => {
 })
 
 it('emits the "response" event for a bypassed response', async () => {
-  const responseListener = vi.fn<HttpRequestEventMap['response']>()
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.once('response', responseListener)
 
   const request = http.get(httpServer.http.url('/'), {

@@ -12,11 +12,12 @@ import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
-import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
 import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
+import { setRawRequest } from '../../getRawRequest'
+import { setRawRequestBodyStream } from '../../utils/node'
 
 type HttpConnectionOptions = any
 
@@ -472,7 +473,7 @@ export class MockHttpSocket extends MockSocket {
 
     const url = new URL(path, this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
-    const headers = parseRawHeaders(rawHeaders)
+    const headers = FetchResponse.parseRawHeaders(rawHeaders)
     const canHaveBody = method !== 'GET' && method !== 'HEAD'
 
     // Translate the basic authorization in the URL to the request header.
@@ -489,22 +490,20 @@ export class MockHttpSocket extends MockSocket {
     // If this Socket is reused for multiple requests,
     // this ensures that each request gets its own stream.
     // One Socket instance can only handle one request at a time.
-    if (canHaveBody) {
-      this.requestStream = new Readable({
-        /**
-         * @note Provide the `read()` method so a `Readable` could be
-         * used as the actual request body (the stream calls "read()").
-         * We control the queue in the onRequestBody/End functions.
-         */
-        read: () => {
-          // If the user attempts to read the request body,
-          // flush the write buffer to trigger the callbacks.
-          // This way, if the request stream ends in the write callback,
-          // it will indeed end correctly.
-          this.flushWriteBuffer()
-        },
-      })
-    }
+    this.requestStream = new Readable({
+      /**
+       * @note Provide the `read()` method so a `Readable` could be
+       * used as the actual request body (the stream calls "read()").
+       * We control the queue in the onRequestBody/End functions.
+       */
+      read: () => {
+        // If the user attempts to read the request body,
+        // flush the write buffer to trigger the callbacks.
+        // This way, if the request stream ends in the write callback,
+        // it will indeed end correctly.
+        this.flushWriteBuffer()
+      },
+    })
 
     const requestId = createRequestId()
     this.request = new Request(url, {
@@ -517,6 +516,15 @@ export class MockHttpSocket extends MockSocket {
     })
 
     Reflect.set(this.request, kRequestId, requestId)
+
+    // Set the raw `http.ClientRequest` instance on the request instance.
+    // This is useful for cases like getting the raw headers of the request.
+    setRawRequest(this.request, Reflect.get(this, '_httpMessage'))
+
+    // Create a copy of the request body stream and store it on the request.
+    // This is only needed for the consumers who wish to read the request body stream
+    // of requests that cannot have a body per Fetch API specification (i.e. GET, HEAD).
+    setRawRequestBodyStream(this.request, this.requestStream)
 
     // Skip handling the request that's already being handled
     // by another (parent) interceptor. For example, XMLHttpRequest
@@ -565,7 +573,7 @@ export class MockHttpSocket extends MockSocket {
     status,
     statusText
   ) => {
-    const headers = parseRawHeaders(rawHeaders)
+    const headers = FetchResponse.parseRawHeaders(rawHeaders)
 
     const response = new FetchResponse(
       /**
@@ -592,6 +600,8 @@ export class MockHttpSocket extends MockSocket {
       this.request,
       'Failed to handle a response: request does not exist'
     )
+
+    FetchResponse.setUrl(this.request.url, response)
 
     /**
      * @fixme Stop relying on the "X-Request-Id" request header
