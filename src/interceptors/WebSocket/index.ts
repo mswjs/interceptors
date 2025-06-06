@@ -1,9 +1,14 @@
 import { Interceptor } from '../../Interceptor'
 import {
-  type WebSocketClientConnectionProtocol,
+  WebSocketClientConnectionProtocol,
   WebSocketClientConnection,
+  type WebSocketClientEventMap,
 } from './WebSocketClientConnection'
-import { WebSocketServerConnection } from './WebSocketServerConnection'
+import {
+  WebSocketServerConnectionProtocol,
+  WebSocketServerConnection,
+  type WebSocketServerEventMap,
+} from './WebSocketServerConnection'
 import { WebSocketClassTransport } from './WebSocketClassTransport'
 import {
   kClose,
@@ -15,8 +20,11 @@ import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 
 export { type WebSocketData, WebSocketTransport } from './WebSocketTransport'
 export {
-  WebSocketClientConnection,
+  WebSocketClientEventMap,
   WebSocketClientConnectionProtocol,
+  WebSocketClientConnection,
+  WebSocketServerEventMap,
+  WebSocketServerConnectionProtocol,
   WebSocketServerConnection,
 }
 
@@ -28,12 +36,12 @@ export type WebSocketConnectionData = {
   /**
    * The incoming WebSocket client connection.
    */
-  client: WebSocketClientConnection
+  client: WebSocketClientConnectionProtocol
 
   /**
    * The original WebSocket server connection.
    */
-  server: WebSocketServerConnection
+  server: WebSocketServerConnectionProtocol
 
   /**
    * The connection information.
