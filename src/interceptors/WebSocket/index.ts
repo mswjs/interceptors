@@ -36,12 +36,12 @@ export type WebSocketConnectionData = {
   /**
    * The incoming WebSocket client connection.
    */
-  client: WebSocketClientConnectionProtocol
+  client: WebSocketClientConnection
 
   /**
    * The original WebSocket server connection.
    */
-  server: WebSocketServerConnectionProtocol
+  server: WebSocketServerConnection
 
   /**
    * The connection information.
