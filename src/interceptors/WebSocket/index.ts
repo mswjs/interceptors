@@ -28,6 +28,12 @@ export {
   WebSocketServerConnection,
 }
 
+export {
+  CloseEvent,
+  CancelableCloseEvent,
+  CancelableMessageEvent,
+} from './utils/events'
+
 export type WebSocketEventMap = {
   connection: [args: WebSocketConnectionData]
 }
