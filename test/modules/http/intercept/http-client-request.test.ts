@@ -226,6 +226,32 @@ it('intercepts an HTTPS ClientRequest request with request options', async () =>
   expect(await text()).toBe('user-body')
 })
 
+it('HTTP headers are preserved even when their count exceeds 30', async () => {
+  const url = new URL(httpServer.https.url('/user?id=123'))
+
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  
+  interceptor.on("request", requestListener)
+
+  const req = new http.ClientRequest({
+    protocol: "https:",
+    hostname: url.hostname,
+    port: url.port,
+    path: url.pathname + url.search,
+    headers: Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`${i}`, `${i}`]))
+  })
+  req.end()
+
+  await waitForClientRequest(req)
+  const { request } = requestListener.mock.calls[0][0]
+  expect(request).toBeInstanceOf(Request)
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
+    "0": "0",
+    "29": "29"
+  })
+})
+
 it('restores the original ClientRequest class after disposal', async () => {
   interceptor.dispose()
 
