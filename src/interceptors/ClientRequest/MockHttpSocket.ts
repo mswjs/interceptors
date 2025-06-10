@@ -490,6 +490,11 @@ export class MockHttpSocket extends MockSocket {
     const headers = FetchResponse.parseRawHeaders(rawHeaders)
     const canHaveBody = method !== 'GET' && method !== 'HEAD'
 
+    const additionalHeaders: Record<string, string> | undefined = this.connectionOptions.headers
+    if (typeof additionalHeaders === 'object') { 
+      Object.entries(additionalHeaders).forEach(([k, v]) => void headers.set(k, v))
+    }
+
     // Translate the basic authorization in the URL to the request header.
     // Constructing a Request instance with a URL containing auth is no-op.
     if (url.username || url.password) {
