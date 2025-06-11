@@ -37,8 +37,8 @@ afterAll(async () => {
   await serverClosePromise
 })
 
-describe('Unix socket path handling', () => {
-  it('passes through HTTP GET requests to unix socket', async () => {
+describe('Unix socket', () => {
+  it('dispatches a GET request to a Unix socket', async () => {
     const request = http.get({
       socketPath,
       path: '/test-get',
@@ -49,7 +49,7 @@ describe('Unix socket path handling', () => {
     expect(await text()).toBe('hello world')
   })
 
-  it('dsa', async () => {
+  it('intercepts a GET request to a Unix socket', async () => {
     const requestListenerPromise = new DeferredPromise<string>()
     interceptor.on('request', ({ controller, request }) => {
       requestListenerPromise.resolve(request.url)
