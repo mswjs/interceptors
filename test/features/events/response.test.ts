@@ -28,6 +28,11 @@ const httpServer = new HttpServer((app) => {
     res.status(509).send('must-use-mocks')
   })
 
+  app.get('/multiple-headers', (_req, res) => {
+    res.setHeaders(new Headers(Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`${i}`, `${i}`]))))
+    res.status(200).send()
+  })
+
   app.post('/account', (_req, res) => {
     return res
       .status(200)
@@ -329,4 +334,28 @@ it('supports reading the request and response bodies in the "response" listener'
 
   expect(requestCallback).toHaveBeenCalledWith('request-body')
   expect(responseCallback).toHaveBeenCalledWith('mocked-response-text')
+})
+
+it('HTTP headers are preserved even when their count exceeds 30', async () => {
+  const responseListener =
+    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
+  interceptor.on('response', responseListener)
+
+  const req = https.get(httpServer.https.url('/multiple-headers'))
+
+  const { res } = await waitForClientRequest(req)
+
+  expect(responseListener).toHaveBeenCalledTimes(1)
+
+  const { response } = responseListener.mock.calls[0][0]
+  
+  expect(res.headers).toMatchObject({
+    "0": "0",
+    "29": "29"
+  })
+  expect(Object.fromEntries(response.headers.entries())).toMatchObject({
+    "0": "0",
+    "29": "29"
+  })
+  expect(Object.fromEntries(response.headers.entries())).toMatchObject(res.headers)
 })

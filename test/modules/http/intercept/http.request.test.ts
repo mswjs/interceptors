@@ -304,3 +304,26 @@ it('intercepts an http.request with a URL with "username" and "password"', async
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
 })
+
+it('HTTP headers are preserved even when their count exceeds 30', async () => {
+  const url = httpServer.http.url('/')
+
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  
+  interceptor.on("request", requestListener)
+
+  const req = http.request(url, {
+    method: "GET",
+    headers: Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`${i}`, `${i}`]))
+  })
+  req.end()
+
+  await waitForClientRequest(req)
+  const { request } = requestListener.mock.calls[0][0]
+  expect(request).toBeInstanceOf(Request)
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
+    "0": "0",
+    "29": "29"
+  })
+})

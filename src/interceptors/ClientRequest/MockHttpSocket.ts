@@ -19,6 +19,8 @@ import { FetchResponse } from '../../utils/fetchUtils'
 import { setRawRequest } from '../../getRawRequest'
 import { setRawRequestBodyStream } from '../../utils/node'
 
+const MAX_HEADERS_PAIRS = 2000
+
 type HttpConnectionOptions = any
 
 export type MockHttpSocketRequestCallback = (args: {
@@ -63,6 +65,9 @@ export class MockHttpSocket extends MockSocket {
   private responseParser: HTTPParser<1>
   private responseStream?: Readable
   private originalSocket?: net.Socket
+
+  private headers: Array<string> = []
+  private url = ''
 
   constructor(options: MockHttpSocketOptions) {
     super({
@@ -112,7 +117,9 @@ export class MockHttpSocket extends MockSocket {
 
     // Request parser.
     this.requestParser = new HTTPParser()
-    this.requestParser.initialize(HTTPParser.REQUEST, {})
+    this.requestParser.initialize(HTTPParser.REQUEST, {}, 0)
+    this.requestParser.maxHeadersPair = MAX_HEADERS_PAIRS
+    this.requestParser[HTTPParser.kOnHeaders] = this.onRequestHeaders.bind(this)
     this.requestParser[HTTPParser.kOnHeadersComplete] =
       this.onRequestStart.bind(this)
     this.requestParser[HTTPParser.kOnBody] = this.onRequestBody.bind(this)
@@ -121,7 +128,9 @@ export class MockHttpSocket extends MockSocket {
 
     // Response parser.
     this.responseParser = new HTTPParser()
-    this.responseParser.initialize(HTTPParser.RESPONSE, {})
+    this.responseParser.initialize(HTTPParser.RESPONSE, {}, 0)
+    this.responseParser.maxHeadersPair = MAX_HEADERS_PAIRS
+    this.responseParser[HTTPParser.kOnHeaders] = this.onResponseHeaders.bind(this)
     this.responseParser[HTTPParser.kOnHeadersComplete] =
       this.onResponseStart.bind(this)
     this.responseParser[HTTPParser.kOnBody] = this.onResponseBody.bind(this)
@@ -472,6 +481,14 @@ export class MockHttpSocket extends MockSocket {
     }
   }
 
+  private onRequestHeaders(headers: Array<string>, url: string): void {
+    // Once we exceeded headers limit - stop collecting them
+    if (this.requestParser.maxHeadersPair <= 0 || this.headers.length < this.requestParser.maxHeadersPair) { 
+      this.headers.push(...headers)
+    }
+    this.url += url
+  }
+
   private onRequestStart: RequestHeadersCompleteCallback = (
     versionMajor,
     versionMinor,
@@ -484,6 +501,16 @@ export class MockHttpSocket extends MockSocket {
     shouldKeepAlive
   ) => {
     this.shouldKeepAlive = shouldKeepAlive
+
+    if (rawHeaders === undefined) { 
+      rawHeaders = this.headers
+      this.headers = []
+    }
+
+    if (path === undefined) {
+      path = this.url
+      this.url = ''
+    }
 
     const url = new URL(path, this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
@@ -576,6 +603,16 @@ export class MockHttpSocket extends MockSocket {
     if (this.requestStream) {
       this.requestStream.push(null)
     }
+    this.headers = []
+    this.url = ''
+  }
+
+  private onResponseHeaders(headers: Array<string>, url: string): void {
+    // Once we exceeded headers limit - stop collecting them
+    if (this.responseParser.maxHeadersPair <= 0 || this.headers.length < this.responseParser.maxHeadersPair) { 
+      this.headers.push(...headers)
+    }
+    this.url += url
   }
 
   private onResponseStart: ResponseHeadersCompleteCallback = (
@@ -587,6 +624,16 @@ export class MockHttpSocket extends MockSocket {
     status,
     statusText
   ) => {
+    if (rawHeaders === undefined) { 
+      rawHeaders = this.headers
+      this.headers = []
+    }
+
+    if (url === undefined) {
+      url = this.url
+      this.url = ''
+    }
+
     const headers = FetchResponse.parseRawHeaders(rawHeaders)
 
     const response = new FetchResponse(
@@ -649,5 +696,7 @@ export class MockHttpSocket extends MockSocket {
     if (this.responseStream) {
       this.responseStream.push(null)
     }
+    this.headers = []
+    this.url = ''
   }
 }

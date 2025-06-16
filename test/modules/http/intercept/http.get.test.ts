@@ -87,3 +87,24 @@ it('intercepts an http.get request given RequestOptions without a protocol', asy
   // Must receive the original response.
   expect(await text()).toBe('user-body')
 })
+
+it('HTTP headers are preserved even when their count exceeds 30', async () => {
+  const url = httpServer.http.url('/')
+
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  
+  interceptor.on("request", requestListener)
+
+  const req = http.get(url, {
+    headers: Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`${i}`, `${i}`]))
+  })
+
+  await waitForClientRequest(req)
+  const { request } = requestListener.mock.calls[0][0]
+  expect(request).toBeInstanceOf(Request)
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
+    "0": "0",
+    "29": "29"
+  })
+})

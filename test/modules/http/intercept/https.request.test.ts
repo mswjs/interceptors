@@ -213,3 +213,27 @@ it('intercepts an http.request request given RequestOptions without a protocol',
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
+
+it('HTTP headers are preserved even when their count exceeds 30', async () => {
+  const url = httpServer.https.url('/')
+
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  
+  interceptor.on("request", requestListener)
+
+  const req = https.request(url, {
+    rejectUnauthorized: false,
+    method: "GET",
+    headers: Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`${i}`, `${i}`]))
+  })
+  req.end()
+
+  await waitForClientRequest(req)
+  const { request } = requestListener.mock.calls[0][0]
+  expect(request).toBeInstanceOf(Request)
+  expect(Object.fromEntries(request.headers.entries())).toMatchObject({
+    "0": "0",
+    "29": "29"
+  })
+})
