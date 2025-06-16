@@ -2,6 +2,7 @@ declare var HTTPParser: {
   new (): HTTPParser<number>
   REQUEST: 0
   RESPONSE: 1
+  readonly kOnHeaders: unique symbol
   readonly kOnHeadersComplete: unique symbol
   readonly kOnBody: unique symbol
   readonly kOnMessageComplete: unique symbol
@@ -10,13 +11,15 @@ declare var HTTPParser: {
 export interface HTTPParser<ParserType extends number> {
   new (): HTTPParser<ParserType>
 
+  [HTTPParser.kOnHeaders]: (headers: Array<string>, url: string) => void
   [HTTPParser.kOnHeadersComplete]: ParserType extends 0
     ? RequestHeadersCompleteCallback
     : ResponseHeadersCompleteCallback
   [HTTPParser.kOnBody]: (chunk: Buffer) => void
   [HTTPParser.kOnMessageComplete]: () => void
+  maxHeadersPair: number
 
-  initialize(type: ParserType, asyncResource: object): void
+  initialize(type: ParserType, asyncResource: object, maxHeaderSize?: number, lenient?: number, headersTimeout?: number): void
   execute(buffer: Buffer): void
   finish(): void
   free(): void
