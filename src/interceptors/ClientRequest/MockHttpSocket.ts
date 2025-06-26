@@ -48,6 +48,7 @@ export class MockHttpSocket extends MockSocket {
   private connectionOptions: HttpConnectionOptions
   private createConnection: () => net.Socket
   private baseUrl: URL
+  private responseRawHeaders: Array<string> = []
 
   private onRequest: MockHttpSocketRequestCallback
   private onResponse: MockHttpSocketResponseCallback
@@ -122,6 +123,7 @@ export class MockHttpSocket extends MockSocket {
     // Response parser.
     this.responseParser = new HTTPParser()
     this.responseParser.initialize(HTTPParser.RESPONSE, {})
+    this.responseParser[HTTPParser.kOnHeaders] = this.onHeaders.bind(this)
     this.responseParser[HTTPParser.kOnHeadersComplete] =
       this.onResponseStart.bind(this)
     this.responseParser[HTTPParser.kOnBody] = this.onResponseBody.bind(this)
@@ -578,6 +580,13 @@ export class MockHttpSocket extends MockSocket {
     }
   }
 
+  private onHeaders(
+    rawHeaders: Array<string>,
+    url: string
+  ): void {
+    this.responseRawHeaders.push(...rawHeaders)
+    
+  }
   private onResponseStart: ResponseHeadersCompleteCallback = (
     versionMajor,
     versionMinor,
@@ -587,7 +596,7 @@ export class MockHttpSocket extends MockSocket {
     status,
     statusText
   ) => {
-    const headers = FetchResponse.parseRawHeaders(rawHeaders)
+    const headers = FetchResponse.parseRawHeaders(rawHeaders ?? this.responseRawHeaders)
 
     const response = new FetchResponse(
       /**
