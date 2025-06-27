@@ -612,7 +612,6 @@ export class MockHttpSocket extends MockSocket {
     if (this.responseParser.maxHeadersPair <= 0 || this.headers.length < this.responseParser.maxHeadersPair) { 
       this.headers.push(...headers)
     }
-    this.url += url
   }
 
   private onResponseStart: ResponseHeadersCompleteCallback = (
@@ -627,11 +626,6 @@ export class MockHttpSocket extends MockSocket {
     if (rawHeaders === undefined) { 
       rawHeaders = this.headers
       this.headers = []
-    }
-
-    if (url === undefined) {
-      url = this.url
-      this.url = ''
     }
 
     const headers = FetchResponse.parseRawHeaders(rawHeaders)
@@ -697,6 +691,5 @@ export class MockHttpSocket extends MockSocket {
       this.responseStream.push(null)
     }
     this.headers = []
-    this.url = ''
   }
 }
