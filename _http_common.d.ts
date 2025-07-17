@@ -19,7 +19,7 @@ export interface HTTPParser<ParserType extends number> {
   new (): HTTPParser<ParserType>
 
   [HTTPParser.kOnMessageBegin]: () => void
-  [HTTPParser.kOnHeaders]: RequestHeadersCallback
+  [HTTPParser.kOnHeaders]: HeadersCallback
   [HTTPParser.kOnHeadersComplete]: ParserType extends 0
     ? RequestHeadersCompleteCallback
     : ResponseHeadersCompleteCallback
@@ -34,7 +34,7 @@ export interface HTTPParser<ParserType extends number> {
   free(): void
 }
 
-export type RequestHeadersCallback = (
+export type HeadersCallback = (
   rawHeaders: Array<string>,
   url: string
 ) => void
