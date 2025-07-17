@@ -7,7 +7,7 @@ import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
 import { RequestHandler } from 'express'
 
-export const REQUEST_ID_REGEXP = /^\w{10,}$/
+export const REQUEST_ID_REGEXP = /^\w{9,}$/
 
 export interface PromisifiedResponse {
   req: ClientRequest
