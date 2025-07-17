@@ -1,4 +1,4 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import got from 'got'
 import { HttpServer } from '@open-draft/test-server/http'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
@@ -12,15 +12,13 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new ClientRequestInterceptor()
 
-interceptor.on('request', function rootListener({ request, controller }) {
-  if (request.url.toString() === httpServer.http.url('/test')) {
-    controller.respondWith(new Response('mocked-body'))
-  }
-})
-
 beforeAll(async () => {
   interceptor.apply()
   await httpServer.listen()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -29,30 +27,64 @@ afterAll(async () => {
 })
 
 it('mocks response to a request made with "got"', async () => {
-  const res = await got(httpServer.http.url('/test'))
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked-body'))
+  })
 
-  expect(res.statusCode).toBe(200)
-  expect(res.body).toBe('mocked-body')
+  const response = await got(httpServer.http.url('/test'))
+
+  expect.soft(response.statusCode).toBe(200)
+  expect.soft(response.body).toBe('mocked-body')
 })
 
 it('bypasses an unhandled request made with "got"', async () => {
-  const res = await got(httpServer.http.url('/user'))
+  const response = await got(httpServer.http.url('/user'))
 
-  expect(res.statusCode).toBe(200)
-  expect(res.body).toBe(`{"id":1}`)
+  expect.soft(response.statusCode).toBe(200)
+  expect.soft(response.body).toBe(`{"id":1}`)
 })
 
 it('supports timeout before resolving request as-is', async () => {
-  interceptor.once('request', async ({ controller }) => {
+  interceptor.on('request', async ({ controller }) => {
     await sleep(750)
     controller.respondWith(new Response('mocked response'))
   })
 
   const requestStart = Date.now()
-  const res = await got('https://intentionally-non-existing-host.com')
+  const response = await got('https://intentionally-non-existing-host.com')
   const requestEnd = Date.now()
 
-  expect(res.statusCode).toBe(200)
-  expect(res.body).toBe('mocked response')
-  expect(requestEnd - requestStart).toBeGreaterThanOrEqual(700)
+  expect.soft(response.statusCode).toBe(200)
+  expect.soft(response.body).toBe('mocked response')
+  expect.soft(requestEnd - requestStart).toBeGreaterThanOrEqual(700)
+})
+
+it('supports responding with a 204 mocked response', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(null, {
+        status: 204,
+        headers: {
+          'content-type': 'application/dicom+json',
+        },
+      })
+    )
+  })
+
+  const client = got.extend({
+    prefixUrl: 'http://localhost:3000/path',
+    headers: {
+      authorization: 'Bearer fake-token',
+      accept: 'application/dicom+json',
+    },
+    responseType: 'json',
+    retry: { limit: 0 },
+  })
+
+  const response = await client.get('studies')
+  expect.soft(response.statusCode).toBe(204)
+  expect
+    .soft(response.headers)
+    .toHaveProperty('content-type', 'application/dicom+json')
+  expect.soft(response.body).toBe('')
 })
