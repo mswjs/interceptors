@@ -1,7 +1,7 @@
 import net from 'node:net'
 import {
+  type HeadersCallback,
   HTTPParser,
-  RequestHeadersCallback,
   type RequestHeadersCompleteCallback,
   type ResponseHeadersCompleteCallback,
 } from '_http_common'
@@ -54,7 +54,7 @@ export class MockHttpSocket extends MockSocket {
   private onResponse: MockHttpSocketResponseCallback
   private responseListenersPromise?: Promise<void>
 
-  private requestRawHeadersBuffer: Array<string> = []
+  private rawHeadersBuffer: Array<string> = []
   private writeBuffer: Array<NormalizedSocketWriteArgs> = []
   private request?: Request
   private requestParser: HTTPParser<0>
@@ -125,6 +125,7 @@ export class MockHttpSocket extends MockSocket {
     // Response parser.
     this.responseParser = new HTTPParser()
     this.responseParser.initialize(HTTPParser.RESPONSE, {})
+    this.responseParser[HTTPParser.kOnHeaders] = this.onResponseHeaders.bind(this)
     this.responseParser[HTTPParser.kOnHeadersComplete] =
       this.onResponseStart.bind(this)
     this.responseParser[HTTPParser.kOnBody] = this.onResponseBody.bind(this)
@@ -482,8 +483,8 @@ export class MockHttpSocket extends MockSocket {
    * (e.g. more than 30 request headers).
    * @note This is called before request start.
    */
-  private onRequestHeaders: RequestHeadersCallback = (rawHeaders) => {
-    this.requestRawHeadersBuffer.push(...rawHeaders)
+  private onRequestHeaders: HeadersCallback = (rawHeaders) => {
+    this.rawHeadersBuffer.push(...rawHeaders)
   }
 
   private onRequestStart: RequestHeadersCompleteCallback = (
@@ -502,10 +503,10 @@ export class MockHttpSocket extends MockSocket {
     const url = new URL(path || '', this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
     const headers = FetchResponse.parseRawHeaders([
-      ...this.requestRawHeadersBuffer,
+      ...this.rawHeadersBuffer,
       ...(rawHeaders || []),
     ])
-    this.requestRawHeadersBuffer.length = 0
+    this.rawHeadersBuffer.length = 0
 
     const canHaveBody = method !== 'GET' && method !== 'HEAD'
 
@@ -597,6 +598,17 @@ export class MockHttpSocket extends MockSocket {
     }
   }
 
+  /**
+   * This callback might be called when the response is "slow":
+   * - Response headers were fragmented across multiple TCP packages;
+   * - Response headers were too large to be processed in a single run
+   * (e.g. more than 30 response headers).
+   * @note This is called before response start.
+   */
+  private onResponseHeaders: HeadersCallback = (rawHeaders) => {
+    this.rawHeadersBuffer.push(...rawHeaders)
+  }
+
   private onResponseStart: ResponseHeadersCompleteCallback = (
     versionMajor,
     versionMinor,
@@ -606,7 +618,11 @@ export class MockHttpSocket extends MockSocket {
     status,
     statusText
   ) => {
-    const headers = FetchResponse.parseRawHeaders(rawHeaders)
+    const headers = FetchResponse.parseRawHeaders([
+      ...this.rawHeadersBuffer,
+      ...(rawHeaders || []),
+    ])
+    this.rawHeadersBuffer.length = 0
 
     const response = new FetchResponse(
       /**
