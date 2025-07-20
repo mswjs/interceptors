@@ -54,7 +54,8 @@ export class MockHttpSocket extends MockSocket {
   private onResponse: MockHttpSocketResponseCallback
   private responseListenersPromise?: Promise<void>
 
-  private rawHeadersBuffer: Array<string> = []
+  private requestRawHeadersBuffer: Array<string> = []
+  private responseRawHeadersBuffer: Array<string> = []
   private writeBuffer: Array<NormalizedSocketWriteArgs> = []
   private request?: Request
   private requestParser: HTTPParser<0>
@@ -484,7 +485,7 @@ export class MockHttpSocket extends MockSocket {
    * @note This is called before request start.
    */
   private onRequestHeaders: HeadersCallback = (rawHeaders) => {
-    this.rawHeadersBuffer.push(...rawHeaders)
+    this.requestRawHeadersBuffer.push(...rawHeaders)
   }
 
   private onRequestStart: RequestHeadersCompleteCallback = (
@@ -503,10 +504,10 @@ export class MockHttpSocket extends MockSocket {
     const url = new URL(path || '', this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
     const headers = FetchResponse.parseRawHeaders([
-      ...this.rawHeadersBuffer,
+      ...this.requestRawHeadersBuffer,
       ...(rawHeaders || []),
     ])
-    this.rawHeadersBuffer.length = 0
+    this.requestRawHeadersBuffer.length = 0
 
     const canHaveBody = method !== 'GET' && method !== 'HEAD'
 
@@ -606,7 +607,7 @@ export class MockHttpSocket extends MockSocket {
    * @note This is called before response start.
    */
   private onResponseHeaders: HeadersCallback = (rawHeaders) => {
-    this.rawHeadersBuffer.push(...rawHeaders)
+    this.responseRawHeadersBuffer.push(...rawHeaders)
   }
 
   private onResponseStart: ResponseHeadersCompleteCallback = (
@@ -619,10 +620,10 @@ export class MockHttpSocket extends MockSocket {
     statusText
   ) => {
     const headers = FetchResponse.parseRawHeaders([
-      ...this.rawHeadersBuffer,
+      ...this.responseRawHeadersBuffer,
       ...(rawHeaders || []),
     ])
-    this.rawHeadersBuffer.length = 0
+    this.responseRawHeadersBuffer.length = 0
 
     const response = new FetchResponse(
       /**
