@@ -87,3 +87,34 @@ it('supports multiple parallel "slow" requests', async () => {
     ])
   }
 })
+
+it('supports responses with more than default maximum header fields count', async () => {
+  const responseHeadersPromise = new DeferredPromise<Headers>()
+
+  const responseHeadersPairs = Array.from({ length: 60 })
+    .map<[string, string]>((_, index) => {
+      return [`x-response-header-${index}`, index.toString()]
+    })
+    .sort()
+
+  interceptor.on('request', ({ controller }) => {
+    const response = new Response(null, {
+      status: 200,
+      headers: new Headers(responseHeadersPairs)
+    })
+    
+    controller.respondWith(response)
+  })
+
+  interceptor.on('response', ({ response }) => {
+    responseHeadersPromise.resolve(response.headers)
+  })
+
+  const request = http.get('http://localhost/irrelevant')
+  request.end()
+
+  await waitForClientRequest(request)
+  const responseHeaders = await responseHeadersPromise
+
+  expect(Array.from(responseHeaders)).toEqual(responseHeadersPairs)
+})
