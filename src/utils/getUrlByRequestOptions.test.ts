@@ -1,6 +1,6 @@
-import { it, expect } from 'vitest'
 import { Agent as HttpAgent } from 'http'
-import { RequestOptions, Agent as HttpsAgent } from 'https'
+import { Agent as HttpsAgent, RequestOptions } from 'https'
+import { expect, it } from 'vitest'
 import { getUrlByRequestOptions } from './getUrlByRequestOptions'
 
 it('returns a URL based on the basic RequestOptions', () => {
@@ -130,9 +130,7 @@ it('use "hostname" if both "hostname" and "host" are specified', () => {
     path: '/resource',
   }
 
-  expect(getUrlByRequestOptions(options).href).toBe(
-    'https://hostname/resource'
-  )
+  expect(getUrlByRequestOptions(options).href).toBe('https://hostname/resource')
 })
 
 it('parses "host" in IPv6', () => {
@@ -149,7 +147,6 @@ it('parses "host" in IPv6', () => {
       path: '/resource',
     }).href
   ).toBe('http://[::1]/resource')
-
 })
 
 it('parses "host" and "port" in IPv6', () => {
@@ -160,4 +157,68 @@ it('parses "host" and "port" in IPv6', () => {
       path: '/resource',
     }).href
   ).toBe('http://[::1]:3001/resource')
+})
+
+// Tests for Unix socket path handling
+
+it('creates special URL for socketPath with default protocol', () => {
+  const url = getUrlByRequestOptions({
+    socketPath: '/var/run/docker.sock',
+    path: '/v1.41/containers/json',
+  })
+
+  expect(url.protocol).toBe('http:')
+  expect(url.hostname).toBe('unix-socket-placeholder')
+  expect(url.pathname).toBe('/v1.41/containers/json')
+  expect(url.href).toBe('http://unix-socket-placeholder/v1.41/containers/json')
+})
+
+it('creates special URL for socketPath with HTTPS protocol', () => {
+  const url = getUrlByRequestOptions({
+    socketPath: '/var/run/secure.sock',
+    protocol: 'https:',
+    path: '/secure/endpoint',
+  })
+
+  expect(url.protocol).toBe('https:')
+  expect(url.hostname).toBe('unix-socket-placeholder')
+  expect(url.pathname).toBe('/secure/endpoint')
+  expect(url.href).toBe('https://unix-socket-placeholder/secure/endpoint')
+})
+
+it('handles socketPath with query parameters', () => {
+  const url = getUrlByRequestOptions({
+    socketPath: '/var/run/app.sock',
+    path: '/api/v1/query?filter=active&sort=desc',
+  })
+
+  expect(url.hostname).toBe('unix-socket-placeholder')
+  expect(url.pathname).toBe('/api/v1/query')
+  expect(url.search).toBe('?filter=active&sort=desc')
+  expect(url.href).toBe(
+    'http://unix-socket-placeholder/api/v1/query?filter=active&sort=desc'
+  )
+})
+
+it('uses default path when only socketPath is specified', () => {
+  const url = getUrlByRequestOptions({
+    socketPath: '/var/run/socket.sock',
+  })
+
+  expect(url.hostname).toBe('unix-socket-placeholder')
+  expect(url.pathname).toBe('/')
+  expect(url.href).toBe('http://unix-socket-placeholder/')
+})
+
+it('prioritizes socketPath over host and hostname', () => {
+  const url = getUrlByRequestOptions({
+    socketPath: '/var/run/priority.sock',
+    host: 'example.com',
+    hostname: 'example.org',
+    path: '/test',
+  })
+
+  expect(url.hostname).toBe('unix-socket-placeholder')
+  expect(url.pathname).toBe('/test')
+  expect(url.href).toBe('http://unix-socket-placeholder/test')
 })
