@@ -43,8 +43,9 @@ it('supports https.Agent instance as a custom agent for a mocked request', async
 
 it('supports https.Agent instance as a custom agent for a passthrough request', async () => {
   const request = https.get(httpServer.https.url('/resource'), {
-    agent: new https.Agent(),
-    rejectUnauthorized: false,
+    agent: new https.Agent({
+      rejectUnauthorized: false,
+    }),
   })
 
   const { text } = await waitForClientRequest(request)
@@ -52,12 +53,28 @@ it('supports https.Agent instance as a custom agent for a passthrough request', 
 })
 
 it('supports http.Agent instance as a custom agent for a passthrough request', async () => {
-  const request = https.get(httpServer.https.url('/resource'), {
+  /**
+   * @note `http.Agent` instances are allowed as custom HTTPS agents.
+   * In fact, `https.Agent` is a child of the `http.Agent` class.
+   */
+  class MyHttpAgent extends http.Agent {
     /**
-     * @note `http.Agent` instances are allowed as custom HTTPS agents.
-     * In fact, `https.Agent` is a child of the `http.Agent` class.
+     * @note `http.Agent` has an undocumented `protocol` property that is used
+     * to invalidate requests made with an unmatching protocol.
+     * @see https://github.com/nodejs/node/blob/cde8f275ad6ceecc4837fa8a64ba948b39d084b3/lib/https.js#L454
      */
-    agent: new http.Agent(),
+    public readonly protocol = 'https:'
+
+    createConnection(options: any, callback: any) {
+      // Proxy the socket creation to the HTTPS socket so this custom class
+      // can handle HTTPS requests properly.
+      return https.globalAgent.createConnection(options, callback)
+    }
+  }
+
+  const request = https.get(httpServer.https.url('/resource'), {
+    agent: new MyHttpAgent(),
+    rejectUnauthorized: false,
   })
 
   const { text } = await waitForClientRequest(request)
