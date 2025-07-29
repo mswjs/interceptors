@@ -126,7 +126,8 @@ export class MockHttpSocket extends MockSocket {
     // Response parser.
     this.responseParser = new HTTPParser()
     this.responseParser.initialize(HTTPParser.RESPONSE, {})
-    this.responseParser[HTTPParser.kOnHeaders] = this.onResponseHeaders.bind(this)
+    this.responseParser[HTTPParser.kOnHeaders] =
+      this.onResponseHeaders.bind(this)
     this.responseParser[HTTPParser.kOnHeadersComplete] =
       this.onResponseStart.bind(this)
     this.responseParser[HTTPParser.kOnBody] = this.onResponseBody.bind(this)
