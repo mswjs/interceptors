@@ -1,8 +1,7 @@
-import type { Emitter } from 'strict-event-emitter'
+import type { Emitter } from 'rettime'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
 import type { HttpRequestEventMap } from '../glossary'
-import { emitAsync } from './emitAsync'
 import { kResponsePromise, RequestController } from '../RequestController'
 import {
   createServerErrorResponse,
@@ -13,6 +12,7 @@ import {
 import { InterceptorError } from '../InterceptorError'
 import { isNodeLikeError } from './isNodeLikeError'
 import { isObject } from './isObject'
+import { HttpRequestEvent, HttpUnhandledExceptionEvent } from '../events'
 
 interface HandleRequestOptions {
   requestId: string
@@ -136,11 +136,13 @@ export async function handleRequest(
     // for that event are finished (e.g. async listeners awaited).
     // By the end of this promise, the developer cannot affect the
     // request anymore.
-    const requestListenersPromise = emitAsync(options.emitter, 'request', {
-      requestId: options.requestId,
-      request: options.request,
-      controller: options.controller,
-    })
+    const requestListenersPromise = await options.emitter.emitAsPromise(
+      new HttpRequestEvent('request', {
+        requestId: options.requestId,
+        request: options.request,
+        controller: options.controller,
+      })
+    )
 
     await Promise.race([
       // Short-circuit the request handling promise if the request gets aborted.
@@ -178,22 +180,26 @@ export async function handleRequest(
         options.request
       )
 
-      await emitAsync(options.emitter, 'unhandledException', {
-        error: result.error,
-        request: options.request,
-        requestId: options.requestId,
-        controller: unhandledExceptionController,
-      }).then(() => {
-        // If all the "unhandledException" listeners have finished
-        // but have not handled the response in any way, preemptively
-        // resolve the pending response promise from the new controller.
-        // This prevents it from hanging forever.
-        if (
-          unhandledExceptionController[kResponsePromise].state === 'pending'
-        ) {
-          unhandledExceptionController[kResponsePromise].resolve(undefined)
-        }
-      })
+      await options.emitter
+        .emitAsPromise(
+          new HttpUnhandledExceptionEvent('unhandledException', {
+            error: result.error,
+            request: options.request,
+            requestId: options.requestId,
+            controller: unhandledExceptionController,
+          })
+        )
+        .then(() => {
+          // If all the "unhandledException" listeners have finished
+          // but have not handled the response in any way, preemptively
+          // resolve the pending response promise from the new controller.
+          // This prevents it from hanging forever.
+          if (
+            unhandledExceptionController[kResponsePromise].state === 'pending'
+          ) {
+            unhandledExceptionController[kResponsePromise].resolve(undefined)
+          }
+        })
 
       const nextResult = await until(
         () => unhandledExceptionController[kResponsePromise]

@@ -17,6 +17,7 @@ import {
 } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
+import { DefaultEventMap, TypedEvent } from 'rettime'
 
 export { type WebSocketData, WebSocketTransport } from './WebSocketTransport'
 export {
@@ -34,8 +35,32 @@ export {
   CancelableMessageEvent,
 } from './utils/events'
 
-export type WebSocketEventMap = {
-  connection: [args: WebSocketConnectionData]
+export interface WebSocketEventMap extends DefaultEventMap {
+  connection: WebSocketConnectionEvent
+}
+
+export interface WebSocketConnectionInfo {
+  /**
+   * The protocols supported by the WebSocket client.
+   */
+  protocols: string | Array<string> | undefined
+}
+
+export class WebSocketConnectionEvent<
+  DataType = void,
+  ReturnType = any,
+  EventType extends string = string
+> extends TypedEvent<void, ReturnType, EventType> {
+  public client: WebSocketClientConnection
+  public server: WebSocketServerConnection
+  public info: WebSocketConnectionInfo
+
+  constructor(type: EventType, init: WebSocketConnectionData) {
+    super(type)
+    this.client = init.client
+    this.server = init.server
+    this.info = init.info
+  }
 }
 
 export type WebSocketConnectionData = {
@@ -50,14 +75,9 @@ export type WebSocketConnectionData = {
   server: WebSocketServerConnection
 
   /**
-   * The connection information.
+   * The WebSocket connection information.
    */
-  info: {
-    /**
-     * The protocols supported by the WebSocket client.
-     */
-    protocols: string | Array<string> | undefined
-  }
+  info: WebSocketConnectionInfo
 }
 
 /**
@@ -79,7 +99,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
     const originalWebSocketDescriptor = Object.getOwnPropertyDescriptor(
       globalThis,
       'WebSocket'
-    )
+    )!
 
     const WebSocketProxy = new Proxy(globalThis.WebSocket, {
       construct: (
@@ -113,13 +133,15 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
             // The "globalThis.WebSocket" class stands for
             // the client-side connection. Assume it's established
             // as soon as the WebSocket instance is constructed.
-            const hasConnectionListeners = this.emitter.emit('connection', {
-              client: new WebSocketClientConnection(socket, transport),
-              server,
-              info: {
-                protocols,
-              },
-            })
+            const hasConnectionListeners = this.emitter.emit(
+              new WebSocketConnectionEvent('connection', {
+                client: new WebSocketClientConnection(socket, transport),
+                server,
+                info: {
+                  protocols,
+                },
+              })
+            )
 
             if (hasConnectionListeners) {
               socket[kPassthroughPromise].resolve(false)
@@ -177,7 +199,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
       Object.defineProperty(
         globalThis,
         'WebSocket',
-        originalWebSocketDescriptor!
+        originalWebSocketDescriptor
       )
     })
   }

@@ -6,16 +6,12 @@ import {
   InterceptorReadyState,
 } from './Interceptor'
 import { nextTickAsync } from './utils/nextTick'
+import { TypedEvent } from 'rettime'
 
 const symbol = Symbol('test')
 
 afterEach(() => {
   deleteGlobalSymbol(symbol)
-})
-
-it('does not set a maximum listeners limit', () => {
-  const interceptor = new Interceptor(symbol)
-  expect(interceptor['emitter'].getMaxListeners()).toBe(0)
 })
 
 describe('on()', () => {
@@ -31,21 +27,22 @@ describe('on()', () => {
 
 describe('once()', () => {
   it('calls the listener only once', () => {
-    const interceptor = new Interceptor(symbol)
+    const interceptor = new Interceptor<any>(symbol)
     const listener = vi.fn()
 
     interceptor.once('foo', listener)
     expect(listener).not.toHaveBeenCalled()
 
-    interceptor['emitter'].emit('foo', 'bar')
+    const event = new TypedEvent('foo', { data: 'bar' })
+    interceptor['emitter'].emit(event)
 
     expect(listener).toHaveBeenCalledTimes(1)
-    expect(listener).toHaveBeenCalledWith('bar')
+    expect(listener).toHaveBeenCalledWith(event)
 
     listener.mockReset()
 
-    interceptor['emitter'].emit('foo', 'baz')
-    interceptor['emitter'].emit('foo', 'xyz')
+    interceptor['emitter'].emit(new TypedEvent('foo', { data: 'baz' }))
+    interceptor['emitter'].emit(new TypedEvent('foo', { data: 'xyz' }))
     expect(listener).toHaveBeenCalledTimes(0)
   })
 })
@@ -159,8 +156,12 @@ describe('apply', () => {
   })
 
   it('proxies listeners from new interceptor to already running interceptor', () => {
-    const firstInterceptor = new Interceptor(symbol)
-    const secondInterceptor = new Interceptor(symbol)
+    const firstInterceptor = new Interceptor<{ test: TypedEvent<string> }>(
+      symbol
+    )
+    const secondInterceptor = new Interceptor<{ test: TypedEvent<string> }>(
+      symbol
+    )
 
     firstInterceptor.apply()
     const firstListener = vi.fn()
@@ -171,13 +172,14 @@ describe('apply', () => {
     secondInterceptor.on('test', secondListener)
 
     // Emitting event in the first interceptor will bubble to the second one.
-    firstInterceptor['emitter'].emit('test', 'hello world')
+    const event = new TypedEvent('test', { data: 'hello world' })
+    firstInterceptor['emitter'].emit(event)
 
     expect(firstListener).toHaveBeenCalledTimes(1)
-    expect(firstListener).toHaveBeenCalledWith('hello world')
+    expect(firstListener).toHaveBeenCalledWith(event)
 
     expect(secondListener).toHaveBeenCalledTimes(1)
-    expect(secondListener).toHaveBeenCalledWith('hello world')
+    expect(secondListener).toHaveBeenCalledWith(event)
 
     expect(secondInterceptor['emitter'].listenerCount('test')).toBe(0)
   })
@@ -185,7 +187,7 @@ describe('apply', () => {
 
 describe('dispose', () => {
   it('removes all listeners when the interceptor is disposed', async () => {
-    const interceptor = new Interceptor(symbol)
+    const interceptor = new Interceptor<{ test: TypedEvent }>(symbol)
 
     interceptor.apply()
     const listener = vi.fn()
@@ -193,12 +195,12 @@ describe('dispose', () => {
     interceptor.dispose()
 
     // Even after emitting an event, the listener must not get called.
-    interceptor['emitter'].emit('test')
+    interceptor['emitter'].emit(new TypedEvent('test'))
     expect(listener).not.toHaveBeenCalled()
 
     // The listener must not be called on the next tick either.
     await nextTickAsync(() => {
-      interceptor['emitter'].emit('test')
+      interceptor['emitter'].emit(new TypedEvent('test'))
       expect(listener).not.toHaveBeenCalled()
     })
   })

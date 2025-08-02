@@ -1,5 +1,5 @@
 import { invariant } from 'outvariant'
-import { Emitter } from 'strict-event-emitter'
+import type { Emitter } from 'rettime'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { createXMLHttpRequestProxy } from './XMLHttpRequestProxy'

@@ -1,6 +1,7 @@
 import { vi, it, expect, afterEach } from 'vitest'
 import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
+import { TypedEvent } from 'rettime'
 
 afterEach(() => {
   vi.resetAllMocks()
@@ -39,14 +40,14 @@ it('applies child interceptors', () => {
 })
 
 it('proxies event listeners to the interceptors', () => {
-  class PrimaryInterceptor extends Interceptor<{ hello: [string] }> {
+  class PrimaryInterceptor extends Interceptor<{ hello: TypedEvent<'John'> }> {
     constructor() {
       super(Symbol('primary'))
     }
   }
 
   class SecondaryInterceptor extends Interceptor<{
-    goodbye: [string]
+    goodbye: TypedEvent<'Kate'>
   }> {
     constructor() {
       super(Symbol('secondary'))
@@ -70,14 +71,16 @@ it('proxies event listeners to the interceptors', () => {
   interceptor.on('goodbye', goodbyeListener)
 
   // Emulate the child interceptor emitting events.
-  instances.primary['emitter'].emit('hello', 'John')
-  instances.secondary['emitter'].emit('goodbye', 'Kate')
+  const johnEvent = new TypedEvent('hello', { data: 'John' as const })
+  instances.primary['emitter'].emit(johnEvent)
+  const kateEvent = new TypedEvent('goodbye', { data: 'Kate' as const })
+  instances.secondary['emitter'].emit(kateEvent)
 
   // Must call the batch interceptor listener.
   expect(helloListener).toHaveBeenCalledTimes(1)
-  expect(helloListener).toHaveBeenCalledWith('John')
+  expect(helloListener).toHaveBeenCalledWith(johnEvent)
   expect(goodbyeListener).toHaveBeenCalledTimes(1)
-  expect(goodbyeListener).toHaveBeenCalledWith('Kate')
+  expect(goodbyeListener).toHaveBeenCalledWith(kateEvent)
 })
 
 it('disposes of child interceptors', async () => {
@@ -142,16 +145,12 @@ it('forwards listeners added via "on()"', () => {
 })
 
 it('forwards listeners removal via "off()"', () => {
-  type Events = {
-    foo: []
-  }
-
-  class FirstInterceptor extends Interceptor<Events> {
+  class FirstInterceptor extends Interceptor<any> {
     constructor() {
       super(Symbol('first'))
     }
   }
-  class SecondaryInterceptor extends Interceptor<Events> {
+  class SecondaryInterceptor extends Interceptor<any> {
     constructor() {
       super(Symbol('second'))
     }
@@ -174,17 +173,12 @@ it('forwards listeners removal via "off()"', () => {
 })
 
 it('forwards removal of all listeners by name via ".removeAllListeners()"', () => {
-  type Events = {
-    foo: []
-    bar: []
-  }
-
-  class FirstInterceptor extends Interceptor<Events> {
+  class FirstInterceptor extends Interceptor<any> {
     constructor() {
       super(Symbol('first'))
     }
   }
-  class SecondaryInterceptor extends Interceptor<Events> {
+  class SecondaryInterceptor extends Interceptor<any> {
     constructor() {
       super(Symbol('second'))
     }

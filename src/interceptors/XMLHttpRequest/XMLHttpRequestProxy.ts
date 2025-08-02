@@ -3,6 +3,7 @@ import { XMLHttpRequestEmitter } from '.'
 import { RequestController } from '../../RequestController'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
 import { handleRequest } from '../../utils/handleRequest'
+import { HttpResponseEvent } from '../../events'
 
 export interface XMLHttpRequestProxyOptions {
   emitter: XMLHttpRequestEmitter
@@ -99,12 +100,14 @@ export function createXMLHttpRequestProxy({
           emitter.listenerCount('response')
         )
 
-        emitter.emit('response', {
-          response,
-          isMockedResponse,
-          request,
-          requestId,
-        })
+        await emitter.emitAsPromise(
+          new HttpResponseEvent('response', {
+            response,
+            isMockedResponse,
+            request,
+            requestId,
+          })
+        )
       }
 
       // Return the proxied request from the controller

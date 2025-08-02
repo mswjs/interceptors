@@ -8,6 +8,7 @@ import { FetchInterceptor } from './interceptors/fetch'
 import { handleRequest } from './utils/handleRequest'
 import { RequestController } from './RequestController'
 import { FetchResponse } from './utils/fetchUtils'
+import { HttpResponseEvent } from './events'
 
 export interface SerializedRequest {
   id: string
@@ -207,12 +208,14 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
               // Emit an optimistic "response" event at this point,
               // not to rely on the back-and-forth signaling for the sake of the event.
-              this.emitter.emit('response', {
-                request,
-                requestId: requestJson.id,
-                response: responseClone,
-                isMockedResponse: true,
-              })
+              this.emitter.emit(
+                new HttpResponseEvent('response', {
+                  request,
+                  requestId: requestJson.id,
+                  response: responseClone,
+                  isMockedResponse: true,
+                })
+              )
             }
           )
 

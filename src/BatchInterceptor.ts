@@ -1,19 +1,23 @@
-import { EventMap, Listener } from 'strict-event-emitter'
-import { Interceptor, ExtractEventNames } from './Interceptor'
+import type { Emitter, DefaultEventMap } from 'rettime'
+import { Interceptor } from './Interceptor'
 
 export interface BatchInterceptorOptions<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>
+  Interceptors extends ReadonlyArray<Interceptor<any>>
 > {
   name: string
-  interceptors: InterceptorList
+  interceptors: Interceptors
 }
 
-export type ExtractEventMapType<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>
-> = InterceptorList extends ReadonlyArray<infer InterceptorType>
-  ? InterceptorType extends Interceptor<infer EventMap>
-    ? EventMap
-    : never
+type InferEventMap<InterceptorType extends Interceptor<any>> =
+  InterceptorType extends Interceptor<infer EventMap> ? EventMap : never
+
+type MergeEventMaps<InterceptorsList extends ReadonlyArray<Interceptor<any>>> =
+  UnionToIntersection<InferEventMap<InterceptorsList[number]>>
+
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
+  k: infer T extends DefaultEventMap
+) => void
+  ? T
   : never
 
 /**
@@ -21,25 +25,25 @@ export type ExtractEventMapType<
  * to apply and operate with multiple interceptors at once.
  */
 export class BatchInterceptor<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>,
-  Events extends EventMap = ExtractEventMapType<InterceptorList>
-> extends Interceptor<Events> {
+  Interceptors extends ReadonlyArray<Interceptor<any>>,
+  EventMap extends DefaultEventMap = MergeEventMaps<Interceptors>
+> extends Interceptor<EventMap> {
   static symbol: symbol
 
-  private interceptors: InterceptorList
+  #interceptors: NoInfer<Interceptors>
 
-  constructor(options: BatchInterceptorOptions<InterceptorList>) {
+  constructor(options: BatchInterceptorOptions<Interceptors>) {
     BatchInterceptor.symbol = Symbol(options.name)
     super(BatchInterceptor.symbol)
-    this.interceptors = options.interceptors
+    this.#interceptors = options.interceptors
   }
 
   protected setup() {
     const logger = this.logger.extend('setup')
 
-    logger.info('applying all %d interceptors...', this.interceptors.length)
+    logger.info('applying all %d interceptors...', this.#interceptors.length)
 
-    for (const interceptor of this.interceptors) {
+    for (const interceptor of this.#interceptors) {
       logger.info('applying "%s" interceptor...', interceptor.constructor.name)
       interceptor.apply()
 
@@ -48,46 +52,46 @@ export class BatchInterceptor<
     }
   }
 
-  public on<EventName extends ExtractEventNames<Events>>(
-    event: EventName,
-    listener: Listener<Events[EventName]>
+  public on<EventType extends keyof EventMap & string>(
+    type: EventType,
+    listener: Emitter.ListenerType<typeof this.emitter, EventType>
   ): this {
     // Instead of adding a listener to the batch interceptor,
     // propagate the listener to each of the individual interceptors.
-    for (const interceptor of this.interceptors) {
-      interceptor.on(event, listener)
+    for (const interceptor of this.#interceptors) {
+      interceptor.on(type, listener)
     }
 
     return this
   }
 
-  public once<EventName extends ExtractEventNames<Events>>(
-    event: EventName,
-    listener: Listener<Events[EventName]>
+  public once<EventType extends keyof EventMap & string>(
+    type: EventType,
+    listener: Emitter.ListenerType<typeof this.emitter, EventType>
   ): this {
-    for (const interceptor of this.interceptors) {
-      interceptor.once(event, listener)
+    for (const interceptor of this.#interceptors) {
+      interceptor.once(type, listener)
     }
 
     return this
   }
 
-  public off<EventName extends ExtractEventNames<Events>>(
-    event: EventName,
-    listener: Listener<Events[EventName]>
+  public off<EventType extends keyof EventMap & string>(
+    type: EventType,
+    listener: Emitter.ListenerType<typeof this.emitter, EventType>
   ): this {
-    for (const interceptor of this.interceptors) {
-      interceptor.off(event, listener)
+    for (const interceptor of this.#interceptors) {
+      interceptor.off(type, listener)
     }
 
     return this
   }
 
-  public removeAllListeners<EventName extends ExtractEventNames<Events>>(
-    event?: EventName | undefined
+  public removeAllListeners<EventType extends keyof EventMap & string>(
+    type?: EventType | undefined
   ): this {
-    for (const interceptors of this.interceptors) {
-      interceptors.removeAllListeners(event)
+    for (const interceptor of this.#interceptors) {
+      interceptor.removeAllListeners(type)
     }
 
     return this

@@ -9,13 +9,13 @@ import {
 } from './MockHttpSocket'
 import { MockAgent, MockHttpsAgent } from './agents'
 import { RequestController } from '../../RequestController'
-import { emitAsync } from '../../utils/emitAsync'
 import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
 import { handleRequest } from '../../utils/handleRequest'
 import {
   recordRawFetchHeaders,
   restoreHeadersPrototype,
 } from './utils/recordRawHeaders'
+import { HttpResponseEvent } from '../../events'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -187,11 +187,13 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   }) => {
     // Return the promise to when all the response event listeners
     // are finished.
-    return emitAsync(this.emitter, 'response', {
-      requestId,
-      request,
-      response,
-      isMockedResponse,
-    })
+    await this.emitter.emitAsPromise(
+      new HttpResponseEvent('response', {
+        requestId,
+        request,
+        response,
+        isMockedResponse,
+      })
+    )
   }
 }
