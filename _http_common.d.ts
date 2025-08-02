@@ -18,15 +18,15 @@ declare var HTTPParser: {
 export interface HTTPParser<ParserType extends number> {
   new (): HTTPParser<ParserType>
 
-  [HTTPParser.kOnMessageBegin]: () => void
-  [HTTPParser.kOnHeaders]: HeadersCallback
-  [HTTPParser.kOnHeadersComplete]: ParserType extends 0
+  [HTTPParser.kOnMessageBegin]?: () => void
+  [HTTPParser.kOnHeaders]?: HeadersCallback
+  [HTTPParser.kOnHeadersComplete]?: ParserType extends 0
     ? RequestHeadersCompleteCallback
     : ResponseHeadersCompleteCallback
-  [HTTPParser.kOnBody]: (chunk: Buffer) => void
-  [HTTPParser.kOnMessageComplete]: () => void
-  [HTTPParser.kOnExecute]: () => void
-  [HTTPParser.kOnTimeout]: () => void
+  [HTTPParser.kOnBody]?: (chunk: Buffer) => void
+  [HTTPParser.kOnMessageComplete]?: () => void
+  [HTTPParser.kOnExecute]?: () => void
+  [HTTPParser.kOnTimeout]?: () => void
 
   initialize(type: ParserType, asyncResource: object): void
   execute(buffer: Buffer): void
@@ -34,10 +34,7 @@ export interface HTTPParser<ParserType extends number> {
   free(): void
 }
 
-export type HeadersCallback = (
-  rawHeaders: Array<string>,
-  url: string
-) => void
+export type HeadersCallback = (rawHeaders: Array<string>, url: string) => void
 
 export type RequestHeadersCompleteCallback = (
   versionMajor: number,
