@@ -1,3 +1,10 @@
+/**
+ * Here's how requests are handled in Node.js:
+ *
+ * 1. http.ClientRequest instance calls `agent.addRequest(request, options, cb)`.
+ * 2. Agent creates a new socket: `agent.createSocket(options, cb)`.
+ * 3. Agent creates a new connection: `agent.createConnection(options, cb)`.
+ */
 import net from 'node:net'
 import http from 'node:http'
 import https from 'node:https'
@@ -75,12 +82,12 @@ export class MockHttpsAgent extends https.Agent {
 
   public createConnection(options: any, callback: any): net.Socket {
     const createConnection =
-      this.customAgent instanceof https.Agent
+      this.customAgent instanceof http.Agent
         ? this.customAgent.createConnection
         : super.createConnection
 
     const createConnectionOptions =
-      this.customAgent instanceof https.Agent
+      this.customAgent instanceof http.Agent
         ? {
             ...options,
             ...this.customAgent.options,
