@@ -19,7 +19,15 @@ export interface SocketRecorderEntry {
  * so they can later be replayed on the passthrough socket.
  */
 export function createSocketRecorder<T extends net.Socket>(
-  socket: T
+  socket: T,
+  options?: {
+    onEntry?: (entry: SocketRecorderEntry) => boolean
+    resolveGetterValue?: (
+      target: any,
+      property: string | symbol,
+      receiver: any
+    ) => void
+  }
 ): SocketRecorder<T> {
   const entries: Array<SocketRecorderEntry> = []
 
@@ -28,6 +36,12 @@ export function createSocketRecorder<T extends net.Socket>(
     configurable: true,
     enumerable: false,
   })
+
+  const addEntry = (entry: SocketRecorderEntry) => {
+    if (options?.onEntry?.(entry) ?? true) {
+      entries.push(entry)
+    }
+  }
 
   const proxy = new Proxy(socket, {
     get(target, property, receiver) {
@@ -43,7 +57,7 @@ export function createSocketRecorder<T extends net.Socket>(
             }
 
             if (target.name !== 'push') {
-              entries.push({
+              addEntry({
                 type: 'apply',
                 metadata: { property },
                 replay(newSocket) {
@@ -56,7 +70,10 @@ export function createSocketRecorder<T extends net.Socket>(
         })
       }
 
-      return Reflect.get(target, property, receiver)
+      return (
+        options?.resolveGetterValue?.(target, property, receiver) ??
+        Reflect.get(target, property, receiver)
+      )
     },
     set(target, property, newValue, receiver) {
       const defaultSetter = () => {
@@ -72,7 +89,7 @@ export function createSocketRecorder<T extends net.Socket>(
         return defaultSetter()
       }
 
-      entries.push({
+      addEntry({
         type: 'set',
         metadata: { property, newValue },
         replay(newSocket) {
