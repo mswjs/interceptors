@@ -1,18 +1,29 @@
 import net from 'node:net'
 import {
   normalizeSocketWriteArgs,
-  WriteArgs,
+  type WriteArgs,
 } from '../Socket/utils/normalizeSocketWriteArgs'
+import { createSocketRecorder, type SocketRecorder } from './socket-recorder'
 
+/**
+ * A dummy `net.Socket` instance that allows observing written data packets
+ * and records all consumer interactions to then replay them on the passthrough socket.
+ * @note This instance is application protocol-agnostic.
+ */
 export class MockSocket extends net.Socket {
   public connecting: boolean
 
-  constructor() {
-    super()
+  #recorder: SocketRecorder<MockSocket>
+
+  constructor(protected readonly options?: net.SocketConstructorOpts) {
+    super(options)
     this.connecting = false
     this.connect()
 
     this._final = (callback) => callback(null)
+
+    this.#recorder = createSocketRecorder(this)
+    return this.#recorder.socket
   }
 
   public connect() {
@@ -20,7 +31,7 @@ export class MockSocket extends net.Socket {
     return this
   }
 
-  public write(...args: Array<unknown>): boolean {
+  public write(...args: any): boolean {
     const [chunk, encoding, callback] = normalizeSocketWriteArgs(
       args as WriteArgs
     )
@@ -33,11 +44,28 @@ export class MockSocket extends net.Socket {
     return super.push(chunk, encoding)
   }
 
-  public end(...args: Array<unknown>) {
+  public end(...args: any) {
     const [chunk, encoding, callback] = normalizeSocketWriteArgs(
       args as WriteArgs
     )
+
     this.emit('write', chunk, encoding, callback)
-    return super.end.apply(this, args as any)
+    return super.end.apply(this, args)
+  }
+
+  public passthrough(): net.Socket {
+    /**
+     * @fixme Get the means of creating a passthrough socket instance.
+     */
+    const socket = foo(this.options)
+    this.#recorder.replay(socket)
+
+    /**
+     * @todo Implement the inverse recorder: changes on the passthrough socket
+     * must be reflected on this MockSocket. Consumers getting properties from
+     * this MockSocket must receive their values from the passthrough socket.
+     */
+
+    return socket
   }
 }
