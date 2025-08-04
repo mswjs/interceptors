@@ -58,6 +58,7 @@ it('treats a thrown Response.error() as a network error', async () => {
       new TypeError('Network error')
     )
   })
-
+  
+  expect(requestErrorListener).toHaveBeenCalledOnce()
   expect(responseListener).not.toHaveBeenCalled()
 })

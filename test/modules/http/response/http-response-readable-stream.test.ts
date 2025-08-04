@@ -29,13 +29,16 @@ afterAll(async () => {
 
 it('supports ReadableStream as a mocked response', async () => {
   const encoder = new TextEncoder()
+  const chunks = ['hello', ' ', 'world']
   interceptor.once('request', ({ controller }) => {
     const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode('hello'))
-        controller.enqueue(encoder.encode(' '))
-        controller.enqueue(encoder.encode('world'))
-        controller.close()
+      pull(controller) {
+        const chunk = chunks.shift()
+        if (chunk) {
+          controller.enqueue(encoder.encode(chunk))
+        } else {
+          controller.close()
+        }
       },
     })
     controller.respondWith(new Response(stream))
@@ -48,18 +51,16 @@ it('supports ReadableStream as a mocked response', async () => {
 
 it('supports delays when enqueuing chunks', async () => {
   interceptor.once('request', ({ controller }) => {
+    const chunks = ['first', 'second', 'third']
     const stream = new ReadableStream({
-      async start(controller) {
-        controller.enqueue(encoder.encode('first'))
+      async pull(controller) {
+        const chunk = chunks.shift()
         await sleep(200)
-
-        controller.enqueue(encoder.encode('second'))
-        await sleep(200)
-
-        controller.enqueue(encoder.encode('third'))
-        await sleep(200)
-
-        controller.close()
+        if (chunk) {
+          controller.enqueue(encoder.encode(chunk))
+        } else {
+          controller.close()
+        }
       },
     })
 
@@ -108,17 +109,21 @@ it('supports delays when enqueuing chunks', async () => {
 it('forwards ReadableStream errors to the request', async () => {
   const requestErrorListener = vi.fn()
   const responseErrorListener = vi.fn()
+  const chunks = ['first', 'second', 'third']
 
   interceptor.once('request', ({ controller }) => {
     const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode('original'))
-        queueMicrotask(() => {
+      async pull(controller) {
+        const chunk = chunks.shift()
+        await sleep(200)
+        if (chunk) {
+          controller.enqueue(encoder.encode(chunk))
+        } else {
           controller.error(new Error('stream error'))
-        })
+        }
       },
     })
-    controller.respondWith(new Response(stream))
+    controller.respondWith(new Response(stream, {}))
   })
 
   const request = http.get('http://localhost/resource')
@@ -127,19 +132,69 @@ it('forwards ReadableStream errors to the request', async () => {
     response.on('error', responseErrorListener)
   })
 
-  const response = await vi.waitFor(() => {
+  await vi.waitFor(() => {
     return new Promise<http.IncomingMessage>((resolve) => {
-      request.on('response', resolve)
+      request.on('error', resolve)
     })
   })
 
-  // Response stream errors are translated to unhandled exceptions,
-  // and then the server decides how to handle them. This is often
-  // done as returning a 500 response.
-  expect(response.statusCode).toBe(500)
-  expect(response.statusMessage).toBe('Unhandled Exception')
+  // Response body stream errors cannot be translated to unhandled exceptions
+  // since the headers may already have been sent. Instead we need to
+  // ensure that the error event is issued
 
-  // Response stream errors are not request errors.
-  expect(requestErrorListener).not.toHaveBeenCalled()
-  expect(request.destroyed).toBe(false)
+  expect(responseErrorListener).toHaveBeenCalledOnce()
+  expect(responseErrorListener).toHaveBeenCalledWith(new Error('stream error'))
+
+  expect(requestErrorListener).toHaveBeenCalledOnce()
+  expect(requestErrorListener).toHaveBeenCalledWith(new Error('stream error'))
+  expect(request.destroyed).toBe(true)
+})
+
+it('forwards unhandled ReadableStream errors to the request', async () => {
+  const requestErrorListener = vi.fn()
+  const responseErrorListener = vi.fn()
+  const chunks = ['first', 'second', 'third']
+
+  interceptor.once('request', ({ controller }) => {
+    const stream = new ReadableStream({
+      async pull(controller) {
+        const chunk = chunks.shift()
+        await sleep(200)
+        if (chunk) {
+          controller.enqueue(encoder.encode(chunk))
+        } else {
+          // Enqueue an invalid value
+          controller.enqueue({})
+        }
+      },
+    })
+    controller.respondWith(new Response(stream, {}))
+  })
+
+  const request = http.get('http://localhost/resource')
+  request.on('error', requestErrorListener)
+  request.on('response', (response) => {
+    response.on('error', responseErrorListener)
+  })
+
+  await vi.waitFor(() => {
+    return new Promise<http.IncomingMessage>((resolve) => {
+      request.on('error', resolve)
+    })
+  })
+
+  // Response body stream errors cannot be translated to unhandled exceptions
+  // since the headers may already have been sent. Instead we need to
+  // ensure that the error event is issued
+
+  expect(responseErrorListener).toHaveBeenCalledOnce()
+  expect(responseErrorListener).toHaveBeenCalledWith(
+    expect.objectContaining({ code: 'ERR_INVALID_ARG_TYPE' })
+  )
+
+  expect(requestErrorListener).toHaveBeenCalledOnce()
+  expect(requestErrorListener).toHaveBeenCalledWith(
+    expect.objectContaining({ code: 'ERR_INVALID_ARG_TYPE' })
+  )
+  expect(request.destroyed).toBe(true)
 })

@@ -7,13 +7,14 @@ import {
 } from '_http_common'
 import { STATUS_CODES, IncomingMessage, ServerResponse } from 'node:http'
 import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+import webstream from 'node:stream/web'
 import { invariant } from 'outvariant'
 import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
-import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
@@ -126,7 +127,8 @@ export class MockHttpSocket extends MockSocket {
     // Response parser.
     this.responseParser = new HTTPParser()
     this.responseParser.initialize(HTTPParser.RESPONSE, {})
-    this.responseParser[HTTPParser.kOnHeaders] = this.onResponseHeaders.bind(this)
+    this.responseParser[HTTPParser.kOnHeaders] =
+      this.onResponseHeaders.bind(this)
     this.responseParser[HTTPParser.kOnHeadersComplete] =
       this.onResponseStart.bind(this)
     this.responseParser[HTTPParser.kOnBody] = this.onResponseBody.bind(this)
@@ -159,17 +161,17 @@ export class MockHttpSocket extends MockSocket {
     return emitEvent()
   }
 
-  public destroy(error?: Error | undefined): this {
+  public _destroy(
+    error?: Error | null,
+    callback?: (error?: Error | null) => void
+  ): void {
     // Destroy the response parser when the socket gets destroyed.
     // Normally, we shoud listen to the "close" event but it
     // can be suppressed by using the "emitClose: false" option.
     this.responseParser.free()
 
-    if (error) {
-      this.emit('error', error)
-    }
-
-    return super.destroy(error)
+    callback?.(error)
+    process.nextTick(() => this.emit('close'))
   }
 
   /**
@@ -201,8 +203,8 @@ export class MockHttpSocket extends MockSocket {
     }
 
     // If the developer destroys the socket, destroy the original connection.
-    this.once('error', (error) => {
-      socket.destroy(error)
+    this.once('error', () => {
+      socket.destroy()
     })
 
     this.address = socket.address.bind(socket)
@@ -379,21 +381,24 @@ export class MockHttpSocket extends MockSocket {
 
     if (response.body) {
       try {
-        const reader = response.body.getReader()
+        serverResponse.socket?.on('error', () => {})
 
-        while (true) {
-          const { done, value } = await reader.read()
-
-          if (done) {
-            serverResponse.end()
-            break
-          }
-
-          serverResponse.write(value)
-        }
+        await pipeline(
+          Readable.fromWeb(
+            response.body as webstream.ReadableStream<Uint8Array>
+          ),
+          serverResponse
+        )
       } catch (error) {
-        // Coerce response stream errors to 500 responses.
-        this.respondWith(createServerErrorResponse(error))
+        // We don't have direct access to the real IncomingMessage here to
+        // emit the 'error' event so we have to reach to the Socket internal state
+        // @ts-expect-error
+        this._httpMessage?.res?.emit('error', error)
+        this.errorWith(
+          error instanceof Error
+            ? error
+            : new Error(`Error streaming response body: ${error}`)
+        )
         return
       }
     } else {
