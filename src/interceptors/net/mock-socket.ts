@@ -43,8 +43,6 @@ export class MockSocket extends net.Socket {
           entry.replay(this.#passthroughSocket)
           return false
         }
-
-        return true
       },
       resolveGetterValue: (target, property) => {
         // Once the socket has been passthrough, resolve any getters

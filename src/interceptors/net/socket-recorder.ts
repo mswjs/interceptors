@@ -21,7 +21,7 @@ export interface SocketRecorderEntry {
 export function createSocketRecorder<T extends net.Socket>(
   socket: T,
   options?: {
-    onEntry?: (entry: SocketRecorderEntry) => boolean
+    onEntry?: (entry: SocketRecorderEntry) => boolean | void
     resolveGetterValue?: (
       target: any,
       property: string | symbol,
@@ -38,7 +38,7 @@ export function createSocketRecorder<T extends net.Socket>(
   })
 
   const addEntry = (entry: SocketRecorderEntry) => {
-    if (options?.onEntry?.(entry) ?? true) {
+    if (options?.onEntry?.(entry) !== false) {
       entries.push(entry)
     }
   }
