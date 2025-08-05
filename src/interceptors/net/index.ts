@@ -19,42 +19,40 @@ export interface SocketConnectionEventMap {
 const kImplementation = Symbol('kImplementation')
 const kRestoreValue = Symbol('kRestoreValue')
 
-/**
- * Apply a transparent proxy to the "node:net" module on the module's scope.
- * This way, this interceptor can function if it gets imported before the surface
- * that relies on "node:net", like "node:http" or "undici".
- *
- * @note You MUST import the interceptor BEFORE the surface relying on "node:net".
- */
-const { createConnection } = net
-Object.defineProperties(net.createConnection, {
-  [kRestoreValue]: {
-    value: createConnection.bind(createConnection),
-    enumerable: true,
-  },
-  [kImplementation]: {
-    value() {
-      return Reflect.get(net.createConnection, kRestoreValue)
-    },
-    enumerable: true,
-    writable: true,
-  },
-})
+if (Reflect.get(net.connect, kImplementation) == null) {
+  /**
+   * Apply a transparent proxy to the "node:net" module on the module's scope.
+   * This way, this interceptor can function if it gets imported before the surface
+   * that relies on "node:net", like "node:http" or "undici".
+   *
+   * @note You MUST import the interceptor BEFORE the surface relying on "node:net".
+   */
+  const { connect } = net
 
-function createSwitchableProxy(target: any) {
-  return new Proxy(target, {
-    apply(target, thisArg, argArray) {
-      return Reflect.apply(
-        Reflect.get(target, kImplementation),
-        thisArg,
-        argArray
-      )
-    },
+  Reflect.set(net.connect, kRestoreValue, connect.bind(connect))
+  Reflect.set(net.connect, kImplementation, () => {
+    return Reflect.get(net.connect, kRestoreValue)
   })
-}
 
-net.connect = createSwitchableProxy(net.connect)
-net.createConnection = createSwitchableProxy(net.createConnection)
+  function createSwitchableProxy(target: any) {
+    return new Proxy(target, {
+      apply(target, thisArg, argArray) {
+        return Reflect.apply(
+          Reflect.get(target, kImplementation),
+          thisArg,
+          argArray
+        )
+      },
+    })
+  }
+
+  net.connect = createSwitchableProxy(net.connect)
+  /**
+   * `net.createConnection` is an alias for `net.connect`.
+   * @see https://github.com/nodejs/node/blob/9bcc5a8f01acf9583b45b3bbddf8f043a001bb3c/lib/net.js#L2489
+   */
+  net.createConnection = net.connect
+}
 
 export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
   static symbol = Symbol('SocketInterceptor')
@@ -65,10 +63,6 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
 
   protected setup(): void {
     const originalConnect = Reflect.get(net.connect, kRestoreValue)
-    const originalCreateConnection = Reflect.get(
-      net.createConnection,
-      kRestoreValue
-    )
 
     Reflect.set(net.connect, kImplementation, (...args: Array<unknown>) => {
       const [options, connectionListener] = normalizeNetConnectArgs(
@@ -90,37 +84,8 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
       return socket
     })
 
-    Reflect.set(
-      net.createConnection,
-      kImplementation,
-      (...args: Array<unknown>) => {
-        const [options] = normalizeNetConnectArgs(args as NetConnectArgs)
-        const socket = new MockSocket({
-          ...args,
-          createConnection() {
-            return originalCreateConnection.apply(
-              originalCreateConnection,
-              args as any
-            )
-          },
-        })
-
-        this.emitter.emit('connection', {
-          options,
-          socket,
-        })
-
-        return socket
-      }
-    )
-
     this.subscriptions.push(() => {
       Reflect.set(net.connect, kImplementation, originalConnect)
-      Reflect.set(
-        net.createConnection,
-        kImplementation,
-        originalCreateConnection
-      )
     })
   }
 }
