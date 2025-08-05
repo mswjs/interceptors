@@ -17,7 +17,7 @@ export interface SocketConnectionEventMap {
 }
 
 const kImplementation = Symbol('kImplementation')
-const kRestoreValue = Symbol('kRestoreValue')
+const kOriginalValue = Symbol('kOriginalValue')
 
 if (Reflect.get(net.connect, kImplementation) == null) {
   /**
@@ -27,11 +27,11 @@ if (Reflect.get(net.connect, kImplementation) == null) {
    *
    * @note You MUST import the interceptor BEFORE the surface relying on "node:net".
    */
-  const { connect } = net
+  const { connect: originalConnect } = net
 
-  Reflect.set(net.connect, kRestoreValue, connect.bind(connect))
+  Reflect.set(net.connect, kOriginalValue, originalConnect)
   Reflect.set(net.connect, kImplementation, () => {
-    return Reflect.get(net.connect, kRestoreValue)
+    return Reflect.get(net.connect, kOriginalValue)
   })
 
   function createSwitchableProxy(target: any) {
@@ -58,7 +58,7 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
   }
 
   protected setup(): void {
-    const originalConnect = Reflect.get(net.connect, kRestoreValue)
+    const originalConnect = Reflect.get(net.connect, kOriginalValue)
 
     Reflect.set(net.connect, kImplementation, (...args: Array<unknown>) => {
       const [options, connectionListener] = normalizeNetConnectArgs(
@@ -68,10 +68,17 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
         ...args,
         onConnect: connectionListener,
         createConnection() {
-          return originalConnect.apply(originalConnect, args as any)
+          return originalConnect(...args)
         },
       })
-      socket.connect()
+
+      /**
+       * @note Do NOT call `socket.connect()` here.
+       * Instead, keep the socket connection pending and delegate the actual
+       * connect to the user. Calling `.connect()` on a mock socket it handy
+       * for simulating a successful connection. Calling `.passthrough()` will
+       * tap into `net.connect()`, which calls `socket.connect()` immediately.
+       */
 
       this.emitter.emit('connection', {
         options,

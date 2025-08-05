@@ -19,7 +19,7 @@ afterAll(() => {
 
 it('emulates socket connect event', async () => {
   interceptor.on('connection', ({ socket }) => {
-    socket.emit('connect')
+    socket.connect()
   })
 
   const connectionListener = vi.fn()
