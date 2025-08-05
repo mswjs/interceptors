@@ -27,16 +27,8 @@ export class MockSocket extends net.Socket {
   constructor(protected readonly options: MockSocketConstructorOptions) {
     super(options)
     this.connecting = false
-    this.connect()
 
     this._final = (callback) => callback(null)
-
-    this.once('connect', () => {
-      if (!this[kPassthroughSocket]) {
-        this.options.onConnect?.()
-        this.connecting = false
-      }
-    })
 
     this[kRecorder] = createSocketRecorder(this, {
       onEntry: (entry) => {
@@ -67,6 +59,16 @@ export class MockSocket extends net.Socket {
 
   public connect() {
     this.connecting = true
+
+    this.once('connect', () => {
+      this.connecting = false
+      this.options?.onConnect?.()
+    })
+
+    queueMicrotask(() => {
+      this.emit('connect')
+    })
+
     return this
   }
 

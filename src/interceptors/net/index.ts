@@ -75,6 +75,7 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
           return originalConnect.apply(originalConnect, args as any)
         },
       })
+      socket.connect()
 
       this.emitter.emit('connection', {
         options,
