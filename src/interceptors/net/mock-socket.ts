@@ -5,6 +5,11 @@ import {
 } from '../Socket/utils/normalizeSocketWriteArgs'
 import { createSocketRecorder, type SocketRecorder } from './socket-recorder'
 
+interface MockSocketConstructorOptions extends net.SocketConstructorOpts {
+  createConnection: () => net.Socket
+  onConnect?: () => void
+}
+
 /**
  * A dummy `net.Socket` instance that allows observing written data packets
  * and records all consumer interactions to then replay them on the passthrough socket.
@@ -16,12 +21,19 @@ export class MockSocket extends net.Socket {
   #recorder: SocketRecorder<MockSocket>
   #passthroughSocket?: net.Socket
 
-  constructor(protected readonly options?: net.SocketConstructorOpts) {
+  constructor(protected readonly options: MockSocketConstructorOptions) {
     super(options)
     this.connecting = false
     this.connect()
 
     this._final = (callback) => callback(null)
+
+    this.once('connect', () => {
+      if (!this.#passthroughSocket) {
+        this.options.onConnect?.()
+        this.connecting = false
+      }
+    })
 
     this.#recorder = createSocketRecorder(this, {
       onEntry: (entry) => {
@@ -77,10 +89,7 @@ export class MockSocket extends net.Socket {
    * and mirrors all the subsequent mock socket interactions onto the passthrough socket.
    */
   public passthrough(): void {
-    /**
-     * @fixme Get the means of creating a passthrough socket instance.
-     */
-    const socket = foo(this.options)
+    const socket = this.options.createConnection()
     this.#recorder.replay(socket)
     this.#passthroughSocket = socket
   }

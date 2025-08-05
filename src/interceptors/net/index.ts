@@ -3,15 +3,12 @@ import { Interceptor } from '../../Interceptor'
 import { MockSocket } from './mock-socket'
 import {
   NetConnectArgs,
-  type NetworkConnectionOptions,
   normalizeNetConnectArgs,
+  type NetworkConnectionOptions,
 } from './utils/normalize-net-connect-args'
 
 export interface SocketConnectionEventMap {
-  /**
-   * Outgoing socket connection.
-   */
-  socket: [
+  connection: [
     args: {
       socket: MockSocket
       options: NetworkConnectionOptions
@@ -28,17 +25,43 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
 
   protected setup(): void {
     const {
-      connect: originalNetConnect,
+      connect: originalConnect,
       createConnection: originalCreateConnection,
     } = net
 
-    net.createConnection = (...args: Array<unknown>) => {
+    net.connect = (...args: Array<unknown>) => {
       const [options, connectionListener] = normalizeNetConnectArgs(
         args as NetConnectArgs
       )
-      const socket = new MockSocket()
+      const socket = new MockSocket({
+        ...args,
+        onConnect: connectionListener,
+        createConnection() {
+          return originalConnect.apply(originalCreateConnection, args as any)
+        },
+      })
 
-      this.emitter.emit('socket', {
+      this.emitter.emit('connection', {
+        options,
+        socket,
+      })
+
+      return socket
+    }
+
+    net.createConnection = (...args: Array<unknown>) => {
+      const [options] = normalizeNetConnectArgs(args as NetConnectArgs)
+      const socket = new MockSocket({
+        ...args,
+        createConnection() {
+          return originalCreateConnection.apply(
+            originalCreateConnection,
+            args as any
+          )
+        },
+      })
+
+      this.emitter.emit('connection', {
         options,
         socket,
       })
@@ -47,7 +70,7 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
     }
 
     this.subscriptions.push(() => {
-      net.connect = originalNetConnect
+      net.connect = originalConnect
       net.createConnection = originalCreateConnection
     })
   }

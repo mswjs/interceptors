@@ -28,7 +28,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     const interceptor = new SocketInterceptor()
     interceptor.apply()
 
-    interceptor.on('socket', ({ options, socket }) => {
+    interceptor.on('connection', ({ options, socket }) => {
       socket.once('write', (chunk, encoding) => {
         const firstFrame = chunk.toString()
 
