@@ -49,21 +49,18 @@ describe('set', () => {
 
   it('ignores internal setters', () => {
     const { socket } = createSocketRecorder(new net.Socket())
-    // Calling `.setTimeout()` updates the value of the internal `._timeout` property.
-    socket.setTimeout(1000)
+    socket.on('error', () => {})
 
     expect(
       inspectSocketRecorder(socket),
       'Must not record implied internal setter'
-    ).not.toEqual(
-      expect.arrayContaining<SocketRecorderEntry>([
-        {
-          type: 'set',
-          metadata: expect.objectContaining({ property: '_timeout' }),
-          replay: expect.any(Function),
-        },
-      ])
-    )
+    ).toEqual<SocketRecorderEntry[]>([
+      {
+        type: 'apply',
+        metadata: { property: 'on' },
+        replay: expect.any(Function),
+      },
+    ])
   })
 })
 

@@ -80,7 +80,7 @@ export function createSocketRecorder<T extends net.Socket>(
         return Reflect.set(target, property, newValue, receiver)
       }
 
-      if (typeof property === 'symbol') {
+      if (typeof property === 'symbol' || property.startsWith('_')) {
         return defaultSetter()
       }
 
