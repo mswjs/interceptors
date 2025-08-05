@@ -10,16 +10,19 @@ interface MockSocketConstructorOptions extends net.SocketConstructorOpts {
   onConnect?: () => void
 }
 
+const kRecorder = Symbol('kRecorder')
+const kPassthroughSocket = Symbol('kPassthroughSocket')
+
 /**
  * A dummy `net.Socket` instance that allows observing written data packets
  * and records all consumer interactions to then replay them on the passthrough socket.
  * @note This instance is application protocol-agnostic.
  */
 export class MockSocket extends net.Socket {
-  public connecting: boolean
+  public connecting: boolean;
 
-  #recorder: SocketRecorder<MockSocket>
-  #passthroughSocket?: net.Socket
+  [kRecorder]: SocketRecorder<MockSocket>;
+  [kPassthroughSocket]?: net.Socket
 
   constructor(protected readonly options: MockSocketConstructorOptions) {
     super(options)
@@ -29,30 +32,37 @@ export class MockSocket extends net.Socket {
     this._final = (callback) => callback(null)
 
     this.once('connect', () => {
-      if (!this.#passthroughSocket) {
+      if (!this[kPassthroughSocket]) {
         this.options.onConnect?.()
         this.connecting = false
       }
     })
 
-    this.#recorder = createSocketRecorder(this, {
+    this[kRecorder] = createSocketRecorder(this, {
       onEntry: (entry) => {
+        if (
+          entry.type === 'apply' &&
+          entry.metadata.property === 'passthrough'
+        ) {
+          return false
+        }
+
         // Once the connection has been passthrough, replay any recorded events
         // on the passthrough socket immediately. No need to store them.
-        if (this.#passthroughSocket) {
-          entry.replay(this.#passthroughSocket)
+        if (this[kPassthroughSocket]) {
+          entry.replay(this[kPassthroughSocket])
           return false
         }
       },
       resolveGetterValue: (target, property) => {
         // Once the socket has been passthrough, resolve any getters
         // against the passthrough socket, not the mock socket.
-        if (this.#passthroughSocket) {
-          return this.#passthroughSocket[property as keyof net.Socket]
+        if (this[kPassthroughSocket]) {
+          return this[kPassthroughSocket][property as keyof net.Socket]
         }
       },
     })
-    return this.#recorder.socket
+    return this[kRecorder].socket
   }
 
   public connect() {
@@ -88,7 +98,7 @@ export class MockSocket extends net.Socket {
    */
   public passthrough(): void {
     const socket = this.options.createConnection()
-    this.#recorder.replay(socket)
-    this.#passthroughSocket = socket
+    this[kRecorder].replay(socket)
+    this[kPassthroughSocket] = socket
   }
 }

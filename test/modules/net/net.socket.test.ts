@@ -70,3 +70,22 @@ it('supports pushing data to the socket', async () => {
   expect.soft(dataListener).toHaveBeenNthCalledWith(2, Buffer.from(' '))
   expect.soft(dataListener).toHaveBeenNthCalledWith(3, Buffer.from('world'))
 })
+
+it('establishes passthrough', async () => {
+  interceptor.on('connection', ({ socket }) => {
+    socket.passthrough()
+  })
+
+  const socket = net.connect(443, '127.0.0.1')
+  const errorListener = vi.fn()
+  socket.on('error', errorListener)
+
+  await expect
+    .poll(() => errorListener)
+    .toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'ECONNREFUSED',
+        message: 'connect ECONNREFUSED 127.0.0.1:443',
+      })
+    )
+})
