@@ -32,10 +32,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       socket.once('write', (chunk, encoding) => {
         const firstFrame = chunk.toString()
 
-        /**
-         * @fixme This is obviously rather naive
-         */
-        if (firstFrame.includes('HTTP/1.1')) {
+        if (firstFrame.includes('HTTP/')) {
           const method = firstFrame.split(' ')[0]
 
           const requestParser = createHttpRequestParserStream({
@@ -66,7 +63,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               console.log('REQ! handled?', isRequestHandled)
 
               if (!isRequestHandled) {
-                // return socket.passthrough()
+                return socket.passthrough()
               }
             },
           })
