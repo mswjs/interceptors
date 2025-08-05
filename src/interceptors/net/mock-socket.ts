@@ -11,12 +11,8 @@ import { createSocketRecorder, type SocketRecorder } from './socket-recorder'
  * @note This instance is application protocol-agnostic.
  */
 export class MockSocket extends net.Socket {
-  static AMBIGUOUS = 0 as const
-  static PASSTHROUGH = 1 as const
-
   public connecting: boolean
 
-  #readyState: 0 | 1
   #recorder: SocketRecorder<MockSocket>
   #passthroughSocket?: net.Socket
 
@@ -27,14 +23,12 @@ export class MockSocket extends net.Socket {
 
     this._final = (callback) => callback(null)
 
-    this.#readyState = MockSocket.AMBIGUOUS
-
     this.#recorder = createSocketRecorder(this, {
       onEntry: (entry) => {
         // Once the connection has been passthrough, replay any recorded events
         // on the passthrough socket immediately. No need to store them.
-        if (this.#readyState === MockSocket.PASSTHROUGH) {
-          entry.replay(this.#passthroughSocket!)
+        if (this.#passthroughSocket) {
+          entry.replay(this.#passthroughSocket)
           return false
         }
 
@@ -43,8 +37,8 @@ export class MockSocket extends net.Socket {
       resolveGetterValue: (target, property) => {
         // Once the socket has been passthrough, resolve any getters
         // against the passthrough socket, not the mock socket.
-        if (this.#readyState === MockSocket.PASSTHROUGH) {
-          return this.#passthroughSocket![property as keyof net.Socket]
+        if (this.#passthroughSocket) {
+          return this.#passthroughSocket[property as keyof net.Socket]
         }
       },
     })
@@ -83,8 +77,6 @@ export class MockSocket extends net.Socket {
    * and mirrors all the subsequent mock socket interactions onto the passthrough socket.
    */
   public passthrough(): void {
-    this.#readyState = MockSocket.PASSTHROUGH
-
     /**
      * @fixme Get the means of creating a passthrough socket instance.
      */
