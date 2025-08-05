@@ -51,21 +51,22 @@ export function createSocketRecorder<T extends net.Socket>(
         typeof target[property as keyof T] === 'function'
       ) {
         return new Proxy(target[property as keyof T] as Function, {
-          apply(target, thisArg, argArray) {
-            if (target.name === 'destroy') {
+          apply(fn, thisArg, argArray) {
+            if (fn.name === 'destroy') {
               entries.length = 0
             }
 
-            if (target.name !== 'push') {
+            if (fn.name !== 'push') {
               addEntry({
                 type: 'apply',
                 metadata: { property },
                 replay(newSocket) {
-                  Reflect.apply(target, newSocket, argArray)
+                  fn.apply(newSocket, argArray)
                 },
               })
             }
-            return Reflect.apply(target, thisArg, argArray)
+
+            return fn.apply(thisArg, argArray)
           },
         })
       }

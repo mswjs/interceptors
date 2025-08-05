@@ -6,6 +6,8 @@ export interface NetworkConnectionOptions {
   host?: string
   protocol?: string
   auth?: string
+  family?: number
+  session?: Buffer
   localAddress?: string
   localPort?: number
 }
@@ -47,6 +49,8 @@ export function normalizeNetConnectArgs(
           port: args[0].port,
           host: args[0].host,
           auth: Reflect.get(args[0], 'auth'),
+          family: args[0].family,
+          session: Reflect.get(args[0], 'session'),
           localAddress: args[0].localAddress,
           localPort: args[0].localPort,
         },
@@ -57,6 +61,8 @@ export function normalizeNetConnectArgs(
     return [
       {
         path: args[0].path || '',
+        family: Reflect.get(args[0], 'family'),
+        session: Reflect.get(args[0], 'session'),
         auth: Reflect.get(args[0], 'auth'),
       },
       args[1],
