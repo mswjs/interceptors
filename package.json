@@ -127,7 +127,8 @@
     "fetch",
     "RemoteHttpInterceptor",
     "XMLHttpRequest",
-    "WebSocket"
+    "WebSocket",
+    "presets"
   ],
   "repository": {
     "type": "git",
