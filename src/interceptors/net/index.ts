@@ -37,11 +37,7 @@ if (Reflect.get(net.connect, kImplementation) == null) {
   function createSwitchableProxy(target: any) {
     return new Proxy(target, {
       apply(target, thisArg, argArray) {
-        return Reflect.apply(
-          Reflect.get(target, kImplementation),
-          thisArg,
-          argArray
-        )
+        return Reflect.get(target, kImplementation).apply(thisArg, argArray)
       },
     })
   }
