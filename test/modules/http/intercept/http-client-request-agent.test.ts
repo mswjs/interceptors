@@ -4,17 +4,17 @@
  * does not result in duplicate mock HTTP sockets/agents being created.
  */
 import { beforeAll, afterEach, afterAll, it, expect } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import https from 'node:https'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import type { MockHttpSocket } from '../../../../src/interceptors/ClientRequest/MockHttpSocket'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import {
   MockAgent,
   MockHttpsAgent,
 } from '../../../../src/interceptors/ClientRequest/agents'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()

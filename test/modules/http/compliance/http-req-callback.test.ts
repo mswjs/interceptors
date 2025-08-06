@@ -1,12 +1,10 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { IncomingMessage } from 'node:http'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.get('/get', (req, res) => {
@@ -14,7 +12,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', ({ request, controller }) => {
   if ([httpServer.https.url('/get')].includes(request.url)) {
     return

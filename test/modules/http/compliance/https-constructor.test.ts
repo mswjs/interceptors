@@ -3,20 +3,20 @@
  * @see https://github.com/mswjs/interceptors/issues/131
  */
 import { it, expect, beforeAll, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { IncomingMessage } from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
     res.status(200).send('hello')
   })
 })
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   await httpServer.listen()

@@ -1,13 +1,11 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import https from 'node:https'
 import type { TLSSocket } from 'node:tls'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()

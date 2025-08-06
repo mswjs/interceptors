@@ -1,10 +1,8 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
@@ -13,7 +11,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()

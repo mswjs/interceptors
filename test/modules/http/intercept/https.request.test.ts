@@ -1,11 +1,12 @@
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import https from 'https'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import https from 'node:https'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
 import { RequestController } from '../../../../src/RequestController'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (req, res) => {
@@ -21,7 +22,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {

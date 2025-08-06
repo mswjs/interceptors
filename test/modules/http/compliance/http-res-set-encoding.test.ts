@@ -1,11 +1,9 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { it, expect, describe, beforeAll, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http, { IncomingMessage } from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (request, res) => {
@@ -13,7 +11,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)
 

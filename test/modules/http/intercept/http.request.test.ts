@@ -1,11 +1,12 @@
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import http from 'http'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src/glossary'
 import { RequestController } from '../../../../src/RequestController'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {
@@ -19,7 +20,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {

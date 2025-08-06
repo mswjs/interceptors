@@ -1,7 +1,8 @@
+// @vitest-environment node
 import { it, expect, beforeAll, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
 const server = new HttpServer((app) => {
@@ -10,7 +11,7 @@ const server = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 async function getResponse(request: Request): Promise<Response | undefined> {
   const url = new URL(request.url)

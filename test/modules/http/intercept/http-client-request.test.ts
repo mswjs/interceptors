@@ -1,7 +1,8 @@
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { RequestController } from '../../../../src/RequestController'
 import { HttpRequestEventMap } from '../../../../src/glossary'
@@ -12,7 +13,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'

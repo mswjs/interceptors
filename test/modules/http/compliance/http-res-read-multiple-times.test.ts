@@ -5,10 +5,10 @@
  * @see https://github.com/mswjs/interceptors/issues/161
  */
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http, { IncomingMessage } from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestEventMap } from '../../../../src'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -18,7 +18,7 @@ const httpServer = new HttpServer((app) => {
 
 const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {

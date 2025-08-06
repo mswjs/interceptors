@@ -1,11 +1,11 @@
 // @vitest-environment node
-import http from 'node:http'
 import { afterAll, afterEach, beforeAll, it, expect } from 'vitest'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import http from 'node:http'
 import { waitForClientRequest } from '../../../helpers'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -100,9 +100,9 @@ it('supports responses with more than default maximum header fields count', asyn
   interceptor.on('request', ({ controller }) => {
     const response = new Response(null, {
       status: 200,
-      headers: new Headers(responseHeadersPairs)
+      headers: new Headers(responseHeadersPairs),
     })
-    
+
     controller.respondWith(response)
   })
 
