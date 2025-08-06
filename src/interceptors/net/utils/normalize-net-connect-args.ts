@@ -18,15 +18,25 @@ export type NetConnectArgs =
   | [port: number, host: string, connectionListener?: () => void]
   | [path: string, connectionListener?: () => void]
 
+export type NormalizedNetConnectArgs = [
+  options: NetworkConnectionOptions,
+  connectionListener?: () => void
+]
+
+/**
+ * Normalizes the arguments passed to `net.connect()`.
+ */
 export function normalizeNetConnectArgs(
   args: NetConnectArgs
-): [options: NetworkConnectionOptions, connectionListener?: () => void] {
+): NormalizedNetConnectArgs {
+  const callback = typeof args[1] === 'function' ? args[1] : args[2]
+
   if (typeof args[0] === 'string') {
-    return [{ path: args[0] }, args[1]]
+    return [{ path: args[0] }, callback]
   }
 
   if (typeof args[0] === 'number' && typeof args[1] === 'string') {
-    return [{ port: args[0], path: '', host: args[1] }, args[2]]
+    return [{ port: args[0], path: '', host: args[1] }, callback]
   }
 
   if (typeof args[0] === 'object') {
@@ -35,10 +45,10 @@ export function normalizeNetConnectArgs(
         {
           path: args[0].pathname || '',
           port: +args[0].port,
-          host: args[0].host,
+          host: args[0].hostname,
           protocol: args[0].protocol,
         },
-        args[1],
+        callback,
       ]
     }
 
@@ -54,7 +64,7 @@ export function normalizeNetConnectArgs(
           localAddress: args[0].localAddress,
           localPort: args[0].localPort,
         },
-        args[1],
+        callback,
       ]
     }
 
@@ -65,7 +75,7 @@ export function normalizeNetConnectArgs(
         session: Reflect.get(args[0], 'session'),
         auth: Reflect.get(args[0], 'auth'),
       },
-      args[1],
+      callback,
     ]
   }
 
