@@ -7,7 +7,7 @@ import { createSocketRecorder, type SocketRecorder } from './socket-recorder'
 
 interface MockSocketConstructorOptions extends net.SocketConstructorOpts {
   createConnection: () => net.Socket
-  onConnect?: () => void
+  connectionCallback?: () => void
 }
 
 const kRecorder = Symbol('kRecorder')
@@ -27,6 +27,11 @@ export class MockSocket extends net.Socket {
   constructor(protected readonly options: MockSocketConstructorOptions) {
     super(options)
     this.connecting = false
+
+    this.once('connect', () => {
+      this.connecting = false
+      this.options?.connectionCallback?.()
+    })
 
     this._final = (callback) => callback(null)
 
@@ -60,11 +65,6 @@ export class MockSocket extends net.Socket {
 
   public connect() {
     this.connecting = true
-
-    this.once('connect', () => {
-      this.connecting = false
-      this.options?.onConnect?.()
-    })
 
     queueMicrotask(() => {
       this.emit('connect')
@@ -122,9 +122,6 @@ export class MockSocket extends net.Socket {
     const socket = this.options.createConnection()
     this[kRecorder].replay(socket)
     this[kPassthroughSocket] = socket
-
-    socket.on('error', () => console.log('ERR!'))
-
     return socket
   }
 }

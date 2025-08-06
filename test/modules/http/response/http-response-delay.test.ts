@@ -1,10 +1,11 @@
+// @vitest-environment node
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
@@ -34,7 +35,7 @@ it('supports custom delay before responding with a mock', async () => {
   const requestEnd = Date.now()
 
   expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('mocked response')
+  await expect(text()).resolves.toBe('mocked response')
   expect(requestEnd - requestStart).toBeGreaterThanOrEqual(700)
 })
 
@@ -51,6 +52,6 @@ it('supports custom delay before receiving the original response', async () => {
   const requestEnd = Date.now()
 
   expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('original response')
+  await expect(text()).resolves.toBe('original response')
   expect(requestEnd - requestStart).toBeGreaterThanOrEqual(700)
 })

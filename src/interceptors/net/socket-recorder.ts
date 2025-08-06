@@ -31,7 +31,7 @@ export function createSocketRecorder<T extends net.Socket>(
     ) => void
   }
 ): SocketRecorder<T> {
-  let isRecording = true
+  let isPaused = true
   const entries: Array<SocketRecorderEntry> = []
 
   Object.defineProperty(socket, kSocketRecorder, {
@@ -41,7 +41,7 @@ export function createSocketRecorder<T extends net.Socket>(
   })
 
   const addEntry = (entry: SocketRecorderEntry) => {
-    if (!isRecording) {
+    if (isPaused) {
       return
     }
 
@@ -122,10 +122,10 @@ export function createSocketRecorder<T extends net.Socket>(
       entries.length = 0
     },
     pause() {
-      isRecording = false
+      isPaused = true
     },
     resume() {
-      isRecording = true
+      isPaused = false
     },
   }
 }

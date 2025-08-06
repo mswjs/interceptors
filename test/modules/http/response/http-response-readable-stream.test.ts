@@ -1,19 +1,16 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { performance } from 'node:perf_hooks'
 import http from 'node:http'
-import https from 'node:https'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
 type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 
 const encoder = new TextEncoder()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -28,8 +25,7 @@ afterAll(async () => {
 })
 
 it('supports ReadableStream as a mocked response', async () => {
-  const encoder = new TextEncoder()
-  interceptor.once('request', ({ controller }) => {
+  interceptor.on('request', ({ controller }) => {
     const stream = new ReadableStream({
       start(controller) {
         controller.enqueue(encoder.encode('hello'))
@@ -41,13 +37,13 @@ it('supports ReadableStream as a mocked response', async () => {
     controller.respondWith(new Response(stream))
   })
 
-  const request = http.get('http://example.com/resource')
+  const request = http.get('http://localhost/resource')
   const { text } = await waitForClientRequest(request)
-  expect(await text()).toBe('hello world')
+  await expect(text()).resolves.toBe('hello world')
 })
 
 it('supports delays when enqueuing chunks', async () => {
-  interceptor.once('request', ({ controller }) => {
+  interceptor.on('request', ({ controller }) => {
     const stream = new ReadableStream({
       async start(controller) {
         controller.enqueue(encoder.encode('first'))
@@ -74,7 +70,7 @@ it('supports delays when enqueuing chunks', async () => {
 
   const responseChunksPromise = new DeferredPromise<ResponseChunks>()
 
-  const request = https.get('https://api.example.com/stream', (response) => {
+  const request = http.get('http://api.localhost/stream', (response) => {
     const chunks: ResponseChunks = []
 
     response
@@ -105,41 +101,40 @@ it('supports delays when enqueuing chunks', async () => {
   expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(150)
 })
 
-it('forwards ReadableStream errors to the request', async () => {
-  const requestErrorListener = vi.fn()
-  const responseErrorListener = vi.fn()
-
-  interceptor.once('request', ({ controller }) => {
+it('destroys the socket on stream error if response headers have been sent', async () => {
+  interceptor.on('request', ({ controller }) => {
     const stream = new ReadableStream({
-      start(controller) {
+      async start(controller) {
         controller.enqueue(new TextEncoder().encode('original'))
-        queueMicrotask(() => {
-          controller.error(new Error('stream error'))
-        })
+        controller.error(new Error('stream error'))
       },
     })
     controller.respondWith(new Response(stream))
   })
 
   const request = http.get('http://localhost/resource')
-  request.on('error', requestErrorListener)
-  request.on('response', (response) => {
-    response.on('error', responseErrorListener)
-  })
 
-  const response = await vi.waitFor(() => {
-    return new Promise<http.IncomingMessage>((resolve) => {
-      request.on('response', resolve)
+  const requestErrorListener = vi.fn()
+  request.on('error', requestErrorListener)
+
+  const requestCloseListener = vi.fn()
+  request.on('close', requestCloseListener)
+
+  const responseError = await vi.waitFor(() => {
+    return new Promise<Error>((resolve) => {
+      request.on('response', (response) => {
+        console.log('RESPONSE!')
+        response.on('error', resolve)
+      })
     })
   })
 
-  // Response stream errors are translated to unhandled exceptions,
-  // and then the server decides how to handle them. This is often
-  // done as returning a 500 response.
-  expect(response.statusCode).toBe(500)
-  expect(response.statusMessage).toBe('Unhandled Exception')
+  expect.soft(request.destroyed).toBe(true)
+  expect.soft(responseError).toBeInstanceOf(Error)
+  expect.soft(responseError.message).toBe('stream error')
 
-  // Response stream errors are not request errors.
-  expect(requestErrorListener).not.toHaveBeenCalled()
-  expect(request.destroyed).toBe(false)
+  expect
+    .soft(requestErrorListener, 'Request must not error')
+    .not.toHaveBeenCalled()
+  expect.soft(requestCloseListener, 'Request must close').toHaveBeenCalledOnce()
 })

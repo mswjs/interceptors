@@ -13,7 +13,10 @@ import { RequestController } from '../../RequestController'
 import { handleRequest } from '../../utils/handleRequest'
 import { toBuffer } from './utils/to-buffer'
 import { getRawFetchHeaders } from '../ClientRequest/utils/recordRawHeaders'
-import { isResponseError } from '../../utils/responseUtils'
+import {
+  createServerErrorResponse,
+  isResponseError,
+} from '../../utils/responseUtils'
 import { MockSocket } from '../Socket/MockSocket'
 
 /**
@@ -115,6 +118,13 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           // Write the header again because at this point it's already been written.
           requestParser.write(toBuffer(chunk, encoding))
           socket.pipe(requestParser)
+        })
+
+        socket.on('push', (chunk, encoding) => {
+          /**
+           * @todo Route this through a response parser so both mocked
+           * and passthrough responses emit the "response" event for the user.
+           */
         })
       })
     })
@@ -300,12 +310,12 @@ async function respondWith(args: {
   // Construct a regular server response to delegate body parsing to Node.js.
   const serverResponse = new ServerResponse(new IncomingMessage(socket))
 
-  /**
-   * @note Provide a dummy socket to the server response to translate all its writes
-   * into pushes to the underlying mocked socket. This is only needed because we
-   * use `ServerResponse` to skip manual response message handling on our end.
-   */
   serverResponse.assignSocket(
+    /**
+     * @note Provide a dummy socket to the server response to translate all its writes
+     * into pushes to the underlying mocked socket. This is only needed because we
+     * use `ServerResponse` instead of pushing to mock socket directly (skip parsing).
+     */
     new MockSocket({
       write(chunk, encoding, callback) {
         socket.push(chunk, encoding)
@@ -340,11 +350,6 @@ async function respondWith(args: {
     rawResponseHeaders
   )
 
-  socket.once('error', (error) => {
-    // Destroy the mocked response if the developer destroys the socket.
-    serverResponse.destroy(error)
-  })
-
   if (response.body) {
     try {
       const reader = response.body.getReader()
@@ -360,12 +365,11 @@ async function respondWith(args: {
         serverResponse.write(value)
       }
     } catch (error) {
-      /**
-       * Translate body stream errors to socket errors.
-       * @note We cannot use a mocked 500 response here because
-       * the response headers have already been written.
-       */
       if (error instanceof Error) {
+        /**
+         * Destroy the socket if the response stream errored.
+         * @see https://github.com/mswjs/interceptors/issues/738
+         */
         socket.destroy(error)
       }
     }

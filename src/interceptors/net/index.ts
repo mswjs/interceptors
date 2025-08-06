@@ -2,8 +2,8 @@ import net from 'node:net'
 import { Interceptor } from '../../Interceptor'
 import { MockSocket } from './mock-socket'
 import {
-  NetConnectArgs,
   normalizeNetConnectArgs,
+  type NetConnectArgs,
   type NetworkConnectionOptions,
 } from './utils/normalize-net-connect-args'
 
@@ -61,12 +61,12 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
     const originalConnect = Reflect.get(net.connect, kOriginalValue)
 
     Reflect.set(net.connect, kImplementation, (...args: Array<unknown>) => {
-      const [options, connectionListener] = normalizeNetConnectArgs(
+      const [options, connectionCallback] = normalizeNetConnectArgs(
         args as NetConnectArgs
       )
       const socket = new MockSocket({
         ...args,
-        onConnect: connectionListener,
+        connectionCallback,
         createConnection() {
           return originalConnect(...args)
         },
