@@ -122,6 +122,22 @@ describe('apply', () => {
       ])
     )
   })
+
+  it('ignores "once" because it is implemented by "on"', () => {
+    const { socket } = createSocketRecorder(new net.Socket())
+    socket.once('connect', () => void 0)
+
+    expect(
+      inspectSocketRecorder(socket),
+      'Must ignore the ".once()" method call'
+    ).toEqual<SocketRecorderEntry[]>([
+      {
+        type: 'apply',
+        metadata: { property: 'on' },
+        replay: expect.any(Function),
+      },
+    ])
+  })
 })
 
 describe('replay', () => {

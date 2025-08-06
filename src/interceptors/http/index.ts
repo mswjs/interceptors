@@ -105,6 +105,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               if (!isRequestHandled) {
                 const passthroughSocket = socket.passthrough()
 
+                console.log('pas?')
+
                 /**
                  * @note Creating a passthroughsocket does NOT trigger the "socket" event
                  * from `http.ClientRequest` where the request, parser, and socket get

@@ -29,9 +29,16 @@ if (Reflect.get(net.connect, kImplementation) == null) {
    */
   const { connect: originalConnect } = net
 
-  Reflect.set(net.connect, kOriginalValue, originalConnect)
-  Reflect.set(net.connect, kImplementation, () => {
-    return Reflect.get(net.connect, kOriginalValue)
+  Object.defineProperties(net.connect, {
+    [kOriginalValue]: {
+      value: originalConnect,
+    },
+    [kImplementation]: {
+      writable: true,
+      value() {
+        return Reflect.get(net.connect, kOriginalValue)
+      },
+    },
   })
 
   function createSwitchableProxy(target: any) {
@@ -80,9 +87,11 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
        * tap into the unpatched `net.connect()`, which will call `socket.connect()`.
        */
 
-      this.emitter.emit('connection', {
-        options,
-        socket,
+      process.nextTick(() => {
+        this.emitter.emit('connection', {
+          options,
+          socket,
+        })
       })
 
       return socket

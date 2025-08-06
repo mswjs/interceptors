@@ -1,4 +1,5 @@
 import net from 'node:net'
+import util from 'node:util'
 
 const kSocketRecorder = Symbol('kSocketRecorder')
 
@@ -31,7 +32,7 @@ export function createSocketRecorder<T extends net.Socket>(
     ) => void
   }
 ): SocketRecorder<T> {
-  let isPaused = true
+  let isPaused = false
   const entries: Array<SocketRecorderEntry> = []
 
   Object.defineProperty(socket, kSocketRecorder, {
@@ -58,26 +59,37 @@ export function createSocketRecorder<T extends net.Socket>(
         typeof target[property as keyof T] === 'function'
       ) {
         return new Proxy(target[property as keyof T] as Function, {
-          apply(fn, thisArg, argArray) {
+          apply(fn, thisArg, args) {
+            const defaultApply = () => fn.apply(thisArg, args)
+
             if (fn.name === 'destroy') {
               entries.length = 0
+              return defaultApply()
             }
 
-            if (fn.name !== 'push') {
+            /**
+             * @note Ignore recording certain method calls.
+             * - push, because pushing to the mock socket must never be replayed;
+             * - once, because it's implemented by "on", resulting in both being recorded
+             * and their listeners firing twice.
+             */
+            if (fn.name !== 'push' && fn.name !== 'once') {
               addEntry({
                 type: 'apply',
-                metadata: { property },
+                metadata: {
+                  property,
+                },
                 replay(newSocket) {
                   Reflect.apply(
                     newSocket[property as keyof net.Socket] as Function,
                     newSocket,
-                    argArray
+                    args
                   )
                 },
               })
             }
 
-            return fn.apply(thisArg, argArray)
+            return defaultApply()
           },
         })
       }
