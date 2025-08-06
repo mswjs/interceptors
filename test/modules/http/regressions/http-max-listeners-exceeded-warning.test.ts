@@ -2,7 +2,6 @@
 /**
  * @see https://github.com/mswjs/interceptors/pull/706
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'

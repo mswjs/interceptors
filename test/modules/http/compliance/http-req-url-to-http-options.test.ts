@@ -2,7 +2,6 @@
 import { urlToHttpOptions } from 'node:url'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { waitForClientRequest } from '../../../../test/helpers'
 
 const interceptor = new HttpRequestInterceptor()

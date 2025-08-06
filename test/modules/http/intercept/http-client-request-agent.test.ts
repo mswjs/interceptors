@@ -3,7 +3,6 @@
  * and `http.*`/`https.*` request-issuing methods that create that `ClientRequest`
  * does not result in duplicate mock HTTP sockets/agents being created.
  */
-import { beforeAll, afterEach, afterAll, it, expect } from 'vitest'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import https from 'node:https'

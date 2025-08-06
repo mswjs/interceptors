@@ -4,7 +4,6 @@
  * event does not lock that stream for any further reading.
  * @see https://github.com/mswjs/interceptors/issues/161
  */
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http, { IncomingMessage } from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'

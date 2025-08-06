@@ -1,4 +1,3 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import https from 'node:https'

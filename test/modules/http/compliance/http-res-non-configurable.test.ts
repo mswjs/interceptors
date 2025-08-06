@@ -2,7 +2,6 @@
 /**
  * @see https://github.com/mswjs/msw/issues/2307
  */
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
