@@ -2,17 +2,33 @@
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { performance } from 'node:perf_hooks'
 import http from 'node:http'
+import { Readable } from 'node:stream'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { HttpServer } from '@open-draft/test-server/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
 type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 
 const encoder = new TextEncoder()
 
+const httpServer = new HttpServer((app) => {
+  app.get('/', (req, res) => {
+    res.writeHead(200)
+    Readable.fromWeb(
+      new ReadableStream({
+        pull(controller) {
+          controller.error(new Error('stream error'))
+        },
+      }) as any
+    ).pipe(res)
+  })
+})
+
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
@@ -21,6 +37,7 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.dispose()
+  await httpServer.close()
 })
 
 it('supports ReadableStream as a mocked response', async () => {
@@ -111,7 +128,7 @@ it('destroys the socket on stream error if response headers have been sent', asy
     controller.respondWith(new Response(stream))
   })
 
-  const request = http.get('http://localhost/resource')
+  const request = http.get(httpServer.http.url('/'))
 
   const requestErrorListener = vi.fn()
   request.on('error', requestErrorListener)
@@ -122,7 +139,7 @@ it('destroys the socket on stream error if response headers have been sent', asy
   const responseError = await vi.waitFor(() => {
     return new Promise<Error>((resolve) => {
       request.on('response', (response) => {
-        console.log('RESPONSE!')
+        console.log('response!')
         response.on('error', resolve)
       })
     })
