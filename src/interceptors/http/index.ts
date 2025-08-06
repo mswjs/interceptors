@@ -3,20 +3,21 @@ import { Readable, Writable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { Interceptor, INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { type HttpRequestEventMap } from '../../glossary'
-import { FetchResponse } from '../../utils/fetchUtils'
 import { SocketInterceptor } from '../net'
+import { FetchResponse } from '../../utils/fetchUtils'
 import { HttpRequestParser } from './http-parser'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
 import type { NetworkConnectionOptions } from '../net/utils/normalize-net-connect-args'
+import { toBuffer } from './utils/to-buffer'
 import { createRequestId } from '../../createRequestId'
 import { RequestController } from '../../RequestController'
 import { handleRequest } from '../../utils/handleRequest'
-import { toBuffer } from './utils/to-buffer'
-import { getRawFetchHeaders } from '../ClientRequest/utils/recordRawHeaders'
 import {
-  createServerErrorResponse,
-  isResponseError,
-} from '../../utils/responseUtils'
+  getRawFetchHeaders,
+  recordRawFetchHeaders,
+  restoreHeadersPrototype,
+} from '../ClientRequest/utils/recordRawHeaders'
+import { isResponseError } from '../../utils/responseUtils'
 import { MockSocket } from '../Socket/MockSocket'
 
 /**
@@ -37,6 +38,11 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     socketInterceptor.apply()
     this.subscriptions.push(() => {
       socketInterceptor.dispose()
+    })
+
+    recordRawFetchHeaders()
+    this.subscriptions.push(() => {
+      restoreHeadersPrototype()
     })
 
     socketInterceptor.on('connection', ({ options, socket }) => {
@@ -159,11 +165,10 @@ function createHttpRequestParserStream(options: {
       const baseUrl = baseUrlFromConnectionOptions(options.requestOptions)
       const url = new URL(path || '', baseUrl)
 
-      const headers = new Headers()
-      // const headers = FetchResponse.parseRawHeaders([
-      //   ...requestRawHeadersBuffer,
-      //   ...(rawHeaders || []),
-      // ])
+      const headers = FetchResponse.parseRawHeaders([
+        ...requestRawHeadersBuffer,
+        ...(rawHeaders || []),
+      ])
 
       const canHaveBody = method !== 'GET' && method !== 'HEAD'
 
