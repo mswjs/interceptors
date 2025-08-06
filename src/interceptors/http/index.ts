@@ -37,70 +37,85 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     })
 
     socketInterceptor.on('connection', ({ options, socket }) => {
-      socket.once('write', (chunk, encoding) => {
-        const firstFrame = chunk.toString()
+      socket.runInternally(() => {
+        socket.once('write', (chunk, encoding) => {
+          const firstFrame = chunk.toString()
 
-        if (!firstFrame.includes('HTTP/')) {
-          return
-        }
+          if (!firstFrame.includes('HTTP/')) {
+            return
+          }
 
-        // Get the request method from the first frame because it's faster
-        // and we need this before initiating the HTTP parser.
-        const method = firstFrame.split(' ')[0]
+          // Get the request method from the first frame because it's faster
+          // and we need this before initiating the HTTP parser.
+          const method = firstFrame.split(' ')[0]
 
-        invariant(
-          method != null,
-          'Failed to handle HTTP request: expected a valid HTTP method but got %s',
-          method,
-          options
-        )
-
-        const requestParser = createHttpRequestParserStream({
-          requestOptions: {
+          invariant(
+            method != null,
+            'Failed to handle HTTP request: expected a valid HTTP method but got %s',
             method,
-            ...options,
-          },
-          onRequest: async (request) => {
-            const requestId = createRequestId()
-            const controller = new RequestController(request)
+            options
+          )
 
-            const isRequestHandled = await handleRequest({
-              request,
-              requestId,
-              controller,
-              emitter: this.emitter,
-              async onResponse(response) {
-                await respondWith({
-                  socket,
-                  connectionOptions: options,
-                  request,
-                  response,
-                })
-              },
-              async onRequestError(response) {
-                await respondWith({
-                  socket,
-                  connectionOptions: options,
-                  request,
-                  response,
-                })
-              },
-              onError(error) {
-                if (error instanceof Error) {
-                  socket.destroy(error)
-                }
-              },
-            })
+          const requestParser = createHttpRequestParserStream({
+            requestOptions: {
+              method,
+              ...options,
+            },
+            onRequest: async (request) => {
+              const requestId = createRequestId()
+              const controller = new RequestController(request)
 
-            if (!isRequestHandled) {
-              socket.passthrough()
-            }
-          },
+              const isRequestHandled = await handleRequest({
+                request,
+                requestId,
+                controller,
+                emitter: this.emitter,
+                async onResponse(response) {
+                  await respondWith({
+                    socket,
+                    connectionOptions: options,
+                    request,
+                    response,
+                  })
+                },
+                async onRequestError(response) {
+                  await respondWith({
+                    socket,
+                    connectionOptions: options,
+                    request,
+                    response,
+                  })
+                },
+                onError(error) {
+                  if (error instanceof Error) {
+                    socket.destroy(error)
+                  }
+                },
+              })
+
+              if (!isRequestHandled) {
+                const passthroughSocket = socket.passthrough()
+
+                /**
+                 * @note Creating a passthroughsocket does NOT trigger the "socket" event
+                 * from `http.ClientRequest` where the request, parser, and socket get
+                 * associated. Recreate that association on the passthrough socket manually.
+                 * @see https://github.com/nodejs/node/blob/134625d76139b4b3630d5baaf2efccae01ede564/lib/_http_client.js#L890
+                 */
+                // @ts-expect-error Internal Node.js property.
+                passthroughSocket._httpMessage = socket._httpMessage
+                // @ts-expect-error Internal Node.js property.c
+                passthroughSocket.parser = socket.parser
+                // @ts-expect-error Internal Node.js property.
+                passthroughSocket.parser.socket = passthroughSocket
+              }
+            },
+          })
+
+          // Write the header again because at this point it's already been written.
+          requestParser.write(toBuffer(chunk, encoding))
+          socket.pipe(requestParser)
         })
-
-        // Write the header again because at this point it's already been written.
-        requestParser.write(toBuffer(chunk, encoding))
-        socket.pipe(requestParser)
       })
     })
   }

@@ -34,7 +34,7 @@ export class MockSocket extends net.Socket {
       onEntry: (entry) => {
         if (
           entry.type === 'apply' &&
-          entry.metadata.property === 'passthrough'
+          ['runInternally', 'passthrough'].includes(entry.metadata.property)
         ) {
           return false
         }
@@ -54,6 +54,7 @@ export class MockSocket extends net.Socket {
         }
       },
     })
+
     return this[kRecorder].socket
   }
 
@@ -76,12 +77,16 @@ export class MockSocket extends net.Socket {
     const [chunk, encoding, callback] = normalizeSocketWriteArgs(
       args as WriteArgs
     )
-    this.emit('write', chunk, encoding, callback)
+    this.runInternally(() => {
+      this.emit('write', chunk, encoding, callback)
+    })
     return true
   }
 
   public push(chunk: any, encoding?: BufferEncoding): boolean {
-    this.emit('push', chunk, encoding)
+    this.runInternally(() => {
+      this.emit('push', chunk, encoding)
+    })
     return super.push(chunk, encoding)
   }
 
@@ -89,8 +94,23 @@ export class MockSocket extends net.Socket {
     const [chunk, encoding, callback] = normalizeSocketWriteArgs(
       args as WriteArgs
     )
-    this.emit('write', chunk, encoding, callback)
+    this.runInternally(() => {
+      this.emit('write', chunk, encoding, callback)
+    })
     return super.end.apply(this, args)
+  }
+
+  /**
+   * Invokes the given callback without its actions being recorded.
+   * Use this for internal logic that must not be replayed on the passthrough socket.
+   */
+  public runInternally(callback: () => void) {
+    try {
+      this[kRecorder].pause()
+      callback()
+    } finally {
+      this[kRecorder].resume()
+    }
   }
 
   /**
@@ -98,9 +118,13 @@ export class MockSocket extends net.Socket {
    * Replays all the consumer interaction on the passthrough socket
    * and mirrors all the subsequent mock socket interactions onto the passthrough socket.
    */
-  public passthrough(): void {
+  public passthrough(): net.Socket {
     const socket = this.options.createConnection()
     this[kRecorder].replay(socket)
     this[kPassthroughSocket] = socket
+
+    socket.on('error', () => console.log('ERR!'))
+
+    return socket
   }
 }

@@ -5,6 +5,8 @@ const kSocketRecorder = Symbol('kSocketRecorder')
 export interface SocketRecorder<T extends net.Socket> {
   socket: T
   replay: (newSocket: net.Socket) => void
+  pause: () => void
+  resume: () => void
 }
 
 export interface SocketRecorderEntry {
@@ -29,6 +31,7 @@ export function createSocketRecorder<T extends net.Socket>(
     ) => void
   }
 ): SocketRecorder<T> {
+  let isRecording = true
   const entries: Array<SocketRecorderEntry> = []
 
   Object.defineProperty(socket, kSocketRecorder, {
@@ -38,6 +41,10 @@ export function createSocketRecorder<T extends net.Socket>(
   })
 
   const addEntry = (entry: SocketRecorderEntry) => {
+    if (!isRecording) {
+      return
+    }
+
     if (options?.onEntry?.(entry) !== false) {
       entries.push(entry)
     }
@@ -61,7 +68,11 @@ export function createSocketRecorder<T extends net.Socket>(
                 type: 'apply',
                 metadata: { property },
                 replay(newSocket) {
-                  fn.apply(newSocket, argArray)
+                  Reflect.apply(
+                    newSocket[property as keyof net.Socket] as Function,
+                    newSocket,
+                    argArray
+                  )
                 },
               })
             }
@@ -109,6 +120,12 @@ export function createSocketRecorder<T extends net.Socket>(
         entry.replay(newSocket)
       }
       entries.length = 0
+    },
+    pause() {
+      isRecording = false
+    },
+    resume() {
+      isRecording = true
     },
   }
 }
