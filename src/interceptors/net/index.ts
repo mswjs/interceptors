@@ -75,9 +75,9 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
       /**
        * @note Do NOT call `socket.connect()` here.
        * Instead, keep the socket connection pending and delegate the actual
-       * connect to the user. Calling `.connect()` on a mock socket it handy
+       * connect to the user. Calling `.connect()` on a mock socket is handy
        * for simulating a successful connection. Calling `.passthrough()` will
-       * tap into `net.connect()`, which calls `socket.connect()` immediately.
+       * tap into the unpatched `net.connect()`, which will call `socket.connect()`.
        */
 
       this.emitter.emit('connection', {
