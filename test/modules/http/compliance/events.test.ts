@@ -9,6 +9,9 @@ const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {
     res.send('original-response')
   })
+  app.post('/', (req, res) => {
+    res.send()
+  })
 })
 
 const interceptor = new HttpRequestInterceptor()
@@ -16,6 +19,10 @@ const interceptor = new HttpRequestInterceptor()
 beforeAll(async () => {
   interceptor.apply()
   await httpServer.listen()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -48,10 +55,10 @@ it('emits the "request" event for an outgoing request without body', async () =>
   expect(request.body).toBe(null)
 })
 
-it('emits the "request" event for an outgoing request with a body', async () => {
+it('emits the "request" event for a bypassed request with a body', async () => {
   const requestListener =
     vi.fn<(...args: HttpRequestEventMap['request']) => void>()
-  interceptor.once('request', requestListener)
+  interceptor.on('request', requestListener)
 
   const request = http.request(httpServer.http.url('/'), {
     method: 'POST',
@@ -62,21 +69,22 @@ it('emits the "request" event for an outgoing request with a body', async () => 
   })
   request.write('post-payload')
   request.end()
+
   await waitForClientRequest(request)
 
   expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const { request: requestFromListener } = requestListener.mock.calls[0][0]
-  expect(requestFromListener).toBeInstanceOf(Request)
-  expect(requestFromListener.method).toBe('POST')
-  expect(requestFromListener.url).toBe(httpServer.http.url('/'))
+  const { request: interceptedRequest } = requestListener.mock.calls[0][0]
+  expect(interceptedRequest).toBeInstanceOf(Request)
+  expect(interceptedRequest.method).toBe('POST')
+  expect(interceptedRequest.url).toBe(httpServer.http.url('/'))
   expect(
-    Object.fromEntries(requestFromListener.headers.entries())
+    Object.fromEntries(interceptedRequest.headers.entries())
   ).toMatchObject({
     'content-type': 'text/plain',
     'x-custom-header': 'yes',
   })
-  expect(await requestFromListener.text()).toBe('post-payload')
+  await expect(interceptedRequest.text()).resolves.toBe('post-payload')
 })
 
 it('emits the "response" event for a mocked response', async () => {
@@ -99,28 +107,28 @@ it('emits the "response" event for a mocked response', async () => {
   const {
     response,
     requestId,
-    request: requestFromListener,
+    request: interceptedRequest,
     isMockedResponse,
   } = responseListener.mock.calls[0][0]
   expect(response).toBeInstanceOf(Response)
   expect(response.status).toBe(200)
-  expect(await response.text()).toBe('hello world')
+  await expect(response.text()).resolves.toBe('hello world')
   expect(isMockedResponse).toBe(true)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
-  expect(requestFromListener).toBeInstanceOf(Request)
-  expect(requestFromListener.method).toBe('GET')
-  expect(requestFromListener.url).toBe('http://localhost/')
+  expect(interceptedRequest).toBeInstanceOf(Request)
+  expect(interceptedRequest.method).toBe('GET')
+  expect(interceptedRequest.url).toBe('http://localhost/')
   expect(
-    Object.fromEntries(requestFromListener.headers.entries())
+    Object.fromEntries(interceptedRequest.headers.entries())
   ).toMatchObject({
     'x-custom-header': 'yes',
   })
-  expect(requestFromListener.body).toBe(null)
+  expect(interceptedRequest.body).toBe(null)
 
   // Must respond with the mocked response.
   expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('hello world')
+  await expect(text()).resolves.toBe('hello world')
 })
 
 it('emits the "response" event for a bypassed response', async () => {
@@ -135,31 +143,35 @@ it('emits the "response" event for a bypassed response', async () => {
   })
   const { res, text } = await waitForClientRequest(request)
 
-  // Must emit the "response" interceptor event.
-  expect(responseListener).toHaveBeenCalledTimes(1)
+  // Must respond with the mocked response.
+  expect.soft(res.statusCode).toBe(200)
+  await expect.soft(text()).resolves.toBe('original-response')
+
+  expect(
+    responseListener,
+    'Must emit the "response" event'
+  ).toHaveBeenCalledTimes(1)
+
   const {
     response,
     requestId,
-    request: requestFromListener,
+    request: interceptedRequest,
     isMockedResponse,
   } = responseListener.mock.calls[0][0]
+
   expect(response).toBeInstanceOf(Response)
   expect(response.status).toBe(200)
-  expect(await response.text()).toBe('original-response')
+  await expect(response.text()).resolves.toBe('original-response')
   expect(isMockedResponse).toBe(false)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
-  expect(requestFromListener).toBeInstanceOf(Request)
-  expect(requestFromListener.method).toBe('GET')
-  expect(requestFromListener.url).toBe(httpServer.http.url('/'))
+  expect(interceptedRequest).toBeInstanceOf(Request)
+  expect(interceptedRequest.method).toBe('GET')
+  expect(interceptedRequest.url).toBe(httpServer.http.url('/'))
   expect(
-    Object.fromEntries(requestFromListener.headers.entries())
+    Object.fromEntries(interceptedRequest.headers.entries())
   ).toMatchObject({
     'x-custom-header': 'yes',
   })
-  expect(requestFromListener.body).toBe(null)
-
-  // Must respond with the mocked response.
-  expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('original-response')
+  expect(interceptedRequest.body).toBe(null)
 })

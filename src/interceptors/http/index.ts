@@ -1,13 +1,12 @@
 import net from 'node:net'
 import { Readable, Writable } from 'node:stream'
 import { invariant } from 'outvariant'
-import { Interceptor, INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
+import { Interceptor } from '../../Interceptor'
 import { type HttpRequestEventMap } from '../../glossary'
 import { SocketInterceptor } from '../net'
 import { FetchResponse } from '../../utils/fetchUtils'
 import { HttpParser } from './http-parser'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
-import { MockSocket } from '../net/mock-socket'
 import type { NetworkConnectionOptions } from '../net/utils/normalize-net-connect-args'
 import { toBuffer } from './utils/to-buffer'
 import { createRequestId } from '../../createRequestId'
@@ -81,31 +80,43 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 controller,
                 emitter: this.emitter,
                 onResponse: async (response) => {
+                  if (this.emitter.listenerCount('response') > 0) {
+                    const responseClone = response.clone()
+                    process.nextTick(() => {
+                      emitAsync(this.emitter, 'response', {
+                        requestId,
+                        request,
+                        response: responseClone,
+                        isMockedResponse: true,
+                      })
+                    })
+                  }
+
                   await respondWith({
                     socket,
                     connectionOptions: options,
                     request,
                     response,
-                  })
-                  await emitAsync(this.emitter, 'response', {
-                    requestId,
-                    request,
-                    response,
-                    isMockedResponse: true,
                   })
                 },
                 async onRequestError(response) {
+                  if (this.emitter.listenerCount('response') > 0) {
+                    const responseClone = response.clone()
+                    process.nextTick(() => {
+                      emitAsync(this.emitter, 'response', {
+                        requestId,
+                        request,
+                        response: responseClone,
+                        isMockedResponse: true,
+                      })
+                    })
+                  }
+
                   await respondWith({
                     socket,
                     connectionOptions: options,
                     request,
                     response,
-                  })
-                  await emitAsync(this.emitter, 'response', {
-                    requestId,
-                    request,
-                    response,
-                    isMockedResponse: true,
                   })
                 },
                 onError(error) {
@@ -116,22 +127,6 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               })
 
               if (!isRequestHandled) {
-                // If the user didn't register any response listeners, no need to pay the
-                // price of routing the entire response message through the parser.
-                if (this.emitter.listenerCount('response') > 0) {
-                  createHttpResponseParserStream({
-                    socket,
-                    onResponse: async (response) => {
-                      await emitAsync(this.emitter, 'response', {
-                        requestId,
-                        request,
-                        response,
-                        isMockedResponse: false,
-                      })
-                    },
-                  })
-                }
-
                 const passthroughSocket = socket.passthrough()
 
                 /**
@@ -147,6 +142,25 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 passthroughSocket.parser = socket.parser
                 // @ts-expect-error Node.js internals.
                 passthroughSocket.parser.socket = passthroughSocket
+
+                // If the user didn't register any response listeners, no need to pay the
+                // price of routing the entire response message through the parser.
+                if (this.emitter.listenerCount('response') > 0) {
+                  const responseStream = createHttpResponseParserStream({
+                    onResponse: async (response) => {
+                      await emitAsync(this.emitter, 'response', {
+                        requestId,
+                        request,
+                        response,
+                        isMockedResponse: false,
+                      })
+                    },
+                  })
+
+                  passthroughSocket
+                    .on('data', (chunk) => responseStream.write(chunk))
+                    .on('close', () => responseStream.end())
+                }
               }
             },
           })
@@ -154,7 +168,13 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           // Write the message header to the parser manually because it's already been written
           // on the socket so it won't get piped.
           requestParser.write(toBuffer(chunk, encoding))
-          socket.pipe(requestParser)
+
+          socket
+            .on('write', (chunk, encoding, callback) => {
+              requestParser.write(chunk, encoding, callback)
+            })
+            .on('finish', () => requestParser.end())
+            .on('error', () => requestParser.end())
         })
       })
     })
@@ -211,13 +231,7 @@ function createHttpRequestParserStream(options: {
          * @note Provide the `read()` method so a `Readable` could be
          * used as the actual request body (the stream calls "read()").
          */
-        read() {
-          // If the user attempts to read the request body,
-          // flush the write buffer to trigger the callbacks.
-          // This way, if the request stream ends in the write callback,
-          // it will indeed end correctly.
-          // flushWriteBuffer()
-        },
+        read() {},
       })
 
       const request = new Request(url, {
@@ -254,25 +268,18 @@ function createHttpRequestParserStream(options: {
     },
   })
 
-  const parserStream = new Writable({
+  return new Writable({
     write(chunk, encoding, callback) {
       parser.execute(toBuffer(chunk, encoding))
       callback()
     },
   })
-
-  parserStream
-    .once('finish', () => parser.free())
-    .once('close', () => parser.free())
-
-  return parserStream
 }
 
 function createHttpResponseParserStream(options: {
-  socket: MockSocket
   onResponse: (response: Response) => void
 }) {
-  const { socket, onResponse } = options
+  const { onResponse } = options
   const responseRawHeadersBuffer: Array<string> = []
   let responseBodyStream: Readable | undefined
 
@@ -323,11 +330,12 @@ function createHttpResponseParserStream(options: {
     },
   })
 
-  socket
-    .on('push', (chunk, encoding) => {
+  return new Writable({
+    write(chunk, encoding, callback) {
       parser.execute(toBuffer(chunk, encoding))
-    })
-    .once('close', () => parser.free())
+      callback()
+    },
+  })
 }
 
 /**
