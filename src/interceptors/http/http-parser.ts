@@ -1,30 +1,41 @@
 import {
-  HeadersCallback,
   HTTPParser,
-  RequestHeadersCompleteCallback,
+  type HeadersCallback,
+  type RequestHeadersCompleteCallback,
+  type ResponseHeadersCompleteCallback,
 } from '_http_common'
 
-export class HttpRequestParser {
-  #parser: HTTPParser<typeof HTTPParser.REQUEST>
+type HttpParserKind = typeof HTTPParser.REQUEST | typeof HTTPParser.RESPONSE
 
-  constructor(options: {
-    onMessageBegin?: () => void
-    onHeaders?: HeadersCallback
-    onHeadersComplete?: RequestHeadersCompleteCallback
-    onBody?: (chunk: Buffer) => void
-    onMessageComplete?: () => void
-    onExecute?: () => void
-    onTimeout?: () => void
-  }) {
+export class HttpParser<ParserKind extends HttpParserKind> {
+  static REQUEST = HTTPParser.REQUEST
+  static RESPONSE = HTTPParser.RESPONSE
+
+  #parser: HTTPParser<HttpParserKind>
+
+  constructor(
+    kind: ParserKind,
+    hooks: {
+      onMessageBegin?: () => void
+      onHeaders?: HeadersCallback
+      onHeadersComplete?: ParserKind extends typeof HTTPParser.REQUEST
+        ? RequestHeadersCompleteCallback
+        : ResponseHeadersCompleteCallback
+      onBody?: (chunk: Buffer) => void
+      onMessageComplete?: () => void
+      onExecute?: () => void
+      onTimeout?: () => void
+    }
+  ) {
     this.#parser = new HTTPParser()
-    this.#parser.initialize(HTTPParser.REQUEST, {})
-    this.#parser[HTTPParser.kOnMessageBegin] = options.onMessageBegin
-    this.#parser[HTTPParser.kOnHeaders] = options.onHeaders
-    this.#parser[HTTPParser.kOnHeadersComplete] = options.onHeadersComplete
-    this.#parser[HTTPParser.kOnBody] = options.onBody
-    this.#parser[HTTPParser.kOnMessageComplete] = options.onMessageComplete
-    this.#parser[HTTPParser.kOnExecute] = options.onExecute
-    this.#parser[HTTPParser.kOnTimeout] = options.onTimeout
+    this.#parser.initialize(kind, {})
+    this.#parser[HTTPParser.kOnMessageBegin] = hooks.onMessageBegin
+    this.#parser[HTTPParser.kOnHeaders] = hooks.onHeaders
+    this.#parser[HTTPParser.kOnHeadersComplete] = hooks.onHeadersComplete
+    this.#parser[HTTPParser.kOnBody] = hooks.onBody
+    this.#parser[HTTPParser.kOnMessageComplete] = hooks.onMessageComplete
+    this.#parser[HTTPParser.kOnExecute] = hooks.onExecute
+    this.#parser[HTTPParser.kOnTimeout] = hooks.onTimeout
   }
 
   public execute(buffer: Buffer): void {

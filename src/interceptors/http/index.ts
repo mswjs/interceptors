@@ -5,8 +5,9 @@ import { Interceptor, INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { type HttpRequestEventMap } from '../../glossary'
 import { SocketInterceptor } from '../net'
 import { FetchResponse } from '../../utils/fetchUtils'
-import { HttpRequestParser } from './http-parser'
+import { HttpParser } from './http-parser'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
+import { MockSocket } from '../net/mock-socket'
 import type { NetworkConnectionOptions } from '../net/utils/normalize-net-connect-args'
 import { toBuffer } from './utils/to-buffer'
 import { createRequestId } from '../../createRequestId'
@@ -18,7 +19,7 @@ import {
   restoreHeadersPrototype,
 } from '../ClientRequest/utils/recordRawHeaders'
 import { isResponseError } from '../../utils/responseUtils'
-import { MockSocket } from '../Socket/MockSocket'
+import { emitAsync } from '../../utils/emitAsync'
 
 /**
  * @fixme Can we use the socket interceptor as a singleton?
@@ -79,12 +80,18 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 requestId,
                 controller,
                 emitter: this.emitter,
-                async onResponse(response) {
+                onResponse: async (response) => {
                   await respondWith({
                     socket,
                     connectionOptions: options,
                     request,
                     response,
+                  })
+                  await emitAsync(this.emitter, 'response', {
+                    requestId,
+                    request,
+                    response,
+                    isMockedResponse: true,
                   })
                 },
                 async onRequestError(response) {
@@ -93,6 +100,12 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     connectionOptions: options,
                     request,
                     response,
+                  })
+                  await emitAsync(this.emitter, 'response', {
+                    requestId,
+                    request,
+                    response,
+                    isMockedResponse: true,
                   })
                 },
                 onError(error) {
@@ -103,34 +116,45 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               })
 
               if (!isRequestHandled) {
+                // If the user didn't register any response listeners, no need to pay the
+                // price of routing the entire response message through the parser.
+                if (this.emitter.listenerCount('response') > 0) {
+                  createHttpResponseParserStream({
+                    socket,
+                    onResponse: async (response) => {
+                      await emitAsync(this.emitter, 'response', {
+                        requestId,
+                        request,
+                        response,
+                        isMockedResponse: false,
+                      })
+                    },
+                  })
+                }
+
                 const passthroughSocket = socket.passthrough()
 
                 /**
-                 * @note Creating a passthroughsocket does NOT trigger the "socket" event
-                 * from `http.ClientRequest` where the request, parser, and socket get
-                 * associated. Recreate that association on the passthrough socket manually.
+                 * @note Creating a passthrough socket does NOT trigger the "onSocket" callback
+                 * of `ClientRequest` because that callback is invoked manually in the request's constructor.
+                 * Promote the parser-request-parser association manually from the mocked onto the passthrough socket.
+                 * @see https://github.com/nodejs/node/blob/134625d76139b4b3630d5baaf2efccae01ede564/lib/_http_client.js#L422
                  * @see https://github.com/nodejs/node/blob/134625d76139b4b3630d5baaf2efccae01ede564/lib/_http_client.js#L890
                  */
-                // @ts-expect-error Internal Node.js property.
+                // @ts-expect-error Node.js internals.
                 passthroughSocket._httpMessage = socket._httpMessage
-                // @ts-expect-error Internal Node.js property.c
+                // @ts-expect-error Node.js internals.
                 passthroughSocket.parser = socket.parser
-                // @ts-expect-error Internal Node.js property.
+                // @ts-expect-error Node.js internals.
                 passthroughSocket.parser.socket = passthroughSocket
               }
             },
           })
 
-          // Write the header again because at this point it's already been written.
+          // Write the message header to the parser manually because it's already been written
+          // on the socket so it won't get piped.
           requestParser.write(toBuffer(chunk, encoding))
           socket.pipe(requestParser)
-        })
-
-        socket.on('push', (chunk, encoding) => {
-          /**
-           * @todo Route this through a response parser so both mocked
-           * and passthrough responses emit the "response" event for the user.
-           */
         })
       })
     })
@@ -146,7 +170,7 @@ function createHttpRequestParserStream(options: {
   const requestRawHeadersBuffer: Array<string> = []
   let requestBodyStream: Readable | undefined
 
-  const parser = new HttpRequestParser({
+  const parser = new HttpParser(HttpParser.REQUEST, {
     onHeaders(rawHeaders) {
       requestRawHeadersBuffer.push(...rawHeaders)
     },
@@ -210,7 +234,7 @@ function createHttpRequestParserStream(options: {
     onBody(chunk) {
       invariant(
         requestBodyStream,
-        'Failed to write to a request stream: stream does not exist'
+        'Failed to write to a request stream: stream does not exist. This is likely an issue with the library. Please report it on GitHub.'
       )
 
       requestBodyStream.push(chunk)
@@ -227,11 +251,73 @@ function createHttpRequestParserStream(options: {
     },
   })
 
-  parserStream.once('finish', () => {
-    parser.free()
-  })
+  parserStream
+    .once('finish', () => parser.free())
+    .once('error', () => parser.free())
 
   return parserStream
+}
+
+function createHttpResponseParserStream(options: {
+  socket: MockSocket
+  onResponse: (response: Response) => void
+}) {
+  const { socket, onResponse } = options
+  const responseRawHeadersBuffer: Array<string> = []
+  let responseBodyStream: Readable | undefined
+
+  const parser = new HttpParser(HttpParser.RESPONSE, {
+    onHeaders(rawHeaders) {
+      responseRawHeadersBuffer.push(...rawHeaders)
+    },
+    onHeadersComplete(
+      versionMajor,
+      versionMinor,
+      rawHeaders,
+      method,
+      url,
+      status,
+      statusText
+    ) {
+      const headers = FetchResponse.parseRawHeaders([
+        ...responseRawHeadersBuffer,
+        ...(rawHeaders || []),
+      ])
+
+      const response = new FetchResponse(
+        FetchResponse.isResponseWithBody(status)
+          ? (Readable.toWeb(
+              (responseBodyStream = new Readable({ read() {} }))
+            ) as any)
+          : null,
+        {
+          url,
+          status,
+          statusText,
+          headers,
+        }
+      )
+
+      onResponse(response)
+    },
+    onBody(chunk) {
+      invariant(
+        responseBodyStream,
+        'Failed to read from a response stream: stream does not exist. This is likely an issue with the library. Please report it on GitHub.'
+      )
+
+      responseBodyStream.push(chunk)
+    },
+    onMessageComplete() {
+      responseBodyStream?.push(null)
+    },
+  })
+
+  socket
+    .on('push', (chunk, encoding) => {
+      parser.execute(toBuffer(chunk, encoding))
+    })
+    .once('close', () => parser.free())
 }
 
 /**
@@ -314,6 +400,11 @@ async function respondWith(args: {
 
   // Construct a regular server response to delegate body parsing to Node.js.
   const serverResponse = new ServerResponse(new IncomingMessage(socket))
+  const responseSocket = new MockSocket({} as any)
+  responseSocket.on('write', (chunk, encoding, callback) => {
+    socket.push(chunk, encoding)
+    callback?.()
+  })
 
   serverResponse.assignSocket(
     /**
@@ -321,13 +412,7 @@ async function respondWith(args: {
      * into pushes to the underlying mocked socket. This is only needed because we
      * use `ServerResponse` instead of pushing to mock socket directly (skip parsing).
      */
-    new MockSocket({
-      write(chunk, encoding, callback) {
-        socket.push(chunk, encoding)
-        callback?.()
-      },
-      read() {},
-    })
+    responseSocket
   )
 
   /**
