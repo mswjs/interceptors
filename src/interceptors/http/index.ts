@@ -400,19 +400,19 @@ async function respondWith(args: {
 
   // Construct a regular server response to delegate body parsing to Node.js.
   const serverResponse = new ServerResponse(new IncomingMessage(socket))
-  const responseSocket = new MockSocket({} as any)
-  responseSocket.on('write', (chunk, encoding, callback) => {
-    socket.push(chunk, encoding)
-    callback?.()
-  })
 
   serverResponse.assignSocket(
     /**
-     * @note Provide a dummy socket to the server response to translate all its writes
+     * @note Provide a dummy stream to the server response to translate all its writes
      * into pushes to the underlying mocked socket. This is only needed because we
      * use `ServerResponse` instead of pushing to mock socket directly (skip parsing).
      */
-    responseSocket
+    new Writable({
+      write(chunk, encoding, callback) {
+        socket.push(chunk, encoding)
+        callback?.()
+      },
+    }) as net.Socket
   )
 
   /**
