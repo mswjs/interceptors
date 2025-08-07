@@ -229,6 +229,16 @@ function createHttpRequestParserStream(options: {
         body: canHaveBody ? (Readable.toWeb(requestBodyStream) as any) : null,
       })
 
+      /**
+       * @note Here we used to skip the request handling altogether
+       * if the "INTERNAL_REQUEST_ID_HEADER_NAME" request header is present.
+       * That prevented the nested interceptors (XHR -> ClientRequest) from
+       * conflicting. Do we still need this?
+       *
+       * @todo Forgo the old deduplication algo because it's intrusive.
+       * @see https://github.com/mswjs/interceptors/issues/378
+       */
+
       options.onRequest(request)
     },
     onBody(chunk) {
@@ -253,7 +263,7 @@ function createHttpRequestParserStream(options: {
 
   parserStream
     .once('finish', () => parser.free())
-    .once('error', () => parser.free())
+    .once('close', () => parser.free())
 
   return parserStream
 }
