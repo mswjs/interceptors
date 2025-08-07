@@ -21,7 +21,6 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
   interceptor.removeAllListeners()
 })
 

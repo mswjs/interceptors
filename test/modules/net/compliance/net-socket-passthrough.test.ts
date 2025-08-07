@@ -61,12 +61,6 @@ it('establishes actual server connection on passthrough', async () => {
   const connectListener = vi.fn()
   const errorListener = vi.fn()
 
-  /**
-   * @fixme Every "once" listener is fired multiple times.
-   * From the recordings, "once" is followed by "on" immediately
-   * as if it's implemented by it under the hood. Unit tests for the
-   * recorder fail to prove that.
-   */
   socket
     .once('connect', function connectOne() {
       socket.write([
