@@ -19,6 +19,7 @@ import {
 } from '../ClientRequest/utils/recordRawHeaders'
 import { isResponseError } from '../../utils/responseUtils'
 import { emitAsync } from '../../utils/emitAsync'
+import { connectOptionsToUrl } from '../net/utils/connect-options-to-url'
 
 /**
  * @fixme Can we use the socket interceptor as a singleton?
@@ -65,9 +66,12 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
             options
           )
 
+          const baseUrl = connectOptionsToUrl(options)
+
           const requestParser = createHttpRequestParserStream({
             requestOptions: {
               method,
+              baseUrl,
               ...options,
             },
             onRequest: async (request) => {
@@ -174,6 +178,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 function createHttpRequestParserStream(options: {
   requestOptions: NetworkConnectionOptions & {
     method: string
+    baseUrl: URL
   }
   onRequest: (request: Request) => void
 }) {
@@ -196,8 +201,7 @@ function createHttpRequestParserStream(options: {
       shouldKeepAlive
     ) {
       const method = options.requestOptions.method?.toUpperCase() || 'GET'
-      const baseUrl = baseUrlFromConnectionOptions(options.requestOptions)
-      const url = new URL(path || '', baseUrl)
+      const url = new URL(path || '', options.requestOptions.baseUrl)
 
       const headers = FetchResponse.parseRawHeaders([
         ...requestRawHeadersBuffer,
