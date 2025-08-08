@@ -1,5 +1,4 @@
 import net from 'node:net'
-import util from 'node:util'
 
 const kSocketRecorder = Symbol('kSocketRecorder')
 
@@ -14,6 +13,21 @@ export interface SocketRecorderEntry {
   type: 'get' | 'set' | 'apply'
   metadata: Record<string, any>
   replay: (newSocket: net.Socket) => void
+}
+
+/**
+ * Allow certain internal setters to be recorded and replayed
+ * because they aren't set in response to any action.
+ * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/_http_client.js#L597
+ */
+const INTERNAL_SETTER_WHITELIST = ['_hadError']
+
+function isInternalSetter(property: string): boolean {
+  if (INTERNAL_SETTER_WHITELIST.includes(property)) {
+    return false
+  }
+
+  return property.startsWith('_')
 }
 
 /**
@@ -104,7 +118,7 @@ export function createSocketRecorder<T extends net.Socket>(
         return Reflect.set(target, property, newValue, receiver)
       }
 
-      if (typeof property === 'symbol' || property.startsWith('_')) {
+      if (typeof property === 'symbol' || isInternalSetter(property)) {
         return defaultSetter()
       }
 

@@ -43,6 +43,7 @@ export class HttpParser<ParserKind extends HttpParserKind> {
   }
 
   public free(): void {
+    this.#parser.finish()
     this.#parser.free()
   }
 }

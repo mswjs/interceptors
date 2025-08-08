@@ -100,18 +100,6 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   })
                 },
                 async onRequestError(response) {
-                  if (this.emitter.listenerCount('response') > 0) {
-                    const responseClone = response.clone()
-                    process.nextTick(() => {
-                      emitAsync(this.emitter, 'response', {
-                        requestId,
-                        request,
-                        response: responseClone,
-                        isMockedResponse: true,
-                      })
-                    })
-                  }
-
                   await respondWith({
                     socket,
                     connectionOptions: options,
@@ -171,7 +159,9 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
           socket
             .on('write', (chunk, encoding, callback) => {
-              requestParser.write(chunk, encoding, callback)
+              if (chunk) {
+                requestParser.write(chunk, encoding, callback)
+              }
             })
             .on('finish', () => requestParser.end())
             .on('error', () => requestParser.end())
@@ -273,6 +263,9 @@ function createHttpRequestParserStream(options: {
       parser.execute(toBuffer(chunk, encoding))
       callback()
     },
+    destroy() {
+      parser.free()
+    },
   })
 }
 
@@ -334,6 +327,9 @@ function createHttpResponseParserStream(options: {
     write(chunk, encoding, callback) {
       parser.execute(toBuffer(chunk, encoding))
       callback()
+    },
+    destroy() {
+      parser.free()
     },
   })
 }
@@ -477,8 +473,12 @@ async function respondWith(args: {
         /**
          * Destroy the socket if the response stream errored.
          * @see https://github.com/mswjs/interceptors/issues/738
+         *
+         * Response errors destroy the socket gracefully (no error).
+         * Instead, the "error" event is emitted with a more detailed error.
+         * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/_http_client.js#L586
          */
-        socket.destroy(error)
+        socket.destroy()
       }
     }
   } else {

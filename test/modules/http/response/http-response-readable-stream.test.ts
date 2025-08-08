@@ -1,8 +1,7 @@
 // @vitest-environment node
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { performance } from 'node:perf_hooks'
 import http from 'node:http'
-import { Readable } from 'node:stream'
+import { performance } from 'node:perf_hooks'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
@@ -14,13 +13,7 @@ const encoder = new TextEncoder()
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {
     res.writeHead(200)
-    Readable.fromWeb(
-      new ReadableStream({
-        pull(controller) {
-          controller.error(new Error('stream error'))
-        },
-      }) as any
-    ).pipe(res)
+    res.destroy(new Error('stream error'))
   })
 })
 
@@ -43,7 +36,7 @@ afterAll(async () => {
 it('supports ReadableStream as a mocked response', async () => {
   interceptor.on('request', ({ controller }) => {
     const stream = new ReadableStream({
-      start(controller) {
+      pull(controller) {
         controller.enqueue(encoder.encode('hello'))
         controller.enqueue(encoder.encode(' '))
         controller.enqueue(encoder.encode('world'))
@@ -61,7 +54,7 @@ it('supports ReadableStream as a mocked response', async () => {
 it('supports delays when enqueuing chunks', async () => {
   interceptor.on('request', ({ controller }) => {
     const stream = new ReadableStream({
-      async start(controller) {
+      async pull(controller) {
         controller.enqueue(encoder.encode('first'))
         await sleep(200)
 
@@ -117,11 +110,37 @@ it('supports delays when enqueuing chunks', async () => {
   expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(150)
 })
 
-it('destroys the socket on stream error if response headers have been sent', async () => {
+it('emits request error if the response stream errors (bypass)', async () => {
+  const request = http.get(httpServer.http.url('/'))
+
+  const requestErrorListener = vi.fn()
+  request.on('error', requestErrorListener)
+
+  const requestCloseListener = vi.fn()
+  request.on('close', requestCloseListener)
+
+  const responseErrorListener = vi.fn()
+  request.on('response', (response) => {
+    response.on('error', responseErrorListener)
+  })
+
+  await expect.poll(() => request.destroyed).toBe(true)
+
+  expect.soft(requestErrorListener).toHaveBeenCalledOnce()
+  expect.soft(requestErrorListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      message: 'socket hang up',
+    })
+  )
+  expect.soft(requestCloseListener).toHaveBeenCalledOnce()
+  expect.soft(responseErrorListener).not.toHaveBeenCalled()
+})
+
+it('emits request error if the response stream errors (mock)', async () => {
   interceptor.on('request', ({ controller }) => {
     const stream = new ReadableStream({
-      async start(controller) {
-        controller.enqueue(new TextEncoder().encode('original'))
+      async pull(controller) {
+        controller.enqueue(new TextEncoder().encode('hello world'))
         controller.error(new Error('stream error'))
       },
     })
@@ -136,21 +155,19 @@ it('destroys the socket on stream error if response headers have been sent', asy
   const requestCloseListener = vi.fn()
   request.on('close', requestCloseListener)
 
-  const responseError = await vi.waitFor(() => {
-    return new Promise<Error>((resolve) => {
-      request.on('response', (response) => {
-        console.log('response!')
-        response.on('error', resolve)
-      })
-    })
+  const responseErrorListener = vi.fn()
+  request.on('response', (response) => {
+    response.on('error', responseErrorListener)
   })
 
-  expect.soft(request.destroyed).toBe(true)
-  expect.soft(responseError).toBeInstanceOf(Error)
-  expect.soft(responseError.message).toBe('stream error')
+  await expect.poll(() => request.destroyed).toBe(true)
 
-  expect
-    .soft(requestErrorListener, 'Request must not error')
-    .not.toHaveBeenCalled()
-  expect.soft(requestCloseListener, 'Request must close').toHaveBeenCalledOnce()
+  expect.soft(requestErrorListener).toHaveBeenCalledOnce()
+  expect.soft(requestErrorListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      message: 'socket hang up',
+    })
+  )
+  expect.soft(requestCloseListener).toHaveBeenCalledOnce()
+  expect.soft(responseErrorListener).not.toHaveBeenCalled()
 })

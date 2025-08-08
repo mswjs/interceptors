@@ -47,6 +47,28 @@ describe('set', () => {
     )
   })
 
+  it('records whitelisted internal setters', () => {
+    const { socket } = createSocketRecorder(new net.Socket())
+    /**
+     * @note Node.js might set certain internal properties outside
+     * of any other method calls. Those setters must be preserved
+     * in order to make the passthrough socket behave as expected.
+     */
+    // @ts-expect-error Node.js internals.
+    socket._hadError = true
+
+    expect(
+      inspectSocketRecorder(socket),
+      'Must not record implied internal setter'
+    ).toEqual<SocketRecorderEntry[]>([
+      {
+        type: 'set',
+        metadata: { property: '_hadError', newValue: true },
+        replay: expect.any(Function),
+      },
+    ])
+  })
+
   it('ignores internal setters', () => {
     const { socket } = createSocketRecorder(new net.Socket())
     socket.on('error', () => {})

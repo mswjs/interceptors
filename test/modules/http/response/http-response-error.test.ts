@@ -28,13 +28,12 @@ it('treats "Response.error()" as a network error', async () => {
   const request = http.get('http://localhost:3001/resource')
   request.on('error', requestErrorListener)
 
-  // Must handle Response.error() as a network error.
-  await vi.waitFor(() => {
-    expect(requestErrorListener).toHaveBeenNthCalledWith(
-      1,
-      new TypeError('Network error')
-    )
-  })
+  await expect
+    .poll(() => requestErrorListener, {
+      message: 'Must treat Response.error() as a network error',
+    })
+    .toHaveBeenCalledWith(new TypeError('Network error'))
+  expect(requestErrorListener).toHaveBeenCalledOnce()
 
   expect(responseListener).not.toHaveBeenCalled()
 })
@@ -52,12 +51,12 @@ it('treats a thrown Response.error() as a network error', async () => {
   request.on('error', requestErrorListener)
 
   // Must handle Response.error() as a request error.
-  await vi.waitFor(() => {
-    expect(requestErrorListener).toHaveBeenNthCalledWith(
-      1,
-      new TypeError('Network error')
-    )
-  })
+  await expect
+    .poll(() => requestErrorListener, {
+      message: 'Must treat Response.error() as a network error',
+    })
+    .toHaveBeenCalledWith(new TypeError('Network error'))
+  expect(requestErrorListener).toHaveBeenCalledOnce()
 
   expect(responseListener).not.toHaveBeenCalled()
 })
