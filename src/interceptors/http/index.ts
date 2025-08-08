@@ -1,11 +1,10 @@
 import net from 'node:net'
-import { Readable, Writable } from 'node:stream'
+import { Writable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { Interceptor } from '../../Interceptor'
 import { type HttpRequestEventMap } from '../../glossary'
 import { SocketInterceptor } from '../net'
-import { FetchResponse } from '../../utils/fetchUtils'
-import { HttpParser } from './http-parser'
+import { HttpRequestParser, HttpResponseParser } from './http-parser'
 import type { NetworkConnectionOptions } from '../net/utils/normalize-net-connect-args'
 import { toBuffer } from './utils/to-buffer'
 import { createRequestId } from '../../createRequestId'
@@ -67,7 +66,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const baseUrl = connectOptionsToUrl(options)
 
-          const requestParser = createHttpRequestParserStream({
+          const requestParser = new HttpRequestParser({
             requestOptions: {
               method,
               baseUrl,
@@ -137,7 +136,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 // If the user didn't register any response listeners, no need to pay the
                 // price of routing the entire response message through the parser.
                 if (this.emitter.listenerCount('response') > 0) {
-                  const responseStream = createHttpResponseParserStream({
+                  const responseParser = new HttpResponseParser({
                     onResponse: async (response) => {
                       await emitAsync(this.emitter, 'response', {
                         requestId,
@@ -149,8 +148,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   })
 
                   passthroughSocket
-                    .on('data', (chunk) => responseStream.write(chunk))
-                    .on('close', () => responseStream.end())
+                    .on('data', (chunk) => responseParser.execute(chunk))
+                    .on('close', () => responseParser.free(passthroughSocket))
                 }
               }
             },
@@ -158,7 +157,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
           // Write the message header to the parser manually because it's already been written
           // on the socket so it won't get piped.
-          requestParser.write(toBuffer(chunk, encoding))
+          requestParser.execute(toBuffer(chunk, encoding))
 
           /**
            * @note Listen to the internal "write" event and call the parser manually.
@@ -168,180 +167,17 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
            * because the stream is paused!
            */
           socket
-            .on('write', (chunk, encoding, callback) => {
+            .on('write', (chunk, encoding) => {
               if (chunk) {
-                requestParser.write(chunk, encoding, callback)
+                requestParser.execute(toBuffer(chunk, encoding))
               }
             })
-            .on('finish', () => requestParser.end())
-            .on('error', () => requestParser.end())
+            .on('finish', () => requestParser.free(socket))
+            .on('error', () => requestParser.free(socket))
         })
       })
     })
   }
-}
-
-function createHttpRequestParserStream(options: {
-  requestOptions: NetworkConnectionOptions & {
-    method: string
-    baseUrl: URL
-  }
-  onRequest: (request: Request) => void
-}) {
-  const requestRawHeadersBuffer: Array<string> = []
-  let requestBodyStream: Readable | undefined
-
-  const parser = new HttpParser(HttpParser.REQUEST, {
-    onHeaders(rawHeaders) {
-      requestRawHeadersBuffer.push(...rawHeaders)
-    },
-    onHeadersComplete(
-      versionMajor,
-      versionMinor,
-      rawHeaders,
-      _,
-      path,
-      __,
-      ___,
-      ____,
-      shouldKeepAlive
-    ) {
-      const method = options.requestOptions.method?.toUpperCase() || 'GET'
-      const url = new URL(path || '', options.requestOptions.baseUrl)
-
-      const headers = FetchResponse.parseRawHeaders([
-        ...requestRawHeadersBuffer,
-        ...(rawHeaders || []),
-      ])
-
-      const canHaveBody = method !== 'GET' && method !== 'HEAD'
-
-      // Translate the basic authorization to request headers.
-      // Constructing a Request instance with a URL containing auth is no-op.
-      if (url.username || url.password) {
-        if (!headers.has('authorization')) {
-          headers.set('authorization', `Basic ${url.username}:${url.password}`)
-        }
-        url.username = ''
-        url.password = ''
-      }
-
-      requestBodyStream = new Readable({
-        /**
-         * @note Provide the `read()` method so a `Readable` could be
-         * used as the actual request body (the stream calls "read()").
-         */
-        read() {},
-      })
-
-      const request = new Request(url, {
-        method,
-        headers,
-        credentials: 'same-origin',
-        // @ts-expect-error Undocumented Fetch property.
-        duplex: canHaveBody ? 'half' : undefined,
-        body: canHaveBody ? (Readable.toWeb(requestBodyStream) as any) : null,
-      })
-
-      /**
-       * @note Here we used to skip the request handling altogether
-       * if the "INTERNAL_REQUEST_ID_HEADER_NAME" request header is present.
-       * That prevented the nested interceptors (XHR -> ClientRequest) from
-       * conflicting. Do we still need this?
-       *
-       * @todo Forgo the old deduplication algo because it's intrusive.
-       * @see https://github.com/mswjs/interceptors/issues/378
-       */
-
-      options.onRequest(request)
-    },
-    onBody(chunk) {
-      invariant(
-        requestBodyStream,
-        'Failed to write to a request stream: stream does not exist. This is likely an issue with the library. Please report it on GitHub.'
-      )
-
-      requestBodyStream.push(chunk)
-    },
-    onMessageComplete() {
-      requestBodyStream?.push(null)
-    },
-  })
-
-  return new Writable({
-    write(chunk, encoding, callback) {
-      parser.execute(toBuffer(chunk, encoding))
-      callback()
-    },
-    destroy() {
-      parser.free()
-    },
-  })
-}
-
-function createHttpResponseParserStream(options: {
-  onResponse: (response: Response) => void
-}) {
-  const { onResponse } = options
-  const responseRawHeadersBuffer: Array<string> = []
-  let responseBodyStream: Readable | undefined
-
-  const parser = new HttpParser(HttpParser.RESPONSE, {
-    onHeaders(rawHeaders) {
-      responseRawHeadersBuffer.push(...rawHeaders)
-    },
-    onHeadersComplete(
-      versionMajor,
-      versionMinor,
-      rawHeaders,
-      method,
-      url,
-      status,
-      statusText
-    ) {
-      const headers = FetchResponse.parseRawHeaders([
-        ...responseRawHeadersBuffer,
-        ...(rawHeaders || []),
-      ])
-
-      const response = new FetchResponse(
-        FetchResponse.isResponseWithBody(status)
-          ? (Readable.toWeb(
-              (responseBodyStream = new Readable({ read() {} }))
-            ) as any)
-          : null,
-        {
-          url,
-          status,
-          statusText,
-          headers,
-        }
-      )
-
-      onResponse(response)
-    },
-    onBody(chunk) {
-      invariant(
-        responseBodyStream,
-        'Failed to read from a response stream: stream does not exist. This is likely an issue with the library. Please report it on GitHub.'
-      )
-
-      responseBodyStream.push(chunk)
-    },
-    onMessageComplete() {
-      responseBodyStream?.push(null)
-    },
-  })
-
-  return new Writable({
-    write(chunk, encoding, callback) {
-      parser.execute(toBuffer(chunk, encoding))
-      callback()
-    },
-    destroy() {
-      parser.free()
-    },
-  })
 }
 
 /**
