@@ -6,6 +6,7 @@ import {
 import { createSocketRecorder, type SocketRecorder } from './socket-recorder'
 
 interface MockSocketConstructorOptions extends net.SocketConstructorOpts {
+  secure?: boolean
   createConnection: () => net.Socket
   connectionCallback?: () => void
 }

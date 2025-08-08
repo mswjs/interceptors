@@ -1,6 +1,7 @@
 import net from 'node:net'
 
 export interface NetworkConnectionOptions {
+  secure?: boolean
   port?: number
   path: string
   host?: string

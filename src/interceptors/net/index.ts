@@ -129,6 +129,7 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
       const [options, connectionCallback] = normalizeNetConnectArgs(
         args as NetConnectArgs
       )
+      options.secure = true
 
       const socket = new MockSocket({
         ...args,

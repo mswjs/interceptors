@@ -3,7 +3,13 @@ export function baseUrlFromConnectionOptions(options: any): URL {
     return new URL(options.href)
   }
 
-  const protocol = options.port === 443 ? 'https:' : 'http:'
+  const protocol =
+    options.protocol || options.secure
+      ? 'https:'
+      : options.port === 443
+      ? 'https:'
+      : 'http:'
+
   const host = options.host
 
   const url = new URL(`${protocol}//${host}`)
