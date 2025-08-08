@@ -149,7 +149,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
                   passthroughSocket
                     .on('data', (chunk) => responseParser.execute(chunk))
-                    .on('close', () => responseParser.free(passthroughSocket))
+                    .on('close', () => responseParser.free())
                 }
               }
             },
@@ -172,8 +172,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 requestParser.execute(toBuffer(chunk, encoding))
               }
             })
-            .on('finish', () => requestParser.free(socket))
-            .on('error', () => requestParser.free(socket))
+            .on('finish', () => requestParser.free())
+            .on('error', () => requestParser.free())
         })
       })
     })
