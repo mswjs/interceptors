@@ -1,7 +1,7 @@
-import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+// @vitest-environment node
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
@@ -10,7 +10,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -44,7 +44,7 @@ it('awaits asynchronous response event listener for a mocked response', async ()
   const { text } = await waitForClientRequest(request)
   markStep(4)
 
-  expect(await text()).toBe('hello world')
+  await expect(text()).resolves.toBe('hello world')
 
   expect(markStep).toHaveBeenNthCalledWith(1, 1)
   expect(markStep).toHaveBeenNthCalledWith(2, 2)
@@ -66,7 +66,7 @@ it('awaits asynchronous response event listener for the original response', asyn
   const { text } = await waitForClientRequest(request)
   markStep(4)
 
-  expect(await text()).toBe('original response')
+  await expect(text()).resolves.toBe('original response')
 
   expect(markStep).toHaveBeenNthCalledWith(1, 1)
   expect(markStep).toHaveBeenNthCalledWith(2, 2)

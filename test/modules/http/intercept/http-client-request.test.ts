@@ -1,7 +1,8 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+// @vitest-environment node
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
+import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { RequestController } from '../../../../src/RequestController'
 import { HttpRequestEventMap } from '../../../../src/glossary'
@@ -12,16 +13,15 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
-  await httpServer.listen()
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
   interceptor.removeAllListeners()
 })
 
@@ -135,7 +135,11 @@ it('intercepts an HTTPS ClientRequest request with URL string', async () => {
     vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 
   interceptor.on('request', requestListener)
-  const req = new http.ClientRequest(url)
+
+  const req = new http.ClientRequest(url, {
+    // @ts-expect-error `ClientRequest` constructor signature is wrong.
+    agent: https.globalAgent,
+  })
   req.setHeader('x-custom-header', 'yes')
   req.end()
 
@@ -165,7 +169,10 @@ it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
     vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 
   interceptor.on('request', requestListener)
-  const req = new http.ClientRequest(url)
+  const req = new http.ClientRequest(url, {
+    // @ts-expect-error `ClientRequest` constructor signature is wrong.
+    agent: https.globalAgent,
+  })
   req.setHeader('x-custom-header', 'yes')
   req.end()
 
@@ -196,6 +203,7 @@ it('intercepts an HTTPS ClientRequest request with request options', async () =>
 
   interceptor.on('request', requestListener)
   const req = new http.ClientRequest({
+    agent: https.globalAgent,
     protocol: 'https:',
     hostname: url.hostname,
     port: url.port,
