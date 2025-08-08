@@ -161,6 +161,13 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           // on the socket so it won't get piped.
           requestParser.write(toBuffer(chunk, encoding))
 
+          /**
+           * @note Listen to the internal "write" event and call the parser manually.
+           * Do NOT pipe the `socket` stream to the parser stream. By piping the stream,
+           * it gets subjected to being paused and will get stuck when Node.js pauses it
+           * to wait for the HTTP message while the parser cannot write that message
+           * because the stream is paused!
+           */
           socket
             .on('write', (chunk, encoding, callback) => {
               if (chunk) {
