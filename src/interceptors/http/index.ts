@@ -94,15 +94,15 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     })
                   }
 
-                  await respondWith({
+                  await this.respondWith({
                     socket,
                     connectionOptions: options,
                     request,
                     response,
                   })
                 },
-                async onRequestError(response) {
-                  await respondWith({
+                onRequestError: async (response) => {
+                  await this.respondWith({
                     socket,
                     connectionOptions: options,
                     request,
@@ -178,166 +178,166 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       })
     })
   }
-}
-
-/**
- * Mocks a successful socket connection.
- */
-function mockConnect(
-  socket: net.Socket,
-  connectionOptions: NetworkConnectionOptions
-): void {
-  const isIPv6 =
-    net.isIPv6(connectionOptions.host || '') || connectionOptions.family === 6
-
-  const addressInfo = {
-    address: isIPv6 ? '::1' : '127.0.0.1',
-    family: isIPv6 ? 'IPv6' : 'IPv4',
-    port: connectionOptions.port,
-  }
 
   /**
-   * @fixme We used to update `socket.addressInfo` to return the
-   * internally constructed `addressInfo`. Still needed?
+   * Mocks a successful socket connection.
    */
+  public mockConnect(
+    socket: net.Socket,
+    connectionOptions: NetworkConnectionOptions
+  ): void {
+    const isIPv6 =
+      net.isIPv6(connectionOptions.host || '') || connectionOptions.family === 6
 
-  socket.emit(
-    'lookup',
-    null,
-    addressInfo,
-    addressInfo.family === 'IPv6' ? 6 : 4,
-    connectionOptions.host
-  )
-  socket.emit('connect')
-  socket.emit('ready')
-
-  if (connectionOptions.protocol === 'https:') {
-    socket.emit('secure')
-    socket.emit('secureConnect')
-    socket.emit(
-      'session',
-      connectionOptions.session || Buffer.from('mock-session-renegotiate')
-    )
-    socket.emit('session', Buffer.from('mock-session-resume'))
-  }
-}
-
-/**
- * Pushes the given Fetch API `Response` onto the given socket.
- * Automatically establishes a successful mock socket connection.
- */
-async function respondWith(args: {
-  socket: net.Socket
-  connectionOptions: NetworkConnectionOptions
-  request: Request
-  response: Response
-}): Promise<void> {
-  const { socket, connectionOptions, request, response } = args
-
-  // Ignore mock responses for destroyed sockets (e.g. aborted, timed out).
-  if (socket.destroyed) {
-    return
-  }
-
-  // Handle `Response.error()` instances.
-  if (isResponseError(response)) {
-    socket.destroy(new TypeError('Network error'))
-    return
-  }
-
-  // Establish a mocked socket connection.
-  // Prior to this point, the socket has been pending.
-  mockConnect(socket, connectionOptions)
-
-  /**
-   * @note Import the "node:http" module lazily so it doesn't create a stale closure
-   * at the top of this module. Test runners might cache imports and the test will
-   * get a cached "node:http" with the unpatched "node:net".
-   */
-  const { ServerResponse, IncomingMessage, STATUS_CODES } = await import(
-    'node:http'
-  )
-
-  // Construct a regular server response to delegate body parsing to Node.js.
-  const serverResponse = new ServerResponse(new IncomingMessage(socket))
-
-  serverResponse.assignSocket(
-    /**
-     * @note Provide a dummy stream to the server response to translate all its writes
-     * into pushes to the underlying mocked socket. This is only needed because we
-     * use `ServerResponse` instead of pushing to mock socket directly (skip parsing).
-     */
-    new Writable({
-      write(chunk, encoding, callback) {
-        socket.push(chunk, encoding)
-        callback?.()
-      },
-    }) as net.Socket
-  )
-
-  /**
-   * @note Remove the `Connection` and `Date` response headers
-   * injected by `ServerResponse` by default. Those are required
-   * from the server but the interceptor is NOT technically a server.
-   * It's confusing to add response headers that the developer didn't
-   * specify themselves. They can always add these if they wish.
-   * @see https://www.rfc-editor.org/rfc/rfc9110#field.date
-   * @see https://www.rfc-editor.org/rfc/rfc9110#field.connection
-   */
-  serverResponse.removeHeader('connection')
-  serverResponse.removeHeader('date')
-
-  // Get the raw response headers to preserve their casing.
-  // We're recording the headers manually since the Fetch API
-  // normalizes all headers without a way to get the raw values.
-  const rawResponseHeaders = getRawFetchHeaders(response.headers)
-
-  // Write the response header, providing the raw headers as-is.
-  // Using `.setHeader()`/`.appendHeader()` normalizes header names.
-  serverResponse.writeHead(
-    response.status,
-    response.statusText || STATUS_CODES[response.status],
-    rawResponseHeaders
-  )
-
-  if (response.body) {
-    try {
-      const reader = response.body.getReader()
-
-      while (true) {
-        const { done, value } = await reader.read()
-
-        if (done) {
-          serverResponse.end()
-          break
-        }
-
-        serverResponse.write(value)
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        /**
-         * Destroy the socket if the response stream errored.
-         * @see https://github.com/mswjs/interceptors/issues/738
-         *
-         * Response errors destroy the socket gracefully (no error).
-         * Instead, the "error" event is emitted with a more detailed error.
-         * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/_http_client.js#L586
-         */
-        socket.destroy()
-      }
+    const addressInfo = {
+      address: isIPv6 ? '::1' : '127.0.0.1',
+      family: isIPv6 ? 'IPv6' : 'IPv4',
+      port: connectionOptions.port,
     }
-  } else {
-    serverResponse.end()
+
+    /**
+     * @fixme We used to update `socket.addressInfo` to return the
+     * internally constructed `addressInfo`. Still needed?
+     */
+
+    socket.emit(
+      'lookup',
+      null,
+      addressInfo,
+      addressInfo.family === 'IPv6' ? 6 : 4,
+      connectionOptions.host
+    )
+    socket.emit('connect')
+    socket.emit('ready')
+
+    if (connectionOptions.protocol === 'https:') {
+      socket.emit('secure')
+      socket.emit('secureConnect')
+      socket.emit(
+        'session',
+        connectionOptions.session || Buffer.from('mock-session-renegotiate')
+      )
+      socket.emit('session', Buffer.from('mock-session-resume'))
+    }
   }
 
-  // Close the connection if it wasn't marked as keep-alive.
-  if (request.headers.get('connection') !== 'keep-alive') {
-    socket.emit('readable')
+  /**
+   * Pushes the given Fetch API `Response` onto the given socket.
+   * Automatically establishes a successful mock socket connection.
+   */
+  public async respondWith(args: {
+    socket: net.Socket
+    connectionOptions: NetworkConnectionOptions
+    request: Request
+    response: Response
+  }): Promise<void> {
+    const { socket, connectionOptions, request, response } = args
+
+    // Ignore mock responses for destroyed sockets (e.g. aborted, timed out).
+    if (socket.destroyed) {
+      return
+    }
+
+    // Handle `Response.error()` instances.
+    if (isResponseError(response)) {
+      socket.destroy(new TypeError('Network error'))
+      return
+    }
+
+    // Establish a mocked socket connection.
+    // Prior to this point, the socket has been pending.
+    this.mockConnect(socket, connectionOptions)
+
     /**
-     * @fixme We used to push null to the response stream manually here.
-     * Is that still needed?
+     * @note Import the "node:http" module lazily so it doesn't create a stale closure
+     * at the top of this module. Test runners might cache imports and the test will
+     * get a cached "node:http" with the unpatched "node:net".
      */
-    socket.push(null)
+    const { ServerResponse, IncomingMessage, STATUS_CODES } = await import(
+      'node:http'
+    )
+
+    // Construct a regular server response to delegate body parsing to Node.js.
+    const serverResponse = new ServerResponse(new IncomingMessage(socket))
+
+    serverResponse.assignSocket(
+      /**
+       * @note Provide a dummy stream to the server response to translate all its writes
+       * into pushes to the underlying mocked socket. This is only needed because we
+       * use `ServerResponse` instead of pushing to mock socket directly (skip parsing).
+       */
+      new Writable({
+        write(chunk, encoding, callback) {
+          socket.push(chunk, encoding)
+          callback?.()
+        },
+      }) as net.Socket
+    )
+
+    /**
+     * @note Remove the `Connection` and `Date` response headers
+     * injected by `ServerResponse` by default. Those are required
+     * from the server but the interceptor is NOT technically a server.
+     * It's confusing to add response headers that the developer didn't
+     * specify themselves. They can always add these if they wish.
+     * @see https://www.rfc-editor.org/rfc/rfc9110#field.date
+     * @see https://www.rfc-editor.org/rfc/rfc9110#field.connection
+     */
+    serverResponse.removeHeader('connection')
+    serverResponse.removeHeader('date')
+
+    // Get the raw response headers to preserve their casing.
+    // We're recording the headers manually since the Fetch API
+    // normalizes all headers without a way to get the raw values.
+    const rawResponseHeaders = getRawFetchHeaders(response.headers)
+
+    // Write the response header, providing the raw headers as-is.
+    // Using `.setHeader()`/`.appendHeader()` normalizes header names.
+    serverResponse.writeHead(
+      response.status,
+      response.statusText || STATUS_CODES[response.status],
+      rawResponseHeaders
+    )
+
+    if (response.body) {
+      try {
+        const reader = response.body.getReader()
+
+        while (true) {
+          const { done, value } = await reader.read()
+
+          if (done) {
+            serverResponse.end()
+            break
+          }
+
+          serverResponse.write(value)
+        }
+      } catch (error) {
+        if (error instanceof Error) {
+          /**
+           * Destroy the socket if the response stream errored.
+           * @see https://github.com/mswjs/interceptors/issues/738
+           *
+           * Response errors destroy the socket gracefully (no error).
+           * Instead, the "error" event is emitted with a more detailed error.
+           * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/_http_client.js#L586
+           */
+          socket.destroy()
+        }
+      }
+    } else {
+      serverResponse.end()
+    }
+
+    // Close the connection if it wasn't marked as keep-alive.
+    if (request.headers.get('connection') !== 'keep-alive') {
+      socket.emit('readable')
+      /**
+       * @fixme We used to push null to the response stream manually here.
+       * Is that still needed?
+       */
+      socket.push(null)
+    }
   }
 }
