@@ -50,7 +50,7 @@ it('allows reusing the same function for multiple client listeners', async () =>
   await waitForWebSocketEvent('close', socket)
 
   /**
-   * @note The same event listner for the same event is deduped.
+   * @note The same event listener for the same event is deduped.
    * It will only be called once. That is correct.
    */
   expect(clientMessageListener).toHaveBeenCalledTimes(1)
@@ -76,7 +76,7 @@ it('allows reusing the same function for multiple server listeners', async () =>
   await waitForWebSocketEvent('close', socket)
 
   /**
-   * @note The same event listner for the same event is deduped.
+   * @note The same event listener for the same event is deduped.
    * It will only be called once. That is correct.
    */
   expect(serverMessageListener).toHaveBeenCalledTimes(1)

@@ -40,7 +40,7 @@ interceptor.on('request', ({ request, controller }) => {
     return controller.respondWith(
       new Response('foo', {
         status: 301,
-        statusText: 'Moved Permantently',
+        statusText: 'Moved Permanently',
         headers: {
           'Content-Type': 'application/hal+json',
         },

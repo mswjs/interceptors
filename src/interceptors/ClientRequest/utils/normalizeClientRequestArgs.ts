@@ -174,7 +174,7 @@ export function normalizeClientRequestArgs(
     if (legacyUrl.hostname === null) {
       /**
        * We are dealing with a relative url, so use the path as an "option" and
-       * merge in any existing options, giving priority to exising options -- i.e. a path in any
+       * merge in any existing options, giving priority to existing options -- i.e. a path in any
        * existing options will take precedence over the one contained in the url. This is consistent
        * with the behaviour in ClientRequest.
        * @see https://github.com/nodejs/node/blob/d84f1312915fe45fe0febe888db692c74894c382/lib/_http_client.js#L122

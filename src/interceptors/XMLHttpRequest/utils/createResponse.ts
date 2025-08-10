@@ -24,13 +24,13 @@ export function createResponse(
     url: request.responseURL,
     status: request.status,
     statusText: request.statusText,
-    headers: createHeadersFromXMLHttpReqestHeaders(
+    headers: createHeadersFromXMLHttpRequestHeaders(
       request.getAllResponseHeaders()
     ),
   })
 }
 
-function createHeadersFromXMLHttpReqestHeaders(headersString: string): Headers {
+function createHeadersFromXMLHttpRequestHeaders(headersString: string): Headers {
   const headers = new Headers()
 
   const lines = headersString.split(/[\r\n]+/)
