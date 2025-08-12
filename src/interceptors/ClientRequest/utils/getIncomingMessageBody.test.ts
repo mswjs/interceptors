@@ -29,7 +29,7 @@ it('returns utf8 string given a gzipped response body', async () => {
   expect(await pendingResponseBody).toEqual('two')
 })
 
-it('returns utf8 string given a gzipped response body with incorrect "content-lenght"', async () => {
+it('returns utf8 string given a gzipped response body with incorrect "content-length"', async () => {
   const utfBuffer = zlib.gzipSync(Buffer.from('three'))
   const message = new IncomingMessage(new Socket())
   message.headers = {

@@ -251,7 +251,7 @@ export function getRawFetchHeaders(headers: Headers): RawHeaders {
  * That means the headers were created standalone and already have
  * the raw headers stored.
  * If the `init.headers` is a HeadersInit, create a new Headers
- * instace out of it.
+ * instance out of it.
  */
 function inferRawHeaders(headers: HeadersInit): RawHeaders {
   if (headers instanceof Headers) {

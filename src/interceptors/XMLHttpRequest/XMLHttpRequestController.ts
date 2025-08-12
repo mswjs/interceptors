@@ -602,7 +602,7 @@ export class XMLHttpRequestController {
     this.logger.info('set readyState to: %d', nextReadyState)
 
     if (nextReadyState !== this.request.UNSENT) {
-      this.logger.info('triggerring "readystatechange" event...')
+      this.logger.info('triggering "readystatechange" event...')
 
       this.trigger('readystatechange', this.request)
     }
