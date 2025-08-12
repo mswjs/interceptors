@@ -162,7 +162,7 @@ export class MockHttpSocket extends MockSocket {
 
   public destroy(error?: Error | undefined): this {
     // Destroy the response parser when the socket gets destroyed.
-    // Normally, we shoud listen to the "close" event but it
+    // Normally, we should listen to the "close" event but it
     // can be suppressed by using the "emitClose: false" option.
     this.responseParser.free()
 

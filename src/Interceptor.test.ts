@@ -100,7 +100,7 @@ describe('readyState', () => {
     expect(interceptor.readyState).toBe(InterceptorReadyState.INACTIVE)
   })
 
-  it('perfroms state transition when the interceptor is applying', async () => {
+  it('performs state transition when the interceptor is applying', async () => {
     const interceptor = new Interceptor(symbol)
     interceptor.apply()
 
@@ -109,7 +109,7 @@ describe('readyState', () => {
     expect(interceptor.readyState).toBe(InterceptorReadyState.APPLIED)
   })
 
-  it('perfroms state transition when disposing of the interceptor', async () => {
+  it('performs state transition when disposing of the interceptor', async () => {
     const interceptor = new Interceptor(symbol)
     interceptor.apply()
     interceptor.dispose()

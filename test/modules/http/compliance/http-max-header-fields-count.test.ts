@@ -19,7 +19,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('supports requests with more than default maxiumum header fields count', async () => {
+it('supports requests with more than default maximum header fields count', async () => {
   const requestHeadersPromise = new DeferredPromise<Headers>()
 
   interceptor.on('request', ({ request, controller }) => {

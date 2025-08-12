@@ -118,7 +118,7 @@ it('records raw headers (Request / Headers as init)', () => {
   expect(getRawFetchHeaders(request.headers)).toEqual([['X-My-Header', '1']])
 })
 
-it('records raw headers (Reqest / Request as init)', () => {
+it('records raw headers (Request / Request as init)', () => {
   recordRawFetchHeaders()
   const init = new Request(url, { headers: [['X-My-Header', '1']] })
   const request = new Request(init)
