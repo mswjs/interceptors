@@ -271,8 +271,6 @@ export class MockHttpSocket extends MockSocket {
       socket.destroy(error)
     })
 
-    this.address = socket.address.bind(socket)
-
     // Flush the buffered "socket.write()" calls onto
     // the original socket instance (i.e. write request body).
     // Exhaust the "requestBuffer" in case this Socket
@@ -373,6 +371,22 @@ export class MockHttpSocket extends MockSocket {
       .on('finish', () => this.emit('finish'))
       .on('close', (hadError) => this.emit('close', hadError))
       .on('end', () => this.emit('end'))
+  }
+
+  // If address is called on a passthrough socket before the original socket is set, it won't
+  // return anything. This can happen because sockets fire `connect` early to avoid a causing
+  // a deadlock with some HTTP clients that like to wait for `connect` or `secureConnect`
+  // before calling `write`.
+  public address(): net.AddressInfo | {} {
+    if (this.originalSocket) {
+      return this.originalSocket.address()
+    }
+
+    return {
+      address: this.connectionOptions.hostname || this.connectionOptions.host || '127.0.0.1',
+      family: this.connectionOptions.family === 6 ? 'IPv6' : 'IPv4',
+      port: this.connectionOptions.port || 80
+    }
   }
 
   /**
