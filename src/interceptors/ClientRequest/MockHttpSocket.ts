@@ -63,6 +63,7 @@ export class MockHttpSocket extends MockSocket {
   private shouldKeepAlive?: boolean
 
   private socketState: 'unknown' | 'mock' | 'passthrough' = 'unknown'
+  private hasEarlyConnect = false
   private responseParser: HTTPParser<1>
   private responseStream?: Readable
   private originalSocket?: net.Socket
@@ -160,6 +161,36 @@ export class MockHttpSocket extends MockSocket {
     return emitEvent()
   }
 
+  /**
+   * Override the 'once' method to detect when clients are waiting for connection events.
+   * This prevents deadlock when clients wait for 'secureConnect' before writing data.
+   */
+  public once(event: string | symbol, listener: Function): this {
+    // Handle connection events to prevent deadlock
+    if (this.connecting && this.socketState === 'unknown') {
+      if (event === 'secureConnect') {
+        // Schedule the emission for the next tick to allow the listener to be attached first
+        setImmediate(() => {
+          if (this.connecting && this.socketState === 'unknown' && !this.hasEarlyConnect) {
+            this.hasEarlyConnect = true
+            this.emit('secureConnect')
+          }
+        })
+      }
+
+      if (event === 'connect') {
+        // Schedule the emission for the next tick to allow the listener to be attached first
+        setImmediate(() => {
+          if (this.connecting && this.socketState === 'unknown' && !this.hasEarlyConnect) {
+            this.hasEarlyConnect = true
+            this.emit('connect')
+          }
+        })
+      }
+    }
+    return super.once(event as any, listener as any)
+  }
+
   public destroy(error?: Error | undefined): this {
     // Destroy the response parser when the socket gets destroyed.
     // Normally, we should listen to the "close" event but it
@@ -202,7 +233,7 @@ export class MockHttpSocket extends MockSocket {
     }
 
     // If the developer destroys the socket, destroy the original connection.
-    this.once('error', (error) => {
+    this.once('error', (error: Error) => {
       socket.destroy(error)
     })
 
@@ -275,9 +306,13 @@ export class MockHttpSocket extends MockSocket {
       .on('lookup', (...args) => this.emit('lookup', ...args))
       .on('connect', () => {
         this.connecting = socket.connecting
-        this.emit('connect')
+
+        // Don't re-emit 'connect' - already emitted in mockConnect()
+        if (!this.hasEarlyConnect) {
+          this.emit('connect')
+        }
       })
-      .on('secureConnect', () => this.emit('secureConnect'))
+      .on('secureConnect', () => this.hasEarlyConnect ? {} : this.emit('secureConnect'))
       .on('secure', () => this.emit('secure'))
       .on('session', (session) => this.emit('session', session))
       .on('ready', () => this.emit('ready'))
@@ -490,8 +525,8 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private onRequestStart: RequestHeadersCompleteCallback = (
-    versionMajor,
-    versionMinor,
+    _versionMajor,
+    _versionMinor,
     rawHeaders,
     _,
     path,
@@ -612,10 +647,10 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private onResponseStart: ResponseHeadersCompleteCallback = (
-    versionMajor,
-    versionMinor,
+    _versionMajor,
+    _versionMinor,
     rawHeaders,
-    method,
+    _method,
     url,
     status,
     statusText
