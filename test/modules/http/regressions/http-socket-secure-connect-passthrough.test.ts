@@ -74,7 +74,6 @@ it('emits "secureConnect" event for passthrough HTTPS requests when client waits
   // This is the critical pattern from Stripe SDK:
   // Wait for the socket and then wait for secureConnect before writing
   request.once('socket', (socket) => {
-    console.log('HTTPS test - socket received, connecting:', socket.connecting)
     expect(socket).toBeDefined()
     
     // The socket should indicate it's a TLS socket
@@ -82,17 +81,14 @@ it('emits "secureConnect" event for passthrough HTTPS requests when client waits
     expect(tlsSocket.encrypted).toBe(true)
     
     if (socket.connecting) {
-      console.log('HTTPS test - socket is connecting, waiting for secureConnect')
       // Client waits for secureConnect before writing data
       // This is where the bug occurs - secureConnect never fires for passthrough
       socket.once('secureConnect', () => {
-        console.log('HTTPS test - secureConnect received')
         secureConnectListener()
         request.write(requestData)
         request.end()
       })
     } else {
-      console.log('HTTPS test - socket already connected')
       // Socket is already connected
       secureConnectListener()
       request.write(requestData)

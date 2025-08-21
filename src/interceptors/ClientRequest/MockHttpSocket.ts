@@ -63,7 +63,8 @@ export class MockHttpSocket extends MockSocket {
   private shouldKeepAlive?: boolean
 
   private socketState: 'unknown' | 'mock' | 'passthrough' = 'unknown'
-  private hasEarlyConnect = false
+  private hasEmittedEarlyConnect = false
+  private hasEmittedEarlySecureConnect = false
   private responseParser: HTTPParser<1>
   private responseStream?: Readable
   private originalSocket?: net.Socket
@@ -160,32 +161,53 @@ export class MockHttpSocket extends MockSocket {
 
     return emitEvent()
   }
+  
 
   /**
    * Override the 'once' method to detect when clients are waiting for connection events.
    * This prevents deadlock when clients wait for 'secureConnect' before writing data.
    */
   public once(event: string | symbol, listener: Function): this {
-    // Handle connection events to prevent deadlock
+    // Handle connection events to prevent deadlock when clients wait for
+    // 'connect' or 'secureConnect' before writing data
     if (this.connecting && this.socketState === 'unknown') {
-      if (event === 'secureConnect') {
-        // Schedule the emission for the next tick to allow the listener to be attached first
-        setImmediate(() => {
-          if (this.connecting && this.socketState === 'unknown' && !this.hasEarlyConnect) {
-            this.hasEarlyConnect = true
-            this.emit('secureConnect')
-          }
-        })
-      }
-
-      if (event === 'connect') {
-        // Schedule the emission for the next tick to allow the listener to be attached first
-        setImmediate(() => {
-          if (this.connecting && this.socketState === 'unknown' && !this.hasEarlyConnect) {
-            this.hasEarlyConnect = true
-            this.emit('connect')
-          }
-        })
+      if (event === 'secureConnect' && this.baseUrl.protocol === 'https:' && !this.hasEmittedEarlySecureConnect) {
+        // Check if this is being called from Node.js internals (specifically Socket._read)
+        const stack = new Error().stack || ''
+        const isInternalCall = stack.includes('Socket._read')
+        
+        // Only set the flag and emit early if this is NOT an internal Node.js call
+        if (!isInternalCall) {
+          this.hasEmittedEarlySecureConnect = true
+          // Schedule the emission for the next tick to allow the listener to be attached first
+          setImmediate(() => {
+            if (this.socketState === 'unknown') {
+              this.connecting = false  // Mark as connected
+              // Emit connect first if not already emitted
+              if (!this.hasEmittedEarlyConnect) {
+                this.hasEmittedEarlyConnect = true
+                this.emit('connect')
+              }
+              this.emit('secureConnect')
+            }
+          })
+        }
+      } else if (event === 'connect' && !this.hasEmittedEarlyConnect) {
+        // Check if this is being called from Node.js internals (specifically Socket._read)
+        const stack = new Error().stack || ''
+        const isInternalCall = stack.includes('Socket._read')
+        
+        // Only set the flag and emit early if this is NOT an internal Node.js call
+        if (!isInternalCall) {
+          this.hasEmittedEarlyConnect = true
+          // Schedule the emission for the next tick to allow the listener to be attached first
+          setImmediate(() => {
+            if (this.socketState === 'unknown') {
+              this.connecting = false  // Mark as connected
+              this.emit('connect')
+            }
+          })
+        }
       }
     }
     return super.once(event as any, listener as any)
@@ -209,6 +231,13 @@ export class MockHttpSocket extends MockSocket {
    * its data/events through this Socket.
    */
   public passthrough(): void {
+    // If we scheduled an early connect event but haven't emitted it yet,
+    // emit it now before going to passthrough mode so Node.js can apply setTimeout
+    if (this.hasEmittedEarlyConnect && this.connecting) {
+      this.connecting = false
+      this.emit('connect')
+    }
+    
     this.socketState = 'passthrough'
 
     if (this.destroyed) {
@@ -217,6 +246,11 @@ export class MockHttpSocket extends MockSocket {
 
     const socket = this.createConnection()
     this.originalSocket = socket
+    
+    // If a timeout was set on this socket before passthrough, apply it to the original socket
+    if (this.timeout !== undefined && this.timeout > 0) {
+      socket.setTimeout(this.timeout)
+    }
 
     /**
      * @note Inherit the original socket's connection handle.
@@ -305,14 +339,20 @@ export class MockHttpSocket extends MockSocket {
     socket
       .on('lookup', (...args) => this.emit('lookup', ...args))
       .on('connect', () => {
+
         this.connecting = socket.connecting
 
-        // Don't re-emit 'connect' - already emitted in mockConnect()
-        if (!this.hasEarlyConnect) {
+        // Don't re-emit 'connect' if already emitted early
+        if (!this.hasEmittedEarlyConnect) {
           this.emit('connect')
         }
       })
-      .on('secureConnect', () => this.hasEarlyConnect ? {} : this.emit('secureConnect'))
+      .on('secureConnect', () => {
+        // Don't re-emit 'secureConnect' if already emitted early
+        if (!this.hasEmittedEarlySecureConnect) {
+          this.emit('secureConnect')
+        }
+      })
       .on('secure', () => this.emit('secure'))
       .on('session', (session) => this.emit('session', session))
       .on('ready', () => this.emit('ready'))
