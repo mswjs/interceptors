@@ -65,6 +65,7 @@ export class MockHttpSocket extends MockSocket {
   private socketState: 'unknown' | 'mock' | 'passthrough' = 'unknown'
   private hasEmittedEarlyConnect = false
   private hasEmittedEarlySecureConnect = false
+  private isInternalCall = false
   private responseParser: HTTPParser<1>
   private responseStream?: Readable
   private originalSocket?: net.Socket
@@ -151,6 +152,23 @@ export class MockHttpSocket extends MockSocket {
     }
   }
 
+  /**
+   * Override _read to track when Node.js internals are making calls.
+   * Without this, calls to `_read` on the socket will set up listeners
+   * to `connect` events which will never actually get called because
+   * `hasEmittedEarlyConnect` will skip emitting `connect` once we've
+   * detected that a user has tried listening to `connect` events before
+   * the socket was ready for it.
+   */
+  public _read(size: number): void {
+    this.isInternalCall = true
+    try {
+      super._read(size)
+    } finally {
+      this.isInternalCall = false
+    }
+  }
+
   public emit(event: string | symbol, ...args: any[]): boolean {
     const emitEvent = super.emit.bind(this, event as any, ...args)
 
@@ -165,19 +183,16 @@ export class MockHttpSocket extends MockSocket {
 
   /**
    * Override the 'once' method to detect when clients are waiting for connection events.
-   * This prevents deadlock when clients wait for 'secureConnect' before writing data.
+   * This prevents deadlock when clients wait for 'secureConnect' before writing data. Some
+   * HTTP clients like the Stripe SDK like to do this. Since the interceptor waits for
+   * `write` to be called before it knows if something is to be mocked or bypassed, this
+   * causes a deadlock because it'll never emit `secureConnect` until it knows.
    */
-  public once(event: string | symbol, listener: Function): this {
-    // Handle connection events to prevent deadlock when clients wait for
-    // 'connect' or 'secureConnect' before writing data
-    if (this.connecting && this.socketState === 'unknown') {
+  public once(event: string, listener: (...args: any[]) => void): this {
+    // Only emit early connection events for user code, not Node.js internals
+    // Node.js calls once('connect') from Socket._read which sets isInternalCall flag
+    if (!this.isInternalCall && this.connecting && this.socketState === 'unknown') {
       if (event === 'secureConnect' && this.baseUrl.protocol === 'https:' && !this.hasEmittedEarlySecureConnect) {
-        // Check if this is being called from Node.js internals (specifically Socket._read)
-        const stack = new Error().stack || ''
-        const isInternalCall = stack.includes('Socket._read')
-        
-        // Only set the flag and emit early if this is NOT an internal Node.js call
-        if (!isInternalCall) {
           this.hasEmittedEarlySecureConnect = true
           // Schedule the emission for the next tick to allow the listener to be attached first
           setImmediate(() => {
@@ -191,23 +206,15 @@ export class MockHttpSocket extends MockSocket {
               this.emit('secureConnect')
             }
           })
-        }
       } else if (event === 'connect' && !this.hasEmittedEarlyConnect) {
-        // Check if this is being called from Node.js internals (specifically Socket._read)
-        const stack = new Error().stack || ''
-        const isInternalCall = stack.includes('Socket._read')
-        
-        // Only set the flag and emit early if this is NOT an internal Node.js call
-        if (!isInternalCall) {
-          this.hasEmittedEarlyConnect = true
-          // Schedule the emission for the next tick to allow the listener to be attached first
-          setImmediate(() => {
-            if (this.socketState === 'unknown') {
-              this.connecting = false  // Mark as connected
-              this.emit('connect')
-            }
-          })
-        }
+        this.hasEmittedEarlyConnect = true
+        // Schedule the emission for the next tick to allow the listener to be attached first
+        setImmediate(() => {
+          if (this.socketState === 'unknown') {
+            this.connecting = false  // Mark as connected
+            this.emit('connect')
+          }
+        })
       }
     }
     return super.once(event as any, listener as any)
@@ -237,7 +244,7 @@ export class MockHttpSocket extends MockSocket {
       this.connecting = false
       this.emit('connect')
     }
-    
+
     this.socketState = 'passthrough'
 
     if (this.destroyed) {
