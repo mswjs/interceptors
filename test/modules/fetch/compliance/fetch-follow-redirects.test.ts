@@ -30,6 +30,7 @@ it('follows a bypassed redirect response', async () => {
   const response = await fetch(httpServer.http.url('/original'))
 
   expect(response.status).toBe(200)
+  expect(response.redirected).toBe(true)
   await expect(response.text()).resolves.toBe('redirected')
 })
 
@@ -45,6 +46,7 @@ it('follows a mocked redirect to the original server', async () => {
   const response = await fetch(httpServer.http.url('/original'))
 
   expect(response.status).toBe(200)
+  expect(response.redirected).toBe(true)
   await expect(response.text()).resolves.toBe('redirected')
 })
 
@@ -60,6 +62,7 @@ it('follows a mocked relative redirect to the original server', async () => {
   const response = await fetch(httpServer.http.url('/original'))
 
   expect(response.status).toBe(200)
+  expect(response.redirected).toBe(true)
   await expect(response.text()).resolves.toBe('redirected')
 })
 
@@ -79,6 +82,7 @@ it('follows a mocked redirect to a mocked response', async () => {
   const response = await fetch(httpServer.http.url('/original'))
 
   expect(response.status).toBe(200)
+  expect(response.redirected).toBe(true)
   await expect(response.text()).resolves.toBe('mocked response')
 })
 
@@ -96,6 +100,7 @@ it('returns the redirect response as-is for a request with "manual" redirect mod
   })
 
   expect(response.status).toBe(301)
+  expect(response.redirected).toBe(false)
   expect(response.headers.get('location')).toBe(
     httpServer.http.url('/redirected')
   )
