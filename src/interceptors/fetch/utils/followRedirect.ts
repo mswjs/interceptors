@@ -85,7 +85,13 @@ export async function followFetchRedirect(
    */
 
   requestInit.headers = request.headers
-  return fetch(new Request(locationUrl, requestInit))
+  const finalResponse = await fetch(new Request(locationUrl, requestInit))
+  Object.defineProperty(finalResponse, 'redirected', {
+    value: true,
+    configurable: true,
+  })
+
+  return finalResponse
 }
 
 /**
