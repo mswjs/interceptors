@@ -1,11 +1,7 @@
-/**
- * @vitest-environment node
- */
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+//  @vitest-environment node
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { httpGet } from '../../../helpers'
-import { sleep } from '../../../../test/helpers'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { httpGet, sleep } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (req, res) => {
@@ -14,7 +10,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -50,9 +46,9 @@ it('handles concurrent requests with different response sources', async () => {
     }),
   ])
 
-  expect(requests[0].res.statusCode).toEqual(201)
-  expect(requests[0].resBody).toEqual('mocked-response')
+  expect.soft(requests[0].res.statusCode).toBe(201)
+  expect.soft(requests[0].resBody).toBe('mocked-response')
 
-  expect(requests[1].res.statusCode).toEqual(200)
-  expect(requests[1].resBody).toEqual('original-response')
+  expect.soft(requests[1].res.statusCode).toBe(200)
+  expect.soft(requests[1].resBody).toBe('original-response')
 })

@@ -1,10 +1,7 @@
-/**
- * @vitest-environment node
- */
-import { it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment node
 import { HttpServer } from '@open-draft/test-server/http'
+import { HttpRequestInterceptor } from '../../../src/interceptors/http'
 import { httpGet, PromisifiedResponse, useCors } from '../../helpers'
-import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
 
 function arrayWith<V>(length: number, mapFn: (index: number) => V): V[] {
   return new Array(length).fill(null).map((_, index) => mapFn(index))
@@ -31,7 +28,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 interceptor.on('request', ({ request, controller }) => {
   const url = new URL(request.url)

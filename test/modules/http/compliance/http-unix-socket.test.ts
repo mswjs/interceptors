@@ -1,15 +1,12 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
-import { tmpdir } from 'node:os';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { tmpdir } from 'node:os'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
-import exp from 'node:constants';
+import exp from 'node:constants'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 const socketPath = tmpdir() + '/socket.sock'
 const httpServer = new http.Server((req, res) => {
@@ -64,6 +61,8 @@ describe('Unix socket', () => {
     const { text } = await waitForClientRequest(request)
 
     expect(await text()).toBe('hello world')
-    await expect(requestListenerPromise).resolves.toStrictEqual('http://localhost/test-get')
+    await expect(requestListenerPromise).resolves.toStrictEqual(
+      'http://localhost/test-get'
+    )
   })
 })
