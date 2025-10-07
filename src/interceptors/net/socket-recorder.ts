@@ -7,6 +7,7 @@ export interface SocketRecorder<T extends net.Socket> {
   replay: (newSocket: net.Socket) => void
   pause: () => void
   resume: () => void
+  free: () => void
 }
 
 export interface SocketRecorderEntry {
@@ -74,7 +75,9 @@ export function createSocketRecorder<T extends net.Socket>(
       ) {
         return new Proxy(target[property as keyof T] as Function, {
           apply(fn, thisArg, args) {
-            const defaultApply = () => fn.apply(thisArg, args)
+            const defaultApply = () => {
+              return fn.apply(thisArg, args)
+            }
 
             if (fn.name === 'destroy') {
               entries.length = 0
@@ -145,6 +148,9 @@ export function createSocketRecorder<T extends net.Socket>(
       for (const entry of entries) {
         entry.replay(newSocket)
       }
+      entries.length = 0
+    },
+    free() {
       entries.length = 0
     },
     pause() {

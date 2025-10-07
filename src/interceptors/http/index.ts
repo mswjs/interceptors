@@ -44,11 +44,15 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       restoreHeadersPrototype()
     })
 
-    socketInterceptor.on('connection', ({ options, socket }) => {
-      socket.runInternally(() => {
-        socket.once('write', (chunk, encoding) => {
-          const firstFrame = chunk.toString()
+    socketInterceptor.on(
+      'connection',
+      ({ options, socket, controller: socketController }) => {
+        socketController.once('write', (chunk, encoding) => {
+          if (!chunk) {
+            return
+          }
 
+          const firstFrame = chunk.toString()
           if (!firstFrame.includes('HTTP/')) {
             return
           }
@@ -74,12 +78,12 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
             },
             onRequest: async (request) => {
               const requestId = createRequestId()
-              const controller = new RequestController(request)
+              const requestController = new RequestController(request)
 
               const isRequestHandled = await handleRequest({
                 request,
                 requestId,
-                controller,
+                controller: requestController,
                 emitter: this.emitter,
                 onResponse: async (response) => {
                   if (this.emitter.listenerCount('response') > 0) {
@@ -102,6 +106,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   })
                 },
                 onRequestError: async (response) => {
+                  socketController.free()
+
                   await this.respondWith({
                     socket,
                     connectionOptions: options,
@@ -117,7 +123,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               })
 
               if (!isRequestHandled) {
-                const passthroughSocket = socket.passthrough()
+                const passthroughSocket = socketController.passthrough()
 
                 /**
                  * @note Creating a passthrough socket does NOT trigger the "onSocket" callback
@@ -166,17 +172,20 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
            * to wait for the HTTP message while the parser cannot write that message
            * because the stream is paused!
            */
-          socket
-            .on('write', (chunk, encoding) => {
-              if (chunk) {
-                requestParser.execute(toBuffer(chunk, encoding))
-              }
-            })
-            .on('finish', () => requestParser.free())
-            .on('error', () => requestParser.free())
+          socketController.on('write', (chunk, encoding) => {
+            if (chunk) {
+              requestParser.execute(toBuffer(chunk, encoding))
+            }
+          })
+
+          socketController.runInternally((socket) => {
+            socket
+              .on('finish', () => requestParser.free())
+              .on('error', () => requestParser.free())
+          })
         })
-      })
-    })
+      }
+    )
   }
 
   /**
@@ -210,14 +219,21 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     socket.emit('connect')
     socket.emit('ready')
 
-    if (connectionOptions.protocol === 'https:') {
-      socket.emit('secure')
-      socket.emit('secureConnect')
-      socket.emit(
-        'session',
-        connectionOptions.session || Buffer.from('mock-session-renegotiate')
-      )
-      socket.emit('session', Buffer.from('mock-session-resume'))
+    if ('encrypted' in socket && socket.encrypted) {
+      /**
+       * @note Since we preserve the TLS wrap, we only have to emit
+       * the events that the wrap expects. We don't need to emit TLS
+       * events, like "secureConnect" or "session". Node.js will do that for us.
+       * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/internal/tls/wrap.js#L1667
+       */
+      /**
+       * @fixme `socket` here is the TLSSocket!
+       * It expects "connect" to be emitted by the underlying socket (tlsSocket._parent).
+       * Since it never does and we write the response and close the stream,
+       * TLS wrap errors.
+       * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/internal/tls/wrap.js#L1776
+       */
+      // socket.emit('secure') <-- THIS IS THE WRONG SOCKET TO EMIT THIS ON.
     }
   }
 
@@ -238,15 +254,20 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       return
     }
 
+    // Establish a mocked socket connection.
+    // Prior to this point, the socket has been pending.
+    /**
+     * @fixme Why connect again? The socket MUST connect immmediately
+     * because the clients might write into it only AFTER connecting.
+     * Why connect twice for mock scenario?
+     */
+    // this.mockConnect(socket, connectionOptions)
+
     // Handle `Response.error()` instances.
     if (isResponseError(response)) {
       socket.destroy(new TypeError('Network error'))
       return
     }
-
-    // Establish a mocked socket connection.
-    // Prior to this point, the socket has been pending.
-    this.mockConnect(socket, connectionOptions)
 
     /**
      * @note Import the "node:http" module lazily so it doesn't create a stale closure
@@ -257,9 +278,11 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       'node:http'
     )
 
+    // @ts-expect-error Node.js internals.
+    const socketParser = socket.parser
+
     // Construct a regular server response to delegate body parsing to Node.js.
     const serverResponse = new ServerResponse(new IncomingMessage(socket))
-
     serverResponse.assignSocket(
       /**
        * @note Provide a dummy stream to the server response to translate all its writes
@@ -273,6 +296,16 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         },
       }) as net.Socket
     )
+
+    /**
+     * @note A hacky way to preserve the socket-parser association set
+     * on the original socket. Creating `ServerResponse` rewrites that
+     * association, resulting in the "socketOnData" callback failing the
+     * socket identity check:
+     * @see https://github.com/nodejs/node/blob/a73b575304722a3682fbec3a5fb13b39c5791342/lib/_http_client.js#L612
+     * @see https://github.com/nodejs/node/blob/a73b575304722a3682fbec3a5fb13b39c5791342/lib/_http_server.js#L713
+     */
+    socketParser.socket = socket
 
     /**
      * @note Remove the `Connection` and `Date` response headers
@@ -314,6 +347,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           serverResponse.write(value)
         }
       } catch (error) {
+        console.log('response stream error:', error)
+
         if (error instanceof Error) {
           /**
            * Destroy the socket if the response stream errored.

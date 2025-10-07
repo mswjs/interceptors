@@ -1,18 +1,28 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import { Interceptor } from '../../Interceptor'
-import { MockSocket } from './mock-socket'
+import {
+  MockSocket,
+  MockTlsSocket,
+  SocketController,
+  DuplexStreamProxy,
+} from './mock-socket'
 import {
   normalizeNetConnectArgs,
   type NetConnectArgs,
   type NetworkConnectionOptions,
 } from './utils/normalize-net-connect-args'
+import {
+  normalizeTlsConnectArgs,
+  TlsConnectArgs,
+} from './utils/normalize-tls-connect-args.test'
 
 export interface SocketConnectionEventMap {
   connection: [
     args: {
       socket: MockSocket
       options: NetworkConnectionOptions
+      controller: SocketController<net.Socket>
     }
   ]
 }
@@ -84,69 +94,119 @@ export class SocketInterceptor extends Interceptor<SocketConnectionEventMap> {
   }
 
   protected setup(): void {
-    const originalNetConnect = Reflect.get(net.connect, kOriginalValue)
+    const originalNetConnect = Reflect.get(
+      net.connect,
+      kOriginalValue
+    ) as typeof net.connect
+
     this.subscriptions.push(() => {
       Reflect.set(net.connect, kImplementation, originalNetConnect)
     })
 
-    Reflect.set(net.connect, kImplementation, (...args: Array<unknown>) => {
-      const [options, connectionCallback] = normalizeNetConnectArgs(
-        args as NetConnectArgs
-      )
+    Reflect.set(
+      net.connect,
+      kImplementation,
+      (...args: [any, any]): net.Socket => {
+        const [options, connectionCallback] = normalizeNetConnectArgs(
+          args as NetConnectArgs
+        )
 
-      const socket = new MockSocket({
-        ...args,
-        connectionCallback,
-        createConnection() {
-          return originalNetConnect(...args)
-        },
-      })
-
-      /**
-       * @note Do NOT call `socket.connect()` here.
-       * Instead, keep the socket connection pending and delegate the actual
-       * connect to the user. Calling `.connect()` on a mock socket is handy
-       * for simulating a successful connection. Calling `.passthrough()` will
-       * tap into the unpatched `net.connect()`, which will call `socket.connect()`.
-       */
-
-      process.nextTick(() => {
-        this.emitter.emit('connection', {
-          options,
-          socket,
+        const socket = new MockSocket({
+          ...args,
+          connectionCallback,
         })
-      })
 
-      return socket
-    })
+        const controller = new SocketController({
+          socket: socket,
+          proxy: new DuplexStreamProxy(socket),
+          createConnection() {
+            return originalNetConnect(...args)
+          },
+        })
 
-    const originalTlsConnect = Reflect.get(tls.connect, kOriginalValue)
+        /**
+         * @note Do NOT call `socket.connect()` here.
+         * Instead, keep the socket connection pending and delegate the actual
+         * connect to the user. Calling `.connect()` on a mock socket is handy
+         * for simulating a successful connection. Calling `.passthrough()` will
+         * tap into the unpatched `net.connect()`, which will call `socket.connect()`.
+         */
+
+        process.nextTick(() => {
+          this.emitter.emit('connection', {
+            options,
+            socket,
+            controller,
+          })
+        })
+
+        return controller.socket
+      }
+    )
+
+    const originalTlsConnect = Reflect.get(
+      tls.connect,
+      kOriginalValue
+    ) as typeof tls.connect
+
     this.subscriptions.push(() => {
       Reflect.set(tls.connect, kImplementation, originalTlsConnect)
     })
 
-    Reflect.set(tls.connect, kImplementation, (...args: Array<unknown>) => {
-      const [options, connectionCallback] = normalizeNetConnectArgs(
-        args as NetConnectArgs
-      )
-      options.secure = true
+    Reflect.set(
+      tls.connect,
+      kImplementation,
+      (...args: [any, any]): tls.TLSSocket => {
+        const [tlsOptions, secureConnectionListener] = normalizeTlsConnectArgs(
+          args as TlsConnectArgs
+        )
 
-      const socket = new MockSocket({
-        ...args,
-        connectionCallback,
-        createConnection() {
-          return originalTlsConnect(...args)
-        },
-      })
+        /**
+         * @fixme Ignore TLS sockets where `options.isServer` is `true`.
+         * Those are constructed for server responses and we shouldn't touch them.
+         */
 
-      process.nextTick(() => {
-        this.emitter.emit('connection', {
-          options,
-          socket,
+        /**
+         * Call the original `tls.connect()` to initialize the wrap
+         * around the underlying `MockSocket`. No need to manage TLS manually.
+         * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/internal/tls/wrap.js#L1695
+         */
+
+        const socket = new MockSocket({
+          ...tlsOptions,
+          secure: true,
         })
-      })
+        const tlsSocket = new MockTlsSocket(
+          socket,
+          tlsOptions,
+          secureConnectionListener
+        )
 
-      return socket
-    })
+        const controller = new SocketController({
+          socket: tlsSocket,
+          // Proxy the TLS socket because:
+          // - a TLS socket is not guaranteed to have an underlying socket (may use "_handle").
+          // - the client calls write/end on the TLS socket, not the underlying socket.
+          proxy: new DuplexStreamProxy(tlsSocket),
+          createConnection() {
+            return originalTlsConnect(...args)
+          },
+        })
+
+        process.nextTick(() => {
+          this.emitter.emit('connection', {
+            /**
+             * @fixme Can we guarantee these options will have "protocol"
+             * and such? Dunno, dunno.
+             */
+            options: tlsOptions,
+            socket: tlsSocket,
+            controller,
+          })
+        })
+
+        return controller.socket
+      }
+    )
   }
 }

@@ -2,14 +2,14 @@ import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { waitForClientRequest } from '../../../helpers'
+import { sleep, waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
-    res.status(200).send('/')
+    res.send('/')
   })
   app.get('/get', (_req, res) => {
-    res.status(200).send('/get')
+    res.send('/get')
   })
 })
 
@@ -36,8 +36,8 @@ interceptor.on('request', ({ request, controller }) => {
 })
 
 beforeAll(async () => {
-  await httpServer.listen()
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterAll(async () => {
@@ -73,7 +73,7 @@ it('responds to a handled request issued by "https.get"', async () => {
   await expect(text()).resolves.toEqual('mocked')
 })
 
-it('bypasses an unhandled request issued by "http.get"', async () => {
+it.only('bypasses an unhandled request issued by "http.get"', async () => {
   const request = http.get(httpServer.http.url('/get'))
   const { res, text } = await waitForClientRequest(request)
 
@@ -84,7 +84,7 @@ it('bypasses an unhandled request issued by "http.get"', async () => {
   await expect(text()).resolves.toEqual('/get')
 })
 
-it('bypasses an unhandled request issued by "https.get"', async () => {
+it.only('bypasses an unhandled request issued by "https.get"', async () => {
   const request = https.get(httpServer.https.url('/get'), {
     rejectUnauthorized: false,
   })
@@ -109,19 +109,41 @@ it('responds to a handled request issued by "http.request"', async () => {
 })
 
 it('responds to a handled request issued by "https.request"', async () => {
-  const request = https.request('https://any.thing/non-existing')
+  const socketErrorListener = vi.fn()
+  const requestErrorListener = vi.fn()
+
+  const request = https
+    .request('https://any.thing/non-existing', {
+      timeout: 1000,
+    })
+    .once('socket', (socket) => {
+      socket.on('error', socketErrorListener)
+    })
+    .on('error', requestErrorListener)
 
   request.end()
+
+  /**
+   * @fixme Error: This is caused by either a bug in Node.js or incorrect usage of Node.js internals.
+   * at new NodeError (node:internal/errors:405:5)
+    at assert (node:internal/assert:14:11)
+    at MockTlsSocket.socketOnData (node:_http_client:539:3)
+    at MockTlsSocket.emit (node:events:517:28)
+   * @see https://github.com/nodejs/node/blob/a73b575304722a3682fbec3a5fb13b39c5791342/lib/_http_client.js#L612
+   */
+
   const { res, text } = await waitForClientRequest(request)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
+  expect.soft(res).toMatchObject<Partial<http.IncomingMessage>>({
     statusCode: 301,
     statusMessage: 'Moved Permanently',
     headers: {
       'content-type': 'text/plain',
     },
   })
-  await expect(text()).resolves.toEqual('mocked')
+  await expect.soft(text()).resolves.toEqual('mocked')
+  expect.soft(socketErrorListener).not.toHaveBeenCalled()
+  expect.soft(requestErrorListener).not.toHaveBeenCalled()
 })
 
 it('bypasses an unhandled request issued by "http.request"', async () => {

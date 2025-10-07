@@ -10,7 +10,7 @@
     "removeComments": false,
     "esModuleInterop": true,
     "downlevelIteration": true,
-    "lib": ["dom", "dom.iterable", "ES2018.AsyncGenerator"],
+    "lib": ["dom", "dom.iterable", "ES2022.Error", "ES2018.AsyncGenerator"],
     "types": ["@types/node", "vitest/globals"],
     "baseUrl": ".",
     "paths": {
