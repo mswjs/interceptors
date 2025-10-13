@@ -8,6 +8,7 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
 import { getWsUrl } from '../utils/getWsUrl'
+import { sleep } from '../../../helpers'
 
 const wsServer = new WebSocketServer({
   host: '127.0.0.1',
@@ -21,6 +22,7 @@ beforeAll(() => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   interceptor.removeAllListeners()
   wsServer.removeAllListeners()
   wsServer.clients.forEach((client) => client.close())
@@ -243,6 +245,79 @@ it('emits "error" event on passthrough client connection failure', async () => {
    * if the handshake receives a network error (or non-101 response).
    */
   expect(closeListener).toHaveBeenCalledOnce()
+})
+
+it('allows erroring the connection in a synchronous listener', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+
+  interceptor.once('connection', () => {
+    throw new Error('mock error')
+  })
+
+  const ws = new WebSocket('wss://localhost/non-existing-url')
+
+  const openListener = vi.fn()
+  const errorListener = vi.fn()
+  const closeListener = vi.fn()
+  ws.onopen = openListener
+  ws.onerror = errorListener
+  ws.onclose = closeListener
+
+  await expect.poll(() => errorListener).toHaveBeenCalledTimes(1)
+  expect(errorListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      type: 'error',
+    })
+  )
+
+  await expect.poll(() => ws.readyState).toBe(ws.CLOSED)
+  expect(openListener).not.toHaveBeenCalled()
+  expect(closeListener).toHaveBeenCalledOnce()
+  expect(closeListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      type: 'close',
+      code: 1011,
+      reason: 'mock error',
+    })
+  )
+})
+
+it('allows erroring the connection from an asynchronous listener', async ({
+  onTestFinished,
+}) => {
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+
+  interceptor.once('connection', async () => {
+    await sleep(200)
+    throw new Error('mock error')
+  })
+
+  const ws = new WebSocket('wss://localhost/non-existing-url')
+
+  const openListener = vi.fn()
+  const errorListener = vi.fn()
+  const closeListener = vi.fn()
+  ws.onopen = openListener
+  ws.onerror = errorListener
+  ws.onclose = closeListener
+
+  await expect.poll(() => errorListener).toHaveBeenCalledTimes(1)
+  expect(errorListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      type: 'error',
+    })
+  )
+
+  await expect.poll(() => ws.readyState).toBe(ws.CLOSED)
+  expect(openListener).not.toHaveBeenCalled()
+  expect(closeListener).toHaveBeenCalledOnce()
+  expect(closeListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      type: 'close',
+      code: 1011,
+      reason: 'mock error',
+    })
+  )
 })
 
 it('does not emit "error" event on mocked error code closures', async () => {
