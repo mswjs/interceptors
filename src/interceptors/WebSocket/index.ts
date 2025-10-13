@@ -17,6 +17,7 @@ import {
 } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
+import { emitAsync } from '../../utils/emitAsync'
 
 export { type WebSocketData, WebSocketTransport } from './WebSocketTransport'
 export {
@@ -102,7 +103,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
         // Emit the "connection" event to the interceptor on the next tick
         // so the client can modify WebSocket options, like "binaryType"
         // while the connection is already pending.
-        queueMicrotask(() => {
+        queueMicrotask(async () => {
           try {
             const server = new WebSocketServerConnection(
               socket,
@@ -110,10 +111,13 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
               createConnection
             )
 
+            const hasConnectionListeners =
+              this.emitter.listenerCount('connection') > 0
+
             // The "globalThis.WebSocket" class stands for
             // the client-side connection. Assume it's established
             // as soon as the WebSocket instance is constructed.
-            const hasConnectionListeners = this.emitter.emit('connection', {
+            await emitAsync(this.emitter, 'connection', {
               client: new WebSocketClientConnection(socket, transport),
               server,
               info: {
