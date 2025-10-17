@@ -12,7 +12,7 @@ mkdir -p "$NOCK_DIR"
 
 echo "Cloning at $NOCK_DIR..."
 cd "$NOCK_DIR"
-git clone git@github.com:nock/nock.git .
+git clone https://github.com/nock/nock.git .
 
 echo "Installing dependencies..."
 npm ci
