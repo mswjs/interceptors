@@ -6,6 +6,7 @@ import { Page } from '@playwright/test'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
 import { RequestHandler } from 'express'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 
 export const REQUEST_ID_REGEXP = /^\w{9,}$/
 
@@ -234,7 +235,7 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
         Record<string, string> | undefined,
         string | undefined,
         boolean | undefined,
-        boolean
+        boolean,
       ]
     >(
       (args) => {
