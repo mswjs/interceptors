@@ -1,13 +1,10 @@
-/**
- * @vitest-environment node
- */
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+// @vitest-environment node
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import https from 'node:https'
-import type { TLSSocket } from 'node:tls'
+import { TLSSocket } from 'node:tls'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -23,7 +20,7 @@ afterAll(() => {
 
 it('emits a correct TLS Socket instance for a handled HTTPS request', async () => {
   interceptor.on('request', ({ controller }) => {
-    controller.respondWith(new Response('hello world'))
+    controller.respondWith(new Response())
   })
 
   const request = https.get('https://example.com')
@@ -32,15 +29,15 @@ it('emits a correct TLS Socket instance for a handled HTTPS request', async () =
 
   const socket = await socketPromise
 
-  // Must be a TLS socket.
-  expect(socket.encrypted).toBe(true)
-  // The server certificate wasn't signed by one of the CA
-  // specified in the Socket constructor.
-  expect(socket.authorized).toBe(false)
+  expect.soft(socket).toBeInstanceOf(TLSSocket)
 
-  expect(socket.getSession()).toBeUndefined()
-  expect(socket.getProtocol()).toBe('TLSv1.3')
-  expect(socket.isSessionReused()).toBe(false)
+  // Must be a TLS socket.
+  expect.soft(socket.encrypted).toBe(true)
+  expect.soft(socket.authorized, 'Must not have signed certificate').toBe(false)
+
+  expect.soft(socket.getSession()).toBeUndefined()
+  expect.soft(socket.getProtocol()).toBe('TLSv1.3')
+  expect.soft(socket.isSessionReused()).toBe(false)
 })
 
 it('emits a correct TLS Socket instance for a bypassed HTTPS request', async () => {
@@ -50,13 +47,12 @@ it('emits a correct TLS Socket instance for a bypassed HTTPS request', async () 
 
   const socket = await socketPromise
 
-  // Must be a TLS socket.
-  expect(socket.encrypted).toBe(true)
-  // The server certificate wasn't signed by one of the CA
-  // specified in the Socket constructor.
-  expect(socket.authorized).toBe(false)
+  expect.soft(socket).toBeInstanceOf(TLSSocket)
 
-  expect(socket.getSession()).toBeUndefined()
-  expect(socket.getProtocol()).toBe('TLSv1.3')
-  expect(socket.isSessionReused()).toBe(false)
+  expect.soft(socket.encrypted).toBe(true)
+  expect.soft(socket.authorized, 'Must not have signed certificate').toBe(false)
+
+  expect.soft(socket.getSession()).toBeUndefined()
+  expect.soft(socket.getProtocol()).toBe('TLSv1.3')
+  expect.soft(socket.isSessionReused()).toBe(false)
 })
