@@ -21,7 +21,8 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const requestListener = vi.fn<HttpRequestEventMap['request']>()
+const requestListener =
+  vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',

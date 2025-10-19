@@ -330,26 +330,6 @@ it('handles [PartialRequestOptions, callback] input', () => {
   expect(callback?.name).toEqual('cb')
 })
 
-it('sets fallback Agent based on the URL protocol', () => {
-  const [url, options] = normalizeClientRequestArgs('https:', [
-    'https://github.com',
-  ])
-  const agent = options.agent as HttpsAgent
-
-  expect(agent).toBeInstanceOf(HttpsAgent)
-  expect(agent).toHaveProperty('defaultPort', 443)
-  expect(agent).toHaveProperty('protocol', url.protocol)
-})
-
-it('does not set any fallback Agent given "agent: false" option', () => {
-  const [, options] = normalizeClientRequestArgs('https:', [
-    'https://github.com',
-    { agent: false },
-  ])
-
-  expect(options.agent).toEqual(false)
-})
-
 it('sets the default Agent for HTTP request', () => {
   const [, options] = normalizeClientRequestArgs('http:', [
     'http://github.com',

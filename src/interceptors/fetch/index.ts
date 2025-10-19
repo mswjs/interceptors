@@ -1,4 +1,5 @@
 import { invariant } from 'outvariant'
+import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
@@ -12,6 +13,8 @@ import { followFetchRedirect } from './utils/followRedirect'
 import { decompressResponse } from './utils/decompression'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { FetchResponse } from '../../utils/fetchUtils'
+import { setRawRequest } from '../../getRawRequest'
+import { isResponseError } from '../../utils/responseUtils'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -45,27 +48,67 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         typeof input === 'string' &&
         typeof location !== 'undefined' &&
         !canParseUrl(input)
-          ? new URL(input, location.origin)
+          ? new URL(input, location.href)
           : input
 
       const request = new Request(resolvedInput, init)
+
+      /**
+       * @note Set the raw request only if a Request instance was provided to fetch.
+       */
+      if (input instanceof Request) {
+        setRawRequest(request, input)
+      }
+
       const responsePromise = new DeferredPromise<Response>()
-      const controller = new RequestController(request)
 
-      this.logger.info('[%s] %s', request.method, request.url)
-      this.logger.info('awaiting for the mocked response...')
+      const controller = new RequestController(request, {
+        passthrough: async () => {
+          this.logger.info('request has not been handled, passthrough...')
 
-      this.logger.info(
-        'emitting the "request" event for %s listener(s)...',
-        this.emitter.listenerCount('request')
-      )
+          /**
+           * @note Clone the request instance right before performing it.
+           * This preserves any modifications made to the intercepted request
+           * in the "request" listener. This also allows the user to read the
+           * request body in the "response" listener (otherwise "unusable").
+           */
+          const requestCloneForResponseEvent = request.clone()
 
-      const isRequestHandled = await handleRequest({
-        request,
-        requestId,
-        emitter: this.emitter,
-        controller,
-        onResponse: async (rawResponse) => {
+          // Perform the intercepted request as-is.
+          const { error: responseError, data: originalResponse } = await until(
+            () => pureFetch(request)
+          )
+
+          if (responseError) {
+            return responsePromise.reject(responseError)
+          }
+
+          this.logger.info('original fetch performed', originalResponse)
+
+          if (this.emitter.listenerCount('response') > 0) {
+            this.logger.info('emitting the "response" event...')
+
+            const responseClone = originalResponse.clone()
+            await emitAsync(this.emitter, 'response', {
+              response: responseClone,
+              isMockedResponse: false,
+              request: requestCloneForResponseEvent,
+              requestId,
+            })
+          }
+
+          // Resolve the response promise with the original response
+          // since the `fetch()` return this internal promise.
+          responsePromise.resolve(originalResponse)
+        },
+        respondWith: async (rawResponse) => {
+          // Handle mocked `Response.error()` (i.e. request errors).
+          if (isResponseError(rawResponse)) {
+            this.logger.info('request has errored!', { response: rawResponse })
+            responsePromise.reject(createNetworkError(rawResponse))
+            return
+          }
+
           this.logger.info('received mocked response!', {
             rawResponse,
           })
@@ -125,43 +168,28 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           responsePromise.resolve(response)
         },
-        onRequestError: (response) => {
-          this.logger.info('request has errored!', { response })
-          responsePromise.reject(createNetworkError(response))
-        },
-        onError: (error) => {
-          this.logger.info('request has been aborted!', { error })
-          responsePromise.reject(error)
+        errorWith: (reason) => {
+          this.logger.info('request has been aborted!', { reason })
+          responsePromise.reject(reason)
         },
       })
 
-      if (isRequestHandled) {
-        this.logger.info('request has been handled, returning mock promise...')
-        return responsePromise
-      }
+      this.logger.info('[%s] %s', request.method, request.url)
+      this.logger.info('awaiting for the mocked response...')
 
       this.logger.info(
-        'no mocked response received, performing request as-is...'
+        'emitting the "request" event for %s listener(s)...',
+        this.emitter.listenerCount('request')
       )
 
-      return pureFetch(request).then(async (response) => {
-        this.logger.info('original fetch performed', response)
-
-        if (this.emitter.listenerCount('response') > 0) {
-          this.logger.info('emitting the "response" event...')
-
-          const responseClone = response.clone()
-
-          await emitAsync(this.emitter, 'response', {
-            response: responseClone,
-            isMockedResponse: false,
-            request,
-            requestId,
-          })
-        }
-
-        return response
+      await handleRequest({
+        request,
+        requestId,
+        emitter: this.emitter,
+        controller,
       })
+
+      return responsePromise
     }
 
     Object.defineProperty(globalThis.fetch, IS_PATCHED_MODULE, {

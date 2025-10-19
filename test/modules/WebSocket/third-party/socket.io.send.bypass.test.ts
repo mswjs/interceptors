@@ -44,7 +44,7 @@ function getHttpServerHost(server: http.Server): string {
 }
 
 it('bypasses sending text', async () => {
-  const serverReceiver = vi.fn<[data: string]>()
+  const serverReceiver = vi.fn<(data: string) => void>()
 
   wss.on('connection', (socket) => {
     socket.on('message', (data) => {
@@ -65,7 +65,7 @@ it('bypasses sending text', async () => {
 })
 
 it('bypasses sending buffer', async () => {
-  const serverReceiver = vi.fn<[data: string]>()
+  const serverReceiver = vi.fn<(data: string) => void>()
 
   wss.on('connection', (socket) => {
     socket.on('message', (data) => {
@@ -86,7 +86,7 @@ it('bypasses sending buffer', async () => {
 })
 
 it('bypasses emitting event without payload', async () => {
-  const serverReceiver = vi.fn<[data: string]>()
+  const serverReceiver = vi.fn<(data: string) => void>()
 
   wss.on('connection', (socket) => {
     socket.on('hello', (data) => {
@@ -107,7 +107,7 @@ it('bypasses emitting event without payload', async () => {
 })
 
 it('bypasses emitting event with text payload', async () => {
-  const serverReceiver = vi.fn<[data: string]>()
+  const serverReceiver = vi.fn<(data: string) => void>()
 
   wss.on('connection', (socket) => {
     socket.on('hello', (data) => {
@@ -128,7 +128,7 @@ it('bypasses emitting event with text payload', async () => {
 })
 
 it('bypasses emitting event with buffer payload', async () => {
-  const serverReceiver = vi.fn<[data: string]>()
+  const serverReceiver = vi.fn<(data: string) => void>()
 
   wss.on('connection', (socket) => {
     socket.on('hello', (data) => {
@@ -149,7 +149,7 @@ it('bypasses emitting event with buffer payload', async () => {
 })
 
 it('bypasses emitting event with flat object payload', async () => {
-  const serverReceiver = vi.fn<[data: string]>()
+  const serverReceiver = vi.fn<(data: string) => void>()
 
   wss.on('connection', (socket) => {
     socket.on('hello', (data) => {
@@ -170,7 +170,7 @@ it('bypasses emitting event with flat object payload', async () => {
 })
 
 it('bypasses emitting event with deep object payload', async () => {
-  const serverReceiver = vi.fn<[data: string]>()
+  const serverReceiver = vi.fn<(data: string) => void>()
 
   wss.on('connection', (socket) => {
     socket.on('hello', (data) => {

@@ -19,7 +19,7 @@ afterAll(() => {
 })
 
 it('dispatches the connection even when the client "readyState" is OPEN', async () => {
-  const readyStateListener = vi.fn<[number]>()
+  const readyStateListener = vi.fn<(input: number) => void>()
 
   interceptor.on('connection', ({ client }) => {
     // CONNECTING.
@@ -46,7 +46,7 @@ it('dispatches the connection even when the client "readyState" is OPEN', async 
 })
 
 it('updates "readyState" correctly when closing the connection in the interceptor', async () => {
-  const readyStateListener = vi.fn<[number]>()
+  const readyStateListener = vi.fn<(input: number) => void>()
 
   interceptor.on('connection', ({ client }) => {
     // CONNECTING.

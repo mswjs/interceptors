@@ -48,8 +48,8 @@ it('aborts unsent request when the original request is aborted', async () => {
   controller.abort()
   const abortError = await abortErrorPromise
 
-  expect(abortError.name).toBe('AbortError')
-  expect(abortError.message).toBe('This operation was aborted')
+  expect.soft(abortError.name).toBe('AbortError')
+  expect.soft(abortError.message).toBe('This operation was aborted')
 })
 
 it('aborts a pending request when the original request is aborted', async () => {
@@ -141,6 +141,6 @@ it('respects requests aborted before they are dispatched', async () => {
     (error) => error
   )
 
-  expect(abortError.name).toBe('AbortError')
-  expect(abortError.message).toBe('This operation was aborted')
+  expect.soft(abortError.name).toBe('AbortError')
+  expect.soft(abortError.message).toBe('This operation was aborted')
 })

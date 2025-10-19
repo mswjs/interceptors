@@ -1,5 +1,6 @@
 import net from 'node:net'
 import {
+  type HeadersCallback,
   HTTPParser,
   type RequestHeadersCompleteCallback,
   type ResponseHeadersCompleteCallback,
@@ -12,11 +13,12 @@ import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
-import { parseRawHeaders } from '../Socket/utils/parseRawHeaders'
 import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
+import { setRawRequest } from '../../getRawRequest'
+import { setRawRequestBodyStream } from '../../utils/node'
 
 type HttpConnectionOptions = any
 
@@ -52,6 +54,8 @@ export class MockHttpSocket extends MockSocket {
   private onResponse: MockHttpSocketResponseCallback
   private responseListenersPromise?: Promise<void>
 
+  private requestRawHeadersBuffer: Array<string> = []
+  private responseRawHeadersBuffer: Array<string> = []
   private writeBuffer: Array<NormalizedSocketWriteArgs> = []
   private request?: Request
   private requestParser: HTTPParser<0>
@@ -112,6 +116,7 @@ export class MockHttpSocket extends MockSocket {
     // Request parser.
     this.requestParser = new HTTPParser()
     this.requestParser.initialize(HTTPParser.REQUEST, {})
+    this.requestParser[HTTPParser.kOnHeaders] = this.onRequestHeaders.bind(this)
     this.requestParser[HTTPParser.kOnHeadersComplete] =
       this.onRequestStart.bind(this)
     this.requestParser[HTTPParser.kOnBody] = this.onRequestBody.bind(this)
@@ -121,6 +126,8 @@ export class MockHttpSocket extends MockSocket {
     // Response parser.
     this.responseParser = new HTTPParser()
     this.responseParser.initialize(HTTPParser.RESPONSE, {})
+    this.responseParser[HTTPParser.kOnHeaders] =
+      this.onResponseHeaders.bind(this)
     this.responseParser[HTTPParser.kOnHeadersComplete] =
       this.onResponseStart.bind(this)
     this.responseParser[HTTPParser.kOnBody] = this.onResponseBody.bind(this)
@@ -156,7 +163,7 @@ export class MockHttpSocket extends MockSocket {
 
   public destroy(error?: Error | undefined): this {
     // Destroy the response parser when the socket gets destroyed.
-    // Normally, we shoud listen to the "close" event but it
+    // Normally, we should listen to the "close" event but it
     // can be suppressed by using the "emitClose: false" option.
     this.responseParser.free()
 
@@ -180,6 +187,20 @@ export class MockHttpSocket extends MockSocket {
 
     const socket = this.createConnection()
     this.originalSocket = socket
+
+    /**
+     * @note Inherit the original socket's connection handle.
+     * Without this, each push to the mock socket results in a
+     * new "connection" listener being added (i.e. buffering pushes).
+     * @see https://github.com/nodejs/node/blob/b18153598b25485ce4f54d0c5cb830a9457691ee/lib/net.js#L734
+     */
+    if ('_handle' in socket) {
+      Object.defineProperty(this, '_handle', {
+        value: socket._handle,
+        enumerable: true,
+        writable: true,
+      })
+    }
 
     // If the developer destroys the socket, destroy the original connection.
     this.once('error', (error) => {
@@ -292,6 +313,16 @@ export class MockHttpSocket extends MockSocket {
       return
     }
 
+    // Prevent recursive calls.
+    invariant(
+      this.socketState !== 'mock',
+      '[MockHttpSocket] Failed to respond to the "%s %s" request with "%s %s": the request has already been handled',
+      this.request?.method,
+      this.request?.url,
+      response.status,
+      response.statusText
+    )
+
     // Handle "type: error" responses.
     if (isPropertyAccessible(response, 'type') && response.type === 'error') {
       this.errorWith(new TypeError('Network error'))
@@ -374,9 +405,18 @@ export class MockHttpSocket extends MockSocket {
           serverResponse.write(value)
         }
       } catch (error) {
-        // Coerce response stream errors to 500 responses.
-        this.respondWith(createServerErrorResponse(error))
-        return
+        if (error instanceof Error) {
+          serverResponse.destroy()
+          /**
+           * @note Destroy the request socket gracefully.
+           * Response stream errors do NOT produce request errors.
+           */
+          this.destroy()
+          return
+        }
+
+        serverResponse.destroy()
+        throw error
       }
     } else {
       serverResponse.end()
@@ -459,6 +499,17 @@ export class MockHttpSocket extends MockSocket {
     }
   }
 
+  /**
+   * This callback might be called when the request is "slow":
+   * - Request headers were fragmented across multiple TCP packages;
+   * - Request headers were too large to be processed in a single run
+   * (e.g. more than 30 request headers).
+   * @note This is called before request start.
+   */
+  private onRequestHeaders: HeadersCallback = (rawHeaders) => {
+    this.requestRawHeadersBuffer.push(...rawHeaders)
+  }
+
   private onRequestStart: RequestHeadersCompleteCallback = (
     versionMajor,
     versionMinor,
@@ -472,9 +523,14 @@ export class MockHttpSocket extends MockSocket {
   ) => {
     this.shouldKeepAlive = shouldKeepAlive
 
-    const url = new URL(path, this.baseUrl)
+    const url = new URL(path || '', this.baseUrl)
     const method = this.connectionOptions.method?.toUpperCase() || 'GET'
-    const headers = parseRawHeaders(rawHeaders)
+    const headers = FetchResponse.parseRawHeaders([
+      ...this.requestRawHeadersBuffer,
+      ...(rawHeaders || []),
+    ])
+    this.requestRawHeadersBuffer.length = 0
+
     const canHaveBody = method !== 'GET' && method !== 'HEAD'
 
     // Translate the basic authorization in the URL to the request header.
@@ -491,22 +547,20 @@ export class MockHttpSocket extends MockSocket {
     // If this Socket is reused for multiple requests,
     // this ensures that each request gets its own stream.
     // One Socket instance can only handle one request at a time.
-    if (canHaveBody) {
-      this.requestStream = new Readable({
-        /**
-         * @note Provide the `read()` method so a `Readable` could be
-         * used as the actual request body (the stream calls "read()").
-         * We control the queue in the onRequestBody/End functions.
-         */
-        read: () => {
-          // If the user attempts to read the request body,
-          // flush the write buffer to trigger the callbacks.
-          // This way, if the request stream ends in the write callback,
-          // it will indeed end correctly.
-          this.flushWriteBuffer()
-        },
-      })
-    }
+    this.requestStream = new Readable({
+      /**
+       * @note Provide the `read()` method so a `Readable` could be
+       * used as the actual request body (the stream calls "read()").
+       * We control the queue in the onRequestBody/End functions.
+       */
+      read: () => {
+        // If the user attempts to read the request body,
+        // flush the write buffer to trigger the callbacks.
+        // This way, if the request stream ends in the write callback,
+        // it will indeed end correctly.
+        this.flushWriteBuffer()
+      },
+    })
 
     const requestId = createRequestId()
     this.request = new Request(url, {
@@ -519,6 +573,15 @@ export class MockHttpSocket extends MockSocket {
     })
 
     Reflect.set(this.request, kRequestId, requestId)
+
+    // Set the raw `http.ClientRequest` instance on the request instance.
+    // This is useful for cases like getting the raw headers of the request.
+    setRawRequest(this.request, Reflect.get(this, '_httpMessage'))
+
+    // Create a copy of the request body stream and store it on the request.
+    // This is only needed for the consumers who wish to read the request body stream
+    // of requests that cannot have a body per Fetch API specification (i.e. GET, HEAD).
+    setRawRequestBodyStream(this.request, this.requestStream)
 
     // Skip handling the request that's already being handled
     // by another (parent) interceptor. For example, XMLHttpRequest
@@ -558,6 +621,17 @@ export class MockHttpSocket extends MockSocket {
     }
   }
 
+  /**
+   * This callback might be called when the response is "slow":
+   * - Response headers were fragmented across multiple TCP packages;
+   * - Response headers were too large to be processed in a single run
+   * (e.g. more than 30 response headers).
+   * @note This is called before response start.
+   */
+  private onResponseHeaders: HeadersCallback = (rawHeaders) => {
+    this.responseRawHeadersBuffer.push(...rawHeaders)
+  }
+
   private onResponseStart: ResponseHeadersCompleteCallback = (
     versionMajor,
     versionMinor,
@@ -567,7 +641,11 @@ export class MockHttpSocket extends MockSocket {
     status,
     statusText
   ) => {
-    const headers = parseRawHeaders(rawHeaders)
+    const headers = FetchResponse.parseRawHeaders([
+      ...this.responseRawHeadersBuffer,
+      ...(rawHeaders || []),
+    ])
+    this.responseRawHeadersBuffer.length = 0
 
     const response = new FetchResponse(
       /**
@@ -594,6 +672,8 @@ export class MockHttpSocket extends MockSocket {
       this.request,
       'Failed to handle a response: request does not exist'
     )
+
+    FetchResponse.setUrl(this.request.url, response)
 
     /**
      * @fixme Stop relying on the "X-Request-Id" request header

@@ -1,3 +1,10 @@
+/**
+ * Here's how requests are handled in Node.js:
+ *
+ * 1. http.ClientRequest instance calls `agent.addRequest(request, options, cb)`.
+ * 2. Agent creates a new socket: `agent.createSocket(options, cb)`.
+ * 3. Agent creates a new connection: `agent.createConnection(options, cb)`.
+ */
 import net from 'node:net'
 import http from 'node:http'
 import https from 'node:https'
@@ -9,6 +16,7 @@ import {
 
 declare module 'node:http' {
   interface Agent {
+    options?: http.AgentOptions
     createConnection(options: any, callback: any): net.Socket
   }
 }
@@ -31,17 +39,25 @@ export class MockAgent extends http.Agent {
     this.onResponse = options.onResponse
   }
 
-  public createConnection(options: any, callback: any) {
+  public createConnection(options: any, callback: any): net.Socket {
     const createConnection =
-      (this.customAgent instanceof http.Agent &&
-        this.customAgent.createConnection) ||
-      super.createConnection
+      this.customAgent instanceof http.Agent
+        ? this.customAgent.createConnection
+        : super.createConnection
+
+    const createConnectionOptions =
+      this.customAgent instanceof http.Agent
+        ? {
+            ...options,
+            ...this.customAgent.options,
+          }
+        : options
 
     const socket = new MockHttpSocket({
       connectionOptions: options,
       createConnection: createConnection.bind(
         this.customAgent || this,
-        options,
+        createConnectionOptions,
         callback
       ),
       onRequest: this.onRequest.bind(this),
@@ -64,17 +80,25 @@ export class MockHttpsAgent extends https.Agent {
     this.onResponse = options.onResponse
   }
 
-  public createConnection(options: any, callback: any) {
+  public createConnection(options: any, callback: any): net.Socket {
     const createConnection =
-      (this.customAgent instanceof https.Agent &&
-        this.customAgent.createConnection) ||
-      super.createConnection
+      this.customAgent instanceof http.Agent
+        ? this.customAgent.createConnection
+        : super.createConnection
+
+    const createConnectionOptions =
+      this.customAgent instanceof http.Agent
+        ? {
+            ...options,
+            ...this.customAgent.options,
+          }
+        : options
 
     const socket = new MockHttpSocket({
       connectionOptions: options,
       createConnection: createConnection.bind(
         this.customAgent || this,
-        options,
+        createConnectionOptions,
         callback
       ),
       onRequest: this.onRequest.bind(this),

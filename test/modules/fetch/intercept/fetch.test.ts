@@ -1,10 +1,10 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import fetch from 'node-fetch'
+import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap } from '../../../../src'
 import { REQUEST_ID_REGEXP } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 import { encodeBuffer } from '../../../../src/utils/bufferUtils'
 import { RequestController } from '../../../../src/RequestController'
 
@@ -23,10 +23,7 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = vi.fn<HttpRequestEventMap['request']>()
-
-const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', resolver)
+const interceptor = new FetchInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -34,7 +31,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -43,6 +40,16 @@ afterAll(async () => {
 })
 
 it('intercepts an HTTP HEAD request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.http.url('/user?id=123'), {
     method: 'HEAD',
     headers: {
@@ -50,9 +57,7 @@ it('intercepts an HTTP HEAD request', async () => {
     },
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
@@ -65,15 +70,23 @@ it('intercepts an HTTP HEAD request', async () => {
 })
 
 it('intercepts an HTTP GET request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.http.url('/user?id=123'), {
     headers: {
       'x-custom-header': 'yes',
     },
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
@@ -86,6 +99,16 @@ it('intercepts an HTTP GET request', async () => {
 })
 
 it('intercepts an HTTP POST request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.http.url('/user?id=123'), {
     method: 'POST',
     headers: {
@@ -94,24 +117,31 @@ it('intercepts an HTTP POST request', async () => {
     body: JSON.stringify({ body: true }),
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
   expect(Object.fromEntries(request.headers.entries())).toMatchObject({
-    accept: '*/*',
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.json()).toEqual({ body: true })
+  await expect(request.json()).resolves.toEqual({ body: true })
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP PUT request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.http.url('/user?id=123'), {
     method: 'PUT',
     headers: {
@@ -120,9 +150,7 @@ it('intercepts an HTTP PUT request', async () => {
     body: encodeBuffer('request-payload'),
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
@@ -130,13 +158,23 @@ it('intercepts an HTTP PUT request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('request-payload')
+  await expect(request.text()).resolves.toBe('request-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP DELETE request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.http.url('/user?id=123'), {
     method: 'DELETE',
     headers: {
@@ -144,9 +182,7 @@ it('intercepts an HTTP DELETE request', async () => {
     },
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
@@ -154,13 +190,23 @@ it('intercepts an HTTP DELETE request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
+  await expect(request.arrayBuffer()).resolves.toEqual(new ArrayBuffer(0))
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTP PATCH request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.http.url('/user?id=123'), {
     method: 'PATCH',
     headers: {
@@ -169,9 +215,7 @@ it('intercepts an HTTP PATCH request', async () => {
     body: encodeBuffer('request-payload'),
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
@@ -179,13 +223,23 @@ it('intercepts an HTTP PATCH request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('request-payload')
+  await expect(request.text()).resolves.toBe('request-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS HEAD request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.https.url('/user?id=123'), {
     method: 'HEAD',
     headers: {
@@ -193,9 +247,7 @@ it('intercepts an HTTPS HEAD request', async () => {
     },
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -210,15 +262,23 @@ it('intercepts an HTTPS HEAD request', async () => {
 })
 
 it('intercepts an HTTPS GET request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.https.url('/user?id=123'), {
     headers: {
       'x-custom-header': 'yes',
     },
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -233,6 +293,16 @@ it('intercepts an HTTPS GET request', async () => {
 })
 
 it('intercepts an HTTPS POST request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.https.url('/user?id=123'), {
     method: 'POST',
     headers: {
@@ -241,9 +311,7 @@ it('intercepts an HTTPS POST request', async () => {
     body: JSON.stringify({ body: true }),
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -251,13 +319,24 @@ it('intercepts an HTTPS POST request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.json()).toEqual({ body: true })
+  expect(request.bodyUsed).toBe(false)
+  await expect(request.json()).resolves.toEqual({ body: true })
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS PUT request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.https.url('/user?id=123'), {
     method: 'PUT',
     headers: {
@@ -266,9 +345,7 @@ it('intercepts an HTTPS PUT request', async () => {
     body: encodeBuffer('request-payload'),
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -276,13 +353,23 @@ it('intercepts an HTTPS PUT request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('request-payload')
+  await expect(request.text()).resolves.toBe('request-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS DELETE request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.https.url('/user?id=123'), {
     method: 'DELETE',
     headers: {
@@ -290,9 +377,7 @@ it('intercepts an HTTPS DELETE request', async () => {
     },
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -300,13 +385,23 @@ it('intercepts an HTTPS DELETE request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
+  await expect(request.arrayBuffer()).resolves.toEqual(new ArrayBuffer(0))
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an HTTPS PATCH request', async () => {
+  const requestListenerArgs = new DeferredPromise<
+    HttpRequestEventMap['request'][0]
+  >()
+  interceptor.on('request', (args) => {
+    requestListenerArgs.resolve({
+      ...args,
+      request: args.request.clone(),
+    })
+  })
+
   await fetch(httpServer.https.url('/user?id=123'), {
     method: 'PATCH',
     headers: {
@@ -314,9 +409,7 @@ it('intercepts an HTTPS PATCH request', async () => {
     },
   })
 
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const { request, requestId, controller } = await requestListenerArgs
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
@@ -324,7 +417,7 @@ it('intercepts an HTTPS PATCH request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.arrayBuffer()).toEqual(new ArrayBuffer(0))
+  await expect(request.arrayBuffer()).resolves.toEqual(new ArrayBuffer(0))
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)

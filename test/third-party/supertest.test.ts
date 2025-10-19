@@ -5,8 +5,10 @@ import supertest from 'supertest'
 import { HttpRequestEventMap } from '../../src'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
 
-const requestListener = vi.fn<HttpRequestEventMap['request']>()
-const responseListener = vi.fn<HttpRequestEventMap['response']>()
+const requestListener =
+  vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+const responseListener =
+  vi.fn<(...args: HttpRequestEventMap['response']) => void>()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', requestListener)

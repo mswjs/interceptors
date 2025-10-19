@@ -81,7 +81,7 @@ class XMLHttpRequestProxy extends XMLHttpRequest {
 }
 ```
 
-> The request interception algorithms differ dramatically based on the request API. Interceptors acommodate for them all, bringing the intercepted requests to a common ground—the Fetch API `Request` instance. The same applies for responses, where a Fetch API `Response` instance is translated to the appropriate response format.
+> The request interception algorithms differ dramatically based on the request API. Interceptors accommodate for them all, bringing the intercepted requests to a common ground—the Fetch API `Request` instance. The same applies for responses, where a Fetch API `Response` instance is translated to the appropriate response format.
 
 This library aims to provide _full specification compliance_ with the APIs and protocols it extends.
 
@@ -103,6 +103,21 @@ You can respond to the intercepted HTTP request by constructing a Fetch API Resp
 
 - Does **not** provide any request matching logic;
 - Does **not** handle requests by default.
+
+## Limitations
+
+- Interceptors will hang indefinitely if you call `req.end()` in the `connect` event listener of the respective `socket`:
+
+```ts
+req.on('socket', (socket) => {
+  socket.on('connect', () => {
+    // ❌ While this is allowed in Node.js, this cannot be handled in Interceptors.
+    req.end()
+  })
+})
+```
+
+> This limitation is intrinsic to the interception algorithm used by the library. In order for it to emit the `connect` event on the socket, the library must know if you've handled the request in any way (e.g. responded with a mocked response or errored it). For that, it emits the `request` event on the interceptor where you can handle the request. Since you can consume the request stream in the `request` event, it waits until the request body stream is complete (i.e. until `req.end()` is called). This creates a catch 22 that causes this limitation.
 
 ## Getting started
 
@@ -517,7 +532,7 @@ client.addEventListener('message', (event) => {
 
 #### `.close()`
 
-Closes the connection with the original WebSocket server. Unlike `client.close()`, closing the server connection does not accept any arguments and always asumes a graceful closure. Sending data via `server.send()` after the connection has been closed will have no effect.
+Closes the connection with the original WebSocket server. Unlike `client.close()`, closing the server connection does not accept any arguments and always assumes a graceful closure. Sending data via `server.send()` after the connection has been closed will have no effect.
 
 ## API
 

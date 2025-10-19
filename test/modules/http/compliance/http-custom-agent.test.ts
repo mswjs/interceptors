@@ -3,7 +3,7 @@ import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import http from 'node:http'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index'
+import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../../test/helpers'
 
 const interceptor = new ClientRequestInterceptor()
@@ -39,7 +39,7 @@ it('preserves the context of the "createConnection" function in a custom http ag
   const request = http.get(httpServer.http.url('/resource'), { agent })
   await waitForClientRequest(request)
 
-  const [context] = createConnectionContextSpy.mock.calls[0]
+  const [context] = createConnectionContextSpy.mock.calls[0] || []
   expect(context.constructor.name).toBe('CustomHttpAgent')
 })
 

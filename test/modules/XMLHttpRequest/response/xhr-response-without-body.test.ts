@@ -14,7 +14,8 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-const responseListener = vi.fn<HttpRequestEventMap['response']>()
+const responseListener =
+  vi.fn<(...args: HttpRequestEventMap['response']) => void>()
 interceptor.on('response', responseListener)
 
 beforeAll(async () => {

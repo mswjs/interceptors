@@ -2,13 +2,13 @@ import { urlToHttpOptions } from 'node:url'
 import https from 'node:https'
 import zlib from 'node:zlib'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
-import nodeFetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { Page } from '@playwright/test'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
 import { RequestHandler } from 'express'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 
-export const REQUEST_ID_REGEXP = /^\w{10,}$/
+export const REQUEST_ID_REGEXP = /^\w{9,}$/
 
 export interface PromisifiedResponse {
   req: ClientRequest
@@ -117,11 +117,11 @@ interface PromisifiedFetchPayload {
 }
 
 export async function fetch(
-  info: RequestInfo,
+  info: RequestInfo | URL,
   init?: RequestInit
 ): Promise<PromisifiedFetchPayload> {
   let url: string = ''
-  const res = await nodeFetch(info, init)
+  const res = await globalThis.fetch(info, init)
 
   if (typeof info === 'string') {
     url = info
@@ -235,7 +235,7 @@ export function createRawBrowserXMLHttpRequest(page: Page) {
         Record<string, string> | undefined,
         string | undefined,
         boolean | undefined,
-        boolean
+        boolean,
       ]
     >(
       (args) => {
@@ -312,9 +312,9 @@ export function sleep(duration: number): Promise<void> {
   })
 }
 
-export const useCors: RequestHandler = (req, res, next) => {
+export const useCors: RequestHandler = (_req, res, next) => {
   res.set({
-    'Access-Control-Allow-Origin': '*',
+    'access-control-allow-origin': '*',
   })
   return next()
 }

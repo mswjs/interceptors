@@ -118,7 +118,14 @@ export function recordRawFetchHeaders() {
             [Reflect.get(headersInit, kRawHeaders)],
             newTarget
           )
-          ensureRawHeadersSymbol(headers, Reflect.get(headersInit, kRawHeaders))
+          ensureRawHeadersSymbol(headers, [
+            /**
+             * @note Spread the retrieved headers to clone them.
+             * This prevents multiple Headers instances from pointing
+             * at the same internal "rawHeaders" array.
+             */
+            ...Reflect.get(headersInit, kRawHeaders),
+          ])
           return headers
         }
 
@@ -244,7 +251,7 @@ export function getRawFetchHeaders(headers: Headers): RawHeaders {
  * That means the headers were created standalone and already have
  * the raw headers stored.
  * If the `init.headers` is a HeadersInit, create a new Headers
- * instace out of it.
+ * instance out of it.
  */
 function inferRawHeaders(headers: HeadersInit): RawHeaders {
   if (headers instanceof Headers) {

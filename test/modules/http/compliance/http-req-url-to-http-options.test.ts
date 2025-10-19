@@ -20,7 +20,7 @@ afterAll(() => {
 })
 
 it('supports `urlToHttpOptions()` as the ClientRequest options', async () => {
-  const requestCallback = vi.fn<[Request]>()
+  const requestCallback = vi.fn<(request: Request) => void>()
   interceptor.on('request', ({ request, controller }) => {
     requestCallback(request)
     controller.respondWith(new Response('hello world'))
@@ -41,7 +41,7 @@ it('supports `urlToHttpOptions()` as the ClientRequest options', async () => {
 })
 
 it('supports augmented `urlToHttpOptions()` as the ClientRequest options', async () => {
-  const requestCallback = vi.fn<[Request]>()
+  const requestCallback = vi.fn<(request: Request) => void>()
   interceptor.on('request', ({ request, controller }) => {
     requestCallback(request)
     controller.respondWith(new Response('hello world'))

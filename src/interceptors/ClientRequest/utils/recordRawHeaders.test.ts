@@ -118,7 +118,7 @@ it('records raw headers (Request / Headers as init)', () => {
   expect(getRawFetchHeaders(request.headers)).toEqual([['X-My-Header', '1']])
 })
 
-it('records raw headers (Reqest / Request as init)', () => {
+it('records raw headers (Request / Request as init)', () => {
   recordRawFetchHeaders()
   const init = new Request(url, { headers: [['X-My-Header', '1']] })
   const request = new Request(init)
@@ -240,4 +240,19 @@ it('does not throw on using Headers before recording', () => {
 
   request.headers.set('X-My-Header', '1')
   expect(getRawFetchHeaders(request.headers)).toEqual([['X-My-Header', '1']])
+})
+
+/**
+ * @see https://github.com/mswjs/interceptors/issues/681
+ */
+it('isolates headers between different headers instances', async () => {
+  recordRawFetchHeaders()
+  const original = new Headers()
+  const firstClone = new Headers(original)
+  firstClone.set('Content-Type', 'application/json')
+  const secondClone = new Headers(original)
+
+  expect(original.get('Content-Type')).toBeNull()
+  expect(firstClone.get('Content-Type')).toBe('application/json')
+  expect(secondClone.get('Content-Type')).toBeNull()
 })

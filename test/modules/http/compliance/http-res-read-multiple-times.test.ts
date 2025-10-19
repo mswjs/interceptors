@@ -16,7 +16,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = vi.fn<HttpRequestEventMap['request']>()
+const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 
 const interceptor = new ClientRequestInterceptor()
 interceptor.on('request', resolver)

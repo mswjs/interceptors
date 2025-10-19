@@ -174,7 +174,7 @@ export function normalizeClientRequestArgs(
     if (legacyUrl.hostname === null) {
       /**
        * We are dealing with a relative url, so use the path as an "option" and
-       * merge in any existing options, giving priority to exising options -- i.e. a path in any
+       * merge in any existing options, giving priority to existing options -- i.e. a path in any
        * existing options will take precedence over the one contained in the url. This is consistent
        * with the behaviour in ClientRequest.
        * @see https://github.com/nodejs/node/blob/d84f1312915fe45fe0febe888db692c74894c382/lib/_http_client.js#L122
@@ -230,26 +230,6 @@ export function normalizeClientRequestArgs(
 
   options.protocol = options.protocol || url.protocol
   options.method = options.method || 'GET'
-
-  /**
-   * Infer a fallback agent from the URL protocol.
-   * The interception is done on the "ClientRequest" level ("NodeClientRequest")
-   * and it may miss the correct agent. Always align the agent
-   * with the URL protocol, if not provided.
-   *
-   * @note Respect the "agent: false" value.
-   */
-  if (typeof options.agent === 'undefined') {
-    const agent =
-      options.protocol === 'https:'
-        ? new HttpsAgent({
-            rejectUnauthorized: options.rejectUnauthorized,
-          })
-        : new HttpAgent()
-
-    options.agent = agent
-    logger.info('resolved fallback agent:', agent)
-  }
 
   /**
    * Ensure that the default Agent is always set.

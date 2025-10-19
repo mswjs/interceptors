@@ -85,7 +85,7 @@ it('intercepts ArrayBuffer sent over websocket', async () => {
   expect(await messageReceivedPromise).toEqual(buffer)
 })
 
-it('increases "bufferAmmount" before data is sent', async () => {
+it('increases "bufferAmount" before data is sent', async () => {
   interceptor.once('connection', () => {})
 
   const bufferAmountPromise = new DeferredPromise<{
