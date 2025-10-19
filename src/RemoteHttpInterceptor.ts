@@ -8,6 +8,7 @@ import { FetchInterceptor } from './interceptors/fetch'
 import { handleRequest } from './utils/handleRequest'
 import { RequestController } from './RequestController'
 import { FetchResponse } from './utils/fetchUtils'
+import { isResponseError } from './utils/responseUtils'
 
 export interface SerializedRequest {
   id: string
@@ -178,13 +179,14 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
         body: requestJson.body,
       })
 
-      const controller = new RequestController(request)
-      await handleRequest({
-        request,
-        requestId: requestJson.id,
-        controller,
-        emitter: this.emitter,
-        onResponse: async (response) => {
+      const controller = new RequestController(request, {
+        passthrough: () => {},
+        respondWith: async (response) => {
+          if (isResponseError(response)) {
+            this.logger.info('received a network error!', { response })
+            throw new Error('Not implemented')
+          }
+
           this.logger.info('received mocked response!', { response })
 
           const responseClone = response.clone()
@@ -221,14 +223,17 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
             serializedResponse
           )
         },
-        onRequestError: (response) => {
-          this.logger.info('received a network error!', { response })
+        errorWith: (reason) => {
+          this.logger.info('request has errored!', { error: reason })
           throw new Error('Not implemented')
         },
-        onError: (error) => {
-          this.logger.info('request has errored!', { error })
-          throw new Error('Not implemented')
-        },
+      })
+
+      await handleRequest({
+        request,
+        requestId: requestJson.id,
+        controller,
+        emitter: this.emitter,
       })
     }
 

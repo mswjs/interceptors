@@ -105,17 +105,16 @@ it('supports delays when enqueuing chunks', async () => {
   expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(150)
 })
 
-it('forwards ReadableStream errors to the request', async () => {
+it('handles immediate response stream errors as request errors', async () => {
   const requestErrorListener = vi.fn()
   const responseErrorListener = vi.fn()
 
+  const streamError = new Error('stream error')
   interceptor.once('request', ({ controller }) => {
     const stream = new ReadableStream({
-      start(controller) {
+      async start(controller) {
         controller.enqueue(new TextEncoder().encode('original'))
-        queueMicrotask(() => {
-          controller.error(new Error('stream error'))
-        })
+        controller.error(streamError)
       },
     })
     controller.respondWith(new Response(stream))
@@ -123,23 +122,109 @@ it('forwards ReadableStream errors to the request', async () => {
 
   const request = http.get('http://localhost/resource')
   request.on('error', requestErrorListener)
-  request.on('response', (response) => {
-    response.on('error', responseErrorListener)
-  })
 
-  const response = await vi.waitFor(() => {
-    return new Promise<http.IncomingMessage>((resolve) => {
-      request.on('response', resolve)
+  await vi.waitFor(() => {
+    return new Promise<void>((resolve, reject) => {
+      request.on('error', () => resolve())
+      request.on('response', () => {
+        reject('Must not emit response')
+      })
     })
   })
 
-  // Response stream errors are translated to unhandled exceptions,
-  // and then the server decides how to handle them. This is often
-  // done as returning a 500 response.
-  expect(response.statusCode).toBe(500)
-  expect(response.statusMessage).toBe('Unhandled Exception')
+  expect.soft(request.destroyed).toBe(true)
+  expect.soft(requestErrorListener).toHaveBeenCalledOnce()
+  expect.soft(requestErrorListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      code: 'ECONNRESET',
+      message: 'socket hang up',
+    })
+  )
+  expect.soft(responseErrorListener).not.toHaveBeenCalled()
+})
 
-  // Response stream errors are not request errors.
-  expect(requestErrorListener).not.toHaveBeenCalled()
-  expect(request.destroyed).toBe(false)
+it('handles delayed response stream errors as IncomingMessage errors', async () => {
+  const requestErrorListener = vi.fn()
+  const responseErrorListener = vi.fn()
+
+  const streamError = new Error('stream error')
+  interceptor.once('request', ({ controller }) => {
+    const stream = new ReadableStream({
+      async start(controller) {
+        controller.enqueue(new TextEncoder().encode('original'))
+        /**
+         * @note Pause is important here so that Node.js flushes the response headers
+         * before the stream errors. If the error happens immediately, Node.js will
+         * optimize for that and translate it into the request error.
+         */
+        await sleep(250)
+        controller.error(streamError)
+      },
+    })
+    controller.respondWith(new Response(stream))
+  })
+
+  const request = http.get('http://localhost/resource')
+  request.on('error', requestErrorListener)
+
+  const response = await vi.waitFor(() => {
+    return new Promise<http.IncomingMessage>((resolve, reject) => {
+      request.on('error', () => reject('Must not emit request error'))
+      request.on('response', (response) => {
+        response.on('close', () => resolve(response))
+        response.on('error', responseErrorListener)
+      })
+    })
+  })
+
+  expect.soft(response.statusCode).toBe(200)
+  expect.soft(response.statusMessage).toBe('OK')
+
+  expect.soft(request.destroyed).toBe(true)
+  expect.soft(requestErrorListener).not.toHaveBeenCalled()
+  expect.soft(responseErrorListener).toHaveBeenCalledOnce()
+  expect.soft(responseErrorListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      code: 'ECONNRESET',
+      message: 'aborted',
+    })
+  )
+})
+
+it('treats unhandled exceptions during the response stream as request errors', async () => {
+  const requestErrorListener = vi.fn()
+  const responseErrorListener = vi.fn()
+
+  interceptor.once('request', ({ controller }) => {
+    const stream = new ReadableStream({
+      async start(controller) {
+        await sleep(200)
+        // Intentionally invalid input.
+        controller.enqueue({})
+      },
+    })
+    controller.respondWith(new Response(stream))
+  })
+
+  const request = http.get('http://localhost/resource')
+  request.on('error', requestErrorListener)
+
+  await vi.waitFor(() => {
+    return new Promise<void>((resolve, reject) => {
+      request.on('error', () => resolve())
+      request.on('response', (response) => {
+        reject('Must not emit response')
+      })
+    })
+  })
+
+  expect.soft(request.destroyed).toBe(true)
+  expect.soft(requestErrorListener).toHaveBeenCalledOnce()
+  expect.soft(requestErrorListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      code: 'ECONNRESET',
+      message: 'socket hang up',
+    })
+  )
+  expect.soft(responseErrorListener).not.toHaveBeenCalled()
 })

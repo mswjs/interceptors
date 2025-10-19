@@ -407,6 +407,16 @@ export class MockHttpSocket extends MockSocket {
       return
     }
 
+    // Prevent recursive calls.
+    invariant(
+      this.socketState !== 'mock',
+      '[MockHttpSocket] Failed to respond to the "%s %s" request with "%s %s": the request has already been handled',
+      this.request?.method,
+      this.request?.url,
+      response.status,
+      response.statusText
+    )
+
     // Handle "type: error" responses.
     if (isPropertyAccessible(response, 'type') && response.type === 'error') {
       this.errorWith(new TypeError('Network error'))
@@ -489,9 +499,18 @@ export class MockHttpSocket extends MockSocket {
           serverResponse.write(value)
         }
       } catch (error) {
-        // Coerce response stream errors to 500 responses.
-        this.respondWith(createServerErrorResponse(error))
-        return
+        if (error instanceof Error) {
+          serverResponse.destroy()
+          /**
+           * @note Destroy the request socket gracefully.
+           * Response stream errors do NOT produce request errors.
+           */
+          this.destroy()
+          return
+        }
+
+        serverResponse.destroy()
+        throw error
       }
     } else {
       serverResponse.end()
