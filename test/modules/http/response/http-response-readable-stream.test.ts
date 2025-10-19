@@ -105,6 +105,44 @@ it('supports delays when enqueuing chunks', async () => {
   expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(150)
 })
 
+it('handles immediate response stream errors as request errors', async () => {
+  const requestErrorListener = vi.fn()
+  const responseErrorListener = vi.fn()
+
+  const streamError = new Error('stream error')
+  interceptor.once('request', ({ controller }) => {
+    const stream = new ReadableStream({
+      async start(controller) {
+        controller.enqueue(new TextEncoder().encode('original'))
+        controller.error(streamError)
+      },
+    })
+    controller.respondWith(new Response(stream))
+  })
+
+  const request = http.get('http://localhost/resource')
+  request.on('error', requestErrorListener)
+
+  await vi.waitFor(() => {
+    return new Promise<void>((resolve, reject) => {
+      request.on('error', () => resolve())
+      request.on('response', () => {
+        reject('Must not emit response')
+      })
+    })
+  })
+
+  expect.soft(request.destroyed).toBe(true)
+  expect.soft(requestErrorListener).toHaveBeenCalledOnce()
+  expect.soft(requestErrorListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      code: 'ECONNRESET',
+      message: 'socket hang up',
+    })
+  )
+  expect.soft(responseErrorListener).not.toHaveBeenCalled()
+})
+
 it('handles delayed response stream errors as IncomingMessage errors', async () => {
   const requestErrorListener = vi.fn()
   const responseErrorListener = vi.fn()
@@ -151,4 +189,42 @@ it('handles delayed response stream errors as IncomingMessage errors', async () 
       message: 'aborted',
     })
   )
+})
+
+it('treats unhandled exceptions during the response stream as request errors', async () => {
+  const requestErrorListener = vi.fn()
+  const responseErrorListener = vi.fn()
+
+  interceptor.once('request', ({ controller }) => {
+    const stream = new ReadableStream({
+      async start(controller) {
+        await sleep(200)
+        // Intentionally invalid input.
+        controller.enqueue({})
+      },
+    })
+    controller.respondWith(new Response(stream))
+  })
+
+  const request = http.get('http://localhost/resource')
+  request.on('error', requestErrorListener)
+
+  await vi.waitFor(() => {
+    return new Promise<void>((resolve, reject) => {
+      request.on('error', () => resolve())
+      request.on('response', (response) => {
+        reject('Must not emit response')
+      })
+    })
+  })
+
+  expect.soft(request.destroyed).toBe(true)
+  expect.soft(requestErrorListener).toHaveBeenCalledOnce()
+  expect.soft(requestErrorListener).toHaveBeenCalledWith(
+    expect.objectContaining({
+      code: 'ECONNRESET',
+      message: 'socket hang up',
+    })
+  )
+  expect.soft(responseErrorListener).not.toHaveBeenCalled()
 })
