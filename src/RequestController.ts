@@ -1,35 +1,59 @@
-import { invariant } from 'outvariant'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { invariant } from 'outvariant'
 import { InterceptorError } from './InterceptorError'
 
-const kRequestHandled = Symbol('kRequestHandled')
-export const kResponsePromise = Symbol('kResponsePromise')
+export interface RequestControllerSource {
+  passthrough(): void
+  respondWith(response: Response): void
+  errorWith(reason?: unknown): void
+}
 
 export class RequestController {
-  /**
-   * Internal response promise.
-   * Available only for the library internals to grab the
-   * response instance provided by the developer.
-   * @note This promise cannot be rejected. It's either infinitely
-   * pending or resolved with whichever Response was passed to `respondWith()`.
-   */
-  [kResponsePromise]: DeferredPromise<
-    Response | Record<string, any> | undefined
-  >;
+  static PENDING = 0 as const
+  static PASSTHROUGH = 1 as const
+  static RESPONSE = 2 as const
+  static ERROR = 3 as const
+
+  public readyState: number
 
   /**
-   * Internal flag indicating if this request has been handled.
-   * @note The response promise becomes "fulfilled" on the next tick.
+   * A Promise that resolves when this controller handles a request.
+   * See `controller.readyState` for more information on the handling result.
    */
-  [kRequestHandled]: boolean
+  public handled: Promise<void>
 
-  constructor(private request: Request) {
-    this[kRequestHandled] = false
-    this[kResponsePromise] = new DeferredPromise()
+  constructor(
+    protected readonly request: Request,
+    protected readonly source: RequestControllerSource
+  ) {
+    this.readyState = RequestController.PENDING
+    this.handled = new DeferredPromise<void>()
+  }
+
+  get #handled() {
+    return this.handled as DeferredPromise<void>
+  }
+
+  /**
+   * Perform this request as-is.
+   */
+  public async passthrough(): Promise<void> {
+    invariant.as(
+      InterceptorError,
+      this.readyState === RequestController.PENDING,
+      'Failed to passthrough the "%s %s" request: the request has already been handled',
+      this.request.method,
+      this.request.url
+    )
+
+    this.readyState = RequestController.PASSTHROUGH
+    await this.source.passthrough()
+    this.#handled.resolve()
   }
 
   /**
    * Respond to this request with the given `Response` instance.
+   *
    * @example
    * controller.respondWith(new Response())
    * controller.respondWith(Response.json({ id }))
@@ -38,22 +62,25 @@ export class RequestController {
   public respondWith(response: Response): void {
     invariant.as(
       InterceptorError,
-      !this[kRequestHandled],
-      'Failed to respond to the "%s %s" request: the "request" event has already been handled.',
+      this.readyState === RequestController.PENDING,
+      'Failed to respond to the "%s %s" request with "%d %s": the request has already been handled (%d)',
       this.request.method,
-      this.request.url
+      this.request.url,
+      response.status,
+      response.statusText || 'OK',
+      this.readyState
     )
 
-    this[kRequestHandled] = true
-    this[kResponsePromise].resolve(response)
+    this.readyState = RequestController.RESPONSE
+    this.#handled.resolve()
 
     /**
-     * @note The request controller doesn't do anything
-     * apart from letting the interceptor await the response
-     * provided by the developer through the response promise.
-     * Each interceptor implements the actual respondWith/errorWith
-     * logic based on that interceptor's needs.
+     * @note Although `source.respondWith()` is potentially asynchronous,
+     * do NOT await it for backward-compatibility. Awaiting it will short-circuit
+     * the request listener invocation as soon as a listener responds to a request.
+     * Ideally, that's what we want, but that's not what we promise the user.
      */
+    this.source.respondWith(response)
   }
 
   /**
@@ -64,22 +91,19 @@ export class RequestController {
    * controller.errorWith(new Error('Oops!'))
    * controller.errorWith({ message: 'Oops!'})
    */
-  public errorWith(reason?: Error | Record<string, any>): void {
+  public errorWith(reason?: unknown): void {
     invariant.as(
       InterceptorError,
-      !this[kRequestHandled],
-      'Failed to error the "%s %s" request: the "request" event has already been handled.',
+      this.readyState === RequestController.PENDING,
+      'Failed to error the "%s %s" request with "%s": the request has already been handled (%d)',
       this.request.method,
-      this.request.url
+      this.request.url,
+      reason?.toString(),
+      this.readyState
     )
 
-    this[kRequestHandled] = true
-
-    /**
-     * @note Resolve the response promise, not reject.
-     * This helps us differentiate between unhandled exceptions
-     * and intended errors ("errorWith") while waiting for the response.
-     */
-    this[kResponsePromise].resolve(reason)
+    this.readyState = RequestController.ERROR
+    this.source.errorWith(reason)
+    this.#handled.resolve()
   }
 }

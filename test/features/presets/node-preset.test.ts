@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import http from 'http'
+import http from 'node:http'
 import { BatchInterceptor } from '../../../lib/node'
 import nodeInterceptors from '../../../lib/node/presets/node'
 import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
@@ -42,7 +42,7 @@ it('intercepts and mocks a ClientRequest', async () => {
 
   // The listener must send back a mocked response.
   expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('mocked')
+  await expect(text()).resolves.toBe('mocked')
 })
 
 it('intercepts and mocks an XMLHttpRequest (jsdom)', async () => {
@@ -73,5 +73,5 @@ it('intercepts and mocks a fetch request', async () => {
   )
 
   expect(response.status).toBe(200)
-  expect(await response.text()).toBe('mocked')
+  await expect(response.text()).resolves.toBe('mocked')
 })

@@ -56,7 +56,7 @@ it('throws if "respondWith" is called multiple times within the same listener', 
   expect(error).toHaveProperty('name', 'InterceptorError')
   expect(error).toHaveProperty(
     'message',
-    `Failed to respond to the "GET http://localhost/resource" request: the "request" event has already been handled.`
+    `Failed to respond to the "GET http://localhost/resource" request with "200 OK": the request has already been handled (2)`
   )
 
   // Must respond to the request using the first mocked response.
@@ -93,7 +93,7 @@ it('throws if "respondWith" is called multiple times across different listeners'
   expect(error).toHaveProperty('name', 'InterceptorError')
   expect(error).toHaveProperty(
     'message',
-    `Failed to respond to the "GET http://localhost/resource" request: the "request" event has already been handled.`
+    `Failed to respond to the "GET http://localhost/resource" request with "200 OK": the request has already been handled (2)`
   )
 
   // Must respond to the request using the first mocked response.
@@ -160,7 +160,7 @@ it('throws if "errorWith" is called multiple times within the same listener', as
   expect(error).toHaveProperty('name', 'InterceptorError')
   expect(error).toHaveProperty(
     'message',
-    `Failed to error the "GET http://localhost/resource" request: the "request" event has already been handled.`
+    `Failed to error the "GET http://localhost/resource" request with "Error: two": the request has already been handled (3)`
   )
 
   // Must reject the response promise with the given error.
@@ -204,7 +204,7 @@ it('throws if "errorWith" is called multiple times across different listeners', 
   expect(error).toHaveProperty('name', 'InterceptorError')
   expect(error).toHaveProperty(
     'message',
-    `Failed to error the "GET http://localhost/resource" request: the "request" event has already been handled.`
+    `Failed to error the "GET http://localhost/resource" request with "Error: two": the request has already been handled (3)`
   )
 
   // Must reject the response promise with the given error.
@@ -246,7 +246,7 @@ it('throws if "respondWith" is called after "errorWith" was called', async () =>
   expect(error).toHaveProperty('name', 'InterceptorError')
   expect(error).toHaveProperty(
     'message',
-    `Failed to respond to the "GET http://localhost/resource" request: the "request" event has already been handled.`
+    `Failed to respond to the "GET http://localhost/resource" request with "200 OK": the request has already been handled (3)`
   )
 
   // Must reject the response promise with the given error.
@@ -282,10 +282,10 @@ it('throws if "errorWith" is called after "respondWith" was called', async () =>
   expect(error).toHaveProperty('name', 'InterceptorError')
   expect(error).toHaveProperty(
     'message',
-    `Failed to error the "GET http://localhost/resource" request: the "request" event has already been handled.`
+    `Failed to error the "GET http://localhost/resource" request with "Error: one": the request has already been handled (2)`
   )
 
   // Must resolve the response promise with the given mocked response.
-  expect(response.status).toBe(200)
-  await expect(response.text()).resolves.toBe('mock')
+  expect.soft(response.status).toBe(200)
+  await expect.soft(response.text()).resolves.toBe('mock')
 })

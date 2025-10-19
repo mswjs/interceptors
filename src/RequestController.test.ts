@@ -1,57 +1,104 @@
-import { it, expect } from 'vitest'
-import { kResponsePromise, RequestController } from './RequestController'
+import { vi, it, expect } from 'vitest'
+import {
+  RequestController,
+  type RequestControllerSource,
+} from './RequestController'
+import { InterceptorError } from './InterceptorError'
 
-it('creates a pending response promise on construction', () => {
-  const controller = new RequestController(new Request('http://localhost'))
-  expect(controller[kResponsePromise]).toBeInstanceOf(Promise)
-  expect(controller[kResponsePromise].state).toBe('pending')
+const defaultSource = {
+  passthrough() {},
+  respondWith() {},
+  errorWith() {},
+} satisfies RequestControllerSource
+
+it('has a pending state upon construction', () => {
+  const controller = new RequestController(
+    new Request('http://localhost'),
+    defaultSource
+  )
+
+  expect(controller.handled).toBeInstanceOf(Promise)
+  expect(controller.readyState).toBe(RequestController.PENDING)
 })
 
-it('resolves the response promise with the response provided to "respondWith"', async () => {
-  const controller = new RequestController(new Request('http://localhost'))
-  controller.respondWith(new Response('hello world'))
+it('handles a request when calling ".respondWith()" with a mocked response', async () => {
+  const respondWith = vi.fn<RequestControllerSource['respondWith']>()
+  const controller = new RequestController(new Request('http://localhost'), {
+    ...defaultSource,
+    respondWith,
+  })
 
-  const response = (await controller[kResponsePromise]) as Response
+  await controller.respondWith(new Response('hello world'))
+
+  expect(controller.readyState).toBe(RequestController.RESPONSE)
+  await expect(controller.handled).resolves.toBeUndefined()
+
+  expect(respondWith).toHaveBeenCalledOnce()
+  const [response] = respondWith.mock.calls[0]
 
   expect(response).toBeInstanceOf(Response)
   expect(response.status).toBe(200)
-  expect(await response.text()).toBe('hello world')
+  await expect(response.text()).resolves.toBe('hello world')
 })
 
-it('resolves the response promise with the error provided to "errorWith"', async () => {
-  const controller = new RequestController(new Request('http://localhost'))
+it('handles the request when calling ".errorWith()" with an error', async () => {
+  const errorWith = vi.fn<RequestControllerSource['errorWith']>()
+  const controller = new RequestController(new Request('http://localhost'), {
+    ...defaultSource,
+    errorWith,
+  })
+
   const error = new Error('Oops!')
-  controller.errorWith(error)
+  await controller.errorWith(error)
 
-  await expect(controller[kResponsePromise]).resolves.toEqual(error)
+  expect(controller.readyState).toBe(RequestController.ERROR)
+  await expect(controller.handled).resolves.toBeUndefined()
+
+  expect(errorWith).toHaveBeenCalledOnce()
+  expect(errorWith).toHaveBeenCalledWith(error)
 })
 
-it('resolves the response promise with an arbitrary object provided to "errorWith"', async () => {
-  const controller = new RequestController(new Request('http://localhost'))
+it('handles the request when calling ".errorWith()" with an arbitrary object', async () => {
+  const errorWith = vi.fn<RequestControllerSource['errorWith']>()
+  const controller = new RequestController(new Request('http://localhost'), {
+    ...defaultSource,
+    errorWith,
+  })
+
   const error = { message: 'Oops!' }
-  controller.errorWith(error)
+  await controller.errorWith(error)
 
-  await expect(controller[kResponsePromise]).resolves.toEqual(error)
+  expect(controller.readyState).toBe(RequestController.ERROR)
+  await expect(controller.handled).resolves.toBeUndefined()
+
+  expect(errorWith).toHaveBeenCalledOnce()
+  expect(errorWith).toHaveBeenCalledWith(error)
 })
 
-it('throws when calling "respondWith" multiple times', () => {
-  const controller = new RequestController(new Request('http://localhost'))
+it('throws when calling "respondWith" multiple times', async () => {
+  const controller = new RequestController(
+    new Request('http://localhost'),
+    defaultSource
+  )
   controller.respondWith(new Response('hello world'))
 
-  expect(() => {
-    controller.respondWith(new Response('second response'))
-  }).toThrow(
-    'Failed to respond to the "GET http://localhost/" request: the "request" event has already been handled.'
+  expect(() => controller.respondWith(new Response('second response'))).toThrow(
+    new InterceptorError(
+      'Failed to respond to the "GET http://localhost/" request with "200 OK": the request has already been handled (2)'
+    )
   )
 })
 
-it('throws when calling "errorWith" multiple times', () => {
-  const controller = new RequestController(new Request('http://localhost'))
+it('throws when calling "errorWith" multiple times', async () => {
+  const controller = new RequestController(
+    new Request('http://localhost'),
+    defaultSource
+  )
   controller.errorWith(new Error('Oops!'))
 
-  expect(() => {
-    controller.errorWith(new Error('second error'))
-  }).toThrow(
-    'Failed to error the "GET http://localhost/" request: the "request" event has already been handled.'
+  expect(() => controller.errorWith(new Error('second error'))).toThrow(
+    new InterceptorError(
+      'Failed to error the "GET http://localhost/" request with "Error: second error": the request has already been handled (3)'
+    )
   )
 })

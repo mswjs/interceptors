@@ -57,7 +57,10 @@ export class XMLHttpRequestController {
     Array<Function>
   >
 
-  constructor(readonly initialRequest: XMLHttpRequest, public logger: Logger) {
+  constructor(
+    readonly initialRequest: XMLHttpRequest,
+    public logger: Logger
+  ) {
     this[kIsRequestHandled] = false
 
     this.events = new Map()
@@ -111,7 +114,7 @@ export class XMLHttpRequestController {
           case 'addEventListener': {
             const [eventName, listener] = args as [
               keyof XMLHttpRequestEventTargetEventMap,
-              Function
+              Function,
             ]
 
             this.registerEvent(eventName, listener)
@@ -131,7 +134,7 @@ export class XMLHttpRequestController {
 
           case 'send': {
             const [body] = args as [
-              body?: XMLHttpRequestBodyInit | Document | null
+              body?: XMLHttpRequestBodyInit | Document | null,
             ]
 
             this.request.addEventListener('load', () => {
@@ -166,38 +169,44 @@ export class XMLHttpRequestController {
             const fetchRequest = this.toFetchApiRequest(requestBody)
             this[kFetchRequest] = fetchRequest.clone()
 
-            const onceRequestSettled =
-              this.onRequest?.call(this, {
-                request: fetchRequest,
-                requestId: this.requestId!,
-              }) || Promise.resolve()
+            /**
+             * @note Start request handling on the next tick so that the user
+             * could add event listeners for "loadend" before the interceptor fires it.
+             */
+            queueMicrotask(() => {
+              const onceRequestSettled =
+                this.onRequest?.call(this, {
+                  request: fetchRequest,
+                  requestId: this.requestId!,
+                }) || Promise.resolve()
 
-            onceRequestSettled.finally(() => {
-              // If the consumer didn't handle the request (called `.respondWith()`) perform it as-is.
-              if (!this[kIsRequestHandled]) {
-                this.logger.info(
-                  'request callback settled but request has not been handled (readystate %d), performing as-is...',
-                  this.request.readyState
-                )
-
-                /**
-                 * @note Set the intercepted request ID on the original request in Node.js
-                 * so that if it triggers any other interceptors, they don't attempt
-                 * to process it once again.
-                 *
-                 * For instance, XMLHttpRequest is often implemented via "http.ClientRequest"
-                 * and we don't want for both XHR and ClientRequest interceptors to
-                 * handle the same request at the same time (e.g. emit the "response" event twice).
-                 */
-                if (IS_NODE) {
-                  this.request.setRequestHeader(
-                    INTERNAL_REQUEST_ID_HEADER_NAME,
-                    this.requestId!
+              onceRequestSettled.finally(() => {
+                // If the consumer didn't handle the request (called `.respondWith()`) perform it as-is.
+                if (!this[kIsRequestHandled]) {
+                  this.logger.info(
+                    'request callback settled but request has not been handled (readystate %d), performing as-is...',
+                    this.request.readyState
                   )
-                }
 
-                return invoke()
-              }
+                  /**
+                   * @note Set the intercepted request ID on the original request in Node.js
+                   * so that if it triggers any other interceptors, they don't attempt
+                   * to process it once again.
+                   *
+                   * For instance, XMLHttpRequest is often implemented via "http.ClientRequest"
+                   * and we don't want for both XHR and ClientRequest interceptors to
+                   * handle the same request at the same time (e.g. emit the "response" event twice).
+                   */
+                  if (IS_NODE) {
+                    this.request.setRequestHeader(
+                      INTERNAL_REQUEST_ID_HEADER_NAME,
+                      this.requestId!
+                    )
+                  }
+
+                  return invoke()
+                }
+              })
             })
 
             break
@@ -241,7 +250,7 @@ export class XMLHttpRequestController {
             case 'addEventListener': {
               const [eventName, listener] = args as [
                 keyof XMLHttpRequestEventTargetEventMap,
-                Function
+                Function,
               ]
               this.registerUploadEvent(eventName, listener)
               this.logger.info('upload.addEventListener', eventName, listener)
@@ -312,6 +321,7 @@ export class XMLHttpRequestController {
         loaded: totalRequestBodyLength,
         total: totalRequestBodyLength,
       })
+
       this.trigger('loadend', this.request.upload, {
         loaded: totalRequestBodyLength,
         total: totalRequestBodyLength,
@@ -614,7 +624,7 @@ export class XMLHttpRequestController {
   private trigger<
     EventName extends keyof (XMLHttpRequestEventTargetEventMap & {
       readystatechange: ProgressEvent<XMLHttpRequestEventTarget>
-    })
+    }),
   >(
     eventName: EventName,
     target: XMLHttpRequest | XMLHttpRequestUpload,
