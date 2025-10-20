@@ -63,6 +63,9 @@ export class MockHttpSocket extends MockSocket {
   private shouldKeepAlive?: boolean
 
   private socketState: 'unknown' | 'mock' | 'passthrough' = 'unknown'
+  private hasEmittedEarlyConnect = false
+  private hasEmittedEarlySecureConnect = false
+  private isInternalCall = false
   private responseParser: HTTPParser<1>
   private responseStream?: Readable
   private originalSocket?: net.Socket
@@ -150,6 +153,23 @@ export class MockHttpSocket extends MockSocket {
     }
   }
 
+  /**
+   * Override _read to track when Node.js internals are making calls.
+   * Without this, calls to `_read` on the socket will set up listeners
+   * to `connect` events which will never actually get called because
+   * `hasEmittedEarlyConnect` will skip emitting `connect` once we've
+   * detected that a user has tried listening to `connect` events before
+   * the socket was ready for it.
+   */
+  public _read(size: number): void {
+    this.isInternalCall = true
+    try {
+      super._read(size)
+    } finally {
+      this.isInternalCall = false
+    }
+  }
+
   public emit(event: string | symbol, ...args: any[]): boolean {
     const emitEvent = super.emit.bind(this, event as any, ...args)
 
@@ -159,6 +179,46 @@ export class MockHttpSocket extends MockSocket {
     }
 
     return emitEvent()
+  }
+  
+
+  /**
+   * Override the 'once' method to detect when clients are waiting for connection events.
+   * This prevents deadlock when clients wait for 'secureConnect' before writing data. Some
+   * HTTP clients like the Stripe SDK like to do this. Since the interceptor waits for
+   * `write` to be called before it knows if something is to be mocked or bypassed, this
+   * causes a deadlock because it'll never emit `secureConnect` until it knows.
+   */
+  public once(event: string, listener: (...args: any[]) => void): this {
+    // Only emit early connection events for user code, not Node.js internals
+    // Node.js calls once('connect') from Socket._read which sets isInternalCall flag
+    if (!this.isInternalCall && this.connecting && this.socketState === 'unknown') {
+      if (event === 'secureConnect' && this.baseUrl.protocol === 'https:' && !this.hasEmittedEarlySecureConnect) {
+          this.hasEmittedEarlySecureConnect = true
+          // Schedule the emission for the next tick to allow the listener to be attached first
+          setImmediate(() => {
+            if (this.socketState === 'unknown') {
+              this.connecting = false  // Mark as connected
+              // Emit connect first if not already emitted
+              if (!this.hasEmittedEarlyConnect) {
+                this.hasEmittedEarlyConnect = true
+                this.emit('connect')
+              }
+              this.emit('secureConnect')
+            }
+          })
+      } else if (event === 'connect' && !this.hasEmittedEarlyConnect) {
+        this.hasEmittedEarlyConnect = true
+        // Schedule the emission for the next tick to allow the listener to be attached first
+        setImmediate(() => {
+          if (this.socketState === 'unknown') {
+            this.connecting = false  // Mark as connected
+            this.emit('connect')
+          }
+        })
+      }
+    }
+    return super.once(event as any, listener as any)
   }
 
   public destroy(error?: Error | undefined): this {
@@ -179,6 +239,13 @@ export class MockHttpSocket extends MockSocket {
    * its data/events through this Socket.
    */
   public passthrough(): void {
+    // If we scheduled an early connect event but haven't emitted it yet,
+    // emit it now before going to passthrough mode so Node.js can apply setTimeout
+    if (this.hasEmittedEarlyConnect && this.connecting) {
+      this.connecting = false
+      this.emit('connect')
+    }
+
     this.socketState = 'passthrough'
 
     if (this.destroyed) {
@@ -187,6 +254,11 @@ export class MockHttpSocket extends MockSocket {
 
     const socket = this.createConnection()
     this.originalSocket = socket
+    
+    // If a timeout was set on this socket before passthrough, apply it to the original socket
+    if (this.timeout !== undefined && this.timeout > 0) {
+      socket.setTimeout(this.timeout)
+    }
 
     /**
      * @note Inherit the original socket's connection handle.
@@ -203,11 +275,9 @@ export class MockHttpSocket extends MockSocket {
     }
 
     // If the developer destroys the socket, destroy the original connection.
-    this.once('error', (error) => {
+    this.once('error', (error: Error) => {
       socket.destroy(error)
     })
-
-    this.address = socket.address.bind(socket)
 
     // Flush the buffered "socket.write()" calls onto
     // the original socket instance (i.e. write request body).
@@ -276,10 +346,20 @@ export class MockHttpSocket extends MockSocket {
     socket
       .on('lookup', (...args) => this.emit('lookup', ...args))
       .on('connect', () => {
+
         this.connecting = socket.connecting
-        this.emit('connect')
+
+        // Don't re-emit 'connect' if already emitted early
+        if (!this.hasEmittedEarlyConnect) {
+          this.emit('connect')
+        }
       })
-      .on('secureConnect', () => this.emit('secureConnect'))
+      .on('secureConnect', () => {
+        // Don't re-emit 'secureConnect' if already emitted early
+        if (!this.hasEmittedEarlySecureConnect) {
+          this.emit('secureConnect')
+        }
+      })
       .on('secure', () => this.emit('secure'))
       .on('session', (session) => this.emit('session', session))
       .on('ready', () => this.emit('ready'))
@@ -300,6 +380,22 @@ export class MockHttpSocket extends MockSocket {
       .on('finish', () => this.emit('finish'))
       .on('close', (hadError) => this.emit('close', hadError))
       .on('end', () => this.emit('end'))
+  }
+
+  // If address is called on a passthrough socket before the original socket is set, it won't
+  // return anything. This can happen because sockets fire `connect` early to avoid a causing
+  // a deadlock with some HTTP clients that like to wait for `connect` or `secureConnect`
+  // before calling `write`.
+  public address(): net.AddressInfo | {} {
+    if (this.originalSocket) {
+      return this.originalSocket.address()
+    }
+
+    return {
+      address: this.connectionOptions.hostname || this.connectionOptions.host || '127.0.0.1',
+      family: this.connectionOptions.family === 6 ? 'IPv6' : 'IPv4',
+      port: this.connectionOptions.port || 80
+    }
   }
 
   /**
@@ -511,8 +607,8 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private onRequestStart: RequestHeadersCompleteCallback = (
-    versionMajor,
-    versionMinor,
+    _versionMajor,
+    _versionMinor,
     rawHeaders,
     _,
     path,
@@ -633,10 +729,10 @@ export class MockHttpSocket extends MockSocket {
   }
 
   private onResponseStart: ResponseHeadersCompleteCallback = (
-    versionMajor,
-    versionMinor,
+    _versionMajor,
+    _versionMinor,
     rawHeaders,
-    method,
+    _method,
     url,
     status,
     statusText
