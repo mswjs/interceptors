@@ -2,14 +2,14 @@
 /**
  * @see https://github.com/mswjs/msw/issues/2309
  */
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import path from 'node:path'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { vi, afterAll, beforeAll, afterEach, it, expect } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import superagent from 'superagent'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.post('/upload', (req, res) => {

@@ -1,12 +1,9 @@
-/**
- * @vitest-environment node
- */
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+// @vitest-environment node
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { waitForClientRequest } from '../../../helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 interceptor.on('request', ({ request, controller }) => {
   if (request.url === 'http://localhost/') {

@@ -1,11 +1,11 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import http from 'http'
+// @vitest-environment node
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src/glossary'
 import { RequestController } from '../../../../src/RequestController'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {
@@ -18,9 +18,7 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
-const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', resolver)
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   await httpServer.listen()
@@ -28,7 +26,7 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -37,6 +35,10 @@ afterAll(async () => {
 })
 
 it('intercepts a HEAD request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'HEAD',
@@ -47,9 +49,9 @@ it('intercepts a HEAD request', async () => {
   req.end()
   await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('HEAD')
   expect(request.url).toBe(url)
@@ -65,6 +67,10 @@ it('intercepts a HEAD request', async () => {
 })
 
 it('intercepts a GET request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'GET',
@@ -75,9 +81,9 @@ it('intercepts a GET request', async () => {
   req.end()
   await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(url)
@@ -93,6 +99,10 @@ it('intercepts a GET request', async () => {
 })
 
 it('intercepts a POST request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'POST',
@@ -106,9 +116,9 @@ it('intercepts a POST request', async () => {
 
   await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('POST')
   expect(request.url).toBe(url)
@@ -117,13 +127,17 @@ it('intercepts a POST request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('post-payload')
+  await expect(request.text()).resolves.toBe('post-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a PUT request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'PUT',
@@ -136,9 +150,9 @@ it('intercepts a PUT request', async () => {
   req.end()
   await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(url)
@@ -147,13 +161,17 @@ it('intercepts a PUT request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('put-payload')
+  await expect(request.text()).resolves.toBe('put-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a PATCH request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'PATCH',
@@ -166,9 +184,9 @@ it('intercepts a PATCH request', async () => {
   req.end()
   await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(url)
@@ -177,13 +195,17 @@ it('intercepts a PATCH request', async () => {
     'x-custom-header': 'yes',
   })
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('patch-payload')
+  await expect(request.text()).resolves.toBe('patch-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a DELETE request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.http.url('/user?id=123')
   const req = http.request(url, {
     method: 'DELETE',
@@ -194,9 +216,9 @@ it('intercepts a DELETE request', async () => {
   req.end()
   await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(url)
@@ -212,6 +234,10 @@ it('intercepts a DELETE request', async () => {
 })
 
 it('intercepts an http.request given RequestOptions without a protocol', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   // Create a request with `RequestOptions` without an explicit "protocol".
   // Since request is done via `http.get`, the "http:" protocol must be inferred.
   const req = http.request({
@@ -222,9 +248,9 @@ it('intercepts an http.request given RequestOptions without a protocol', async (
   req.end()
   await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.http.url('/user?id=123'))
@@ -236,6 +262,10 @@ it('intercepts an http.request given RequestOptions without a protocol', async (
 })
 
 it('intercepts an http.request path in url and options', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const callback = vi.fn()
   const req = http.request(
     new URL(httpServer.http.url('/one')),
@@ -245,9 +275,9 @@ it('intercepts an http.request path in url and options', async () => {
   req.end()
   await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.http.url('/two'))
@@ -260,6 +290,10 @@ it('intercepts an http.request path in url and options', async () => {
 })
 
 it('intercepts an http.request with custom "auth" option', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const auth = 'john:secret123'
   const req = http.request({
     host: httpServer.http.address.host,
@@ -269,9 +303,9 @@ it('intercepts an http.request with custom "auth" option', async () => {
   req.end()
   await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request }] = resolver.mock.calls[0]
+  const [{ request }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.http.url('/'))
@@ -281,6 +315,10 @@ it('intercepts an http.request with custom "auth" option', async () => {
 })
 
 it('intercepts an http.request with a URL with "username" and "password"', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const username = 'john'
   const password = 'secret123'
   const req = http.request(
@@ -292,9 +330,9 @@ it('intercepts an http.request with a URL with "username" and "password"', async
   req.end()
   await waitForClientRequest(req)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request }] = resolver.mock.calls[0]
+  const [{ request }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe(httpServer.http.url('/'))

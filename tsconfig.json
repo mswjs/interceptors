@@ -10,8 +10,8 @@
     "removeComments": false,
     "esModuleInterop": true,
     "downlevelIteration": true,
-    "lib": ["dom", "dom.iterable", "ES2018.AsyncGenerator"],
-    "types": ["@types/node"],
+    "lib": ["dom", "dom.iterable", "ES2022.Error", "ES2018.AsyncGenerator"],
+    "types": ["@types/node", "vitest/globals"],
     "baseUrl": ".",
     "paths": {
       "_http_common": ["./_http_common.d.ts"],
@@ -21,5 +21,5 @@
     }
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "**/*.test.*"]
+  "exclude": ["node_modules"]
 }

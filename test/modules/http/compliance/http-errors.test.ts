@@ -1,13 +1,10 @@
-/**
- * @vitest-environment node
- */
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+// @vitest-environment node
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 interface NotFoundError extends NodeJS.ErrnoException {
   hostname: string

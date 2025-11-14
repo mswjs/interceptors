@@ -1,11 +1,11 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import https from 'https'
+// @vitest-environment node
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import https from 'node:https'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
 import { RequestController } from '../../../../src/RequestController'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (req, res) => {
@@ -20,17 +20,15 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
-const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', resolver)
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
-  await httpServer.listen()
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -39,176 +37,211 @@ afterAll(async () => {
 })
 
 it('intercepts a HEAD request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.https.url('/user?id=123')
-  const req = https.request(url, {
+  const request = https.request(url, {
     rejectUnauthorized: false,
     method: 'HEAD',
     headers: {
       'x-custom-header': 'yes',
     },
   })
-  req.end()
-  await waitForClientRequest(req)
+  request.end()
+  await waitForClientRequest(request)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request: interceptedRequest, requestId, controller }] =
+    requestListener.mock.calls[0]
 
-  expect(request.method).toBe('HEAD')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(interceptedRequest.method).toBe('HEAD')
+  expect(interceptedRequest.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(interceptedRequest.credentials).toBe('same-origin')
+  expect(interceptedRequest.body).toBe(null)
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a GET request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.https.url('/user?id=123')
-  const req = https.request(url, {
+  const request = https.request(url, {
     rejectUnauthorized: false,
     method: 'GET',
     headers: {
       'x-custom-header': 'yes',
     },
   })
-  req.end()
-  await waitForClientRequest(req)
+  request.end()
+  await waitForClientRequest(request)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request: interceptedRequest, requestId, controller }] =
+    requestListener.mock.calls[0]
 
-  expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(interceptedRequest.method).toBe('GET')
+  expect(interceptedRequest.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(interceptedRequest.credentials).toBe('same-origin')
+  expect(interceptedRequest.body).toBe(null)
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a POST request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.https.url('/user?id=123')
-  const req = https.request(url, {
+  const request = https.request(url, {
     rejectUnauthorized: false,
     method: 'POST',
     headers: {
       'x-custom-header': 'yes',
     },
   })
-  req.write('post-payload')
-  req.end()
-  await waitForClientRequest(req)
+  request.write('post-payload')
+  request.end()
+  await waitForClientRequest(request)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request: interceptedRequest, requestId, controller }] =
+    requestListener.mock.calls[0]
 
-  expect(request.method).toBe('POST')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('post-payload')
+  expect(interceptedRequest.method).toBe('POST')
+  expect(interceptedRequest.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(interceptedRequest.credentials).toBe('same-origin')
+  await expect(interceptedRequest.text()).resolves.toBe('post-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a PUT request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.https.url('/user?id=123')
-  const req = https.request(url, {
+  const request = https.request(url, {
     rejectUnauthorized: false,
     method: 'PUT',
     headers: {
       'x-custom-header': 'yes',
     },
   })
-  req.write('put-payload')
-  req.end()
-  await waitForClientRequest(req)
+  request.write('put-payload')
+  request.end()
+  await waitForClientRequest(request)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request: interceptedRequest, requestId, controller }] =
+    requestListener.mock.calls[0]
 
-  expect(request.method).toBe('PUT')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('put-payload')
+  expect(interceptedRequest.method).toBe('PUT')
+  expect(interceptedRequest.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(interceptedRequest.credentials).toBe('same-origin')
+  await expect(interceptedRequest.text()).resolves.toBe('put-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a PATCH request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.https.url('/user?id=123')
-  const req = https.request(url, {
+  const request = https.request(url, {
     rejectUnauthorized: false,
     method: 'PATCH',
     headers: {
       'x-custom-header': 'yes',
     },
   })
-  req.write('patch-payload')
-  req.end()
-  await waitForClientRequest(req)
+  request.write('patch-payload')
+  request.end()
+  await waitForClientRequest(request)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request: interceptedRequest, requestId, controller }] =
+    requestListener.mock.calls[0]
 
-  expect(request.method).toBe('PATCH')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('patch-payload')
+  expect(interceptedRequest.method).toBe('PATCH')
+  expect(interceptedRequest.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(interceptedRequest.credentials).toBe('same-origin')
+  await expect(interceptedRequest.text()).resolves.toBe('patch-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts a DELETE request', async () => {
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
   const url = httpServer.https.url('/user?id=123')
-  const req = https.request(url, {
+  const request = https.request(url, {
     rejectUnauthorized: false,
     method: 'DELETE',
     headers: {
       'x-custom-header': 'yes',
     },
   })
-  req.end()
-  await waitForClientRequest(req)
+  request.end()
+  await waitForClientRequest(request)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request: interceptedRequest, requestId, controller }] =
+    requestListener.mock.calls[0]
 
-  expect(request.method).toBe('DELETE')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('')
+  expect(interceptedRequest.method).toBe('DELETE')
+  expect(interceptedRequest.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(interceptedRequest.credentials).toBe('same-origin')
+  await expect(interceptedRequest.text()).resolves.toBe('')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
 it('intercepts an http.request request given RequestOptions without a protocol', async () => {
-  const req = https.request({
+  const requestListener =
+    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+  interceptor.on('request', requestListener)
+
+  const request = https.request({
     rejectUnauthorized: false,
     host: httpServer.https.address.host,
     port: httpServer.https.address.port,
     path: '/user?id=123',
   })
-  req.end()
-  await waitForClientRequest(req)
+  request.end()
+  await waitForClientRequest(request)
 
-  expect(resolver).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = resolver.mock.calls[0]
+  const [{ request: interceptedRequest, requestId, controller }] =
+    requestListener.mock.calls[0]
 
-  expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
-  expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+  expect(interceptedRequest.method).toBe('GET')
+  expect(interceptedRequest.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(interceptedRequest.credentials).toBe('same-origin')
+  expect(interceptedRequest.body).toBe(null)
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)

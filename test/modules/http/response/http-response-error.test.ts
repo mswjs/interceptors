@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()

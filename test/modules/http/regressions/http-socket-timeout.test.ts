@@ -1,7 +1,4 @@
-/**
- * @vitest-environment node
- */
-import { it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment node
 import { ChildProcess, spawn } from 'child_process'
 
 let child: ChildProcess

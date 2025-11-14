@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from 'vitest'
 import path from 'node:path'
 import http from 'node:http'
 import { promisify } from 'node:util'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { waitForClientRequest } from '../../../helpers'
 
 // const HTTP_SOCKET_PATH = mockFs.resolve('./test.sock')
@@ -22,7 +22,7 @@ const httpServer = http.createServer((req, res) => {
   }
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   await new Promise<void>((resolve) => {

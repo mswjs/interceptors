@@ -18,26 +18,36 @@ declare var HTTPParser: {
 export interface HTTPParser<ParserType extends number> {
   new (): HTTPParser<ParserType>
 
-  [HTTPParser.kOnMessageBegin]: () => void
-  [HTTPParser.kOnHeaders]: HeadersCallback
-  [HTTPParser.kOnHeadersComplete]: ParserType extends 0
-    ? RequestHeadersCompleteCallback
-    : ResponseHeadersCompleteCallback
-  [HTTPParser.kOnBody]: (chunk: Buffer) => void
-  [HTTPParser.kOnMessageComplete]: () => void
-  [HTTPParser.kOnExecute]: () => void
-  [HTTPParser.kOnTimeout]: () => void
+  [HTTPParser.kOnMessageBegin]?: (() => void) | null
+  [HTTPParser.kOnHeaders]?: HeadersCallback
+  [HTTPParser.kOnHeadersComplete]?: ParserType extends 0
+    ? RequestHeadersCompleteCallback | null
+    : ResponseHeadersCompleteCallback | null
+  [HTTPParser.kOnBody]?: ((chunk: Buffer) => void) | null
+  [HTTPParser.kOnMessageComplete]?: (() => void) | null
+  [HTTPParser.kOnExecute]?: (() => void) | null
+  [HTTPParser.kOnTimeout]?: (() => void) | null
+
+  _consumed?: boolean
+  _headers?: Array<unknown>
+  _url: string
+  maxHeaderPairs: number
+  socket?: typeof import('node:net').Socket | null
+  incoming?: typeof import('node:http').IncomingMessage | null
+  outgoing?: typeof import('node:http').OutgoingMessage | null
+  onIncoming?: (() => void) | null
+  joinDuplicateHeaders?: unknown
 
   initialize(type: ParserType, asyncResource: object): void
   execute(buffer: Buffer): void
   finish(): void
-  free(): void
+  unconsume(): void
+  remove(): void
+  close(): void
+  free(): boolean
 }
 
-export type HeadersCallback = (
-  rawHeaders: Array<string>,
-  url: string
-) => void
+export type HeadersCallback = (rawHeaders: Array<string>, url: string) => void
 
 export type RequestHeadersCompleteCallback = (
   versionMajor: number,

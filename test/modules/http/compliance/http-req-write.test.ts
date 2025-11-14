@@ -1,12 +1,9 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { Readable } from 'node:stream'
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
@@ -17,7 +14,7 @@ const httpServer = new HttpServer((app) => {
 
 const interceptedRequestBody = vi.fn()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', async ({ request }) => {
   interceptedRequestBody(await request.clone().text())
 })

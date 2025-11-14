@@ -2,12 +2,11 @@
  * @see https://github.com/mswjs/interceptors/issues/682
  */
 // @vitest-environment node-with-websocket
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { Server } from 'socket.io'
 import { io } from 'socket.io-client'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 const server = new Server(51678)
 
 beforeAll(() => {

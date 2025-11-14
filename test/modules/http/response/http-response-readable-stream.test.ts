@@ -1,22 +1,27 @@
-/**
- * @vitest-environment node
- */
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { performance } from 'node:perf_hooks'
+// @vitest-environment node
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
-import https from 'node:https'
+import { performance } from 'node:perf_hooks'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpServer } from '@open-draft/test-server/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
 type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 
 const encoder = new TextEncoder()
 
-const interceptor = new ClientRequestInterceptor()
+const httpServer = new HttpServer((app) => {
+  app.get('/', (req, res) => {
+    res.writeHead(200)
+    res.destroy(new Error('stream error'))
+  })
+})
+
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
@@ -25,13 +30,13 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.dispose()
+  await httpServer.close()
 })
 
 it('supports ReadableStream as a mocked response', async () => {
-  const encoder = new TextEncoder()
-  interceptor.once('request', ({ controller }) => {
+  interceptor.on('request', ({ controller }) => {
     const stream = new ReadableStream({
-      start(controller) {
+      pull(controller) {
         controller.enqueue(encoder.encode('hello'))
         controller.enqueue(encoder.encode(' '))
         controller.enqueue(encoder.encode('world'))
@@ -41,15 +46,15 @@ it('supports ReadableStream as a mocked response', async () => {
     controller.respondWith(new Response(stream))
   })
 
-  const request = http.get('http://example.com/resource')
+  const request = http.get('http://localhost/resource')
   const { text } = await waitForClientRequest(request)
-  expect(await text()).toBe('hello world')
+  await expect(text()).resolves.toBe('hello world')
 })
 
 it('supports delays when enqueuing chunks', async () => {
-  interceptor.once('request', ({ controller }) => {
+  interceptor.on('request', ({ controller }) => {
     const stream = new ReadableStream({
-      async start(controller) {
+      async pull(controller) {
         controller.enqueue(encoder.encode('first'))
         await sleep(200)
 
@@ -74,7 +79,7 @@ it('supports delays when enqueuing chunks', async () => {
 
   const responseChunksPromise = new DeferredPromise<ResponseChunks>()
 
-  const request = https.get('https://api.example.com/stream', (response) => {
+  const request = http.get('http://api.localhost/stream', (response) => {
     const chunks: ResponseChunks = []
 
     response
@@ -120,7 +125,7 @@ it('handles immediate response stream errors as request errors', async () => {
     controller.respondWith(new Response(stream))
   })
 
-  const request = http.get('http://localhost/resource')
+  const request = http.get(httpServer.http.url('/'))
   request.on('error', requestErrorListener)
 
   await vi.waitFor(() => {

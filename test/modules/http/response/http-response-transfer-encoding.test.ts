@@ -1,10 +1,9 @@
 // @vitest-environment node
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import { waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -18,7 +17,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('responds with a mocked "transfer-encoding: chunked" response', async () => {
+it('responds with a mocked "transfer-encoding: chunked" respon se', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(
       new Response('mock', {
