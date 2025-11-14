@@ -153,30 +153,26 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     request,
     socket,
   }) => {
-    const requestId = Reflect.get(request, kRequestId)
-    const controller = new RequestController(request)
-
-    const isRequestHandled = await handleRequest({
-      request,
-      requestId,
-      controller,
-      emitter: this.emitter,
-      onResponse: (response) => {
-        socket.respondWith(response)
+    const controller = new RequestController(request, {
+      passthrough() {
+        socket.passthrough()
       },
-      onRequestError: (response) => {
-        socket.respondWith(response)
+      async respondWith(response) {
+        await socket.respondWith(response)
       },
-      onError: (error) => {
-        if (error instanceof Error) {
-          socket.errorWith(error)
+      errorWith(reason) {
+        if (reason instanceof Error) {
+          socket.errorWith(reason)
         }
       },
     })
 
-    if (!isRequestHandled) {
-      return socket.passthrough()
-    }
+    await handleRequest({
+      request,
+      requestId: Reflect.get(request, kRequestId),
+      controller,
+      emitter: this.emitter,
+    })
   }
 
   public onResponse: MockHttpSocketResponseCallback = async ({

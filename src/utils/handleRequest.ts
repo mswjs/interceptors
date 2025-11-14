@@ -3,12 +3,11 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
 import type { HttpRequestEventMap } from '../glossary'
 import { emitAsync } from './emitAsync'
-import { kResponsePromise, RequestController } from '../RequestController'
+import { RequestController } from '../RequestController'
 import {
   createServerErrorResponse,
   isResponseError,
   isResponseLike,
-  ResponseError,
 } from './responseUtils'
 import { InterceptorError } from '../InterceptorError'
 import { isNodeLikeError } from './isNodeLikeError'
@@ -19,43 +18,22 @@ interface HandleRequestOptions {
   request: Request
   emitter: Emitter<HttpRequestEventMap>
   controller: RequestController
-
-  /**
-   * Called when the request has been handled
-   * with the given `Response` instance.
-   */
-  onResponse: (response: Response) => void | Promise<void>
-
-  /**
-   * Called when the request has been handled
-   * with the given `Response.error()` instance.
-   */
-  onRequestError: (response: ResponseError) => void
-
-  /**
-   * Called when an unhandled error happens during the
-   * request handling. This is never a thrown error/response.
-   */
-  onError: (error: unknown) => void
 }
 
-/**
- * @returns {Promise<boolean>} Indicates whether the request has been handled.
- */
 export async function handleRequest(
   options: HandleRequestOptions
-): Promise<boolean> {
+): Promise<void> {
   const handleResponse = async (
     response: Response | Error | Record<string, any>
   ) => {
     if (response instanceof Error) {
-      options.onError(response)
+      await options.controller.errorWith(response)
       return true
     }
 
     // Handle "Response.error()" instances.
     if (isResponseError(response)) {
-      options.onRequestError(response)
+      await options.controller.respondWith(response)
       return true
     }
 
@@ -65,13 +43,13 @@ export async function handleRequest(
      * since Response instances are, in fact, objects.
      */
     if (isResponseLike(response)) {
-      await options.onResponse(response)
+      await options.controller.respondWith(response)
       return true
     }
 
     // Handle arbitrary objects provided to `.errorWith(reason)`.
     if (isObject(response)) {
-      options.onError(response)
+      await options.controller.errorWith(response)
       return true
     }
 
@@ -87,7 +65,7 @@ export async function handleRequest(
 
     // Support mocking Node.js-like errors.
     if (isNodeLikeError(error)) {
-      options.onError(error)
+      await options.controller.errorWith(error)
       return true
     }
 
@@ -102,15 +80,14 @@ export async function handleRequest(
   // Add the last "request" listener to check if the request
   // has been handled in any way. If it hasn't, resolve the
   // response promise with undefined.
-  options.emitter.once('request', ({ requestId: pendingRequestId }) => {
-    if (pendingRequestId !== options.requestId) {
-      return
-    }
-
-    if (options.controller[kResponsePromise].state === 'pending') {
-      options.controller[kResponsePromise].resolve(undefined)
-    }
-  })
+  // options.emitter.once('request', async ({ requestId: pendingRequestId }) => {
+  //   if (
+  //     pendingRequestId === options.requestId &&
+  //     options.controller.readyState === RequestController.PENDING
+  //   ) {
+  //     await options.controller.passthrough()
+  //   }
+  // })
 
   const requestAbortPromise = new DeferredPromise<void, unknown>()
 
@@ -119,16 +96,17 @@ export async function handleRequest(
    */
   if (options.request.signal) {
     if (options.request.signal.aborted) {
-      requestAbortPromise.reject(options.request.signal.reason)
-    } else {
-      options.request.signal.addEventListener(
-        'abort',
-        () => {
-          requestAbortPromise.reject(options.request.signal.reason)
-        },
-        { once: true }
-      )
+      await options.controller.errorWith(options.request.signal.reason)
+      return
     }
+
+    options.request.signal.addEventListener(
+      'abort',
+      () => {
+        requestAbortPromise.reject(options.request.signal.reason)
+      },
+      { once: true }
+    )
   }
 
   const result = await until(async () => {
@@ -146,25 +124,21 @@ export async function handleRequest(
       // Short-circuit the request handling promise if the request gets aborted.
       requestAbortPromise,
       requestListenersPromise,
-      options.controller[kResponsePromise],
+      options.controller.handled,
     ])
-
-    // The response promise will settle immediately once
-    // the developer calls either "respondWith" or "errorWith".
-    return await options.controller[kResponsePromise]
   })
 
   // Handle the request being aborted while waiting for the request listeners.
   if (requestAbortPromise.state === 'rejected') {
-    options.onError(requestAbortPromise.rejectionReason)
-    return true
+    await options.controller.errorWith(requestAbortPromise.rejectionReason)
+    return
   }
 
   if (result.error) {
     // Handle the error during the request listener execution.
     // These can be thrown responses or request errors.
     if (await handleResponseError(result.error)) {
-      return true
+      return
     }
 
     // If the developer has added "unhandledException" listeners,
@@ -175,7 +149,28 @@ export async function handleRequest(
       // This is needed because the original controller might have been already
       // interacted with (e.g. "respondWith" or "errorWith" called on it).
       const unhandledExceptionController = new RequestController(
-        options.request
+        options.request,
+        {
+          /**
+           * @note Intentionally empty passthrough handle.
+           * This controller is created within another controller and we only need
+           * to know if `unhandledException` listeners handled the request.
+           */
+          passthrough() {},
+          async respondWith(response) {
+            await handleResponse(response)
+          },
+          async errorWith(reason) {
+            /**
+             * @note Handle the result of the unhandled controller
+             * in the same way as the original request controller.
+             * The exception here is that thrown errors within the
+             * "unhandledException" event do NOT result in another
+             * emit of the same event. They are forwarded as-is.
+             */
+            await options.controller.errorWith(reason)
+          },
+        }
       )
 
       await emitAsync(options.emitter, 'unhandledException', {
@@ -183,53 +178,28 @@ export async function handleRequest(
         request: options.request,
         requestId: options.requestId,
         controller: unhandledExceptionController,
-      }).then(() => {
-        // If all the "unhandledException" listeners have finished
-        // but have not handled the response in any way, preemptively
-        // resolve the pending response promise from the new controller.
-        // This prevents it from hanging forever.
-        if (
-          unhandledExceptionController[kResponsePromise].state === 'pending'
-        ) {
-          unhandledExceptionController[kResponsePromise].resolve(undefined)
-        }
       })
 
-      const nextResult = await until(
-        () => unhandledExceptionController[kResponsePromise]
-      )
-
-      /**
-       * @note Handle the result of the unhandled controller
-       * in the same way as the original request controller.
-       * The exception here is that thrown errors within the
-       * "unhandledException" event do NOT result in another
-       * emit of the same event. They are forwarded as-is.
-       */
-      if (nextResult.error) {
-        return handleResponseError(nextResult.error)
-      }
-
-      if (nextResult.data) {
-        return handleResponse(nextResult.data)
+      // If all the "unhandledException" listeners have finished
+      // but have not handled the request in any way, passthrough.
+      if (
+        unhandledExceptionController.readyState !== RequestController.PENDING
+      ) {
+        return
       }
     }
 
     // Otherwise, coerce unhandled exceptions to a 500 Internal Server Error response.
-    options.onResponse(createServerErrorResponse(result.error))
-    return true
+    await options.controller.respondWith(
+      createServerErrorResponse(result.error)
+    )
+    return
   }
 
-  /**
-   * Handle a mocked Response instance.
-   * @note That this can also be an Error in case
-   * the developer called "errorWith". This differentiates
-   * unhandled exceptions from intended errors.
-   */
-  if (result.data) {
-    return handleResponse(result.data)
+  // If the request hasn't been handled by this point, passthrough.
+  if (options.controller.readyState === RequestController.PENDING) {
+    return await options.controller.passthrough()
   }
 
-  // In all other cases, consider the request unhandled.
-  return false
+  return options.controller.handled
 }

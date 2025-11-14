@@ -175,7 +175,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
     wasClean = true
   ): void {
     /**
-     * @note Move this check here so that even internall closures,
+     * @note Move this check here so that even internal closures,
      * like those triggered by the `server` connection, are not
      * performed twice.
      */

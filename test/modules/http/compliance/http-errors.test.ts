@@ -60,7 +60,7 @@ it('forwards ECONNREFUSED error given a bypassed request', async () => {
 
   /**
    * @note Don't assert exact error address/port
-   * because Node.js v20 will aggreggate connection errors
+   * because Node.js v20 will aggregate connection errors
    * into a single "AggregateError" instance that doesn't have those.
    */
   expect(requestError.code).toBe('ECONNREFUSED')

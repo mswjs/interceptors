@@ -3,6 +3,7 @@ import { XMLHttpRequestEmitter } from '.'
 import { RequestController } from '../../RequestController'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
 import { handleRequest } from '../../utils/handleRequest'
+import { isResponseError } from '../../utils/responseUtils'
 
 export interface XMLHttpRequestProxyOptions {
   emitter: XMLHttpRequestEmitter
@@ -52,7 +53,28 @@ export function createXMLHttpRequestProxy({
       )
 
       xhrRequestController.onRequest = async function ({ request, requestId }) {
-        const controller = new RequestController(request)
+        const controller = new RequestController(request, {
+          passthrough: () => {
+            this.logger.info(
+              'no mocked response received, performing request as-is...'
+            )
+          },
+          respondWith: async (response) => {
+            if (isResponseError(response)) {
+              this.errorWith(new TypeError('Network error'))
+              return
+            }
+
+            await this.respondWith(response)
+          },
+          errorWith: (reason) => {
+            this.logger.info('request errored!', { error: reason })
+
+            if (reason instanceof Error) {
+              this.errorWith(reason)
+            }
+          },
+        })
 
         this.logger.info('awaiting mocked response...')
 
@@ -61,31 +83,12 @@ export function createXMLHttpRequestProxy({
           emitter.listenerCount('request')
         )
 
-        const isRequestHandled = await handleRequest({
+        await handleRequest({
           request,
           requestId,
           controller,
           emitter,
-          onResponse: async (response) => {
-            await this.respondWith(response)
-          },
-          onRequestError: () => {
-            this.errorWith(new TypeError('Network error'))
-          },
-          onError: (error) => {
-            this.logger.info('request errored!', { error })
-
-            if (error instanceof Error) {
-              this.errorWith(error)
-            }
-          },
         })
-
-        if (!isRequestHandled) {
-          this.logger.info(
-            'no mocked response received, performing request as-is...'
-          )
-        }
       }
 
       xhrRequestController.onResponse = async function ({

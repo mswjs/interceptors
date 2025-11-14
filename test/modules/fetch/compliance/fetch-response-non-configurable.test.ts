@@ -39,7 +39,7 @@ it('handles non-configurable responses from the actual server', async () => {
     'fetch failed'
   )
 
-  // Must not call the response listner. Fetch failed.
+  // Must not call the response listener. Fetch failed.
   expect(responseListener).not.toHaveBeenCalled()
 })
 

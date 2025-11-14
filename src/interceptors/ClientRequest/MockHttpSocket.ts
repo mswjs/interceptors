@@ -146,6 +146,7 @@ export class MockHttpSocket extends MockSocket {
       Reflect.set(this, 'getProtocol', () => 'TLSv1.3')
       Reflect.set(this, 'getSession', () => undefined)
       Reflect.set(this, 'isSessionReused', () => false)
+      Reflect.set(this, 'getCipher', () => ({ name: 'AES256-SHA', standardName: 'TLS_RSA_WITH_AES_256_CBC_SHA', version: 'TLSv1.3' }))
     }
   }
 
@@ -162,7 +163,7 @@ export class MockHttpSocket extends MockSocket {
 
   public destroy(error?: Error | undefined): this {
     // Destroy the response parser when the socket gets destroyed.
-    // Normally, we shoud listen to the "close" event but it
+    // Normally, we should listen to the "close" event but it
     // can be suppressed by using the "emitClose: false" option.
     this.responseParser.free()
 
@@ -258,6 +259,7 @@ export class MockHttpSocket extends MockSocket {
         'getProtocol',
         'getSession',
         'isSessionReused',
+        'getCipher'
       ]
 
       tlsProperties.forEach((propertyName) => {
@@ -310,6 +312,16 @@ export class MockHttpSocket extends MockSocket {
     if (this.destroyed) {
       return
     }
+
+    // Prevent recursive calls.
+    invariant(
+      this.socketState !== 'mock',
+      '[MockHttpSocket] Failed to respond to the "%s %s" request with "%s %s": the request has already been handled',
+      this.request?.method,
+      this.request?.url,
+      response.status,
+      response.statusText
+    )
 
     // Handle "type: error" responses.
     if (isPropertyAccessible(response, 'type') && response.type === 'error') {
@@ -393,9 +405,18 @@ export class MockHttpSocket extends MockSocket {
           serverResponse.write(value)
         }
       } catch (error) {
-        // Coerce response stream errors to 500 responses.
-        this.respondWith(createServerErrorResponse(error))
-        return
+        if (error instanceof Error) {
+          serverResponse.destroy()
+          /**
+           * @note Destroy the request socket gracefully.
+           * Response stream errors do NOT produce request errors.
+           */
+          this.destroy()
+          return
+        }
+
+        serverResponse.destroy()
+        throw error
       }
     } else {
       serverResponse.end()

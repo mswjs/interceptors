@@ -1,68 +1,137 @@
 // @vitest-environment node
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+/**
+ * @see https://github.com/mswjs/interceptors/pull/722
+ */
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from 'vitest'
+import path from 'node:path'
 import http from 'node:http'
-import { tmpdir } from 'node:os'
-import { DeferredPromise } from '@open-draft/deferred-promise'
+import { promisify } from 'node:util'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { waitForClientRequest } from '../../../helpers'
-import exp from 'node:constants'
+
+// const HTTP_SOCKET_PATH = mockFs.resolve('./test.sock')
+const HTTP_SOCKET_PATH = path.join(__dirname, './test-http.sock')
+
+const httpServer = http.createServer((req, res) => {
+  res.writeHead(200, req.headers)
+
+  if (req.method === 'POST') {
+    req.pipe(res)
+  } else {
+    res.end()
+  }
+})
 
 const interceptor = new HttpRequestInterceptor()
 
-const socketPath = tmpdir() + '/socket.sock'
-const httpServer = new http.Server((req, res) => {
-  res.end('hello world')
+beforeAll(async () => {
+  await new Promise<void>((resolve) => {
+    httpServer.listen(HTTP_SOCKET_PATH, resolve)
+  })
+
+  interceptor.apply()
 })
 
-beforeAll(async () => {
-  interceptor.apply()
-  const serverListenPromise = new DeferredPromise<void>()
-  httpServer.listen(socketPath, () => {
-    serverListenPromise.resolve()
-  })
-  await serverListenPromise
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
   interceptor.dispose()
-  const serverClosePromise = new DeferredPromise<void>()
-  httpServer.close((error) => {
-    if (error) {
-      serverClosePromise.reject(error)
-    }
-    serverClosePromise.resolve()
-  })
-  await serverClosePromise
+  await promisify(httpServer.close.bind(httpServer))()
 })
 
-describe('Unix socket', () => {
-  it('dispatches a GET request to a Unix socket', async () => {
-    const request = http.get({
-      socketPath,
-      path: '/test-get',
-    })
+it('supports passthrough HTTP GET requests over a unix socket', async () => {
+  const request = http.get({
+    socketPath: HTTP_SOCKET_PATH,
+    path: '/irrelevant',
+    headers: {
+      'X-Custom-Header': 'custom-value',
+    },
+  })
+  const { res } = await waitForClientRequest(request)
 
-    const { text } = await waitForClientRequest(request)
+  expect.soft(res.statusCode).toBe(200)
+  expect.soft(res.headers['x-custom-header']).toBe('custom-value')
+})
 
-    expect(await text()).toBe('hello world')
+it('supports passthrough HTTP POST requests over a unix socket', async () => {
+  const request = http.request({
+    method: 'POST',
+    socketPath: HTTP_SOCKET_PATH,
+    path: '/irrelevant',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': 11,
+    },
+  })
+  request.end('hello world')
+
+  const { res, text } = await waitForClientRequest(request)
+
+  expect.soft(res.statusCode).toBe(200)
+  expect.soft(res.headers).toMatchObject({
+    'content-type': 'application/json',
+    'content-length': '11',
+  })
+  await expect.soft(text()).resolves.toBe('hello world')
+})
+
+it('supports passthrough HTTP GET requests to a non-existing unix socket', async () => {
+  const request = http.get({
+    socketPath: path.join('non-existing.sock'),
+    path: '/irrelevant',
   })
 
-  it('intercepts a GET request to a Unix socket', async () => {
-    const requestListenerPromise = new DeferredPromise<string>()
-    interceptor.on('request', ({ controller, request }) => {
-      requestListenerPromise.resolve(request.url)
-      controller.respondWith(new Response('hello world', { status: 200 }))
+  await expect(waitForClientRequest(request)).rejects.toThrow(
+    expect.objectContaining({
+      code: 'ENOENT',
+      message: 'connect ENOENT non-existing.sock',
     })
+  )
+})
 
-    const request = http.get({
-      socketPath,
-      path: '/test-get',
-    })
+it('mocks a response to HTTP GET requests over a unix socket', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    controller.respondWith(new Response('hello world', request))
+  })
 
-    const { text } = await waitForClientRequest(request)
+  const request = http.get({
+    socketPath: HTTP_SOCKET_PATH,
+    path: '/irrelevant',
+    headers: {
+      'X-Custom-Header': 'custom-value',
+    },
+  })
+  const { res, text } = await waitForClientRequest(request)
 
-    expect(await text()).toBe('hello world')
-    await expect(requestListenerPromise).resolves.toStrictEqual(
-      'http://localhost/test-get'
+  expect.soft(res.statusCode).toBe(200)
+  expect.soft(res.headers['x-custom-header']).toBe('custom-value')
+  await expect.soft(text()).resolves.toBe('hello world')
+})
+
+it('mocks a response to HTTP POST requests over a unix socket', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    controller.respondWith(
+      new Response(request.body, {
+        headers: request.headers,
+      })
     )
   })
+
+  const request = http.request({
+    method: 'POST',
+    socketPath: HTTP_SOCKET_PATH,
+    path: '/irrelevant',
+    headers: {
+      'X-Custom-Header': 'custom-value',
+    },
+  })
+  request.end('request-payload')
+
+  const { res, text } = await waitForClientRequest(request)
+
+  expect.soft(res.statusCode).toBe(200)
+  expect.soft(res.headers['x-custom-header']).toBe('custom-value')
+  await expect.soft(text()).resolves.toBe('request-payload')
 })

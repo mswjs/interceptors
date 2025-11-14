@@ -43,7 +43,7 @@ it('supports "http.request()" without any arguments', async () => {
   expect(await text()).toBe('Mocked')
 })
 
-it('supports "http.get()" without any argumenst', async () => {
+it('supports "http.get()" without any arguments', async () => {
   const responseListener = vi.fn()
   const errorListener = vi.fn()
 

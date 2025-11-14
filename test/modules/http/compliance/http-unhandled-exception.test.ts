@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 import { waitForClientRequest } from '../../../helpers'

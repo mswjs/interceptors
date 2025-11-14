@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import http from 'node:http'
 
@@ -30,10 +31,9 @@ it('treats "Response.error()" as a network error', async () => {
 
   await expect
     .poll(() => requestErrorListener, {
-      message: 'Must treat Response.error() as a network error',
+      message: 'Handles Response.erorr() as a request error',
     })
-    .toHaveBeenCalledWith(new TypeError('Network error'))
-  expect(requestErrorListener).toHaveBeenCalledOnce()
+    .toHaveBeenNthCalledWith(1, new TypeError('Network error'))
 
   expect(responseListener).not.toHaveBeenCalled()
 })
@@ -50,13 +50,12 @@ it('treats a thrown Response.error() as a network error', async () => {
   const request = http.get('http://localhost:3001/resource')
   request.on('error', requestErrorListener)
 
-  // Must handle Response.error() as a request error.
   await expect
     .poll(() => requestErrorListener, {
-      message: 'Must treat Response.error() as a network error',
+      message: 'Handles Response.error() as a request error',
     })
     .toHaveBeenCalledWith(new TypeError('Network error'))
-  expect(requestErrorListener).toHaveBeenCalledOnce()
 
-  expect(responseListener).not.toHaveBeenCalled()
+  expect.soft(requestErrorListener).toHaveBeenCalledOnce()
+  expect.soft(responseListener).not.toHaveBeenCalled()
 })

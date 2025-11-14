@@ -1,6 +1,10 @@
 export * from './glossary'
 export * from './Interceptor'
 export * from './BatchInterceptor'
+export {
+  RequestController,
+  type RequestControllerSource,
+} from './RequestController'
 
 /* Utils */
 export { createRequestId } from './createRequestId'

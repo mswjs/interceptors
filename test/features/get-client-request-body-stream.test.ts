@@ -29,7 +29,7 @@ afterAll(() => {
 it('returns the underlying request body stream for http.ClientRequest', async () => {
   const requestBodyStreamPromise = new DeferredPromise<Readable>()
 
-  interceptor.on('request', async ({ request, controller }) => {
+  interceptor.on('request', ({ request, controller }) => {
     try {
       const requestBodyStream = getClientRequestBodyStream(request)
       requestBodyStreamPromise.resolve(requestBodyStream)
@@ -52,10 +52,10 @@ it('returns the underlying request body stream for http.ClientRequest', async ()
   request.write('hello world')
   request.end()
 
+  await waitForClientRequest(request)
   const requestBodyStream = await requestBodyStreamPromise
   expect(requestBodyStream).toBeInstanceOf(Readable)
 
-  await waitForClientRequest(request)
   await expect(text(requestBodyStream)).resolves.toBe('hello world')
 })
 

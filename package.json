@@ -1,7 +1,7 @@
 {
   "name": "@mswjs/interceptors",
   "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
-  "version": "0.39.5",
+  "version": "0.40.0",
   "main": "./lib/node/index.js",
   "module": "./lib/node/index.mjs",
   "types": "./lib/node/index.d.ts",
@@ -113,6 +113,7 @@
     "test:integration": "pnpm test:node && pnpm test:browser",
     "test:node": "vitest -c test/vitest.config.js",
     "test:browser": "pnpm playwright test -c test/playwright.config.ts",
+    "test:nock": "./test/third-party/nock.sh",
     "clean": "rimraf lib",
     "build": "pnpm clean && cross-env NODE_ENV=production tsup --splitting",
     "prepare": "pnpm simple-git-hooks init",
@@ -127,7 +128,8 @@
     "fetch",
     "RemoteHttpInterceptor",
     "XMLHttpRequest",
-    "WebSocket"
+    "WebSocket",
+    "presets"
   ],
   "repository": {
     "type": "git",
