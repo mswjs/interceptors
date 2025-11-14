@@ -9,7 +9,6 @@ import type { NetworkConnectionOptions } from '../net/utils/normalize-net-connec
 import { toBuffer } from './utils/to-buffer'
 import { createRequestId } from '../../createRequestId'
 import { RequestController } from '../../RequestController'
-import { handleRequest } from '../../utils/handleRequest'
 import {
   getRawFetchHeaders,
   recordRawFetchHeaders,
@@ -35,14 +34,10 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
   public setup() {
     socketInterceptor.apply()
-    this.subscriptions.push(() => {
-      socketInterceptor.dispose()
-    })
+    this.subscriptions.push(() => socketInterceptor.dispose())
 
     recordRawFetchHeaders()
-    this.subscriptions.push(() => {
-      restoreHeadersPrototype()
-    })
+    this.subscriptions.push(() => restoreHeadersPrototype())
 
     socketInterceptor.on(
       'connection',
@@ -78,14 +73,9 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
             },
             onRequest: async (request) => {
               const requestId = createRequestId()
-              const requestController = new RequestController(request)
 
-              const isRequestHandled = await handleRequest({
-                request,
-                requestId,
-                controller: requestController,
-                emitter: this.emitter,
-                onResponse: async (response) => {
+              const requestController = new RequestController(request, {
+                respondWith: async (response) => {
                   if (this.emitter.listenerCount('response') > 0) {
                     const responseClone = response.clone()
                     process.nextTick(() => {
@@ -105,59 +95,48 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     response,
                   })
                 },
-                onRequestError: async (response) => {
-                  socketController.free()
-
-                  await this.respondWith({
-                    socket,
-                    connectionOptions: options,
-                    request,
-                    response,
-                  })
+                errorWith: (reason) => {
+                  if (reason instanceof Error) {
+                    socket.destroy(reason)
+                  }
                 },
-                onError(error) {
-                  if (error instanceof Error) {
-                    socket.destroy(error)
+                passthrough: () => {
+                  const passthroughSocket = socketController.passthrough()
+
+                  /**
+                   * @note Creating a passthrough socket does NOT trigger the "onSocket" callback
+                   * of `ClientRequest` because that callback is invoked manually in the request's constructor.
+                   * Promote the parser-request-parser association manually from the mocked onto the passthrough socket.
+                   * @see https://github.com/nodejs/node/blob/134625d76139b4b3630d5baaf2efccae01ede564/lib/_http_client.js#L422
+                   * @see https://github.com/nodejs/node/blob/134625d76139b4b3630d5baaf2efccae01ede564/lib/_http_client.js#L890
+                   */
+                  // @ts-expect-error Node.js internals.
+                  passthroughSocket._httpMessage = socket._httpMessage
+                  // @ts-expect-error Node.js internals.
+                  passthroughSocket.parser = socket.parser
+                  // @ts-expect-error Node.js internals.
+                  passthroughSocket.parser.socket = passthroughSocket
+
+                  // If the user didn't register any response listeners, no need to pay the
+                  // price of routing the entire response message through the parser.
+                  if (this.emitter.listenerCount('response') > 0) {
+                    const responseParser = new HttpResponseParser({
+                      onResponse: async (response) => {
+                        await emitAsync(this.emitter, 'response', {
+                          requestId,
+                          request,
+                          response,
+                          isMockedResponse: false,
+                        })
+                      },
+                    })
+
+                    passthroughSocket
+                      .on('data', (chunk) => responseParser.execute(chunk))
+                      .on('close', () => responseParser.free())
                   }
                 },
               })
-
-              if (!isRequestHandled) {
-                const passthroughSocket = socketController.passthrough()
-
-                /**
-                 * @note Creating a passthrough socket does NOT trigger the "onSocket" callback
-                 * of `ClientRequest` because that callback is invoked manually in the request's constructor.
-                 * Promote the parser-request-parser association manually from the mocked onto the passthrough socket.
-                 * @see https://github.com/nodejs/node/blob/134625d76139b4b3630d5baaf2efccae01ede564/lib/_http_client.js#L422
-                 * @see https://github.com/nodejs/node/blob/134625d76139b4b3630d5baaf2efccae01ede564/lib/_http_client.js#L890
-                 */
-                // @ts-expect-error Node.js internals.
-                passthroughSocket._httpMessage = socket._httpMessage
-                // @ts-expect-error Node.js internals.
-                passthroughSocket.parser = socket.parser
-                // @ts-expect-error Node.js internals.
-                passthroughSocket.parser.socket = passthroughSocket
-
-                // If the user didn't register any response listeners, no need to pay the
-                // price of routing the entire response message through the parser.
-                if (this.emitter.listenerCount('response') > 0) {
-                  const responseParser = new HttpResponseParser({
-                    onResponse: async (response) => {
-                      await emitAsync(this.emitter, 'response', {
-                        requestId,
-                        request,
-                        response,
-                        isMockedResponse: false,
-                      })
-                    },
-                  })
-
-                  passthroughSocket
-                    .on('data', (chunk) => responseParser.execute(chunk))
-                    .on('close', () => responseParser.free())
-                }
-              }
             },
           })
 
