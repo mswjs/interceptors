@@ -139,7 +139,7 @@
     "@commitlint/cli": "^19.7.1",
     "@commitlint/config-conventional": "^19.7.1",
     "@open-draft/test-server": "^0.5.1",
-    "@ossjs/release": "^0.8.1",
+    "@ossjs/release": "^0.10.0",
     "@playwright/test": "^1.51.0",
     "@types/cors": "^2.8.12",
     "@types/express": "^5.0.0",
