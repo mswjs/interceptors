@@ -298,7 +298,12 @@ export class MockHttpSocket extends MockSocket {
       .on('timeout', () => this.emit('timeout'))
       .on('prefinish', () => this.emit('prefinish'))
       .on('finish', () => this.emit('finish'))
-      .on('close', (hadError) => this.emit('close', hadError))
+      .on('close', (hadError) => {
+        // Remove all listeners from the original socket to prevent memory leaks.
+        // @see https://github.com/mswjs/msw/issues/2537
+        socket.removeAllListeners()
+        this.emit('close', hadError)
+      })
       .on('end', () => this.emit('end'))
   }
 
