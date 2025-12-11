@@ -60,6 +60,8 @@ export class MockHttpSocket extends MockSocket {
   private request?: Request
   private requestParser: HTTPParser<0>
   private requestStream?: Readable
+  private httpVersionMajor?: number
+  private httpVersionMinor?: number
   private shouldKeepAlive?: boolean
 
   private socketState: 'unknown' | 'mock' | 'passthrough' = 'unknown'
@@ -340,7 +342,20 @@ export class MockHttpSocket extends MockSocket {
 
     // Create a `ServerResponse` instance to delegate HTTP message parsing,
     // Transfer-Encoding, and other things to Node.js internals.
-    const serverResponse = new ServerResponse(new IncomingMessage(this))
+    const incomingMessage = new IncomingMessage(this)
+    
+    // Set the HTTP version on the IncomingMessage.
+    // This is critical for Node.js to correctly allow keep alive.
+    // By default, nodejs sets keepalive to false if the HttpVersion is not at least
+    // 1.1: https://github.com/nodejs/node/blob/70f6b58ac655234435a99d72b857dd7b316d34bf/lib/_http_server.js#L211C1-L211C34
+    // The version should normally already have been set by the onResponseStart method
+    if(this.httpVersionMajor != null && this.httpVersionMinor != null) {
+      incomingMessage.httpVersion = `${this.httpVersionMajor}.${this.httpVersionMinor}`
+      incomingMessage.httpVersionMajor = this.httpVersionMajor
+      incomingMessage.httpVersionMinor = this.httpVersionMinor
+    }
+
+    const serverResponse = new ServerResponse(incomingMessage)
 
     /**
      * Assign a mock socket instance to the server response to
@@ -521,6 +536,8 @@ export class MockHttpSocket extends MockSocket {
     ____,
     shouldKeepAlive
   ) => {
+    this.httpVersionMajor = versionMajor
+    this.httpVersionMinor = versionMinor
     this.shouldKeepAlive = shouldKeepAlive
 
     const url = new URL(path || '', this.baseUrl)
@@ -641,6 +658,7 @@ export class MockHttpSocket extends MockSocket {
     status,
     statusText
   ) => {
+
     const headers = FetchResponse.parseRawHeaders([
       ...this.responseRawHeadersBuffer,
       ...(rawHeaders || []),
