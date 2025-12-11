@@ -348,7 +348,7 @@ export class MockHttpSocket extends MockSocket {
     // This is critical for Node.js to correctly allow keep alive.
     // By default, nodejs sets keepalive to false if the HttpVersion is not at least
     // 1.1: https://github.com/nodejs/node/blob/70f6b58ac655234435a99d72b857dd7b316d34bf/lib/_http_server.js#L211C1-L211C34
-    // The version should normally already have been set by the onResponseStart method
+    // The version should normally already have been set by the onRequestStart method
     if(this.httpVersionMajor != null && this.httpVersionMinor != null) {
       incomingMessage.httpVersion = `${this.httpVersionMajor}.${this.httpVersionMinor}`
       incomingMessage.httpVersionMajor = this.httpVersionMajor
