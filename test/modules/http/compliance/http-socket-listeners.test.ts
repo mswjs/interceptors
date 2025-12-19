@@ -9,7 +9,6 @@ import { Socket } from 'node:net'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { kPassthroughSocket } from '../../../../src/interceptors/ClientRequest/MockHttpSocket'
 import { waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
@@ -46,7 +45,7 @@ it('removes all event listeners from a passthrough socket after closing', async 
   expect.soft(res.statusCode).toBe(200)
   await expect.soft(text()).resolves.toBe('ok')
 
-  const passthroughSocket = Reflect.get(socket, kPassthroughSocket) as Socket
+  const passthroughSocket = Reflect.get(socket, 'originalSocket') as Socket
   expect(passthroughSocket).toBeInstanceOf(Socket)
 
   await expect
