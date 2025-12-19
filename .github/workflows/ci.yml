@@ -40,7 +40,7 @@ jobs:
         run: pnpm test:node
 
       - name: Install Playwright browsers
-        run: npx playwright install
+        run: npx playwright install chromium --with-deps --only-shell
 
       - name: Browser tests
         run: pnpm test:browser
