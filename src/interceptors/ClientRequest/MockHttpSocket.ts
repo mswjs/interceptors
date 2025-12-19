@@ -19,6 +19,7 @@ import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
 import { setRawRequest } from '../../getRawRequest'
 import { setRawRequestBodyStream } from '../../utils/node'
+import { freeParser } from './utils/parseUtils'
 
 type HttpConnectionOptions = any
 
@@ -136,7 +137,7 @@ export class MockHttpSocket extends MockSocket {
 
     // Once the socket is finished, nothing can write to it
     // anymore. It has also flushed any buffered chunks.
-    this.once('finish', () => this.requestParser.free())
+    this.once('finish', () => freeParser(this.requestParser, this))
 
     if (this.baseUrl.protocol === 'https:') {
       Reflect.set(this, 'encrypted', true)
@@ -146,7 +147,11 @@ export class MockHttpSocket extends MockSocket {
       Reflect.set(this, 'getProtocol', () => 'TLSv1.3')
       Reflect.set(this, 'getSession', () => undefined)
       Reflect.set(this, 'isSessionReused', () => false)
-      Reflect.set(this, 'getCipher', () => ({ name: 'AES256-SHA', standardName: 'TLS_RSA_WITH_AES_256_CBC_SHA', version: 'TLSv1.3' }))
+      Reflect.set(this, 'getCipher', () => ({
+        name: 'AES256-SHA',
+        standardName: 'TLS_RSA_WITH_AES_256_CBC_SHA',
+        version: 'TLSv1.3',
+      }))
     }
   }
 
@@ -165,7 +170,7 @@ export class MockHttpSocket extends MockSocket {
     // Destroy the response parser when the socket gets destroyed.
     // Normally, we should listen to the "close" event but it
     // can be suppressed by using the "emitClose: false" option.
-    this.responseParser.free()
+    freeParser(this.responseParser, this)
 
     if (error) {
       this.emit('error', error)
@@ -259,7 +264,7 @@ export class MockHttpSocket extends MockSocket {
         'getProtocol',
         'getSession',
         'isSessionReused',
-        'getCipher'
+        'getCipher',
       ]
 
       tlsProperties.forEach((propertyName) => {
