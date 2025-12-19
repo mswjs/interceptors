@@ -19,7 +19,7 @@ import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
 import { setRawRequest } from '../../getRawRequest'
 import { setRawRequestBodyStream } from '../../utils/node'
-import { freeParser } from './utils/parseUtils'
+import { freeParser } from './utils/parserUtils'
 
 type HttpConnectionOptions = any
 

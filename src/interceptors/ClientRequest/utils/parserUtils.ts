@@ -30,7 +30,19 @@ export function freeParser(parser: HTTPParser<any>, socket?: Socket): void {
   parser.free()
 
   if (socket) {
-    // @ts-expect-error Node.js internals.
-    socket.parser = null
+    /**
+     * @note Unassigning the socket's parser will fail this assertion
+     * if there's still some data being processed on the socket:
+     * @see https://github.com/nodejs/node/blob/4e1f39b678b37017ac9baa0971e3aeecd3b67b51/lib/_http_client.js#L613
+     */
+    if (socket.destroyed) {
+      // @ts-expect-error Node.js internals.
+      socket.parser = null
+    } else {
+      socket.once('close', () => {
+        // @ts-expect-error Node.js internals.
+        socket.parser = null
+      })
+    }
   }
 }
