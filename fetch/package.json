@@ -1,6 +1,18 @@
 {
-  "main": "../lib/node/interceptors/fetch/index.js",
+  "main": "../lib/node/interceptors/fetch/index.cjs",
   "module": "../lib/node/interceptors/fetch/index.mjs",
-  "browser": "../lib/browser/interceptors/fetch/index.js",
-  "types": "../lib/node/interceptors/fetch/index.d.ts"
+  "browser": "../lib/browser/interceptors/fetch/index.cjs",
+  "types": "../lib/node/interceptors/fetch/index.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./../lib/node/interceptors/fetch/index.d.mts",
+        "default": "./../lib/node/interceptors/fetch/index.mjs"
+      },
+      "default": {
+        "types": "./../lib/node/interceptors/fetch/index.d.cts",
+        "default": "./../lib/node/interceptors/fetch/index.cjs"
+      }
+    }
+  }
 }

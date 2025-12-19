@@ -19,7 +19,10 @@ import { bindEvent } from './utils/bindEvent'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { emitAsync } from '../../utils/emitAsync'
 
-export { type WebSocketData, WebSocketTransport } from './WebSocketTransport'
+export {
+  type WebSocketData,
+  type WebSocketTransport,
+} from './WebSocketTransport'
 export {
   WebSocketClientEventMap,
   WebSocketClientConnectionProtocol,

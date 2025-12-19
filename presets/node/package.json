@@ -1,6 +1,18 @@
 {
-  "main": "../../lib/node/presets/node.js",
+  "main": "../../lib/node/presets/node.cjs",
   "module": "../../lib/node/presets/node.mjs",
   "browser": null,
-  "types": "../../lib/node/presets/node.d.ts"
+  "types": "../../lib/node/presets/node.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./../lib/node/presets/node.d.mts",
+        "default": "./../lib/node/presets/node.mjs"
+      },
+      "default": {
+        "types": "./../lib/node/presets/node.d.cts",
+        "default": "./../lib/node/presets/node.cjs"
+      }
+    }
+  }
 }
