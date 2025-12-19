@@ -13,7 +13,6 @@ import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
-import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
@@ -207,9 +206,18 @@ export class MockHttpSocket extends MockSocket {
       })
     }
 
-    // If the developer destroys the socket, destroy the original connection.
-    this.once('error', (error) => {
-      socket.destroy(error)
+    // The client-facing socket can be destroyed in two ways:
+    // 1. The developer destroys the socket.
+    // 2. The passthrough socket "close" is forwarded to the socket.
+    this.once('close', () => {
+      socket.removeAllListeners()
+
+      // If the closure didn't originate from the passthrough socket, destroy it.
+      if (!socket.destroyed) {
+        socket.destroy()
+      }
+
+      this.originalSocket = undefined
     })
 
     this.address = socket.address.bind(socket)
