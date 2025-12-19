@@ -117,8 +117,7 @@
     "clean": "rimraf lib",
     "build": "pnpm clean && cross-env NODE_ENV=production tsup --splitting",
     "prepare": "pnpm simple-git-hooks init",
-    "release": "release publish",
-    "prepublishOnly": "pnpm build && pnpm test"
+    "release": "release publish"
   },
   "files": [
     "lib",
