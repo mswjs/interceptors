@@ -39,7 +39,7 @@ export function freeParser(parser: HTTPParser<any>, socket?: Socket): void {
       // @ts-expect-error Node.js internals.
       socket.parser = null
     } else {
-      socket.once('close', () => {
+      socket.once('end', () => {
         // @ts-expect-error Node.js internals.
         socket.parser = null
       })
