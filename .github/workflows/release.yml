@@ -40,7 +40,7 @@ jobs:
         run: pnpm install
 
       - name: Install Playwright browsers
-        run: npx playwright install
+        run: npx playwright install chromium --with-deps --only-shell
 
       - name: Build
         run: pnpm build
