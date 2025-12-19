@@ -214,7 +214,7 @@ export class MockHttpSocket extends MockSocket {
       socket.removeAllListeners()
 
       // If the closure didn't originate from the passthrough socket, destroy it.
-      if (!socket.closed) {
+      if (!socket.destroyed) {
         socket.destroy()
       }
 
