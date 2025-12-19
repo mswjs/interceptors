@@ -13,7 +13,6 @@ import { MockSocket } from '../Socket/MockSocket'
 import type { NormalizedSocketWriteArgs } from '../Socket/utils/normalizeSocketWriteArgs'
 import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
-import { createServerErrorResponse } from '../../utils/responseUtils'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
 import { FetchResponse } from '../../utils/fetchUtils'
@@ -45,6 +44,7 @@ interface MockHttpSocketOptions {
 }
 
 export const kRequestId = Symbol('kRequestId')
+export const kPassthroughSocket = Symbol('kPassthroughSocket')
 
 export class MockHttpSocket extends MockSocket {
   private connectionOptions: HttpConnectionOptions
@@ -207,9 +207,18 @@ export class MockHttpSocket extends MockSocket {
       })
     }
 
-    // If the developer destroys the socket, destroy the original connection.
-    this.once('error', (error) => {
-      socket.destroy(error)
+    // The client-facing socket can be destroyed in two ways:
+    // 1. The developer destroys the socket.
+    // 2. The passthrough socket "close" is forwarded to the socket.
+    this.once('close', () => {
+      socket.removeAllListeners()
+
+      // If the closure didn't originate from the passthrough socket, destroy it.
+      if (!socket.closed) {
+        socket.destroy()
+      }
+
+      Reflect.set(this, kPassthroughSocket, null)
     })
 
     this.address = socket.address.bind(socket)
@@ -278,6 +287,8 @@ export class MockHttpSocket extends MockSocket {
       })
     }
 
+    Reflect.set(this, kPassthroughSocket, socket)
+
     socket
       .on('lookup', (...args) => this.emit('lookup', ...args))
       .on('connect', () => {
@@ -303,12 +314,7 @@ export class MockHttpSocket extends MockSocket {
       .on('timeout', () => this.emit('timeout'))
       .on('prefinish', () => this.emit('prefinish'))
       .on('finish', () => this.emit('finish'))
-      .on('close', (hadError) => {
-        // Remove all listeners from the original socket to prevent memory leaks.
-        // @see https://github.com/mswjs/msw/issues/2537
-        socket.removeAllListeners()
-        this.emit('close', hadError)
-      })
+      .on('close', (hadError) => this.emit('close', hadError))
       .on('end', () => this.emit('end'))
   }
 
