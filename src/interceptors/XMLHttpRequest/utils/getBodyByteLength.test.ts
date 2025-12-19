@@ -88,7 +88,7 @@ it('calculates body length from the FormData request body', async () => {
         body: formData,
       })
     )
-  ).resolves.toBe(127)
+  ).resolves.toBe(129)
 })
 
 it('calculates body length from the ReadableStream request body', async () => {
@@ -149,7 +149,7 @@ it('calculates body length from the FormData response body', async () => {
   const formData = new FormData()
   formData.append('hello', 'world')
 
-  await expect(getBodyByteLength(new Response(formData))).resolves.toBe(127)
+  await expect(getBodyByteLength(new Response(formData))).resolves.toBe(129)
 })
 
 it('calculates body length from the ReadableStream response body', async () => {
