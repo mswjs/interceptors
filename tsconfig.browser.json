@@ -1,0 +1,16 @@
+{
+  "extend": "./tsconfig.json",
+  "include": [
+    "./src/interceptors/fetch",
+    "./src/interceptors/XMLHttpRequest",
+    "./src/interceptors/WebSocket",
+  ],
+  "compilerOptions": {
+    "baseUrl:": ".",
+    "paths": {
+      "internal:brotli-decompress": [
+        "./src/interceptors/fetch/utils/brotli-decompress.browser.ts",
+      ],
+    },
+  },
+}

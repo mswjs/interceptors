@@ -1,6 +1,6 @@
 {
-  "main": "../../lib/node/utils/node.js",
+  "main": "../../lib/node/utils/node.cjs",
   "module": "../../lib/node/utils/node.mjs",
   "browser": null,
-  "types": "../../lib/node/utils/node.d.ts"
+  "types": "../../lib/node/utils/node.d.cts"
 }

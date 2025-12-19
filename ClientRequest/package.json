@@ -1,6 +1,18 @@
 {
-  "main": "../lib/node/interceptors/ClientRequest/index.js",
+  "main": "../lib/node/interceptors/ClientRequest/index.cjs",
   "module": "../lib/node/interceptors/ClientRequest/index.mjs",
   "browser": null,
-  "types": "../lib/node/interceptors/ClientRequest/index.d.ts"
+  "types": "../lib/node/interceptors/ClientRequest/index.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./../lib/node/interceptors/ClientRequest/index.d.mts",
+        "default": "./../lib/node/interceptors/ClientRequest/index.mjs"
+      },
+      "default": {
+        "types": "./../lib/node/interceptors/ClientRequest/index.d.cts",
+        "default": "./../lib/node/interceptors/ClientRequest/index.cjs"
+      }
+    }
+  }
 }

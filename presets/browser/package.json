@@ -2,5 +2,17 @@
   "main": "../../lib/browser/presets/browser.js",
   "module": "../../lib/browser/presets/browser.mjs",
   "browser": "../../lib/browser/presets/browser.js",
-  "types": "../../lib/browser/presets/browser.d.ts"
+  "types": "../../lib/browser/presets/browser.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./../lib/browser/presets/browser.d.mts",
+        "default": "./../lib/browser/presets/browser.mjs"
+      },
+      "default": {
+        "types": "./../lib/browser/presets/browser.d.ts",
+        "default": "./../lib/browser/presets/browser.js"
+      }
+    }
+  }
 }

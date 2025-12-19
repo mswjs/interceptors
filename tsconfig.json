@@ -16,10 +16,10 @@
     "paths": {
       "_http_common": ["./_http_common.d.ts"],
       "internal:brotli-decompress": [
-        "./src/interceptors/fetch/utils/brotli-decompress.ts"
-      ]
-    }
+        "./src/interceptors/fetch/utils/brotli-decompress.ts",
+      ],
+    },
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "**/*.test.*"]
+  "exclude": ["node_modules", "**/*.test.*"],
 }
