@@ -11,20 +11,21 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        node: [18, 20]
+        node: [20, 22, 24]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node }}
+        uses: actions/checkout@v4
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9.14.0
+          version: 9.15.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install
