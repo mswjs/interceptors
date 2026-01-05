@@ -282,26 +282,29 @@ export class MockHttpSocket extends MockSocket {
          * the mock TLS properties (set in constructor) to remain accessible
          * until real values are available.
          */
-        if (Reflect.get(socket, 'encrypted')) {
-          const tlsProperties = [
-            'encrypted',
-            'authorized',
-            'getProtocol',
-            'getSession',
-            'isSessionReused',
-            'getCipher',
-          ]
+        invariant(
+          Reflect.get(socket, 'encrypted'),
+          'Expected socket to have property `encrypted`'
+        )
 
-          tlsProperties.forEach((propertyName) => {
-            Object.defineProperty(this, propertyName, {
-              enumerable: true,
-              get: () => {
-                const value = Reflect.get(socket, propertyName)
-                return typeof value === 'function' ? value.bind(socket) : value
-              },
-            })
+        const tlsProperties = [
+          'encrypted',
+          'authorized',
+          'getProtocol',
+          'getSession',
+          'isSessionReused',
+          'getCipher',
+        ]
+
+        tlsProperties.forEach((propertyName) => {
+          Object.defineProperty(this, propertyName, {
+            enumerable: true,
+            get: () => {
+              const value = Reflect.get(socket, propertyName)
+              return typeof value === 'function' ? value.bind(socket) : value
+            },
           })
-        }
+        })
 
         this.emit('secureConnect')
       })
