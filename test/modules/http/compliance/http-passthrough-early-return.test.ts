@@ -42,7 +42,7 @@ it('performs passthrough over a Unix socket when no request listeners are attach
   const { res, text } = await waitForClientRequest(request)
 
   expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('ok')
+  await expect(text()).resolves.toBe('ok')
 })
 
 it('handles concurrent Unix socket requests when no listeners are attached', async () => {
@@ -59,6 +59,6 @@ it('handles concurrent Unix socket requests when no listeners are attached', asy
 
   for (const { res, text } of results) {
     expect(res.statusCode).toBe(200)
-    expect(await text()).toBe('ok')
+    await expect(text()).resolves.toBe('ok')
   }
 })
