@@ -16,6 +16,10 @@ export default defineConfig([
     outDir: './lib/node',
     platform: 'node',
     target: 'node20',
+    outExtensions: (context) => ({
+      js: context.format === 'cjs' ? '.cjs' : '.mjs',
+      dts: context.format === 'cjs' ? '.d.cts' : '.d.mts',
+    }),
     format: ['cjs', 'esm'],
     sourcemap: true,
     dts: true,
@@ -33,6 +37,10 @@ export default defineConfig([
     platform: 'browser',
     target: 'chrome120',
     format: ['cjs', 'esm'],
+    outExtensions: (context) => ({
+      js: context.format === 'cjs' ? '.cjs' : '.mjs',
+      dts: context.format === 'cjs' ? '.d.cts' : '.d.mts',
+    }),
     sourcemap: true,
     dts: true,
     tsconfig: './tsconfig.browser.json',

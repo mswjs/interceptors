@@ -14,8 +14,8 @@
           "default": "./lib/browser/index.mjs"
         },
         "default": {
-          "types": "./lib/browser/index.d.ts",
-          "default": "./lib/browser/index.js"
+          "types": "./lib/browser/index.d.cts",
+          "default": "./lib/browser/index.cjs"
         }
       },
       "import": {
@@ -40,10 +40,8 @@
     },
     "./XMLHttpRequest": {
       "browser": {
-        "types": "./lib/browser/interceptors/XMLHttpRequest/index.d.ts",
-        "require": "./lib/browser/interceptors/XMLHttpRequest/index.js",
-        "import": "./lib/browser/interceptors/XMLHttpRequest/index.mjs",
-        "default": "./lib/browser/interceptors/XMLHttpRequest/index.js"
+        "types": "./lib/browser/interceptors/XMLHttpRequest/index.d.mts",
+        "default": "./lib/browser/interceptors/XMLHttpRequest/index.mjs"
       },
       "types": "./lib/node/interceptors/XMLHttpRequest/index.d.cts",
       "require": "./lib/node/interceptors/XMLHttpRequest/index.cjs",
@@ -52,10 +50,8 @@
     },
     "./fetch": {
       "browser": {
-        "types": "./lib/browser/interceptors/fetch/index.d.ts",
-        "require": "./lib/browser/interceptors/fetch/index.js",
-        "import": "./lib/browser/interceptors/fetch/index.mjs",
-        "default": "./lib/browser/interceptors/fetch/index.js"
+        "types": "./lib/browser/interceptors/fetch/index.d.mts",
+        "default": "./lib/browser/interceptors/fetch/index.mjs"
       },
       "types": "./lib/node/interceptors/fetch/index.d.cts",
       "require": "./lib/node/interceptors/fetch/index.cjs",
@@ -63,10 +59,15 @@
       "default": "./lib/node/interceptors/fetch/index.cjs"
     },
     "./WebSocket": {
-      "types": "./lib/browser/interceptors/WebSocket/index.d.ts",
-      "require": "./lib/browser/interceptors/WebSocket/index.js",
-      "import": "./lib/browser/interceptors/WebSocket/index.mjs",
-      "default": "./lib/browser/interceptors/WebSocket/index.js"
+      "require": {
+        "types": "./lib/browser/interceptors/WebSocket/index.d.cts",
+        "default": "./lib/browser/interceptors/WebSocket/index.cjs"
+      },
+      "import": {
+        "type": "./lib/browser/interceptors/WebSocket/index.d.mts",
+        "default": "./lib/browser/interceptors/WebSocket/index.mjs"
+      },
+      "default": "./lib/browser/interceptors/WebSocket/index.cjs"
     },
     "./RemoteHttpInterceptor": {
       "types": "./lib/node/RemoteHttpInterceptor.d.cts",
@@ -92,10 +93,8 @@
     },
     "./presets/browser": {
       "browser": {
-        "types": "./lib/browser/presets/browser.d.ts",
-        "require": "./lib/browser/presets/browser.js",
-        "import": "./lib/browser/presets/browser.mjs",
-        "default": "./lib/browser/presets/browser.js"
+        "types": "./lib/browser/presets/browser.d.mts",
+        "default": "./lib/browser/presets/browser.mjs"
       }
     },
     "./utils/node": {
