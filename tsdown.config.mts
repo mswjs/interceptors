@@ -31,7 +31,7 @@ export default defineConfig([
     ],
     outDir: './lib/browser',
     platform: 'browser',
-    target: 'chrome190',
+    target: 'chrome120',
     format: ['cjs', 'esm'],
     sourcemap: true,
     dts: true,
