@@ -139,8 +139,7 @@
     "presets"
   ],
   "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mswjs/interceptors.git"
+    "url": "https://github.com/mswjs/interceptors"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.7.1",
