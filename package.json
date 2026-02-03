@@ -131,7 +131,6 @@
     "presets"
   ],
   "repository": {
-    "type": "git",
     "url": "https://github.com/mswjs/interceptors"
   },
   "devDependencies": {
