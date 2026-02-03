@@ -1,9 +1,9 @@
-import { PlaywrightTestConfig, devices } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test'
 
-const config: PlaywrightTestConfig = {
-  testDir: __dirname,
-  testMatch: '**/*.browser.test.ts',
+export default defineConfig({
+  testMatch: /\.browser\.test\.ts$/,
   forbidOnly: !!process.env.CI,
+  fullyParallel: true,
   projects: [
     {
       name: 'chromium',
@@ -20,7 +20,4 @@ const config: PlaywrightTestConfig = {
       args: ['--allow-insecure-localhost'],
     },
   },
-  fullyParallel: true,
-}
-
-export default config
+})

@@ -31,7 +31,7 @@ async function callFetch(
     new Promise<Response>(async (resolve) => {
       page.evaluate(([url, init]) => fetch(url, init), [url, init] as [
         string,
-        RequestInit
+        RequestInit,
       ])
 
       resolve(page.waitForResponse(url))

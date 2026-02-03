@@ -1,104 +1,80 @@
 {
+  "type": "commonjs",
   "name": "@mswjs/interceptors",
   "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
   "version": "0.40.0",
-  "main": "./lib/node/index.js",
+  "main": "./lib/node/index.cjs",
   "module": "./lib/node/index.mjs",
-  "types": "./lib/node/index.d.ts",
+  "types": "./lib/node/index.d.cts",
   "exports": {
     ".": {
-      "types": "./lib/node/index.d.ts",
       "browser": {
-        "types": "./lib/browser/index.d.ts",
-        "require": "./lib/browser/index.js",
         "import": "./lib/browser/index.mjs",
-        "default": "./lib/browser/index.js"
+        "default": "./lib/browser/index.cjs"
       },
-      "require": "./lib/node/index.js",
       "import": "./lib/node/index.mjs",
-      "default": "./lib/node/index.js"
+      "default": "./lib/node/index.cjs"
     },
     "./ClientRequest": {
-      "types": "./lib/node/interceptors/ClientRequest/index.d.ts",
       "node": {
-        "require": "./lib/node/interceptors/ClientRequest/index.js",
+        "require": "./lib/node/interceptors/ClientRequest/index.cjs",
         "import": "./lib/node/interceptors/ClientRequest/index.mjs"
       },
       "browser": null,
-      "require": "./lib/node/interceptors/ClientRequest/index.js",
+      "require": "./lib/node/interceptors/ClientRequest/index.cjs",
       "import": "./lib/node/interceptors/ClientRequest/index.mjs",
-      "default": "./lib/node/interceptors/ClientRequest/index.js"
+      "default": "./lib/node/interceptors/ClientRequest/index.cjs"
     },
     "./XMLHttpRequest": {
-      "browser": {
-        "types": "./lib/browser/interceptors/XMLHttpRequest/index.d.ts",
-        "require": "./lib/browser/interceptors/XMLHttpRequest/index.js",
-        "import": "./lib/browser/interceptors/XMLHttpRequest/index.mjs",
-        "default": "./lib/browser/interceptors/XMLHttpRequest/index.js"
-      },
-      "types": "./lib/node/interceptors/XMLHttpRequest/index.d.ts",
-      "require": "./lib/node/interceptors/XMLHttpRequest/index.js",
+      "browser": "./lib/browser/interceptors/XMLHttpRequest/index.mjs",
+      "require": "./lib/node/interceptors/XMLHttpRequest/index.cjs",
       "import": "./lib/node/interceptors/XMLHttpRequest/index.mjs",
-      "default": "./lib/node/interceptors/XMLHttpRequest/index.js"
+      "default": "./lib/node/interceptors/XMLHttpRequest/index.cjs"
     },
     "./fetch": {
-      "browser": {
-        "types": "./lib/browser/interceptors/fetch/index.d.ts",
-        "require": "./lib/browser/interceptors/fetch/index.js",
-        "import": "./lib/browser/interceptors/fetch/index.mjs",
-        "default": "./lib/browser/interceptors/fetch/index.js"
-      },
-      "types": "./lib/node/interceptors/fetch/index.d.ts",
-      "require": "./lib/node/interceptors/fetch/index.js",
+      "browser": "./lib/browser/interceptors/fetch/index.mjs",
+      "require": "./lib/node/interceptors/fetch/index.cjs",
       "import": "./lib/node/interceptors/fetch/index.mjs",
-      "default": "./lib/node/interceptors/fetch/index.js"
+      "default": "./lib/node/interceptors/fetch/index.cjs"
     },
     "./WebSocket": {
-      "types": "./lib/browser/interceptors/WebSocket/index.d.ts",
-      "require": "./lib/browser/interceptors/WebSocket/index.js",
+      "require": "./lib/browser/interceptors/WebSocket/index.cjs",
       "import": "./lib/browser/interceptors/WebSocket/index.mjs",
-      "default": "./lib/browser/interceptors/WebSocket/index.js"
+      "default": "./lib/browser/interceptors/WebSocket/index.cjs"
     },
     "./RemoteHttpInterceptor": {
-      "types": "./lib/node/RemoteHttpInterceptor.d.ts",
       "node": {
-        "require": "./lib/node/RemoteHttpInterceptor.js",
+        "require": "./lib/node/RemoteHttpInterceptor.cjs",
         "import": "./lib/node/RemoteHttpInterceptor.mjs"
       },
       "browser": null,
-      "require": "./lib/node/RemoteHttpInterceptor.js",
+      "require": "./lib/node/RemoteHttpInterceptor.cjs",
       "import": "./lib/node/RemoteHttpInterceptor.mjs",
-      "default": "./lib/node/RemoteHttpInterceptor.js"
+      "default": "./lib/node/RemoteHttpInterceptor.cjs"
     },
     "./presets/node": {
-      "types": "./lib/node/presets/node.d.ts",
       "node": {
-        "require": "./lib/node/presets/node.js",
+        "require": "./lib/node/presets/node.cjs",
         "import": "./lib/node/presets/node.mjs"
       },
       "browser": null,
-      "require": "./lib/node/presets/node.js",
+      "require": "./lib/node/presets/node.cjs",
       "import": "./lib/node/presets/node.mjs",
-      "default": "./lib/node/presets/node.js"
+      "default": "./lib/node/presets/node.cjs"
     },
     "./presets/browser": {
-      "browser": {
-        "types": "./lib/browser/presets/browser.d.ts",
-        "require": "./lib/browser/presets/browser.js",
-        "import": "./lib/browser/presets/browser.mjs",
-        "default": "./lib/browser/presets/browser.js"
-      }
+      "browser": "./lib/browser/presets/browser.mjs",
+      "node": null
     },
     "./utils/node": {
-      "types": "./lib/node/utils/node/index.d.ts",
       "node": {
-        "require": "./lib/node/utils/node/index.js",
+        "require": "./lib/node/utils/node/index.cjs",
         "import": "./lib/node/utils/node/index.mjs"
       },
       "browser": null,
-      "require": "./lib/node/utils/node/index.js",
+      "require": "./lib/node/utils/node/index.cjs",
       "import": "./lib/node/utils/node/index.mjs",
-      "default": "./lib/node/utils/node/index.js"
+      "default": "./lib/node/utils/node/index.cjs"
     }
   },
   "author": "Artem Zakharchenko",
@@ -107,15 +83,14 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "tsc --build -w",
+    "start": "tsdown --watch",
     "test": "pnpm test:unit && pnpm test:integration",
     "test:unit": "vitest",
     "test:integration": "pnpm test:node && pnpm test:browser",
     "test:node": "vitest -c test/vitest.config.js",
     "test:browser": "pnpm playwright test -c test/playwright.config.ts",
     "test:nock": "./test/third-party/nock.sh",
-    "clean": "rimraf lib",
-    "build": "pnpm clean && cross-env NODE_ENV=production tsup --splitting",
+    "build": "tsdown",
     "prepare": "pnpm simple-git-hooks init",
     "release": "release publish"
   },
@@ -163,20 +138,20 @@
     "happy-dom": "^17.3.0",
     "jsdom": "^26.1.0",
     "node-fetch": "3.3.2",
-    "rimraf": "^6.0.1",
     "simple-git-hooks": "^2.7.0",
     "socket.io": "^4.7.4",
     "socket.io-client": "^4.7.4",
     "socket.io-parser": "^4.2.4",
     "superagent": "^10.1.1",
     "supertest": "^7.0.0",
-    "tsup": "^6.5.0",
+    "tsdown": "^0.18.1",
     "typescript": "^5.8.2",
     "undici": "^7.4.0",
     "vitest": "^3.0.8",
     "vitest-environment-miniflare": "^2.14.1",
     "wait-for-expect": "^3.0.2",
     "web-encoding": "^1.1.5",
+    "webpack": "^5.105.0",
     "webpack-http-server": "^0.5.0",
     "ws": "^8.18.1"
   },

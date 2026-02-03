@@ -1,6 +1,11 @@
 {
-  "main": "../../lib/node/utils/node.js",
+  "main": "../../lib/node/utils/node.cjs",
   "module": "../../lib/node/utils/node.mjs",
   "browser": null,
-  "types": "../../lib/node/utils/node.d.ts"
+  "exports": {
+    ".": {
+      "import":  "./../../lib/node/utils/node.mjs",
+      "default": "./../../lib/node/utils/node.cjs"
+    }
+  }
 }
