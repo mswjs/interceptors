@@ -2,18 +2,11 @@
   "main": "../lib/node/interceptors/XMLHttpRequest/index.cjs",
   "module": "../lib/node/interceptors/XMLHttpRequest/index.mjs",
   "browser": "../lib/browser/interceptors/XMLHttpRequest/index.mjs",
-  "types": "../lib/node/interceptors/XMLHttpRequest/index.d.cts",
   "exports": {
     ".": {
       "browser": "./../lib/browser/interceptors/XMLHttpRequest/index.mjs",
-      "import": {
-        "types": "./../lib/node/interceptors/XMLHttpRequest/index.d.mts",
-        "default": "./../lib/node/interceptors/XMLHttpRequest/index.mjs"
-      },
-      "default": {
-        "types": "./../lib/node/interceptors/XMLHttpRequest/index.d.cts",
-        "default": "./../lib/node/interceptors/XMLHttpRequest/index.cjs"
-      }
+      "import": "./../lib/node/interceptors/XMLHttpRequest/index.mjs",
+      "default": "./../lib/node/interceptors/XMLHttpRequest/index.cjs"
     }
   }
 }

@@ -2,17 +2,10 @@
   "main": "../lib/node/RemoteHttpInterceptor.cjs",
   "module": "../lib/node/RemoteHttpInterceptor.mjs",
   "browser": null,
-  "types": "../lib/node/RemoteHttpInterceptor.d.cts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./../lib/node/RemoteHttpInterceptor.d.mts",
-        "default": "./../lib/node/RemoteHttpInterceptor.mjs"
-      },
-      "default": {
-        "types": "./../lib/node/RemoteHttpInterceptor.d.cts",
-        "default": "./../lib/node/RemoteHttpInterceptor.cjs"
-      }
+      "import": "./../lib/node/RemoteHttpInterceptor.mjs",
+      "default": "./../lib/node/RemoteHttpInterceptor.cjs"
     }
   }
 }
