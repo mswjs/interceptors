@@ -30,7 +30,7 @@ export abstract class WebSocketServerConnectionProtocol {
   public abstract close(): void
 
   public abstract addEventListener<
-    EventType extends keyof WebSocketServerEventMap
+    EventType extends keyof WebSocketServerEventMap,
   >(
     event: EventType,
     listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
@@ -38,7 +38,7 @@ export abstract class WebSocketServerConnectionProtocol {
   ): void
 
   public abstract removeEventListener<
-    EventType extends keyof WebSocketServerEventMap
+    EventType extends keyof WebSocketServerEventMap,
   >(
     event: EventType,
     listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
@@ -51,9 +51,7 @@ export abstract class WebSocketServerConnectionProtocol {
  * WebSocket server connection. It's idle by default but you can
  * establish it by calling `server.connect()`.
  */
-export class WebSocketServerConnection
-  implements WebSocketServerConnectionProtocol
-{
+export class WebSocketServerConnection implements WebSocketServerConnectionProtocol {
   /**
    * A WebSocket instance connected to the original server.
    */

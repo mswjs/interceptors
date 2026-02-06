@@ -57,3 +57,30 @@ it('throws on a relative URL in Node.js', () => {
     })
   )
 })
+
+it('ensures trailing slash where appropriate', () => {
+  expect(new WebSocket('wss://localhost:5678').url).toBe(
+    'wss://localhost:5678/'
+  )
+  expect(new WebSocket('wss://localhost:5678/').url).toBe(
+    'wss://localhost:5678/'
+  )
+
+  expect(new WebSocket('wss://127.0.0.1:5678').url).toBe(
+    'wss://127.0.0.1:5678/'
+  )
+  expect(new WebSocket('wss://127.0.0.1:5678/').url).toBe(
+    'wss://127.0.0.1:5678/'
+  )
+
+  expect(new WebSocket('wss://non-existing.com').url).toBe(
+    'wss://non-existing.com/'
+  )
+  expect(new WebSocket('wss://non-existing.com/').url).toBe(
+    'wss://non-existing.com/'
+  )
+
+  expect(new WebSocket('wss://localhost:5678/foo').url).toBe(
+    'wss://localhost:5678/foo'
+  )
+})

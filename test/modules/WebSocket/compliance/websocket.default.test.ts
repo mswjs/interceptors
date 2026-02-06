@@ -33,7 +33,7 @@ it('sets the instance ready state properties', () => {
 it('sets the "url" property to the passed URL', () => {
   expect(new WebSocket('wss://example.com')).toHaveProperty(
     'url',
-    'wss://example.com'
+    'wss://example.com/'
   )
   expect(new WebSocket(new URL('wss://example.com'))).toHaveProperty(
     'url',
@@ -42,7 +42,7 @@ it('sets the "url" property to the passed URL', () => {
 
   expect(new WebSocket('ws://example.com')).toHaveProperty(
     'url',
-    'ws://example.com'
+    'ws://example.com/'
   )
   expect(new WebSocket(new URL('ws://example.com'))).toHaveProperty(
     'url',

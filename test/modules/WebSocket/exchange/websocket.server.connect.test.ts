@@ -44,7 +44,7 @@ it('forwards incoming server data from the original server', async () => {
   const messageEvent = await messageReceivedPromise
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toBe('hello from server')
-  expect(messageEvent.origin).toBe(ws.url)
+  expect(messageEvent.origin + '/').toBe(ws.url)
   expect(messageEvent.target).toEqual(ws)
 })
 
@@ -72,7 +72,11 @@ it('forwards outgoing client data to the original server', async () => {
   const messageEvent = await messageReceivedPromise
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toBe('Hello, John!')
-  expect(messageEvent.origin).toBe(ws.url)
+  /**
+   * @note The `MessageEvent.origin` produces by `ws` doesn't have a trailing slash
+   * while the correctly constructed WebSocket.url does.
+   */
+  expect(messageEvent.origin + '/').toBe(ws.url)
   expect(messageEvent.target).toEqual(ws)
 })
 
