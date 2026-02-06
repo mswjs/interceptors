@@ -14,6 +14,9 @@ echo "Cloning at $NOCK_DIR..."
 cd "$NOCK_DIR"
 git clone https://github.com/nock/nock.git .
 
+echo "Node.js version:"
+node -v
+
 echo "Installing dependencies..."
 npm ci
 
