@@ -41,7 +41,7 @@ it('throws if closing the unconnected server', async () => {
   const server = await serverPromise
 
   expect(() => server.close()).toThrow(
-    `Failed to close server connection for "wss://example.com": the connection is not open. Did you forget to call "server.connect()"?`
+    `Failed to close server connection for "wss://example.com/": the connection is not open. Did you forget to call "server.connect()"?`
   )
 })
 

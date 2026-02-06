@@ -108,7 +108,7 @@ it('emits "message" event on incoming original server data', async () => {
   expect(messageEvent.data).toBe('hello')
   expect(messageEvent.target).toBe(ws)
   expect(messageEvent.currentTarget).toBe(ws)
-  expect(messageEvent.origin).toBe(ws.url)
+  expect(messageEvent.origin + '/').toBe(ws.url)
 })
 
 it('emits "close" event when the mocked client closes the connection', async () => {

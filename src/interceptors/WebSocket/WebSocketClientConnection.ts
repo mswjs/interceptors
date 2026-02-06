@@ -19,7 +19,7 @@ export abstract class WebSocketClientConnectionProtocol {
   public abstract close(code?: number, reason?: string): void
 
   public abstract addEventListener<
-    EventType extends keyof WebSocketClientEventMap
+    EventType extends keyof WebSocketClientEventMap,
   >(
     type: EventType,
     listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
@@ -27,7 +27,7 @@ export abstract class WebSocketClientConnectionProtocol {
   ): void
 
   public abstract removeEventListener<
-    EventType extends keyof WebSocketClientEventMap
+    EventType extends keyof WebSocketClientEventMap,
   >(
     event: EventType,
     listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
@@ -40,9 +40,7 @@ export abstract class WebSocketClientConnectionProtocol {
  * client connection. The user can control the connection,
  * send and receive events.
  */
-export class WebSocketClientConnection
-  implements WebSocketClientConnectionProtocol
-{
+export class WebSocketClientConnection implements WebSocketClientConnectionProtocol {
   public readonly id: string
   public readonly url: URL
 
