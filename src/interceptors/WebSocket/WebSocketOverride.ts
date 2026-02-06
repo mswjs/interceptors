@@ -1,11 +1,11 @@
 import { invariant } from 'outvariant'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import type { WebSocketData } from './WebSocketTransport'
 import { bindEvent } from './utils/bindEvent'
 import { CloseEvent } from './utils/events'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 
 export type WebSocketEventListener<
-  EventType extends WebSocketEventMap[keyof WebSocketEventMap] = Event
+  EventType extends WebSocketEventMap[keyof WebSocketEventMap] = Event,
 > = (this: WebSocket, event: EventType) => void
 
 const WEBSOCKET_CLOSE_CODE_RANGE_ERROR =
@@ -44,7 +44,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
 
   constructor(url: string | URL, protocols?: string | Array<string>) {
     super()
-    this.url = url.toString()
+    this.url = resolveWebSocketUrl(url)
     this.protocol = ''
     this.extensions = ''
     this.binaryType = 'blob'
@@ -62,8 +62,8 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
         typeof protocols === 'string'
           ? protocols
           : Array.isArray(protocols) && protocols.length > 0
-          ? protocols[0]
-          : ''
+            ? protocols[0]
+            : ''
 
       /**
        * @note Check that nothing has prevented this connection
@@ -248,4 +248,50 @@ function getDataSize(data: WebSocketData): number {
   }
 
   return data.byteLength
+}
+
+/**
+ * Resolve potentially relative WebSocket URLs the same way
+ * the browser does (replace the protocol, use the origin, etc).
+ *
+ * @see https://websockets.spec.whatwg.org//#dom-websocket-websocket
+ */
+function resolveWebSocketUrl(url: string | URL): string {
+  if (typeof url === 'string') {
+    /**
+     * @note Cast the string to a URL first so the parsing errors
+     * are thrown as a part of the WebSocket constructor, not consumers.
+     */
+    const urlRecord = new URL(
+      url,
+      typeof location !== 'undefined' ? location.href : undefined
+    )
+
+    return resolveWebSocketUrl(urlRecord)
+  }
+
+  if (url.protocol === 'http:') {
+    url.protocol = 'ws:'
+  } else if (url.protocol === 'https:') {
+    url.protocol = 'wss:'
+  }
+
+  if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+    /**
+     * @note These errors are modeled after the browser errors.
+     * The exact error messages aren't provided in the specification.
+     * Node.js uses more obscure error messages that I don't wish to replicate.
+     */
+    throw new SyntaxError(
+      `Failed to construct 'WebSocket': The URL's scheme must be either 'http', 'https', 'ws', or 'wss'. '${url.protocol}' is not allowed.`
+    )
+  }
+
+  if (url.hash !== '') {
+    throw new SyntaxError(
+      `Failed to construct 'WebSocket': The URL contains a fragment identifier ('${url.hash}'). Fragment identifiers are not allowed in WebSocket URLs.`
+    )
+  }
+
+  return url.href
 }
