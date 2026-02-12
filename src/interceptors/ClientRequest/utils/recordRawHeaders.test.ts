@@ -256,3 +256,42 @@ it('isolates headers between different headers instances', async () => {
   expect(firstClone.get('Content-Type')).toBe('application/json')
   expect(secondClone.get('Content-Type')).toBeNull()
 })
+
+/**
+ * Node.js 24+ may pass additional internal arguments to Headers.prototype.set
+ * and Headers.prototype.append. This test ensures we only record the first
+ * two arguments (name, value) and ignore any additional internal arguments.
+ * @see https://github.com/mswjs/interceptors/issues/762
+ */
+it('ignores extra internal arguments passed to .set() and .append()', () => {
+  recordRawFetchHeaders()
+  const headers = new Headers()
+
+    // Simulate Node.js 24+ behavior where internal calls may pass extra arguments
+    // by calling the prototype methods directly with additional arguments.
+    ; (Headers.prototype.set as Function).call(
+      headers,
+      'X-Set-Header',
+      'set-value',
+      true // extra internal argument
+    )
+    ; (Headers.prototype.append as Function).call(
+      headers,
+      'X-Append-Header',
+      'append-value',
+      true // extra internal argument
+    )
+
+  const rawHeaders = getRawFetchHeaders(headers)
+
+  // Verify that raw headers only contain [name, value] tuples
+  expect(rawHeaders).toEqual([
+    ['X-Set-Header', 'set-value'],
+    ['X-Append-Header', 'append-value'],
+  ])
+
+  // Ensure no extra elements in each tuple
+  for (const tuple of rawHeaders) {
+    expect(tuple).toHaveLength(2)
+  }
+})
