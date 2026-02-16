@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { afterEach, afterAll, beforeAll, expect, it } from 'vitest'
+import { setTimeout } from 'node:timers/promises'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
@@ -12,10 +13,9 @@ const httpServer = new HttpServer((app) => {
   app.get('/get', (_req, res) => {
     res.status(200).send('/get')
   })
-  app.get('/delayed', (_req, res) => {
-    setTimeout(() => {
-      res.status(200).send('/delayed')
-    }, 1000)
+  app.get('/delayed', async (_req, res) => {
+    await setTimeout(1000)
+    res.status(200).send('/delayed')
   })
 })
 
@@ -143,4 +143,22 @@ it('respects requests aborted before they are dispatched', async () => {
 
   expect.soft(abortError.name).toBe('AbortError')
   expect.soft(abortError.message).toBe('This operation was aborted')
+})
+
+it('aborts the pending request via "AbortSignal.timeout"', async () => {
+  interceptor.on('request', async () => {
+    await setTimeout(300)
+  })
+
+  const abortError = await fetch('http://localhost/irrelevant', {
+    signal: AbortSignal.timeout(200),
+  }).then(
+    () => expect.fail('must not return any response'),
+    (error) => error
+  )
+
+  expect(abortError).toMatchObject({
+    name: 'TimeoutError',
+    message: 'The operation was aborted due to timeout',
+  })
 })
