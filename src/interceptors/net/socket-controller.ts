@@ -5,8 +5,10 @@ import {
   normalizeSocketWriteArgs,
   type WriteArgs,
 } from '../Socket/utils/normalizeSocketWriteArgs'
+import { toBuffer } from '../../utils/bufferUtils'
 
 export const kSocketProxy = Symbol('kSocketProxy')
+export const kClientSocket = Symbol('kClientSocket')
 export const kServerSocket = Symbol('kServerSocket')
 
 interface SocketControllerOptions {
@@ -16,13 +18,13 @@ interface SocketControllerOptions {
 
 export class SocketController {
   private [kSocketProxy]: net.Socket
+  private [kClientSocket]: MockSocket
   private [kServerSocket]: MockSocket
 
   #recorder: ObjectRecorder<net.Socket>
-  #clientSocket: MockSocket
 
   constructor(protected readonly options: SocketControllerOptions) {
-    this.#clientSocket = this.options.socket
+    this[kClientSocket] = this.options.socket
     this[kServerSocket] = new MockSocket({})
 
     this.#recorder = new ObjectRecorder<net.Socket>(this.options.socket, {
@@ -38,10 +40,7 @@ export class SocketController {
 
             if (chunk) {
               // Translate client writes to the "data" event on the server socket.
-              this[kServerSocket].emit(
-                'data',
-                Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding)
-              )
+              this[kServerSocket].emit('data', toBuffer(chunk, encoding))
             }
           }
         }
@@ -61,10 +60,7 @@ export class SocketController {
       if (args[0] != null) {
         const [chunk, encoding] = normalizeSocketWriteArgs(args)
 
-        this.#clientSocket.emit(
-          'data',
-          Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding)
-        )
+        this[kClientSocket].emit('data', toBuffer(chunk, encoding))
       }
 
       return originalServerWrite(...args)
@@ -74,10 +70,7 @@ export class SocketController {
       if (args[0] != null) {
         const [chunk, encoding] = normalizeSocketWriteArgs(args)
 
-        this.#clientSocket.emit(
-          'data',
-          Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding)
-        )
+        this[kClientSocket].emit('data', toBuffer(chunk, encoding))
       }
 
       return originalServerEnd(...args)
@@ -90,24 +83,26 @@ export class SocketController {
    * Mock the socket connection.
    */
   public connect(): void {
-    this.options.socket.mockConnect()
+    this[kClientSocket].mockConnect()
     this[kServerSocket].mockConnect()
   }
 
   /**
    * Establish this socket connection as-is.
    */
-  public passthrough(): void {
+  public passthrough(): net.Socket {
     this.#recorder.dispose()
 
     const realSocket = this.options.createConnection()
     this.#recorder.replay(realSocket)
+
+    return realSocket
   }
 
   /**
    * Abort the underlying socket connection with the given reason.
    */
   public errorWith(reason?: Error): void {
-    this.options.socket.destroy(reason)
+    this[kClientSocket].destroy(reason)
   }
 }

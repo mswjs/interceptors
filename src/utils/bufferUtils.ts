@@ -20,3 +20,10 @@ export function toArrayBuffer(array: Uint8Array): ArrayBuffer {
     array.byteOffset + array.byteLength
   )
 }
+
+export function toBuffer(
+  data: string | Buffer,
+  encoding?: BufferEncoding
+): Buffer {
+  return Buffer.isBuffer(data) ? data : Buffer.from(data, encoding)
+}
