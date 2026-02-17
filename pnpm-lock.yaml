@@ -20,6 +20,9 @@ importers:
       '@open-draft/until':
         specifier: ^2.0.0
         version: 2.1.0
+      es-toolkit:
+        specifier: ^1.44.0
+        version: 1.44.0
       is-node-process:
         specifier: ^1.2.0
         version: 1.2.0
@@ -1539,6 +1542,9 @@ packages:
 
   es-module-lexer@2.0.0:
     resolution: {integrity: sha512-5POEcUuZybH7IdmGsD8wlf0AI55wMecM9rVBTI/qEAy2c1kTOm3DjFYjrBdI2K3BaJjJYfYFeRtM0t9ssnRuxw==}
+
+  es-toolkit@1.44.0:
+    resolution: {integrity: sha512-6penXeZalaV88MM3cGkFZZfOoLGWshWWfdy0tWw/RlVVyhvMaWSBTOvXNeiW3e5FwdS5ePW0LGEu17zT139ktg==}
 
   esbuild@0.21.5:
     resolution: {integrity: sha512-mg3OPMV4hXywwpoDxu3Qda5xCKQi+vCTZq8S9J/EpkhB2HzKXq4SNFZE3+NK93JYxc8VMSep+lOUSC/RVKaBqw==}
@@ -4621,6 +4627,8 @@ snapshots:
   es-module-lexer@1.6.0: {}
 
   es-module-lexer@2.0.0: {}
+
+  es-toolkit@1.44.0: {}
 
   esbuild@0.21.5:
     optionalDependencies:
