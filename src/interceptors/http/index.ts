@@ -16,7 +16,10 @@ import { HttpRequestParser, HttpResponseParser } from './http-parser'
 import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
+import { logger } from '../../utils/logger'
 import { kClientSocket } from '../net/connection-controller'
+
+const log = logger.child({ module: 'HttpRequestInterceptor' })
 
 export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -47,6 +50,12 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           )
 
           const baseUrl = connectionOptionsToUrl(connectionOptions)
+
+          log.debug(
+            { firstFrame, httpMethod, baseUrl },
+            'handling first frame...'
+          )
+
           const requestParser = new HttpRequestParser({
             connectionOptions: {
               method: httpMethod,
@@ -55,8 +64,22 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
             onRequest: async (request) => {
               const requestId = createRequestId()
 
+              logger.debug(
+                { method: request.method, url: request.url },
+                'received a parsed HTTP request!'
+              )
+
               const requestController = new RequestController(request, {
                 respondWith: (response) => {
+                  logger.debug(
+                    {
+                      status: response.status,
+                      statusText: response.statusText,
+                      hasBody: response.body != null,
+                    },
+                    'respondWith()'
+                  )
+
                   connectionController.claim()
 
                   socket.once('connect', async () => {
@@ -147,6 +170,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     const statusLine = `HTTP/1.1 ${response.status} ${statusText}\r\n`
 
     const rawResponseHeaders = getRawFetchHeaders(response.headers)
+    const isChunkedEncoding =
+      response.headers.get('transfer-encoding') === 'chunked'
 
     let headersString = ''
     for (const [name, value] of rawResponseHeaders) {
@@ -155,20 +180,12 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
     headersString += '\r\n'
 
-    /**
-     * @note A hacky way to preserve the socket-parser association set
-     * on the original socket. Creating `ServerResponse` rewrites that
-     * association, resulting in the "socketOnData" callback failing the
-     * socket identity check:
-     * @see https://github.com/nodejs/node/blob/a73b575304722a3682fbec3a5fb13b39c5791342/lib/_http_client.js#L612
-     * @see https://github.com/nodejs/node/blob/a73b575304722a3682fbec3a5fb13b39c5791342/lib/_http_server.js#L713
-     */
-    // @ts-expect-error Node.js internals
-    socket.parser.socket = socket
+    const httpMessageHeaders = statusLine + headersString
+    log.debug({ httpMessageHeaders }, 'writing response headers...')
 
     // Flush the mocked response headers.
     // This will trigger the "response" event in "ClientRequest".
-    socket.push(Buffer.from(statusLine + headersString))
+    socket.push(Buffer.from(httpMessageHeaders))
 
     if (response.body) {
       try {
@@ -197,7 +214,14 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
             throw new Error('Invalid chunk type')
           }
 
-          socket.push(value)
+          if (isChunkedEncoding) {
+            const chunkSize = value.byteLength.toString(16)
+            socket.push(Buffer.from(`${chunkSize}\r\n`))
+            socket.push(value)
+            socket.push(Buffer.from('\r\n'))
+          } else {
+            socket.push(value)
+          }
         }
       } catch (error) {
         if (error instanceof Error) {
@@ -209,6 +233,12 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           return
         }
       }
+
+      log.debug('response stream handling done!')
+    }
+
+    if (isChunkedEncoding) {
+      socket.push(Buffer.from('0\r\n\r\n'))
     }
 
     /**

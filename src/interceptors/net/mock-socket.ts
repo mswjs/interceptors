@@ -1,8 +1,11 @@
 import net from 'node:net'
 import { toBuffer } from '../../utils/bufferUtils'
+import { logger } from '../../utils/logger'
 
 const kListenerWrap = Symbol('kListenerWrap')
 export const kMockState = Symbol('kMockState')
+
+const log = logger.child({ module: 'MockSocket' })
 
 export class MockSocket extends net.Socket {
   private [kMockState]: 0 | 1 | 2
@@ -19,9 +22,13 @@ export class MockSocket extends net.Socket {
      * This will make Node.js buffer any writes to it automatically.
      */
     this.connecting = true
+
+    log.debug('constructed new instance')
   }
 
-  _read(size: number): void {}
+  _read(size: number): void {
+    log.debug('read', size)
+  }
 
   /**
    * Override "_writeGeneric" to benefit from built-in chunk buffering in Node.js.
@@ -34,6 +41,11 @@ export class MockSocket extends net.Socket {
     encoding: BufferEncoding,
     callback?: ((error?: Error | null) => void) | undefined
   ): void {
+    log.debug(
+      { connecting: this.connecting, data, encoding, callback },
+      'write'
+    )
+
     const emitWrite = () => {
       if (Array.isArray(data)) {
         for (const entry of data) {
@@ -61,6 +73,8 @@ export class MockSocket extends net.Socket {
        * @see https://github.com/nodejs/node/blob/main/deps/uv/src/unix/stream.c#L1304-L1305
        */
       if (this._pendingData) {
+        log.debug(this._pendingData, 'mocked connection, clearing write buffer')
+
         this._pendingData = null
         this._pendingEncoding = null
         return

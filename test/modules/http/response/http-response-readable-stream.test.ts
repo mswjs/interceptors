@@ -21,7 +21,7 @@ const httpServer = new HttpServer((app) => {
     })
 
     res.writeHead(200).flushHeaders()
-    Readable.fromWeb(stream)
+    Readable.fromWeb(stream as any)
       .on('error', (error) => res.destroy(error))
       .pipe(res)
   })
@@ -36,7 +36,7 @@ const httpServer = new HttpServer((app) => {
     })
 
     res.writeHead(200).flushHeaders()
-    Readable.fromWeb(stream)
+    Readable.fromWeb(stream as any)
       .on('error', (error) => res.destroy(error))
       .pipe(res)
   })
@@ -51,7 +51,7 @@ const httpServer = new HttpServer((app) => {
     })
 
     res.writeHead(200).flushHeaders()
-    Readable.fromWeb(stream)
+    Readable.fromWeb(stream as any)
       .on('error', (error) => res.destroy(error))
       .pipe(res)
   })
