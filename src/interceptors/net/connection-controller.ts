@@ -1,6 +1,6 @@
 import net from 'node:net'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { NewMockSocket } from './mocker-socket'
+import { MockSocket } from './mock-socket'
 
 // Internally, Node.js represents the result of various operations
 // by the number they return: 0 (error), 1 (success).
@@ -49,7 +49,7 @@ export class ConnectionController {
   #pendingRequest: DeferredPromise<TcpWrap>
 
   constructor(
-    private readonly socket: NewMockSocket,
+    private readonly socket: MockSocket,
     private readonly createConnection: () => net.Socket
   ) {
     this.#pendingRequest = new DeferredPromise<TcpWrap>()
@@ -77,10 +77,8 @@ export class ConnectionController {
    * connection with the remote address was successful.
    */
   public claim(): void {
-    /**
-     * The controller exposes the socket to the user *before* the connection attempt
-     * is made. That is so the user can handle the socket before connection happens.
-     */
+    // The user can interact with the connection controller *before* the connection attempt
+    // is made. That is so they could handle the socket before the connection.
     this.#pendingRequest.then((request) => {
       /**
        * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
@@ -97,6 +95,9 @@ export class ConnectionController {
     throw new Error('Not Implemented')
   }
 
+  /**
+   * Abort this socket connection with an optional error.
+   */
   public errorWith(reason?: Error): void {
     this.socket.destroy(reason)
   }

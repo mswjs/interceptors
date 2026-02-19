@@ -4,12 +4,7 @@ import {
   type NetworkConnectionOptions,
   normalizeNetConnectArgs,
 } from './utils/normalize-net-connect-args'
-import {
-  kServerSocket,
-  kSocketProxy,
-  SocketController,
-} from './socket-controller'
-import { NewMockSocket } from './mocker-socket'
+import { MockSocket } from './mock-socket'
 import { ConnectionController } from './connection-controller'
 
 interface SocketEventMap {
@@ -33,21 +28,20 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
     const realNetConnect = net.connect
 
     /**
+     * Luckily, "net.connect()" is rather short and we can replicate it as-is.
      * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L236
      */
     net.connect = (...args: [any, any]) => {
       const [connectionOptions, connectionCallback] =
         normalizeNetConnectArgs(args)
 
-      const createConnection = () => {
-        return realNetConnect(...args)
-      }
-
-      const clientSocket = new NewMockSocket(connectionOptions)
+      const clientSocket = new MockSocket(connectionOptions)
       const serverSocket = clientSocket.createServerSocket()
       const controller = new ConnectionController(
         clientSocket,
-        createConnection
+        function createConnection() {
+          return realNetConnect(...args)
+        }
       )
 
       process.nextTick(() => {
