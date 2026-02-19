@@ -4,7 +4,6 @@ import {
   type NetworkConnectionOptions,
   normalizeNetConnectArgs,
 } from './utils/normalize-net-connect-args'
-import { MockSocket } from './mock-socket'
 import {
   kServerSocket,
   kSocketProxy,
@@ -17,7 +16,6 @@ interface SocketEventMap {
     {
       socket: net.Socket
       connectionOptions: NetworkConnectionOptions
-      controller: SocketController
     },
   ]
 }
@@ -39,33 +37,21 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       const [connectionOptions, connectionCallback] =
         normalizeNetConnectArgs(args)
 
-      // const socket = new MockSocket(connectionOptions, connectionCallback)
-      // const controller = new SocketController({
-      //   socket,
-      //   createConnection() {
-      //     return realNetConnect.apply(null, args)
-      //   },
-      // })
-
-      const socket = new NewMockSocket(args)
+      const clientSocket = new NewMockSocket(connectionOptions)
+      const serverSocket = clientSocket.createServerSocket()
 
       process.nextTick(() => {
         this.emitter.emit('connection', {
-          socket,
-          // socket: controller[kServerSocket],
+          socket: serverSocket,
           connectionOptions,
-          // controller,
         })
       })
 
       if (connectionOptions.timeout) {
-        socket.setTimeout(connectionOptions.timeout)
+        clientSocket.setTimeout(connectionOptions.timeout)
       }
 
-      return socket.connect(connectionOptions, connectionCallback)
-
-      // Return the socket wrapped in the recorder proxy.
-      // return controller[kSocketProxy]
+      return clientSocket.connect(connectionOptions, connectionCallback)
     }
 
     const realNetCreateConnection = net.createConnection

@@ -20,11 +20,15 @@ afterAll(() => {
 it.only('mocks the intercepted connection', async () => {
   const serverDataListener = vi.fn()
 
-  interceptor.on('connection', ({ socket, controller }) => {
-    // controller.connect()
-    socket.on('data', (chunk) =>
-      console.log('✅ SERVER RECEIVED:', chunk.toString())
-    )
+  interceptor.on('connection', ({ socket }) => {
+    /**
+     * Expose a `connection` reference instead of `controller`.
+     * It controls the intercepted connection:
+     * - connection.claim()
+     * - connection.errorWith()
+     * - connection.retry()
+     * - connection.passthrough()
+     */
 
     socket.on('data', serverDataListener)
     socket.write('hello from server')
@@ -35,14 +39,6 @@ it.only('mocks the intercepted connection', async () => {
 
   const errorListener = vi.fn()
   socket.on('error', errorListener)
-
-  // DEBUG //
-  socket.on('lookup', () => console.log('LOOKUP!'))
-  socket.on('error', console.error)
-  socket.on('connect', () => console.log('✅ CONNECT!'))
-  socket.on('data', (chunk) =>
-    console.log('✅ CLIENT RECEIVED:', chunk.toString())
-  )
 
   const clientDataListener = vi.fn()
   socket.on('data', clientDataListener)

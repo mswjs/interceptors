@@ -12,6 +12,7 @@ export interface NetworkConnectionOptions {
   session?: Buffer
   localAddress?: string | null
   localPort?: number | null
+  timeout?: number
 }
 
 export type NetConnectArgs =

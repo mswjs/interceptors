@@ -1,4 +1,5 @@
 import net from 'node:net'
+import { toBuffer } from '../../utils/bufferUtils'
 
 type ErrorStatus = 0 | 1
 
@@ -39,69 +40,37 @@ interface TcpWrap {
   ) => void
 }
 
+const kListenerWrap = Symbol('kListenerWrap')
+
 export class NewMockSocket extends net.Socket {
-  public connecting: boolean
-
-  constructor(options: net.SocketConstructorOpts) {
-    super(options)
-    this.connecting = false
-  }
-
   /**
    * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1281
    */
-  public connect(...args: SocketConnectArgs): this {
-    // this.connecting = true
-    // this.#connectionOptions = args
-
-    // if (connectionCallback != null) {
-    //   this.on('connect', connectionCallback)
-    // }
-
-    // process.nextTick(() => {
-    //   this.connecting = false
-    //   this.emit('connect')
-    // })
-    //
-    const [options, connectionCallback] = normalizeSocketConnectArgs(args)
-
-    // options.lookup = (hostname, options, callback) => {
-    //   console.log('DNS LOOKUP!', hostname, options, callback)
-
-    //   this.emit('lookup', null, 'ip', 'addressType', 'host')
-    //   this.emit('connectionAttempt', 'address', 'port', 'addressType')
-
-    //   process.nextTick(() => {
-    //     this.connecting = false
-    //     this.emit('connect')
-    //   })
-    // }
-
+  public connect(...args: [any, any]): this {
     this.on('connectionAttempt', () => {
       // Patch the TCPWrap handle set only after the connection attempt.
       this._handle.connect = (tcpWrap, address, port) => {
-        console.log('HANDLE CONNECT!', tcpWrap, address, port)
-
         /**
          * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1649
          */
         tcpWrap.oncomplete(0, this._handle, tcpWrap, true, true)
-      }
-
-      this._handle.readStart = () => {
-        console.log('READ!')
       }
     })
 
     return super.connect(...args)
   }
 
+  _read(size: number): void {}
+
   _write(
     chunk: any,
     encoding: BufferEncoding,
     callback: (error?: Error | null) => void
   ): void {
-    console.log('WRITE!', chunk)
+    // Emit an internal event to translate client writes to server socket "data" events.
+    // This might not be super elegant, but it doesn't require us to create new emitters.
+    this.emit('internal:write', chunk, encoding)
+
     callback(null)
   }
 
@@ -109,87 +78,73 @@ export class NewMockSocket extends net.Socket {
    * Establish this socket connection as-is.
    */
   public passthrough(): void {
-    // super.connect(this.#connectionOptions)
-    /** @todo Replay any writes or changes onto the passthrough socket */
-  }
-}
-
-type SocketConnectArgs =
-  | [options: net.NetConnectOpts, connectionListener?: () => void]
-  | [port: number, host: string, connectionListener?: () => void]
-  | [port: number, connectionListener?: () => void]
-  | [path: string, connectionListener?: () => void]
-  | []
-
-type NormalizdeSocketConnectArgs = [
-  options: {
-    host?: string
-    port?: number
-    path?: string
-  },
-  connectionListener: (() => void) | null,
-]
-
-function normalizeSocketConnectArgs(
-  args: SocketConnectArgs
-): NormalizdeSocketConnectArgs {
-  if (args.length === 0) {
-    return [{}, null]
+    throw new Error('Passthough not implemented')
   }
 
-  let result: NormalizdeSocketConnectArgs = [{}, null]
-  let options: NormalizdeSocketConnectArgs[0] = {}
-  const [arg0] = args
+  public createServerSocket(): net.Socket {
+    return new Proxy(this, {
+      get: (target, property, receiver) => {
+        const getRealValue = () => {
+          return Reflect.get(target, property, receiver)
+        }
 
-  if (typeof arg0 === 'object' && arg0 !== null) {
-    options = arg0
-  } else if (typeof arg0 === 'string' && isNaN(Number(arg0))) {
-    options.path = arg0
-  } else {
-    options.port = Number(arg0)
+        if (property === 'on' || property === 'addListener') {
+          const realAddListener = getRealValue() as net.Socket['addListener']
 
-    if (args.length > 1 && typeof args[1] === 'string') {
-      options.host = args[1]
-    }
-  }
+          return (
+            event: string,
+            listener: (...args: Array<unknown>) => void
+          ) => {
+            if (event === 'data') {
+              const listenerWrap = (chunk: any, encoding?: BufferEncoding) => {
+                listener(toBuffer(chunk, encoding))
+              }
 
-  const callback = args[args.length - 1]
-  if (typeof callback === 'function') {
-    result = [options, callback]
-  } else {
-    result = [options, null]
-  }
+              Object.defineProperty(listener, kListenerWrap, {
+                enumerable: false,
+                writable: false,
+                value: listenerWrap,
+              })
 
-  return result
-}
+              this.on('internal:write', listenerWrap)
 
-const kRealConnect = Symbol('kRealConnect')
-const kConnectArgs = Symbol('kConnectArgs')
+              return target
+            }
 
-class NewSocketController {
-  constructor(private readonly socket: net.Socket) {
-    Reflect.set(socket, kRealConnect, socket.connect.bind(socket))
+            return realAddListener.call(target, event, listener)
+          }
+        }
 
-    socket.connect = function mockConnect(...args) {
-      Reflect.set(this, 'connecting', true)
+        if (property === 'off' || property === 'removeListener') {
+          const realRemoveListener =
+            getRealValue() as net.Socket['removeListener']
 
-      process.nextTick(() => {
-        Reflect.set(this, 'connecting', false)
-        this.emit('connect')
-      })
+          return (event: string, listener: any) => {
+            if (event === 'data') {
+              const listenerWrap = listener[kListenerWrap]
 
-      Reflect.set(socket, kConnectArgs, args)
-      return this
-    }
-  }
+              if (listenerWrap) {
+                return realRemoveListener.call(target, event, listenerWrap)
+              }
+            }
 
-  public passthrough(): net.Socket {
-    const connect = Reflect.get(this.socket, kRealConnect)
-    const connectArgs = Reflect.get(this.socket, kConnectArgs)
-    connect(connectArgs)
-  }
+            return realRemoveListener.call(target, event, listener)
+          }
+        }
 
-  public errorWith(reason?: Error): void {
-    this.socket.destroy(reason)
+        // Push data to the client socket when "server.write()" is called.
+        if (property === 'write') {
+          return (
+            chunk: any,
+            encoding: BufferEncoding,
+            callback: (error?: Error | null) => void
+          ) => {
+            this.push(toBuffer(chunk, encoding), encoding)
+          }
+        }
+
+        return getRealValue()
+      },
+    })
   }
 }

@@ -1,6 +1,7 @@
 import net from 'node:net'
 import { ObjectRecorder } from './object-recorder'
 import { MockSocket } from './mock-socket'
+import { NewMockSocket } from './mocker-socket'
 import {
   normalizeSocketWriteArgs,
   type WriteArgs,
@@ -12,20 +13,20 @@ export const kClientSocket = Symbol('kClientSocket')
 export const kServerSocket = Symbol('kServerSocket')
 
 interface SocketControllerOptions {
-  socket: MockSocket
+  socket: NewMockSocket
   createConnection: () => net.Socket
 }
 
 export class SocketController {
   private [kSocketProxy]: net.Socket
-  private [kClientSocket]: MockSocket
-  private [kServerSocket]: MockSocket
+  private [kClientSocket]: NewMockSocket
+  private [kServerSocket]: NewMockSocket
 
   #recorder: ObjectRecorder<net.Socket>
 
   constructor(protected readonly options: SocketControllerOptions) {
     this[kClientSocket] = this.options.socket
-    this[kServerSocket] = new MockSocket({})
+    this[kServerSocket] = this.options.socket
 
     this.#recorder = new ObjectRecorder<net.Socket>(this.options.socket, {
       filter: (entry) => {
