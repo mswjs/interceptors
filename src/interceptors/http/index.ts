@@ -16,10 +16,10 @@ import { HttpRequestParser, HttpResponseParser } from './http-parser'
 import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
-import { logger } from '../../utils/logger'
+import { createLogger } from '../../utils/logger'
 import { kClientSocket } from '../net/connection-controller'
 
-const log = logger.child({ module: 'HttpRequestInterceptor' })
+const log = createLogger('HttpRequestInterceptor')
 
 export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -51,10 +51,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const baseUrl = connectionOptionsToUrl(connectionOptions)
 
-          log.debug(
-            { firstFrame, httpMethod, baseUrl },
-            'handling first frame...'
-          )
+          log('handling first frame...', { firstFrame, httpMethod, baseUrl })
 
           const requestParser = new HttpRequestParser({
             connectionOptions: {
@@ -64,21 +61,18 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
             onRequest: async (request) => {
               const requestId = createRequestId()
 
-              logger.debug(
-                { method: request.method, url: request.url },
-                'received a parsed HTTP request!'
-              )
+              log('received a parsed HTTP request!', {
+                method: request.method,
+                url: request.url,
+              })
 
               const requestController = new RequestController(request, {
                 respondWith: (response) => {
-                  logger.debug(
-                    {
-                      status: response.status,
-                      statusText: response.statusText,
-                      hasBody: response.body != null,
-                    },
-                    'respondWith()'
-                  )
+                  log('respondWith() %o', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    hasBody: response.body != null,
+                  })
 
                   connectionController.claim()
 
@@ -181,7 +175,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     headersString += '\r\n'
 
     const httpMessageHeaders = statusLine + headersString
-    log.debug({ httpMessageHeaders }, 'writing response headers...')
+    log('writing http response message headers...\n', httpMessageHeaders)
 
     // Flush the mocked response headers.
     // This will trigger the "response" event in "ClientRequest".
@@ -234,7 +228,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         }
       }
 
-      log.debug('response stream handling done!')
+      log('response stream handling done!')
     }
 
     if (isChunkedEncoding) {

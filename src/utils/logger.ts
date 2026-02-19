@@ -1,10 +1,5 @@
-import baseLogger from 'pino'
+import debug from 'debug'
 
-export const logger = baseLogger({
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-    },
-  },
-})
+export function createLogger(namespace: string) {
+  return debug(`interceptors:${namespace}`)
+}

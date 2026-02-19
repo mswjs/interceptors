@@ -1,11 +1,11 @@
 import net from 'node:net'
 import { toBuffer } from '../../utils/bufferUtils'
-import { logger } from '../../utils/logger'
+import { createLogger } from '../../utils/logger'
 
 const kListenerWrap = Symbol('kListenerWrap')
 export const kMockState = Symbol('kMockState')
 
-const log = logger.child({ module: 'MockSocket' })
+const log = createLogger('MockSocket')
 
 export class MockSocket extends net.Socket {
   private [kMockState]: 0 | 1 | 2
@@ -23,11 +23,11 @@ export class MockSocket extends net.Socket {
      */
     this.connecting = true
 
-    log.debug('constructed new instance')
+    log('constructed new instance')
   }
 
   _read(size: number): void {
-    log.debug('read', size)
+    log('read', size)
   }
 
   /**
@@ -41,10 +41,7 @@ export class MockSocket extends net.Socket {
     encoding: BufferEncoding,
     callback?: ((error?: Error | null) => void) | undefined
   ): void {
-    log.debug(
-      { connecting: this.connecting, data, encoding, callback },
-      'write'
-    )
+    log({ connecting: this.connecting, data, encoding, callback }, 'write')
 
     const emitWrite = () => {
       if (Array.isArray(data)) {
@@ -73,7 +70,7 @@ export class MockSocket extends net.Socket {
        * @see https://github.com/nodejs/node/blob/main/deps/uv/src/unix/stream.c#L1304-L1305
        */
       if (this._pendingData) {
-        log.debug(this._pendingData, 'mocked connection, clearing write buffer')
+        log(this._pendingData, 'mocked connection, clearing write buffer')
 
         this._pendingData = null
         this._pendingEncoding = null
