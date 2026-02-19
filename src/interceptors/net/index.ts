@@ -10,11 +10,13 @@ import {
   SocketController,
 } from './socket-controller'
 import { NewMockSocket } from './mocker-socket'
+import { ConnectionController } from './connection-controller'
 
 interface SocketEventMap {
   connection: [
     {
       socket: net.Socket
+      controller: ConnectionController
       connectionOptions: NetworkConnectionOptions
     },
   ]
@@ -39,10 +41,12 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
       const clientSocket = new NewMockSocket(connectionOptions)
       const serverSocket = clientSocket.createServerSocket()
+      const controller = new ConnectionController(clientSocket)
 
       process.nextTick(() => {
         this.emitter.emit('connection', {
           socket: serverSocket,
+          controller,
           connectionOptions,
         })
       })

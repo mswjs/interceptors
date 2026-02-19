@@ -1,65 +1,9 @@
 import net from 'node:net'
 import { toBuffer } from '../../utils/bufferUtils'
 
-type ErrorStatus = 0 | 1
-
-declare module 'node:net' {
-  interface Socket {
-    _handle: {
-      open: (fd: unknown) => ErrorStatus
-      connect: (request: TcpWrap, address: string, port: number) => void
-      listen: (backlog: number) => ErrorStatus
-      onconnection?: () => void
-      getpeername?: () => ErrorStatus
-      getsockname?: () => ErrorStatus
-      reading: boolean
-      onread: () => {}
-      readStart: () => void
-      readStop: () => void
-      bytesRead: number
-      bytesWritten: number
-      ref?: () => void
-      unref?: () => void
-      fchmod: (mode: number) => void
-      setBlocking: (blocking: boolean) => ErrorStatus
-      setNoDelay?: (noDelay: boolean) => void
-      setKeepAlive?: (keepAlive: boolean, initialDelay: number) => void
-      shutdown: (reqest: unknown /* ShutdownWrap */) => ErrorStatus
-      close: () => void
-    }
-  }
-}
-
-interface TcpWrap {
-  oncomplete: (
-    status: ErrorStatus,
-    owner: any,
-    request: TcpWrap,
-    readable?: boolean,
-    writable?: boolean
-  ) => void
-}
-
 const kListenerWrap = Symbol('kListenerWrap')
 
 export class NewMockSocket extends net.Socket {
-  /**
-   * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1281
-   */
-  public connect(...args: [any, any]): this {
-    this.on('connectionAttempt', () => {
-      // Patch the TCPWrap handle set only after the connection attempt.
-      this._handle.connect = (tcpWrap, address, port) => {
-        /**
-         * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1649
-         */
-        tcpWrap.oncomplete(0, this._handle, tcpWrap, true, true)
-      }
-    })
-
-    return super.connect(...args)
-  }
-
   _read(size: number): void {}
 
   _write(
@@ -70,6 +14,11 @@ export class NewMockSocket extends net.Socket {
     // Emit an internal event to translate client writes to server socket "data" events.
     // This might not be super elegant, but it doesn't require us to create new emitters.
     this.emit('internal:write', chunk, encoding)
+
+    /**
+     * @todo Check if the socket still buffers the write with this custom "_write".
+     * Ideally, we can rely on the buffered writes so the socket flushes them on passthrough for us.
+     */
 
     callback(null)
   }

@@ -17,21 +17,14 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it.only('mocks the intercepted connection', async () => {
+it('mocks the intercepted connection', async () => {
   const serverDataListener = vi.fn()
 
-  interceptor.on('connection', ({ socket }) => {
-    /**
-     * Expose a `connection` reference instead of `controller`.
-     * It controls the intercepted connection:
-     * - connection.claim()
-     * - connection.errorWith()
-     * - connection.retry()
-     * - connection.passthrough()
-     */
+  interceptor.on('connection', ({ socket, controller }) => {
+    controller.claim()
 
-    socket.on('data', serverDataListener)
     socket.write('hello from server')
+    socket.on('data', serverDataListener)
   })
 
   const connectionListener = vi.fn()
@@ -63,16 +56,19 @@ it('errors the intercepted socket before it connects', async () => {
     controller.errorWith(reason)
   })
 
-  const connectionListener = vi.fn()
-  const socket = net.connect(3000, '127.0.0.1', connectionListener)
+  const connectionCallback = vi.fn()
+  const socket = net.connect(3000, '127.0.0.1', connectionCallback)
 
+  const connectListener = vi.fn()
   const errorListener = vi.fn()
   const closeListener = vi.fn()
+  socket.on('connect', connectListener)
   socket.on('error', errorListener)
   socket.on('close', closeListener)
 
   await expect.poll(() => errorListener).toHaveBeenCalled()
   expect.soft(errorListener).toHaveBeenCalledExactlyOnceWith(reason)
-  expect.soft(closeListener).toHaveBeenCalledExactlyOnceWith()
-  expect.soft(connectionListener).not.toHaveBeenCalled()
+  expect.soft(closeListener).toHaveBeenCalledExactlyOnceWith(true)
+  expect.soft(connectListener).not.toHaveBeenCalled()
+  expect.soft(connectionCallback).not.toHaveBeenCalled()
 })
