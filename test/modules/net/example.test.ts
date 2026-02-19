@@ -72,3 +72,45 @@ it('errors the intercepted socket before it connects', async () => {
   expect.soft(connectListener).not.toHaveBeenCalled()
   expect.soft(connectionCallback).not.toHaveBeenCalled()
 })
+
+it('supports bypassing the intercepted connection to a non-existing host', async () => {
+  const realSocketConnectListener = vi.fn()
+  const realSocketErrorListener = vi.fn()
+  const realSocketCloseListener = vi.fn()
+
+  interceptor.on('connection', ({ socket, controller }) => {
+    const realSocket = controller.passthrough()
+    realSocket.on('connect', realSocketConnectListener)
+    realSocket.on('error', realSocketErrorListener)
+    realSocket.on('close', realSocketCloseListener)
+  })
+
+  const connectionCallback = vi.fn()
+  const socket = net.connect(3000, '127.0.0.1', connectionCallback)
+
+  const clientErrorListener = vi.fn()
+  socket.on('error', clientErrorListener)
+
+  const clientDataListener = vi.fn()
+  socket.on('data', clientDataListener)
+
+  const clientConnectListener = vi.fn()
+  socket.on('connect', clientConnectListener)
+
+  await expect
+    .poll(() => realSocketErrorListener)
+    .toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        code: 'ECONNREFUSED',
+        port: 3000,
+        address: '127.0.0.1',
+        message: 'connect ECONNREFUSED 127.0.0.1:3000',
+      })
+    )
+  expect(realSocketCloseListener).toHaveBeenCalledExactlyOnceWith(true)
+  expect(realSocketConnectListener).not.toHaveBeenCalled()
+
+  expect(clientErrorListener).toHaveBeenCalled()
+  expect(connectionCallback).not.toHaveBeenCalled()
+  expect(clientConnectListener).not.toHaveBeenCalled()
+})

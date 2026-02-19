@@ -23,13 +23,6 @@ export class NewMockSocket extends net.Socket {
     callback(null)
   }
 
-  /**
-   * Establish this socket connection as-is.
-   */
-  public passthrough(): void {
-    throw new Error('Passthough not implemented')
-  }
-
   public createServerSocket(): net.Socket {
     return new Proxy(this, {
       get: (target, property, receiver) => {

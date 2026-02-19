@@ -48,7 +48,10 @@ interface TcpWrap {
 export class ConnectionController {
   #pendingRequest: DeferredPromise<TcpWrap>
 
-  constructor(private readonly socket: NewMockSocket) {
+  constructor(
+    private readonly socket: NewMockSocket,
+    private readonly createConnection: () => net.Socket
+  ) {
     this.#pendingRequest = new DeferredPromise<TcpWrap>()
 
     socket.prependListener('connectionAttempt', (ip, port, family) => {
@@ -98,7 +101,30 @@ export class ConnectionController {
     this.socket.destroy(reason)
   }
 
+  /**
+   * Bypass this socket connection and perform it as-is.
+   */
   public passthrough(): net.Socket {
-    throw new Error('Not Implemented')
+    const realSocket = this.createConnection()
+    realSocket.pipe(this.socket)
+
+    realSocket.prependListener('connectionAttempt', () => {
+      this.socket._handle.unref?.()
+      this.socket._handle = realSocket._handle
+    })
+
+    realSocket.emit = new Proxy(realSocket.emit, {
+      apply: (target, thisArg, args: [string, Function]) => {
+        this.socket.emit(...args)
+        return Reflect.apply(target, thisArg, args)
+      },
+    })
+
+    /**
+     * @todo @fixme Forwarding events is not enough.
+     * Real socket has to, effectively, replace the client socket in every sense.
+     */
+
+    return realSocket
   }
 }

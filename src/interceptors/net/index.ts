@@ -39,9 +39,16 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       const [connectionOptions, connectionCallback] =
         normalizeNetConnectArgs(args)
 
+      const createConnection = () => {
+        return realNetConnect(...args)
+      }
+
       const clientSocket = new NewMockSocket(connectionOptions)
       const serverSocket = clientSocket.createServerSocket()
-      const controller = new ConnectionController(clientSocket)
+      const controller = new ConnectionController(
+        clientSocket,
+        createConnection
+      )
 
       process.nextTick(() => {
         this.emitter.emit('connection', {
