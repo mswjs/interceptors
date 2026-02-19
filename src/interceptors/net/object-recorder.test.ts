@@ -287,3 +287,132 @@ it('supports custom action predicate', () => {
     _internal: 'a',
   })
 })
+
+it('restores original target when disposed', () => {
+  const target = { a: 1, b: 2 }
+  const recorder = new ObjectRecorder(target)
+  recorder.start()
+
+  const proxiedObject = recorder.proxy
+  expect(proxiedObject).not.toBe(target)
+
+  recorder.proxy.a = 10
+  expect(target.a).toBe(10)
+
+  recorder.dispose()
+
+  expect(recorder.proxy).toBe(target)
+  expect(recorder.entries).toHaveLength(0)
+})
+
+it('restores nested proxies when disposed', () => {
+  const target = { a: { b: { c: 1 } } }
+  const recorder = new ObjectRecorder(target)
+  recorder.start()
+
+  const proxiedA = recorder.proxy.a
+  const proxiedB = recorder.proxy.a.b
+
+  expect(proxiedA).not.toBe(target.a)
+  expect(proxiedB).not.toBe(target.a.b)
+
+  recorder.proxy.a.b.c = 10
+  expect(target.a.b.c).toBe(10)
+
+  recorder.dispose()
+
+  expect(recorder.proxy).toBe(target)
+  expect(recorder.proxy.a).toBe(target.a)
+  expect(recorder.proxy.a.b).toBe(target.a.b)
+})
+
+it('allows mutations after dispose without recording', () => {
+  const target = { a: 1 }
+  const recorder = new ObjectRecorder(target)
+  recorder.start()
+
+  recorder.proxy.a = 2
+  expect(recorder.entries).toHaveLength(1)
+
+  recorder.dispose()
+
+  recorder.proxy.a = 3
+  expect(target.a).toBe(3)
+  expect(recorder.entries).toHaveLength(0)
+})
+
+it('restores nested arrays when disposed', () => {
+  const target = { items: [1, 2, 3], nested: { arr: [4, 5] } }
+  const recorder = new ObjectRecorder(target)
+  recorder.start()
+
+  const proxiedItems = recorder.proxy.items
+  const proxiedNestedArr = recorder.proxy.nested.arr
+
+  expect(proxiedItems).not.toBe(target.items)
+  expect(proxiedNestedArr).not.toBe(target.nested.arr)
+
+  recorder.proxy.items.push(4)
+  recorder.proxy.nested.arr.push(6)
+
+  recorder.dispose()
+
+  expect(recorder.proxy.items).toBe(target.items)
+  expect(recorder.proxy.nested.arr).toBe(target.nested.arr)
+  expect(target.items).toEqual([1, 2, 3, 4])
+  expect(target.nested.arr).toEqual([4, 5, 6])
+})
+
+it('restores deeply nested object proxies when disposed', () => {
+  const target = {
+    level1: {
+      level2: {
+        level3: {
+          value: 'deep',
+        },
+      },
+    },
+  }
+  const recorder = new ObjectRecorder(target)
+  recorder.start()
+
+  const proxiedLevel1 = recorder.proxy.level1
+  const proxiedLevel2 = recorder.proxy.level1.level2
+  const proxiedLevel3 = recorder.proxy.level1.level2.level3
+
+  expect(proxiedLevel1).not.toBe(target.level1)
+  expect(proxiedLevel2).not.toBe(target.level1.level2)
+  expect(proxiedLevel3).not.toBe(target.level1.level2.level3)
+
+  recorder.dispose()
+
+  expect(recorder.proxy.level1).toBe(target.level1)
+  expect(recorder.proxy.level1.level2).toBe(target.level1.level2)
+  expect(recorder.proxy.level1.level2.level3).toBe(target.level1.level2.level3)
+})
+
+it('handles dispose with mixed property types', () => {
+  const target = {
+    primitive: 42,
+    object: { nested: true },
+    array: [1, 2, 3],
+    func() {
+      return 'result'
+    },
+  }
+  const recorder = new ObjectRecorder(target)
+  recorder.start()
+
+  const proxiedObject = recorder.proxy.object
+  const proxiedArray = recorder.proxy.array
+
+  expect(proxiedObject).not.toBe(target.object)
+  expect(proxiedArray).not.toBe(target.array)
+
+  recorder.dispose()
+
+  expect(recorder.proxy).toBe(target)
+  expect(recorder.proxy.object).toBe(target.object)
+  expect(recorder.proxy.array).toBe(target.array)
+  expect(recorder.proxy.func()).toBe('result')
+})

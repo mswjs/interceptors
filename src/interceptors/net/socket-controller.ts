@@ -29,6 +29,20 @@ export class SocketController {
 
     this.#recorder = new ObjectRecorder<net.Socket>(this.options.socket, {
       filter: (entry) => {
+        if (
+          entry.type === 'apply' &&
+          entry.path.some((segment) => segment.toString().startsWith('_'))
+        ) {
+          return false
+        }
+
+        if (
+          entry.type === 'set' &&
+          entry.metadata.property.toString().startsWith('_')
+        ) {
+          return false
+        }
+
         if (entry.type === 'apply') {
           if (
             entry.metadata.method === 'write' ||
@@ -91,10 +105,12 @@ export class SocketController {
    * Establish this socket connection as-is.
    */
   public passthrough(): net.Socket {
-    this.#recorder.dispose()
+    this.#recorder.pause()
 
     const realSocket = this.options.createConnection()
     this.#recorder.replay(realSocket)
+
+    this.#recorder.dispose()
 
     return realSocket
   }

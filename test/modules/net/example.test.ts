@@ -17,11 +17,14 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('mocks the intercepted connection', async () => {
+it.only('mocks the intercepted connection', async () => {
   const serverDataListener = vi.fn()
 
   interceptor.on('connection', ({ socket, controller }) => {
-    controller.connect()
+    // controller.connect()
+    socket.on('data', (chunk) =>
+      console.log('✅ SERVER RECEIVED:', chunk.toString())
+    )
 
     socket.on('data', serverDataListener)
     socket.write('hello from server')
@@ -32,6 +35,14 @@ it('mocks the intercepted connection', async () => {
 
   const errorListener = vi.fn()
   socket.on('error', errorListener)
+
+  // DEBUG //
+  socket.on('lookup', () => console.log('LOOKUP!'))
+  socket.on('error', console.error)
+  socket.on('connect', () => console.log('✅ CONNECT!'))
+  socket.on('data', (chunk) =>
+    console.log('✅ CLIENT RECEIVED:', chunk.toString())
+  )
 
   const clientDataListener = vi.fn()
   socket.on('data', clientDataListener)

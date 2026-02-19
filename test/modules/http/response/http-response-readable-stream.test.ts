@@ -1,19 +1,17 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { performance } from 'node:perf_hooks'
 import http from 'node:http'
 import https from 'node:https'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
 type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 
 const encoder = new TextEncoder()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -43,7 +41,7 @@ it('supports ReadableStream as a mocked response', async () => {
 
   const request = http.get('http://example.com/resource')
   const { text } = await waitForClientRequest(request)
-  expect(await text()).toBe('hello world')
+  await expect(text()).resolves.toBe('hello world')
 })
 
 it('supports delays when enqueuing chunks', async () => {
@@ -191,7 +189,7 @@ it('handles delayed response stream errors as IncomingMessage errors', async () 
   )
 })
 
-it('treats unhandled exceptions during the response stream as request errors', async () => {
+it.only('treats unhandled exceptions during the response stream as request errors', async () => {
   const requestErrorListener = vi.fn()
   const responseErrorListener = vi.fn()
 

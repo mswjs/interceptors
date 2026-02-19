@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { invariant } from 'outvariant'
-import { get } from 'es-toolkit/compat'
+import { get, set } from 'es-toolkit/compat'
 
 const nestedInvocationContext = new AsyncLocalStorage<boolean | undefined>()
 
@@ -43,6 +43,8 @@ export class ObjectRecorder<T extends object> {
   static DISPOSED = 4 as const
 
   #entries: Array<ObjectRecordEntry<T>>
+  #proxyToOriginal: WeakMap<any, any>
+  #parentToProxiedProperties: WeakMap<any, Map<string | symbol, any>>
 
   public proxy: T
   public readyState: 1 | 2 | 3 | 4
@@ -52,6 +54,8 @@ export class ObjectRecorder<T extends object> {
     protected readonly options?: ObjectRecorderOptions<T>
   ) {
     this.#entries = []
+    this.#proxyToOriginal = new WeakMap()
+    this.#parentToProxiedProperties = new WeakMap()
 
     this.readyState = ObjectRecorder.IDLE
     this.proxy = target
@@ -77,8 +81,8 @@ export class ObjectRecorder<T extends object> {
     const wrapInProxy = <V extends object>(
       target: V,
       parentPath: Array<string | symbol>
-    ) => {
-      return new Proxy<V>(target, {
+    ): V => {
+      const proxy = new Proxy<V>(target, {
         get: (target, property, receiver) => {
           const value = target[property as keyof V]
 
@@ -114,7 +118,19 @@ export class ObjectRecorder<T extends object> {
           }
 
           if (value != null && typeof value === 'object') {
-            return wrapInProxy(value, parentPath.concat(property))
+            let proxiedPropertiesMap =
+              this.#parentToProxiedProperties.get(target)
+            if (!proxiedPropertiesMap) {
+              proxiedPropertiesMap = new Map()
+              this.#parentToProxiedProperties.set(target, proxiedPropertiesMap)
+            }
+
+            let proxiedValue = proxiedPropertiesMap.get(property)
+            if (!proxiedValue) {
+              proxiedValue = wrapInProxy(value, parentPath.concat(property))
+              proxiedPropertiesMap.set(property, proxiedValue)
+            }
+            return proxiedValue
           }
 
           return Reflect.get(target, property, receiver)
@@ -124,8 +140,6 @@ export class ObjectRecorder<T extends object> {
             return Reflect.defineProperty(target, property, descriptor)
           }
 
-          // Prevent recording changes caused by method invocations.
-          // Replaying the method must be enough to reapply them, too.
           if (nestedInvocationContext.getStore()) {
             return defaultDefineProperty()
           }
@@ -150,8 +164,6 @@ export class ObjectRecorder<T extends object> {
             return Reflect.deleteProperty(target, property)
           }
 
-          // Prevent recording changes caused by method invocations.
-          // Replaying the method must be enough to reapply them, too.
           if (nestedInvocationContext.getStore()) {
             return defaultDeleteProperty()
           }
@@ -171,6 +183,10 @@ export class ObjectRecorder<T extends object> {
           return defaultDeleteProperty()
         },
       })
+
+      this.#proxyToOriginal.set(proxy, target)
+
+      return proxy
     }
 
     this.proxy = wrapInProxy(this.target, [])
@@ -184,10 +200,6 @@ export class ObjectRecorder<T extends object> {
     }
   }
 
-  /**
-   * Pause the recording.
-   * Any changes applied while the recording is paused will not be recorded.
-   */
   public pause(): void {
     invariant(
       this.readyState !== ObjectRecorder.DISPOSED,
@@ -202,9 +214,6 @@ export class ObjectRecorder<T extends object> {
     this.readyState = ObjectRecorder.PAUSED
   }
 
-  /**
-   * Resume the recording.
-   */
   public resume(): void {
     invariant(
       this.readyState !== ObjectRecorder.DISPOSED,
@@ -219,10 +228,6 @@ export class ObjectRecorder<T extends object> {
     this.readyState = ObjectRecorder.RECORDING
   }
 
-  /**
-   * Pause the recording and execute the given callback.
-   * Any mutations applied within the callback will not be recorded.
-   */
   public runQuietly(callback: () => Promise<void> | void): void {
     invariant(
       this.readyState !== ObjectRecorder.DISPOSED,
@@ -247,6 +252,44 @@ export class ObjectRecorder<T extends object> {
   public dispose(): void {
     this.readyState = ObjectRecorder.DISPOSED
     this.#entries.length = 0
+
+    const restoreOriginals = (
+      obj: any,
+      path: Array<string | symbol> = []
+    ): void => {
+      if (obj == null || typeof obj !== 'object') {
+        return
+      }
+
+      const proxiedPropertiesMap = this.#parentToProxiedProperties.get(obj)
+      if (proxiedPropertiesMap) {
+        for (const [property, proxiedValue] of proxiedPropertiesMap.entries()) {
+          const original = this.#proxyToOriginal.get(proxiedValue)
+          if (original !== undefined) {
+            obj[property] = original
+            restoreOriginals(original, path.concat(property))
+          }
+        }
+        this.#parentToProxiedProperties.delete(obj)
+      }
+
+      for (const key of Object.keys(obj)) {
+        const value = obj[key]
+        if (value != null && typeof value === 'object') {
+          const original = this.#proxyToOriginal.get(value)
+          if (original !== undefined) {
+            obj[key] = original
+            restoreOriginals(original, path.concat(key))
+          } else {
+            restoreOriginals(value, path.concat(key))
+          }
+        }
+      }
+    }
+
+    restoreOriginals(this.target)
+
+    this.proxy = this.target
   }
 
   #addEntry(entry: ObjectRecordEntry<T>): void {
@@ -257,7 +300,12 @@ export class ObjectRecorder<T extends object> {
 
     invariant(
       this.readyState !== ObjectRecorder.DISPOSED,
-      'Failed to add entry to the recorder: recorder is disposed'
+      'Failed to add entry to the recorder: recorder is disposed. Entry: %j',
+      {
+        type: entry.type,
+        path: entry.path,
+        metadata: entry.metadata,
+      }
     )
 
     if (this.readyState === ObjectRecorder.PAUSED) {

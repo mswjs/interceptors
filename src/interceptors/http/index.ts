@@ -69,21 +69,47 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   }
                 },
                 passthrough: () => {
+                  console.log('PASSTHROUGH CALLED!')
+                  const clientSocket = socketController[kClientSocket]
                   const realSocket = socketController.passthrough()
+                  console.log('Real socket created:', {
+                    connecting: realSocket.connecting,
+                    readable: realSocket.readable,
+                    writable: realSocket.writable,
+                  })
 
-                  /**
-                   * @note Creating a passthrough socket does NOT trigger the "onSocket" callback
-                   * of `ClientRequest` because that callback is invoked manually in the request's constructor.
-                   * Promote the parser-request-parser association manually from the mocked onto the passthrough socket.
-                   * @see https://github.com/nodejs/node/blob/134625d76139b4b3630d5baaf2efccae01ede564/lib/_http_client.js#L422
-                   * @see https://github.com/nodejs/node/blob/134625d76139b4b3630d5baaf2efccae01ede564/lib/_http_client.js#L890
-                   */
                   // @ts-expect-error Node.js internals.
-                  realSocket._httpMessage = socket._httpMessage
+                  const httpMessage = clientSocket._httpMessage
                   // @ts-expect-error Node.js internals.
-                  realSocket.parser = socket.parser
+                  const parser = clientSocket.parser
+
                   // @ts-expect-error Node.js internals.
-                  realSocket.parser.socket = passthroughSocket
+                  realSocket._httpMessage = httpMessage
+                  // @ts-expect-error Node.js internals.
+                  realSocket.parser = parser
+                  // @ts-expect-error Node.js internals.
+                  parser.socket = realSocket
+
+                  if (httpMessage) {
+                    // @ts-expect-error Node.js internals.
+                    httpMessage.socket = realSocket
+                  }
+
+                  realSocket.on('connect', () => {
+                    console.log('REAL SOCKET CONNECTED!')
+                  })
+
+                  realSocket.on('data', (chunk) => {
+                    console.log(
+                      'REAL SOCKET RECEIVED DATA:',
+                      chunk.length,
+                      'bytes'
+                    )
+                  })
+
+                  realSocket.on('error', (error) => {
+                    console.log('REAL SOCKET ERROR:', error.message)
+                  })
 
                   if (this.emitter.listenerCount('response') > 0) {
                     const responseParser = new HttpResponseParser({
@@ -98,7 +124,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     })
 
                     realSocket
-                      .on('data', (chunk) => 'RESPONSE PARSER')
+                      .on('data', (chunk) => responseParser.execute(chunk))
                       .on('close', () => responseParser.free())
                   }
                 },
@@ -119,7 +145,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           // Forward subsequent socket writes to the parser.
           socket.on('data', (chunk) => {
             if (chunk) {
-              requestParser.execute(chunk)
+              requestParser.execute(toBuffer(chunk))
             }
           })
 
@@ -134,7 +160,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     request: Request
     response: Response
   }): Promise<void> {
-    const { socket, request, response } = args
+    const { socket, response } = args
 
     if (socket.destroyed) {
       return
@@ -197,13 +223,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           return
         }
       }
-    } else {
-      socket.push(null)
     }
 
-    // Close the connection if it wasn't marked as keep-alive.
-    if (request.headers.get('connection') !== 'keep-alive') {
-      socket.push(null)
-    }
+    socket.push(null)
   }
 }
