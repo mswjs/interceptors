@@ -1,6 +1,6 @@
 import net from 'node:net'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { MockSocket } from './mock-socket'
+import { kMockState, MockSocket } from './mock-socket'
 
 // Internally, Node.js represents the result of various operations
 // by the number they return: 0 (error), 1 (success).
@@ -8,12 +8,14 @@ type OperationStatus = 0 | 1
 
 declare module 'node:net' {
   interface Socket {
-    _writeGeneric: (
+    _pendingData: string | Buffer | null
+    _pendingEncoding: BufferEncoding | null
+    _writeGeneric(
       writev: boolean,
       data: any,
       encoding: BufferEncoding,
       callback?: (error?: Error | null) => void
-    ) => void
+    ): void
     _handle: TcpHandle
   }
 }
@@ -88,6 +90,8 @@ export class ConnectionController {
    * connection with the remote address was successful.
    */
   public claim(): void {
+    this[kClientSocket][kMockState] = 1
+
     // The user can interact with the connection controller *before* the connection attempt
     // is made. That is so they could handle the socket before the connection.
     this.#pendingRequest.then((request) => {
@@ -118,6 +122,8 @@ export class ConnectionController {
    */
   public passthrough(): net.Socket {
     const clientSocket = this[kClientSocket]
+    clientSocket[kMockState] = 2
+
     const realSocket = this.createConnection()
 
     if (clientSocket._pendingData) {

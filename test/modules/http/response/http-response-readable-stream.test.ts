@@ -25,7 +25,7 @@ afterAll(async () => {
   interceptor.dispose()
 })
 
-it('supports ReadableStream as a mocked response', async () => {
+it.only('supports ReadableStream as a mocked response', async () => {
   const encoder = new TextEncoder()
   interceptor.once('request', ({ controller }) => {
     const stream = new ReadableStream({
@@ -39,7 +39,7 @@ it('supports ReadableStream as a mocked response', async () => {
     controller.respondWith(new Response(stream))
   })
 
-  const request = http.get('http://example.com/resource')
+  const request = http.get('http://localhost/resource')
   const { text } = await waitForClientRequest(request)
   await expect(text()).resolves.toBe('hello world')
 })

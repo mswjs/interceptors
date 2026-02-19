@@ -56,13 +56,15 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               const requestId = createRequestId()
 
               const requestController = new RequestController(request, {
-                respondWith: async (response) => {
+                respondWith: (response) => {
                   connectionController.claim()
 
-                  await this.respondWith({
-                    socket: connectionController[kClientSocket],
-                    request,
-                    response,
+                  socket.once('connect', async () => {
+                    await this.respondWith({
+                      socket: connectionController[kClientSocket],
+                      request,
+                      response,
+                    })
                   })
                 },
                 errorWith: (reason) => {
@@ -111,7 +113,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
             }
           })
 
-          /** @todo Free the parser once the socket is destroyed  */
+          socket.on('close', () => requestParser.free())
         })
       }
     )
@@ -132,6 +134,11 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       socket.destroy(new TypeError('Network error'))
       return
     }
+
+    invariant(
+      !socket.connecting,
+      'Failed to mock a response: socket has not connected'
+    )
 
     const { STATUS_CODES } = await import('node:http')
 
@@ -187,6 +194,9 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       }
     }
 
+    /**
+     * @todo Keep-Alive requests shouldn't end the stream here.
+     */
     socket.push(null)
   }
 }

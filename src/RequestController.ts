@@ -3,9 +3,9 @@ import { invariant } from 'outvariant'
 import { InterceptorError } from './InterceptorError'
 
 export interface RequestControllerSource {
-  passthrough(): void
-  respondWith(response: Response): void
-  errorWith(reason?: unknown): void
+  passthrough(): void | Promise<void>
+  respondWith(response: Response): void | Promise<void>
+  errorWith(reason?: unknown): void | Promise<void>
 }
 
 export class RequestController {
