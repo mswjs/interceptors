@@ -1,7 +1,7 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { RequestController } from '../../../../src/RequestController'
 import { HttpRequestEventMap } from '../../../../src/glossary'
@@ -14,7 +14,7 @@ const httpServer = new HttpServer((app) => {
 
 const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -38,6 +38,7 @@ it('intercepts an http.get request', async () => {
       'x-custom-header': 'yes',
     },
   })
+
   const { text } = await waitForClientRequest(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
@@ -54,9 +55,7 @@ it('intercepts an http.get request', async () => {
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
-
-  // Must receive the original response.
-  expect(await text()).toBe('user-body')
+  await expect(text()).resolves.toBe('user-body')
 })
 
 it('intercepts an http.get request given RequestOptions without a protocol', async () => {
@@ -83,7 +82,5 @@ it('intercepts an http.get request given RequestOptions without a protocol', asy
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
-
-  // Must receive the original response.
-  expect(await text()).toBe('user-body')
+  await expect(text()).resolves.toBe('user-body')
 })

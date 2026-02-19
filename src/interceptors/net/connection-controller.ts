@@ -8,6 +8,12 @@ type OperationStatus = 0 | 1
 
 declare module 'node:net' {
   interface Socket {
+    _writeGeneric: (
+      writev: boolean,
+      data: any,
+      encoding: BufferEncoding,
+      callback?: (error?: Error | null) => void
+    ) => void
     _handle: TcpHandle
   }
 }
@@ -45,13 +51,18 @@ interface TcpWrap {
   ) => void
 }
 
+export const kClientSocket = Symbol('kClientSymbol')
+
 export class ConnectionController {
   #pendingRequest: DeferredPromise<TcpWrap>
 
+  private [kClientSocket]: MockSocket
+
   constructor(
-    private readonly socket: MockSocket,
+    socket: MockSocket,
     private readonly createConnection: () => net.Socket
   ) {
+    this[kClientSocket] = socket
     this.#pendingRequest = new DeferredPromise<TcpWrap>()
 
     socket.prependListener('connectionAttempt', (ip, port, family) => {
@@ -83,7 +94,7 @@ export class ConnectionController {
       /**
        * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
        */
-      request.oncomplete(0, this.socket._handle, request, true, true)
+      request.oncomplete(0, this[kClientSocket]._handle, request, true, true)
     })
   }
 
@@ -99,27 +110,31 @@ export class ConnectionController {
    * Abort this socket connection with an optional error.
    */
   public errorWith(reason?: Error): void {
-    this.socket.destroy(reason)
+    this[kClientSocket].destroy(reason)
   }
 
   /**
    * Bypass this socket connection and perform it as-is.
    */
   public passthrough(): net.Socket {
+    const clientSocket = this[kClientSocket]
     const realSocket = this.createConnection()
-    realSocket.pipe(this.socket)
 
-    realSocket.prependListener('connectionAttempt', () => {
-      this.socket._handle.unref?.()
-      this.socket._handle = realSocket._handle
-    })
+    if (clientSocket._pendingData) {
+      realSocket.write(clientSocket._pendingData)
+    }
 
-    realSocket.emit = new Proxy(realSocket.emit, {
-      apply: (target, thisArg, args: [string, Function]) => {
-        this.socket.emit(...args)
-        return Reflect.apply(target, thisArg, args)
-      },
-    })
+    realSocket
+      .prependListener('connectionAttempt', () => {
+        clientSocket._handle.unref?.()
+        clientSocket._handle = realSocket._handle
+      })
+      .on('connect', () => {
+        clientSocket.connecting = realSocket.connecting
+      })
+      .on('data', (data) => {
+        clientSocket.push(data)
+      })
 
     /**
      * @todo @fixme Forwarding events is not enough.

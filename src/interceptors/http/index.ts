@@ -16,7 +16,7 @@ import { HttpRequestParser, HttpResponseParser } from './http-parser'
 import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
-import { kClientSocket } from '../net/socket-controller'
+import { kClientSocket } from '../net/connection-controller'
 
 export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -35,7 +35,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
     socketInterceptor.on(
       'connection',
-      ({ connectionOptions, socket, controller: socketController }) => {
+      ({ connectionOptions, socket, controller: connectionController }) => {
         socket.once('data', (chunk) => {
           const firstFrame = chunk.toString()
           const httpMethod = firstFrame.split(' ')[0]
@@ -57,59 +57,21 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
               const requestController = new RequestController(request, {
                 respondWith: async (response) => {
+                  connectionController.claim()
+
                   await this.respondWith({
-                    socket: socketController[kClientSocket],
+                    socket: connectionController[kClientSocket],
                     request,
                     response,
                   })
                 },
                 errorWith: (reason) => {
                   if (reason instanceof Error) {
-                    socketController.errorWith(reason)
+                    connectionController.errorWith(reason)
                   }
                 },
                 passthrough: () => {
-                  console.log('PASSTHROUGH CALLED!')
-                  const clientSocket = socketController[kClientSocket]
-                  const realSocket = socketController.passthrough()
-                  console.log('Real socket created:', {
-                    connecting: realSocket.connecting,
-                    readable: realSocket.readable,
-                    writable: realSocket.writable,
-                  })
-
-                  // @ts-expect-error Node.js internals.
-                  const httpMessage = clientSocket._httpMessage
-                  // @ts-expect-error Node.js internals.
-                  const parser = clientSocket.parser
-
-                  // @ts-expect-error Node.js internals.
-                  realSocket._httpMessage = httpMessage
-                  // @ts-expect-error Node.js internals.
-                  realSocket.parser = parser
-                  // @ts-expect-error Node.js internals.
-                  parser.socket = realSocket
-
-                  if (httpMessage) {
-                    // @ts-expect-error Node.js internals.
-                    httpMessage.socket = realSocket
-                  }
-
-                  realSocket.on('connect', () => {
-                    console.log('REAL SOCKET CONNECTED!')
-                  })
-
-                  realSocket.on('data', (chunk) => {
-                    console.log(
-                      'REAL SOCKET RECEIVED DATA:',
-                      chunk.length,
-                      'bytes'
-                    )
-                  })
-
-                  realSocket.on('error', (error) => {
-                    console.log('REAL SOCKET ERROR:', error.message)
-                  })
+                  const realSocket = connectionController.passthrough()
 
                   if (this.emitter.listenerCount('response') > 0) {
                     const responseParser = new HttpResponseParser({

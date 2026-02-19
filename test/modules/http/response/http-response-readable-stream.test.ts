@@ -189,7 +189,7 @@ it('handles delayed response stream errors as IncomingMessage errors', async () 
   )
 })
 
-it.only('treats unhandled exceptions during the response stream as request errors', async () => {
+it('treats unhandled exceptions during the response stream as request errors', async () => {
   const requestErrorListener = vi.fn()
   const responseErrorListener = vi.fn()
 

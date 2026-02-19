@@ -4,6 +4,19 @@ import { toBuffer } from '../../utils/bufferUtils'
 const kListenerWrap = Symbol('kListenerWrap')
 
 export class MockSocket extends net.Socket {
+  public connecting: boolean
+
+  constructor(options: net.SocketConstructorOpts) {
+    super(options)
+
+    /**
+     * @note Start the socket in the connecting state.
+     * This will make Node.js buffer any writes to it automatically.
+     * See the "_write" implementation below for more details.
+     */
+    this.connecting = true
+  }
+
   _read(size: number): void {}
 
   _write(
@@ -11,16 +24,15 @@ export class MockSocket extends net.Socket {
     encoding: BufferEncoding,
     callback: (error?: Error | null) => void
   ): void {
+    /**
+     * Call "_writeGeneric" because it buffers any writes while the connection is pending.
+     * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L994
+     */
+    super._writeGeneric(false, chunk, encoding, callback)
+
     // Emit an internal event to translate client writes to server socket "data" events.
     // This might not be super elegant, but it doesn't require us to create new emitters.
     this.emit('internal:write', chunk, encoding)
-
-    /**
-     * @todo Check if the socket still buffers the write with this custom "_write".
-     * Ideally, we can rely on the buffered writes so the socket flushes them on passthrough for us.
-     */
-
-    callback(null)
   }
 
   /**
