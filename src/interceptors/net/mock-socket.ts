@@ -23,6 +23,12 @@ export class MockSocket extends net.Socket {
     callback(null)
   }
 
+  /**
+   * Create a proxy `net.Socket` instance that represents the intercepted socket server-side.
+   * This is the reference exposed as `socket` in the connection listener. This proxy allows
+   * the user to interact with `socket` from the server's perspective (e.g. `socket.write()`
+   * on the server translates to the `socket.push()` on the client).
+   */
   public createServerSocket(): net.Socket {
     return new Proxy(this, {
       get: (target, property, receiver) => {
@@ -33,10 +39,7 @@ export class MockSocket extends net.Socket {
         if (property === 'on' || property === 'addListener') {
           const realAddListener = getRealValue() as net.Socket['addListener']
 
-          return (
-            event: string,
-            listener: (...args: Array<unknown>) => void
-          ) => {
+          return (event: any, listener: (...args: Array<unknown>) => void) => {
             if (event === 'data') {
               const listenerWrap = (chunk: any, encoding?: BufferEncoding) => {
                 listener(toBuffer(chunk, encoding))
