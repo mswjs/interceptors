@@ -1,6 +1,7 @@
 import net from 'node:net'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { kMockState, MockSocket } from './mock-socket'
+import { chunk } from 'node_modules/es-toolkit/dist/compat/compat.mjs'
 
 // Internally, Node.js represents the result of various operations
 // by the number they return: 0 (error), 1 (success).
@@ -8,7 +9,11 @@ type OperationStatus = 0 | 1
 
 declare module 'node:net' {
   interface Socket {
-    _pendingData: string | Buffer | null
+    _pendingData:
+      | string
+      | Buffer
+      | Array<{ chunk: string | Buffer; encoding?: BufferEncoding }>
+      | null
     _pendingEncoding: BufferEncoding | null
     _writeGeneric(
       writev: boolean,
@@ -127,7 +132,13 @@ export class ConnectionController {
     const realSocket = this.createConnection()
 
     if (clientSocket._pendingData) {
-      realSocket.write(clientSocket._pendingData)
+      if (Array.isArray(clientSocket._pendingData)) {
+        for (const entry of clientSocket._pendingData) {
+          realSocket.write(entry.chunk, entry.encoding)
+        }
+      } else {
+        realSocket.write(clientSocket._pendingData)
+      }
     }
 
     realSocket
