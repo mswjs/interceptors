@@ -166,7 +166,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     // @ts-expect-error Node.js internals
     socket.parser.socket = socket
 
-    // Push the status line and headers to the readable stream
+    // Flush the mocked response headers.
+    // This will trigger the "response" event in "ClientRequest".
     socket.push(Buffer.from(statusLine + headersString))
 
     if (response.body) {
@@ -178,6 +179,22 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
           if (done) {
             break
+          }
+
+          /**
+           * Validate that the chunk is a valid type before pushing to the socket.
+           * If it's not a Buffer, string, or TypedArray, socket.push() will emit
+           * an async error event that bypasses our try/catch. We need to catch
+           * this case and handle it synchronously.
+           */
+          if (
+            value != null &&
+            typeof value !== 'string' &&
+            !Buffer.isBuffer(value) &&
+            !(value instanceof Uint8Array) &&
+            !ArrayBuffer.isView(value)
+          ) {
+            throw new Error('Invalid chunk type')
           }
 
           socket.push(value)

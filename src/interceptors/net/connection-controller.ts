@@ -141,6 +141,9 @@ export class ConnectionController {
       .on('data', (data) => {
         clientSocket.push(data)
       })
+      .on('end', () => {
+        clientSocket.push(null)
+      })
 
     /**
      * @todo @fixme Forwarding events is not enough.
