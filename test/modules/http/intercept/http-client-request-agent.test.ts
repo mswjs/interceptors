@@ -1,20 +1,16 @@
 /**
- * @note This test suite makes sure that us patching both `ClientRequest`
- * and `http.*`/`https.*` request-issuing methods that create that `ClientRequest`
- * does not result in duplicate mock HTTP sockets/agents being created.
+ * @note Historically, we used to intercept "ClientRequest" via a custom agent.
+ * With the socket-based interception, that's no longer the case. I've rewritten
+ * this test suite to ensure we are *not* patching the agents anymore.
  */
 import { beforeAll, afterEach, afterAll, it, expect } from 'vitest'
+import net from 'node:net'
 import http from 'node:http'
 import https from 'node:https'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import type { MockHttpSocket } from '../../../../src/interceptors/ClientRequest/MockHttpSocket'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import {
-  MockAgent,
-  MockHttpsAgent,
-} from '../../../../src/interceptors/ClientRequest/agents'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -28,36 +24,24 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('reuses the same mock socket for an HTTP ClientRequest and its agent', async () => {
-  const socketPromise = new DeferredPromise<MockHttpSocket>()
+it('does not patch the agent for the HTTP request', async () => {
+  const socketPromise = new DeferredPromise<net.Socket>()
   const request = http
     .get('http://localhost/does-not-matter')
-    .on('socket', (socket) => socketPromise.resolve(socket as MockHttpSocket))
+    .on('socket', (socket) => socketPromise.resolve(socket as net.Socket))
     .on('error', () => {})
 
-  const requestAgent = Reflect.get(request, 'agent') as http.Agent
-  expect(requestAgent).toBeInstanceOf(MockAgent)
-
-  const socket = await socketPromise
-  expect(
-    socket['connectionOptions'].agent,
-    'Request agent must equal to the socket agent'
-  ).toEqual(requestAgent)
+  expect(Reflect.get(request, 'agent')).toBeInstanceOf(http.Agent)
+  await expect(socketPromise).resolves.toBeInstanceOf(net.Socket)
 })
 
-it('reuses the same mock socket for an HTTPS ClientRequest and its agent', async () => {
-  const socketPromise = new DeferredPromise<MockHttpSocket>()
+it('does not patch the agent for the HTTPS request', async () => {
+  const socketPromise = new DeferredPromise<net.Socket>()
   const request = https
     .get('https://localhost/does-not-matter')
-    .on('socket', (socket) => socketPromise.resolve(socket as MockHttpSocket))
+    .on('socket', (socket) => socketPromise.resolve(socket as net.Socket))
     .on('error', () => {})
 
-  const requestAgent = Reflect.get(request, 'agent') as https.Agent
-  expect(requestAgent).toBeInstanceOf(MockHttpsAgent)
-
-  const socket = await socketPromise
-  expect(
-    socket['connectionOptions'].agent,
-    'Request agent must equal to the socket agent'
-  ).toEqual(requestAgent)
+  expect(Reflect.get(request, 'agent')).toBeInstanceOf(https.Agent)
+  await expect(socketPromise).resolves.toBeInstanceOf(net.Socket)
 })
