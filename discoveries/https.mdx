@@ -1,0 +1,25 @@
+# HTTPS/TLS
+
+## `tls.TLSSocket`
+
+### Handle
+
+Regular `net.Socket` connections finalize in the `afterConnect` callback [attached](https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/net.js#L1142) to the `TCPWrap` request. A TLS sockets\, while extending `net.Socket` and still relying on `afterConnect` being called to transition the socket into the connected state, _do not_ rely on `_handle.oncomplete`. **It is never called**. 
+
+A TLS socket wraps `net.Socket._handle` in a `TLSWrap`, which becomes responsible for the connection. It calls the `afterConnect` callback _internally_, in the C++ code, and there's no public method to trigger it.
+
+> TLS wrap has its own methods, like `onhandshakedone` and `verifyError`.
+
+### Connection event sequence
+
+> For brevity: "wrap" means the TCP socket TLS extends, "socket" means the TLS socket.
+
+1. `tls.connect()`.
+2. `new TLSSocket(options.socket)`.
+3. `TLSSocket.prototype._wrapHandle` (wraps TCPWrap in TLSWrap).
+4. Calls `socket._handle.start()` (or schedules it until wrap emits "connect").
+5. Wrap emits "connect".
+6. Socket emits "connect".
+7. Socket validates the connection (handshake, certificate validation).
+7. Socket emits "secureConnect".
+7. Socket emits "secure".
