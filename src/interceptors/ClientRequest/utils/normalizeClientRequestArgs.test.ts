@@ -1,7 +1,10 @@
 import { it, expect } from 'vitest'
 import { parse } from 'url'
-import { globalAgent as httpGlobalAgent, RequestOptions } from 'http'
-import { Agent as HttpsAgent, globalAgent as httpsGlobalAgent } from 'https'
+import { globalAgent as httpGlobalAgent, RequestOptions } from 'node:http'
+import {
+  Agent as HttpsAgent,
+  globalAgent as httpsGlobalAgent,
+} from 'node:https'
 import { getUrlByRequestOptions } from '../../../utils/getUrlByRequestOptions'
 import { normalizeClientRequestArgs } from './normalizeClientRequestArgs'
 

@@ -1,6 +1,8 @@
 import net from 'node:net'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { invariant } from 'outvariant'
 import { kMockState, MockSocket } from './mock-socket'
+import { unwrapPendingData } from './utils/flush-writes'
 
 // Internally, Node.js represents the result of various operations
 // by the number they return: 0 (error), 1 (success).
@@ -11,7 +13,11 @@ declare module 'node:net' {
     _pendingData:
       | string
       | Buffer
-      | Array<{ chunk: string | Buffer; encoding?: BufferEncoding }>
+      | Array<{
+          chunk: string | Buffer
+          encoding?: BufferEncoding
+          callback?: (error?: Error | null) => void
+        }>
       | null
     _pendingEncoding: BufferEncoding | null
     _writeGeneric(
@@ -71,21 +77,19 @@ export class ConnectionController {
     this[kClientSocket] = socket
     this.#pendingRequest = new DeferredPromise<TcpWrap>()
 
-    socket.prependListener('connectionAttempt', (ip, port, family) => {
-      /**
-       * @todo @fixme Also patch "socket._handle.connect6" for IPv6 connections.
-       * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
-       */
-      if (family === 6) {
-        throw new Error(
-          'IPv6 connections not implemented (implement "socket._handle.connect6'
-        )
-      }
+    invariant(
+      socket._handle,
+      'Failed to create a socket connection controller: socket._handle is missing'
+    )
 
-      socket._handle.connect = (request) => {
-        this.#pendingRequest.resolve(request)
-      }
-    })
+    socket._handle.connect = (request) => {
+      this.#pendingRequest.resolve(request)
+    }
+
+    /**
+     * @todo @fixme Also patch "socket._handle.connect6" for IPv6 connections.
+     * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
+     */
   }
 
   /**
@@ -131,25 +135,34 @@ export class ConnectionController {
     const realSocket = this.createConnection()
 
     if (clientSocket._pendingData) {
-      if (Array.isArray(clientSocket._pendingData)) {
-        for (const entry of clientSocket._pendingData) {
-          realSocket.write(entry.chunk, entry.encoding)
-        }
-      } else {
-        realSocket.write(clientSocket._pendingData)
-      }
+      unwrapPendingData(clientSocket._pendingData, (chunk, encoding) => {
+        realSocket.write(chunk, encoding)
+      })
     }
 
+    clientSocket
+      .on('drain', () => realSocket.resume())
+      .on('close', () => realSocket.destroy())
+    clientSocket._write = (...args) => realSocket.write(...args)
+    clientSocket._final = (callback) => realSocket.end(callback)
+
     realSocket
-      .prependListener('connectionAttempt', () => {
+      .once('connectionAttempt', () => {
         clientSocket._handle.unref?.()
         clientSocket._handle = realSocket._handle
       })
       .on('connect', () => {
         clientSocket.connecting = realSocket.connecting
+        clientSocket.emit('connect')
+        // clientSocket.emit('ready')
       })
       .on('data', (data) => {
-        clientSocket.push(data)
+        if (!clientSocket.push(data)) {
+          realSocket.pause()
+        }
+      })
+      .on('error', (error) => {
+        clientSocket.emit('error', error)
       })
       .on('end', () => {
         clientSocket.push(null)

@@ -18,7 +18,7 @@ type TlsConnectArgs =
 
 type NormalizedTlsConnectionArgs = [
   options: tls.ConnectionOptions,
-  callback?: (() => void) | null,
+  callback?: () => void,
 ]
 
 export function normalizeTlsConnectArgs(

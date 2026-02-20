@@ -1,5 +1,5 @@
-import { Agent } from 'http'
-import { RequestOptions, Agent as HttpsAgent } from 'https'
+import { Agent } from 'node:http'
+import { RequestOptions, Agent as HttpsAgent } from 'node:https'
 import { Logger } from '@open-draft/logger'
 
 const logger = new Logger('utils getUrlByRequestOptions')
@@ -94,7 +94,7 @@ function getHostname(options: ResolvedRequestOptions): string | undefined {
 
   if (host) {
     if (isRawIPv6Address(host)) {
-       host = `[${host}]`
+      host = `[${host}]`
     }
 
     // Check the presence of the port, and if it's present,

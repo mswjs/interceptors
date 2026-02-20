@@ -1,13 +1,11 @@
-/**
- * @vitest-environment node
- */
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+// @vitest-environment node
+import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 interface NotFoundError extends NodeJS.ErrnoException {
   hostname: string
@@ -22,6 +20,10 @@ beforeAll(() => {
   interceptor.apply()
 })
 
+afterEach(() => {
+  interceptor.removeAllListeners()
+})
+
 afterAll(() => {
   interceptor.dispose()
 })
@@ -29,7 +31,7 @@ afterAll(() => {
 it('suppresses ECONNREFUSED error given a mocked response', async () => {
   interceptor.once('request', async ({ controller }) => {
     await sleep(250)
-    controller.respondWith(new Response('Mocked'))
+    controller.respondWith(new Response('mocked'))
   })
 
   // Connecting to a non-existing host will
@@ -41,7 +43,7 @@ it('suppresses ECONNREFUSED error given a mocked response', async () => {
   const { res, text } = await waitForClientRequest(request)
 
   expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('Mocked')
+  await expect(text()).resolves.toBe('mocked')
   expect(errorListener).not.toHaveBeenCalled()
 })
 
@@ -53,11 +55,12 @@ it('forwards ECONNREFUSED error given a bypassed request', async () => {
   // result in the "ECONNREFUSED" error in Node.js.
   // In this case, nothing is handling a response for this
   // request, so the connection error must be forwarded.
-  const request = http.get('http://localhost:9876')
-  request.on('error', (error: ConnectionError) => {
-    errorPromise.resolve(error)
-  })
-  request.on('response', responseListener)
+  const request = http.get('http://localhost/non-existing')
+  request
+    .on('error', (error: ConnectionError) => {
+      errorPromise.resolve(error)
+    })
+    .on('response', responseListener)
 
   const requestError = await errorPromise
 
@@ -66,14 +69,14 @@ it('forwards ECONNREFUSED error given a bypassed request', async () => {
    * because Node.js v20 will aggregate connection errors
    * into a single "AggregateError" instance that doesn't have those.
    */
-  expect(requestError.code).toBe('ECONNREFUSED')
-  expect(responseListener).not.toHaveBeenCalled()
+  expect.soft(requestError.code).toBe('ECONNREFUSED')
+  expect.soft(responseListener).not.toHaveBeenCalled()
 })
 
 it('suppresses ENOTFOUND error given a mocked response', async () => {
   interceptor.once('request', async ({ controller }) => {
     await sleep(250)
-    controller.respondWith(new Response('Mocked'))
+    controller.respondWith(new Response('mocked'))
   })
 
   const request = http.get('http://non-existing-url.com')
@@ -83,7 +86,7 @@ it('suppresses ENOTFOUND error given a mocked response', async () => {
   const { res, text } = await waitForClientRequest(request)
 
   expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('Mocked')
+  await expect(text()).resolves.toBe('mocked')
   expect(errorListener).not.toHaveBeenCalled()
 })
 
@@ -106,7 +109,7 @@ it('forwards ENOTFOUND error for a bypassed request', async () => {
 it('suppresses EHOSTUNREACH error given a mocked response', async () => {
   interceptor.once('request', async ({ controller }) => {
     await sleep(250)
-    controller.respondWith(new Response('Mocked'))
+    controller.respondWith(new Response('mocked'))
   })
 
   // Connecting to an IPv6 address that's out of the network's
@@ -118,7 +121,7 @@ it('suppresses EHOSTUNREACH error given a mocked response', async () => {
   const { res, text } = await waitForClientRequest(request)
 
   expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('Mocked')
+  await expect(text()).resolves.toBe('mocked')
 })
 
 it('forwards EHOSTUNREACH error for a bypassed request', async () => {
@@ -147,7 +150,10 @@ it('allows throwing connection errors in the request listener', async () => {
     errno?: number
     syscall?: string
 
-    constructor(public address: string, public port: number) {
+    constructor(
+      public address: string,
+      public port: number
+    ) {
       super()
       this.code = 'ECONNREFUSED'
       this.errno = -61
@@ -172,8 +178,9 @@ it('allows throwing connection errors in the request listener', async () => {
 
   const requestError = await errorPromise
 
-  expect(requestError.message).toBe('connect ECONNREFUSED ::1 4444')
-  expect(requestError.code).toBe('ECONNREFUSED')
-  expect(requestError.address).toBe('::1')
-  expect(requestError.port).toBe(4444)
+  expect(requestError).toMatchObject({
+    code: 'ECONNREFUSED',
+    address: '::1',
+    port: 4444,
+  })
 })

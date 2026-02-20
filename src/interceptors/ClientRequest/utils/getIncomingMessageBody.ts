@@ -1,4 +1,4 @@
-import { IncomingMessage } from 'http'
+import { IncomingMessage } from 'node:http'
 import { PassThrough } from 'stream'
 import * as zlib from 'zlib'
 import { Logger } from '@open-draft/logger'

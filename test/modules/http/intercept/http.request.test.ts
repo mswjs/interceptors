@@ -1,5 +1,5 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import http from 'http'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'

@@ -1,5 +1,5 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'

@@ -1,11 +1,11 @@
 // @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
-import { setTimeout } from 'node:timers/promises'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', async (req, res) => {
@@ -14,7 +14,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()

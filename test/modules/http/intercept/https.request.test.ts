@@ -1,11 +1,11 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import https from 'https'
+import https from 'node:https'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
 import { RequestController } from '../../../../src/RequestController'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (req, res) => {
@@ -21,7 +21,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -108,7 +108,7 @@ it('intercepts a POST request', async () => {
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('post-payload')
+  await expect(request.text()).resolves.toBe('post-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -134,7 +134,7 @@ it('intercepts a PUT request', async () => {
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('put-payload')
+  await expect(request.text()).resolves.toBe('put-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -160,7 +160,7 @@ it('intercepts a PATCH request', async () => {
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('patch-payload')
+  await expect(request.text()).resolves.toBe('patch-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -185,7 +185,7 @@ it('intercepts a DELETE request', async () => {
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('')
+  await expect(request.text()).resolves.toBe('')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)

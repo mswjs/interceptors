@@ -1,11 +1,9 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import http from 'node:http'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { waitForClientRequest } from '../../../../test/helpers'
 
 const httpServer = new HttpServer((app) => {
@@ -14,7 +12,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -30,7 +28,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('emits the "connect" event for a mocked request', async () => {
+it('emits the "connect" event for a mocked HTTP request', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('hello world'))
   })
@@ -43,19 +41,19 @@ it('emits the "connect" event for a mocked request', async () => {
 
   await waitForClientRequest(request)
 
-  expect(connectListener).toHaveBeenCalledTimes(1)
+  expect(connectListener).toHaveBeenCalledOnce()
 })
 
-it('emits the "connect" event for a bypassed request', async () => {
-  const connectListener = vi.fn()
+it('emits the "connect" event for a bypassed HTTP request', async () => {
   const request = http.get(httpServer.http.url('/'))
+
+  const socketConnectListener = vi.fn()
   request.on('socket', (socket) => {
-    socket.on('connect', connectListener)
+    socket.on('connect', socketConnectListener)
   })
 
   await waitForClientRequest(request)
-
-  expect(connectListener).toHaveBeenCalledTimes(1)
+  expect(socketConnectListener).toHaveBeenCalledOnce()
 })
 
 it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
@@ -77,7 +75,7 @@ it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
   expect(connectListener).toHaveBeenCalledTimes(2)
 })
 
-it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
+it('emits the "secureConnect" event for a bypassed HTTPS request', async () => {
   const connectListener = vi.fn<(input: string) => void>()
   const request = https.get(httpServer.https.url('/'), {
     rejectUnauthorized: false,

@@ -1,5 +1,5 @@
 import { it, expect } from 'vitest'
-import { IncomingMessage } from 'http'
+import { IncomingMessage } from 'node:http'
 import { Socket } from 'net'
 import * as zlib from 'zlib'
 import { getIncomingMessageBody } from './getIncomingMessageBody'

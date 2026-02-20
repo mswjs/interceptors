@@ -17,7 +17,16 @@ export class MockSocket extends net.Socket {
   public connecting: boolean
 
   constructor(options: net.SocketConstructorOpts) {
-    super(options)
+    super({
+      ...options,
+      /**
+       * @note Providing a file descriptor triggers Node.js to create an appropriate handle for this socket.
+       * Initiate the handle earlier so we can mock its methods in the connection controller without waiting
+       * for the "connectionAttempt".
+       * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/net.js#L424
+       */
+      fd: options.fd || 1,
+    })
 
     this[kMockState] = 0
 
@@ -150,6 +159,7 @@ export class MockSocket extends net.Socket {
             callback: (error?: Error | null) => void
           ) => {
             this.push(toBuffer(chunk, encoding), encoding)
+            callback()
           }
         }
 
