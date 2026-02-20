@@ -1,7 +1,6 @@
 import net from 'node:net'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { kMockState, MockSocket } from './mock-socket'
-import { chunk } from 'node_modules/es-toolkit/dist/compat/compat.mjs'
 
 // Internally, Node.js represents the result of various operations
 // by the number they return: 0 (error), 1 (success).
@@ -95,7 +94,7 @@ export class ConnectionController {
    * connection with the remote address was successful.
    */
   public claim(): void {
-    this[kClientSocket][kMockState] = 1
+    this[kClientSocket][kMockState] = MockSocket.MOCKED
 
     // The user can interact with the connection controller *before* the connection attempt
     // is made. That is so they could handle the socket before the connection.
@@ -127,7 +126,7 @@ export class ConnectionController {
    */
   public passthrough(): net.Socket {
     const clientSocket = this[kClientSocket]
-    clientSocket[kMockState] = 2
+    clientSocket[kMockState] = MockSocket.PASSTHROUGH
 
     const realSocket = this.createConnection()
 

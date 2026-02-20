@@ -8,6 +8,10 @@ export const kMockState = Symbol('kMockState')
 const log = createLogger('MockSocket')
 
 export class MockSocket extends net.Socket {
+  static PENDING = 0 as const
+  static MOCKED = 1 as const
+  static PASSTHROUGH = 2 as const
+
   private [kMockState]: 0 | 1 | 2
 
   public connecting: boolean
@@ -61,7 +65,7 @@ export class MockSocket extends net.Socket {
       return
     }
 
-    if (this[kMockState] === 1) {
+    if (this[kMockState] === MockSocket.MOCKED) {
       /**
        * Handle "_writeGeneric" calls scheduled after the "connect" event.
        * These are writes performed while connecting, and for the mocked socket
