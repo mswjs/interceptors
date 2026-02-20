@@ -6,8 +6,10 @@ import { createLogger } from '../../utils/logger'
 import { unwrapPendingData } from './utils/flush-writes'
 
 const kListenerWrap = Symbol('kListenerWrap')
-export const kMockState = Symbol('kMockState')
 const kTlsSocketWrapped = Symbol('kTlsSocketWrapped')
+
+export const kMockState = Symbol('kMockState')
+export const kTlsSocket = Symbol('kTlsSocket')
 
 const log = createLogger('MockSocket')
 
@@ -17,6 +19,7 @@ export class MockSocket extends net.Socket {
   static PASSTHROUGH = 2 as const
 
   private [kMockState]: 0 | 1 | 2
+  private [kTlsSocket]?: tls.TLSSocket
 
   public connecting: boolean
 
@@ -36,7 +39,7 @@ export class MockSocket extends net.Socket {
 
     /**
      * @note Start the socket in the connecting state.
-     * This will make Node.js buffer any writes to it automatically.
+     * This will make Node.js buffer any writes to this socket automatically.
      */
     this.connecting = true
 
@@ -61,13 +64,9 @@ export class MockSocket extends net.Socket {
     log({ connecting: this.connecting, data, encoding, callback }, 'write')
 
     const emitWrite = () => {
-      if (Array.isArray(data)) {
-        for (const entry of data) {
-          this.emit('internal:write', entry.chunk, entry.encoding)
-        }
-      } else {
-        this.emit('internal:write', data, encoding)
-      }
+      unwrapPendingData(data, (chunk, encoding) => {
+        this.emit('internal:write', chunk, encoding)
+      })
     }
 
     // While connecting, the socket is in ambiguous state.
@@ -178,12 +177,15 @@ export class MockSocket extends net.Socket {
       'Failed to wrap a TLSSocket: already wrapped. This is likely an issue with MSW. Please report it on GitHub.'
     )
 
-    const realTlsSocketWriteGeneric = tlsSocket._writeGeneric
+    this[kTlsSocket] = tlsSocket
 
+    const realTlsSocketWriteGeneric = tlsSocket._writeGeneric
     tlsSocket._writeGeneric = (...args) => {
       const pendingData = args[1]
 
-      if (this[kMockState] !== MockSocket.PASSTHROUGH) {
+      if (this[kMockState] === MockSocket.PENDING) {
+        console.log('>> tlsSocket._writeGeneric FORWARD:', pendingData)
+
         unwrapPendingData(pendingData, (chunk, encoding) => {
           /**
            * @note Emit the internal write event, which triggers the "data" event on the server socket.

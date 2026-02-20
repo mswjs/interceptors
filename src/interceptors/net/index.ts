@@ -89,11 +89,23 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
       process.nextTick(() => {
         this.emitter.emit('connection', {
+          /**
+           * @fixme This is incorrect. The TLSSocket has to be exposed here so the user can access its properties,
+           * like "encrypted", "secure", etc. I think I need to create a MockTlsSocket class after all.
+           * TLS handling is just DRAMATICALLY different from TCP.
+           */
           socket: serverSocket,
           controller,
           connectionOptions: tlsConnectionOptions,
         })
       })
+
+      /**
+       * If "socket" is unset, "TLSSocket" will rely on "net.Socket.connect" to create one.
+       * This will cause the unpatched socket to be created, failing connections to non-existing hosts.
+       * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L560
+       */
+      tlsConnectionOptions.socket = clientSocket
 
       /**
        * @note Enable unauthorized requests by default, unless explicitly disabled.

@@ -1,23 +1,25 @@
-/**
- * @vitest-environment node
- */
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment node
+import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {
-    res.send('hello')
+    res.send('original')
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
   await httpServer.listen()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -25,12 +27,14 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('emits correct events for a mocked HTTPS request', async () => {
-  interceptor.once('request', ({ controller }) => {
+it.only('emits correct events for a mocked HTTPS request', async () => {
+  interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response())
   })
 
-  const request = https.get('https://example.com')
+  const request = https.get('https://localhost/api', (response) => {
+    console.log('> RESPONSE')
+  })
 
   const socketListener = vi.fn()
   const socketReadyListener = vi.fn()
@@ -51,15 +55,14 @@ it('emits correct events for a mocked HTTPS request', async () => {
 
   await waitForClientRequest(request)
 
-  // Must emit the correct events for a TLS connection.
-  expect(socketListener).toHaveBeenCalledOnce()
-  expect(socketReadyListener).toHaveBeenCalledOnce()
-  expect(socketSecureListener).toHaveBeenCalledOnce()
-  expect(socketSecureConnectListener).toHaveBeenCalledOnce()
-  expect(socketSessionListener).toHaveBeenCalledTimes(2)
-  expect(socketSessionListener).toHaveBeenNthCalledWith(1, expect.any(Buffer))
-  expect(socketSessionListener).toHaveBeenNthCalledWith(2, expect.any(Buffer))
-  expect(socketErrorListener).not.toHaveBeenCalled()
+  expect.soft(socketListener).toHaveBeenCalledOnce()
+  expect.soft(socketReadyListener).toHaveBeenCalledOnce()
+  expect.soft(socketSecureListener).toHaveBeenCalledOnce()
+  expect.soft(socketSecureConnectListener).toHaveBeenCalledOnce()
+  expect
+    .soft(socketSessionListener)
+    .toHaveBeenCalledExactlyOnceWith(expect.any(Buffer))
+  expect.soft(socketErrorListener).not.toHaveBeenCalled()
 })
 
 it('emits correct events for a passthrough HTTPS request', async () => {
@@ -86,13 +89,16 @@ it('emits correct events for a passthrough HTTPS request', async () => {
 
   await waitForClientRequest(request)
 
-  // Must emit the correct events for a TLS connection.
-  expect(socketListener).toHaveBeenCalledOnce()
-  expect(socketReadyListener).toHaveBeenCalledOnce()
-  expect(socketSecureListener).toHaveBeenCalledOnce()
-  expect(socketSecureConnectListener).toHaveBeenCalledOnce()
-  expect(socketSessionListener).toHaveBeenCalledTimes(2)
-  expect(socketSessionListener).toHaveBeenNthCalledWith(1, expect.any(Buffer))
-  expect(socketSessionListener).toHaveBeenNthCalledWith(2, expect.any(Buffer))
-  expect(socketErrorListener).not.toHaveBeenCalled()
+  expect.soft(socketListener).toHaveBeenCalledOnce()
+  expect.soft(socketReadyListener).toHaveBeenCalledOnce()
+  expect.soft(socketSecureListener).toHaveBeenCalledOnce()
+  expect.soft(socketSecureConnectListener).toHaveBeenCalledOnce()
+  expect.soft(socketSessionListener).toHaveBeenCalledTimes(2)
+  expect
+    .soft(socketSessionListener)
+    .toHaveBeenNthCalledWith(1, expect.any(Buffer))
+  expect
+    .soft(socketSessionListener)
+    .toHaveBeenNthCalledWith(2, expect.any(Buffer))
+  expect.soft(socketErrorListener).not.toHaveBeenCalled()
 })

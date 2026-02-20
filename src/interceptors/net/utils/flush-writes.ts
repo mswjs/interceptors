@@ -1,9 +1,9 @@
 import net from 'node:net'
 
 export function unwrapPendingData(
-  data: net.Socket['_pendingData'],
+  data: NonNullable<net.Socket['_pendingData']>,
   callback: (
-    chunk: string | Buffer | null,
+    chunk: string | Buffer,
     encoding?: BufferEncoding,
     callback?: (error?: Error | null) => void
   ) => void

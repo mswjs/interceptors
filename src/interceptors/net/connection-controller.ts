@@ -1,7 +1,7 @@
 import net from 'node:net'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { invariant } from 'outvariant'
-import { kMockState, MockSocket } from './mock-socket'
+import { kMockState, kTlsSocket, MockSocket } from './mock-socket'
 import { unwrapPendingData } from './utils/flush-writes'
 
 // Internally, Node.js represents the result of various operations
@@ -30,15 +30,27 @@ declare module 'node:net' {
   }
 }
 
+declare module 'node:tls' {
+  interface TLSSocket {
+    _handle: TcpHandle & {
+      start: () => void
+      onhandshakedone: () => void
+      onnewsession: (sessionId: unknown, session: Buffer) => void
+      verifyError: () => void
+    }
+  }
+}
+
 interface TcpHandle {
   open: (fd: unknown) => OperationStatus
   connect: (request: TcpWrap, address: string, port: number) => void
+  connect6: (request: TcpWrap, address: string, port: number) => void
   listen: (backlog: number) => OperationStatus
   onconnection?: () => void
   getpeername?: () => OperationStatus
   getsockname?: () => OperationStatus
   reading: boolean
-  onread: () => {}
+  onread: () => void
   readStart: () => void
   readStop: () => void
   bytesRead: number
@@ -82,14 +94,14 @@ export class ConnectionController {
       'Failed to create a socket connection controller: socket._handle is missing'
     )
 
+    socket._handle.readStart = () => console.log('\n\nYES\n\n')
+
     socket._handle.connect = (request) => {
       this.#pendingRequest.resolve(request)
     }
-
-    /**
-     * @todo @fixme Also patch "socket._handle.connect6" for IPv6 connections.
-     * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
-     */
+    socket._handle.connect6 = (request) => {
+      this.#pendingRequest.resolve(request)
+    }
   }
 
   /**
@@ -98,7 +110,53 @@ export class ConnectionController {
    * connection with the remote address was successful.
    */
   public claim(): void {
-    this[kClientSocket][kMockState] = MockSocket.MOCKED
+    const clientSocket = this[kClientSocket]
+    clientSocket[kMockState] = MockSocket.MOCKED
+
+    console.log('CLAIM!')
+
+    const tlsSocket = clientSocket[kTlsSocket]
+
+    if (tlsSocket) {
+      // Update the client socket reference so that connection controller interacts
+      // with the top-most socket, which is the TLSSocket. This way, mocked response
+      // gets pushed to the TLS socket correctly. Pushing it to TCP does nothing.
+      /**
+       * @fixme This should be removed after MockTlsSocket is implemented.
+       * [kClientSocket] should point to MockTlsSocket from the start, no nesting.
+       */
+      this[kClientSocket] = tlsSocket
+
+      this.#pendingRequest = new DeferredPromise()
+
+      /**
+       * Mock this to prevent the "Error: Worker exited unexpectedly" error.
+       * This will trigger when "secure" is emitted.
+       * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L1648
+       */
+      tlsSocket._handle.verifyError = () => void 0
+
+      tlsSocket._handle.start = () => {
+        process.nextTick(() => {
+          /**
+           * Mock successful SSL handshake completion.
+           * This will emit "secureConnect" and "secure" on the TLS socket, and trigger "tlsSocket._finishInit".
+           * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L878
+           */
+          tlsSocket._handle.onhandshakedone()
+          tlsSocket._handle.onnewsession(1, Buffer.alloc(0))
+        })
+      }
+
+      clientSocket.connecting = false
+
+      process.nextTick(() => {
+        clientSocket.emit('connect')
+        tlsSocket.emit('ready')
+      })
+
+      return
+    }
 
     // The user can interact with the connection controller *before* the connection attempt
     // is made. That is so they could handle the socket before the connection.
@@ -106,7 +164,7 @@ export class ConnectionController {
       /**
        * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
        */
-      request.oncomplete(0, this[kClientSocket]._handle, request, true, true)
+      request.oncomplete(0, clientSocket._handle, request, true, true)
     })
   }
 
