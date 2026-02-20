@@ -1,18 +1,18 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { httpsAgent, HttpServer } from '@open-draft/test-server/http'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
 import { RequestController } from '../../../../src/RequestController'
 import { HttpRequestEventMap } from '../../../../src/glossary'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (_req, res) => {
-    res.status(200).send('user-body')
+    res.status(200).send('original-body')
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
@@ -66,7 +66,7 @@ it('intercepts an HTTP ClientRequest request with request options', async () => 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  expect(await text()).toBe('user-body')
+  await expect(text()).resolves.toBe('original-body')
 })
 
 it('intercepts an HTTP ClientRequest request with URL string', async () => {
@@ -96,7 +96,7 @@ it('intercepts an HTTP ClientRequest request with URL string', async () => {
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  expect(await text()).toBe('user-body')
+  await expect(text()).resolves.toBe('original-body')
 })
 
 it('intercepts an HTTP ClientRequest request with URL instance', async () => {
@@ -126,7 +126,7 @@ it('intercepts an HTTP ClientRequest request with URL instance', async () => {
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  expect(await text()).toBe('user-body')
+  await expect(text()).resolves.toBe('original-body')
 })
 
 it('intercepts an HTTPS ClientRequest request with URL string', async () => {
@@ -135,7 +135,10 @@ it('intercepts an HTTPS ClientRequest request with URL string', async () => {
     vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 
   interceptor.on('request', requestListener)
-  const req = new http.ClientRequest(url)
+  const req = new http.ClientRequest(url, {
+    // @ts-expect-error Invalid Node.js types.
+    agent: httpsAgent,
+  })
   req.setHeader('x-custom-header', 'yes')
   req.end()
 
@@ -156,7 +159,7 @@ it('intercepts an HTTPS ClientRequest request with URL string', async () => {
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  expect(await text()).toBe('user-body')
+  await expect(text()).resolves.toBe('original-body')
 })
 
 it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
@@ -165,7 +168,10 @@ it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
     vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 
   interceptor.on('request', requestListener)
-  const req = new http.ClientRequest(url)
+  const req = new http.ClientRequest(url, {
+    // @ts-expect-error Invalid Node.js types.
+    agent: httpsAgent,
+  })
   req.setHeader('x-custom-header', 'yes')
   req.end()
 
@@ -186,7 +192,7 @@ it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  expect(await text()).toBe('user-body')
+  await expect(text()).resolves.toBe('original-body')
 })
 
 it('intercepts an HTTPS ClientRequest request with request options', async () => {
@@ -203,6 +209,7 @@ it('intercepts an HTTPS ClientRequest request with request options', async () =>
     headers: {
       'x-custom-header': 'yes',
     },
+    agent: httpsAgent,
   })
   req.end()
 
@@ -223,7 +230,7 @@ it('intercepts an HTTPS ClientRequest request with request options', async () =>
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  expect(await text()).toBe('user-body')
+  await expect(text()).resolves.toBe('original-body')
 })
 
 it('restores the original ClientRequest class after disposal', async () => {

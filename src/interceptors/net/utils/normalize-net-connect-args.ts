@@ -16,14 +16,15 @@ export interface NetworkConnectionOptions {
 }
 
 export type NetConnectArgs =
-  | [options: net.NetConnectOpts, connectionListener?: () => void]
-  | [url: URL, connectionListener?: () => void]
-  | [port: number, host: string, connectionListener?: () => void]
-  | [path: string, connectionListener?: () => void]
+  | []
+  | [options: net.NetConnectOpts, callback?: () => void]
+  | [url: URL, callback?: () => void]
+  | [port: number, host?: string, callback?: () => void]
+  | [path: string, callback?: () => void]
 
 export type NormalizedNetConnectArgs = [
   options: NetworkConnectionOptions,
-  connectionListener?: () => void,
+  callback: (() => void) | null,
 ]
 
 /**
@@ -32,7 +33,11 @@ export type NormalizedNetConnectArgs = [
 export function normalizeNetConnectArgs(
   args: NetConnectArgs
 ): NormalizedNetConnectArgs {
-  const callback = typeof args[1] === 'function' ? args[1] : args[2]
+  if (args.length === 0) {
+    return [{ path: '' }, null]
+  }
+
+  const callback = typeof args[1] === 'function' ? args[1] : args[2] || null
 
   if (typeof args[0] === 'string') {
     return [{ path: args[0] }, callback]

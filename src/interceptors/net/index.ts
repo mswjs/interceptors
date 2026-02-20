@@ -1,4 +1,5 @@
 import net from 'node:net'
+import tls from 'node:tls'
 import { Interceptor } from '../../Interceptor'
 import {
   type NetworkConnectionOptions,
@@ -7,6 +8,7 @@ import {
 import { MockSocket } from './mock-socket'
 import { ConnectionController } from './connection-controller'
 import { createLogger } from '../../utils/logger'
+import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
 
 interface SocketEventMap {
   connection: [
@@ -72,9 +74,43 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
     const realNetCreateConnection = net.createConnection
     net.createConnection = net.connect
 
+    const realTlsConnect = tls.connect
+    tls.connect = (...args: [any, any]) => {
+      const [tlsConnectionOptions, secureConnectionCallback] =
+        normalizeTlsConnectArgs(args)
+
+      const clientSocket = new MockSocket(tlsConnectionOptions)
+      const serverSocket = clientSocket.createServerSocket()
+      const controller = new ConnectionController(
+        clientSocket,
+        function createTlsConnection() {
+          return realTlsConnect(...args)
+        }
+      )
+
+      process.nextTick(() => {
+        this.emitter.emit('connection', {
+          socket: serverSocket,
+          controller,
+          connectionOptions: tlsConnectionOptions,
+        })
+      })
+
+      if (tlsConnectionOptions.socket) {
+        throw new Error('Custom sockets in TLS connections are not supported')
+      }
+
+      return clientSocket.connect(
+        tlsConnectionOptions,
+        secureConnectionCallback
+      )
+    }
+
     this.subscriptions.push(() => {
       net.connect = realNetConnect
       net.createConnection = realNetCreateConnection
+
+      tls.connect = realTlsConnect
     })
   }
 }
