@@ -1,9 +1,13 @@
 import net from 'node:net'
+import tls from 'node:tls'
+import { invariant } from 'outvariant'
 import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
+import { unwrapPendingData } from './utils/flush-writes'
 
 const kListenerWrap = Symbol('kListenerWrap')
 export const kMockState = Symbol('kMockState')
+const kTlsSocketWrapped = Symbol('kTlsSocketWrapped')
 
 const log = createLogger('MockSocket')
 
@@ -166,5 +170,34 @@ export class MockSocket extends net.Socket {
         return getRealValue()
       },
     })
+  }
+
+  public wrapTlsSocket(tlsSocket: tls.TLSSocket): void {
+    invariant(
+      Reflect.get(tlsSocket, kTlsSocketWrapped) == null,
+      'Failed to wrap a TLSSocket: already wrapped. This is likely an issue with MSW. Please report it on GitHub.'
+    )
+
+    const realTlsSocketWriteGeneric = tlsSocket._writeGeneric
+
+    tlsSocket._writeGeneric = (...args) => {
+      const pendingData = args[1]
+
+      if (this[kMockState] !== MockSocket.PASSTHROUGH) {
+        unwrapPendingData(pendingData, (chunk, encoding) => {
+          /**
+           * @note Emit the internal write event, which triggers the "data" event on the server socket.
+           * This allows the user to listen to outgoing TLS connections before the handshake runs.
+           * Normally, TLSSocket buffers the writes until the "secure" event is emitted and it doesn't
+           * forward those writes to the "clientSocket" for the client -> server proxy to trigger.
+           */
+          this.emit('internal:write', chunk, encoding)
+        })
+      }
+
+      return realTlsSocketWriteGeneric.apply(tlsSocket, args)
+    }
+
+    Reflect.set(tlsSocket, kTlsSocketWrapped, true)
   }
 }

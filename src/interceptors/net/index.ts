@@ -5,11 +5,10 @@ import {
   type NetworkConnectionOptions,
   normalizeNetConnectArgs,
 } from './utils/normalize-net-connect-args'
-import { kMockState, MockSocket } from './mock-socket'
+import { MockSocket } from './mock-socket'
 import { ConnectionController } from './connection-controller'
 import { createLogger } from '../../utils/logger'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
-import { unwrapPendingData } from './utils/flush-writes'
 
 interface SocketEventMap {
   connection: [
@@ -96,10 +95,6 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
         })
       })
 
-      if (tlsConnectionOptions.socket) {
-        throw new Error('Custom sockets in TLS connections are not supported')
-      }
-
       /**
        * @note Enable unauthorized requests by default, unless explicitly disabled.
        * It's either this or asking the user to always provide a custom Agent that
@@ -113,26 +108,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
         tlsConnectionOptions,
         secureConnectionCallback
       )
-
-      tlsSocket._writeGeneric = new Proxy(tlsSocket._writeGeneric, {
-        apply(target, thisArg, args) {
-          const bufferedWrites = args[1]
-
-          if (clientSocket[kMockState] !== MockSocket.PASSTHROUGH) {
-            unwrapPendingData(bufferedWrites, (chunk, encoding) => {
-              /**
-               * @note Emit the internal write event, which triggers the "data" event on the server socket.
-               * This allows the user to listen to outgoing TLS connections before the handshake runs.
-               * Normally, TLSSocket buffers the writes until the "secure" event is emitted and it doesn't
-               * forward those writes to the "clientSocket" for the client -> server proxy to trigger.
-               */
-              clientSocket.emit('internal:write', chunk, encoding)
-            })
-          }
-
-          return Reflect.apply(target, thisArg, args)
-        },
-      })
+      clientSocket.wrapTlsSocket(tlsSocket)
 
       return tlsSocket
     }
