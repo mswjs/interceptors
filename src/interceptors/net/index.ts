@@ -5,7 +5,11 @@ import {
   type NetworkConnectionOptions,
   normalizeNetConnectArgs,
 } from './utils/normalize-net-connect-args'
-import { MockSocket } from './mock-socket'
+import {
+  MockSocket,
+  MockTlsSocketController,
+  toServerSocket,
+} from './mock-socket'
 import { ConnectionController } from './connection-controller'
 import { createLogger } from '../../utils/logger'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
@@ -40,12 +44,12 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       const [connectionOptions, connectionCallback] =
         normalizeNetConnectArgs(args)
 
-      log('connect()')
+      log('net.connect()')
       log({ connectionOptions, connectionCallback })
 
-      const clientSocket = new MockSocket(connectionOptions)
+      const socket = new MockSocket(connectionOptions)
       const controller = new ConnectionController(
-        clientSocket,
+        socket,
         function createConnection() {
           return realNetConnect(...args)
         }
@@ -53,7 +57,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
       process.nextTick(() => {
         this.emitter.emit('connection', {
-          socket: clientSocket.createServerSocket(),
+          socket: toServerSocket(socket),
           controller,
           connectionOptions,
         })
@@ -63,64 +67,51 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
       if (connectionOptions.timeout) {
         log('set custom connection timeout:', connectionOptions.timeout)
-        clientSocket.setTimeout(connectionOptions.timeout)
+        socket.setTimeout(connectionOptions.timeout)
       }
 
       log('connecting the socket...')
-      return clientSocket.connect(connectionOptions, connectionCallback)
+      return socket.connect(connectionOptions, connectionCallback)
     }
 
     const realNetCreateConnection = net.createConnection
     net.createConnection = net.connect
+
+    /**
+     * TLS.
+     */
 
     const realTlsConnect = tls.connect
     tls.connect = (...args: [any, any]) => {
       const [tlsConnectionOptions, secureConnectionCallback] =
         normalizeTlsConnectArgs(args)
 
-      const clientSocket = new MockSocket(tlsConnectionOptions)
-      const serverSocket = clientSocket.createServerSocket()
-      const controller = new ConnectionController(
-        clientSocket,
-        function createTlsConnection() {
-          return realTlsConnect(...args)
-        }
+      tlsConnectionOptions.rejectUnauthorized = false
+
+      const tlsSocket = realTlsConnect(
+        {
+          ...tlsConnectionOptions,
+          /**
+           * Suppress unauthorized connection errors to allow mocking connections to non-existing hosts.
+           * This prevents the "Error: Hostname/IP does not match certificate's altnames: Cert does not contain a DNS name" error.
+           * @note Passthrough scenarios will respect the original "rejectUnauthorized" option.
+           */
+          rejectUnauthorized: false,
+        },
+        secureConnectionCallback
       )
+
+      const controller = new MockTlsSocketController(tlsSocket, () => {
+        return realTlsConnect(...args)
+      })
 
       process.nextTick(() => {
         this.emitter.emit('connection', {
-          /**
-           * @fixme This is incorrect. The TLSSocket has to be exposed here so the user can access its properties,
-           * like "encrypted", "secure", etc. I think I need to create a MockTlsSocket class after all.
-           * TLS handling is just DRAMATICALLY different from TCP.
-           */
-          socket: serverSocket,
+          socket: controller.serverSocket,
           controller,
           connectionOptions: tlsConnectionOptions,
         })
       })
-
-      /**
-       * If "socket" is unset, "TLSSocket" will rely on "net.Socket.connect" to create one.
-       * This will cause the unpatched socket to be created, failing connections to non-existing hosts.
-       * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L560
-       */
-      tlsConnectionOptions.socket = clientSocket
-
-      /**
-       * @note Enable unauthorized requests by default, unless explicitly disabled.
-       * It's either this or asking the user to always provide a custom Agent that
-       * allows otherwise unauthorized requests (e.g. self-signed SSL, non-existing hosts).
-       *
-       * @todo @fixme Reconsider this.
-       */
-      tlsConnectionOptions.rejectUnauthorized ??= false
-
-      const tlsSocket = realTlsConnect(
-        tlsConnectionOptions,
-        secureConnectionCallback
-      )
-      clientSocket.wrapTlsSocket(tlsSocket)
 
       return tlsSocket
     }

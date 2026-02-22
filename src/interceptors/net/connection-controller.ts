@@ -1,6 +1,5 @@
 import net from 'node:net'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { invariant } from 'outvariant'
 import { kMockState, kTlsSocket, MockSocket } from './mock-socket'
 import { unwrapPendingData } from './utils/flush-writes'
 
@@ -41,7 +40,7 @@ declare module 'node:tls' {
   }
 }
 
-interface TcpHandle {
+export interface TcpHandle {
   open: (fd: unknown) => OperationStatus
   connect: (request: TcpWrap, address: string, port: number) => void
   connect6: (request: TcpWrap, address: string, port: number) => void
@@ -63,9 +62,11 @@ interface TcpHandle {
   setKeepAlive?: (keepAlive: boolean, initialDelay: number) => void
   shutdown: (reqest: unknown /* ShutdownWrap */) => OperationStatus
   close: () => void
+
+  _parent?: TcpHandle
 }
 
-interface TcpWrap {
+export interface TcpWrap {
   oncomplete: (
     status: OperationStatus,
     owner: TcpHandle,
@@ -75,33 +76,28 @@ interface TcpWrap {
   ) => void
 }
 
-export const kClientSocket = Symbol('kClientSymbol')
+export const kRawSocket = Symbol('kRawSocket')
 
 export class ConnectionController {
   #pendingRequest: DeferredPromise<TcpWrap>
 
-  private [kClientSocket]: MockSocket
+  private [kRawSocket]: MockSocket
 
   constructor(
     socket: MockSocket,
     private readonly createConnection: () => net.Socket
   ) {
-    this[kClientSocket] = socket
+    this[kRawSocket] = socket
     this.#pendingRequest = new DeferredPromise<TcpWrap>()
 
-    invariant(
-      socket._handle,
-      'Failed to create a socket connection controller: socket._handle is missing'
-    )
-
-    socket._handle.readStart = () => console.log('\n\nYES\n\n')
-
-    socket._handle.connect = (request) => {
-      this.#pendingRequest.resolve(request)
-    }
-    socket._handle.connect6 = (request) => {
-      this.#pendingRequest.resolve(request)
-    }
+    socket.prependListener('connectionAttempt', () => {
+      socket._handle.connect = (request) => {
+        this.#pendingRequest.resolve(request)
+      }
+      socket._handle.connect6 = (request) => {
+        this.#pendingRequest.resolve(request)
+      }
+    })
   }
 
   /**
@@ -110,7 +106,7 @@ export class ConnectionController {
    * connection with the remote address was successful.
    */
   public claim(): void {
-    const clientSocket = this[kClientSocket]
+    const clientSocket = this[kRawSocket]
     clientSocket[kMockState] = MockSocket.MOCKED
 
     console.log('CLAIM!')
@@ -125,7 +121,7 @@ export class ConnectionController {
        * @fixme This should be removed after MockTlsSocket is implemented.
        * [kClientSocket] should point to MockTlsSocket from the start, no nesting.
        */
-      this[kClientSocket] = tlsSocket
+      this[kRawSocket] = tlsSocket
 
       this.#pendingRequest = new DeferredPromise()
 
@@ -180,14 +176,14 @@ export class ConnectionController {
    * Abort this socket connection with an optional error.
    */
   public errorWith(reason?: Error): void {
-    this[kClientSocket].destroy(reason)
+    this[kRawSocket].destroy(reason)
   }
 
   /**
    * Bypass this socket connection and perform it as-is.
    */
   public passthrough(): net.Socket {
-    const clientSocket = this[kClientSocket]
+    const clientSocket = this[kRawSocket]
     clientSocket[kMockState] = MockSocket.PASSTHROUGH
 
     const realSocket = this.createConnection()

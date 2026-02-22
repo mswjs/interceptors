@@ -17,7 +17,7 @@ import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { createLogger } from '../../utils/logger'
-import { kClientSocket } from '../net/connection-controller'
+import { kRawSocket } from '../net/connection-controller'
 
 const log = createLogger('HttpRequestInterceptor')
 
@@ -80,7 +80,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
                   socket.once('connect', async () => {
                     await this.respondWith({
-                      socket: connectionController[kClientSocket],
+                      socket: connectionController[kRawSocket],
                       request,
                       response,
                     })

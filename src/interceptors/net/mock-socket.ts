@@ -1,12 +1,13 @@
 import net from 'node:net'
 import tls from 'node:tls'
-import { invariant } from 'outvariant'
 import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
 import { unwrapPendingData } from './utils/flush-writes'
+import { invariant } from 'outvariant'
+import { DeferredPromise } from '@open-draft/deferred-promise'
+import { kRawSocket, TcpHandle, TcpWrap } from './connection-controller'
 
 const kListenerWrap = Symbol('kListenerWrap')
-const kTlsSocketWrapped = Symbol('kTlsSocketWrapped')
 
 export const kMockState = Symbol('kMockState')
 export const kTlsSocket = Symbol('kTlsSocket')
@@ -24,16 +25,7 @@ export class MockSocket extends net.Socket {
   public connecting: boolean
 
   constructor(options: net.SocketConstructorOpts) {
-    super({
-      ...options,
-      /**
-       * @note Providing a file descriptor triggers Node.js to create an appropriate handle for this socket.
-       * Initiate the handle earlier so we can mock its methods in the connection controller without waiting
-       * for the "connectionAttempt".
-       * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/net.js#L424
-       */
-      fd: options.fd || 1,
-    })
+    super(options)
 
     this[kMockState] = 0
 
@@ -99,107 +91,241 @@ export class MockSocket extends net.Socket {
 
     super._writeGeneric(writev, data, encoding, callback)
   }
+}
 
-  /**
-   * Create a proxy `net.Socket` instance that represents the intercepted socket server-side.
-   * This is the reference exposed as `socket` in the connection listener. This proxy allows
-   * the user to interact with `socket` from the server's perspective (e.g. `socket.write()`
-   * on the server translates to the `socket.push()` on the client).
-   */
-  public createServerSocket(): net.Socket {
-    return new Proxy(this, {
-      get: (target, property, receiver) => {
-        const getRealValue = () => {
-          return Reflect.get(target, property, receiver)
-        }
+/**
+ * Create a proxy `net.Socket` instance that represents the intercepted socket server-side.
+ * This is the reference exposed as `socket` in the connection listener. This proxy allows
+ * the user to interact with `socket` from the server's perspective (e.g. `socket.write()`
+ * on the server translates to the `socket.push()` on the client).
+ */
+export function toServerSocket<T extends net.Socket>(socket: T): T {
+  return new Proxy(socket, {
+    get: (target, property, receiver) => {
+      const getRealValue = () => {
+        return Reflect.get(target, property, receiver)
+      }
 
-        if (property === 'on' || property === 'addListener') {
-          const realAddListener = getRealValue() as net.Socket['addListener']
+      if (property === 'on' || property === 'addListener') {
+        const realAddListener = getRealValue() as net.Socket['addListener']
 
-          return (event: any, listener: (...args: Array<unknown>) => void) => {
-            if (event === 'data') {
-              const listenerWrap = (chunk: any, encoding?: BufferEncoding) => {
-                listener(toBuffer(chunk, encoding))
-              }
-
-              Object.defineProperty(listener, kListenerWrap, {
-                enumerable: false,
-                writable: false,
-                value: listenerWrap,
-              })
-
-              this.on('internal:write', listenerWrap)
-
-              return target
+        return (event: any, listener: (...args: Array<unknown>) => void) => {
+          if (event === 'data') {
+            const listenerWrap = (chunk: any, encoding?: BufferEncoding) => {
+              listener(toBuffer(chunk, encoding))
             }
 
-            return realAddListener.call(target, event, listener)
+            Object.defineProperty(listener, kListenerWrap, {
+              enumerable: false,
+              writable: false,
+              value: listenerWrap,
+            })
+
+            socket.on('internal:write', listenerWrap)
+
+            return target
           }
+
+          return realAddListener.call(target, event, listener)
         }
+      }
 
-        if (property === 'off' || property === 'removeListener') {
-          const realRemoveListener =
-            getRealValue() as net.Socket['removeListener']
+      if (property === 'off' || property === 'removeListener') {
+        const realRemoveListener =
+          getRealValue() as net.Socket['removeListener']
 
-          return (event: string, listener: any) => {
-            if (event === 'data') {
-              const listenerWrap = listener[kListenerWrap]
+        return (event: string, listener: any) => {
+          if (event === 'data') {
+            const listenerWrap = listener[kListenerWrap]
 
-              if (listenerWrap) {
-                return realRemoveListener.call(target, event, listenerWrap)
-              }
+            if (listenerWrap) {
+              return realRemoveListener.call(target, event, listenerWrap)
             }
-
-            return realRemoveListener.call(target, event, listener)
           }
-        }
 
-        // Push data to the client socket when server "socket.write()" is called.
-        if (property === 'write') {
-          return (
-            chunk: any,
-            encoding: BufferEncoding,
-            callback: (error?: Error | null) => void
-          ) => {
-            this.push(toBuffer(chunk, encoding), encoding)
-            callback()
-          }
+          return realRemoveListener.call(target, event, listener)
         }
+      }
 
-        return getRealValue()
-      },
-    })
+      // Push data to the client socket when server "socket.write()" is called.
+      if (property === 'write') {
+        return (
+          chunk: any,
+          encoding: BufferEncoding,
+          callback: (error?: Error | null) => void
+        ) => {
+          socket.push(toBuffer(chunk, encoding), encoding)
+          callback()
+        }
+      }
+
+      return getRealValue()
+    },
+  })
+}
+
+abstract class SocketController<T extends net.Socket> {
+  static PENDING = 0 as const
+  static MOCKED = 1 as const
+  static PASSTHROUGH = 2 as const
+
+  protected readyState:
+    | typeof SocketController.PENDING
+    | typeof SocketController.MOCKED
+    | typeof SocketController.PASSTHROUGH
+
+  constructor() {
+    this.readyState = SocketController.PENDING
   }
 
-  public wrapTlsSocket(tlsSocket: tls.TLSSocket): void {
-    invariant(
-      Reflect.get(tlsSocket, kTlsSocketWrapped) == null,
-      'Failed to wrap a TLSSocket: already wrapped. This is likely an issue with MSW. Please report it on GitHub.'
-    )
+  public abstract claim(): void
+  public abstract passthrough(): T
+}
 
-    this[kTlsSocket] = tlsSocket
+export class MockTlsSocketController extends SocketController<tls.TLSSocket> {
+  public serverSocket: tls.TLSSocket
+  private [kRawSocket]: tls.TLSSocket
 
-    const realTlsSocketWriteGeneric = tlsSocket._writeGeneric
-    tlsSocket._writeGeneric = (...args) => {
-      const pendingData = args[1]
+  #pendingConnection: DeferredPromise<[TcpWrap, TcpHandle]>
 
-      if (this[kMockState] === MockSocket.PENDING) {
-        console.log('>> tlsSocket._writeGeneric FORWARD:', pendingData)
+  constructor(
+    private readonly socket: tls.TLSSocket,
+    private readonly createConnection: () => tls.TLSSocket
+  ) {
+    super()
 
-        unwrapPendingData(pendingData, (chunk, encoding) => {
-          /**
-           * @note Emit the internal write event, which triggers the "data" event on the server socket.
-           * This allows the user to listen to outgoing TLS connections before the handshake runs.
-           * Normally, TLSSocket buffers the writes until the "secure" event is emitted and it doesn't
-           * forward those writes to the "clientSocket" for the client -> server proxy to trigger.
-           */
-          this.emit('internal:write', chunk, encoding)
+    this.#pendingConnection = new DeferredPromise()
+
+    // Implement the read method to prevent the "Error: read ENOTCONN" errors on non-existing hosts.
+    this.socket._read = () => {}
+
+    this.socket.prependOnceListener('connectionAttempt', () => {
+      console.log('>> CONNECTION ATTEMPT')
+
+      const tlsHandle = this.socket._handle
+      const tcpHandle = tlsHandle._parent
+
+      if (tcpHandle == null) {
+        return
+      }
+
+      tcpHandle.connect = tcpHandle.connect6 = (request) => {
+        this.#pendingConnection.resolve([request, tcpHandle])
+      }
+    })
+
+    const realWriteGeneric = this.socket._writeGeneric
+
+    this.socket._writeGeneric = (...args) => {
+      if (this.readyState === SocketController.PENDING) {
+        unwrapPendingData(args[1], (chunk, encoding) => {
+          this.socket.emit('internal:write', chunk, encoding)
         })
       }
 
-      return realTlsSocketWriteGeneric.apply(tlsSocket, args)
+      return realWriteGeneric.apply(this.socket, args)
     }
 
-    Reflect.set(tlsSocket, kTlsSocketWrapped, true)
+    this[kRawSocket] = socket
+    this.serverSocket = toServerSocket(this.socket)
+  }
+
+  public claim(): void {
+    invariant(
+      this.readyState !== SocketController.MOCKED,
+      'Failed to claim a TLSSocket: already claimed'
+    )
+
+    this.readyState = SocketController.MOCKED
+
+    console.log('CLAIM!')
+
+    this.#pendingConnection.then(([request, handle]) => {
+      /**
+       * Mock this to prevent the "Error: Worker exited unexpectedly" error.
+       * This will trigger when "secure" is emitted.
+       * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L1648
+       */
+      this.socket._handle.verifyError = () => void 0
+
+      this.socket._handle.start = () => {
+        /**
+         * Mock successful SSL handshake completion.
+         * This will emit "secureConnect" and "secure" on the TLS socket and trigger "tlsSocket._finishInit".
+         * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L878
+         */
+        this.socket._handle.onhandshakedone()
+        this.socket._handle.onnewsession(1, Buffer.alloc(0))
+      }
+
+      /**
+       * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
+       */
+      request.oncomplete(0, handle, request, true, true)
+    })
+  }
+
+  public passthrough(): tls.TLSSocket {
+    invariant(
+      this.readyState !== SocketController.PASSTHROUGH,
+      'Failed to passthrough a TLSSocket: already passthrough'
+    )
+
+    this.readyState = SocketController.PASSTHROUGH
+
+    console.log('PASSTHROUGH!')
+
+    const realSocket = this.createConnection()
+
+    this.socket.on('drain', () => realSocket.resume())
+
+    this.socket.write = realSocket.write.bind(realSocket)
+    this.socket.read = realSocket.read.bind(realSocket)
+
+    realSocket
+      .once('connect', () => {
+        this.socket._handle = realSocket._handle
+
+        /**
+         * @note Remove the internal "connect" listener added when the mock socket was created.
+         * If preserved, that connect will prevent the mock socket from transitioning into the
+         * connected state.
+         *
+         * This prevents the following error:
+         *  #  node (vitest 4)[8686]: static void node::crypto::TLSWrap::Start(const FunctionCallbackInfo<Value> &) at ../src/crypto/crypto_tls.cc:589
+         #  Assertion failed: !wrap->started_
+         */
+        this.socket.removeListener('connect', this.socket._start)
+
+        this.socket.connecting = false
+        this.socket.emit('connect')
+        this.socket.emit('ready')
+      })
+      .on('secure', () => {
+        this.socket.emit('secure')
+      })
+      .on('session', (...args) => {
+        this.socket.emit('session', ...args)
+      })
+      .on('secureConnect', () => {
+        if (this.socket._pendingData) {
+          unwrapPendingData(this.socket._pendingData, (chunk, encoding) => {
+            realSocket.write(chunk, encoding)
+          })
+        }
+      })
+      .on('data', (data) => {
+        if (!this.socket.push(data)) {
+          realSocket.pause()
+        }
+      })
+      .on('error', (error) => {
+        this.socket.destroy(error)
+      })
+      .on('end', () => {
+        this.socket.push(null)
+      })
+
+    return realSocket
   }
 }

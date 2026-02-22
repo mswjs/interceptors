@@ -27,16 +27,15 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it.only('emits correct events for a mocked HTTPS request', async () => {
+it('emits correct events for a mocked HTTPS request', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response())
   })
 
-  const request = https.get('https://localhost/api', (response) => {
-    console.log('> RESPONSE')
-  })
+  const request = https.get('https://localhost/api')
 
   const socketListener = vi.fn()
+  const socketConnectListener = vi.fn()
   const socketReadyListener = vi.fn()
   const socketSecureListener = vi.fn()
   const socketSecureConnectListener = vi.fn()
@@ -46,17 +45,20 @@ it.only('emits correct events for a mocked HTTPS request', async () => {
   request.on('socket', (socket) => {
     socketListener(socket)
 
-    socket.on('ready', socketReadyListener)
-    socket.on('secure', socketSecureListener)
-    socket.on('secureConnect', socketSecureConnectListener)
-    socket.on('session', socketSessionListener)
-    socket.on('error', socketErrorListener)
+    socket
+      .on('connect', socketConnectListener)
+      .on('ready', socketReadyListener)
+      .on('secure', socketSecureListener)
+      .on('secureConnect', socketSecureConnectListener)
+      .on('session', socketSessionListener)
+      .on('error', socketErrorListener)
   })
 
   await waitForClientRequest(request)
 
   expect.soft(socketListener).toHaveBeenCalledOnce()
   expect.soft(socketReadyListener).toHaveBeenCalledOnce()
+  expect.soft(socketConnectListener).toHaveBeenCalledOnce()
   expect.soft(socketSecureListener).toHaveBeenCalledOnce()
   expect.soft(socketSecureConnectListener).toHaveBeenCalledOnce()
   expect
@@ -71,6 +73,7 @@ it('emits correct events for a passthrough HTTPS request', async () => {
   })
 
   const socketListener = vi.fn()
+  const socketConnectListener = vi.fn()
   const socketReadyListener = vi.fn()
   const socketSecureListener = vi.fn()
   const socketSecureConnectListener = vi.fn()
@@ -80,16 +83,19 @@ it('emits correct events for a passthrough HTTPS request', async () => {
   request.on('socket', (socket) => {
     socketListener(socket)
 
-    socket.on('ready', socketReadyListener)
-    socket.on('secure', socketSecureListener)
-    socket.on('secureConnect', socketSecureConnectListener)
-    socket.on('session', socketSessionListener)
-    socket.on('error', socketErrorListener)
+    socket
+      .on('connect', socketConnectListener)
+      .on('ready', socketReadyListener)
+      .on('secure', socketSecureListener)
+      .on('secureConnect', socketSecureConnectListener)
+      .on('session', socketSessionListener)
+      .on('error', socketErrorListener)
   })
 
   await waitForClientRequest(request)
 
   expect.soft(socketListener).toHaveBeenCalledOnce()
+  expect.soft(socketConnectListener).toHaveBeenCalledOnce()
   expect.soft(socketReadyListener).toHaveBeenCalledOnce()
   expect.soft(socketSecureListener).toHaveBeenCalledOnce()
   expect.soft(socketSecureConnectListener).toHaveBeenCalledOnce()
