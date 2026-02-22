@@ -48,7 +48,7 @@ afterAll(async () => {
 })
 
 it('responds to a handled request issued by "http.get"', async () => {
-  const req = http.get('http://any.thing/non-existing')
+  const req = http.get('http://any.localhost/non-existing')
   const { res, text } = await waitForClientRequest(req)
 
   expect(res).toMatchObject<Partial<http.IncomingMessage>>({
@@ -61,8 +61,8 @@ it('responds to a handled request issued by "http.get"', async () => {
   await expect(text()).resolves.toEqual('mocked')
 })
 
-it.only('responds to a handled request issued by "https.get"', async () => {
-  const req = https.get('https://any.thing/non-existing')
+it('responds to a handled request issued by "https.get"', async () => {
+  const req = https.get('https://any.localhost/non-existing')
   const { res, text } = await waitForClientRequest(req)
 
   expect(res).toMatchObject<Partial<http.IncomingMessage>>({
@@ -100,7 +100,7 @@ it('bypasses an unhandled request issued by "https.get"', async () => {
 })
 
 it('responds to a handled request issued by "http.request"', async () => {
-  const req = http.request('http://any.thing/non-existing')
+  const req = http.request('http://any.localhost/non-existing')
   req.end()
   const { res, text } = await waitForClientRequest(req)
 
@@ -111,7 +111,7 @@ it('responds to a handled request issued by "http.request"', async () => {
 })
 
 it('responds to a handled request issued by "https.request"', async () => {
-  const req = https.request('https://any.thing/non-existing')
+  const req = https.request('https://any.localhost/non-existing')
 
   req.end()
   const { res, text } = await waitForClientRequest(req)

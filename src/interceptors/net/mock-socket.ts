@@ -1,13 +1,11 @@
 import net from 'node:net'
 import tls from 'node:tls'
-import EventEmitter from 'node:events'
 import { invariant } from 'outvariant'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
 import { unwrapPendingData } from './utils/flush-writes'
 import { kRawSocket, TcpHandle, TcpWrap } from './connection-controller'
-import { SocketInterceptor } from '.'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const kListenerWrap = Symbol('kListenerWrap')
 
@@ -168,6 +166,8 @@ export class TcpSocketController extends SocketController {
          * @see https://github.com/nodejs/node/blob/main/deps/uv/src/unix/stream.c#L1304-L1305
          */
         if (this.socket._pendingData) {
+          this.socket._pendingData = null
+          this.socket._pendingEncoding = null
           return
         }
 

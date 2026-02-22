@@ -32,7 +32,7 @@ it('emits correct events for a mocked HTTPS request', async () => {
     controller.respondWith(new Response())
   })
 
-  const request = https.get('https://localhost/api')
+  const request = https.get('https://any.localhost/api')
 
   const socketListener = vi.fn()
   const socketConnectListener = vi.fn()

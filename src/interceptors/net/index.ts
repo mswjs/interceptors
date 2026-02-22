@@ -73,11 +73,17 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       const [tlsConnectionOptions, secureConnectionCallback] =
         normalizeTlsConnectArgs(args)
 
-      tlsConnectionOptions.rejectUnauthorized = false
-
       const tlsSocket = realTlsConnect(
         {
           ...tlsConnectionOptions,
+          /**
+           * Use a fake IP address to bypass DNS lookup.
+           * This ensures that "connectionAttempt" event fires even for non-existent hosts.
+           * Node.js skips DNS resolution when the host is an IP address, going directly to
+           * "internalConnect()" which emits "connectionAttempt".
+           * @see https://github.com/nodejs/node/blob/5babc8d5c91914ce0fb708e647c144570c671c50/lib/net.js
+           */
+          host: '127.0.0.1',
           /**
            * Suppress unauthorized connection errors to allow mocking connections to non-existing hosts.
            * This prevents the "Error: Hostname/IP does not match certificate's altnames: Cert does not contain a DNS name" error.
