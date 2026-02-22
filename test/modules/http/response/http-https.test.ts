@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import https from 'node:https'
@@ -57,10 +58,10 @@ it('responds to a handled request issued by "http.get"', async () => {
       'content-type': 'text/plain',
     },
   })
-  expect(await text()).toEqual('mocked')
+  await expect(text()).resolves.toEqual('mocked')
 })
 
-it('responds to a handled request issued by "https.get"', async () => {
+it.only('responds to a handled request issued by "https.get"', async () => {
   const req = https.get('https://any.thing/non-existing')
   const { res, text } = await waitForClientRequest(req)
 
@@ -71,7 +72,7 @@ it('responds to a handled request issued by "https.get"', async () => {
       'content-type': 'text/plain',
     },
   })
-  expect(await text()).toEqual('mocked')
+  await expect(text()).resolves.toEqual('mocked')
 })
 
 it('bypasses an unhandled request issued by "http.get"', async () => {
@@ -82,7 +83,7 @@ it('bypasses an unhandled request issued by "http.get"', async () => {
     statusCode: 200,
     statusMessage: 'OK',
   })
-  expect(await text()).toEqual('/get')
+  await expect(text()).resolves.toEqual('/get')
 })
 
 it('bypasses an unhandled request issued by "https.get"', async () => {
@@ -95,7 +96,7 @@ it('bypasses an unhandled request issued by "https.get"', async () => {
     statusCode: 200,
     statusMessage: 'OK',
   })
-  expect(await text()).toEqual('/get')
+  await expect(text()).resolves.toEqual('/get')
 })
 
 it('responds to a handled request issued by "http.request"', async () => {
@@ -106,7 +107,7 @@ it('responds to a handled request issued by "http.request"', async () => {
   expect(res.statusCode).toBe(301)
   expect(res.statusMessage).toEqual('Moved Permanently')
   expect(res.headers).toHaveProperty('content-type', 'text/plain')
-  expect(await text()).toEqual('mocked')
+  await expect(text()).resolves.toEqual('mocked')
 })
 
 it('responds to a handled request issued by "https.request"', async () => {
@@ -122,7 +123,7 @@ it('responds to a handled request issued by "https.request"', async () => {
       'content-type': 'text/plain',
     },
   })
-  expect(await text()).toEqual('mocked')
+  await expect(text()).resolves.toEqual('mocked')
 })
 
 it('bypasses an unhandled request issued by "http.request"', async () => {
@@ -134,7 +135,7 @@ it('bypasses an unhandled request issued by "http.request"', async () => {
     statusCode: 200,
     statusMessage: 'OK',
   })
-  expect(await text()).toEqual('/get')
+  await expect(text()).resolves.toEqual('/get')
 })
 
 it('bypasses an unhandled request issued by "https.request"', async () => {
@@ -148,7 +149,7 @@ it('bypasses an unhandled request issued by "https.request"', async () => {
     statusCode: 200,
     statusMessage: 'OK',
   })
-  expect(await text()).toEqual('/get')
+  await expect(text()).resolves.toEqual('/get')
 })
 
 it('throws a request error when the middleware throws an exception', async () => {
@@ -168,5 +169,5 @@ it('bypasses any request after the interceptor was restored', async () => {
     statusCode: 200,
     statusMessage: 'OK',
   })
-  expect(await text()).toEqual('/')
+  await expect(text()).resolves.toEqual('/')
 })

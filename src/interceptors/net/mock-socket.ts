@@ -6,6 +6,8 @@ import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
 import { unwrapPendingData } from './utils/flush-writes'
 import { kRawSocket, TcpHandle, TcpWrap } from './connection-controller'
+import { SocketInterceptor } from '.'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const kListenerWrap = Symbol('kListenerWrap')
 
@@ -13,85 +15,6 @@ export const kMockState = Symbol('kMockState')
 export const kTlsSocket = Symbol('kTlsSocket')
 
 const log = createLogger('MockSocket')
-
-export class MockSocket extends net.Socket {
-  static PENDING = 0 as const
-  static MOCKED = 1 as const
-  static PASSTHROUGH = 2 as const
-
-  private [kMockState]: 0 | 1 | 2
-  private [kTlsSocket]?: tls.TLSSocket
-
-  public connecting: boolean
-
-  constructor(options: net.SocketConstructorOpts) {
-    super(options)
-
-    this[kMockState] = 0
-
-    /**
-     * @note Start the socket in the connecting state.
-     * This will make Node.js buffer any writes to this socket automatically.
-     */
-    this.connecting = true
-
-    log('constructed new instance')
-  }
-
-  _read(size: number): void {
-    log('read', size)
-  }
-
-  /**
-   * Override "_writeGeneric" to benefit from built-in chunk buffering in Node.js.
-   * That's also the baseline method for both "write" and "writev".
-   * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L994
-   */
-  _writeGeneric(
-    writev: boolean,
-    data: Array<any> | any,
-    encoding: BufferEncoding,
-    callback?: ((error?: Error | null) => void) | undefined
-  ): void {
-    log({ connecting: this.connecting, data, encoding, callback }, 'write')
-
-    const emitWrite = () => {
-      unwrapPendingData(data, (chunk, encoding) => {
-        this.emit('internal:write', chunk, encoding)
-      })
-    }
-
-    // While connecting, the socket is in ambiguous state.
-    // Buffer the writes using Node's existing buffering logic.
-    if (this.connecting) {
-      super._writeGeneric(writev, data, encoding, callback)
-      emitWrite()
-      return
-    }
-
-    if (this[kMockState] === MockSocket.MOCKED) {
-      /**
-       * Handle "_writeGeneric" calls scheduled after the "connect" event.
-       * These are writes performed while connecting, and for the mocked socket
-       * they must be ignored. There's nowhere to flush them. Calling "_writeGeneric"
-       * past this point will result in "Error: write EBADF".
-       * @see https://github.com/nodejs/node/blob/main/deps/uv/src/unix/stream.c#L1304-L1305
-       */
-      if (this._pendingData) {
-        log(this._pendingData, 'mocked connection, clearing write buffer')
-
-        this._pendingData = null
-        this._pendingEncoding = null
-        return
-      }
-
-      emitWrite()
-      return
-    }
-
-    super._writeGeneric(writev, data, encoding, callback)
-  }
-}
 
 /**
  * Create a proxy `net.Socket` instance that represents the intercepted socket server-side.
@@ -164,7 +87,7 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
   })
 }
 
-export abstract class SocketController extends EventEmitter {
+export abstract class SocketController {
   static PENDING = 0 as const
   static MOCKED = 1 as const
   static PASSTHROUGH = 2 as const
@@ -175,8 +98,6 @@ export abstract class SocketController extends EventEmitter {
     | typeof SocketController.PASSTHROUGH
 
   constructor() {
-    super()
-
     this.readyState = SocketController.PENDING
   }
 
@@ -203,35 +124,55 @@ export class TcpSocketController extends SocketController {
   public serverSocket: net.Socket
   private [kRawSocket]: net.Socket
 
+  protected pendingConnection: DeferredPromise<[TcpWrap, TcpHandle]>
+
   constructor(
     protected readonly socket: net.Socket,
     protected readonly createConnection: () => net.Socket
   ) {
     super()
 
+    this.pendingConnection = new DeferredPromise()
+
     // Implement the read method to prevent the "Error: read ENOTCONN" errors on non-existing hosts.
     this.socket._read = () => void 0
 
     this.socket.prependOnceListener('connectionAttempt', () => {
-      const tlsHandle = this.socket._handle
-      const tcpHandle = tlsHandle._parent
+      const handle = this.socket._handle
 
-      if (tcpHandle == null) {
-        return
-      }
-
-      tcpHandle.connect = tcpHandle.connect6 = (request) => {
-        this.emit('internal:connect', request, tcpHandle)
+      handle.connect = handle.connect6 = (request) => {
+        this.pendingConnection.resolve([request, handle])
       }
     })
 
     const realWriteGeneric = this.socket._writeGeneric
 
     this.socket._writeGeneric = (...args) => {
-      if (this.readyState === SocketController.PENDING) {
+      const emitWrite = () => {
         unwrapPendingData(args[1], (chunk, encoding) => {
           this.socket.emit('internal:write', chunk, encoding)
         })
+      }
+
+      if (this.readyState === SocketController.PENDING) {
+        emitWrite()
+        return realWriteGeneric.apply(this.socket, args)
+      }
+
+      if (this.readyState === SocketController.MOCKED) {
+        /**
+         * Handle "_writeGeneric" calls scheduled after the "connect" event.
+         * These are writes performed while connecting, and for the mocked socket
+         * they must be ignored. There's nowhere to flush them. Calling "_writeGeneric"
+         * past this point will result in "Error: write EBADF".
+         * @see https://github.com/nodejs/node/blob/main/deps/uv/src/unix/stream.c#L1304-L1305
+         */
+        if (this.socket._pendingData) {
+          return
+        }
+
+        emitWrite()
+        return
       }
 
       return realWriteGeneric.apply(this.socket, args)
@@ -244,7 +185,7 @@ export class TcpSocketController extends SocketController {
   public claim(): void {
     super.claim()
 
-    this.on('internal:connect', (request: TcpWrap, handle: TcpHandle) => {
+    this.pendingConnection.then(([request, handle]) => {
       /**
        * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
        */
@@ -261,12 +202,6 @@ export class TcpSocketController extends SocketController {
 
     this.socket.write = realSocket.write.bind(realSocket)
     this.socket.read = realSocket.read.bind(realSocket)
-
-    if (this.socket._pendingData) {
-      unwrapPendingData(this.socket._pendingData, (chunk, encoding) => {
-        realSocket.write(chunk, encoding)
-      })
-    }
 
     realSocket
       .once('connect', () => {
@@ -301,9 +236,9 @@ export class TlsSocketController extends TcpSocketController {
   }
 
   public claim(): void {
-    super.claim()
-
-    this.prependListener('internal:connect', () => {
+    // Add this callback before "super.claim()" so it executes first.
+    // TLSWrap methods have to be patched before TCPWrap fires "oncomplete".
+    this.pendingConnection.then(() => {
       /**
        * Mock this to prevent the "Error: Worker exited unexpectedly" error.
        * This will trigger when "secure" is emitted.
@@ -321,31 +256,25 @@ export class TlsSocketController extends TcpSocketController {
         this.socket._handle.onnewsession(1, Buffer.alloc(0))
       }
     })
+
+    super.claim()
   }
 
   public passthrough(): tls.TLSSocket {
-    /**
-     * @note Clear the buffered writes to prevent flushing them to the real socket.
-     * That flush is required for TCP, but TLS flushes the buffer automatically, somehow.
-     */
-    this.socket._pendingData = null
-    this.socket._pendingEncoding = null
-
     const realSocket = super.passthrough() as tls.TLSSocket
 
+    /**
+     * @note Remove the internal "connect" listener added when the mock socket was created.
+     * If preserved, that connect will prevent the mock socket from transitioning into the
+     * connected state.
+     *
+     * This prevents the following error:
+     *  #  node (vitest 4)[8686]: static void node::crypto::TLSWrap::Start(const FunctionCallbackInfo<Value> &) at ../src/crypto/crypto_tls.cc:589
+     #  Assertion failed: !wrap->started_
+     */
+    this.socket.removeListener('connect', this.socket._start)
+
     realSocket
-      .prependOnceListener('connect', () => {
-        /**
-           * @note Remove the internal "connect" listener added when the mock socket was created.
-           * If preserved, that connect will prevent the mock socket from transitioning into the
-           * connected state.
-           *
-           * This prevents the following error:
-           *  #  node (vitest 4)[8686]: static void node::crypto::TLSWrap::Start(const FunctionCallbackInfo<Value> &) at ../src/crypto/crypto_tls.cc:589
-           #  Assertion failed: !wrap->started_
-           */
-        this.socket.removeListener('connect', this.socket._start)
-      })
       .on('secure', () => {
         this.socket.emit('secure')
       })

@@ -42,7 +42,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       log('net.connect()')
       log({ connectionOptions, connectionCallback })
 
-      const socket = realNetConnect(...args)
+      const socket = new net.Socket()
       const controller = new TcpSocketController(socket, () => {
         return realNetConnect(...args)
       })
@@ -57,13 +57,8 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
         log('emitted "connection" event!')
       })
 
-      if (connectionOptions.timeout) {
-        log('set custom connection timeout:', connectionOptions.timeout)
-        socket.setTimeout(connectionOptions.timeout)
-      }
-
       log('connecting the socket...')
-      return socket
+      return socket.connect(connectionOptions, connectionCallback)
     }
 
     const realNetCreateConnection = net.createConnection
