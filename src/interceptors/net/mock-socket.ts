@@ -6,6 +6,7 @@ import { unwrapPendingData } from './utils/flush-writes'
 import { invariant } from 'outvariant'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { kRawSocket, TcpHandle, TcpWrap } from './connection-controller'
+import EventEmitter from 'node:events'
 
 const kListenerWrap = Symbol('kListenerWrap')
 
@@ -164,7 +165,7 @@ export function toServerSocket<T extends net.Socket>(socket: T): T {
   })
 }
 
-abstract class SocketController<T extends net.Socket> {
+abstract class SocketController<T extends net.Socket> extends EventEmitter {
   static PENDING = 0 as const
   static MOCKED = 1 as const
   static PASSTHROUGH = 2 as const
@@ -175,6 +176,7 @@ abstract class SocketController<T extends net.Socket> {
     | typeof SocketController.PASSTHROUGH
 
   constructor() {
+    super()
     this.readyState = SocketController.PENDING
   }
 
@@ -182,26 +184,20 @@ abstract class SocketController<T extends net.Socket> {
   public abstract passthrough(): T
 }
 
-export class MockTlsSocketController extends SocketController<tls.TLSSocket> {
-  public serverSocket: tls.TLSSocket
-  private [kRawSocket]: tls.TLSSocket
-
-  #pendingConnection: DeferredPromise<[TcpWrap, TcpHandle]>
+export class TcpSocketController extends SocketController<net.Socket> {
+  public serverSocket: net.Socket
+  private [kRawSocket]: net.Socket
 
   constructor(
-    private readonly socket: tls.TLSSocket,
-    private readonly createConnection: () => tls.TLSSocket
+    protected readonly socket: net.Socket,
+    protected readonly createConnection: () => net.Socket
   ) {
     super()
 
-    this.#pendingConnection = new DeferredPromise()
-
     // Implement the read method to prevent the "Error: read ENOTCONN" errors on non-existing hosts.
-    this.socket._read = () => {}
+    this.socket._read = () => void 0
 
     this.socket.prependOnceListener('connectionAttempt', () => {
-      console.log('>> CONNECTION ATTEMPT')
-
       const tlsHandle = this.socket._handle
       const tcpHandle = tlsHandle._parent
 
@@ -210,7 +206,8 @@ export class MockTlsSocketController extends SocketController<tls.TLSSocket> {
       }
 
       tcpHandle.connect = tcpHandle.connect6 = (request) => {
-        this.#pendingConnection.resolve([request, tcpHandle])
+        this.emit('internal:connect', request, tcpHandle)
+        // this.#pendingConnection.resolve([request, tcpHandle])
       }
     })
 
@@ -233,31 +230,12 @@ export class MockTlsSocketController extends SocketController<tls.TLSSocket> {
   public claim(): void {
     invariant(
       this.readyState !== SocketController.MOCKED,
-      'Failed to claim a TLSSocket: already claimed'
+      'Failed to claim a TLS socket: already claimed'
     )
 
     this.readyState = SocketController.MOCKED
 
-    console.log('CLAIM!')
-
-    this.#pendingConnection.then(([request, handle]) => {
-      /**
-       * Mock this to prevent the "Error: Worker exited unexpectedly" error.
-       * This will trigger when "secure" is emitted.
-       * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L1648
-       */
-      this.socket._handle.verifyError = () => void 0
-
-      this.socket._handle.start = () => {
-        /**
-         * Mock successful SSL handshake completion.
-         * This will emit "secureConnect" and "secure" on the TLS socket and trigger "tlsSocket._finishInit".
-         * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L878
-         */
-        this.socket._handle.onhandshakedone()
-        this.socket._handle.onnewsession(1, Buffer.alloc(0))
-      }
-
+    this.on('internal:connect', (request: TcpWrap, handle: TcpHandle) => {
       /**
        * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
        */
@@ -265,15 +243,13 @@ export class MockTlsSocketController extends SocketController<tls.TLSSocket> {
     })
   }
 
-  public passthrough(): tls.TLSSocket {
+  public passthrough(): net.Socket {
     invariant(
       this.readyState !== SocketController.PASSTHROUGH,
-      'Failed to passthrough a TLSSocket: already passthrough'
+      'Failed to passthrough a TLS socket: already passthrough'
     )
 
     this.readyState = SocketController.PASSTHROUGH
-
-    console.log('PASSTHROUGH!')
 
     const realSocket = this.createConnection()
 
@@ -301,6 +277,57 @@ export class MockTlsSocketController extends SocketController<tls.TLSSocket> {
         this.socket.emit('connect')
         this.socket.emit('ready')
       })
+      .on('data', (data) => {
+        if (!this.socket.push(data)) {
+          realSocket.pause()
+        }
+      })
+      .on('error', (error) => {
+        this.socket.destroy(error)
+      })
+      .on('end', () => {
+        this.socket.push(null)
+      })
+
+    return realSocket
+  }
+}
+
+export class TlsSocketController extends TcpSocketController {
+  constructor(
+    protected readonly socket: tls.TLSSocket,
+    protected readonly createConnection: () => tls.TLSSocket
+  ) {
+    super(socket, createConnection)
+  }
+
+  public claim(): void {
+    this.prependListener('internal:connect', () => {
+      /**
+       * Mock this to prevent the "Error: Worker exited unexpectedly" error.
+       * This will trigger when "secure" is emitted.
+       * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L1648
+       */
+      this.socket._handle.verifyError = () => void 0
+
+      this.socket._handle.start = () => {
+        /**
+         * Mock a successful SSL handshake.
+         * This will emit "secureConnect" and "secure" on the TLS socket and trigger "tlsSocket._finishInit".
+         * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L878
+         */
+        this.socket._handle.onhandshakedone()
+        this.socket._handle.onnewsession(1, Buffer.alloc(0))
+      }
+    })
+
+    super.claim()
+  }
+
+  public passthrough(): tls.TLSSocket {
+    const realSocket = super.passthrough() as tls.TLSSocket
+
+    realSocket
       .on('secure', () => {
         this.socket.emit('secure')
       })
@@ -313,17 +340,6 @@ export class MockTlsSocketController extends SocketController<tls.TLSSocket> {
             realSocket.write(chunk, encoding)
           })
         }
-      })
-      .on('data', (data) => {
-        if (!this.socket.push(data)) {
-          realSocket.pause()
-        }
-      })
-      .on('error', (error) => {
-        this.socket.destroy(error)
-      })
-      .on('end', () => {
-        this.socket.push(null)
       })
 
     return realSocket

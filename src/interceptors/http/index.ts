@@ -53,8 +53,6 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
           log('handling first frame...', { firstFrame, httpMethod, baseUrl })
 
-          console.log('HTTP INTERCEPTOR!', firstFrame)
-
           const requestParser = new HttpRequestParser({
             connectionOptions: {
               method: httpMethod,
@@ -183,8 +181,6 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     // This will trigger the "response" event in "ClientRequest".
     socket.push(Buffer.from(httpMessageHeaders))
 
-    console.log('pushing mocked response...', httpMessageHeaders)
-
     if (response.body) {
       try {
         const reader = response.body.getReader()
@@ -234,8 +230,6 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
       log('response stream handling done!')
     }
-
-    console.log('response stream done')
 
     if (isChunkedEncoding) {
       socket.push(Buffer.from('0\r\n\r\n'))

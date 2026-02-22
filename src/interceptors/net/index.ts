@@ -5,11 +5,7 @@ import {
   type NetworkConnectionOptions,
   normalizeNetConnectArgs,
 } from './utils/normalize-net-connect-args'
-import {
-  MockSocket,
-  MockTlsSocketController,
-  toServerSocket,
-} from './mock-socket'
+import { MockSocket, TlsSocketController, toServerSocket } from './mock-socket'
 import { ConnectionController } from './connection-controller'
 import { createLogger } from '../../utils/logger'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
@@ -17,7 +13,7 @@ import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
 interface SocketEventMap {
   connection: [
     {
-      socket: net.Socket
+      socket: net.Socket | tls.TLSSocket
       controller: ConnectionController
       connectionOptions: NetworkConnectionOptions
     },
@@ -101,7 +97,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
         secureConnectionCallback
       )
 
-      const controller = new MockTlsSocketController(tlsSocket, () => {
+      const controller = new TlsSocketController(tlsSocket, () => {
         return realTlsConnect(...args)
       })
 

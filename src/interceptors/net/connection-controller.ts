@@ -26,6 +26,7 @@ declare module 'node:net' {
       callback?: (error?: Error | null) => void
     ): void
     _handle: TcpHandle
+    _start: () => void
   }
 }
 
