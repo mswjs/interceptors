@@ -5,8 +5,11 @@ import {
   type NetworkConnectionOptions,
   normalizeNetConnectArgs,
 } from './utils/normalize-net-connect-args'
-import { MockSocket, TlsSocketController, toServerSocket } from './mock-socket'
-import { ConnectionController } from './connection-controller'
+import {
+  SocketController,
+  TcpSocketController,
+  TlsSocketController,
+} from './mock-socket'
 import { createLogger } from '../../utils/logger'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
 
@@ -14,7 +17,7 @@ interface SocketEventMap {
   connection: [
     {
       socket: net.Socket | tls.TLSSocket
-      controller: ConnectionController
+      controller: SocketController
       connectionOptions: NetworkConnectionOptions
     },
   ]
@@ -32,10 +35,6 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
   protected setup(): void {
     const realNetConnect = net.connect
 
-    /**
-     * Luckily, "net.connect()" is rather short and we can replicate it as-is.
-     * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L236
-     */
     net.connect = (...args: [any, any]) => {
       const [connectionOptions, connectionCallback] =
         normalizeNetConnectArgs(args)
@@ -43,17 +42,14 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       log('net.connect()')
       log({ connectionOptions, connectionCallback })
 
-      const socket = new MockSocket(connectionOptions)
-      const controller = new ConnectionController(
-        socket,
-        function createConnection() {
-          return realNetConnect(...args)
-        }
-      )
+      const socket = realNetConnect(...args)
+      const controller = new TcpSocketController(socket, () => {
+        return realNetConnect(...args)
+      })
 
       process.nextTick(() => {
         this.emitter.emit('connection', {
-          socket: toServerSocket(socket),
+          socket: controller.serverSocket,
           controller,
           connectionOptions,
         })
@@ -67,7 +63,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       }
 
       log('connecting the socket...')
-      return socket.connect(connectionOptions, connectionCallback)
+      return socket
     }
 
     const realNetCreateConnection = net.createConnection

@@ -1,12 +1,11 @@
 import net from 'node:net'
 import tls from 'node:tls'
+import EventEmitter from 'node:events'
+import { invariant } from 'outvariant'
 import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
 import { unwrapPendingData } from './utils/flush-writes'
-import { invariant } from 'outvariant'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { kRawSocket, TcpHandle, TcpWrap } from './connection-controller'
-import EventEmitter from 'node:events'
 
 const kListenerWrap = Symbol('kListenerWrap')
 
@@ -100,7 +99,7 @@ export class MockSocket extends net.Socket {
  * the user to interact with `socket` from the server's perspective (e.g. `socket.write()`
  * on the server translates to the `socket.push()` on the client).
  */
-export function toServerSocket<T extends net.Socket>(socket: T): T {
+function toServerSocket<T extends net.Socket>(socket: T): T {
   return new Proxy(socket, {
     get: (target, property, receiver) => {
       const getRealValue = () => {
@@ -165,7 +164,7 @@ export function toServerSocket<T extends net.Socket>(socket: T): T {
   })
 }
 
-abstract class SocketController<T extends net.Socket> extends EventEmitter {
+export abstract class SocketController extends EventEmitter {
   static PENDING = 0 as const
   static MOCKED = 1 as const
   static PASSTHROUGH = 2 as const
@@ -177,14 +176,30 @@ abstract class SocketController<T extends net.Socket> extends EventEmitter {
 
   constructor() {
     super()
+
     this.readyState = SocketController.PENDING
   }
 
-  public abstract claim(): void
-  public abstract passthrough(): T
+  public claim(): void {
+    invariant(
+      this.readyState !== SocketController.MOCKED,
+      'Failed to claim a TLS socket: already claimed'
+    )
+
+    this.readyState = SocketController.MOCKED
+  }
+
+  public passthrough() {
+    invariant(
+      this.readyState !== SocketController.PASSTHROUGH,
+      'Failed to passthrough a TLS socket: already passthrough'
+    )
+
+    this.readyState = SocketController.PASSTHROUGH
+  }
 }
 
-export class TcpSocketController extends SocketController<net.Socket> {
+export class TcpSocketController extends SocketController {
   public serverSocket: net.Socket
   private [kRawSocket]: net.Socket
 
@@ -207,7 +222,6 @@ export class TcpSocketController extends SocketController<net.Socket> {
 
       tcpHandle.connect = tcpHandle.connect6 = (request) => {
         this.emit('internal:connect', request, tcpHandle)
-        // this.#pendingConnection.resolve([request, tcpHandle])
       }
     })
 
@@ -228,12 +242,7 @@ export class TcpSocketController extends SocketController<net.Socket> {
   }
 
   public claim(): void {
-    invariant(
-      this.readyState !== SocketController.MOCKED,
-      'Failed to claim a TLS socket: already claimed'
-    )
-
-    this.readyState = SocketController.MOCKED
+    super.claim()
 
     this.on('internal:connect', (request: TcpWrap, handle: TcpHandle) => {
       /**
@@ -244,12 +253,7 @@ export class TcpSocketController extends SocketController<net.Socket> {
   }
 
   public passthrough(): net.Socket {
-    invariant(
-      this.readyState !== SocketController.PASSTHROUGH,
-      'Failed to passthrough a TLS socket: already passthrough'
-    )
-
-    this.readyState = SocketController.PASSTHROUGH
+    super.passthrough()
 
     const realSocket = this.createConnection()
 
@@ -258,20 +262,15 @@ export class TcpSocketController extends SocketController<net.Socket> {
     this.socket.write = realSocket.write.bind(realSocket)
     this.socket.read = realSocket.read.bind(realSocket)
 
+    if (this.socket._pendingData) {
+      unwrapPendingData(this.socket._pendingData, (chunk, encoding) => {
+        realSocket.write(chunk, encoding)
+      })
+    }
+
     realSocket
       .once('connect', () => {
         this.socket._handle = realSocket._handle
-
-        /**
-         * @note Remove the internal "connect" listener added when the mock socket was created.
-         * If preserved, that connect will prevent the mock socket from transitioning into the
-         * connected state.
-         *
-         * This prevents the following error:
-         *  #  node (vitest 4)[8686]: static void node::crypto::TLSWrap::Start(const FunctionCallbackInfo<Value> &) at ../src/crypto/crypto_tls.cc:589
-         #  Assertion failed: !wrap->started_
-         */
-        this.socket.removeListener('connect', this.socket._start)
 
         this.socket.connecting = false
         this.socket.emit('connect')
@@ -302,6 +301,8 @@ export class TlsSocketController extends TcpSocketController {
   }
 
   public claim(): void {
+    super.claim()
+
     this.prependListener('internal:connect', () => {
       /**
        * Mock this to prevent the "Error: Worker exited unexpectedly" error.
@@ -320,26 +321,36 @@ export class TlsSocketController extends TcpSocketController {
         this.socket._handle.onnewsession(1, Buffer.alloc(0))
       }
     })
-
-    super.claim()
   }
 
   public passthrough(): tls.TLSSocket {
+    /**
+     * @note Clear the buffered writes to prevent flushing them to the real socket.
+     * That flush is required for TCP, but TLS flushes the buffer automatically, somehow.
+     */
+    this.socket._pendingData = null
+    this.socket._pendingEncoding = null
+
     const realSocket = super.passthrough() as tls.TLSSocket
 
     realSocket
+      .prependOnceListener('connect', () => {
+        /**
+           * @note Remove the internal "connect" listener added when the mock socket was created.
+           * If preserved, that connect will prevent the mock socket from transitioning into the
+           * connected state.
+           *
+           * This prevents the following error:
+           *  #  node (vitest 4)[8686]: static void node::crypto::TLSWrap::Start(const FunctionCallbackInfo<Value> &) at ../src/crypto/crypto_tls.cc:589
+           #  Assertion failed: !wrap->started_
+           */
+        this.socket.removeListener('connect', this.socket._start)
+      })
       .on('secure', () => {
         this.socket.emit('secure')
       })
       .on('session', (...args) => {
         this.socket.emit('session', ...args)
-      })
-      .on('secureConnect', () => {
-        if (this.socket._pendingData) {
-          unwrapPendingData(this.socket._pendingData, (chunk, encoding) => {
-            realSocket.write(chunk, encoding)
-          })
-        }
       })
 
     return realSocket
