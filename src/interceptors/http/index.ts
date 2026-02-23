@@ -71,7 +71,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               })
 
               const requestController = new RequestController(request, {
-                respondWith: (response) => {
+                respondWith: async (response) => {
                   log('respondWith() %o', {
                     status: response.status,
                     statusText: response.statusText,
@@ -80,13 +80,23 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
                   socketController.claim()
 
-                  socket.once('connect', async () => {
+                  const respond = async () => {
                     await this.respondWith({
                       socket: socketController[kRawSocket],
                       request,
                       response,
                     })
-                  })
+                  }
+
+                  if (socket.connecting) {
+                    socket.once('connect', respond)
+                  } else {
+                    /**
+                     * @note Reused sockets stay connected between requests and will not
+                     * emit "connect" anymore. If that's the case, respond immediately.
+                     */
+                    await respond()
+                  }
 
                   if (
                     this.emitter.listenerCount('response') > 0 &&

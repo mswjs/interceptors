@@ -20,7 +20,11 @@ beforeAll(async () => {
 
 afterEach(() => {
   interceptor.removeAllListeners()
-  vi.restoreAllMocks()
+
+  // Free open sockets between tests to scope reusing of the sockets to each test.
+  Object.values(https.globalAgent.freeSockets).forEach((sockets) => {
+    sockets?.forEach((socket) => socket.destroy())
+  })
 })
 
 afterAll(async () => {
@@ -28,7 +32,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('allows for ClientRequest to reuse the same socket', async () => {
+it('allows reusing the same socket for mixed mocked/bypassed requests', async () => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/mock')) {
       controller.respondWith(new Response(null, { status: 301 }))
@@ -57,5 +61,53 @@ it('allows for ClientRequest to reuse the same socket', async () => {
 
     expect.soft(res.statusCode).toBe(301)
     await expect.soft(text()).resolves.toBe('')
+  }
+})
+
+it('allows reusing the same socket for multiple mocked requests', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked'))
+  })
+
+  {
+    const request = https.get(httpServer.https.url('/mock'), {
+      rejectUnauthorized: false,
+    })
+    const { res, text } = await waitForClientRequest(request)
+
+    expect.soft(res.statusCode).toBe(200)
+    await expect.soft(text()).resolves.toBe('mocked')
+  }
+
+  {
+    const request = https.get(httpServer.https.url('/mock'), {
+      rejectUnauthorized: false,
+    })
+    const { res, text } = await waitForClientRequest(request)
+
+    expect.soft(res.statusCode).toBe(200)
+    await expect.soft(text()).resolves.toBe('mocked')
+  }
+})
+
+it('allows reusing the same socket for multiple bypassed requests', async () => {
+  {
+    const request = https.get(httpServer.https.url('/get'), {
+      rejectUnauthorized: false,
+    })
+    const { res, text } = await waitForClientRequest(request)
+
+    expect.soft(res.statusCode).toBe(200)
+    await expect.soft(text()).resolves.toBe('original')
+  }
+
+  {
+    const request = https.get(httpServer.https.url('/get'), {
+      rejectUnauthorized: false,
+    })
+    const { res, text } = await waitForClientRequest(request)
+
+    expect.soft(res.statusCode).toBe(200)
+    await expect.soft(text()).resolves.toBe('original')
   }
 })

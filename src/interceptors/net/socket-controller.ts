@@ -203,26 +203,54 @@ export class TcpSocketController extends SocketController {
 
   protected pendingConnection: DeferredPromise<[TcpWrap, TcpHandle]>
 
+  #realWriteGeneric: net.Socket['_writeGeneric']
+  #passthroughSocket: net.Socket | null = null
+  #passthroughPausedBuffer: Array<Buffer> = []
+
   constructor(
     protected readonly socket: net.Socket,
     protected readonly createConnection: () => net.Socket
   ) {
     super(socket)
 
-    this.pendingConnection = new DeferredPromise()
-
     // Implement the read method to prevent the "Error: read ENOTCONN" errors on non-existing hosts.
     this.socket._read = () => void 0
 
-    this.socket.prependOnceListener('connectionAttempt', () => {
-      const handle = this.socket._handle
+    // Store the unpatched write method once so we have access to it between socket state resets.
+    this.#realWriteGeneric = this.socket._writeGeneric
 
+    /**
+     * @note A single socket can be reused for connections to the same host.
+     * When one connection ends, the Agent frees the socket, then uses it
+     * to write the next request's HTTP message immediately. Use the "free"
+     * event to transition the controller into the pending state so "_writeGeneric"
+     * would behave correctly.
+     */
+    socket.on('free', () => this.#reset())
+
+    this.serverSocket = toServerSocket(this.socket)
+
+    this.pendingConnection = new DeferredPromise()
+    this.#reset()
+  }
+
+  #reset(): void {
+    this.readyState = SocketController.PENDING
+    this.pendingConnection = new DeferredPromise()
+
+    const wrapHandle = (handle: TcpHandle) => {
       handle.connect = handle.connect6 = (request) => {
         this.pendingConnection.resolve([request, handle])
       }
-    })
+    }
 
-    const realWriteGeneric = this.socket._writeGeneric
+    if (this.socket._handle) {
+      wrapHandle(this.socket._handle)
+    } else {
+      this.socket.prependOnceListener('connectionAttempt', () => {
+        wrapHandle(this.socket._handle)
+      })
+    }
 
     this.socket._writeGeneric = (...args) => {
       const emitWrite = () => {
@@ -233,7 +261,7 @@ export class TcpSocketController extends SocketController {
 
       if (this.readyState === SocketController.PENDING) {
         emitWrite()
-        return realWriteGeneric.apply(this.socket, args)
+        return this.#realWriteGeneric.apply(this.socket, args)
       }
 
       if (this.readyState === SocketController.MOCKED) {
@@ -254,35 +282,64 @@ export class TcpSocketController extends SocketController {
         return
       }
 
-      return realWriteGeneric.apply(this.socket, args)
+      return this.#realWriteGeneric.apply(this.socket, args)
+    }
+  }
+
+  #onRealSocketConnect = () => {
+    if (!this.#passthroughSocket) {
+      return
     }
 
-    /**
-     * @note A single socket can be reused for connections to the same host.
-     * When one connection ends, the Agent frees the socket, then uses it
-     * to write the next request's HTTP message immediately. Use the "free"
-     * event to transition the controller into the pending state so "_writeGeneric"
-     * would behave correctly.
-     */
-    socket.on('free', () => {
-      this.readyState = SocketController.PENDING
-    })
+    this.socket._handle = this.#passthroughSocket._handle
 
-    this.serverSocket = toServerSocket(this.socket)
+    Reflect.set(this.socket, 'connecting', false)
+    this.socket.emit('connect')
+    this.socket.emit('ready')
+  }
+
+  #onRealSocketData = (data: Buffer) => {
+    if (this.socket.isPaused()) {
+      this.#passthroughPausedBuffer.push(data)
+      return
+    }
+
+    if (!this.socket.push(data)) {
+      this.#passthroughSocket?.pause()
+    }
+  }
+
+  #onRealSocketError = (error: Error) => {
+    this.socket.destroy(error)
+  }
+
+  #onRealSocketEnd = () => {
+    this.socket.push(null)
+  }
+
+  #onMockSocketDrain = () => {
+    this.#passthroughSocket?.resume()
   }
 
   public claim(): void {
     super.claim()
 
-    this.pendingConnection.then(([request, handle]) => {
-      /**
-       * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
-       */
-      request.oncomplete(0, handle, request, true, true)
-    })
+    if (this.socket.connecting) {
+      this.pendingConnection.then(([request, handle]) => {
+        /**
+         * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
+         */
+        request.oncomplete(0, handle, request, true, true)
+      })
+      return
+    }
   }
 
   public errorWith(reason?: Error): void {
+    if (this.socket.destroyed) {
+      return
+    }
+
     this.socket.destroy(reason)
   }
 
@@ -300,6 +357,7 @@ export class TcpSocketController extends SocketController {
      * In HTTP, this allows sending different request headers (e.g. modified in the listener).
      */
     if (typeof flushPendingData === 'function') {
+      // Intentionally grab the latest write method to preserve whatever patches it has.
       const realSocketWriteGeneric = this.socket._writeGeneric
 
       this.socket._writeGeneric = (writev, data, encoding, callback) => {
@@ -318,21 +376,29 @@ export class TcpSocketController extends SocketController {
       }
     }
 
-    const realSocket = this.createConnection()
+    // If keepalive, reuse the existing real socket.
+    const realSocket =
+      this.#passthroughSocket && !this.#passthroughSocket.destroyed
+        ? this.#passthroughSocket
+        : this.createConnection()
+
+    if (realSocket !== this.#passthroughSocket) {
+      this.#passthroughSocket = realSocket
+    }
 
     // Buffer to hold data chunks while the mock socket is paused.
     // This allows async response event listeners to complete before
     // data flows to the mock socket and triggers ClientRequest events.
-    const pausedBuffer: Array<Buffer> = []
+    this.#passthroughPausedBuffer = []
     this.socket.resume = new Proxy(this.socket.resume, {
       apply: (target, thisArg, argArray) => {
         const result = Reflect.apply(target, thisArg, argArray)
 
-        while (pausedBuffer.length > 0) {
-          const bufferedData = pausedBuffer.shift()!
+        while (this.#passthroughPausedBuffer.length > 0) {
+          const bufferedData = this.#passthroughPausedBuffer.shift()!
 
           if (!this.socket.push(bufferedData)) {
-            realSocket.pause()
+            this.#passthroughSocket?.pause()
             break
           }
         }
@@ -341,35 +407,22 @@ export class TcpSocketController extends SocketController {
       },
     })
 
-    this.socket.on('drain', () => realSocket.resume())
+    realSocket
+
+    this.socket.removeListener('drain', this.#onMockSocketDrain)
+    this.socket.on('drain', this.#onMockSocketDrain)
 
     realSocket
-      .once('connect', () => {
-        this.socket._handle = realSocket._handle
+      .removeListener('connect', this.#onRealSocketConnect)
+      .removeListener('data', this.#onRealSocketData)
+      .removeListener('error', this.#onRealSocketError)
+      .removeListener('end', this.#onRealSocketEnd)
 
-        Reflect.set(this.socket, 'connecting', false)
-        this.socket.emit('connect')
-        this.socket.emit('ready')
-      })
-      .on('data', (data) => {
-        // If the mock socket is paused, buffer the data instead of pushing it.
-        // This allows other listeners on realSocket to continue receiving data
-        // (e.g., response parsers) without being affected by backpressure.
-        if (this.socket.isPaused()) {
-          pausedBuffer.push(data)
-          return
-        }
-
-        if (!this.socket.push(data)) {
-          realSocket.pause()
-        }
-      })
-      .on('error', (error) => {
-        this.socket.destroy(error)
-      })
-      .on('end', () => {
-        this.socket.push(null)
-      })
+    realSocket
+      .once('connect', this.#onRealSocketConnect)
+      .on('data', this.#onRealSocketData)
+      .on('error', this.#onRealSocketError)
+      .on('end', this.#onRealSocketEnd)
 
     return realSocket
   }
@@ -386,24 +439,26 @@ export class TlsSocketController extends TcpSocketController {
   public claim(): void {
     // Add this callback before "super.claim()" so it executes first.
     // TLSWrap methods have to be patched before TCPWrap fires "oncomplete".
-    this.pendingConnection.then(() => {
-      /**
-       * Mock this to prevent the "Error: Worker exited unexpectedly" error.
-       * This will trigger when "secure" is emitted.
-       * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L1648
-       */
-      this.socket._handle.verifyError = () => void 0
-
-      this.socket._handle.start = () => {
+    if (this.socket.connecting) {
+      this.pendingConnection.then(() => {
         /**
-         * Mock a successful SSL handshake.
-         * This will emit "secureConnect" and "secure" on the TLS socket and trigger "tlsSocket._finishInit".
-         * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L878
+         * Mock this to prevent the "Error: Worker exited unexpectedly" error.
+         * This will trigger when "secure" is emitted.
+         * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L1648
          */
-        this.socket._handle.onhandshakedone()
-        this.socket._handle.onnewsession(1, Buffer.alloc(0))
-      }
-    })
+        this.socket._handle.verifyError = () => void 0
+
+        this.socket._handle.start = () => {
+          /**
+           * Mock a successful SSL handshake.
+           * This will emit "secureConnect" and "secure" on the TLS socket and trigger "tlsSocket._finishInit".
+           * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L878
+           */
+          this.socket._handle.onhandshakedone()
+          this.socket._handle.onnewsession(1, Buffer.alloc(0))
+        }
+      })
+    }
 
     super.claim()
   }
