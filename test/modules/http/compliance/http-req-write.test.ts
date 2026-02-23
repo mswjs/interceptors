@@ -1,12 +1,10 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { Readable } from 'node:stream'
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { sleep, waitForClientRequest } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
@@ -17,7 +15,7 @@ const httpServer = new HttpServer((app) => {
 
 const interceptedRequestBody = vi.fn()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', async ({ request }) => {
   interceptedRequestBody(await request.clone().text())
 })
@@ -28,7 +26,8 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  vi.clearAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -53,7 +52,7 @@ it('writes string request body', async () => {
   const expectedBody = 'onetwothree'
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(await text()).toEqual(expectedBody)
+  await expect(text()).resolves.toEqual(expectedBody)
 })
 
 it('writes JSON request body', async () => {
@@ -72,7 +71,7 @@ it('writes JSON request body', async () => {
   const expectedBody = `{"key":"value"}`
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(await text()).toEqual(expectedBody)
+  await expect(text()).resolves.toEqual(expectedBody)
 })
 
 it('writes Buffer request body', async () => {
@@ -91,7 +90,7 @@ it('writes Buffer request body', async () => {
   const expectedBody = `{"key":"value"}`
 
   expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(await text()).toEqual(expectedBody)
+  await expect(text()).resolves.toEqual(expectedBody)
 })
 
 it('supports Readable as the request body', async () => {
@@ -192,7 +191,7 @@ it('calls all write callbacks before the mocked response', async () => {
   const { text } = await waitForClientRequest(request)
 
   expect(requestBodyCallback).toHaveBeenCalledWith('one')
-  expect(await text()).toBe('hello world')
+  await expect(text()).resolves.toBe('hello world')
 })
 
 it('calls the write callbacks when reading request body in the interceptor', async () => {
@@ -218,7 +217,7 @@ it('calls the write callbacks when reading request body in the interceptor', asy
   // Must be able to read the request stream in the interceptor.
   expect(requestBodyCallback).toHaveBeenCalledWith('onetwothree')
   // Must send the correct request body to the server.
-  expect(await text()).toBe('onetwothree')
+  await expect(text()).resolves.toBe('onetwothree')
 })
 
 /**

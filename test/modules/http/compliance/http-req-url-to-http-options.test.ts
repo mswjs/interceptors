@@ -2,10 +2,10 @@
 import { urlToHttpOptions } from 'node:url'
 import http from 'node:http'
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { waitForClientRequest } from '../../../../test/helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()

@@ -1,9 +1,10 @@
+// @vitest-environment node
 import { it, expect, beforeAll, afterAll } from 'vitest'
-import { httpGet } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { httpGet } from '../../../helpers'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()

@@ -5,12 +5,12 @@
 import http from 'node:http'
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { DeferredPromise } from '@open-draft/deferred-promise'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { FetchResponse } from '../../../../src/utils/fetchUtils'
 import { waitForClientRequest } from '../../../helpers'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (_req, res) => {
