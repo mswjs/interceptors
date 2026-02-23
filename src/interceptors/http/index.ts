@@ -18,7 +18,6 @@ import { handleRequest } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { createLogger } from '../../utils/logger'
 import { kRawSocket } from '../net/mock-socket'
-import { isModuleNamespaceObject } from 'node:util/types'
 
 const log = createLogger('HttpRequestInterceptor')
 
@@ -85,7 +84,15 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     })
                   })
 
-                  if (this.emitter.listenerCount('response') > 0) {
+                  if (
+                    this.emitter.listenerCount('response') > 0 &&
+                    /**
+                     * @note The "response" event is designed to observe responses.
+                     * While a mocked "Response.error()" is, technically, a response,
+                     * it must not emit the "response" event as it's treated as a request error.
+                     */
+                    !isResponseError(response)
+                  ) {
                     const responseClone = response.clone()
 
                     process.nextTick(async () => {
@@ -106,7 +113,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 passthrough: () => {
                   const realSocket = connectionController.passthrough()
 
-                  if (this.emitter.listenerCount('response') > 0) {
+                  if (this.emitter.listenerCount('response')) {
                     const mockSocket = connectionController[kRawSocket]
 
                     // Pause the mock socket to prevent the passthrough 'data' listener
@@ -117,6 +124,11 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
                     const responseParser = new HttpResponseParser({
                       onResponse: async (response) => {
+                        if (isResponseError(response)) {
+                          mockSocket.resume()
+                          return
+                        }
+
                         await emitAsync(this.emitter, 'response', {
                           requestId,
                           request,

@@ -280,9 +280,6 @@ export class TcpSocketController extends SocketController {
 
     const realSocket = this.createConnection()
 
-    this.socket.write = realSocket.write.bind(realSocket)
-    this.socket.read = realSocket.read.bind(realSocket)
-
     // Buffer to hold data chunks while the mock socket is paused.
     // This allows async response event listeners to complete before
     // data flows to the mock socket and triggers ClientRequest events.
