@@ -5,7 +5,7 @@ import {
   type NetworkConnectionOptions,
   normalizeNetConnectArgs,
 } from './utils/normalize-net-connect-args'
-import { TcpSocketController, TlsSocketController } from './mock-socket'
+import { TcpSocketController, TlsSocketController } from './socket-controller'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
 import { createLogger } from '../../utils/logger'
 

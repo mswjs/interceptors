@@ -17,7 +17,7 @@ import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { createLogger } from '../../utils/logger'
-import { kRawSocket } from '../net/mock-socket'
+import { kRawSocket } from '../net/socket-controller'
 
 const log = createLogger('HttpRequestInterceptor')
 
@@ -38,7 +38,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
     socketInterceptor.on(
       'connection',
-      ({ connectionOptions, socket, controller: connectionController }) => {
+      ({ connectionOptions, socket, controller: socketController }) => {
         socket.once('data', (chunk) => {
           const httpMessage = chunk.toString()
           const httpMethod = httpMessage.split(' ')[0]
@@ -78,11 +78,11 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     hasBody: response.body != null,
                   })
 
-                  connectionController.claim()
+                  socketController.claim()
 
                   socket.once('connect', async () => {
                     await this.respondWith({
-                      socket: connectionController[kRawSocket],
+                      socket: socketController[kRawSocket],
                       request,
                       response,
                     })
@@ -111,14 +111,14 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 },
                 errorWith: (reason) => {
                   if (reason instanceof Error) {
-                    connectionController.errorWith(reason)
+                    socketController.errorWith(reason)
                   }
                 },
                 passthrough: () => {
-                  const realSocket = connectionController.passthrough()
+                  const realSocket = socketController.passthrough()
 
                   if (this.emitter.listenerCount('response')) {
-                    const mockSocket = connectionController[kRawSocket]
+                    const mockSocket = socketController[kRawSocket]
 
                     // Pause the mock socket to prevent the passthrough 'data' listener
                     // from pushing data to it. The passthrough checks isPaused() and skips
