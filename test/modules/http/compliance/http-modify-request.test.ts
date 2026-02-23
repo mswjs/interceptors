@@ -7,15 +7,21 @@ import { waitForClientRequest } from '../../../helpers'
 
 const server = new HttpServer((app) => {
   app.use('/user', (req, res) => {
-    res.set('x-appended-header', req.headers['x-appended-header']).end()
+    const header = req.headers['x-appended-header']
+
+    if (header) {
+      res.set('x-appended-header', header)
+    }
+
+    res.end()
   })
 })
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
-  await server.listen()
   interceptor.apply()
+  await server.listen()
 })
 
 afterEach(() => {
@@ -23,11 +29,11 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  await server.close()
   interceptor.dispose()
+  await server.close()
 })
 
-it('allows modifying the outgoing request headers', async () => {
+it('allows modifying the outgoing headers for a request without a body', async () => {
   interceptor.on('request', ({ request }) => {
     request.headers.set('x-appended-header', 'modified')
   })
@@ -38,7 +44,21 @@ it('allows modifying the outgoing request headers', async () => {
   expect(res.headers['x-appended-header']).toBe('modified')
 })
 
-it('allows modifying the outgoing request headers in a request with body', async () => {
+it('allows modifying the outgoing headers for a request with a body', async () => {
+  interceptor.on('request', ({ request }) => {
+    request.headers.set('x-appended-header', 'modified')
+  })
+
+  const request = http.request(server.http.url('/user'))
+  request.write('hello')
+  request.end(' world')
+
+  const { res } = await waitForClientRequest(request)
+
+  expect(res.headers['x-appended-header']).toBe('modified')
+})
+
+it('allows modifying the outgoing request headers in a request with a body', async () => {
   interceptor.on('request', ({ request }) => {
     request.headers.set('x-appended-header', 'modified')
   })

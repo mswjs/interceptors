@@ -22,7 +22,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it.skip('supports custom delay before responding with a mock', async () => {
+it('supports custom delay before responding with a mock', async () => {
   interceptor.once('request', async ({ controller }) => {
     await sleep(750)
     controller.respondWith(new Response('mocked response'))

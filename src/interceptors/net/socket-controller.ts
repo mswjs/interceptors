@@ -30,10 +30,10 @@ declare module 'node:net' {
           callback?: (error?: Error | null) => void
         }>
       | null
-    _pendingEncoding: BufferEncoding | null
+    _pendingEncoding: BufferEncoding | ''
     _writeGeneric(
       writev: boolean,
-      data: any,
+      data: NonNullable<net.Socket['_pendingData']>,
       encoding: BufferEncoding,
       callback?: (error?: Error | null) => void
     ): void
@@ -246,7 +246,7 @@ export class TcpSocketController extends SocketController {
          */
         if (this.socket._pendingData) {
           this.socket._pendingData = null
-          this.socket._pendingEncoding = null
+          this.socket._pendingEncoding = ''
           return
         }
 
@@ -286,8 +286,37 @@ export class TcpSocketController extends SocketController {
     this.socket.destroy(reason)
   }
 
-  public passthrough(): net.Socket {
+  public passthrough(
+    flushPendingData?: (
+      data: NonNullable<net.Socket['_pendingData']>,
+      encoding: BufferEncoding | undefined,
+      callback: (data: NonNullable<net.Socket['_pendingData']>) => void
+    ) => void
+  ): net.Socket {
     super.passthrough()
+
+    /**
+     * @note Modify the pending data to be flushed to the passthrough socket.
+     * In HTTP, this allows sending different request headers (e.g. modified in the listener).
+     */
+    if (typeof flushPendingData === 'function') {
+      const realSocketWriteGeneric = this.socket._writeGeneric
+
+      this.socket._writeGeneric = (writev, data, encoding, callback) => {
+        /**
+         * @note The scheduled write on "connect" will set "_pendingData" to null.
+         * @see https://github.com/nodejs/node/blob/6b5178f77b5d1f5d2adef8a1a092febe171cab80/lib/net.js#L1011
+         */
+        if (this.socket._pendingData) {
+          flushPendingData(data, encoding, (nextData) => {
+            realSocketWriteGeneric(writev, nextData, encoding, callback)
+          })
+          return
+        }
+
+        realSocketWriteGeneric(writev, data, encoding, callback)
+      }
+    }
 
     const realSocket = this.createConnection()
 

@@ -115,7 +115,41 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   }
                 },
                 passthrough: () => {
-                  const realSocket = socketController.passthrough()
+                  const transformRequestMessage = (
+                    httpMessage: string | Buffer,
+                    encoding?: BufferEncoding
+                  ): string => {
+                    const rawHeaders = getRawFetchHeaders(request.headers)
+                    const nextHeaders = rawHeaders
+                      .map(([name, value]) => `${name}: ${value}`)
+                      .join('\r\n')
+
+                    const parts = httpMessage.toString(encoding).split('\r\n')
+                    parts.splice(1, parts.indexOf('') - 1, nextHeaders)
+
+                    return parts.join('\r\n')
+                  }
+
+                  const realSocket = socketController.passthrough(
+                    /**
+                     * @todo Would be great NOT to run this if request headers weren't modified.
+                     */
+                    (pendingData, encoding, callback) => {
+                      if (Array.isArray(pendingData)) {
+                        pendingData[0].chunk = transformRequestMessage(
+                          pendingData[0].chunk,
+                          pendingData[0].encoding
+                        )
+                      } else {
+                        pendingData = transformRequestMessage(
+                          pendingData,
+                          encoding
+                        )
+                      }
+
+                      callback(pendingData)
+                    }
+                  )
 
                   if (this.emitter.listenerCount('response')) {
                     const mockSocket = socketController[kRawSocket]
