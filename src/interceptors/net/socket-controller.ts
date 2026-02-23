@@ -417,8 +417,6 @@ export class TcpSocketController extends SocketController {
       },
     })
 
-    realSocket
-
     this.socket.removeListener('drain', this.#onMockSocketDrain)
     this.socket.on('drain', this.#onMockSocketDrain)
 
@@ -449,26 +447,21 @@ export class TlsSocketController extends TcpSocketController {
   public claim(): void {
     // Add this callback before "super.claim()" so it executes first.
     // TLSWrap methods have to be patched before TCPWrap fires "oncomplete".
-    if (this.socket.connecting) {
-      this.pendingConnection.then(() => {
-        /**
-         * Mock this to prevent the "Error: Worker exited unexpectedly" error.
-         * This will trigger when "secure" is emitted.
-         * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L1648
-         */
-        this.socket._handle.verifyError = () => void 0
+    const handle = this.socket._handle
 
-        this.socket._handle.start = () => {
-          /**
-           * Mock a successful SSL handshake.
-           * This will emit "secureConnect" and "secure" on the TLS socket and trigger "tlsSocket._finishInit".
-           * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L878
-           */
-          this.socket._handle.onhandshakedone()
-          this.socket._handle.onnewsession(1, Buffer.alloc(0))
-        }
-      })
-    }
+    handle.start = () => void 0
+
+    /**
+     * Mock this to prevent the "Error: Worker exited unexpectedly" error.
+     * This will trigger when "secure" is emitted.
+     * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L1648
+     */
+    handle.verifyError = () => void 0
+
+    this.socket.once('connect', () => {
+      handle.onhandshakedone()
+      handle.onnewsession(1, Buffer.alloc(0))
+    })
 
     super.claim()
   }

@@ -64,15 +64,16 @@ it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
   const connectListener = vi.fn<(input: string) => void>()
   const request = https.get(httpServer.https.url('/'))
   request.on('socket', (socket) => {
-    socket.on('connect', () => connectListener('connect'))
-    socket.on('secureConnect', () => connectListener('secureConnect'))
+    socket
+      .on('connect', () => connectListener('connect'))
+      .on('secureConnect', () => connectListener('secureConnect'))
   })
 
   await waitForClientRequest(request)
 
-  expect(connectListener).toHaveBeenNthCalledWith(1, 'connect')
-  expect(connectListener).toHaveBeenNthCalledWith(2, 'secureConnect')
-  expect(connectListener).toHaveBeenCalledTimes(2)
+  expect.soft(connectListener).toHaveBeenNthCalledWith(1, 'connect')
+  expect.soft(connectListener).toHaveBeenNthCalledWith(2, 'secureConnect')
+  expect.soft(connectListener).toHaveBeenCalledTimes(2)
 })
 
 it('emits the "secureConnect" event for a bypassed HTTPS request', async () => {
@@ -81,13 +82,14 @@ it('emits the "secureConnect" event for a bypassed HTTPS request', async () => {
     rejectUnauthorized: false,
   })
   request.on('socket', (socket) => {
-    socket.on('connect', () => connectListener('connect'))
-    socket.on('secureConnect', () => connectListener('secureConnect'))
+    socket
+      .on('connect', () => connectListener('connect'))
+      .on('secureConnect', () => connectListener('secureConnect'))
   })
 
   await waitForClientRequest(request)
 
-  expect(connectListener).toHaveBeenNthCalledWith(1, 'connect')
-  expect(connectListener).toHaveBeenNthCalledWith(2, 'secureConnect')
-  expect(connectListener).toHaveBeenCalledTimes(2)
+  expect.soft(connectListener).toHaveBeenNthCalledWith(1, 'connect')
+  expect.soft(connectListener).toHaveBeenNthCalledWith(2, 'secureConnect')
+  expect.soft(connectListener).toHaveBeenCalledTimes(2)
 })
