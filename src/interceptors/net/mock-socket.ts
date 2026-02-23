@@ -318,7 +318,7 @@ export class TcpSocketController extends SocketController {
       .once('connect', () => {
         this.socket._handle = realSocket._handle
 
-        this.socket.connecting = false
+        Reflect.set(this.socket, 'connecting', false)
         this.socket.emit('connect')
         this.socket.emit('ready')
       })
