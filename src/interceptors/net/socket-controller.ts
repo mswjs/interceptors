@@ -226,7 +226,12 @@ export class TcpSocketController extends SocketController {
      * event to transition the controller into the pending state so "_writeGeneric"
      * would behave correctly.
      */
-    socket.on('free', () => this.#reset())
+    socket
+      .on('free', () => this.#reset())
+      .on('close', () => {
+        this.#passthroughSocket = null
+        this.#passthroughPausedBuffer = []
+      })
 
     this.serverSocket = toServerSocket(this.socket)
 
@@ -341,15 +346,10 @@ export class TcpSocketController extends SocketController {
          */
         request.oncomplete(0, handle, request, true, true)
       })
-      return
     }
   }
 
   public errorWith(reason?: Error): void {
-    if (this.socket.destroyed) {
-      return
-    }
-
     this.socket.destroy(reason)
   }
 
