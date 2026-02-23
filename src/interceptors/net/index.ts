@@ -5,19 +5,15 @@ import {
   type NetworkConnectionOptions,
   normalizeNetConnectArgs,
 } from './utils/normalize-net-connect-args'
-import {
-  SocketController,
-  TcpSocketController,
-  TlsSocketController,
-} from './mock-socket'
-import { createLogger } from '../../utils/logger'
+import { TcpSocketController, TlsSocketController } from './mock-socket'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
+import { createLogger } from '../../utils/logger'
 
 interface SocketEventMap {
   connection: [
     {
       socket: net.Socket | tls.TLSSocket
-      controller: SocketController
+      controller: TcpSocketController | TlsSocketController
       connectionOptions: NetworkConnectionOptions
     },
   ]
@@ -82,6 +78,8 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
            * Node.js skips DNS resolution when the host is an IP address, going directly to
            * "internalConnect()" which emits "connectionAttempt".
            * @see https://github.com/nodejs/node/blob/5babc8d5c91914ce0fb708e647c144570c671c50/lib/net.js
+           *
+           * @todo This will produce invalid "lookup" event on the socket, failing compliance.
            */
           host: '127.0.0.1',
           /**

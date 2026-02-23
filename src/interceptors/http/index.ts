@@ -17,7 +17,8 @@ import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { createLogger } from '../../utils/logger'
-import { kRawSocket } from '../net/connection-controller'
+import { kRawSocket } from '../net/mock-socket'
+import { isModuleNamespaceObject } from 'node:util/types'
 
 const log = createLogger('HttpRequestInterceptor')
 
@@ -83,6 +84,19 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                       response,
                     })
                   })
+
+                  if (this.emitter.listenerCount('response') > 0) {
+                    const responseClone = response.clone()
+
+                    process.nextTick(async () => {
+                      await emitAsync(this.emitter, 'response', {
+                        requestId,
+                        request,
+                        response: responseClone,
+                        isMockedResponse: true,
+                      })
+                    })
+                  }
                 },
                 errorWith: (reason) => {
                   if (reason instanceof Error) {
@@ -93,6 +107,14 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   const realSocket = connectionController.passthrough()
 
                   if (this.emitter.listenerCount('response') > 0) {
+                    const mockSocket = connectionController[kRawSocket]
+
+                    // Pause the mock socket to prevent the passthrough 'data' listener
+                    // from pushing data to it. The passthrough checks isPaused() and skips
+                    // pushing when paused, allowing realSocket to continue emitting data
+                    // for our response parser without backpressure issues.
+                    mockSocket.pause()
+
                     const responseParser = new HttpResponseParser({
                       onResponse: async (response) => {
                         await emitAsync(this.emitter, 'response', {
@@ -101,6 +123,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                           response,
                           isMockedResponse: false,
                         })
+
+                        mockSocket.resume()
                       },
                     })
 

@@ -5,14 +5,89 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
 import { unwrapPendingData } from './utils/flush-writes'
-import { kRawSocket, TcpHandle, TcpWrap } from './connection-controller'
 
 const kListenerWrap = Symbol('kListenerWrap')
+
+export const kRawSocket = Symbol('kRawSocket')
 
 export const kMockState = Symbol('kMockState')
 export const kTlsSocket = Symbol('kTlsSocket')
 
 const log = createLogger('MockSocket')
+
+// Internally, Node.js represents the result of various operations
+// by the number they return: 0 (error), 1 (success).
+type OperationStatus = 0 | 1
+
+declare module 'node:net' {
+  interface Socket {
+    _pendingData:
+      | string
+      | Buffer
+      | Array<{
+          chunk: string | Buffer
+          encoding?: BufferEncoding
+          callback?: (error?: Error | null) => void
+        }>
+      | null
+    _pendingEncoding: BufferEncoding | null
+    _writeGeneric(
+      writev: boolean,
+      data: any,
+      encoding: BufferEncoding,
+      callback?: (error?: Error | null) => void
+    ): void
+    _handle: TcpHandle
+    _start: () => void
+  }
+}
+
+declare module 'node:tls' {
+  interface TLSSocket {
+    _handle: TcpHandle & {
+      start: () => void
+      onhandshakedone: () => void
+      onnewsession: (sessionId: unknown, session: Buffer) => void
+      verifyError: () => void
+    }
+  }
+}
+
+export interface TcpHandle {
+  open: (fd: unknown) => OperationStatus
+  connect: (request: TcpWrap, address: string, port: number) => void
+  connect6: (request: TcpWrap, address: string, port: number) => void
+  listen: (backlog: number) => OperationStatus
+  onconnection?: () => void
+  getpeername?: () => OperationStatus
+  getsockname?: () => OperationStatus
+  reading: boolean
+  onread: () => void
+  readStart: () => void
+  readStop: () => void
+  bytesRead: number
+  bytesWritten: number
+  ref?: () => void
+  unref?: () => void
+  fchmod: (mode: number) => void
+  setBlocking: (blocking: boolean) => OperationStatus
+  setNoDelay?: (noDelay: boolean) => void
+  setKeepAlive?: (keepAlive: boolean, initialDelay: number) => void
+  shutdown: (reqest: unknown /* ShutdownWrap */) => OperationStatus
+  close: () => void
+
+  _parent?: TcpHandle
+}
+
+export interface TcpWrap {
+  oncomplete: (
+    status: OperationStatus,
+    owner: TcpHandle,
+    request: TcpWrap,
+    readable?: boolean,
+    writable?: boolean
+  ) => void
+}
 
 /**
  * Create a proxy `net.Socket` instance that represents the intercepted socket server-side.
@@ -95,7 +170,10 @@ export abstract class SocketController {
     | typeof SocketController.MOCKED
     | typeof SocketController.PASSTHROUGH
 
-  constructor() {
+  private [kRawSocket]: net.Socket
+
+  constructor(socket: net.Socket) {
+    this[kRawSocket] = socket
     this.readyState = SocketController.PENDING
   }
 
@@ -108,7 +186,9 @@ export abstract class SocketController {
     this.readyState = SocketController.MOCKED
   }
 
-  public passthrough() {
+  public abstract errorWith(reason?: Error): void
+
+  public passthrough(): void {
     invariant(
       this.readyState !== SocketController.PASSTHROUGH,
       'Failed to passthrough a TLS socket: already passthrough'
@@ -120,7 +200,6 @@ export abstract class SocketController {
 
 export class TcpSocketController extends SocketController {
   public serverSocket: net.Socket
-  private [kRawSocket]: net.Socket
 
   protected pendingConnection: DeferredPromise<[TcpWrap, TcpHandle]>
 
@@ -128,7 +207,7 @@ export class TcpSocketController extends SocketController {
     protected readonly socket: net.Socket,
     protected readonly createConnection: () => net.Socket
   ) {
-    super()
+    super(socket)
 
     this.pendingConnection = new DeferredPromise()
 
@@ -178,7 +257,6 @@ export class TcpSocketController extends SocketController {
       return realWriteGeneric.apply(this.socket, args)
     }
 
-    this[kRawSocket] = socket
     this.serverSocket = toServerSocket(this.socket)
   }
 
@@ -193,15 +271,40 @@ export class TcpSocketController extends SocketController {
     })
   }
 
+  public errorWith(reason?: Error): void {
+    this.socket.destroy(reason)
+  }
+
   public passthrough(): net.Socket {
     super.passthrough()
 
     const realSocket = this.createConnection()
 
-    this.socket.on('drain', () => realSocket.resume())
-
     this.socket.write = realSocket.write.bind(realSocket)
     this.socket.read = realSocket.read.bind(realSocket)
+
+    // Buffer to hold data chunks while the mock socket is paused.
+    // This allows async response event listeners to complete before
+    // data flows to the mock socket and triggers ClientRequest events.
+    const pausedBuffer: Array<Buffer> = []
+    this.socket.resume = new Proxy(this.socket.resume, {
+      apply: (target, thisArg, argArray) => {
+        const result = Reflect.apply(target, thisArg, argArray)
+
+        while (pausedBuffer.length > 0) {
+          const bufferedData = pausedBuffer.shift()!
+
+          if (!this.socket.push(bufferedData)) {
+            realSocket.pause()
+            break
+          }
+        }
+
+        return result
+      },
+    })
+
+    this.socket.on('drain', () => realSocket.resume())
 
     realSocket
       .once('connect', () => {
@@ -212,6 +315,14 @@ export class TcpSocketController extends SocketController {
         this.socket.emit('ready')
       })
       .on('data', (data) => {
+        // If the mock socket is paused, buffer the data instead of pushing it.
+        // This allows other listeners on realSocket to continue receiving data
+        // (e.g., response parsers) without being affected by backpressure.
+        if (this.socket.isPaused()) {
+          pausedBuffer.push(data)
+          return
+        }
+
         if (!this.socket.push(data)) {
           realSocket.pause()
         }
