@@ -145,14 +145,10 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
 
       // Push data to the client socket when server "socket.write()" is called.
       if (property === 'write') {
-        return (
-          chunk: any,
-          encoding: BufferEncoding,
-          callback: (error?: Error | null) => void
-        ) => {
+        return ((chunk, encoding, callback) => {
           socket.push(toBuffer(chunk, encoding), encoding)
-          callback()
-        }
+          callback?.()
+        }) as net.Socket['write']
       }
 
       return getRealValue()
