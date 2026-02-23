@@ -257,6 +257,17 @@ export class TcpSocketController extends SocketController {
       return realWriteGeneric.apply(this.socket, args)
     }
 
+    /**
+     * @note A single socket can be reused for connections to the same host.
+     * When one connection ends, the Agent frees the socket, then uses it
+     * to write the next request's HTTP message immediately. Use the "free"
+     * event to transition the controller into the pending state so "_writeGeneric"
+     * would behave correctly.
+     */
+    socket.on('free', () => {
+      this.readyState = SocketController.PENDING
+    })
+
     this.serverSocket = toServerSocket(this.socket)
   }
 

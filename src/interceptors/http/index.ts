@@ -40,8 +40,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       'connection',
       ({ connectionOptions, socket, controller: connectionController }) => {
         socket.once('data', (chunk) => {
-          const firstFrame = chunk.toString()
-          const httpMethod = firstFrame.split(' ')[0]
+          const httpMessage = chunk.toString()
+          const httpMethod = httpMessage.split(' ')[0]
 
           invariant(
             httpMethod != null,
@@ -51,7 +51,11 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const baseUrl = connectionOptionsToUrl(connectionOptions)
 
-          log('handling first frame...', { firstFrame, httpMethod, baseUrl })
+          log('handling http message...', {
+            httpMessage,
+            httpMethod,
+            baseUrl,
+          })
 
           const requestParser = new HttpRequestParser({
             connectionOptions: {

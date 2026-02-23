@@ -15,9 +15,8 @@ const httpServer = new HttpServer((app) => {
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
-  await httpServer.listen()
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
@@ -50,12 +49,12 @@ it('intercepts an HTTP ClientRequest request with request options', async () => 
   req.end()
 
   const { text } = await waitForClientRequest(req)
-  expect(requestListener).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(url.toString())
+  expect(request.url).toBe(url.href)
   expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
@@ -80,12 +79,12 @@ it('intercepts an HTTP ClientRequest request with URL string', async () => {
   req.end()
 
   const { text } = await waitForClientRequest(req)
-  expect(requestListener).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(url.toString())
+  expect(request.url).toBe(url)
   expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
@@ -110,12 +109,12 @@ it('intercepts an HTTP ClientRequest request with URL instance', async () => {
   req.end()
 
   const { text } = await waitForClientRequest(req)
-  expect(requestListener).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(url.toString())
+  expect(request.url).toBe(url.href)
   expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
@@ -143,12 +142,12 @@ it('intercepts an HTTPS ClientRequest request with URL string', async () => {
   req.end()
 
   const { text } = await waitForClientRequest(req)
-  expect(requestListener).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(url.toString())
+  expect(request.url).toBe(url)
   expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
@@ -176,12 +175,12 @@ it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
   req.end()
 
   const { text } = await waitForClientRequest(req)
-  expect(requestListener).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(url.toString())
+  expect(request.url).toBe(url.href)
   expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
@@ -214,12 +213,12 @@ it('intercepts an HTTPS ClientRequest request with request options', async () =>
   req.end()
 
   const { text } = await waitForClientRequest(req)
-  expect(requestListener).toHaveBeenCalledTimes(1)
+  expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(url.toString())
+  expect(request.url).toBe(url.href)
   expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
