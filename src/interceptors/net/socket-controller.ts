@@ -253,14 +253,8 @@ export class TcpSocketController extends SocketController {
     }
 
     this.socket._writeGeneric = (...args) => {
-      const emitWrite = () => {
-        unwrapPendingData(args[1], (chunk, encoding) => {
-          this.socket.emit('internal:write', chunk, encoding)
-        })
-      }
-
       if (this.readyState === SocketController.PENDING) {
-        emitWrite()
+        this.#push(args[1])
         return this.#realWriteGeneric.apply(this.socket, args)
       }
 
@@ -278,12 +272,28 @@ export class TcpSocketController extends SocketController {
           return
         }
 
-        emitWrite()
+        this.#push(args[1])
         return
       }
 
       return this.#realWriteGeneric.apply(this.socket, args)
     }
+  }
+
+  /**
+   * Push the given data to the server socket.
+   * This has no effect on the public-facing socket and is used
+   * only for the interceptors to subscribe to "socket.on('data')"
+   * before the data is actually written anywhere.
+   */
+  #push = (data: net.Socket['_pendingData']) => {
+    if (data == null) {
+      return
+    }
+
+    unwrapPendingData(data, (chunk, encoding) => {
+      this.socket.emit('internal:write', chunk, encoding)
+    })
   }
 
   #onRealSocketConnect = () => {
