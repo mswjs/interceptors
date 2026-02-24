@@ -210,7 +210,7 @@ export class TcpSocketController extends SocketController {
     super(socket)
 
     // Implement the read method to prevent the "Error: read ENOTCONN" errors on non-existing hosts.
-    this.socket._read = () => void 0
+    this.socket._read = () => {}
 
     // Store the unpatched write method once so we have access to it between socket state resets.
     this.#realWriteGeneric = this.socket._writeGeneric
@@ -256,24 +256,47 @@ export class TcpSocketController extends SocketController {
     this.socket._writeGeneric = (...args) => {
       if (this.readyState === SocketController.PENDING) {
         this.#push(args[1])
+
+        /**
+         * @note Execute the write callbacks while the socket is still pending.
+         * This prevents the socket from getting stuck when calling ".end()" in a write callback.
+         */
+        if (typeof args[3] === 'function') {
+          args[3]()
+
+          /**
+           * @note Replace the original write callback with an empty function.
+           * This prevents the "TypeError: cb is not a function" error on "Socket.onClose".
+           */
+          args[3] = () => {}
+        }
+
         return this.#realWriteGeneric.apply(this.socket, args)
       }
 
+      /**
+       * Handle "_writeGeneric" calls scheduled after the "connect" event.
+       * These are writes performed while connecting, and for the mocked socket
+       * they must be ignored. There's nowhere to flush them. Calling "_writeGeneric"
+       * past this point will result in "Error: write EBADF".
+       * @see https://github.com/nodejs/node/blob/main/deps/uv/src/unix/stream.c#L1304-L1305
+       */
       if (this.readyState === SocketController.MOCKED) {
-        /**
-         * Handle "_writeGeneric" calls scheduled after the "connect" event.
-         * These are writes performed while connecting, and for the mocked socket
-         * they must be ignored. There's nowhere to flush them. Calling "_writeGeneric"
-         * past this point will result in "Error: write EBADF".
-         * @see https://github.com/nodejs/node/blob/main/deps/uv/src/unix/stream.c#L1304-L1305
-         */
+        const callback = args[3]
+
+        // Mock connection still means the socket emits the "connect" event
+        // and tries to flush any buffered writes to the server. Since there's
+        // nowhere to flush them, skip writing and only invoke the callback
+        // that will reset pending data/encoding.
         if (this.socket._pendingData) {
-          this.socket._pendingData = null
-          this.socket._pendingEncoding = ''
+          // this.socket._pendingData = null
+          // this.socket._pendingEncoding = ''
+          callback?.()
           return
         }
 
         this.#push(args[1])
+        callback?.()
         return
       }
 

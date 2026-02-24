@@ -130,7 +130,7 @@ export class HttpRequestParser extends HttpParser<typeof HttpParser.REQUEST> {
            * @note Provide the `read()` method so a `Readable` could be
            * used as the actual request body (the stream calls "read()").
            */
-          read() {},
+          read: () => {},
         })
 
         const request = new Request(url, {
@@ -155,6 +155,7 @@ export class HttpRequestParser extends HttpParser<typeof HttpParser.REQUEST> {
         this.#requestBodyStream.push(chunk)
       },
       onMessageComplete: () => {
+        this.#rawHeadersBuffer.length = 0
         this.#requestBodyStream?.push(null)
       },
     })

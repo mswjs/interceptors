@@ -77,18 +77,6 @@ export async function handleRequest(
     return false
   }
 
-  // Add the last "request" listener to check if the request
-  // has been handled in any way. If it hasn't, resolve the
-  // response promise with undefined.
-  // options.emitter.once('request', async ({ requestId: pendingRequestId }) => {
-  //   if (
-  //     pendingRequestId === options.requestId &&
-  //     options.controller.readyState === RequestController.PENDING
-  //   ) {
-  //     await options.controller.passthrough()
-  //   }
-  // })
-
   const requestAbortPromise = new DeferredPromise<void, unknown>()
 
   /**

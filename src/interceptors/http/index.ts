@@ -1,5 +1,6 @@
 import net from 'node:net'
 import { Readable } from 'node:stream'
+import { STATUS_CODES, ServerResponse, IncomingMessage } from 'node:http'
 import type { ReadableStream } from 'node:stream/web'
 import { pipeline } from 'node:stream/promises'
 import { invariant } from 'outvariant'
@@ -246,9 +247,6 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       request.method,
       request.url
     )
-
-    const { STATUS_CODES, ServerResponse, IncomingMessage } =
-      await import('node:http')
 
     /**
      * Use native server response handling in Node.js.
