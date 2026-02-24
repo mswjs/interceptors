@@ -1,0 +1,55 @@
+# General
+
+## Reusing sockets
+
+By default, `Agent` will try to reuse any sockets that were not explicitly closed via `Connection: close` request header. Here's what happens when a socket gets reused:
+
+1. `free` is emitted on the socket to notify that it's done with the previous request.
+2. `connect` is _not_ emitted on this socket anymore since the connection has already been established. No connection attempt will be made whatsoever (`socket._handle.connect` won't be called).
+3. The next request's HTTP message is written into the socket.
+
+## `CONNECT` requests
+
+While forbidden by the Fetch API specification, `CONNECT` requests are possible in Node.js. Here's what's special about connect requests:
+
+- Are sent to the _running_ server (`options.host` + `options.port)` to notify it about the intent to connect somewhere esle.
+- Do _not_ actually establish any connections. Instead, the server handles the same socket instance to establish that connection.
+- Never recieve the response (`response` is never emitted.)
+
+```ts
+const client = http.request({
+  // Actual server handling the "CONNECT" request.
+  host: '127.0.0.1',
+  port: 1337,
+  // The (proxy) authority in a "host:port" format.
+  path: 'www.example.com:80'
+})
+
+client.on('connect', (request, socket) => {
+  // Use "socket" to write to the authority...
+})
+```
+
+# HTTPS/TLS
+
+### `TLSWrap`
+
+Regular `net.Socket` connections finalize in the `afterConnect` callback [attached](https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/net.js#L1142) to the `TCPWrap` request. A TLS sockets\, while extending `net.Socket` and still relying on `afterConnect` being called to transition the socket into the connected state, _do not_ rely on `_handle.oncomplete`. **It is never called**. 
+
+A TLS socket wraps `net.Socket._handle` in a `TLSWrap`, which becomes responsible for the connection. It calls the `afterConnect` callback _internally_, in the C++ code, and there's no public method to trigger it.
+
+> TLS wrap has its own methods, like `onhandshakedone` and `verifyError`.
+
+### Connection event sequence
+
+> For brevity: "wrap" means the TCP socket TLS extends, "socket" means the TLS socket.
+
+1. `tls.connect()`.
+2. `new TLSSocket(options.socket)`.
+3. `TLSSocket.prototype._wrapHandle` (wraps TCPWrap in TLSWrap).
+4. Calls `socket._handle.start()` (or schedules it until wrap emits "connect").
+5. Wrap emits "connect".
+6. Socket emits "connect".
+7. Socket validates the connection (handshake, certificate validation).
+7. Socket emits "secureConnect".
+7. Socket emits "secure".
