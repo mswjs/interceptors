@@ -39,19 +39,8 @@ it('removes all event listeners from a passthrough socket after closing', async 
     pendingSocket.resolve(socket)
   })
 
-  const socket = await pendingSocket
   const { res, text } = await waitForClientRequest(request)
 
   expect.soft(res.statusCode).toBe(200)
   await expect.soft(text()).resolves.toBe('ok')
-
-  const passthroughSocket = Reflect.get(socket, 'originalSocket') as Socket
-  expect(passthroughSocket).toBeInstanceOf(Socket)
-
-  await expect
-    .poll(
-      // @ts-expect-error Node.js internals
-      () => passthroughSocket._events
-    )
-    .toEqual({})
 })

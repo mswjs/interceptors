@@ -382,11 +382,21 @@ export class TcpSocketController extends SocketController {
       }
     }
 
+    const createNewSocket = () => {
+      const realSocket = this.createConnection()
+
+      if (this.socket.timeout != null) {
+        realSocket.setTimeout(this.socket.timeout)
+      }
+
+      return realSocket
+    }
+
     // If keepalive, reuse the existing real socket.
     const realSocket =
       this.#passthroughSocket && !this.#passthroughSocket.destroyed
         ? this.#passthroughSocket
-        : this.createConnection()
+        : createNewSocket()
 
     if (realSocket !== this.#passthroughSocket) {
       this.#passthroughSocket = realSocket

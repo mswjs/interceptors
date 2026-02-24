@@ -1,4 +1,7 @@
 import net from 'node:net'
+import { Readable } from 'node:stream'
+import type { ReadableStream } from 'node:stream/web'
+import { pipeline } from 'node:stream/promises'
 import { invariant } from 'outvariant'
 import { Interceptor } from '../../Interceptor'
 import { type HttpRequestEventMap } from '../../glossary'
@@ -18,6 +21,7 @@ import { handleRequest } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { createLogger } from '../../utils/logger'
 import { kRawSocket } from '../net/socket-controller'
+import { unwrapPendingData } from '../net/utils/flush-writes'
 
 const log = createLogger('HttpRequestInterceptor')
 
@@ -225,7 +229,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     request: Request
     response: Response
   }): Promise<void> {
-    const { socket, response } = args
+    const { socket, request, response } = args
 
     if (socket.destroyed) {
       return
@@ -238,90 +242,62 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
     invariant(
       !socket.connecting,
-      'Failed to mock a response: socket has not connected'
+      'Failed to mock a response for "%s %s": socket has not connected',
+      request.method,
+      request.url
     )
 
-    const { STATUS_CODES } = await import('node:http')
-
-    const statusText =
-      response.statusText || STATUS_CODES[response.status] || ''
-    const statusLine = `HTTP/1.1 ${response.status} ${statusText}\r\n`
-
-    const rawResponseHeaders = getRawFetchHeaders(response.headers)
-    const isChunkedEncoding =
-      response.headers.get('transfer-encoding') === 'chunked'
-
-    let headersString = ''
-    for (const [name, value] of rawResponseHeaders) {
-      headersString += `${name}: ${value}\r\n`
-    }
-
-    headersString += '\r\n'
-
-    const httpMessageHeaders = statusLine + headersString
-    log('writing http response message headers...\n', httpMessageHeaders)
-
-    // Flush the mocked response headers.
-    // This will trigger the "response" event in "ClientRequest".
-    socket.push(Buffer.from(httpMessageHeaders))
-
-    if (response.body) {
-      try {
-        const reader = response.body.getReader()
-
-        while (true) {
-          const { done, value } = await reader.read()
-
-          if (done) {
-            break
-          }
-
-          /**
-           * Validate that the chunk is a valid type before pushing to the socket.
-           * If it's not a Buffer, string, or TypedArray, socket.push() will emit
-           * an async error event that bypasses our try/catch. We need to catch
-           * this case and handle it synchronously.
-           */
-          if (
-            value != null &&
-            typeof value !== 'string' &&
-            !Buffer.isBuffer(value) &&
-            !(value instanceof Uint8Array) &&
-            !ArrayBuffer.isView(value)
-          ) {
-            throw new Error('Invalid chunk type')
-          }
-
-          if (isChunkedEncoding) {
-            const chunkSize = value.byteLength.toString(16)
-            socket.push(Buffer.from(`${chunkSize}\r\n`))
-            socket.push(value)
-            socket.push(Buffer.from('\r\n'))
-          } else {
-            socket.push(value)
-          }
-        }
-      } catch (error) {
-        if (error instanceof Error) {
-          /**
-           * Destroy the socket if the response stream errored.
-           * @see https://github.com/mswjs/interceptors/issues/738
-           */
-          socket.destroy()
-          return
-        }
-      }
-
-      log('response stream handling done!')
-    }
-
-    if (isChunkedEncoding) {
-      socket.push(Buffer.from('0\r\n\r\n'))
-    }
+    const { STATUS_CODES, ServerResponse, IncomingMessage } =
+      await import('node:http')
 
     /**
-     * @todo Keep-Alive requests shouldn't end the stream here.
+     * Use native server response handling in Node.js.
+     * @see https://github.com/nodejs/node/blob/13eb80f3b718452213e0fc449702aefbbfe4110f/lib/_http_server.js#L202
      */
+    const serverResponse = new ServerResponse(new IncomingMessage(socket))
+
+    const responseSocket = new net.Socket()
+
+    responseSocket._writeGeneric = (writev, data, encoding, callback) => {
+      unwrapPendingData(data, (chunk, encoding) => {
+        socket.push(toBuffer(chunk), encoding)
+      })
+      callback?.()
+    }
+
+    responseSocket._destroy = () => {
+      /**
+       * Destroy the socket if the response stream errored.
+       * @see https://github.com/mswjs/interceptors/issues/738
+       *
+       * Response errors destroy the socket gracefully (no error).
+       * Instead, the "error" event is emitted with a more detailed error.
+       * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/_http_client.js#L586
+       */
+      socket.destroy()
+    }
+
+    serverResponse.assignSocket(responseSocket)
+
+    serverResponse.removeHeader('connection')
+    serverResponse.removeHeader('date')
+
+    const rawResponseHeaders = getRawFetchHeaders(response.headers)
+    serverResponse.writeHead(
+      response.status,
+      response.statusText || STATUS_CODES[response.status],
+      rawResponseHeaders
+    )
+
+    if (response.body) {
+      await pipeline(
+        Readable.fromWeb(response.body as ReadableStream),
+        serverResponse
+      )
+    } else {
+      serverResponse.end()
+    }
+
     socket.push(null)
   }
 }

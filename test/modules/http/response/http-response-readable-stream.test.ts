@@ -1,12 +1,12 @@
 // @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { performance } from 'node:perf_hooks'
 import http from 'node:http'
 import { Readable } from 'node:stream'
+import { performance } from 'node:perf_hooks'
 import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { sleep, waitForClientRequest } from '../../../helpers'
+import { waitForClientRequest } from '../../../helpers'
 
 type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 
@@ -19,7 +19,7 @@ const httpServer = new HttpServer((app) => {
       },
     })
 
-    res.writeHead(200).flushHeaders()
+    res.writeHead(200)
     Readable.fromWeb(stream as any)
       .on('error', (error) => res.destroy(error))
       .pipe(res)
@@ -34,7 +34,7 @@ const httpServer = new HttpServer((app) => {
       },
     })
 
-    res.writeHead(200).flushHeaders()
+    res.writeHead(200)
     Readable.fromWeb(stream as any)
       .on('error', (error) => res.destroy(error))
       .pipe(res)
@@ -49,7 +49,7 @@ const httpServer = new HttpServer((app) => {
       },
     })
 
-    res.writeHead(200).flushHeaders()
+    res.writeHead(200)
     Readable.fromWeb(stream as any)
       .on('error', (error) => res.destroy(error))
       .pipe(res)
@@ -97,13 +97,13 @@ it('supports delays between the mock response stream chunks', async () => {
     const stream = new ReadableStream({
       async start(controller) {
         controller.enqueue(encoder.encode('first'))
-        await sleep(150)
+        await setTimeout(150)
 
         controller.enqueue(encoder.encode('second'))
-        await sleep(150)
+        await setTimeout(150)
 
         controller.enqueue(encoder.encode('third'))
-        await sleep(150)
+        await setTimeout(150)
 
         controller.close()
       },
@@ -153,7 +153,7 @@ it('supports delays between the mock response stream chunks', async () => {
   expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(140)
 })
 
-it('handles immediate mock response stream errors as request errors', async () => {
+it('handles immediate mock response stream errors as response errors', async () => {
   const streamError = new Error('stream error')
 
   interceptor.on('request', ({ controller }) => {
@@ -188,28 +188,34 @@ it('handles immediate mock response stream errors as request errors', async () =
     response.on('data', responseDataListener).on('error', responseErrorListener)
   })
 
+  /**
+   * @note Response stream errors are handled differently in Node.js
+   * depending on whether the response headers were flushed by the server.
+   * Normally, Node.js buffers the message headers until (1) response ends;
+   * (2) the first response chunk is sent. We maintain that default behavior
+   * for performance considerations. Whether headers are flushed has no effect
+   * on the client, that's an implementation detail.
+   */
   await expect
-    .poll(() => responseErrorListener)
+    .poll(() => requestErrorListener)
     .toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ code: 'ECONNRESET' })
+      expect.objectContaining({
+        code: 'ECONNRESET',
+        message: 'socket hang up',
+      })
     )
-  expect.soft(responseDataListener).not.toHaveBeenCalled()
-
   expect.soft(request.destroyed).toBe(true)
-  expect.soft(requestResponseListener).toHaveBeenCalledExactlyOnceWith(
-    expect.objectContaining({
-      statusCode: 200,
-      statusMessage: 'OK',
-    })
-  )
-  expect.soft(requestErrorListener).not.toHaveBeenCalled()
+  expect.soft(requestResponseListener).not.toHaveBeenCalled()
   expect.soft(requestCloseListener).toHaveBeenCalledOnce()
+
+  expect.soft(responseDataListener).not.toHaveBeenCalled()
+  expect.soft(responseErrorListener).not.toHaveBeenCalled()
 
   expect.soft(socketErrorListener).not.toHaveBeenCalled()
   expect.soft(socketCloseListener).toHaveBeenCalledExactlyOnceWith(false)
 })
 
-it('handles immediate bypassed response stream errors as response errors', async () => {
+it('handles immediate bypassed response stream errors as request errors', async () => {
   const request = http.get(httpServer.http.url('/stream/immediate-error'))
 
   const socketErrorListener = vi.fn()
@@ -233,32 +239,25 @@ it('handles immediate bypassed response stream errors as response errors', async
   })
 
   await expect
-    .poll(() => responseErrorListener)
+    .poll(() => requestErrorListener)
     .toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ code: 'ECONNRESET' })
+      expect.objectContaining({
+        code: 'ECONNRESET',
+        message: 'socket hang up',
+      })
     )
-  expect.soft(responseDataListener).not.toHaveBeenCalled()
-
   expect.soft(request.destroyed).toBe(true)
-  expect.soft(requestResponseListener).toHaveBeenCalledExactlyOnceWith(
-    expect.objectContaining({
-      statusCode: 200,
-      statusMessage: 'OK',
-    })
-  )
-  expect.soft(requestErrorListener).not.toHaveBeenCalled()
+  expect.soft(requestResponseListener).not.toHaveBeenCalled()
   expect.soft(requestCloseListener).toHaveBeenCalledOnce()
+
+  expect.soft(responseDataListener).not.toHaveBeenCalled()
+  expect.soft(responseErrorListener).not.toHaveBeenCalled()
 
   expect.soft(socketErrorListener).not.toHaveBeenCalled()
   expect.soft(socketCloseListener).toHaveBeenCalledExactlyOnceWith(false)
 })
 
-//
-//
-//
-//
-
-it('handles delayed mock response stream errors as request errors', async () => {
+it('handles delayed mock response stream errors as response errors', async () => {
   const streamError = new Error('stream error')
 
   interceptor.on('request', ({ controller }) => {
@@ -368,7 +367,7 @@ it('handles delayed bypassed response stream errors as response errors', async (
   expect.soft(socketCloseListener).toHaveBeenCalledExactlyOnceWith(false)
 })
 
-it('treats unhandled exceptions during bypass response stream as request errors', async () => {
+it('treats unhandled exceptions during bypass response stream as response errors', async () => {
   const request = http.get(httpServer.http.url('/stream/exception'))
 
   const requestErrorListener = vi.fn()
@@ -400,7 +399,7 @@ it('treats unhandled exceptions during bypass response stream as request errors'
   )
 })
 
-it('treats unhandled exceptions during mock response stream as request errors', async () => {
+it('treats unhandled exceptions during mock response stream as response errors', async () => {
   interceptor.on('request', ({ controller }) => {
     const stream = new ReadableStream({
       start(controller) {
@@ -427,8 +426,6 @@ it('treats unhandled exceptions during mock response stream as request errors', 
     })
     .on('error', requestErrorListener)
     .on('close', requestCloseListener)
-
-  request.on('error', (error) => console.trace(error))
 
   await expect.poll(() => requestCloseListener).toHaveBeenCalledOnce()
   expect.soft(request.destroyed).toBe(true)
