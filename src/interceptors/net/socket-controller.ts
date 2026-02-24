@@ -50,6 +50,9 @@ declare module 'node:tls' {
       start: () => void
       onhandshakedone: () => void
       onnewsession: (sessionId: unknown, session: Buffer) => void
+      getSession: () => Buffer
+      getServername: () => string
+      getCipher: () => { name: string; standardName: string; version: string }
       verifyError: () => void
     }
   }
@@ -496,7 +499,7 @@ export class TlsSocketController extends TcpSocketController {
   }
 
   public claim(): void {
-    // Add this callback before "super.claim()" so it executes first.
+    // Run this logic before "super.claim()" so it executes first.
     // TLSWrap methods have to be patched before TCPWrap fires "oncomplete".
     const handle = this.socket._handle
 
@@ -508,6 +511,18 @@ export class TlsSocketController extends TcpSocketController {
      * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L1648
      */
     handle.verifyError = () => void 0
+
+    handle.getSession = () => {
+      return Buffer.from('mocked session')
+    }
+
+    handle.getCipher = () => {
+      return {
+        name: 'TLS_AES_256_GCM_SHA384',
+        standardName: 'TLS_AES_256_GCM_SHA384',
+        version: 'TLSv1.3',
+      }
+    }
 
     this.socket.once('connect', () => {
       handle.onhandshakedone()

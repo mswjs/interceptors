@@ -1,24 +1,29 @@
-/**
- * @vitest-environment node
- */
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+// @vitest-environment node
+import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'node:https'
-import type { TLSSocket } from 'node:tls'
+import { TLSSocket } from 'node:tls'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
 
-beforeAll(() => {
+const httpServer = new HttpServer((app) => {
+  app.get('/', (req, res) => res.status(200).end())
+})
+
+beforeAll(async () => {
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(() => {
+afterAll(async () => {
   interceptor.dispose()
+  await httpServer.close()
 })
 
 it('emits a correct TLS Socket instance for a handled HTTPS request', async () => {
@@ -32,40 +37,48 @@ it('emits a correct TLS Socket instance for a handled HTTPS request', async () =
 
   const socket = await socketPromise
 
-  // Must be a TLS socket.
+  expect(socket).toBeInstanceOf(TLSSocket)
   expect(socket.encrypted).toBe(true)
   // The server certificate wasn't signed by one of the CA
   // specified in the Socket constructor.
   expect(socket.authorized).toBe(false)
 
-  expect(socket.getSession()).toBeUndefined()
+  expect(socket.getSession()).toBeInstanceOf(Buffer)
   expect(socket.getProtocol()).toBe('TLSv1.3')
   expect(socket.isSessionReused()).toBe(false)
   expect(socket.getCipher()).toEqual({
-    name: 'AES256-SHA',
-    standardName: 'TLS_RSA_WITH_AES_256_CBC_SHA',
+    name: 'TLS_AES_256_GCM_SHA384',
+    standardName: 'TLS_AES_256_GCM_SHA384',
     version: 'TLSv1.3',
   })
 })
 
 it('emits a correct TLS Socket instance for a bypassed HTTPS request', async () => {
-  const request = https.get('https://example.com')
+  const request = https.get(httpServer.https.url('/'), {
+    rejectUnauthorized: false,
+  })
   const socketPromise = new DeferredPromise<TLSSocket>()
-  request.on('socket', socketPromise.resolve)
+  const secureConnectListener = vi.fn()
+
+  request.on('socket', (socket) => {
+    socketPromise.resolve(socket as TLSSocket)
+    socket.on('secureConnect', secureConnectListener)
+  })
 
   const socket = await socketPromise
+  await expect.poll(() => secureConnectListener).toHaveBeenCalledOnce()
 
-  // Must be a TLS socket.
+  expect(socket).toBeInstanceOf(TLSSocket)
   expect(socket.encrypted).toBe(true)
   // The server certificate wasn't signed by one of the CA
   // specified in the Socket constructor.
   expect(socket.authorized).toBe(false)
 
-  expect(socket.getSession()).toBeUndefined()
+  expect(socket.getSession()).toBeInstanceOf(Buffer)
   expect(socket.getProtocol()).toBe('TLSv1.3')
   expect(socket.getCipher()).toEqual({
-    name: 'AES256-SHA',
-    standardName: 'TLS_RSA_WITH_AES_256_CBC_SHA',
+    name: 'TLS_AES_256_GCM_SHA384',
+    standardName: 'TLS_AES_256_GCM_SHA384',
     version: 'TLSv1.3',
   })
 })
