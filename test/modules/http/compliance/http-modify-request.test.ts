@@ -41,21 +41,10 @@ it('allows modifying the outgoing headers for a request without a body', async (
   const request = http.get(server.http.url('/user'))
   const { res } = await waitForClientRequest(request)
 
-  expect(res.headers['x-appended-header']).toBe('modified')
-})
-
-it('allows modifying the outgoing headers for a request with a body', async () => {
-  interceptor.on('request', ({ request }) => {
-    request.headers.set('x-appended-header', 'modified')
+  expect(res.headers).toMatchObject({
+    connection: 'keep-alive',
+    'x-appended-header': 'modified',
   })
-
-  const request = http.request(server.http.url('/user'))
-  request.write('hello')
-  request.end(' world')
-
-  const { res } = await waitForClientRequest(request)
-
-  expect(res.headers['x-appended-header']).toBe('modified')
 })
 
 it('allows modifying the outgoing request headers in a request with a body', async () => {

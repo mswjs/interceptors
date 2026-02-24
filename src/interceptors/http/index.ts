@@ -23,6 +23,7 @@ import { isResponseError } from '../../utils/responseUtils'
 import { createLogger } from '../../utils/logger'
 import { kRawSocket } from '../net/socket-controller'
 import { unwrapPendingData } from '../net/utils/flush-writes'
+import { FetchResponse } from '../../utils/fetchUtils'
 
 const log = createLogger('HttpRequestInterceptor')
 
@@ -134,13 +135,36 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     httpMessage: string | Buffer,
                     encoding?: BufferEncoding
                   ): string => {
+                    const parts = httpMessage.toString(encoding).split('\r\n')
+                    const headersEndIndex = parts.findIndex(
+                      (field) => field === ''
+                    )
+                    const httpMessageHeaderPairs = parts.slice(
+                      1,
+                      headersEndIndex
+                    )
+                    const httpMessageHeaders = FetchResponse.parseRawHeaders(
+                      httpMessageHeaderPairs.flatMap((header) =>
+                        header.split(': ')
+                      )
+                    )
+
                     const rawHeaders = getRawFetchHeaders(request.headers)
-                    const nextHeaders = rawHeaders
+
+                    for (const [name, value] of rawHeaders) {
+                      httpMessageHeaders.set(name, value)
+                    }
+
+                    const httpMessageHeadersString = Array.from(
+                      httpMessageHeaders
+                    )
                       .map(([name, value]) => `${name}: ${value}`)
                       .join('\r\n')
-
-                    const parts = httpMessage.toString(encoding).split('\r\n')
-                    parts.splice(1, parts.indexOf('') - 1, nextHeaders)
+                    parts.splice(
+                      1,
+                      headersEndIndex - 1,
+                      httpMessageHeadersString
+                    )
 
                     return parts.join('\r\n')
                   }

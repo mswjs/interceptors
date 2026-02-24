@@ -7,7 +7,7 @@ import {
 import net from 'node:net'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
-import { FetchResponse } from '../../utils/fetchUtils'
+import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
 
 type HttpParserKind = typeof HTTPParser.REQUEST | typeof HTTPParser.RESPONSE
 
@@ -124,7 +124,6 @@ export class HttpRequestParser extends HttpParser<typeof HttpParser.REQUEST> {
           url.password = ''
         }
 
-        const canHaveBody = method !== 'HEAD' && method !== 'GET'
         this.#requestBodyStream = new Readable({
           /**
            * @note Provide the `read()` method so a `Readable` could be
@@ -133,15 +132,11 @@ export class HttpRequestParser extends HttpParser<typeof HttpParser.REQUEST> {
           read: () => {},
         })
 
-        const request = new Request(url, {
+        const request = new FetchRequest(url, {
           method,
           headers,
           credentials: 'same-origin',
-          // @ts-expect-error Undocumented Fetch property.
-          duplex: canHaveBody ? 'half' : undefined,
-          body: canHaveBody
-            ? (Readable.toWeb(this.#requestBodyStream) as any)
-            : null,
+          body: Readable.toWeb(this.#requestBodyStream) as any,
         })
 
         options.onRequest(request)
