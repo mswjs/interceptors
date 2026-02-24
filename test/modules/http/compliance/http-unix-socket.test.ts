@@ -3,13 +3,13 @@
  * @see https://github.com/mswjs/interceptors/pull/722
  */
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from 'vitest'
+import fs from 'node:fs'
 import path from 'node:path'
 import http from 'node:http'
 import { promisify } from 'node:util'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { waitForClientRequest } from '../../../helpers'
 
-// const HTTP_SOCKET_PATH = mockFs.resolve('./test.sock')
 const HTTP_SOCKET_PATH = path.join(__dirname, './test-http.sock')
 
 const httpServer = http.createServer((req, res) => {
@@ -25,6 +25,10 @@ const httpServer = http.createServer((req, res) => {
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
+  if (fs.existsSync(HTTP_SOCKET_PATH)) {
+    await fs.promises.rm(HTTP_SOCKET_PATH)
+  }
+
   await new Promise<void>((resolve) => {
     httpServer.listen(HTTP_SOCKET_PATH, resolve)
   })
@@ -39,6 +43,10 @@ afterEach(() => {
 afterAll(async () => {
   interceptor.dispose()
   await promisify(httpServer.close.bind(httpServer))()
+
+  if (fs.existsSync(HTTP_SOCKET_PATH)) {
+    await fs.promises.rm(HTTP_SOCKET_PATH)
+  }
 })
 
 it('supports passthrough HTTP GET requests over a unix socket', async () => {
