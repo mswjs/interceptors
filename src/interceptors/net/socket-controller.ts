@@ -5,6 +5,8 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
 import { unwrapPendingData } from './utils/flush-writes'
+import { NetworkConnectionOptions } from './utils/normalize-net-connect-args'
+import { getAddressInfoByConnectionOptions } from './utils/address-info'
 
 const kListenerWrap = Symbol('kListenerWrap')
 
@@ -199,6 +201,7 @@ export class TcpSocketController extends SocketController {
 
   protected pendingConnection: DeferredPromise<[TcpWrap, TcpHandle]>
 
+  #connectionOptions?: NetworkConnectionOptions
   #realWriteGeneric: net.Socket['_writeGeneric']
   #passthroughSocket: net.Socket | null = null
   #passthroughPausedBuffer: Array<Buffer> = []
@@ -214,6 +217,13 @@ export class TcpSocketController extends SocketController {
 
     // Store the unpatched write method once so we have access to it between socket state resets.
     this.#realWriteGeneric = this.socket._writeGeneric
+
+    this.socket.connect = new Proxy(this.socket.connect, {
+      apply: (target, thisArg, argArray) => {
+        this.#connectionOptions = argArray[0]
+        return Reflect.apply(target, thisArg, argArray)
+      },
+    })
 
     /**
      * @note A single socket can be reused for connections to the same host.
@@ -359,6 +369,16 @@ export class TcpSocketController extends SocketController {
     super.claim()
 
     if (this.socket.connecting) {
+      /**
+       * Patch the "getsockname" on the handle in case Node.js decides to handle its errors.
+       * Run this if the socket is connecting because "_handle" can be null if socket timed out.
+       * @see https://github.com/nodejs/node/blob/13eb80f3b718452213e0fc449702aefbbfe4110f/lib/net.js#L971
+       */
+      this.socket._handle.getsockname = () => 0
+      this.socket.address = () => {
+        return getAddressInfoByConnectionOptions(this.#connectionOptions)
+      }
+
       this.pendingConnection.then(([request, handle]) => {
         /**
          * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
@@ -445,6 +465,8 @@ export class TcpSocketController extends SocketController {
         return result
       },
     })
+
+    this.socket.address = realSocket.address.bind(realSocket)
 
     this.socket.removeListener('drain', this.#onMockSocketDrain)
     this.socket.on('drain', this.#onMockSocketDrain)

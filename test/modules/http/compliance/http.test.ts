@@ -166,42 +166,46 @@ it('mocks response to a non-existing host', async () => {
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
-it('returns socket address for a mocked request', async () => {
+it('returns socket address for a mocked IPv4 request', async () => {
   interceptor.on('request', async ({ controller }) => {
     controller.respondWith(new Response())
   })
 
   const addressPromise = new DeferredPromise<object>()
-  const request = http.get('http://example.com')
-  request.once('socket', (socket) => {
-    socket.once('connect', () => {
+  const request = http.get('http://any.localhost/path')
+  request.on('socket', (socket) => {
+    socket.on('connect', () => {
       addressPromise.resolve(socket.address())
     })
   })
 
   await expect(addressPromise).resolves.toEqual({
     address: '127.0.0.1',
-    family: 'IPv4',
+    family: 'ipv4',
     port: 80,
   })
 })
 
-it('returns socket address for a mocked request with family: 6', async () => {
+it('returns socket address for a mocked IPv6 request', async () => {
   interceptor.on('request', async ({ controller }) => {
     controller.respondWith(new Response())
   })
 
   const addressPromise = new DeferredPromise<object>()
-  const request = http.get('http://example.com', { family: 6 })
-  request.once('socket', (socket) => {
-    socket.once('connect', () => {
+  const request = http.get({
+    hostname: '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
+    port: 80,
+    path: '/',
+  })
+  request.on('socket', (socket) => {
+    socket.on('connect', () => {
       addressPromise.resolve(socket.address())
     })
   })
 
   await expect(addressPromise).resolves.toEqual({
     address: '::1',
-    family: 'IPv6',
+    family: 'ipv6',
     port: 80,
   })
 })
@@ -213,15 +217,15 @@ it('returns socket address for a mocked request with IPv6 hostname', async () =>
 
   const addressPromise = new DeferredPromise<object>()
   const request = http.get('http://[::1]')
-  request.once('socket', (socket) => {
-    socket.once('connect', () => {
+  request.on('socket', (socket) => {
+    socket.on('connect', () => {
       addressPromise.resolve(socket.address())
     })
   })
 
   await expect(addressPromise).resolves.toEqual({
     address: '::1',
-    family: 'IPv6',
+    family: 'ipv6',
     port: 80,
   })
 })
@@ -229,8 +233,9 @@ it('returns socket address for a mocked request with IPv6 hostname', async () =>
 it('returns socket address for a bypassed request', async () => {
   const addressPromise = new DeferredPromise<object>()
   const request = http.get(httpServer.http.url('/user'))
-  request.once('socket', (socket) => {
-    socket.once('connect', () => {
+
+  request.on('socket', (socket) => {
+    socket.on('connect', () => {
       addressPromise.resolve(socket.address())
     })
   })
