@@ -7,7 +7,7 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap } from '../../../src'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
-import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../src/interceptors/http'
 import { FetchInterceptor } from '../../../src/interceptors/fetch'
 import {
   useCors,
@@ -40,7 +40,7 @@ const httpServer = new HttpServer((app) => {
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',
   interceptors: [
-    new ClientRequestInterceptor(),
+    new HttpRequestInterceptor(),
     new XMLHttpRequestInterceptor(),
     new FetchInterceptor(),
   ],

@@ -5,11 +5,11 @@ import { io } from 'socket.io-client'
 import { Server } from 'socket.io'
 import { BatchInterceptor } from '../../../../src'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 
 const interceptor = new BatchInterceptor({
   name: 'test-interceptor',
-  interceptors: [new ClientRequestInterceptor(), new WebSocketInterceptor()],
+  interceptors: [new HttpRequestInterceptor(), new WebSocketInterceptor()],
 })
 
 const wss = new Server()

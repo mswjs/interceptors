@@ -2,7 +2,7 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import fetch from 'node-fetch'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../src/interceptors/http'
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
@@ -15,7 +15,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 interceptor.on('request', function testListener({ request, controller }) {
   if ([httpServer.http.url(), httpServer.https.url()].includes(request.url)) {
@@ -89,7 +89,7 @@ it('bypasses any request when the interceptor is restored', async () => {
 })
 
 it('does not throw an error if there are multiple interceptors', async () => {
-  const secondInterceptor = new ClientRequestInterceptor()
+  const secondInterceptor = new HttpRequestInterceptor()
   secondInterceptor.apply()
 
   const response = await fetch(httpServer.http.url('/get'))

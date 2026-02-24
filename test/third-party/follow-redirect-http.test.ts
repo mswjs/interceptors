@@ -2,10 +2,10 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { https } from 'follow-redirects'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../src/interceptors/http'
 import { waitForClientRequest } from '../helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 const server = new HttpServer((app) => {
   app.post('/resource', (req, res) => {

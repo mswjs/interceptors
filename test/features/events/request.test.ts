@@ -9,7 +9,7 @@ import {
   REQUEST_ID_REGEXP,
   waitForClientRequest,
 } from '../../helpers'
-import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../../src/interceptors/http'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
 import { RequestController } from '../../../src/RequestController'
@@ -26,10 +26,7 @@ const requestListener =
 
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',
-  interceptors: [
-    new ClientRequestInterceptor(),
-    new XMLHttpRequestInterceptor(),
-  ],
+  interceptors: [new HttpRequestInterceptor(), new XMLHttpRequestInterceptor()],
 })
 interceptor.on('request', requestListener)
 

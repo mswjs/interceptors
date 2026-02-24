@@ -3,7 +3,7 @@ import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
+import { HttpRequestInterceptor } from '../../src/interceptors/http'
 import { useCors } from '../helpers'
 
 function createMockResponse() {
@@ -37,7 +37,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   await httpServer.listen()
