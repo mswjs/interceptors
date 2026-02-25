@@ -65,19 +65,19 @@ interceptor.on('request', ({ request, controller }) => {
 beforeAll(async () => {
   // Allow XHR requests to the local HTTPS server with a self-signed certificate.
   window._resourceLoader._strictSSL = false
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
-  await httpServer.listen()
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
   interceptor.removeAllListeners('response')
-  vi.resetAllMocks()
+  vi.clearAllMocks()
 })
 
 afterAll(async () => {
   interceptor.dispose()
+  vi.restoreAllMocks()
   await httpServer.close()
 })
 
@@ -130,6 +130,7 @@ it('ClientRequest: emits the "response" event upon the original response', async
     headers: {
       'x-request-custom': 'yes',
     },
+    rejectUnauthorized: false,
   })
   req.write('request-body')
   req.end()
@@ -191,10 +192,17 @@ it('XMLHttpRequest: emits the "response" event upon a mocked response', async ()
   expect(originalRequest.responseText).toEqual('mocked-response-text')
 })
 
-it('XMLHttpRequest: emits the "response" event upon the original response', async () => {
+it.only('XMLHttpRequest: emits the "response" event upon the original response', async () => {
   const responseListener =
     vi.fn<(...args: HttpRequestEventMap['response']) => void>()
   interceptor.on('response', responseListener)
+
+  interceptor.on('request', ({ request }) => {
+    console.trace('->', request.method, request.url)
+  })
+  interceptor.on('response', ({ response }) => {
+    console.log('RESPONSE', response.status)
+  })
 
   const originalRequest = await createXMLHttpRequest((req) => {
     req.open('POST', httpServer.https.url('/account'))

@@ -14,6 +14,7 @@ import { isNodeLikeError } from './isNodeLikeError'
 import { isObject } from './isObject'
 
 interface HandleRequestOptions {
+  initiator: unknown
   requestId: string
   request: Request
   emitter: Emitter<HttpRequestEventMap>
@@ -103,6 +104,7 @@ export async function handleRequest(
     // By the end of this promise, the developer cannot affect the
     // request anymore.
     const requestListenersPromise = emitAsync(options.emitter, 'request', {
+      initiator: options.initiator,
       requestId: options.requestId,
       request: options.request,
       controller: options.controller,

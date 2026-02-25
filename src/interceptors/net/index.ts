@@ -54,6 +54,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       })
 
       log('connecting the socket...')
+
       return socket.connect(connectionOptions, connectionCallback)
     }
 

@@ -24,11 +24,12 @@ import { createLogger } from '../../utils/logger'
 import { kRawSocket } from '../net/socket-controller'
 import { unwrapPendingData } from '../net/utils/flush-writes'
 import { FetchResponse } from '../../utils/fetchUtils'
+import { requestContext } from '../../request-context'
 
 const log = createLogger('HttpRequestInterceptor')
 
 export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static symbol = Symbol('client-request-interceptor')
+  static symbol = Symbol('http-request-interceptor')
 
   constructor() {
     super(HttpRequestInterceptor.symbol)
@@ -62,6 +63,11 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
             httpMethod,
             baseUrl,
           })
+
+          // Get the request initiator from the async context, if any.
+          // Use the underlying socket as a fallback.
+          const parentInitiator = requestContext.getStore()?.initiator
+          const initiator = parentInitiator || socket
 
           const requestParser = new HttpRequestParser({
             connectionOptions: {
@@ -119,6 +125,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
                     process.nextTick(async () => {
                       await emitAsync(this.emitter, 'response', {
+                        initiator,
                         requestId,
                         request,
                         response: responseClone,
@@ -211,6 +218,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                         FetchResponse.setUrl(request.url, response)
 
                         await emitAsync(this.emitter, 'response', {
+                          initiator,
                           requestId,
                           request,
                           response,
@@ -229,6 +237,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               })
 
               await handleRequest({
+                initiator,
                 request,
                 requestId,
                 controller: requestController,

@@ -13,18 +13,20 @@ export type RequestCredentials = 'omit' | 'include' | 'same-origin'
 export type HttpRequestEventMap = {
   request: [
     args: {
+      initiator: unknown
       request: Request
       requestId: string
       controller: RequestController
-    }
+    },
   ]
   response: [
     args: {
+      initiator: unknown
       response: Response
       isMockedResponse: boolean
       request: Request
       requestId: string
-    }
+    },
   ]
   unhandledException: [
     args: {
@@ -32,6 +34,6 @@ export type HttpRequestEventMap = {
       request: Request
       requestId: string
       controller: RequestController
-    }
+    },
   ]
 }
