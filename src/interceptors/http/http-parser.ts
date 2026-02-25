@@ -1,4 +1,5 @@
 import {
+  methods as HTTP_METHODS,
   HTTPParser,
   type HeadersCallback,
   type RequestHeadersCompleteCallback,
@@ -97,14 +98,29 @@ export class HttpRequestParser extends HttpParser<typeof HttpParser.REQUEST> {
         _,
         __,
         rawHeaders = [],
-        ___,
+        rawMethod,
         path,
         ____,
         _____,
         ______,
         shouldKeepAlive
       ) => {
-        const method = options.connectionOptions.method?.toUpperCase() || 'GET'
+        /**
+         * @note When the socket is reused, "connectionOptions" will point
+         * to the "net.connect()" call options that established the connection,
+         * which may differ from the description of the current request (e.g. method).
+         * Rely on the HTTPParser supplying us with the correct "rawMethod" number.
+         */
+        const resolvedMethod =
+          (typeof rawMethod === 'string'
+            ? rawMethod
+            : typeof rawMethod === 'number'
+              ? HTTP_METHODS[rawMethod]
+              : options.connectionOptions.method) ||
+          options.connectionOptions.method ||
+          'GET'
+        const finalMethod = resolvedMethod.toUpperCase()
+
         const url = new URL(path || '', options.connectionOptions.url)
         const headers = FetchResponse.parseRawHeaders([
           ...this.#rawHeadersBuffer,
@@ -133,7 +149,7 @@ export class HttpRequestParser extends HttpParser<typeof HttpParser.REQUEST> {
         })
 
         const request = new FetchRequest(url, {
-          method,
+          method: finalMethod,
           headers,
           credentials: 'same-origin',
           body: Readable.toWeb(this.#requestBodyStream) as any,

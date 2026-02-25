@@ -1,6 +1,8 @@
 import type { Socket } from 'node:net'
 import type { IncomingMessage, OutgoingMessage } from 'node:http'
 
+declare var methods: Array<string>
+
 declare var HTTPParser: {
   new (): HTTPParser<number>
   REQUEST: 0
