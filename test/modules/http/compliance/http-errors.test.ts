@@ -3,7 +3,7 @@ import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { sleep, waitForClientRequest } from '../../../helpers'
+import { sleep, toWebResponse } from '../../../helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -40,10 +40,10 @@ it('suppresses ECONNREFUSED error given a mocked response', async () => {
   const errorListener = vi.fn()
   request.on('error', errorListener)
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('mocked')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('mocked')
   expect(errorListener).not.toHaveBeenCalled()
 })
 
@@ -83,10 +83,10 @@ it('suppresses ENOTFOUND error given a mocked response', async () => {
   const errorListener = vi.fn()
   request.on('error', errorListener)
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('mocked')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('mocked')
   expect(errorListener).not.toHaveBeenCalled()
 })
 
@@ -118,10 +118,10 @@ it('suppresses EHOSTUNREACH error given a mocked response', async () => {
   const errorListener = vi.fn()
   request.on('error', errorListener)
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('mocked')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('mocked')
 })
 
 it('forwards EHOSTUNREACH error for a bypassed request', async () => {

@@ -4,7 +4,7 @@ import https from 'node:https'
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (_req, res) => {
@@ -37,8 +37,8 @@ it('supports https.Agent instance as a custom agent for a mocked request', async
     agent: new https.Agent(),
   })
 
-  const { text } = await waitForClientRequest(request)
-  await expect(text()).resolves.toBe('hello world')
+  const [response] = await toWebResponse(request)
+  await expect(response.text()).resolves.toBe('hello world')
 })
 
 it('supports https.Agent instance as a custom agent for a passthrough request', async () => {
@@ -48,8 +48,8 @@ it('supports https.Agent instance as a custom agent for a passthrough request', 
     }),
   })
 
-  const { text } = await waitForClientRequest(request)
-  await expect(text()).resolves.toBe('original response')
+  const [response] = await toWebResponse(request)
+  await expect(response.text()).resolves.toBe('original response')
 })
 
 it('supports http.Agent instance as a custom agent for a passthrough request', async () => {
@@ -77,6 +77,6 @@ it('supports http.Agent instance as a custom agent for a passthrough request', a
     rejectUnauthorized: false,
   })
 
-  const { text } = await waitForClientRequest(request)
-  await expect(text()).resolves.toBe('original response')
+  const [response] = await toWebResponse(request)
+  await expect(response.text()).resolves.toBe('original response')
 })

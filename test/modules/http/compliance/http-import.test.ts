@@ -3,7 +3,7 @@ import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import * as http from 'node:http'
 import * as https from 'node:https'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -25,10 +25,10 @@ it('mocks a response to a request made via * as http import', async () => {
   })
 
   const request = http.request('http://localhost/api').end()
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('hello world')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('hello world')
 })
 
 it('mocks a response to a request made via * as https import', async () => {
@@ -37,8 +37,8 @@ it('mocks a response to a request made via * as https import', async () => {
   })
 
   const request = https.request('https://localhost/api').end()
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('hello world')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('hello world')
 })

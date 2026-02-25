@@ -3,7 +3,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { BatchInterceptor } from '../../../lib/node/index.mjs'
 import nodeInterceptors from '../../../lib/node/presets/node.mjs'
-import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
+import { createXMLHttpRequest, toWebResponse } from '../../helpers'
 
 const interceptor = new BatchInterceptor({
   name: 'node-preset-interceptor',
@@ -30,7 +30,7 @@ afterAll(() => {
 
 it('intercepts and mocks a ClientRequest', async () => {
   const request = http.get('http://localhost:3001/resource')
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must call the "request" event listener.
   expect(requestListener).toHaveBeenCalledWith(
@@ -41,8 +41,8 @@ it('intercepts and mocks a ClientRequest', async () => {
   )
 
   // The listener must send back a mocked response.
-  expect(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('mocked')
+  expect.soft(response.status).toBe(200)
+  await expect.soft(response.text()).resolves.toBe('mocked')
 })
 
 it('intercepts and mocks an XMLHttpRequest (jsdom)', async () => {

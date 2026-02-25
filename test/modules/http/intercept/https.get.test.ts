@@ -1,7 +1,7 @@
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
+import { REQUEST_ID_REGEXP, toWebResponse } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src/glossary'
 import { RequestController } from '../../../../src/RequestController'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
@@ -39,7 +39,7 @@ it('intercepts a GET request', async () => {
     },
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -70,7 +70,7 @@ it('intercepts an https.get request given RequestOptions without a protocol', as
     // Suppress the "certificate has expired" error.
     rejectUnauthorized: false,
   })
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 

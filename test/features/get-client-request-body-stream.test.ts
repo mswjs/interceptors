@@ -7,7 +7,7 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { BatchInterceptor } from '../../src'
 import interceptors from '../../src/presets/node'
 import { getClientRequestBodyStream } from '../../src/utils/node'
-import { waitForClientRequest } from '../helpers'
+import { toWebResponse } from '../helpers'
 
 const interceptor = new BatchInterceptor({
   name: 'interceptor',
@@ -52,7 +52,7 @@ it('returns the underlying request body stream for http.ClientRequest', async ()
   request.write('hello world')
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
   const requestBodyStream = await requestBodyStreamPromise
   expect(requestBodyStream).toBeInstanceOf(Readable)
 

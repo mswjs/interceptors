@@ -2,7 +2,7 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -26,11 +26,9 @@ it('ignores response body in a mocked response to a HEAD request', async () => {
   })
 
   const request = http.request('http://example.com', { method: 'HEAD' }).end()
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  // Must return the correct mocked response.
-  expect(res.statusCode).toBe(200)
-  expect(res.headers).toHaveProperty('x-custom-header', 'yes')
-  // Must ignore the response body.
-  expect(await text()).toBe('')
+  expect(response.status).toBe(200)
+  expect(response.headers.get('x-custom-header')).toBe('yes')
+  await expect(response.text(), 'Ignores the response body').resolves.toBe('')
 })

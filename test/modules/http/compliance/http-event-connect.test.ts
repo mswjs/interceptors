@@ -4,7 +4,7 @@ import http from 'node:http'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../../test/helpers'
+import { toWebResponse } from '../../../../test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {
@@ -39,7 +39,7 @@ it('emits the "connect" event for a mocked HTTP request', async () => {
     socket.on('connect', connectListener)
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(connectListener).toHaveBeenCalledOnce()
 })
@@ -52,7 +52,7 @@ it('emits the "connect" event for a bypassed HTTP request', async () => {
     socket.on('connect', socketConnectListener)
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
   expect(socketConnectListener).toHaveBeenCalledOnce()
 })
 
@@ -69,7 +69,7 @@ it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
       .on('secureConnect', () => connectListener('secureConnect'))
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect.soft(connectListener).toHaveBeenNthCalledWith(1, 'connect')
   expect.soft(connectListener).toHaveBeenNthCalledWith(2, 'secureConnect')
@@ -87,7 +87,7 @@ it('emits the "secureConnect" event for a bypassed HTTPS request', async () => {
       .on('secureConnect', () => connectListener('secureConnect'))
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect.soft(connectListener).toHaveBeenNthCalledWith(1, 'connect')
   expect.soft(connectListener).toHaveBeenNthCalledWith(2, 'secureConnect')

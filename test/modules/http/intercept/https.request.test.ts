@@ -1,8 +1,9 @@
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'node:https'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
+import { REQUEST_ID_REGEXP, toWebResponse } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src'
 import { RequestController } from '../../../../src/RequestController'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
@@ -48,7 +49,7 @@ it('intercepts a HEAD request', async () => {
     },
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -73,7 +74,7 @@ it('intercepts a GET request', async () => {
     },
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -99,7 +100,7 @@ it('intercepts a POST request', async () => {
   })
   req.write('post-payload')
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -125,7 +126,7 @@ it('intercepts a PUT request', async () => {
   })
   req.write('put-payload')
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -151,7 +152,7 @@ it('intercepts a PATCH request', async () => {
   })
   req.write('patch-payload')
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -176,7 +177,7 @@ it('intercepts a DELETE request', async () => {
     },
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -199,7 +200,7 @@ it('intercepts an http.request request given RequestOptions without a protocol',
     path: '/user?id=123',
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 

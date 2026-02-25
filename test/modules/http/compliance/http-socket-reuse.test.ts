@@ -3,7 +3,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/get', (req, res) => {
@@ -43,10 +43,10 @@ it('allows reusing the same socket for mixed mocked/bypassed requests', async ()
     const request = https.get(httpServer.https.url('/get'), {
       rejectUnauthorized: false,
     })
-    const { res, text } = await waitForClientRequest(request)
+    const [response] = await toWebResponse(request)
 
-    expect.soft(res.statusCode).toBe(200)
-    await expect.soft(text()).resolves.toBe('original')
+    expect.soft(response.status).toBe(200)
+    await expect.soft(response.text()).resolves.toBe('original')
   }
 
   {
@@ -57,10 +57,10 @@ it('allows reusing the same socket for mixed mocked/bypassed requests', async ()
     const request = https.get(httpServer.https.url('/mock'), {
       rejectUnauthorized: false,
     })
-    const { res, text } = await waitForClientRequest(request)
+    const [response] = await toWebResponse(request)
 
-    expect.soft(res.statusCode).toBe(301)
-    await expect.soft(text()).resolves.toBe('')
+    expect.soft(response.status).toBe(301)
+    await expect.soft(response.text()).resolves.toBe('')
   }
 })
 
@@ -73,20 +73,20 @@ it('allows reusing the same socket for multiple mocked requests', async () => {
     const request = https.get(httpServer.https.url('/mock'), {
       rejectUnauthorized: false,
     })
-    const { res, text } = await waitForClientRequest(request)
+    const [response] = await toWebResponse(request)
 
-    expect.soft(res.statusCode).toBe(200)
-    await expect.soft(text()).resolves.toBe('mocked')
+    expect.soft(response.status).toBe(200)
+    await expect.soft(response.text()).resolves.toBe('mocked')
   }
 
   {
     const request = https.get(httpServer.https.url('/mock'), {
       rejectUnauthorized: false,
     })
-    const { res, text } = await waitForClientRequest(request)
+    const [response] = await toWebResponse(request)
 
-    expect.soft(res.statusCode).toBe(200)
-    await expect.soft(text()).resolves.toBe('mocked')
+    expect.soft(response.status).toBe(200)
+    await expect.soft(response.text()).resolves.toBe('mocked')
   }
 })
 
@@ -95,19 +95,19 @@ it('allows reusing the same socket for multiple bypassed requests', async () => 
     const request = https.get(httpServer.https.url('/get'), {
       rejectUnauthorized: false,
     })
-    const { res, text } = await waitForClientRequest(request)
+    const [response] = await toWebResponse(request)
 
-    expect.soft(res.statusCode).toBe(200)
-    await expect.soft(text()).resolves.toBe('original')
+    expect.soft(response.status).toBe(200)
+    await expect.soft(response.text()).resolves.toBe('original')
   }
 
   {
     const request = https.get(httpServer.https.url('/get'), {
       rejectUnauthorized: false,
     })
-    const { res, text } = await waitForClientRequest(request)
+    const [response] = await toWebResponse(request)
 
-    expect.soft(res.statusCode).toBe(200)
-    await expect.soft(text()).resolves.toBe('original')
+    expect.soft(response.status).toBe(200)
+    await expect.soft(response.text()).resolves.toBe('original')
   }
 })

@@ -3,7 +3,7 @@ import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const server = new HttpServer((app) => {
   app.use('/user', (req, res) => {
@@ -39,9 +39,9 @@ it('allows modifying the outgoing headers for a request without a body', async (
   })
 
   const request = http.get(server.http.url('/user'))
-  const { res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.headers).toMatchObject({
+  expect(Object.fromEntries(response.headers)).toMatchObject({
     connection: 'keep-alive',
     'x-appended-header': 'modified',
   })
@@ -56,7 +56,7 @@ it('allows modifying the outgoing request headers in a request with a body', asy
   request.write('post-payload')
   request.end()
 
-  const { res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.headers['x-appended-header']).toBe('modified')
+  expect(response.headers.get('x-appended-header')).toBe('modified')
 })

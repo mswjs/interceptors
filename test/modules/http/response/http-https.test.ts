@@ -4,7 +4,7 @@ import http from 'node:http'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
@@ -49,93 +49,75 @@ afterAll(async () => {
 
 it('responds to a handled request issued by "http.get"', async () => {
   const req = http.get('http://any.localhost/non-existing')
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 301,
-    statusMessage: 'Moved Permanently',
-    headers: {
-      'content-type': 'text/plain',
-    },
-  })
-  await expect(text()).resolves.toEqual('mocked')
+  expect(response.status).toBe(301)
+  expect(response.statusText).toBe('Moved Permanently')
+  expect(response.headers.get('content-type')).toBe('text/plain')
+  await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('responds to a handled request issued by "https.get"', async () => {
   const req = https.get('https://any.localhost/non-existing')
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 301,
-    statusMessage: 'Moved Permanently',
-    headers: {
-      'content-type': 'text/plain',
-    },
-  })
-  await expect(text()).resolves.toEqual('mocked')
+  expect(response.status).toBe(301)
+  expect(response.statusText).toBe('Moved Permanently')
+  expect(response.headers.get('content-type')).toBe('text/plain')
+  await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('bypasses an unhandled request issued by "http.get"', async () => {
   const req = http.get(httpServer.http.url('/get'))
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 200,
-    statusMessage: 'OK',
-  })
-  await expect(text()).resolves.toEqual('/get')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toEqual('/get')
 })
 
 it('bypasses an unhandled request issued by "https.get"', async () => {
   const req = https.get(httpServer.https.url('/get'), {
     rejectUnauthorized: false,
   })
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 200,
-    statusMessage: 'OK',
-  })
-  await expect(text()).resolves.toEqual('/get')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toEqual('/get')
 })
 
 it('responds to a handled request issued by "http.request"', async () => {
   const req = http.request('http://any.localhost/non-existing')
   req.end()
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
-  expect(res.statusCode).toBe(301)
-  expect(res.statusMessage).toEqual('Moved Permanently')
-  expect(res.headers).toHaveProperty('content-type', 'text/plain')
-  await expect(text()).resolves.toEqual('mocked')
+  expect(response.status).toBe(301)
+  expect(response.statusText).toEqual('Moved Permanently')
+  expect(response.headers.get('content-type')).toBe('text/plain')
+  await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('responds to a handled request issued by "https.request"', async () => {
   const req = https.request('https://any.localhost/non-existing')
 
   req.end()
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 301,
-    statusMessage: 'Moved Permanently',
-    headers: {
-      'content-type': 'text/plain',
-    },
-  })
-  await expect(text()).resolves.toEqual('mocked')
+  expect(response.status).toBe(301)
+  expect(response.statusText).toBe('Moved Permanently')
+  expect(response.headers.get('content-type')).toBe('text/plain')
+  await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('bypasses an unhandled request issued by "http.request"', async () => {
   const req = http.request(httpServer.http.url('/get'))
   req.end()
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 200,
-    statusMessage: 'OK',
-  })
-  await expect(text()).resolves.toEqual('/get')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toEqual('/get')
 })
 
 it('bypasses an unhandled request issued by "https.request"', async () => {
@@ -143,18 +125,16 @@ it('bypasses an unhandled request issued by "https.request"', async () => {
     rejectUnauthorized: false,
   })
   req.end()
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 200,
-    statusMessage: 'OK',
-  })
-  await expect(text()).resolves.toEqual('/get')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toEqual('/get')
 })
 
 it('throws a request error when the middleware throws an exception', async () => {
   const req = http.get('http://error.me')
-  await waitForClientRequest(req).catch((error) => {
+  await toWebResponse(req).catch((error) => {
     expect(error.message).toEqual('Custom exception message')
   })
 })
@@ -163,11 +143,9 @@ it('bypasses any request after the interceptor was restored', async () => {
   interceptor.dispose()
 
   const req = http.get(httpServer.http.url('/'))
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 200,
-    statusMessage: 'OK',
-  })
-  await expect(text()).resolves.toEqual('/')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toEqual('/')
 })

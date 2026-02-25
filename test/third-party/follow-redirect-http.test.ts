@@ -3,7 +3,7 @@ import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { https } from 'follow-redirects'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../src/interceptors/http'
-import { waitForClientRequest } from '../helpers'
+import { toWebResponse } from '../helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -72,7 +72,7 @@ it('intercepts a request issued by "follow-redirects"', async () => {
 
   request.end(payload)
 
-  const { text } = await waitForClientRequest(request as any)
+  const [response] = await toWebResponse(request as any)
 
   await vi.waitFor(() => {
     expect(requestListener).toHaveBeenCalledTimes(2)
@@ -100,7 +100,7 @@ it('intercepts a request issued by "follow-redirects"', async () => {
 
   // Response (original).
   expect(catchResponseUrl).toHaveBeenCalledWith(server.https.url('/user'))
-  expect(await text()).toBe('hello from the server')
+  await expect(response.text()).resolves.toBe('hello from the server')
 })
 
 it('supports mocking a redirect response to the original response', async () => {
@@ -132,7 +132,7 @@ it('supports mocking a redirect response to the original response', async () => 
 
   request.end()
 
-  const { text } = await waitForClientRequest(request as any)
+  const [response] = await toWebResponse(request as any)
 
   // Intercepted redirect request (issued by "follow-redirects").
   const [redirectedRequest] = requestListener.mock.calls[0]
@@ -142,7 +142,7 @@ it('supports mocking a redirect response to the original response', async () => 
 
   // Response (original).
   expect(catchResponseUrl).toHaveBeenCalledWith(server.https.url('/redirected'))
-  expect(await text()).toBe('redirected response')
+  await expect(response.text()).resolves.toBe('redirected response')
 })
 
 it('supports mocking a redirect response to a mocked response', async () => {
@@ -179,7 +179,7 @@ it('supports mocking a redirect response to a mocked response', async () => {
 
   request.end()
 
-  const { text } = await waitForClientRequest(request as any)
+  const [response] = await toWebResponse(request as any)
 
   // Intercepted redirect request (issued by "follow-redirects").
   const [redirectedRequest] = requestListener.mock.calls[0]
@@ -191,5 +191,5 @@ it('supports mocking a redirect response to a mocked response', async () => {
   expect(catchResponseUrl).toHaveBeenCalledWith(
     'https://localhost:3000/redirected'
   )
-  expect(await text()).toBe('mocked response')
+  await expect(response.text()).resolves.toBe('mocked response')
 })

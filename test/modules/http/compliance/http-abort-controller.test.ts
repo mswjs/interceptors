@@ -5,7 +5,7 @@ import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { sleep, waitForClientRequest } from '../../../helpers'
+import { sleep, toWebResponse } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', async (req, res) => {
@@ -89,7 +89,7 @@ it('handles a request within a timeout', async () => {
   })
   request.on('timeout', timeoutListener)
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(request.destroyed).toBe(false)
   expect(timeoutListener).not.toHaveBeenCalled()
@@ -108,7 +108,7 @@ it('respects "AbortSignal.timeout()" for a handled request', async () => {
   })
   request.on('timeout', timeoutListener)
 
-  const abortError = await waitForClientRequest(request).then(
+  const abortError = await toWebResponse(request).then(
     () => expect.fail('must not return any response'),
     (error) => error
   )

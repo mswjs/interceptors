@@ -3,7 +3,7 @@ import http from 'node:http'
 import { afterAll, afterEach, beforeAll, it, expect } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -42,7 +42,7 @@ it('supports requests with more than default maximum header fields count', async
   request.setHeaders(new Headers(headersPairs))
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
   const requestHeaders = await requestHeadersPromise
 
   expect(Array.from(requestHeaders)).toEqual([
@@ -77,7 +77,7 @@ it('supports multiple parallel "slow" requests', async () => {
     request.setHeaders(new Headers(headersPairs))
     request.end()
 
-    await waitForClientRequest(request)
+    await toWebResponse(request)
     const requestHeaders = await requestHeadersPromise
 
     expect(Array.from(requestHeaders)).toEqual([
@@ -113,7 +113,7 @@ it('supports responses with more than default maximum header fields count', asyn
   const request = http.get('http://localhost/irrelevant')
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
   const responseHeaders = await responseHeadersPromise
 
   expect(Array.from(responseHeaders)).toEqual(responseHeadersPairs)

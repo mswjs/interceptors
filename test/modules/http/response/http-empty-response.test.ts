@@ -1,9 +1,7 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
@@ -23,12 +21,12 @@ it('supports responding with an empty mocked response', async () => {
   })
 
   const request = http.get('http://localhost')
-  const { res, text } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect.soft(res.statusCode).toBe(200)
+  expect.soft(response.status).toBe(200)
   // Must not set any response headers that were not
   // explicitly provided in the mocked response.
-  expect.soft(res.headers).toEqual({})
-  expect.soft(res.rawHeaders).toEqual([])
-  await expect(text()).resolves.toBe('')
+  expect.soft(Object.fromEntries(response.headers)).toEqual({})
+  expect.soft(rawResponse.rawHeaders).toEqual([])
+  await expect(response.text()).resolves.toBe('')
 })

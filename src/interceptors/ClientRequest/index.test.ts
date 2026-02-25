@@ -3,7 +3,11 @@ import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '.'
-import { sleep, waitForClientRequest } from '../../../test/helpers'
+import {
+  sleep,
+  toWebResponse,
+  waitForClientRequest,
+} from '../../../test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
@@ -49,7 +53,7 @@ it('abort the request if the abort signal is emitted', async () => {
   })
 
   const abortError = await abortErrorPromise
-  expect(abortError.name).toEqual('AbortError')
+  expect(abortError.name).toBe('AbortError')
 
   expect(request.destroyed).toBe(true)
 })
@@ -66,10 +70,10 @@ it('patch the Headers object correctly after dispose and reapply', async () => {
   })
 
   const request = http.get(httpServer.http.url('/'))
-  const { res } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect(res.rawHeaders).toEqual(
+  expect(rawResponse.rawHeaders).toEqual(
     expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
   )
-  expect(res.headers['x-custom-header']).toEqual('Yes')
+  expect(response.headers.get('x-custom-header')).toBe('Yes')
 })

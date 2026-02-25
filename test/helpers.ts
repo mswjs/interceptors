@@ -1,12 +1,14 @@
 import { urlToHttpOptions } from 'node:url'
-import https from 'node:https'
 import zlib from 'node:zlib'
+import https from 'node:https'
+import { Readable } from 'node:stream'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
+import { RequestHandler } from 'express'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { Page } from '@playwright/test'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
-import { RequestHandler } from 'express'
-import { DeferredPromise } from '@open-draft/deferred-promise'
+import { FetchResponse } from '../src/utils/fetchUtils'
 
 export const REQUEST_ID_REGEXP = /^\w{9,}$/
 
@@ -285,25 +287,31 @@ export function createBrowserXMLHttpRequest(page: Page) {
   }
 }
 
-export async function waitForClientRequest(
+export async function toWebResponse(
   request: http.ClientRequest
-): Promise<{
-  res: http.IncomingMessage
-  text(): Promise<string>
-}> {
-  return new Promise((resolve, reject) => {
-    request.on('response', async (response) => {
-      response.setEncoding('utf8')
-      resolve({
-        res: response,
-        text: getIncomingMessageBody.bind(null, response),
-      })
-    })
+): Promise<[Response, http.IncomingMessage]> {
+  const pendingResponse = new DeferredPromise<
+    [Response, http.IncomingMessage]
+  >()
 
-    request.on('error', reject)
-    request.on('abort', reject)
-    request.on('timeout', reject)
-  })
+  request
+    .on('response', (response) => {
+      const responseBody = response.destroyed
+        ? null
+        : (Readable.toWeb(response) as ReadableStream)
+
+      const fetchResponse = new FetchResponse(responseBody, {
+        status: response.statusCode,
+        statusText: response.statusMessage,
+        headers: FetchResponse.parseRawHeaders(response.rawHeaders),
+      })
+
+      pendingResponse.resolve([fetchResponse, response])
+    })
+    .on('error', (error) => pendingResponse.reject(error))
+    .on('abort', () => pendingResponse.reject(new Error('Request aborted')))
+
+  return pendingResponse
 }
 
 export function sleep(duration: number): Promise<void> {

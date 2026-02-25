@@ -145,14 +145,15 @@ export class FetchRequest extends Request {
   constructor(input: RequestInfo | URL, init?: RequestInit) {
     const method = init?.method || 'GET'
     const safeMethod = FetchRequest.isForbiddenMethod(method) ? 'GET' : method
+    const isRequestWithBody = FetchRequest.isRequestWithBody(method)
 
     super(input, {
       ...(init || {}),
       method: safeMethod,
       headers: init?.headers,
       // @ts-expect-error Undocumented Fetch property.
-      duplex: FetchRequest.isRequestWithBody(method) ? 'half' : undefined,
-      body: FetchRequest.isRequestWithBody(method) ? init?.body : null,
+      duplex: isRequestWithBody ? 'half' : undefined,
+      body: isRequestWithBody ? init?.body : null,
     })
 
     if (method !== safeMethod) {

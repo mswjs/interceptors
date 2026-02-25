@@ -1,8 +1,8 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { vi, it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -32,7 +32,7 @@ it('supports "http.request()" without any arguments', async () => {
   request.on('response', responseListener)
   request.on('error', errorListener)
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   expect(errorListener).not.toHaveBeenCalled()
   expect(responseListener).toHaveBeenCalledTimes(1)
@@ -40,8 +40,8 @@ it('supports "http.request()" without any arguments', async () => {
   expect(request.method).toBe('GET')
   expect(request.protocol).toBe('http:')
   expect(request.host).toBe('localhost')
-  expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('Mocked')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('Mocked')
 })
 
 it('supports "http.get()" without any arguments', async () => {
@@ -56,7 +56,7 @@ it('supports "http.get()" without any arguments', async () => {
   request.on('response', responseListener)
   request.on('error', errorListener)
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   expect(errorListener).not.toHaveBeenCalled()
   expect(responseListener).toHaveBeenCalledTimes(1)
@@ -64,6 +64,6 @@ it('supports "http.get()" without any arguments', async () => {
   expect(request.method).toBe('GET')
   expect(request.protocol).toBe('http:')
   expect(request.host).toBe('localhost')
-  expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('Mocked')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('Mocked')
 })

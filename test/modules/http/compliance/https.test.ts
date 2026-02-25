@@ -3,7 +3,7 @@ import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {
@@ -54,7 +54,7 @@ it('emits correct events for a mocked HTTPS request', async () => {
       .on('error', socketErrorListener)
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect.soft(socketListener).toHaveBeenCalledOnce()
   expect.soft(socketReadyListener).toHaveBeenCalledOnce()
@@ -92,7 +92,7 @@ it('emits correct events for a passthrough HTTPS request', async () => {
       .on('error', socketErrorListener)
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect.soft(socketListener).toHaveBeenCalledOnce()
   expect.soft(socketConnectListener).toHaveBeenCalledOnce()

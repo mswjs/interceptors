@@ -6,7 +6,7 @@ import express from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { sleep, waitForClientRequest } from '../../../helpers'
+import { sleep, toWebResponse } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.post('/resource', express.text({ type: '*/*' }), (req, res) => {
@@ -48,10 +48,10 @@ it('writes string request body', async () => {
   req.write('two')
   req.end('three')
 
-  const { text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
   await expect(requestBodyPromise).resolves.toBe('onetwothree')
-  await expect(text()).resolves.toEqual('onetwothree')
+  await expect(response.text()).resolves.toEqual('onetwothree')
 })
 
 it('writes JSON request body', async () => {
@@ -72,10 +72,10 @@ it('writes JSON request body', async () => {
   req.write(':"value"')
   req.end('}')
 
-  const { text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
   await expect(requestBodyPromise).resolves.toBe(`{"key":"value"}`)
-  await expect(text()).resolves.toEqual(`{"key":"value"}`)
+  await expect(response.text()).resolves.toEqual(`{"key":"value"}`)
 })
 
 it('writes Buffer request body', async () => {
@@ -96,10 +96,10 @@ it('writes Buffer request body', async () => {
   req.write(Buffer.from(':"value"'))
   req.end(Buffer.from('}'))
 
-  const { text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
   await expect(requestBodyPromise).resolves.toBe(`{"key":"value"}`)
-  await expect(text()).resolves.toEqual(`{"key":"value"}`)
+  await expect(response.text()).resolves.toEqual(`{"key":"value"}`)
 })
 
 it('supports Readable as the request body', async () => {
@@ -126,7 +126,7 @@ it('supports Readable as the request body', async () => {
 
   readable.pipe(request)
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
   await expect(requestBodyPromise).resolves.toBe('hello world')
 })
 
@@ -138,7 +138,7 @@ it('calls the write callback when writing an empty string', async () => {
   const writeCallback = vi.fn()
   request.write('', writeCallback)
   request.end()
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(writeCallback).toHaveBeenCalledOnce()
 })
@@ -152,7 +152,7 @@ it('calls the write callback when writing an empty Buffer', async () => {
   request.write(Buffer.from(''), writeCallback)
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(writeCallback).toHaveBeenCalledOnce()
 })
@@ -167,7 +167,7 @@ it('emits "finish" for a passthrough request', async () => {
   request.on('finish', finishListener)
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(prefinishListener).toHaveBeenCalledOnce()
   expect(finishListener).toHaveBeenCalledOnce()
@@ -187,7 +187,7 @@ it('emits "finish" for a mocked request', async () => {
   request.on('finish', finishListener)
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(prefinishListener).toHaveBeenCalledOnce()
   expect(finishListener).toHaveBeenCalledOnce()
@@ -219,14 +219,14 @@ it('supports ending a mocked request in a write callback', async () => {
     })
   })
 
-  const { text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   expect(firstWriteCallback).toHaveBeenCalledBefore(secondWriteCallback)
   expect(secondWriteCallback).toHaveBeenCalledBefore(requestEndCallback)
   expect(requestEndCallback).toHaveBeenCalledOnce()
 
   await expect(requestBodyPromise).resolves.toBe('onetwo')
-  await expect(text()).resolves.toBe('hello world')
+  await expect(response.text()).resolves.toBe('hello world')
 })
 
 /**
@@ -254,13 +254,13 @@ it('supports ending a bypassed request in a write callback', async () => {
     })
   })
 
-  const { text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   expect(firstWriteCallback).toHaveBeenCalledBefore(secondWriteCallback)
   expect(secondWriteCallback).toHaveBeenCalledBefore(requestEndCallback)
   expect(requestEndCallback).toHaveBeenCalledOnce()
 
-  await expect(text()).resolves.toBe('hello world')
+  await expect(response.text()).resolves.toBe('hello world')
 })
 
 it('calls the write callbacks when reading request body in the interceptor', async () => {
@@ -279,12 +279,12 @@ it('calls the write callbacks when reading request body in the interceptor', asy
   request.write('two', requestWriteCallback)
   request.end('three', requestWriteCallback)
 
-  const { text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must call each write callback once.
   expect(requestWriteCallback).toHaveBeenCalledTimes(3)
   // Must be able to read the request stream in the interceptor.
   expect(requestBodyCallback).toHaveBeenCalledWith('onetwothree')
   // Must send the correct request body to the server.
-  await expect(text()).resolves.toBe('onetwothree')
+  await expect(response.text()).resolves.toBe('onetwothree')
 })

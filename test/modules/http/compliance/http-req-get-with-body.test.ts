@@ -2,7 +2,7 @@
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
@@ -65,8 +65,8 @@ it('allows an HTTP GET request with a body', async () => {
   request.write('hello world')
   request.end()
 
-  const { text } = await waitForClientRequest(request)
-  await expect(text()).resolves.toBe('hello world')
+  const [response] = await toWebResponse(request)
+  await expect(response.text()).resolves.toBe('hello world')
 
   const interceptedRequest = await interceptedRequestPromise
   // The Fetch API representation of this request must NOT have any body.

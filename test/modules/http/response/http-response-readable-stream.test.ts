@@ -6,7 +6,7 @@ import { performance } from 'node:perf_hooks'
 import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 
@@ -88,8 +88,8 @@ it('supports ReadableStream as a mocked response', async () => {
   })
 
   const request = http.get('http://localhost/resource')
-  const { text } = await waitForClientRequest(request)
-  await expect(text()).resolves.toBe('hello world')
+  const [response] = await toWebResponse(request)
+  await expect(response.text()).resolves.toBe('hello world')
 })
 
 it('supports delays between the mock response stream chunks', async () => {

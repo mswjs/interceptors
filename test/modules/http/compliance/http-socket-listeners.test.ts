@@ -9,7 +9,7 @@ import { Socket } from 'node:net'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', async (req, res) => {
@@ -39,8 +39,8 @@ it('removes all event listeners from a passthrough socket after closing', async 
     pendingSocket.resolve(socket)
   })
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect.soft(res.statusCode).toBe(200)
-  await expect.soft(text()).resolves.toBe('ok')
+  expect.soft(response.status).toBe(200)
+  await expect.soft(response.text()).resolves.toBe('ok')
 })

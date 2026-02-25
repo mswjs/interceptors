@@ -1,10 +1,8 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -35,8 +33,8 @@ it('supports lowercase HTTP methods', async () => {
   const request = http
     .request('http://localhost/resource', { method: 'get' })
     .end()
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('hello world')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('hello world')
 })

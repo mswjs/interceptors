@@ -1,10 +1,8 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -27,9 +25,9 @@ it('responds to a request with an empty ReadableStream', async () => {
   })
 
   const request = http.get('http://example.com')
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  expect(res.statusMessage).toBe('OK')
-  expect(await text()).toBe('')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toBe('')
 })

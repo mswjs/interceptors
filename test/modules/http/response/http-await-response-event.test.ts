@@ -3,7 +3,7 @@ import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
@@ -42,10 +42,10 @@ it('awaits asynchronous response event listener for a mocked response', async ()
 
   tag('before-request')
   const request = http.get('http://localhost/')
-  const { text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
   tag('after-request')
 
-  await expect(text()).resolves.toBe('hello world')
+  await expect(response.text()).resolves.toBe('hello world')
 
   expect.soft(tag).toHaveBeenNthCalledWith(1, 'before-request')
   expect.soft(tag).toHaveBeenNthCalledWith(2, 'response')
@@ -64,10 +64,10 @@ it('awaits asynchronous response event listener for the original response', asyn
 
   tag('before-request')
   const request = http.get(httpServer.http.url('/resource'))
-  const { text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
   tag('after-request')
 
-  await expect(text()).resolves.toBe('original response')
+  await expect(response.text()).resolves.toBe('original response')
 
   expect.soft(tag).toHaveBeenNthCalledWith(1, 'before-request')
   expect.soft(tag).toHaveBeenNthCalledWith(2, 'response')

@@ -1,8 +1,9 @@
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { httpsAgent, HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
+import { REQUEST_ID_REGEXP, toWebResponse } from '../../../helpers'
 import { RequestController } from '../../../../src/RequestController'
 import { HttpRequestEventMap } from '../../../../src/glossary'
 
@@ -48,7 +49,7 @@ it('intercepts an HTTP ClientRequest request with request options', async () => 
   })
   req.end()
 
-  const { text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
   expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
@@ -65,7 +66,7 @@ it('intercepts an HTTP ClientRequest request with request options', async () => 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  await expect(text()).resolves.toBe('original-body')
+  await expect(response.text()).resolves.toBe('original-body')
 })
 
 it('intercepts an HTTP ClientRequest request with URL string', async () => {
@@ -78,7 +79,7 @@ it('intercepts an HTTP ClientRequest request with URL string', async () => {
   req.setHeader('x-custom-header', 'yes')
   req.end()
 
-  const { text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
   expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
@@ -95,7 +96,7 @@ it('intercepts an HTTP ClientRequest request with URL string', async () => {
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  await expect(text()).resolves.toBe('original-body')
+  await expect(response.text()).resolves.toBe('original-body')
 })
 
 it('intercepts an HTTP ClientRequest request with URL instance', async () => {
@@ -108,7 +109,7 @@ it('intercepts an HTTP ClientRequest request with URL instance', async () => {
   req.setHeader('x-custom-header', 'yes')
   req.end()
 
-  const { text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
   expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
@@ -125,7 +126,7 @@ it('intercepts an HTTP ClientRequest request with URL instance', async () => {
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  await expect(text()).resolves.toBe('original-body')
+  await expect(response.text()).resolves.toBe('original-body')
 })
 
 it('intercepts an HTTPS ClientRequest request with URL string', async () => {
@@ -141,7 +142,7 @@ it('intercepts an HTTPS ClientRequest request with URL string', async () => {
   req.setHeader('x-custom-header', 'yes')
   req.end()
 
-  const { text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
   expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
@@ -158,7 +159,7 @@ it('intercepts an HTTPS ClientRequest request with URL string', async () => {
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  await expect(text()).resolves.toBe('original-body')
+  await expect(response.text()).resolves.toBe('original-body')
 })
 
 it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
@@ -174,7 +175,7 @@ it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
   req.setHeader('x-custom-header', 'yes')
   req.end()
 
-  const { text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
   expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
@@ -191,7 +192,7 @@ it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  await expect(text()).resolves.toBe('original-body')
+  await expect(response.text()).resolves.toBe('original-body')
 })
 
 it('intercepts an HTTPS ClientRequest request with request options', async () => {
@@ -212,7 +213,7 @@ it('intercepts an HTTPS ClientRequest request with request options', async () =>
   })
   req.end()
 
-  const { text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
   expect(requestListener).toHaveBeenCalledOnce()
 
   const [{ request, requestId, controller }] = requestListener.mock.calls[0]
@@ -229,7 +230,7 @@ it('intercepts an HTTPS ClientRequest request with request options', async () =>
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
 
   // Must receive the original response.
-  await expect(text()).resolves.toBe('original-body')
+  await expect(response.text()).resolves.toBe('original-body')
 })
 
 it('restores the original ClientRequest class after disposal', async () => {

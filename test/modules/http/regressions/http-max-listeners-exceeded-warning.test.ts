@@ -6,7 +6,7 @@ import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
@@ -32,9 +32,9 @@ afterAll(async () => {
 
 it('does not buffer socket pushes for a passthrough request', async () => {
   const request = http.get(httpServer.http.url('/'))
-  const { text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  await expect(text()).resolves.toBe('hello world')
+  await expect(response.text()).resolves.toBe('hello world')
   expect(
     request.socket?.listenerCount('connect'),
     'Must not add "connection" listeners to the socket. Those listeners mean no "_handle" exists on the mock socket.'

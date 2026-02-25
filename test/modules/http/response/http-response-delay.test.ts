@@ -1,7 +1,8 @@
+// @vitest-environment node
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { sleep, waitForClientRequest } from '../../../helpers'
+import { sleep, toWebResponse } from '../../../helpers'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
@@ -30,11 +31,11 @@ it('supports custom delay before responding with a mock', async () => {
 
   const requestStart = Date.now()
   const request = http.get('http://non-existing-host.com')
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
   const requestEnd = Date.now()
 
-  expect.soft(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('mocked response')
+  expect.soft(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('mocked response')
   expect(requestEnd - requestStart).toBeGreaterThanOrEqual(700)
 })
 
@@ -47,10 +48,10 @@ it('supports custom delay before receiving the original response', async () => {
 
   const requestStart = Date.now()
   const request = http.get(httpServer.http.url('/resource'))
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
   const requestEnd = Date.now()
 
-  expect.soft(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('original response')
+  expect.soft(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('original response')
   expect(requestEnd - requestStart).toBeGreaterThanOrEqual(700)
 })

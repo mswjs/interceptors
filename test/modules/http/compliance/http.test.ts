@@ -5,7 +5,7 @@ import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { toWebResponse } from '../../../helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -42,7 +42,7 @@ it('bypasses a request to the existing host', async () => {
   })
   request.write(JSON.stringify({ name: 'john' }))
   request.end()
-  const { text, res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
@@ -55,8 +55,8 @@ it('bypasses a request to the existing host', async () => {
   await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' })
 
   // Must receive the correct response.
-  expect(res.headers).toHaveProperty('x-custom-header', 'yes')
-  await expect(text()).resolves.toBe('hello, john')
+  expect(response.headers.get('x-custom-header')).toBe('yes')
+  await expect(response.text()).resolves.toBe('hello, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
@@ -70,7 +70,7 @@ it('errors on a request to a non-existing host', async () => {
   request.on('error', (error) => errorPromise.resolve(error))
   request.end()
 
-  await expect(() => waitForClientRequest(request)).rejects.toThrow(
+  await expect(() => toWebResponse(request)).rejects.toThrow(
     'getaddrinfo ENOTFOUND abc123-non-existing.lol'
   )
 
@@ -109,7 +109,7 @@ it('mocked request to an existing host', async () => {
   })
   request.write(JSON.stringify({ name: 'john' }))
   request.end()
-  const { text, res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
@@ -121,8 +121,8 @@ it('mocked request to an existing host', async () => {
   await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' })
 
   // Must receive the correct response.
-  expect(res.headers).toHaveProperty('x-custom-header', 'mocked')
-  await expect(text()).resolves.toBe('howdy, john')
+  expect(response.headers.get('x-custom-header')).toBe('mocked')
+  await expect(response.text()).resolves.toBe('howdy, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
@@ -149,7 +149,7 @@ it('mocks response to a non-existing host', async () => {
   })
   request.write(JSON.stringify({ name: 'john' }))
   request.end()
-  const { text, res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
@@ -161,8 +161,8 @@ it('mocks response to a non-existing host', async () => {
   await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' })
 
   // Must receive the correct response.
-  expect(res.headers).toHaveProperty('x-custom-header', 'mocked')
-  await expect(text()).resolves.toBe('howdy, john')
+  expect(response.headers.get('x-custom-header')).toBe('mocked')
+  await expect(response.text()).resolves.toBe('howdy, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
@@ -240,7 +240,7 @@ it('returns socket address for a bypassed request', async () => {
     })
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   await expect(addressPromise).resolves.toEqual({
     address: httpServer.http.address.host,

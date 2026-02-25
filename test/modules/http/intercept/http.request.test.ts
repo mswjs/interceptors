@@ -1,8 +1,9 @@
+// @vitest-environment node
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
-import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
+import { REQUEST_ID_REGEXP, toWebResponse } from '../../../helpers'
 import { HttpRequestEventMap } from '../../../../src/glossary'
 import { RequestController } from '../../../../src/RequestController'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
@@ -23,16 +24,17 @@ const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
-  await httpServer.listen()
   interceptor.apply()
+  await httpServer.listen()
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  vi.clearAllMocks()
 })
 
 afterAll(async () => {
   interceptor.dispose()
+  vi.restoreAllMocks()
   await httpServer.close()
 })
 
@@ -45,7 +47,7 @@ it('intercepts a HEAD request', async () => {
     },
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -73,7 +75,7 @@ it('intercepts a GET request', async () => {
     },
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -104,7 +106,7 @@ it('intercepts a POST request', async () => {
   req.write('post-payload')
   req.end()
 
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -134,7 +136,7 @@ it('intercepts a PUT request', async () => {
   })
   req.write('put-payload')
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -164,7 +166,7 @@ it('intercepts a PATCH request', async () => {
   })
   req.write('patch-payload')
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -184,7 +186,7 @@ it('intercepts a PATCH request', async () => {
 })
 
 it('intercepts a DELETE request', async () => {
-  const url = httpServer.http.url('/user?id=123')
+  const url = httpServer.http.url('/user?id=1234')
   const req = http.request(url, {
     method: 'DELETE',
     headers: {
@@ -192,7 +194,8 @@ it('intercepts a DELETE request', async () => {
     },
   })
   req.end()
-  await waitForClientRequest(req)
+
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -220,7 +223,7 @@ it('intercepts an http.request given RequestOptions without a protocol', async (
     path: '/user?id=123',
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -243,7 +246,7 @@ it('intercepts an http.request path in url and options', async () => {
     callback
   )
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -267,7 +270,7 @@ it('intercepts an http.request with custom "auth" option', async () => {
     auth,
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -290,7 +293,7 @@ it('intercepts an http.request with a URL with "username" and "password"', async
     )
   )
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 

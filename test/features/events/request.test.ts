@@ -7,7 +7,7 @@ import {
   createXMLHttpRequest,
   useCors,
   REQUEST_ID_REGEXP,
-  waitForClientRequest,
+  toWebResponse,
 } from '../../helpers'
 import { HttpRequestInterceptor } from '../../../src/interceptors/http'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
@@ -54,7 +54,7 @@ it('ClientRequest: emits the "request" event upon the request', async () => {
   })
   req.write(JSON.stringify({ userId: 'abc-123' }))
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(requestListener).toHaveBeenCalledTimes(1)
 

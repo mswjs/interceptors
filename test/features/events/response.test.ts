@@ -9,11 +9,7 @@ import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequ
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { HttpRequestInterceptor } from '../../../src/interceptors/http'
 import { FetchInterceptor } from '../../../src/interceptors/fetch'
-import {
-  useCors,
-  createXMLHttpRequest,
-  waitForClientRequest,
-} from '../../helpers'
+import { useCors, createXMLHttpRequest, toWebResponse } from '../../helpers'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -94,30 +90,32 @@ it('ClientRequest: emits the "response" event for a mocked response', async () =
   })
   req.end()
 
-  const { res } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
   // Must receive a mocked response.
-  expect(res.statusCode).toBe(200)
-  expect(res.statusMessage).toBe('OK')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
-  const [{ response, request, isMockedResponse }] =
-    responseListener.mock.calls[0]
+  {
+    const [{ response, request, isMockedResponse }] =
+      responseListener.mock.calls[0]
 
-  expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.https.url('/user'))
-  expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+    expect(request.method).toBe('GET')
+    expect(request.url).toBe(httpServer.https.url('/user'))
+    expect(request.headers.get('x-request-custom')).toBe('yes')
+    expect(request.credentials).toBe('same-origin')
+    expect(request.body).toBe(null)
 
-  expect(response.status).toBe(200)
-  expect(response.statusText).toBe('OK')
-  expect(response.url).toBe(request.url)
-  expect(response.headers.get('x-response-type')).toBe('mocked')
-  await expect(response.text()).resolves.toBe('mocked-response-text')
+    expect(response.status).toBe(200)
+    expect(response.statusText).toBe('OK')
+    expect(response.url).toBe(request.url)
+    expect(response.headers.get('x-response-type')).toBe('mocked')
+    await expect(response.text()).resolves.toBe('mocked-response-text')
 
-  expect(isMockedResponse).toBe(true)
+    expect(isMockedResponse).toBe(true)
+  }
 })
 
 it('ClientRequest: emits the "response" event upon the original response', async () => {
@@ -134,7 +132,7 @@ it('ClientRequest: emits the "response" event upon the original response', async
   })
   req.write('request-body')
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(responseListener).toHaveBeenCalledTimes(1)
 
