@@ -86,6 +86,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
                   socketController.claim()
 
+                  FetchResponse.setUrl(request.url, response)
+
                   const respond = async () => {
                     await this.respondWith({
                       socket: socketController[kRawSocket],
@@ -205,6 +207,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                           mockSocket.resume()
                           return
                         }
+
+                        FetchResponse.setUrl(request.url, response)
 
                         await emitAsync(this.emitter, 'response', {
                           requestId,
