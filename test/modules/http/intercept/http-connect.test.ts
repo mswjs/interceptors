@@ -1,10 +1,15 @@
 // @vitest-environment node
+/**
+ * @see https://github.com/mswjs/interceptors/issues/481
+ */
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import net from 'node:net'
 import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
+import { HttpsProxyAgent } from 'https-proxy-agent'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { waitForClientRequest } from '../../../helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -174,4 +179,40 @@ it('errors the intercepted "CONNECT" request', async () => {
   expect(closeListener).toHaveBeenCalledOnce()
   expect(connectListener).not.toHaveBeenCalled()
   expect(responseListener).not.toHaveBeenCalled()
+})
+
+it.skip('mocks the entire proxy flow end-to-end', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    console.log('-->', request.method, request.url)
+
+    if (request.method === 'CONNECT') {
+      return controller.respondWith(new Response())
+    }
+
+    controller.respondWith(new Response('mock'))
+  })
+
+  const connectListener = vi.fn()
+  const responseListener = vi.fn()
+  const errorListener = vi.fn()
+  const closeListener = vi.fn()
+
+  const agent = new HttpsProxyAgent('http://non-existing.remote/server')
+
+  const request = http
+    .request({
+      hostname: '127.0.0.1',
+      port: 80,
+      path: '/',
+      agent,
+    })
+    .end()
+
+  request.on('connect', connectListener)
+
+  await expect.poll(() => connectListener).toHaveBeenCalledOnce()
+
+  /**
+   * @todo @fixme Finish this test.
+   */
 })

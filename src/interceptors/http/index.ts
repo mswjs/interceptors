@@ -320,6 +320,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       serverResponse.end()
     }
 
-    socket.push(null)
+    if (request.method !== 'CONNECT') {
+      socket.push(null)
+    }
   }
 }

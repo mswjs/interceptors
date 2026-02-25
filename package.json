@@ -136,6 +136,7 @@
     "follow-redirects": "^1.15.1",
     "got": "^14.4.6",
     "happy-dom": "^17.3.0",
+    "https-proxy-agent": "^7.0.6",
     "jsdom": "^26.1.0",
     "node-fetch": "3.3.2",
     "simple-git-hooks": "^2.7.0",
