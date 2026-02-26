@@ -8,6 +8,8 @@ By default, `Agent` will try to reuse any sockets that were not explicitly close
 2. `connect` is _not_ emitted on this socket anymore since the connection has already been established. No connection attempt will be made whatsoever (`socket._handle.connect` won't be called).
 3. The next request's HTTP message is written into the socket.
 
+> With this in mind, `socket.on('connect', () => request.end())` is a potentially faulty logic. A reused socket will never emit that event and the request will pend indefinitely.
+
 ## `CONNECT` requests
 
 While forbidden by the Fetch API specification, `CONNECT` requests are possible in Node.js. Here's what's special about connect requests:
