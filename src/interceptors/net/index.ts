@@ -58,7 +58,11 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
       // Patch the lookup option so DNS lookup always succeeds.
       // Passthrough connections are created with the original options and won't be affected.
-      connectionOptions.lookup = (hostname, dnsOptions, callback) => {
+      connectionOptions.lookup = function mockLookup(
+        hostname,
+        dnsOptions,
+        callback
+      ) {
         callback(null, [{ address: '127.0.0.1', family: 4 }])
       }
 

@@ -15,7 +15,7 @@ export const kRawSocket = Symbol('kRawSocket')
 export const kMockState = Symbol('kMockState')
 export const kTlsSocket = Symbol('kTlsSocket')
 
-const log = createLogger('MockSocket')
+const log = createLogger('SocketController')
 
 // Internally, Node.js represents the result of various operations
 // by the number they return: 0 (error), 1 (success).
@@ -223,6 +223,8 @@ export class TcpSocketController extends SocketController {
 
     this.socket.connect = new Proxy(this.socket.connect, {
       apply: (target, thisArg, args) => {
+        log('socket.connect()', args)
+
         this.#connectionOptions = args[0]
         return Reflect.apply(target, thisArg, args)
       },
@@ -236,7 +238,10 @@ export class TcpSocketController extends SocketController {
      * would behave correctly.
      */
     socket
-      .on('free', () => this.#reset())
+      .on('free', () => {
+        log('socket has been freed!')
+        this.#reset()
+      })
       .on('close', () => {
         this.#passthroughSocket = null
         this.#passthroughPausedBuffer = []
@@ -249,11 +254,15 @@ export class TcpSocketController extends SocketController {
   }
 
   #reset(): void {
+    log('resetting the socket...')
+
     this.readyState = SocketController.PENDING
     this.pendingConnection = new DeferredPromise()
 
     const wrapHandle = (handle: TcpHandle) => {
       this.pendingConnection.then(() => {
+        log('connection request resolved!', this.readyState)
+
         process.nextTick(() => {
           /**
            * @note If by this point the socket hasn't been handled,
@@ -268,6 +277,8 @@ export class TcpSocketController extends SocketController {
             this.socket._pendingData == null &&
             this.socket.listenerCount('connect') > 0
           ) {
+            log('assume connect->write socket, calling "connect" listeners...')
+
             for (const listener of this.socket.listeners('connect')) {
               listener()
             }
@@ -276,8 +287,11 @@ export class TcpSocketController extends SocketController {
       })
 
       handle.connect = handle.connect6 = (request) => {
+        log('handle.connect()')
         this.pendingConnection.resolve([request, handle])
       }
+
+      log('socket handle wrapped! waiting for connection request...')
     }
 
     if (this.socket._handle) {
@@ -289,6 +303,8 @@ export class TcpSocketController extends SocketController {
     }
 
     this.socket._writeGeneric = (...args) => {
+      log('socket write:', args, this.readyState)
+
       if (this.readyState === SocketController.PENDING) {
         // Socket might write immediately, before the "connection" interceptor event is emitted.
         // In those cases, schedule the emit on the next tick to ensure the server socket emits "data".
@@ -341,6 +357,7 @@ export class TcpSocketController extends SocketController {
         return
       }
 
+      log('writing to passthrough:', args)
       return this.#realWriteGeneric.apply(this.socket, args)
     }
   }
@@ -400,8 +417,11 @@ export class TcpSocketController extends SocketController {
     super.claim()
 
     if (!this.socket.connecting) {
+      log('socket already connected, skipping claim...')
       return
     }
+
+    log('claim!')
 
     /**
      * Patch the "getsockname" on the handle in case Node.js decides to handle its errors.
@@ -414,6 +434,8 @@ export class TcpSocketController extends SocketController {
     }
 
     this.pendingConnection.then(([request, handle]) => {
+      log('connection request resolved, mocking the connection...')
+
       /**
        * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
        */
@@ -433,6 +455,8 @@ export class TcpSocketController extends SocketController {
     ) => void
   ): net.Socket {
     super.passthrough()
+
+    log('passthrough!')
 
     /**
      * @note Modify the pending data to be flushed to the passthrough socket.
