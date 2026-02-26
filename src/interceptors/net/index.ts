@@ -32,10 +32,11 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
     const realNetConnect = net.connect
 
     net.connect = (...args: [any, any]) => {
+      log('net.connect()', args)
+
       const [connectionOptions, connectionCallback] =
         normalizeNetConnectArgs(args)
 
-      log('net.connect()')
       log({ connectionOptions, connectionCallback })
 
       const socket = new net.Socket()
@@ -54,6 +55,12 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       })
 
       log('connecting the socket...')
+
+      // Patch the lookup option so DNS lookup always succeeds.
+      // Passthrough connections are created with the original options and won't be affected.
+      connectionOptions.lookup = (hostname, dnsOptions, callback) => {
+        callback(null, [{ address: '127.0.0.1', family: 4 }])
+      }
 
       return socket.connect(connectionOptions, connectionCallback)
     }

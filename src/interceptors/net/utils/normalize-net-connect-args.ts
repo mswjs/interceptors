@@ -13,6 +13,7 @@ export interface NetworkConnectionOptions {
   localAddress?: string | null
   localPort?: number | null
   timeout?: number
+  lookup?: net.LookupFunction
 }
 
 export type NetConnectArgs =

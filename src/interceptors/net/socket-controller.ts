@@ -180,8 +180,8 @@ export abstract class SocketController {
 
   public claim(): void {
     invariant(
-      this.readyState !== SocketController.MOCKED,
-      'Failed to claim a TLS socket: already claimed'
+      this.readyState !== SocketController.PASSTHROUGH,
+      'Failed to claim a TLS socket: already passthrough'
     )
 
     this.readyState = SocketController.MOCKED
@@ -222,9 +222,9 @@ export class TcpSocketController extends SocketController {
     this.#realWriteGeneric = this.socket._writeGeneric
 
     this.socket.connect = new Proxy(this.socket.connect, {
-      apply: (target, thisArg, argArray) => {
-        this.#connectionOptions = argArray[0]
-        return Reflect.apply(target, thisArg, argArray)
+      apply: (target, thisArg, args) => {
+        this.#connectionOptions = args[0]
+        return Reflect.apply(target, thisArg, args)
       },
     })
 
@@ -248,11 +248,35 @@ export class TcpSocketController extends SocketController {
     this.#reset()
   }
 
+  // protected preemtiveConnect(): void {
+  //   this.socket.emit('connect')
+  // }
+
   #reset(): void {
     this.readyState = SocketController.PENDING
     this.pendingConnection = new DeferredPromise()
 
     const wrapHandle = (handle: TcpHandle) => {
+      this.pendingConnection.then(() => {
+        process.nextTick(() => {
+          /**
+           * @note If by this point the socket hasn't been handled,
+           * is still connecting, doesn't have any writes buffered,
+           * and has a "connect" listener, assume it's the "write after connect"
+           * scenario (e.g. undici). In that case, auto-claim the socket to
+           * transition to the connected state appropriately to its handle.
+           */
+          if (
+            this.readyState === SocketController.PENDING &&
+            this.socket.connecting &&
+            this.socket._pendingData == null &&
+            this.socket.listenerCount('connect') > 0
+          ) {
+            this.claim()
+          }
+        })
+      })
+
       handle.connect = handle.connect6 = (request) => {
         this.pendingConnection.resolve([request, handle])
       }
@@ -268,7 +292,13 @@ export class TcpSocketController extends SocketController {
 
     this.socket._writeGeneric = (...args) => {
       if (this.readyState === SocketController.PENDING) {
-        this.#push(args[1])
+        // Socket might write immediately, before the "connection" interceptor event is emitted.
+        // In those cases, schedule the emit on the next tick to ensure the server socket emits "data".
+        if (this.socket.listenerCount('internal:write') === 0) {
+          process.nextTick(() => this.#push(args[1]))
+        } else {
+          this.#push(args[1])
+        }
 
         /**
          * @note Execute the write callbacks while the socket is still pending.

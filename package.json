@@ -147,7 +147,7 @@
     "supertest": "^7.0.0",
     "tsdown": "^0.18.1",
     "typescript": "^5.8.2",
-    "undici": "^7.4.0",
+    "undici": "^7.22.0",
     "vitest": "^3.0.8",
     "vitest-environment-miniflare": "^2.14.1",
     "wait-for-expect": "^3.0.2",
