@@ -396,7 +396,9 @@ export class TcpSocketController extends SocketController {
     this.#passthroughSocket?.resume()
   }
 
-  protected mockConnection(): void {
+  public claim(): void {
+    super.claim()
+
     if (!this.socket.connecting) {
       return
     }
@@ -417,11 +419,6 @@ export class TcpSocketController extends SocketController {
        */
       request.oncomplete(0, handle, request, true, true)
     })
-  }
-
-  public claim(): void {
-    super.claim()
-    this.mockConnection()
   }
 
   public errorWith(reason?: Error): void {
@@ -531,7 +528,7 @@ export class TlsSocketController extends TcpSocketController {
     super(socket, createConnection)
   }
 
-  protected mockConnection(): void {
+  public claim(): void {
     // Run this logic before the parent's class method so it executes first.
     // TLSWrap methods have to be patched before TCPWrap fires "oncomplete".
     const handle = this.socket._handle
@@ -562,7 +559,7 @@ export class TlsSocketController extends TcpSocketController {
       handle.onnewsession(1, Buffer.alloc(0))
     })
 
-    super.mockConnection()
+    super.claim()
   }
 
   public passthrough(): tls.TLSSocket {
