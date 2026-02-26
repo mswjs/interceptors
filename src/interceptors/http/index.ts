@@ -142,8 +142,16 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 passthrough: () => {
                   const transformRequestMessage = (
                     httpMessage: string | Buffer,
-                    encoding?: BufferEncoding
-                  ): string => {
+                    encoding?: BufferEncoding | 'buffer'
+                  ): string | Buffer => {
+                    /**
+                     * @note Socket can write a buffer (e.g. uploaded file) even before
+                     * it writes the HTTP message. Bypass those cases.
+                     */
+                    if (encoding === 'buffer') {
+                      return httpMessage
+                    }
+
                     const parts = httpMessage.toString(encoding).split('\r\n')
                     const headersEndIndex = parts.findIndex(
                       (field) => field === ''
