@@ -590,15 +590,25 @@ export class TlsSocketController extends TcpSocketController {
     const realSocket = super.passthrough() as tls.TLSSocket
 
     /**
-     * @note Remove the internal "connect" listener added when the mock socket was created.
-     * If preserved, that connect will prevent the mock socket from transitioning into the
-     * connected state.
+     * @note Remove the internal "connect" listener added by the TLS socket.
+     * Normally, that listener manages the SSL handshake. But since we're in passthrough,
+     * we delegate that to the real socket. Leaving the listener on the mock socket while
+     * inheriting the real socket's handle will result in the handshake performed twice, which is a no-op.
+     * @see https://github.com/nodejs/node/blob/abddfc921bf2af02a04a6a5d2bca8e2d91d80958/lib/internal/tls/wrap.js#L1105
      *
      * This prevents the following error:
      *  #  node (vitest 4)[8686]: static void node::crypto::TLSWrap::Start(const FunctionCallbackInfo<Value> &) at ../src/crypto/crypto_tls.cc:589
      #  Assertion failed: !wrap->started_
      */
-    this.socket.removeListener('connect', this.socket._start)
+    for (const connectListener of this.socket.listeners('connect')) {
+      if (
+        connectListener === this.socket._start ||
+        ('listener' in connectListener &&
+          connectListener.listener === this.socket._start)
+      ) {
+        this.socket.removeListener('connect', connectListener as () => void)
+      }
+    }
 
     realSocket
       .on('secure', () => {

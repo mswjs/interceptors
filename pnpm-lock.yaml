@@ -162,9 +162,6 @@ importers:
       vitest-environment-miniflare:
         specifier: ^2.14.1
         version: 2.14.4(vitest@3.0.8(@types/debug@4.1.12)(@types/node@22.13.9)(happy-dom@17.3.0)(jsdom@26.1.0)(terser@5.36.0))
-      wait-for-expect:
-        specifier: ^3.0.2
-        version: 3.0.2
       web-encoding:
         specifier: ^1.1.5
         version: 1.1.5
@@ -3072,9 +3069,6 @@ packages:
   w3c-xmlserializer@5.0.0:
     resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}
     engines: {node: '>=18'}
-
-  wait-for-expect@3.0.2:
-    resolution: {integrity: sha512-cfS1+DZxuav1aBYbaO/kE06EOS8yRw7qOFoD3XtjTkYvCvh3zUvNST8DXK/nPaeqIzIv3P3kL3lRJn8iwOiSag==}
 
   watchpack@2.5.1:
     resolution: {integrity: sha512-Zn5uXdcFNIA1+1Ei5McRd+iRzfhENPCe7LeABkJtNulSxjma+l7ltNx55BWZkRlwRnpOgHqxnjyaDgJnNXnqzg==}
@@ -6198,8 +6192,6 @@ snapshots:
   w3c-xmlserializer@5.0.0:
     dependencies:
       xml-name-validator: 5.0.0
-
-  wait-for-expect@3.0.2: {}
 
   watchpack@2.5.1:
     dependencies:
