@@ -280,7 +280,7 @@ export class TcpSocketController extends SocketController {
             log('assume connect->write socket, calling "connect" listeners...')
 
             for (const listener of this.socket.listeners('connect')) {
-              listener()
+              listener.apply(this.socket)
             }
           }
         })
@@ -606,6 +606,9 @@ export class TlsSocketController extends TcpSocketController {
       })
       .on('session', (...args) => {
         this.socket.emit('session', ...args)
+      })
+      .on('keylog', (line) => {
+        this.socket.emit('keylog', line)
       })
 
     return realSocket
