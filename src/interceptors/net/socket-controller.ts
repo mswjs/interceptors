@@ -180,8 +180,8 @@ export abstract class SocketController {
 
   public claim(): void {
     invariant(
-      this.readyState !== SocketController.PASSTHROUGH,
-      'Failed to claim a TLS socket: already passthrough'
+      this.readyState !== SocketController.MOCKED,
+      'Failed to claim a TLS socket: already claimed'
     )
 
     this.readyState = SocketController.MOCKED
@@ -248,10 +248,6 @@ export class TcpSocketController extends SocketController {
     this.#reset()
   }
 
-  // protected preemtiveConnect(): void {
-  //   this.socket.emit('connect')
-  // }
-
   #reset(): void {
     this.readyState = SocketController.PENDING
     this.pendingConnection = new DeferredPromise()
@@ -272,7 +268,9 @@ export class TcpSocketController extends SocketController {
             this.socket._pendingData == null &&
             this.socket.listenerCount('connect') > 0
           ) {
-            this.claim()
+            for (const listener of this.socket.listeners('connect')) {
+              listener()
+            }
           }
         })
       })
@@ -398,27 +396,32 @@ export class TcpSocketController extends SocketController {
     this.#passthroughSocket?.resume()
   }
 
+  protected mockConnection(): void {
+    if (!this.socket.connecting) {
+      return
+    }
+
+    /**
+     * Patch the "getsockname" on the handle in case Node.js decides to handle its errors.
+     * Run this if the socket is connecting because "_handle" can be null if socket timed out.
+     * @see https://github.com/nodejs/node/blob/13eb80f3b718452213e0fc449702aefbbfe4110f/lib/net.js#L971
+     */
+    this.socket._handle.getsockname = () => 0
+    this.socket.address = () => {
+      return getAddressInfoByConnectionOptions(this.#connectionOptions)
+    }
+
+    this.pendingConnection.then(([request, handle]) => {
+      /**
+       * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
+       */
+      request.oncomplete(0, handle, request, true, true)
+    })
+  }
+
   public claim(): void {
     super.claim()
-
-    if (this.socket.connecting) {
-      /**
-       * Patch the "getsockname" on the handle in case Node.js decides to handle its errors.
-       * Run this if the socket is connecting because "_handle" can be null if socket timed out.
-       * @see https://github.com/nodejs/node/blob/13eb80f3b718452213e0fc449702aefbbfe4110f/lib/net.js#L971
-       */
-      this.socket._handle.getsockname = () => 0
-      this.socket.address = () => {
-        return getAddressInfoByConnectionOptions(this.#connectionOptions)
-      }
-
-      this.pendingConnection.then(([request, handle]) => {
-        /**
-         * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
-         */
-        request.oncomplete(0, handle, request, true, true)
-      })
-    }
+    this.mockConnection()
   }
 
   public errorWith(reason?: Error): void {
@@ -528,8 +531,8 @@ export class TlsSocketController extends TcpSocketController {
     super(socket, createConnection)
   }
 
-  public claim(): void {
-    // Run this logic before "super.claim()" so it executes first.
+  protected mockConnection(): void {
+    // Run this logic before the parent's class method so it executes first.
     // TLSWrap methods have to be patched before TCPWrap fires "oncomplete".
     const handle = this.socket._handle
 
@@ -559,7 +562,7 @@ export class TlsSocketController extends TcpSocketController {
       handle.onnewsession(1, Buffer.alloc(0))
     })
 
-    super.claim()
+    super.mockConnection()
   }
 
   public passthrough(): tls.TLSSocket {
