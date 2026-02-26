@@ -24,8 +24,8 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     )
 
     globalThis.XMLHttpRequest = new Proxy(globalThis.XMLHttpRequest, {
-      construct(target, argArray, newTarget) {
-        const xmlHttpRequest = Reflect.construct(target, argArray, newTarget)
+      construct(target, args, newTarget) {
+        const xmlHttpRequest = Reflect.construct(target, args, newTarget)
 
         /**
          * @note Use `.enterWith()` here because XHR in JSDOM is implemented
