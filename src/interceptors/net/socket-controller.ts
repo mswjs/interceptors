@@ -607,8 +607,11 @@ export class TlsSocketController extends TcpSocketController {
       .on('session', (...args) => {
         this.socket.emit('session', ...args)
       })
-      .on('keylog', (line) => {
-        this.socket.emit('keylog', line)
+      .on('keylog', (...args) => {
+        this.socket.emit('keylog', ...args)
+      })
+      .on('OCSPResponse', (...args) => {
+        this.socket.emit('OCSPResponse', ...args)
       })
 
     return realSocket
