@@ -8,6 +8,7 @@ import https from 'node:https'
 import { RequestHandler } from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { Page } from '@playwright/test'
+import { MockedFunction } from 'node_modules/vitest/dist'
 import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '../src/RemoteHttpInterceptor'
 import { FetchResponse } from '../src/utils/fetchUtils'
@@ -372,9 +373,7 @@ export async function createTestServer<T extends net.Server>(
   const pendingListen = new DeferredPromise<void>()
 
   server
-    .listen(0, '127.0.0.1', () => {
-      pendingListen.resolve()
-    })
+    .listen(0, '127.0.0.1', () => pendingListen.resolve())
     .once('error', (error) => pendingListen.reject(error))
 
   await pendingListen
@@ -419,5 +418,38 @@ export async function createTestServer<T extends net.Server>(
     https: {
       url: createUrlHelper('https'),
     },
+  }
+}
+
+export function spyOnSocket(socket: net.Socket) {
+  const eventNames = [
+    'lookup',
+    'connectionAttempt',
+    'connectionAttemptFailed',
+    'connectionAttemptTimeout',
+    'connect',
+    'ready',
+    'data',
+    'drain',
+    'end',
+    'error',
+    'timeout',
+    'close',
+  ] as const
+
+  const events: Array<any> = []
+  const listeners = {} as Record<
+    (typeof eventNames)[number],
+    MockedFunction<any>
+  >
+
+  for (const eventName of eventNames) {
+    listeners[eventName] = vi.fn((...args) => events.push([eventName, ...args]))
+    socket.on(eventName, listeners[eventName])
+  }
+
+  return {
+    events,
+    listeners,
   }
 }

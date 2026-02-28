@@ -415,7 +415,12 @@ export class TcpSocketController extends SocketController {
   }
 
   #onRealSocketError = (error: Error) => {
-    log('real socket error, forwarding...', error)
+    if (this.socket.destroyed) {
+      log('real socket errored but mock socket already destroyed, skipping...')
+      return
+    }
+
+    log('real socket errored, forwarding...', error)
 
     this.socket.destroy(error)
 

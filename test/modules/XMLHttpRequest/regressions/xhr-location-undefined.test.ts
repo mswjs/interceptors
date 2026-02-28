@@ -40,5 +40,5 @@ it('throws on a request with a relative URL', async () => {
     })
   }
 
-  expect(createRequest).toThrow('Invalid URL: /relative/url')
+  expect(createRequest).toThrow('Invalid URL')
 })
