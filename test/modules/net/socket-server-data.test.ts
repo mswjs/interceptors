@@ -1,6 +1,6 @@
 // @vitest-environment node
 import net from 'node:net'
-import { SocketInterceptor } from '../../../../src/interceptors/net'
+import { SocketInterceptor } from '../../../src/interceptors/net'
 
 const interceptor = new SocketInterceptor()
 
