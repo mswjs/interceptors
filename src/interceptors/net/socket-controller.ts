@@ -156,6 +156,16 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
         }) as net.Socket['write']
       }
 
+      // Translate server-side "socket.end()" to client-sode "socket.push(null)".
+      if (property === 'end') {
+        const realEnd = getRealValue() as net.Socket['end']
+
+        return ((...args: Parameters<net.Socket['end']>) => {
+          socket.push(null)
+          return realEnd.apply(target, args)
+        }) as net.Socket['end']
+      }
+
       return getRealValue()
     },
   })
@@ -420,6 +430,10 @@ export class TcpSocketController extends SocketController {
     this.socket.push(null)
   }
 
+  #onRealSocketClose = (hadError: boolean) => {
+    this.socket.emit('close', hadError)
+  }
+
   #onMockSocketDrain = () => {
     this.#passthroughSocket?.resume()
   }
@@ -544,12 +558,14 @@ export class TcpSocketController extends SocketController {
       .removeListener('data', this.#onRealSocketData)
       .removeListener('error', this.#onRealSocketError)
       .removeListener('end', this.#onRealSocketEnd)
+      .removeListener('close', this.#onRealSocketClose)
 
     realSocket
       .once('connect', this.#onRealSocketConnect)
       .on('data', this.#onRealSocketData)
       .on('error', this.#onRealSocketError)
       .on('end', this.#onRealSocketEnd)
+      .on('close', this.#onRealSocketClose)
 
     return realSocket
   }
