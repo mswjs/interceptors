@@ -46,11 +46,20 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           })
 
           process.nextTick(() => {
-            this.emitter.emit('connection', {
-              socket: controller.serverSocket,
-              controller,
-              connectionOptions,
-            })
+            if (
+              !this.emitter.emit('connection', {
+                socket: controller.serverSocket,
+                controller,
+                connectionOptions,
+              })
+            ) {
+              log(
+                'no "connection" listeners found on the interceptor, passthrough...'
+              )
+
+              controller.passthrough()
+              return
+            }
 
             log('emitted "connection" event!')
           })
@@ -105,11 +114,20 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           })
 
           process.nextTick(() => {
-            this.emitter.emit('connection', {
-              socket: controller.serverSocket,
-              controller,
-              connectionOptions: tlsConnectionOptions,
-            })
+            if (
+              !this.emitter.emit('connection', {
+                socket: controller.serverSocket,
+                controller,
+                connectionOptions: tlsConnectionOptions,
+              })
+            ) {
+              log(
+                'no "connection" listeners found on the interceptor, passthrough...'
+              )
+
+              controller.passthrough()
+              return
+            }
 
             log('emitted the "connection" event!')
           })
