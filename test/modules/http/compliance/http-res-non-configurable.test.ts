@@ -3,7 +3,6 @@
  * @see https://github.com/mswjs/msw/issues/2307
  */
 import http from 'node:http'
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'

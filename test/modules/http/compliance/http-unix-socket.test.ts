@@ -2,7 +2,6 @@
 /**
  * @see https://github.com/mswjs/interceptors/pull/722
  */
-import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import http from 'node:http'

@@ -1,4 +1,3 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import * as path from 'path'
 import { spawn } from 'child_process'
 import { RemoteHttpResolver } from '../../../src/RemoteHttpInterceptor'

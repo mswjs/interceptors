@@ -1,4 +1,3 @@
-import { describe, vi, it, expect, afterEach } from 'vitest'
 import {
   Interceptor,
   getGlobalSymbol,

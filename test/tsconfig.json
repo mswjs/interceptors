@@ -1,8 +1,9 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "target": "es6"
+    "target": "es6",
+    "types": ["node", "vitest/globals"],
   },
   "include": ["**/*.test.ts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules"],
 }

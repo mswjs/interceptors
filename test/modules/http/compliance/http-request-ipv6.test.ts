@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { httpGet } from '../../../helpers'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'

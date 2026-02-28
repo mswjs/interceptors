@@ -2,7 +2,6 @@
 /**
  * @see https://github.com/mswjs/msw/issues/355
  */
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import axios from 'axios'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'

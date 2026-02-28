@@ -3,7 +3,6 @@
  * This test suite asserts that the "client" connection object
  * dispatches the right events in different scenarios.
  */
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import {
   WebSocketData,
   WebSocketInterceptor,

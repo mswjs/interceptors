@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { it, expect } from 'vitest'
 import { createEvent } from './createEvent'
 import { EventPolyfill } from '../polyfills/EventPolyfill'
 

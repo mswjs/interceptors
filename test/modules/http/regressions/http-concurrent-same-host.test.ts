@@ -2,7 +2,6 @@
  * @vitest-environment node
  * @see https://github.com/mswjs/interceptors/issues/2
  */
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 

@@ -1,7 +1,6 @@
 /**
  * @vitest-environment jsdom
  */
-import { it, expect, afterAll, afterEach, beforeAll } from 'vitest'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()

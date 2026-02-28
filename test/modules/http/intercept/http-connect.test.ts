@@ -2,7 +2,6 @@
 /**
  * @see https://github.com/mswjs/interceptors/issues/481
  */
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import net from 'node:net'
 import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'

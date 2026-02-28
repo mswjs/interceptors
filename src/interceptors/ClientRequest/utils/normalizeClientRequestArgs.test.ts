@@ -1,4 +1,3 @@
-import { it, expect } from 'vitest'
 import { parse } from 'url'
 import { globalAgent as httpGlobalAgent, RequestOptions } from 'node:http'
 import {

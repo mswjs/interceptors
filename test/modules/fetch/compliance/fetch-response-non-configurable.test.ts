@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'

@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import express from 'express'
 import supertest from 'supertest'
 import { HttpRequestEventMap } from '../../src'

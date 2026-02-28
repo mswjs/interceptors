@@ -1,5 +1,4 @@
 // @vitest-environment node-with-websocket
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { Data, WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
 import { getWsUrl } from '../utils/getWsUrl'

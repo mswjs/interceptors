@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import type { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'

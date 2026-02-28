@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import rateLimit from 'express-rate-limit'
 import { HttpServer } from '@open-draft/test-server/http'

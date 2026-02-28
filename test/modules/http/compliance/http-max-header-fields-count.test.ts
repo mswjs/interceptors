@@ -1,6 +1,5 @@
 // @vitest-environment node
 import http from 'node:http'
-import { afterAll, afterEach, beforeAll, it, expect } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { toWebResponse } from '../../../helpers'

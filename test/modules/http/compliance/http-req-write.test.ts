@@ -1,6 +1,5 @@
 // @vitest-environment node
 import { Readable } from 'node:stream'
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import express from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'

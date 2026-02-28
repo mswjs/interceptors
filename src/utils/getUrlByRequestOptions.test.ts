@@ -1,4 +1,3 @@
-import { it, expect } from 'vitest'
 import { Agent as HttpAgent } from 'node:http'
 import { RequestOptions, Agent as HttpsAgent } from 'node:https'
 import { getUrlByRequestOptions } from './getUrlByRequestOptions'

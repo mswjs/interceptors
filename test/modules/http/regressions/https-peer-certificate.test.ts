@@ -2,7 +2,6 @@
 /**
  * @see https://github.com/nock/nock/issues/2930#issuecomment-3960523903
  */
-import { it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import net from 'node:net'
 import tls from 'node:tls'
 import https from 'node:https'

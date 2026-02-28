@@ -3,7 +3,6 @@
  * @note This issue is only reproducible in "happy-dom".
  * @see https://github.com/mswjs/msw/issues/1816
  */
-import { beforeAll, afterAll, it, expect } from 'vitest'
 import axios from 'axios'
 /**
  * @note Use `Response` from Undici because "happy-dom"

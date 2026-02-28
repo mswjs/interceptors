@@ -3,7 +3,6 @@
  * @see https://github.com/mswjs/msw/issues/2537
  * @see https://github.com/mswjs/interceptors/pull/755
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { Socket } from 'node:net'
 import { HttpServer } from '@open-draft/test-server/http'

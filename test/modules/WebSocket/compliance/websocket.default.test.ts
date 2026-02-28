@@ -2,7 +2,6 @@
  * @vitest-environment node-with-websocket
  * @see https://websockets.spec.whatwg.org/#the-websocket-interface
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()

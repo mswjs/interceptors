@@ -1,5 +1,4 @@
 // @see https://github.com/nock/nock/issues/2826
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { toWebResponse } from '../../../helpers'

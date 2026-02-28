@@ -2,7 +2,6 @@
  * @vitest-environment node
  */
 import { Socket } from 'node:net'
-import { vi, it, expect } from 'vitest'
 import { MockSocket } from './MockSocket'
 
 it(`keeps the socket connecting until it's destroyed`, () => {

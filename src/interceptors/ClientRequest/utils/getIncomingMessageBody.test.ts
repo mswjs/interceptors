@@ -1,4 +1,3 @@
-import { it, expect } from 'vitest'
 import { IncomingMessage } from 'node:http'
 import { Socket } from 'net'
 import * as zlib from 'zlib'

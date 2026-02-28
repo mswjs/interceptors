@@ -3,7 +3,6 @@
  * With the socket-based interception, that's no longer the case. I've rewritten
  * this test suite to ensure we are *not* patching the agents anymore.
  */
-import { beforeAll, afterEach, afterAll, it, expect } from 'vitest'
 import net from 'node:net'
 import http from 'node:http'
 import https from 'node:https'

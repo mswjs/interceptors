@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { vi, beforeAll, afterEach, afterAll, it, expect } from 'vitest'
 import http from 'node:http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'

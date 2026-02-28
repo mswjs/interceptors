@@ -2,7 +2,6 @@
  * @note https://xhr.spec.whatwg.org/#event-handlers
  */
 // @vitest-environment jsdom
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'

@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { createXMLHttpRequest, useCors } from '../../../helpers'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'

@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { https } from 'follow-redirects'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../src/interceptors/http'

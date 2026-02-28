@@ -1,8 +1,7 @@
 /**
  * Node.js environment superset that has a global WebSocket API.
  */
-import type { Environment } from 'vitest'
-import { builtinEnvironments } from 'vitest/environments'
+import { builtinEnvironments, type Environment } from 'vitest/environments'
 import { WebSocket } from 'undici'
 
 export default <Environment>{

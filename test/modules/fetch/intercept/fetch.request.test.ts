@@ -1,4 +1,3 @@
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap } from '../../../../src'

@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { sleep, toWebResponse } from '../../../helpers'

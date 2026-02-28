@@ -1,5 +1,4 @@
 // @vitest-environment react-native-like
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest } from '../../../helpers'
 

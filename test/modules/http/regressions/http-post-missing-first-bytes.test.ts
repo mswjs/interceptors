@@ -4,7 +4,6 @@
  */
 import http from 'node:http'
 import path from 'node:path'
-import { vi, afterAll, beforeAll, afterEach, it, expect } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import superagent from 'superagent'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'

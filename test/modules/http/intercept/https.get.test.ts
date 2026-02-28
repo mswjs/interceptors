@@ -1,4 +1,3 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
 import { REQUEST_ID_REGEXP, toWebResponse } from '../../../helpers'

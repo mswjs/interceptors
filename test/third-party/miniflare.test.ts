@@ -1,5 +1,4 @@
 // @vitest-environment miniflare
-import { afterAll, afterEach, beforeAll, expect, test, vi } from 'vitest'
 import { BatchInterceptor } from '../../src'
 import { HttpRequestInterceptor } from '../../src/interceptors/http'
 import { XMLHttpRequestInterceptor } from '../../src/interceptors/XMLHttpRequest'

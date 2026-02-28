@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { afterEach, afterAll, beforeAll, expect, it } from 'vitest'
 import { setTimeout } from 'node:timers/promises'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'

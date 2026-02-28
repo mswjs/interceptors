@@ -1,4 +1,3 @@
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import got from 'got'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '../../src/interceptors/http'

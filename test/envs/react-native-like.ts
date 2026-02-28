@@ -1,8 +1,7 @@
 /**
  * React Native-like environment for Vitest.
  */
-import type { Environment } from 'vitest'
-import { builtinEnvironments } from 'vitest/environments'
+import { builtinEnvironments, type Environment } from 'vitest/environments'
 
 export default <Environment>{
   name: 'react-native-like',

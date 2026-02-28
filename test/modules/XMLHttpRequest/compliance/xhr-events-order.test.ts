@@ -2,7 +2,6 @@
 /**
  * @see https://xhr.spec.whatwg.org/#events
  */
-import { Mock, vi, it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { createXMLHttpRequest, useCors } from '../../../helpers'

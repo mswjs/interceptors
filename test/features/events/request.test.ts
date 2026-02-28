@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import {

@@ -3,7 +3,6 @@
  * This test suite asserts that the intercepted WebSocket client
  * still dispatches the correct events in mocked/bypassed scenarios.
  */
-import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketServer } from 'ws'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'

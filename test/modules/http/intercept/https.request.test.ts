@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'node:https'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'

@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { fetch, request } from 'undici'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 

@@ -1,6 +1,5 @@
 // @vitest-environment node
 import http from 'node:http'
-import { vi, beforeAll, beforeEach, afterAll, it, expect } from 'vitest'
 import { io } from 'socket.io-client'
 import { Server } from 'socket.io'
 import { BatchInterceptor } from '../../../../src'

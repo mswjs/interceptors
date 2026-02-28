@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { compressResponse } from '../../../helpers'
 import { FetchInterceptor } from '../../../../src/interceptors/fetch'

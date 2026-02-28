@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { urlToHttpOptions } from 'node:url'
 import http from 'node:http'
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
 import { toWebResponse } from '../../../../test/helpers'
 

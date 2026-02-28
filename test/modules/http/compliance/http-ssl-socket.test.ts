@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'node:https'
 import { TLSSocket } from 'node:tls'
 import { DeferredPromise } from '@open-draft/deferred-promise'

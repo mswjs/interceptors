@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import net from 'node:net'
 import { SocketInterceptor } from '../../../../src/interceptors/net'
 

@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { encodeBuffer } from '../../../../src'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { toArrayBuffer } from '../../../../src/utils/bufferUtils'

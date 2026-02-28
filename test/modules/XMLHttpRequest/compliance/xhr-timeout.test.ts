@@ -2,7 +2,6 @@
 /**
  * @see https://github.com/mswjs/interceptors/issues/7
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
 import { sleep } from '../../../../test/helpers'

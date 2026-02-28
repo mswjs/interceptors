@@ -1,5 +1,4 @@
 // @vitest-environment node-with-websocket
-import { it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
 

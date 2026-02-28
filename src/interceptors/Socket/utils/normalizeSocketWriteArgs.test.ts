@@ -1,7 +1,6 @@
 /**
  * @vitest-environment node
  */
-import { it, expect } from 'vitest'
 import { normalizeSocketWriteArgs } from './normalizeSocketWriteArgs'
 
 it('normalizes .write()', () => {

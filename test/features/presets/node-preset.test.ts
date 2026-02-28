@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { BatchInterceptor } from '../../../lib/node/index.mjs'
 import nodeInterceptors from '../../../lib/node/presets/node.mjs'
