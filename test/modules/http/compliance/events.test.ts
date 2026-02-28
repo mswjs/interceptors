@@ -1,9 +1,9 @@
 // @vitest-environment node
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { HttpRequestEventMap } from '../../../../src/glossary'
-import { REQUEST_ID_REGEXP, toWebResponse } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { HttpRequestEventMap } from '#/src/glossary'
+import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {

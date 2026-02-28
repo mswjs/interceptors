@@ -3,8 +3,8 @@
  * @see https://github.com/mswjs/msw/issues/355
  */
 import axios from 'axios'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { createXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 

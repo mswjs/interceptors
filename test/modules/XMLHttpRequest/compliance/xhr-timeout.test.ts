@@ -3,9 +3,9 @@
  * @see https://github.com/mswjs/interceptors/issues/7
  */
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { sleep } from '../../../../test/helpers'
-import { createXMLHttpRequest } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { sleep } from '#/test/helpers'
+import { createXMLHttpRequest } from '#/test/helpers'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const httpServer = new HttpServer((app) => {

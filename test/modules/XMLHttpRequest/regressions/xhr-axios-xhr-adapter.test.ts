@@ -10,7 +10,7 @@ import axios from 'axios'
  * Node's Readable instead, which is completely incompatible.
  */
 import { Response as UndiciResponse } from 'undici'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 
 const request = axios.create({
   baseURL: 'http://localhost',

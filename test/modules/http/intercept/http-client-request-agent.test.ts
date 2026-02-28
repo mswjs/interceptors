@@ -7,7 +7,7 @@ import net from 'node:net'
 import http from 'node:http'
 import https from 'node:https'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
 

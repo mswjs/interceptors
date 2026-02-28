@@ -4,8 +4,8 @@
  */
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { toWebResponse } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {

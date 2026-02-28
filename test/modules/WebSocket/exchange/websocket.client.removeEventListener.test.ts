@@ -2,7 +2,7 @@
 import {
   WebSocketClientConnection,
   WebSocketInterceptor,
-} from '../../../../src/interceptors/WebSocket'
+} from '#/src/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
 

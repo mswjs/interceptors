@@ -2,7 +2,7 @@
 import http from 'node:http'
 import { BatchInterceptor } from '../../../lib/node/index.mjs'
 import nodeInterceptors from '../../../lib/node/presets/node.mjs'
-import { createXMLHttpRequest, toWebResponse } from '../../helpers'
+import { createXMLHttpRequest, toWebResponse } from '#/test/helpers'
 
 const interceptor = new BatchInterceptor({
   name: 'node-preset-interceptor',

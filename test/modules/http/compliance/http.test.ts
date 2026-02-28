@@ -3,8 +3,8 @@ import http from 'node:http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { toWebResponse } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 

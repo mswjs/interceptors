@@ -3,9 +3,9 @@
  * @see https://github.com/mswjs/msw/issues/2307
  */
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { FetchResponse } from '../../../../src/utils/fetchUtils'
-import { createXMLHttpRequest, useCors } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { FetchResponse } from '#/src/utils/fetchUtils'
+import { createXMLHttpRequest, useCors } from '#/test/helpers'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const interceptor = new XMLHttpRequestInterceptor()

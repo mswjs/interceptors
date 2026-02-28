@@ -2,8 +2,8 @@
 import http from 'node:http'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { toWebResponse } from '../../../../test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { HttpServer } from '@open-draft/test-server/http'
-import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 
@@ -53,7 +53,10 @@ it('follows a mocked relative redirect to the original server', async () => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {
       return controller.respondWith(
-        new Response(null, { status: 302, headers: { location: '/redirected' } })
+        new Response(null, {
+          status: 302,
+          headers: { location: '/redirected' },
+        })
       )
     }
   })

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { InterceptorError } from '../../../src/InterceptorError'
-import { FetchInterceptor } from '../../../src/interceptors/fetch'
+import { InterceptorError } from '#/src/InterceptorError'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 

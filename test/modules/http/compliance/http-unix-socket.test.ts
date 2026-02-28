@@ -6,8 +6,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import http from 'node:http'
 import { promisify } from 'node:util'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { toWebResponse } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const HTTP_SOCKET_PATH = path.join(__dirname, './test-http.sock')
 

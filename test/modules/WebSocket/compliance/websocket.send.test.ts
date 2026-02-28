@@ -4,7 +4,7 @@
  */
 import { Data, WebSocketServer } from 'ws'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
 import { getWsUrl } from '../utils/getWsUrl'
 
 const interceptor = new WebSocketInterceptor()

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import http from 'node:http'
-import { toWebResponse } from '../../../helpers'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
 

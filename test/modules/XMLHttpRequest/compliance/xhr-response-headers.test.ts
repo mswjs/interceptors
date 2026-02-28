@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { createXMLHttpRequest, useCors } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.use(useCors)

@@ -3,8 +3,8 @@
  */
 // @vitest-environment jsdom
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { createXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 

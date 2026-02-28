@@ -4,8 +4,8 @@ import http from 'node:http'
 import express from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { sleep, toWebResponse } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { sleep, toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.post('/resource', express.text({ type: '*/*' }), (req, res) => {

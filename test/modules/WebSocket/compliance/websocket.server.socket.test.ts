@@ -1,5 +1,5 @@
 // @vitest-environment node-with-websocket
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 

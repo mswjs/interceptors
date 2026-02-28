@@ -5,9 +5,9 @@
  */
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
 import { getWsUrl } from '../utils/getWsUrl'
-import { sleep } from '../../../helpers'
+import { sleep } from '#/test/helpers'
 
 const wsServer = new WebSocketServer({
   host: '127.0.0.1',

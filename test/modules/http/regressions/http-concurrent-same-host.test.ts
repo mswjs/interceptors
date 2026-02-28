@@ -3,7 +3,7 @@
  * @see https://github.com/mswjs/interceptors/issues/2
  */
 import http from 'node:http'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 let requests: Array<Request> = []
 

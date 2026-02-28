@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { createXMLHttpRequest } from '#/test/helpers'
 
 const XML_STRING = '<node key="value">Content</node>'
 

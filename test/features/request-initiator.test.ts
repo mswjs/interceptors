@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { BatchInterceptor } from '../../src/BatchInterceptor'
-import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest/new'
-import { XMLHttpRequestInterceptor } from '../../src/interceptors/XMLHttpRequest/node'
-import { FetchInterceptor } from '../../src/interceptors/fetch/node'
-import { HttpRequestInterceptor } from '../../src/interceptors/http'
-import { createXMLHttpRequest, toWebResponse } from '../helpers'
+import { BatchInterceptor } from '#/src/BatchInterceptor'
+import { ClientRequestInterceptor } from '#/src/interceptors/ClientRequest/new'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
+import { FetchInterceptor } from '#/src/interceptors/fetch/node'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { createXMLHttpRequest, toWebResponse } from '#/test/helpers'
 
 const interceptor = new BatchInterceptor({
   name: 'interceptor',

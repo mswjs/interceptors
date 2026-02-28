@@ -1,7 +1,7 @@
 // @vitest-environment node
 import fetch from 'node-fetch'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../src/interceptors/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 

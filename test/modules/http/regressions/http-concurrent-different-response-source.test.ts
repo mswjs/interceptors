@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { httpGet } from '../../../helpers'
-import { sleep } from '../../../../test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { httpGet } from '#/test/helpers'
+import { sleep } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (req, res) => {

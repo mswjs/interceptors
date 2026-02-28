@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import express from 'express'
 import supertest from 'supertest'
-import { HttpRequestEventMap } from '../../src'
-import { HttpRequestInterceptor } from '../../src/interceptors/http'
+import { HttpRequestEventMap } from '#/src/index'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const requestListener =
   vi.fn<(...args: HttpRequestEventMap['request']) => void>()

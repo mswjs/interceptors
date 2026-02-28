@@ -2,8 +2,8 @@
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpRequestInterceptor } from '../../src/interceptors/http'
-import { useCors } from '../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { useCors } from '#/test/helpers'
 
 function createMockResponse() {
   return new Response(

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 

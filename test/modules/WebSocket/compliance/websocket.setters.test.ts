@@ -2,7 +2,7 @@
  * @vitest-environment node-with-websocket
  */
 import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
 import { waitForNextTick } from '../utils/waitForNextTick'
 import { getWsUrl } from '../utils/getWsUrl'
 

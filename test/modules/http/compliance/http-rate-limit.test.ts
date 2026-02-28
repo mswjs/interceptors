@@ -2,7 +2,7 @@
 import http from 'node:http'
 import rateLimit from 'express-rate-limit'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const httpServer = new HttpServer((app) => {
   app.use(

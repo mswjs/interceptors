@@ -4,7 +4,7 @@
 // @vitest-environment node-with-websocket
 import { Server } from 'socket.io'
 import { io } from 'socket.io-client'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
 const server = new Server(51678)

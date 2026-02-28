@@ -9,9 +9,9 @@ import { RequestHandler } from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { Page } from '@playwright/test'
 import { MockedFunction } from 'node_modules/vitest/dist'
-import { getIncomingMessageBody } from '../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { SerializedRequest } from '../src/RemoteHttpInterceptor'
-import { FetchResponse } from '../src/utils/fetchUtils'
+import { getIncomingMessageBody } from '#/src/interceptors/ClientRequest/utils/getIncomingMessageBody'
+import { SerializedRequest } from '#/src/RemoteHttpInterceptor'
+import { FetchResponse } from '#/src/utils/fetchUtils'
 
 export const REQUEST_ID_REGEXP = /^\w{9,}$/
 

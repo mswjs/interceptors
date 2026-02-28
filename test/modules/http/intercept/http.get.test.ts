@@ -1,9 +1,9 @@
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { REQUEST_ID_REGEXP, toWebResponse } from '../../../helpers'
-import { RequestController } from '../../../../src/RequestController'
-import { HttpRequestEventMap } from '../../../../src/glossary'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
+import { RequestController } from '#/src/RequestController'
+import { HttpRequestEventMap } from '#/src/glossary'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {

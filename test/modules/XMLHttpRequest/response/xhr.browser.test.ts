@@ -1,8 +1,8 @@
 import { Page } from '@playwright/test'
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import { test, expect } from '../../../playwright.extend'
-import { useCors } from '../../../helpers'
+import { useCors } from '#/test/helpers'
 
 declare namespace window {
   export const interceptor: XMLHttpRequestInterceptor

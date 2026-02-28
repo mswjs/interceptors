@@ -2,8 +2,8 @@
 /**
  * @see https://github.com/mswjs/interceptors/issues/281
  */
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { createXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 

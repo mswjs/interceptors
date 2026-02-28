@@ -1,8 +1,8 @@
 // @vitest-environment node
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { toWebResponse } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {

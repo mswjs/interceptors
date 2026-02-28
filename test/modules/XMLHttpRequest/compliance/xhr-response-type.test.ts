@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { encodeBuffer } from '../../../../src'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { toArrayBuffer } from '../../../../src/utils/bufferUtils'
-import { createXMLHttpRequest, readBlob } from '../../../helpers'
+import { encodeBuffer } from '#/src/index'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { toArrayBuffer } from '#/src/utils/bufferUtils'
+import { createXMLHttpRequest, readBlob } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', ({ controller }) => {

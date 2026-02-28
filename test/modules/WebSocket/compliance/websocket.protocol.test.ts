@@ -3,7 +3,7 @@
  * @see https://websockets.spec.whatwg.org/#dom-websocket-close
  */
 import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
 import { getWsUrl } from '../utils/getWsUrl'
 

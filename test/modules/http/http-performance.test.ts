@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { HttpServer } from '@open-draft/test-server/http'
-import { httpGet, PromisifiedResponse, useCors } from '../../helpers'
-import { HttpRequestInterceptor } from '../../../src/interceptors/http'
+import { httpGet, PromisifiedResponse, useCors } from '#/test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 function arrayWith<V>(length: number, mapFn: (index: number) => V): V[] {
   return new Array(length).fill(null).map((_, index) => mapFn(index))

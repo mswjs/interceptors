@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { HttpServer } from '@open-draft/test-server/http'
-import { compressResponse } from '../../../helpers'
-import { FetchInterceptor } from '../../../../src/interceptors/fetch'
-import { parseContentEncoding } from '../../../../src/interceptors/fetch/utils/decompression'
+import { compressResponse } from '#/test/helpers'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
+import { parseContentEncoding } from '#/src/interceptors/fetch/utils/decompression'
 
 const httpServer = new HttpServer((app) => {
   app.get('/compressed', (req, res) => {

@@ -2,10 +2,10 @@
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
-import { REQUEST_ID_REGEXP, toWebResponse } from '../../../helpers'
-import { HttpRequestEventMap } from '../../../../src/glossary'
-import { RequestController } from '../../../../src/RequestController'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
+import { HttpRequestEventMap } from '#/src/glossary'
+import { RequestController } from '#/src/RequestController'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (_req, res) => {

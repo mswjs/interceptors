@@ -5,9 +5,9 @@
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { FetchResponse } from '../../../../src/utils/fetchUtils'
-import { toWebResponse } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { FetchResponse } from '#/src/utils/fetchUtils'
+import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 

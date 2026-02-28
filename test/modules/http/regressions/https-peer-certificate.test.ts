@@ -5,8 +5,8 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import https from 'node:https'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { toWebResponse } from '../../../../test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 

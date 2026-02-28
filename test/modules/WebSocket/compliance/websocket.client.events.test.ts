@@ -6,7 +6,7 @@
 import {
   WebSocketData,
   WebSocketInterceptor,
-} from '../../../../src/interceptors/WebSocket'
+} from '#/src/interceptors/WebSocket'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
 
 const interceptor = new WebSocketInterceptor()

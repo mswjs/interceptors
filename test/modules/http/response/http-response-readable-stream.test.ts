@@ -4,8 +4,8 @@ import { Readable } from 'node:stream'
 import { performance } from 'node:perf_hooks'
 import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { toWebResponse } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 

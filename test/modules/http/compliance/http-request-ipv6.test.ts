@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { httpGet } from '../../../helpers'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { httpGet } from '#/test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
 

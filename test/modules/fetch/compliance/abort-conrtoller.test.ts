@@ -2,8 +2,8 @@
 import { setTimeout } from 'node:timers/promises'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
-import { FetchInterceptor } from '../../../../src/interceptors/fetch'
-import { sleep } from '../../../helpers'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
+import { sleep } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {

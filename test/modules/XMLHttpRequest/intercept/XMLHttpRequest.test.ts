@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import type { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import {
   createXMLHttpRequest,
   useCors,
   REQUEST_ID_REGEXP,
-} from '../../../helpers'
-import { toArrayBuffer, encodeBuffer } from '../../../../src/utils/bufferUtils'
-import { RequestController } from '../../../../src/RequestController'
-import { HttpRequestEventMap } from '../../../../src/glossary'
+} from '#/test/helpers'
+import { toArrayBuffer, encodeBuffer } from '#/src/utils/bufferUtils'
+import { RequestController } from '#/src/RequestController'
+import { HttpRequestEventMap } from '#/src/glossary'
 
 declare namespace window {
   export const _resourceLoader: {

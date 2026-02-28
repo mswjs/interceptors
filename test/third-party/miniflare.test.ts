@@ -1,9 +1,9 @@
 // @vitest-environment miniflare
-import { BatchInterceptor } from '../../src'
-import { HttpRequestInterceptor } from '../../src/interceptors/http'
-import { XMLHttpRequestInterceptor } from '../../src/interceptors/XMLHttpRequest'
-import { FetchInterceptor } from '../../src/interceptors/fetch'
-import { httpGet, httpsGet } from '../helpers'
+import { BatchInterceptor } from '#/src/index'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
+import { httpGet, httpsGet } from '#/test/helpers'
 
 const interceptor = new BatchInterceptor({
   name: 'setup-server',

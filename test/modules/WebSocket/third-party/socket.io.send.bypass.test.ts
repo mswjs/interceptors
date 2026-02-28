@@ -2,9 +2,9 @@
 import http from 'node:http'
 import { io } from 'socket.io-client'
 import { Server } from 'socket.io'
-import { BatchInterceptor } from '../../../../src'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { BatchInterceptor } from '#/src/BatchInterceptor'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new BatchInterceptor({
   name: 'test-interceptor',

@@ -1,6 +1,6 @@
 // @vitest-environment node-with-websocket
 import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
 import { getWsUrl } from '../utils/getWsUrl'
 
 const interceptor = new WebSocketInterceptor()

@@ -7,8 +7,8 @@ import https from 'node:https'
 import { URL } from 'node:url'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
-import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { getIncomingMessageBody } from '#/src/interceptors/ClientRequest/utils/getIncomingMessageBody'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {

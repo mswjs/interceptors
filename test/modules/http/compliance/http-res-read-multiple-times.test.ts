@@ -6,8 +6,8 @@
  */
 import http, { IncomingMessage } from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestEventMap } from '../../../../src'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
+import { HttpRequestEventMap } from '#/src/index'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {

@@ -7,8 +7,8 @@ import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpsProxyAgent } from 'https-proxy-agent'
-import { HttpRequestInterceptor } from '../../../../src/interceptors/http'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { waitForClientRequest } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 

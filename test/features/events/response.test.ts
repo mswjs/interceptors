@@ -2,11 +2,11 @@
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpRequestEventMap } from '../../../src'
-import { BatchInterceptor } from '../../../src/BatchInterceptor'
-import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest/node'
-import { HttpRequestInterceptor } from '../../../src/interceptors/http'
-import { useCors, createXMLHttpRequest, toWebResponse } from '../../helpers'
+import { HttpRequestEventMap } from '#/src/index'
+import { BatchInterceptor } from '#/src/BatchInterceptor'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { useCors, createXMLHttpRequest, toWebResponse } from '#/test/helpers'
 
 declare namespace window {
   export const _resourceLoader: {

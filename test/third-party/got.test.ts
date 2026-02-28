@@ -1,7 +1,7 @@
 import got from 'got'
 import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestInterceptor } from '../../src/interceptors/http'
-import { sleep } from '../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { sleep } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
