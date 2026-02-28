@@ -4,7 +4,7 @@ import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { BatchInterceptor } from '../../src/BatchInterceptor'
 import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest/new'
-import { XMLHttpRequestInterceptor } from '../../src/interceptors/XMLHttpRequest/new'
+import { XMLHttpRequestInterceptor } from '../../src/interceptors/XMLHttpRequest/node'
 import { FetchInterceptor } from '../../src/interceptors/fetch/node'
 import { HttpRequestInterceptor } from '../../src/interceptors/http'
 import { createXMLHttpRequest, toWebResponse } from '../helpers'
@@ -65,14 +65,10 @@ it('exposes the initiator of a mocked XMLHttpRequest request', async () => {
   })
 
   await expect(initiatorPromise).resolves.toEqual(request)
-  expect.soft(request.responseText).toBe('mocked')
+  expect(request.responseText).toBe('mocked')
 })
 
-/**
- * @fixme HttpRequestInterceptor doesn't support global `fetch` (Undici) right now.
- * Once it does, this test will pass.
- */
-it.skip('exposes the initiator of a mocked fetch request', async () => {
+it('exposes the initiator of a mocked fetch request', async () => {
   const initiatorPromise = new DeferredPromise<XMLHttpRequest>()
   interceptor.on('request', ({ initiator, controller }) => {
     initiatorPromise.resolve(initiator as XMLHttpRequest)
@@ -89,5 +85,10 @@ it.skip('exposes the initiator of a mocked fetch request', async () => {
   const request = new Request('http://localhost/api')
   const response = await fetch(request)
 
-  await expect(initiatorPromise).resolves.toEqual(request)
+  /**
+   * @note Use "toMatchObject" instead of "toEqual" to ignore the difference
+   * in internal symbols on the request, which Undici modifies after "fetch".
+   */
+  await expect(initiatorPromise).resolves.toMatchObject(request)
+  await expect(response.text()).resolves.toBe('mocked')
 })
