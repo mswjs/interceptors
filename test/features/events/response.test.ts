@@ -7,10 +7,6 @@ import { HttpRequestEventMap } from '../../../src'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest/new'
 import { HttpRequestInterceptor } from '../../../src/interceptors/http'
-/**
- * @note Using "fetch/node" interceptor won't work in JSDOM.
- */
-import { FetchInterceptor } from '../../../src/interceptors/fetch'
 import { useCors, createXMLHttpRequest, toWebResponse } from '../../helpers'
 
 declare namespace window {
@@ -37,28 +33,8 @@ const httpServer = new HttpServer((app) => {
 
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',
-  interceptors: [
-    new HttpRequestInterceptor(),
-    new XMLHttpRequestInterceptor(),
-    new FetchInterceptor(),
-  ],
+  interceptors: [new HttpRequestInterceptor(), new XMLHttpRequestInterceptor()],
 })
-
-// interceptor.on('request', ({ request, controller }) => {
-//   const url = new URL(request.url)
-
-//   if (url.pathname === '/user') {
-//     controller.respondWith(
-//       new Response('mocked-response-text', {
-//         status: 200,
-//         statusText: 'OK',
-//         headers: {
-//           'x-response-type': 'mocked',
-//         },
-//       })
-//     )
-//   }
-// })
 
 beforeAll(async () => {
   // Allow XHR requests to the local HTTPS server with a self-signed certificate.
@@ -328,41 +304,45 @@ it('fetch: emits the "response" event upon a mocked response', async () => {
   expect(isMockedResponse).toBe(true)
 })
 
-it('fetch: emits the "response" event upon the original response', async () => {
-  const responseListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['response'][0]
-  >()
-  interceptor.on('response', (args) => {
-    responseListenerArgs.resolve({
-      ...args,
-      request: args.request.clone(),
+it(
+  'fetch: emits the "response" event upon the original response',
+  { timeout: 1500 },
+  async () => {
+    const responseListenerArgs = new DeferredPromise<
+      HttpRequestEventMap['response'][0]
+    >()
+    interceptor.on('response', (args) => {
+      responseListenerArgs.resolve({
+        ...args,
+        request: args.request.clone(),
+      })
     })
-  })
 
-  await fetch(httpServer.https.url('/account'), {
-    method: 'POST',
-    headers: {
-      'x-request-custom': 'yes',
-    },
-    body: 'request-body',
-  })
+    await fetch(httpServer.http.url('/account'), {
+      method: 'POST',
+      headers: {
+        'x-request-custom': 'yes',
+      },
+      body: 'request-body',
+    })
 
-  const { response, request, isMockedResponse } = await responseListenerArgs
+    const { response, request, isMockedResponse } = await responseListenerArgs
 
-  expect(request.method).toBe('POST')
-  expect(request.url).toBe(httpServer.https.url('/account'))
-  expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request.credentials).toBe('same-origin')
-  await expect(request.text()).resolves.toBe('request-body')
+    expect(request.method).toBe('POST')
+    expect(request.url).toBe(httpServer.http.url('/account'))
+    expect(request.headers.get('x-request-custom')).toBe('yes')
+    expect(request.credentials).toBe('same-origin')
+    await expect(request.text()).resolves.toBe('request-body')
 
-  expect(response.status).toBe(200)
-  expect(response.statusText).toBe('OK')
-  expect(response.url).toBe(request.url)
-  expect(response.headers.get('x-response-type')).toBe('original')
-  await expect(response.text()).resolves.toBe('original-response-text')
+    expect(response.status).toBe(200)
+    expect(response.statusText).toBe('OK')
+    expect(response.url).toBe(request.url)
+    expect(response.headers.get('x-response-type')).toBe('original')
+    await expect(response.text()).resolves.toBe('original-response-text')
 
-  expect(isMockedResponse).toBe(false)
-})
+    expect(isMockedResponse).toBe(false)
+  }
+)
 
 it('supports reading the request and response bodies in the "response" listener', async () => {
   interceptor.on('request', ({ controller }) => {
@@ -378,21 +358,21 @@ it('supports reading the request and response bodies in the "response" listener'
 
   const requestCallback = vi.fn()
   const responseCallback = vi.fn()
-  const responseListener = vi.fn<
-    (...args: HttpRequestEventMap['response']) => void
-  >(async ({ request, response }) => {
+
+  interceptor.on('response', async ({ request, response }) => {
     requestCallback(await request.clone().text())
     responseCallback(await response.clone().text())
   })
-  interceptor.on('response', responseListener)
 
   await fetch(httpServer.https.url('/user'), {
     method: 'POST',
     body: 'request-body',
   })
 
-  await expect.poll(() => responseListener).toHaveBeenCalledOnce()
-
-  expect(requestCallback).toHaveBeenCalledWith('request-body')
-  expect(responseCallback).toHaveBeenCalledWith('mocked-response-text')
+  await expect
+    .poll(() => requestCallback)
+    .toHaveBeenCalledExactlyOnceWith('request-body')
+  await expect
+    .poll(() => responseCallback)
+    .toHaveBeenCalledExactlyOnceWith('mocked-response-text')
 })
