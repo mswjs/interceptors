@@ -151,8 +151,16 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
       // Push data to the client socket when server "socket.write()" is called.
       if (property === 'write') {
         return ((chunk, encoding, callback) => {
-          socket.push(toBuffer(chunk, encoding), encoding)
-          callback?.()
+          const translateWrite = () => {
+            socket.push(toBuffer(chunk, encoding), encoding)
+            callback?.()
+          }
+
+          if (socket.connecting) {
+            socket.once('ready', () => translateWrite())
+          } else {
+            translateWrite()
+          }
         }) as net.Socket['write']
       }
 
@@ -161,7 +169,22 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
         const realEnd = getRealValue() as net.Socket['end']
 
         return ((...args: Parameters<net.Socket['end']>) => {
-          socket.push(null)
+          const callback = args[args.length - 1]
+
+          const translateEnd = () => {
+            socket.push(null)
+
+            if (typeof callback === 'function') {
+              callback()
+            }
+          }
+
+          if (socket.connecting) {
+            socket.once('ready', () => translateEnd())
+          } else {
+            translateEnd()
+          }
+
           return realEnd.apply(target, args)
         }) as net.Socket['end']
       }
@@ -188,6 +211,11 @@ export abstract class SocketController {
     this.readyState = SocketController.PENDING
   }
 
+  /**
+   * Claim this socket. Once claimed, the connection attempt succeeds
+   * regardless of the requested host and the interceptor becomes the
+   * mocked server for this connection.
+   */
   public claim(): void {
     invariant(
       this.readyState !== SocketController.MOCKED,
