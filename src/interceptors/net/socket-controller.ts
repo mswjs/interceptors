@@ -196,12 +196,12 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
 
 export abstract class SocketController {
   static PENDING = 0 as const
-  static MOCKED = 1 as const
+  static CLAIMED = 1 as const
   static PASSTHROUGH = 2 as const
 
   protected readyState:
     | typeof SocketController.PENDING
-    | typeof SocketController.MOCKED
+    | typeof SocketController.CLAIMED
     | typeof SocketController.PASSTHROUGH
 
   private [kRawSocket]: net.Socket
@@ -218,19 +218,21 @@ export abstract class SocketController {
    */
   public claim(): void {
     invariant(
-      this.readyState !== SocketController.MOCKED,
-      'Failed to claim a TLS socket: already claimed'
+      this.readyState === SocketController.PENDING,
+      'Failed to claim a socket connection: already handled (%s)',
+      this.readyState
     )
 
-    this.readyState = SocketController.MOCKED
+    this.readyState = SocketController.CLAIMED
   }
 
   public abstract errorWith(reason?: Error): void
 
   public passthrough(): void {
     invariant(
-      this.readyState !== SocketController.PASSTHROUGH,
-      'Failed to passthrough a TLS socket: already passthrough'
+      this.readyState === SocketController.PENDING,
+      'Failed to passthrough a socket connection: already handled (%s)',
+      this.readyState
     )
 
     this.readyState = SocketController.PASSTHROUGH
@@ -373,7 +375,7 @@ export class TcpSocketController extends SocketController {
        * past this point will result in "Error: write EBADF".
        * @see https://github.com/nodejs/node/blob/main/deps/uv/src/unix/stream.c#L1304-L1305
        */
-      if (this.readyState === SocketController.MOCKED) {
+      if (this.readyState === SocketController.CLAIMED) {
         const callback = args[3]
 
         // Mock connection still means the socket emits the "connect" event
