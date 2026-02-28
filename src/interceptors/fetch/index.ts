@@ -90,6 +90,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
             const responseClone = originalResponse.clone()
             await emitAsync(this.emitter, 'response', {
+              initiator: requestCloneForResponseEvent,
               response: responseClone,
               isMockedResponse: false,
               request: requestCloneForResponseEvent,
@@ -156,6 +157,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             // the response promise. This ensures all your logic finishes
             // before the interceptor resolves the pending response.
             await emitAsync(this.emitter, 'response', {
+              initiator: request,
               // Clone the mocked response for the "response" event listener.
               // This way, the listener can read the response and not lock its body
               // for the actual fetch consumer.
@@ -183,6 +185,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       )
 
       await handleRequest({
+        initiator: request,
         request,
         requestId,
         emitter: this.emitter,
