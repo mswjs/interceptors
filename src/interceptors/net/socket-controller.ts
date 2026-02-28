@@ -278,10 +278,7 @@ export class TcpSocketController extends SocketController {
             this.socket.listenerCount('connect') > 0
           ) {
             log('assume connect->write socket, calling "connect" listeners...')
-
-            for (const listener of this.socket.listeners('connect')) {
-              listener.apply(this.socket)
-            }
+            this.onPreemptiveConnect()
           }
         })
       })
@@ -362,6 +359,12 @@ export class TcpSocketController extends SocketController {
     }
   }
 
+  protected onPreemptiveConnect() {
+    for (const listener of this.socket.listeners('connect')) {
+      listener.apply(this.socket)
+    }
+  }
+
   /**
    * Push the given data to the server socket.
    * This has no effect on the public-facing socket and is used
@@ -402,7 +405,15 @@ export class TcpSocketController extends SocketController {
   }
 
   #onRealSocketError = (error: Error) => {
+    log('real socket error, forwarding...', error)
+
     this.socket.destroy(error)
+
+    // The handle swap in passthrough (this.socket._handle = realSocket._handle)
+    // breaks Node's internal close machinery—destroy() emits "error" but never
+    // emits "close". Consumers like Undici wait for "close" to finalize the
+    // request, so we must emit it manually.
+    process.nextTick(() => this.socket.emit('close', true))
   }
 
   #onRealSocketEnd = () => {
@@ -550,6 +561,16 @@ export class TlsSocketController extends TcpSocketController {
     protected readonly createConnection: () => tls.TLSSocket
   ) {
     super(socket, createConnection)
+  }
+
+  protected onPreemptiveConnect(): void {
+    super.onPreemptiveConnect()
+
+    // For TLS sockets, also invoke the "secureConnect" callbacks since some consumers,
+    // like Undici, listen to those to start writing to the socket.
+    for (const listener of this.socket.listeners('secureConnect')) {
+      listener.apply(this.socket)
+    }
   }
 
   public claim(): void {
