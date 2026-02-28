@@ -1,8 +1,10 @@
-import { urlToHttpOptions } from 'node:url'
+import { invariant } from 'outvariant'
 import zlib from 'node:zlib'
-import https from 'node:https'
+import net from 'node:net'
 import { Readable } from 'node:stream'
+import { urlToHttpOptions } from 'node:url'
 import http, { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
+import https from 'node:https'
 import { RequestHandler } from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { Page } from '@playwright/test'
@@ -348,4 +350,74 @@ export function compressResponse(
   }
 
   return output
+}
+
+export async function createTestServer<T extends net.Server>(
+  createServer: () => T
+): Promise<
+  AsyncDisposable & {
+    instance: T
+    port: number
+    hostname: string
+    http: {
+      url: (path: string) => URL
+    }
+    https: {
+      url: (path: string) => URL
+    }
+  }
+> {
+  const server = createServer()
+
+  const pendingListen = new DeferredPromise<void>()
+
+  server
+    .listen(0, '127.0.0.1', () => {
+      pendingListen.resolve()
+    })
+    .once('error', (error) => pendingListen.reject(error))
+
+  await pendingListen
+
+  const rawAddress = server.address()
+
+  invariant(
+    rawAddress != null,
+    'Failed to open a test server: server address is null'
+  )
+  invariant(
+    typeof rawAddress === 'object' && 'port' in rawAddress,
+    'Failed to open a test server: server address is not AddressInfo'
+  )
+
+  const createUrlHelper = (protocol: 'https' | 'http') => {
+    return (path: string): URL => {
+      return new URL(
+        path,
+        new URL(`${protocol}://${rawAddress.address}:${rawAddress.port}`)
+      )
+    }
+  }
+
+  return {
+    async [Symbol.asyncDispose]() {
+      const pendingClose = new DeferredPromise<void>()
+      server.close((error) => {
+        if (error) {
+          return pendingClose.reject(error)
+        }
+
+        pendingClose.resolve()
+      })
+    },
+    instance: server,
+    port: rawAddress.port,
+    hostname: rawAddress.address,
+    http: {
+      url: createUrlHelper('http'),
+    },
+    https: {
+      url: createUrlHelper('https'),
+    },
+  }
 }
