@@ -1,13 +1,20 @@
 import net from 'node:net'
+import tls from 'node:tls'
 import { NetworkConnectionOptions } from './normalize-net-connect-args'
 
 /**
  * Creates a `URL` instance out of the `net.connect()` options.
  * @note This implies that the passed connection is an HTTP connection.
  */
-export function connectionOptionsToUrl(options: NetworkConnectionOptions): URL {
+export function connectionOptionsToUrl(
+  options: NetworkConnectionOptions,
+  socket: net.Socket
+): URL {
   const isIPv6 = options.family === 6 || net.isIPv6(options.host || '')
-  const protocol = getProtocolByConnectionOptions(options)
+  const protocol =
+    socket instanceof tls.TLSSocket
+      ? 'https:'
+      : getProtocolByConnectionOptions(options)
   const host = options.host || 'localhost'
 
   const url = new URL(`${protocol}//${isIPv6 ? `[${host}]` : host}`)
@@ -36,14 +43,14 @@ export function connectionOptionsToUrl(options: NetworkConnectionOptions): URL {
 
 function getProtocolByConnectionOptions(
   options: NetworkConnectionOptions
-): string {
+): 'https:' | 'http:' | (string & {}) {
   if (options.protocol) {
     return options.protocol
   }
 
-  if (options.secure) {
+  if (options.port === 443) {
     return 'https:'
   }
 
-  return options.port === 443 ? 'https:' : 'http:'
+  return 'http:'
 }

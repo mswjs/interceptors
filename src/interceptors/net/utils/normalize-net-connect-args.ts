@@ -2,7 +2,6 @@ import net from 'node:net'
 import url from 'node:url'
 
 export interface NetworkConnectionOptions {
-  secure?: boolean | null
   port?: number | null
   path: string | null
   host?: string | null

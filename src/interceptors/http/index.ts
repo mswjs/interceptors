@@ -56,7 +56,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
             httpMethod
           )
 
-          const baseUrl = connectionOptionsToUrl(connectionOptions)
+          const baseUrl = connectionOptionsToUrl(connectionOptions, socket)
 
           log('handling http message...', {
             httpMessage,
