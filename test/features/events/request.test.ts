@@ -10,7 +10,7 @@ import {
 } from '../../helpers'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
 import { HttpRequestInterceptor } from '../../../src/interceptors/http'
-import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest/new'
+import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest/node'
 import { RequestController } from '../../../src/RequestController'
 
 const httpServer = new HttpServer((app) => {

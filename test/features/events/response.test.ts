@@ -5,7 +5,7 @@ import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap } from '../../../src'
 import { BatchInterceptor } from '../../../src/BatchInterceptor'
-import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest/new'
+import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest/node'
 import { HttpRequestInterceptor } from '../../../src/interceptors/http'
 import { useCors, createXMLHttpRequest, toWebResponse } from '../../helpers'
 

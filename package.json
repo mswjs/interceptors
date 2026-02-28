@@ -65,16 +65,6 @@
     "./presets/browser": {
       "browser": "./lib/browser/presets/browser.mjs",
       "node": null
-    },
-    "./utils/node": {
-      "node": {
-        "require": "./lib/node/utils/node/index.cjs",
-        "import": "./lib/node/utils/node/index.mjs"
-      },
-      "browser": null,
-      "require": "./lib/node/utils/node/index.cjs",
-      "import": "./lib/node/utils/node/index.mjs",
-      "default": "./lib/node/utils/node/index.cjs"
     }
   },
   "author": "Artem Zakharchenko",

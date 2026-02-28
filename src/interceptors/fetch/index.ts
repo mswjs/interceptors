@@ -12,7 +12,6 @@ import { followFetchRedirect } from './utils/followRedirect'
 import { decompressResponse } from './utils/decompression'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { FetchResponse } from '../../utils/fetchUtils'
-import { setRawRequest } from '../../getRawRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { applyPatch } from '../../utils/apply-patch'
 
@@ -52,7 +51,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
            * @note Set the raw request only if a Request instance was provided to fetch.
            */
           if (input instanceof Request) {
-            setRawRequest(request, input)
+            // setRawRequest(request, input)
           }
 
           const responsePromise = new DeferredPromise<Response>()
