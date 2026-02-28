@@ -1,6 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
+import { spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -24,12 +25,12 @@ it('emits "data" on the server socket for writes before connect', async () => {
   })
 
   const socket = net.connect(80, 'any.host.com')
-  const closeListener = vi.fn()
+  const { listeners, events } = spyOnSocket(socket)
 
-  socket.on('close', closeListener)
   socket.write('hello', () => socket.destroy())
 
-  await expect.poll(() => closeListener).toHaveBeenCalledOnce()
+  await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
+  expect(events).toEqual([['close', false]])
   await expect
     .poll(() => interceptorDataListener)
     .toHaveBeenCalledExactlyOnceWith(Buffer.from('hello'))
@@ -43,16 +44,15 @@ it('emits "data" on the server socket for writes after connect', async () => {
   })
 
   const socket = net.connect(80, 'any.host.com')
-  const closeListener = vi.fn()
+  const { listeners, events } = spyOnSocket(socket)
 
-  socket
-    .on('connect', () => {
-      socket.write('hello', () => socket.destroy())
-    })
-    .on('close', closeListener)
+  socket.on('connect', () => {
+    socket.write('hello', () => socket.destroy())
+  })
 
-  await expect.poll(() => closeListener).toHaveBeenCalledOnce()
-  expect(interceptorDataListener).toHaveBeenCalledExactlyOnceWith(
-    Buffer.from('hello')
-  )
+  await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
+  expect(events).toEqual([['connect'], ['close', false]])
+  await expect
+    .poll(() => interceptorDataListener)
+    .toHaveBeenCalledExactlyOnceWith(Buffer.from('hello'))
 })
