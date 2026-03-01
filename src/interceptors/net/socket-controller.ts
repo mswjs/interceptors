@@ -226,8 +226,6 @@ export abstract class SocketController {
     this.readyState = SocketController.CLAIMED
   }
 
-  public abstract errorWith(reason?: Error): void
-
   public passthrough(): void {
     invariant(
       this.readyState === SocketController.PENDING,
@@ -501,10 +499,6 @@ export class TcpSocketController extends SocketController {
        */
       request.oncomplete(0, handle, request, true, true)
     })
-  }
-
-  public errorWith(reason?: Error): void {
-    this.socket.destroy(reason)
   }
 
   public passthrough(

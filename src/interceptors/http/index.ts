@@ -136,7 +136,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 },
                 errorWith: (reason) => {
                   if (reason instanceof Error) {
-                    socketController.errorWith(reason)
+                    socket.destroy(reason)
                   }
                 },
                 passthrough: () => {

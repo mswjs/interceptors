@@ -19,8 +19,8 @@ afterAll(() => {
 
 it('ends the connection before it is open', async () => {
   const reason = new Error('Custom reason')
-  interceptor.on('connection', ({ controller }) => {
-    controller.errorWith(reason)
+  interceptor.on('connection', ({ socket }) => {
+    socket.destroy(reason)
   })
 
   const socket = net.connect(80, '127.0.0.1')
@@ -38,7 +38,7 @@ it('ends the connection before it is open', async () => {
 it('ends a mocked connection after it is open', async () => {
   const reason = new Error('Custom reason')
   interceptor.on('connection', ({ socket, controller }) => {
-    socket.on('connect', () => controller.errorWith(reason))
+    socket.on('connect', () => socket.destroy(reason))
     controller.claim()
   })
 
@@ -58,7 +58,7 @@ it('ends a mocked connection after it is open', async () => {
 it('ends a passthrough connection after it is open', async () => {
   const reason = new Error('Custom reason')
   interceptor.on('connection', ({ socket, controller }) => {
-    socket.on('connect', () => controller.errorWith(reason))
+    socket.on('connect', () => socket.destroy(reason))
     controller.passthrough()
   })
 
@@ -84,7 +84,7 @@ it('ends a passthrough connection after it is open', async () => {
 it('ends the connection during a write', async () => {
   const reason = new Error('Custom reason')
   interceptor.on('connection', ({ socket, controller }) => {
-    socket.on('data', () => controller.errorWith(reason))
+    socket.on('data', () => socket.destroy(reason))
     controller.claim()
   })
 
@@ -107,8 +107,8 @@ it('ends the connection during a write', async () => {
 
 it('has no effect if the client closed the connection', async () => {
   const serverReason = new Error('Server reason')
-  interceptor.on('connection', ({ controller }) => {
-    controller.errorWith(serverReason)
+  interceptor.on('connection', ({ socket }) => {
+    socket.destroy(serverReason)
   })
 
   const socket = net.connect(80, '127.0.0.1')
