@@ -1,11 +1,12 @@
 // @vitest-environment node
 import { Readable } from 'node:stream'
 import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import express from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { sleep, toWebResponse } from '#/test/helpers'
+import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.post('/resource', express.text({ type: '*/*' }), (req, res) => {
@@ -118,7 +119,7 @@ it('supports Readable as the request body', async () => {
   const input = ['hello', ' ', 'world', null]
   const readable = new Readable({
     read: async function () {
-      await sleep(10)
+      await setTimeout(10)
       this.push(input.shift())
     },
   })
@@ -232,8 +233,6 @@ it('supports ending a mocked request in a write callback', async () => {
  * @see https://github.com/mswjs/interceptors/issues/684
  */
 it('supports ending a bypassed request in a write callback', async () => {
-  const requestWriteCallback = vi.fn()
-
   const request = http.request(httpServer.http.url('/resource'), {
     method: 'POST',
     headers: { 'content-type': 'text/plain' },
@@ -280,10 +279,7 @@ it('calls the write callbacks when reading request body in the interceptor', asy
 
   const [response] = await toWebResponse(request)
 
-  // Must call each write callback once.
   expect(requestWriteCallback).toHaveBeenCalledTimes(3)
-  // Must be able to read the request stream in the interceptor.
   expect(requestBodyCallback).toHaveBeenCalledWith('onetwothree')
-  // Must send the correct request body to the server.
   await expect(response.text()).resolves.toBe('onetwothree')
 })

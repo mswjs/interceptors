@@ -7,6 +7,7 @@ import { createLogger } from '../../utils/logger'
 import { unwrapPendingData } from './utils/flush-writes'
 import { NetworkConnectionOptions } from './utils/normalize-net-connect-args'
 import { getAddressInfoByConnectionOptions } from './utils/address-info'
+import { applyPatch } from '#/src/utils/apply-patch'
 
 const kListenerWrap = Symbol('kListenerWrap')
 
@@ -237,6 +238,12 @@ export abstract class SocketController {
   }
 }
 
+type FlushPendingDataFunction = (
+  data: NonNullable<net.Socket['_pendingData']>,
+  encoding: BufferEncoding | undefined,
+  callback: (data: NonNullable<net.Socket['_pendingData']>) => void
+) => void
+
 export class TcpSocketController extends SocketController {
   public serverSocket: net.Socket
 
@@ -277,10 +284,11 @@ export class TcpSocketController extends SocketController {
      */
     socket
       .on('free', () => {
-        log('socket has been freed!')
+        log('client socket freed!')
         this.#reset()
       })
       .on('close', () => {
+        log('client socket closed!')
         this.#passthroughSocket = null
         this.#passthroughPausedBuffer = []
       })
@@ -341,10 +349,22 @@ export class TcpSocketController extends SocketController {
       log('socket write:', args, this.readyState)
 
       if (this.readyState === SocketController.PENDING) {
+        log('write while pending...')
+
         // Socket might write immediately, before the "connection" interceptor event is emitted.
         // In those cases, schedule the emit on the next tick to ensure the server socket emits "data".
         if (this.socket.listenerCount('internal:write') === 0) {
-          process.nextTick(() => this.#push(args[1]))
+          log('no server write listeners, scheduling to the next tick...')
+
+          process.nextTick(() => {
+            /**
+             * @note If the socket has been handled in any way, skip this forwarding.
+             * Both claimed and passthrough scenario are forwarded below.
+             */
+            if (this.readyState === SocketController.PENDING) {
+              this.#push(args[1])
+            }
+          })
         } else {
           this.#push(args[1])
         }
@@ -354,6 +374,8 @@ export class TcpSocketController extends SocketController {
          * This prevents the socket from getting stuck when calling ".end()" in a write callback.
          */
         if (typeof args[3] === 'function') {
+          log('found a write callback while pending, executing...')
+
           args[3]()
 
           /**
@@ -374,6 +396,8 @@ export class TcpSocketController extends SocketController {
        * @see https://github.com/nodejs/node/blob/main/deps/uv/src/unix/stream.c#L1304-L1305
        */
       if (this.readyState === SocketController.CLAIMED) {
+        log('write while claimed...')
+
         const callback = args[3]
 
         // Mock connection still means the socket emits the "connect" event
@@ -392,7 +416,9 @@ export class TcpSocketController extends SocketController {
         return
       }
 
-      log('writing to passthrough:', args)
+      log('write while passthrough...')
+
+      this.#push(args[1])
       return this.#realWriteGeneric.apply(this.socket, args)
     }
   }
@@ -415,6 +441,8 @@ export class TcpSocketController extends SocketController {
     }
 
     unwrapPendingData(data, (chunk, encoding) => {
+      log('emitting "data" on the server socket...', { chunk, encoding })
+
       this.socket.emit('internal:write', chunk, encoding)
     })
   }
@@ -501,13 +529,7 @@ export class TcpSocketController extends SocketController {
     })
   }
 
-  public passthrough(
-    flushPendingData?: (
-      data: NonNullable<net.Socket['_pendingData']>,
-      encoding: BufferEncoding | undefined,
-      callback: (data: NonNullable<net.Socket['_pendingData']>) => void
-    ) => void
-  ): net.Socket {
+  public passthrough(flushPendingData?: FlushPendingDataFunction): net.Socket {
     super.passthrough()
 
     log('passthrough!')
@@ -516,24 +538,44 @@ export class TcpSocketController extends SocketController {
      * @note Modify the pending data to be flushed to the passthrough socket.
      * In HTTP, this allows sending different request headers (e.g. modified in the listener).
      */
-    if (typeof flushPendingData === 'function') {
-      // Intentionally grab the latest write method to preserve whatever patches it has.
-      const realSocketWriteGeneric = this.socket._writeGeneric
+    if (
+      typeof flushPendingData === 'function' &&
+      this.socket._pendingData != null
+    ) {
+      log('has pending data and a custom flush function, applying...')
 
-      this.socket._writeGeneric = (writev, data, encoding, callback) => {
-        /**
-         * @note The scheduled write on "connect" will set "_pendingData" to null.
-         * @see https://github.com/nodejs/node/blob/6b5178f77b5d1f5d2adef8a1a092febe171cab80/lib/net.js#L1011
-         */
-        if (this.socket._pendingData) {
-          flushPendingData(data, encoding, (nextData) => {
-            realSocketWriteGeneric(writev, nextData, encoding, callback)
-          })
-          return
+      const revertWriteGenericPatch = applyPatch(
+        this.socket,
+        '_writeGeneric',
+        (clientWriteGeneric) => {
+          return (writev, data, encoding, callback) => {
+            if (this.socket._pendingData) {
+              flushPendingData(data, encoding, (nextData) => {
+                log('flushing modified pending data...', nextData)
+
+                /**
+                 * @note Call the unpatched "_writeGeneric" to prevent these writes
+                 * from emitting the "data" event on the server socket. These writes
+                 * have already been forwarded to the server socket while pending.
+                 */
+                this.#realWriteGeneric.call(
+                  this.socket,
+                  writev,
+                  nextData,
+                  encoding,
+                  callback
+                )
+              })
+
+              log('restoring the flush pending data patch...')
+              revertWriteGenericPatch()
+              return
+            }
+
+            return clientWriteGeneric(writev, data, encoding, callback)
+          }
         }
-
-        realSocketWriteGeneric(writev, data, encoding, callback)
-      }
+      )
     }
 
     const createNewSocket = () => {
@@ -652,8 +694,10 @@ export class TlsSocketController extends TcpSocketController {
     super.claim()
   }
 
-  public passthrough(): tls.TLSSocket {
-    const realSocket = super.passthrough() as tls.TLSSocket
+  public passthrough(
+    flushPendingData?: FlushPendingDataFunction
+  ): tls.TLSSocket {
+    const realSocket = super.passthrough(flushPendingData) as tls.TLSSocket
 
     /**
      * @note Remove the internal "connect" listener added by the TLS socket.
