@@ -1,6 +1,6 @@
 import { invariant } from 'outvariant'
 
-export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
+export const IS_PATCHED_MODULE: unique symbol = Symbol.for('kIsPatchedModule')
 
 /**
  * Apply a patch for the given property on the owner object.
