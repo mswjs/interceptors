@@ -19,6 +19,7 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.dispose()
+
   await new Promise<void>((resolve, reject) => {
     server.disconnectSockets()
     server.close((error) => {
@@ -33,7 +34,5 @@ it('bypasses a WebSocket upgrade request', async () => {
     transports: ['websocket'],
   })
 
-  await vi.waitFor(async () => {
-    expect(client.connected).toBe(true)
-  })
+  await expect.poll(() => client.connected).toBe(true)
 })

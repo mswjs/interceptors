@@ -1,6 +1,11 @@
 import net from 'node:net'
 import { Readable } from 'node:stream'
-import { STATUS_CODES, ServerResponse, IncomingMessage } from 'node:http'
+import {
+  METHODS,
+  STATUS_CODES,
+  ServerResponse,
+  IncomingMessage,
+} from 'node:http'
 import type { ReadableStream } from 'node:stream/web'
 import { pipeline } from 'node:stream/promises'
 import { invariant } from 'outvariant'
@@ -21,7 +26,11 @@ import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { createLogger } from '../../utils/logger'
-import { kRawSocket } from '../net/socket-controller'
+import {
+  kRawSocket,
+  SocketController,
+  type FlushPendingDataFunction,
+} from '../net/socket-controller'
 import { unwrapPendingData } from '../net/utils/flush-writes'
 import { FetchResponse } from '../../utils/fetchUtils'
 import { requestContext } from '../../request-context'
@@ -46,15 +55,18 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     socketInterceptor.on(
       'connection',
       ({ connectionOptions, socket, controller: socketController }) => {
+        /**
+         * @note Only listen to the first sent packet.
+         * A single socket cannot be used for different protocols.
+         */
         socket.once('data', (chunk) => {
           const httpMessage = chunk.toString()
-          const httpMethod = httpMessage.split(' ')[0]
+          const httpMethod = httpMessage.split(' ')[0] || ''
 
-          invariant(
-            httpMethod != null,
-            'Failed to handle an HTTP request: expected a valid HTTP method but got "%s"',
-            httpMethod
-          )
+          // Ignore non-HTTP packets sent via this socket.
+          if (!METHODS.includes(httpMethod.toUpperCase())) {
+            return
+          }
 
           const baseUrl = connectionOptionsToUrl(connectionOptions, socket)
 
@@ -94,8 +106,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
                   FetchResponse.setUrl(request.url, response)
 
-                  const respond = async () => {
-                    await this.respondWith({
+                  const respond = () => {
+                    return this.respondWith({
                       socket: socketController[kRawSocket],
                       request,
                       response,
@@ -103,6 +115,8 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   }
 
                   if (socket.connecting) {
+                    // Send a mocked response once the socket connects, just like the real server would.
+                    // This preserves the correct order of events (e.g. connect, then data).
                     socket.once('connect', respond)
                   } else {
                     /**
@@ -123,14 +137,12 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   ) {
                     const responseClone = response.clone()
 
-                    process.nextTick(async () => {
-                      await emitAsync(this.emitter, 'response', {
-                        initiator,
-                        requestId,
-                        request,
-                        response: responseClone,
-                        isMockedResponse: true,
-                      })
+                    await emitAsync(this.emitter, 'response', {
+                      initiator,
+                      requestId,
+                      request,
+                      response: responseClone,
+                      isMockedResponse: true,
                     })
                   }
                 },
@@ -140,74 +152,16 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   }
                 },
                 passthrough: () => {
-                  const transformRequestMessage = (
-                    httpMessage: string | Buffer,
-                    encoding?: BufferEncoding | 'buffer'
-                  ): string | Buffer => {
-                    /**
-                     * @note Socket can write a buffer (e.g. uploaded file) even before
-                     * it writes the HTTP message. Bypass those cases.
-                     */
-                    if (encoding === 'buffer') {
-                      return httpMessage
-                    }
-
-                    const parts = httpMessage.toString(encoding).split('\r\n')
-                    const headersEndIndex = parts.findIndex(
-                      (field) => field === ''
-                    )
-                    const httpMessageHeaderPairs = parts.slice(
-                      1,
-                      headersEndIndex
-                    )
-                    const httpMessageHeaders = FetchResponse.parseRawHeaders(
-                      httpMessageHeaderPairs.flatMap((header) =>
-                        header.split(': ')
-                      )
-                    )
-
-                    const rawHeaders = getRawFetchHeaders(request.headers)
-
-                    for (const [name, value] of rawHeaders) {
-                      httpMessageHeaders.set(name, value)
-                    }
-
-                    const httpMessageHeadersString = Array.from(
-                      httpMessageHeaders
-                    )
-                      .map(([name, value]) => `${name}: ${value}`)
-                      .join('\r\n')
-                    parts.splice(
-                      1,
-                      headersEndIndex - 1,
-                      httpMessageHeadersString
-                    )
-
-                    return parts.join('\r\n')
-                  }
-
                   const realSocket = socketController.passthrough(
                     /**
                      * @todo Would be great NOT to run this if request headers weren't modified.
                      */
-                    (pendingData, encoding, callback) => {
-                      if (Array.isArray(pendingData)) {
-                        pendingData[0].chunk = transformRequestMessage(
-                          pendingData[0].chunk,
-                          pendingData[0].encoding
-                        )
-                      } else {
-                        pendingData = transformRequestMessage(
-                          pendingData,
-                          encoding
-                        )
-                      }
-
-                      callback(pendingData)
-                    }
+                    this.#modifyHttpHeaders(request)
                   )
 
                   if (this.emitter.listenerCount('response')) {
+                    log('found "response" listener, pausing socket...')
+
                     const mockSocket = socketController[kRawSocket]
 
                     // Pause the mock socket to prevent the passthrough 'data' listener
@@ -218,13 +172,24 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
                     const responseParser = new HttpResponseParser({
                       onResponse: async (response) => {
+                        log(
+                          'http response parser parsed a response!',
+                          response.status,
+                          response.statusText
+                        )
+
                         if (isResponseError(response)) {
+                          log(
+                            'response is an error response, resuming socket...'
+                          )
+
                           mockSocket.resume()
                           return
                         }
 
                         FetchResponse.setUrl(request.url, response)
 
+                        log('emitting "response" event...')
                         await emitAsync(this.emitter, 'response', {
                           initiator,
                           requestId,
@@ -233,6 +198,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                           isMockedResponse: false,
                         })
 
+                        log('resuming socket...')
                         mockSocket.resume()
                       },
                     })
@@ -243,6 +209,14 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   }
                 },
               })
+
+              invariant(
+                socketController['readyState'] === SocketController.PENDING,
+                'CANNOT HANDLE ALREADY HANDLED REQUEST',
+                request.method,
+                request.url,
+                socketController['readyState']
+              )
 
               await handleRequest({
                 initiator,
@@ -343,6 +317,54 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
     if (request.method !== 'CONNECT') {
       socket.push(null)
+    }
+  }
+
+  #modifyHttpHeaders(request: Request): FlushPendingDataFunction {
+    const transformRequestMessage = (
+      httpMessage: string | Buffer,
+      encoding?: BufferEncoding | 'buffer'
+    ): string | Buffer => {
+      /**
+       * @note Socket can write a buffer (e.g. uploaded file) even before
+       * it writes the HTTP message. Bypass those cases.
+       */
+      if (encoding === 'buffer') {
+        return httpMessage
+      }
+
+      const parts = httpMessage.toString(encoding).split('\r\n')
+      const headersEndIndex = parts.findIndex((field) => field === '')
+      const httpMessageHeaderPairs = parts.slice(1, headersEndIndex)
+      const httpMessageHeaders = FetchResponse.parseRawHeaders(
+        httpMessageHeaderPairs.flatMap((header) => header.split(': '))
+      )
+
+      const rawHeaders = getRawFetchHeaders(request.headers)
+
+      for (const [name, value] of rawHeaders) {
+        httpMessageHeaders.set(name, value)
+      }
+
+      const httpMessageHeadersString = Array.from(httpMessageHeaders)
+        .map(([name, value]) => `${name}: ${value}`)
+        .join('\r\n')
+      parts.splice(1, headersEndIndex - 1, httpMessageHeadersString)
+
+      return parts.join('\r\n')
+    }
+
+    return (pendingData, encoding, callback) => {
+      if (Array.isArray(pendingData)) {
+        pendingData[0].chunk = transformRequestMessage(
+          pendingData[0].chunk,
+          pendingData[0].encoding
+        )
+      } else {
+        pendingData = transformRequestMessage(pendingData, encoding)
+      }
+
+      callback(pendingData)
     }
   }
 }

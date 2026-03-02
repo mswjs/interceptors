@@ -204,11 +204,11 @@ export class HttpResponseParser extends HttpParser<typeof HttpParser.RESPONSE> {
           ...(rawHeaders || []),
         ])
 
+        this.#responseBodyStream = new Readable({ read() {} })
+
         const response = new FetchResponse(
           FetchResponse.isResponseWithBody(status)
-            ? (Readable.toWeb(
-                (this.#responseBodyStream = new Readable({ read() {} }))
-              ) as any)
+            ? (Readable.toWeb(this.#responseBodyStream) as any)
             : null,
           {
             url,

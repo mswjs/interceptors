@@ -18,7 +18,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('intercepts buffered writes to the original server', async () => {
+it('intercepts buffered writes for passthrough socket', async () => {
   const serverDataListener = vi.fn()
   await using server = await createTestServer(() => {
     return new net.Server((socket) => {
@@ -56,7 +56,7 @@ it('intercepts buffered writes to the original server', async () => {
     .toHaveBeenNthCalledWith(3, Buffer.from('client'))
 })
 
-it('intercepts separate writes to the original server', async () => {
+it('intercepts separate writes for passthrough socket', async () => {
   const serverDataListener = vi.fn()
   await using server = await createTestServer(() => {
     return new net.Server((socket) => {
@@ -65,9 +65,61 @@ it('intercepts separate writes to the original server', async () => {
   })
 
   const interceptorDataListener = vi.fn()
-  interceptor.on('connection', ({ socket, controller }) => {
-    controller.passthrough()
+  interceptor.on('connection', async ({ socket, controller }) => {
     socket.on('data', interceptorDataListener)
+
+    setTimeout(30)
+    controller.passthrough()
+  })
+
+  const socket = net.connect(server.port, server.hostname)
+
+  socket.write('hello ')
+  await setTimeout(20)
+  socket.write('from ')
+  await setTimeout(20)
+  socket.end('client')
+
+  await expect.poll(() => serverDataListener).toHaveBeenCalledTimes(3)
+  expect
+    .soft(serverDataListener)
+    .toHaveBeenNthCalledWith(1, Buffer.from('hello '))
+  expect
+    .soft(serverDataListener)
+    .toHaveBeenNthCalledWith(2, Buffer.from('from '))
+  expect
+    .soft(serverDataListener)
+    .toHaveBeenNthCalledWith(3, Buffer.from('client'))
+
+  expect.soft(interceptorDataListener).toHaveBeenCalledTimes(3)
+  expect
+    .soft(interceptorDataListener)
+    .toHaveBeenNthCalledWith(1, Buffer.from('hello '))
+  expect
+    .soft(interceptorDataListener)
+    .toHaveBeenNthCalledWith(2, Buffer.from('from '))
+  expect
+    .soft(interceptorDataListener)
+    .toHaveBeenNthCalledWith(3, Buffer.from('client'))
+})
+
+it('does not duplicate writes while the socket is pending', async () => {
+  const serverDataListener = vi.fn()
+  await using server = await createTestServer(() => {
+    return new net.Server((socket) => {
+      socket.on('data', serverDataListener)
+    })
+  })
+
+  const interceptorDataListener = vi.fn()
+  interceptor.on('connection', async ({ socket, controller }) => {
+    socket.on('data', interceptorDataListener)
+
+    socket.on('data', (chunk) => {
+      if (chunk.toString() === 'hello ') {
+        controller.passthrough()
+      }
+    })
   })
 
   const socket = net.connect(server.port, server.hostname)

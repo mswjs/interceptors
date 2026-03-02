@@ -30,6 +30,7 @@ export function toBuffer(
   if (Buffer.isBuffer(data)) {
     return data
   }
+
   if (data instanceof Uint8Array) {
     return Buffer.from(data.buffer)
   }

@@ -9,7 +9,7 @@ import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
-  app.post('/resource', express.text({ type: '*/*' }), (req, res) => {
+  app.post('/resource/*', express.text({ type: '*/*' }), (req, res) => {
     res.send(req.body)
   })
 })
@@ -37,7 +37,7 @@ it('writes string request body', async () => {
     requestBodyPromise.resolve(await request.clone().text())
   })
 
-  const req = http.request(httpServer.http.url('/resource'), {
+  const req = http.request(httpServer.http.url('/resource/write-string'), {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain',
@@ -61,7 +61,7 @@ it('writes JSON request body', async () => {
     requestBodyPromise.resolve(await request.clone().text())
   })
 
-  const req = http.request(httpServer.http.url('/resource'), {
+  const req = http.request(httpServer.http.url('/resource/write-json'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -85,7 +85,7 @@ it('writes Buffer request body', async () => {
     requestBodyPromise.resolve(await request.clone().text())
   })
 
-  const req = http.request(httpServer.http.url('/resource'), {
+  const req = http.request(httpServer.http.url('/resource/write-buffer'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -109,7 +109,7 @@ it('supports Readable as the request body', async () => {
     requestBodyPromise.resolve(await request.clone().text())
   })
 
-  const request = http.request(httpServer.http.url('/resource'), {
+  const request = http.request(httpServer.http.url('/resource/readable'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -131,9 +131,12 @@ it('supports Readable as the request body', async () => {
 })
 
 it('calls the write callback when writing an empty string', async () => {
-  const request = http.request(httpServer.http.url('/resource'), {
-    method: 'POST',
-  })
+  const request = http.request(
+    httpServer.http.url('/resource/write-empty-cb'),
+    {
+      method: 'POST',
+    }
+  )
 
   const writeCallback = vi.fn()
   request.write('', writeCallback)
@@ -144,9 +147,12 @@ it('calls the write callback when writing an empty string', async () => {
 })
 
 it('calls the write callback when writing an empty Buffer', async () => {
-  const request = http.request(httpServer.http.url('/resource'), {
-    method: 'POST',
-  })
+  const request = http.request(
+    httpServer.http.url('/resource/write-callback'),
+    {
+      method: 'POST',
+    }
+  )
 
   const writeCallback = vi.fn()
   request.write(Buffer.from(''), writeCallback)
@@ -161,7 +167,7 @@ it('emits "finish" for a passthrough request', async () => {
   const prefinishListener = vi.fn()
   const finishListener = vi.fn()
 
-  const request = http.request(httpServer.http.url('/resource'))
+  const request = http.request(httpServer.http.url('/resource/real-finish'))
 
   request.on('prefinish', prefinishListener)
   request.on('finish', finishListener)
@@ -181,7 +187,7 @@ it('emits "finish" for a mocked request', async () => {
   const prefinishListener = vi.fn()
   const finishListener = vi.fn()
 
-  const request = http.request(httpServer.http.url('/resource'))
+  const request = http.request(httpServer.http.url('/resource/mocked-finish'))
 
   request.on('prefinish', prefinishListener)
   request.on('finish', finishListener)
@@ -201,9 +207,12 @@ it('supports ending a mocked request in a write callback', async () => {
     controller.respondWith(new Response('hello world'))
   })
 
-  const request = http.request(httpServer.http.url('/resource'), {
-    method: 'POST',
-  })
+  const request = http.request(
+    httpServer.http.url('/resource/mocked-end-after-write'),
+    {
+      method: 'POST',
+    }
+  )
 
   const firstWriteCallback = vi.fn()
   const secondWriteCallback = vi.fn()
@@ -233,19 +242,22 @@ it('supports ending a mocked request in a write callback', async () => {
  * @see https://github.com/mswjs/interceptors/issues/684
  */
 it('supports ending a bypassed request in a write callback', async () => {
-  const request = http.request(httpServer.http.url('/resource'), {
-    method: 'POST',
-    headers: { 'content-type': 'text/plain' },
-  })
+  const request = http.request(
+    httpServer.http.url('/resource/real-end-after-write'),
+    {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+    }
+  )
 
   const firstWriteCallback = vi.fn()
   const secondWriteCallback = vi.fn()
   const requestEndCallback = vi.fn()
 
-  request.write('hello', () => {
+  request.write('hello ', () => {
     firstWriteCallback()
 
-    request.write(' world', () => {
+    request.write('world', () => {
       secondWriteCallback()
 
       request.end(requestEndCallback)
@@ -269,17 +281,24 @@ it('calls the write callbacks when reading request body in the interceptor', asy
     requestBodyCallback(await request.text())
   })
 
-  const request = http.request(httpServer.http.url('/resource'), {
-    method: 'POST',
-    headers: { 'content-type': 'text/plain' },
-  })
-  request.write('one', requestWriteCallback)
-  request.write('two', requestWriteCallback)
-  request.end('three', requestWriteCallback)
+  const request = http.request(
+    httpServer.http.url('/resource/write-callback'),
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'text/plain',
+      },
+    }
+  )
+  request.write('ash', requestWriteCallback)
+  request.write('amber', requestWriteCallback)
+  request.end('fire', requestWriteCallback)
 
   const [response] = await toWebResponse(request)
 
-  expect(requestWriteCallback).toHaveBeenCalledTimes(3)
-  expect(requestBodyCallback).toHaveBeenCalledWith('onetwothree')
-  await expect(response.text()).resolves.toBe('onetwothree')
+  expect.soft(requestWriteCallback).toHaveBeenCalledTimes(3)
+  expect
+    .soft(requestBodyCallback)
+    .toHaveBeenCalledExactlyOnceWith('ashamberfire')
+  await expect.soft(response.text()).resolves.toBe('ashamberfire')
 })
