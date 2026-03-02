@@ -250,7 +250,7 @@ export class TcpSocketController extends SocketController {
   #realWriteGeneric: net.Socket['_writeGeneric']
   #passthroughSocket: net.Socket | null = null
   #passthroughPausedBuffer: Array<Buffer> = []
-  #pendingWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
+  #bufferedWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
 
   constructor(
     protected readonly socket: net.Socket,
@@ -263,7 +263,7 @@ export class TcpSocketController extends SocketController {
 
     // Store the unpatched write method once so we have access to it between socket state resets.
     this.#realWriteGeneric = this.socket._writeGeneric
-    this.#pendingWrites = []
+    this.#bufferedWrites = []
 
     this.socket.connect = new Proxy(this.socket.connect, {
       apply: (target, thisArg, args) => {
@@ -290,7 +290,7 @@ export class TcpSocketController extends SocketController {
         log('client socket closed!')
         this.#passthroughSocket = null
         this.#passthroughPausedBuffer = []
-        this.#pendingWrites = []
+        this.#bufferedWrites = []
       })
 
     this.serverSocket = toServerSocket(this.socket)
@@ -304,7 +304,7 @@ export class TcpSocketController extends SocketController {
 
     this.readyState = SocketController.PENDING
     this.pendingConnection = new DeferredPromise()
-    this.#pendingWrites = []
+    this.#bufferedWrites = []
 
     const wrapHandle = (handle: TcpHandle) => {
       this.pendingConnection.then(() => {
@@ -321,7 +321,7 @@ export class TcpSocketController extends SocketController {
           if (
             this.readyState === SocketController.PENDING &&
             this.socket.connecting &&
-            this.socket._pendingData == null &&
+            this.#bufferedWrites.length === 0 &&
             this.socket.listenerCount('connect') > 0
           ) {
             log('assume connect->write socket, calling "connect" listeners...')
@@ -387,7 +387,7 @@ export class TcpSocketController extends SocketController {
        * 3. Node.js logic here is extremely simple anyway. No harm in buffering writes ourselves
        * if that gives us more control.
        */
-      this.#pendingWrites.push(args)
+      this.#bufferedWrites.push(args)
     }
   }
 
@@ -502,7 +502,7 @@ export class TcpSocketController extends SocketController {
       return getAddressInfoByConnectionOptions(this.#connectionOptions)
     }
 
-    this.#pendingWrites = []
+    this.#bufferedWrites = []
 
     /**
      * @note Once claimed, there's nowhere to write chunks to.
@@ -515,16 +515,7 @@ export class TcpSocketController extends SocketController {
       const data = args[1]
       const callback = args[3]
 
-      if (this.socket._pendingData != null) {
-        log('clearing pending data...')
-
-        this.socket._pendingData = null
-        this.socket._pendingEncoding = ''
-      } else {
-        log('not writing pending data, forwarding to the server...')
-
-        this.#push(data)
-      }
+      this.#push(data)
 
       if (typeof callback === 'function') {
         log(this.readyState, 'invoking callback for write:', data, callback)
@@ -572,8 +563,8 @@ export class TcpSocketController extends SocketController {
      * @note These are written directly on the passthrough socket to prevent
      * them from being forwarded as "data" events on the server (already emitted).
      */
-    for (let i = 0; i < this.#pendingWrites.length; i++) {
-      const pendingWrite = this.#pendingWrites[i]
+    for (let i = 0; i < this.#bufferedWrites.length; i++) {
+      const pendingWrite = this.#bufferedWrites[i]
 
       if (i === 0 && typeof flushPendingData === 'function') {
         const data = pendingWrite[1]
@@ -586,7 +577,7 @@ export class TcpSocketController extends SocketController {
       realSocket._writeGeneric.apply(realSocket, pendingWrite)
     }
 
-    this.#pendingWrites = []
+    this.#bufferedWrites = []
     this.socket._pendingData = null
     this.socket._pendingEncoding = ''
 
