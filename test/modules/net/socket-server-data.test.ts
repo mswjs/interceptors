@@ -56,3 +56,38 @@ it('emits "data" on the server socket for writes after connect', async () => {
     .poll(() => interceptorDataListener)
     .toHaveBeenCalledExactlyOnceWith(Buffer.from('hello'))
 })
+
+it('emits "data" on the server for nested writes', async () => {
+  const interceptorDataListener = vi.fn()
+
+  interceptor.on('connection', ({ socket, controller }) => {
+    socket.on('data', interceptorDataListener)
+
+    socket.on('data', (chunk) => {
+      if (chunk.toString() === 'three') {
+        socket.destroy()
+      }
+    })
+  })
+
+  const socket = net.connect(80, 'any.host.com')
+  const { listeners } = spyOnSocket(socket)
+
+  socket.write('one', () => {
+    socket.write('two', () => {
+      socket.end('three')
+    })
+  })
+
+  await expect
+    .poll(() => interceptorDataListener)
+    .toHaveBeenNthCalledWith(1, Buffer.from('one'))
+  await expect
+    .poll(() => interceptorDataListener)
+    .toHaveBeenNthCalledWith(2, Buffer.from('two'))
+  await expect
+    .poll(() => interceptorDataListener)
+    .toHaveBeenNthCalledWith(3, Buffer.from('three'))
+
+  expect(listeners.close).toHaveBeenCalledOnce()
+})

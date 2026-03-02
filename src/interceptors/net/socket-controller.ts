@@ -250,6 +250,7 @@ export class TcpSocketController extends SocketController {
   #realWriteGeneric: net.Socket['_writeGeneric']
   #passthroughSocket: net.Socket | null = null
   #passthroughPausedBuffer: Array<Buffer> = []
+  #pendingWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
 
   constructor(
     protected readonly socket: net.Socket,
@@ -262,6 +263,7 @@ export class TcpSocketController extends SocketController {
 
     // Store the unpatched write method once so we have access to it between socket state resets.
     this.#realWriteGeneric = this.socket._writeGeneric
+    this.#pendingWrites = []
 
     this.socket.connect = new Proxy(this.socket.connect, {
       apply: (target, thisArg, args) => {
@@ -284,10 +286,11 @@ export class TcpSocketController extends SocketController {
         log('client socket freed!')
         this.#reset()
       })
-      .on('close', () => {
+      .on('close', (hadError) => {
         log('client socket closed!')
         this.#passthroughSocket = null
         this.#passthroughPausedBuffer = []
+        this.#pendingWrites = []
       })
 
     this.serverSocket = toServerSocket(this.socket)
@@ -301,6 +304,7 @@ export class TcpSocketController extends SocketController {
 
     this.readyState = SocketController.PENDING
     this.pendingConnection = new DeferredPromise()
+    this.#pendingWrites = []
 
     const wrapHandle = (handle: TcpHandle) => {
       this.pendingConnection.then(() => {
@@ -344,14 +348,21 @@ export class TcpSocketController extends SocketController {
 
     this.socket._writeGeneric = (...args) => {
       const data = args[1]
+      const callback = args[3]
 
       log(this.readyState, 'write:', args)
 
+      // The server socket will NEVER have any "data" listeners attached
+      // becuase the "connection" interceptor event emits on the next tick.
       if (this.socket.listenerCount('internal:write') === 0) {
         log('no server data listeners, scheduling to the next tick...')
 
         process.nextTick(() => {
-          log('(scheduled) forwarding write to server socket...', data)
+          log(
+            this.readyState,
+            '(scheduled) forwarding write to server socket...',
+            data
+          )
           this.#push(data)
         })
       } else {
@@ -359,102 +370,25 @@ export class TcpSocketController extends SocketController {
         this.#push(data)
       }
 
-      // if (typeof callback === 'function') {
-      //   log(this.readyState, 'write with callback, executing...', callback)
+      if (typeof callback === 'function') {
+        log(this.readyState, 'write with callback, executing...', callback)
 
-      //   callback()
-      //   args[3] = () => {}
-      // }
+        callback()
+        args[3] = function mockNoop() {}
+      }
 
-      log(this.readyState, 'writing to the socket...', args)
-      return this.#realWriteGeneric.apply(this.socket, args)
+      /**
+       * @note Do NOT tap into Node.js internal buffering for three reasons:
+       * 1. Delaying writes to "connect" is problematic as you cannot tell such writes from
+       * regular writes after claim/passthrough connects.
+       * 2. "_pendingData" does NOT accumulate writes. It always points to the last buffered
+       * chunk so we cannot tell if we're writing a scheduled chunk or not in case multiple
+       * chunks were buffered.
+       * 3. Node.js logic here is extremely simple anyway. No harm in buffering writes ourselves
+       * if that gives us more control.
+       */
+      this.#pendingWrites.push(args)
     }
-
-    // this.socket._writeGeneric = (...args) => {
-    //   log('socket write:', args, this.readyState)
-
-    //   if (this.readyState === SocketController.PENDING) {
-    //     log('write while pending...')
-
-    //     console.log('WRITE (PENDING)', args[1])
-
-    //     // Socket might write immediately, before the "connection" interceptor event is emitted.
-    //     // In those cases, schedule the emit on the next tick to ensure the server socket emits "data".
-    //     if (this.socket.listenerCount('internal:write') === 0) {
-    //       log('no server write listeners, scheduling to the next tick...')
-
-    //       process.nextTick(() => {
-    //         /**
-    //          * @note If the socket has been handled in any way, skip this forwarding.
-    //          * Both claimed and passthrough scenario are forwarded below.
-    //          */
-    //         this.#push(args[1])
-    //       })
-    //     } else {
-    //       this.#push(args[1])
-    //     }
-
-    //     /**
-    //      * @note Execute the write callbacks while the socket is still pending.
-    //      * This prevents the socket from getting stuck when calling ".end()" in a write callback.
-    //      */
-    //     if (typeof args[3] === 'function') {
-    //       log('found a write callback while pending, executing...', args[3])
-
-    //       args[3]()
-
-    //       /**
-    //        * @note Replace the original write callback with an empty function.
-    //        * This prevents the "TypeError: cb is not a function" error on "Socket.onClose".
-    //        */
-    //       args[3] = () => {}
-    //     }
-
-    //     return this.#realWriteGeneric.apply(this.socket, args)
-    //   }
-
-    //   /**
-    //    * Handle "_writeGeneric" calls scheduled after the "connect" event.
-    //    * These are writes performed while connecting, and for the mocked socket
-    //    * they must be ignored. There's nowhere to flush them. Calling "_writeGeneric"
-    //    * past this point will result in "Error: write EBADF".
-    //    * @see https://github.com/nodejs/node/blob/main/deps/uv/src/unix/stream.c#L1304-L1305
-    //    */
-    //   if (this.readyState === SocketController.CLAIMED) {
-    //     log('write while claimed...')
-
-    //     const callback = args[3]
-
-    //     // Mock connection still means the socket emits the "connect" event
-    //     // and tries to flush any buffered writes to the server. Since there's
-    //     // nowhere to flush them, skip writing and only invoke the callback
-    //     // that will reset pending data/encoding.
-    //     if (this.socket._pendingData) {
-    //       // this.socket._pendingData = null
-    //       // this.socket._pendingEncoding = ''
-    //       callback?.()
-    //       return
-    //     }
-
-    //     this.#push(args[1])
-    //     callback?.()
-    //     return
-    //   }
-
-    //   log('write while passthrough...')
-
-    //   const pendingData = this.socket._pendingData
-
-    //   if (pendingData == args[1]) {
-    //     log('deferring passthrough forwarding while connecting...')
-    //   } else {
-    //     this.#push(args[1])
-    //   }
-
-    //   console.log('---\n\n')
-
-    //   return this.#realWriteGeneric.apply(this.socket, args)
-    // }
   }
 
   protected emulateConnect() {
@@ -556,7 +490,7 @@ export class TcpSocketController extends SocketController {
       return
     }
 
-    log('--- claim! ---')
+    log('-> claim!')
 
     /**
      * Patch the "getsockname" on the handle in case Node.js decides to handle its errors.
@@ -568,19 +502,34 @@ export class TcpSocketController extends SocketController {
       return getAddressInfoByConnectionOptions(this.#connectionOptions)
     }
 
+    this.#pendingWrites = []
+
     /**
      * @note Once claimed, there's nowhere to write chunks to.
      * Just forward the writes to the server socket and invoke callbacks.
+     * Attempting to write past this point will result in the "Error: write EBADF".
      */
     this.socket._writeGeneric = (...args) => {
+      log(this.readyState, 'write:', args)
+
       const data = args[1]
       const callback = args[3]
 
-      if (this.socket._pendingData == null) {
+      if (this.socket._pendingData != null) {
+        log('clearing pending data...')
+
+        this.socket._pendingData = null
+        this.socket._pendingEncoding = ''
+      } else {
+        log('not writing pending data, forwarding to the server...')
+
         this.#push(data)
       }
 
-      callback?.()
+      if (typeof callback === 'function') {
+        log(this.readyState, 'invoking callback for write:', data, callback)
+        callback()
+      }
     }
 
     this.pendingConnection.then(([request, handle]) => {
@@ -597,38 +546,6 @@ export class TcpSocketController extends SocketController {
     super.passthrough()
 
     log('-> passthrough!')
-
-    this.socket._writeGeneric = (...args) => {
-      log(this.readyState, 'write:', args)
-
-      const data = args[1]
-
-      if (this.socket._pendingData) {
-        log('found write scheduled after connect!', this.socket._pendingData)
-
-        /**
-         * @note Modify the pending data to be flushed to the passthrough socket.
-         * In HTTP, this allows sending different request headers (e.g. modified in the listener).
-         */
-        if (typeof flushPendingData === 'function') {
-          log('found a custom flush function, executing...')
-
-          const encoding = args[2]
-
-          return flushPendingData(data, encoding, (nextData) => {
-            args[1] = nextData
-
-            log('flushing the modified pending chunks...', nextData)
-            this.#realWriteGeneric.apply(this.socket, args)
-          })
-        }
-      } else {
-        this.#push(data)
-      }
-
-      log('writing to the passthrough socket...')
-      return this.#realWriteGeneric.apply(this.socket, args)
-    }
 
     const createRealSocket = () => {
       const realSocket = this.createConnection()
@@ -648,6 +565,36 @@ export class TcpSocketController extends SocketController {
 
     if (realSocket !== this.#passthroughSocket) {
       this.#passthroughSocket = realSocket
+    }
+
+    /**
+     * Flush any writes during the pending phase to the passthrough socket.
+     * @note These are written directly on the passthrough socket to prevent
+     * them from being forwarded as "data" events on the server (already emitted).
+     */
+    for (let i = 0; i < this.#pendingWrites.length; i++) {
+      const pendingWrite = this.#pendingWrites[i]
+
+      if (i === 0 && typeof flushPendingData === 'function') {
+        const data = pendingWrite[1]
+        const encoding = pendingWrite[2]
+        flushPendingData(data, encoding, (nextData) => {
+          pendingWrite[1] = nextData
+        })
+      }
+
+      realSocket._writeGeneric.apply(realSocket, pendingWrite)
+    }
+
+    this.#pendingWrites = []
+    this.socket._pendingData = null
+    this.socket._pendingEncoding = ''
+
+    this.socket._writeGeneric = (...args) => {
+      log(this.readyState, 'write:', args)
+
+      this.#push(args[1])
+      return this.#realWriteGeneric.apply(this.socket, args)
     }
 
     // Buffer to hold data chunks while the mock socket is paused.

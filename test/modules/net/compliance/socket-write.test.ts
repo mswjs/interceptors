@@ -152,3 +152,66 @@ it('does not duplicate writes while the socket is pending', async () => {
     .soft(interceptorDataListener)
     .toHaveBeenNthCalledWith(3, Buffer.from('client'))
 })
+
+it('invokes the write callbacks for a passthrough socket', async () => {
+  await using server = await createTestServer(() => {
+    return new net.Server((socket) => {
+      socket.on('data', (data) => {
+        if (data.toString() === 'two') {
+          socket.end()
+        }
+      })
+    })
+  })
+
+  interceptor.on('connection', ({ controller }) => {
+    controller.passthrough()
+  })
+
+  const socket = net.connect(server.port, server.hostname)
+  const { listeners } = spyOnSocket(socket)
+
+  const writeOneCallback = vi.fn()
+  const writeTwoCallback = vi.fn()
+  const endCallback = vi.fn()
+
+  socket.write('one', writeOneCallback)
+  socket.write('two', writeTwoCallback)
+  socket.end(endCallback)
+
+  await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
+  expect.soft(writeOneCallback).toHaveBeenCalledOnce()
+  expect.soft(writeTwoCallback).toHaveBeenCalledOnce()
+  expect.soft(endCallback).toHaveBeenCalledOnce()
+
+  expect(writeOneCallback).toHaveBeenCalledBefore(writeTwoCallback)
+  expect(writeTwoCallback).toHaveBeenCalledBefore(endCallback)
+})
+
+it('invokes callbacks for nested writes for a passthrough socket', async () => {
+  await using server = await createTestServer(() => {
+    return new net.Server((socket) => {
+      socket.on('data', (data) => {
+        if (data.toString() === 'two') {
+          socket.end()
+        }
+      })
+    })
+  })
+
+  interceptor.on('connection', ({ controller }) => {
+    controller.passthrough()
+  })
+
+  const socket = net.connect(server.port, server.hostname)
+  const { listeners } = spyOnSocket(socket)
+
+  const writeCallback = vi.fn(() => socket.end())
+
+  socket.write('one', () => {
+    socket.write('two', writeCallback)
+  })
+
+  await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
+  expect.soft(writeCallback).toHaveBeenCalledOnce()
+})
