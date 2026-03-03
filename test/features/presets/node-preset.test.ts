@@ -15,12 +15,18 @@ beforeAll(() => {
   interceptor.apply()
   interceptor.on('request', ({ request, controller }) => {
     requestListener(request)
-    controller.respondWith(new Response('mocked'))
+    controller.respondWith(
+      new Response('mocked', {
+        headers: {
+          'access-control-allow-origin': '*',
+        },
+      })
+    )
   })
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  vi.clearAllMocks()
 })
 
 afterAll(() => {

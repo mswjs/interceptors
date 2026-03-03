@@ -1,14 +1,15 @@
-import { requestContext } from '../../request-context'
-import { Interceptor } from '../../Interceptor'
-import { HttpRequestEventMap } from '../../glossary'
-import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { applyPatch } from '../../utils/apply-patch'
+import { requestContext } from '#/src/request-context'
+import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
+import { applyPatch } from '#/src/utils/apply-patch'
+import { Interceptor } from '#/src/Interceptor'
+import { HttpRequestEventMap } from '#/src/glossary'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static interceptorSymbol = Symbol.for('xhr-interceptor')
+  static symbol = Symbol.for('xhr-interceptor')
 
   constructor() {
-    super(XMLHttpRequestInterceptor.interceptorSymbol)
+    super(XMLHttpRequestInterceptor.symbol)
   }
 
   protected checkEnvironment() {
@@ -16,6 +17,23 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
   }
 
   protected setup(): void {
+    const httpInterceptor = new HttpRequestInterceptor()
+
+    httpInterceptor.apply()
+    this.subscriptions.push(() => httpInterceptor.dispose())
+
+    httpInterceptor
+      .on('request', (args) => {
+        if (args.initiator instanceof XMLHttpRequest) {
+          this.emitter.emit('request', args)
+        }
+      })
+      .on('response', (args) => {
+        if (args.initiator instanceof XMLHttpRequest) {
+          this.emitter.emit('response', args)
+        }
+      })
+
     this.logger.info('patching global "XMLHttpRequest"...')
 
     this.subscriptions.push(

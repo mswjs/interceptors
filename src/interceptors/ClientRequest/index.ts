@@ -1,9 +1,10 @@
 import http from 'node:http'
 import https from 'node:https'
-import { HttpRequestEventMap } from '../../glossary'
-import { Interceptor } from '../../Interceptor'
-import { runInRequestContext } from '../../request-context'
+import { HttpRequestEventMap } from '#/src/glossary'
+import { Interceptor } from '#/src/Interceptor'
+import { runInRequestContext } from '#/src/request-context'
 import { applyPatch } from '#/src/utils/apply-patch'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -13,6 +14,23 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected setup(): void {
+    const httpInterceptor = new HttpRequestInterceptor()
+
+    httpInterceptor.apply()
+    this.subscriptions.push(() => httpInterceptor.dispose())
+
+    httpInterceptor
+      .on('request', (args) => {
+        if (args.initiator instanceof http.ClientRequest) {
+          this.emitter.emit('request', args)
+        }
+      })
+      .on('response', (args) => {
+        if (args.initiator instanceof http.ClientRequest) {
+          this.emitter.emit('response', args)
+        }
+      })
+
     this.subscriptions.push(
       applyPatch(http, 'ClientRequest', (ClientRequest) => {
         return new Proxy(ClientRequest, {

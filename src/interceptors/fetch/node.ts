@@ -1,10 +1,10 @@
-import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { HttpRequestEventMap } from '../../glossary'
-import { Interceptor } from '../../Interceptor'
-import { canParseUrl } from '../../utils/canParseUrl'
-import { requestContext } from '../../request-context'
-import { applyPatch } from '../../utils/apply-patch'
-import { recordRawFetchHeaders } from '../ClientRequest/utils/recordRawHeaders'
+import { Interceptor } from '#/src/Interceptor'
+import { HttpRequestEventMap } from '#/src/glossary'
+import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
+import { canParseUrl } from '#/src/utils/canParseUrl'
+import { requestContext } from '#/src/request-context'
+import { applyPatch } from '#/src/utils/apply-patch'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
@@ -18,8 +18,24 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected setup(): void {
+    const httpInterceptor = new HttpRequestInterceptor()
+
+    httpInterceptor.apply()
+    this.subscriptions.push(() => httpInterceptor.dispose())
+
+    httpInterceptor
+      .on('request', (args) => {
+        if (args.initiator instanceof Request) {
+          this.emitter.emit('request', args)
+        }
+      })
+      .on('response', (args) => {
+        if (args.initiator instanceof Request) {
+          this.emitter.emit('response', args)
+        }
+      })
+
     this.subscriptions.push(
-      recordRawFetchHeaders(),
       applyPatch(globalThis, 'fetch', (realFetch) => {
         return (input, init) => {
           /**
