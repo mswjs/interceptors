@@ -286,7 +286,7 @@ export class TcpSocketController extends SocketController {
         log('client socket freed!')
         this.#reset()
       })
-      .on('close', (hadError) => {
+      .on('close', () => {
         log('client socket closed!')
         this.#passthroughSocket = null
         this.#passthroughPausedBuffer = []
