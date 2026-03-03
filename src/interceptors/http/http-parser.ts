@@ -24,7 +24,7 @@ interface ParserHooks<ParserKind extends HttpParserKind> {
   onTimeout?: () => void
 }
 
-export class HttpParser<ParserKind extends HttpParserKind> {
+class HttpParser<ParserKind extends HttpParserKind> {
   static REQUEST = HTTPParser.REQUEST
   static RESPONSE = HTTPParser.RESPONSE
 

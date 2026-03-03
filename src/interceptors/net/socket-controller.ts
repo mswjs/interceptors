@@ -10,8 +10,6 @@ import { getAddressInfoByConnectionOptions } from './utils/address-info'
 
 const kListenerWrap = Symbol('kListenerWrap')
 export const kRawSocket = Symbol('kRawSocket')
-export const kMockState = Symbol('kMockState')
-export const kTlsSocket = Symbol('kTlsSocket')
 
 const log = createLogger('SocketController')
 

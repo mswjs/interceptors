@@ -13,7 +13,7 @@ export interface RequestSelf {
 
 export type ResolvedRequestOptions = RequestOptions & RequestSelf
 
-export const DEFAULT_PATH = '/'
+const DEFAULT_PATH = '/'
 const DEFAULT_PROTOCOL = 'http:'
 const DEFAULT_HOSTNAME = 'localhost'
 const SSL_PORT = 443
