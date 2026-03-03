@@ -1,9 +1,16 @@
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig, defaultExclude } from 'vitest/config'
 
+declare module 'vitest' {
+  export interface ProvidedContext {
+    serverUrl: string
+  }
+}
+
 export default defineConfig({
   test: {
     globals: true,
+    globalSetup: './vitest.setup.ts',
     projects: [
       {
         extends: true,
@@ -38,16 +45,16 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: 'browser',
           root: './test',
-          include: ['**/*.v-browser.test.ts'],
+          include: ['**/*.v-browser.test.ts', '**/*.neutral.test.ts'],
           browser: {
             enabled: true,
             provider: playwright(),
-            instances: [{ name: '', browser: 'chromium' }],
+            instances: [{ name: 'browser', browser: 'chromium' }],
             headless: true,
+            screenshotFailures: false,
           },
-          testTimeout: 5000,
+          testTimeout: 4000,
         },
       },
     ],

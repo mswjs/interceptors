@@ -12,7 +12,6 @@ import { createProxy } from '../../utils/createProxy'
 import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
 import { createResponse } from './utils/createResponse'
-import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { createRequestId } from '../../createRequestId'
 import { getBodyByteLength } from './utils/getBodyByteLength'
 
@@ -187,22 +186,6 @@ export class XMLHttpRequestController {
                     this.request.readyState
                   )
 
-                  /**
-                   * @note Set the intercepted request ID on the original request in Node.js
-                   * so that if it triggers any other interceptors, they don't attempt
-                   * to process it once again.
-                   *
-                   * For instance, XMLHttpRequest is often implemented via "http.ClientRequest"
-                   * and we don't want for both XHR and ClientRequest interceptors to
-                   * handle the same request at the same time (e.g. emit the "response" event twice).
-                   */
-                  if (IS_NODE) {
-                    this.request.setRequestHeader(
-                      INTERNAL_REQUEST_ID_HEADER_NAME,
-                      this.requestId!
-                    )
-                  }
-
                   return invoke()
                 }
               })
@@ -372,7 +355,7 @@ export class XMLHttpRequestController {
             return ''
           }
 
-          const headersList = Array.from(response.headers.entries())
+          const headersList = Array.from(response.headers)
           const allHeaders = headersList
             .map(([headerName, headerValue]) => {
               return `${headerName}: ${headerValue}`

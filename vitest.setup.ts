@@ -1,0 +1,25 @@
+import { TestProject } from 'vitest/node'
+import { HttpServer } from '@open-draft/test-server/http'
+import { useCors } from './test/helpers'
+
+const server = new HttpServer((app) => {
+  app.use(useCors)
+
+  app.all('*', (req, res) => {
+    res.status(200)
+    req.pipe(res)
+  })
+})
+
+export async function setup(project: TestProject) {
+  await server.listen()
+
+  project.provide('server', {
+    http: server.http.address.href,
+    https: server.http.address.href,
+  })
+}
+
+export async function teardown() {
+  await server.close()
+}

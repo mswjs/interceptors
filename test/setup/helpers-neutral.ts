@@ -10,3 +10,34 @@ export function waitForXMLHttpRequest(request: XMLHttpRequest): Promise<void> {
 
   return pendingResponse
 }
+
+export function spyOnXMLHttpRequest(request: XMLHttpRequest) {
+  const events: Array<[string, number] | [string, number, any]> = []
+
+  const addEvent = (name: string) => {
+    return (event: unknown) => {
+      if (event instanceof ProgressEvent) {
+        events.push([
+          name,
+          request.readyState,
+          { loaded: event.loaded, total: event.total },
+        ])
+      } else {
+        events.push([name, request.readyState])
+      }
+    }
+  }
+
+  request.onreadystatechange = addEvent('readystatechange')
+  request.onprogress = addEvent('progress')
+  request.onloadstart = addEvent('loadstart')
+  request.onload = addEvent('load')
+  request.onload = addEvent('loadend')
+  request.ontimeout = addEvent('timeout')
+  request.onerror = addEvent('error')
+  request.onabort = addEvent('abort')
+
+  return {
+    events,
+  }
+}

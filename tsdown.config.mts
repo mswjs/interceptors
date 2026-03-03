@@ -22,6 +22,7 @@ export default defineConfig([
     format: ['cjs', 'esm'],
     sourcemap: true,
     dts: true,
+    tsconfig: './tsconfig.src.json',
   },
   {
     name: 'browser',
