@@ -69,6 +69,18 @@ export class FetchResponse extends Response {
         writable: false,
       })
     }
+
+    /**
+     * Since Node.js v24, Undici stores the Response state in an inaccessible field "#state".
+     * While reassigning the "url" property on this response is enough, its clones won't have that change.
+     * Patch the clone method to always produce clean clones and replay URL change on them.
+     * @see https://github.com/nodejs/undici/blob/f734c87280e626c75f59aad55b65eb6a89cef392/lib/web/fetch/response.js#L242
+     */
+    response.clone = () => {
+      const clonedResponse = Response.prototype.clone.call(response)
+      FetchResponse.setUrl(url, clonedResponse)
+      return clonedResponse
+    }
   }
 
   /**
