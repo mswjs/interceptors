@@ -1,6 +1,7 @@
 import { copyRawHeaders } from '../interceptors/ClientRequest/utils/recordRawHeaders'
 import { canParseUrl } from './canParseUrl'
 import { getValueBySymbol } from './getValueBySymbol'
+import { isResponseError } from './responseUtils'
 
 export interface FetchResponseInit extends ResponseInit {
   url?: string
@@ -28,6 +29,10 @@ interface UndiciFetchInternalState {
 export class FetchResponse extends Response {
   static from(response: Response, init?: FetchResponseInit): FetchResponse {
     if (response instanceof FetchResponse) {
+      return response
+    }
+
+    if (isResponseError(response)) {
       return response
     }
 
