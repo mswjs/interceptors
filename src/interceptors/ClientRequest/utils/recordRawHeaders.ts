@@ -260,3 +260,28 @@ function inferRawHeaders(headers: HeadersInit): RawHeaders {
 
   return Reflect.get(new Headers(headers), kRawHeaders)
 }
+
+export function copyRawHeaders(source: Headers, destination: Headers): void {
+  const rawHeaders = [...getRawFetchHeaders(source)]
+
+  if (rawHeaders.length === 0) {
+    return
+  }
+
+  /**
+   * @note Add headers from trhe destination that raw headers from the source
+   * don't have. Undici automatically appends a "Content-Type" header for responses
+   * and, for some reason, that change is not recorded. This preserves it.
+   */
+  for (const [name, value] of destination) {
+    if (
+      rawHeaders.every(
+        (header) => header[0].toLowerCase() !== name.toLowerCase()
+      )
+    ) {
+      rawHeaders.push([name, value])
+    }
+  }
+
+  defineRawHeadersSymbol(destination, rawHeaders)
+}

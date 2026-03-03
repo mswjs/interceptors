@@ -48,7 +48,12 @@ it('supports mocking non-configurable responses', async () => {
      * @note The Fetch API `Response` will still error on
      * non-configurable status codes. Instead, use this helper class.
      */
-    controller.respondWith(new FetchResponse(null, { status: 101 }))
+    controller.respondWith(
+      new FetchResponse(null, {
+        status: 101,
+        statusText: 'Switching Protocols',
+      })
+    )
   })
 
   const responsePromise = new DeferredPromise<Response>()
@@ -58,7 +63,8 @@ it('supports mocking non-configurable responses', async () => {
 
   const response = await fetch('http://localhost/irrelevant')
 
-  expect(response.status).toBe(101)
+  expect.soft(response.status).toBe(101)
+  expect.soft(response.statusText).toBe('Switching Protocols')
 
   // Must expose the exact response in the listener.
   await expect(responsePromise).resolves.toHaveProperty('status', 101)

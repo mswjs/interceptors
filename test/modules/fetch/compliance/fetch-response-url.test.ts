@@ -83,6 +83,7 @@ it('returns the last response url in case of redirects', async () => {
   })
 
   const response = await fetch('http://localhost/target')
+
   expect(response.url).toBe('http://localhost/destination')
   await expect(response.text()).resolves.toBe('hello world')
 })

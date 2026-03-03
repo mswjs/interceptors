@@ -95,16 +95,18 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               })
 
               const requestController = new RequestController(request, {
-                respondWith: async (response) => {
+                respondWith: async (rawResponse) => {
                   log('respondWith() %o', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    hasBody: response.body != null,
+                    status: rawResponse.status,
+                    statusText: rawResponse.statusText,
+                    hasBody: rawResponse.body != null,
                   })
 
                   socketController.claim()
 
-                  FetchResponse.setUrl(request.url, response)
+                  const response = FetchResponse.from(rawResponse, {
+                    url: request.url,
+                  })
 
                   const respond = () => {
                     return this.respondWith({

@@ -28,6 +28,7 @@ it('mocks an HTTP request made with "fetch"', async () => {
 
   expect.soft(response.status).toBe(200)
   expect.soft(Object.fromEntries(response.headers)).toEqual({
+    'content-type': 'text/plain;charset=UTF-8',
     'x-custom-header': 'yes',
   })
   await expect.soft(response.text()).resolves.toBe('hello world')
@@ -46,6 +47,7 @@ it('mocks an HTTPS request made with "fetch"', async () => {
 
   expect.soft(response.status).toBe(200)
   expect.soft(Object.fromEntries(response.headers)).toEqual({
+    'content-type': 'text/plain;charset=UTF-8',
     'x-custom-header': 'yes',
   })
   await expect.soft(response.text()).resolves.toBe('hello world')
@@ -63,7 +65,10 @@ it('mocks an HTTP request made with "request"', async () => {
   const response = await request('http://any.host.here/api')
 
   expect.soft(response.statusCode).toBe(200)
-  expect.soft(response.headers).toEqual({ 'x-custom-header': 'yes' })
+  expect.soft(response.headers).toEqual({
+    'content-type': 'text/plain;charset=UTF-8',
+    'x-custom-header': 'yes',
+  })
   await expect.soft(response.body.text()).resolves.toBe('hello world')
 })
 
@@ -79,6 +84,9 @@ it('mocks an HTTPS request made with "request"', async () => {
   const response = await request('https://any.host.here/api')
 
   expect.soft(response.statusCode).toBe(200)
-  expect.soft(response.headers).toEqual({ 'x-custom-header': 'yes' })
+  expect.soft(response.headers).toEqual({
+    'content-type': 'text/plain;charset=UTF-8',
+    'x-custom-header': 'yes',
+  })
   await expect.soft(response.body.text()).resolves.toBe('hello world')
 })
