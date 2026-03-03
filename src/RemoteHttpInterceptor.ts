@@ -210,6 +210,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
               // Emit an optimistic "response" event at this point,
               // not to rely on the back-and-forth signaling for the sake of the event.
               this.emitter.emit('response', {
+                initiator: null,
                 request,
                 requestId: requestJson.id,
                 response: responseClone,
@@ -230,6 +231,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       })
 
       await handleRequest({
+        initiator: null,
         request,
         requestId: requestJson.id,
         controller,
