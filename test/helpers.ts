@@ -1,4 +1,4 @@
-import { invariant, InvariantError } from 'outvariant'
+import { invariant } from 'outvariant'
 import net from 'node:net'
 import zlib from 'node:zlib'
 import { Readable } from 'node:stream'
@@ -137,17 +137,6 @@ export function createBrowserXMLHttpRequest(page: Page) {
       createRawBrowserXMLHttpRequest(page)(requestInit),
     ])
   }
-}
-
-export function waitForXMLHttpRequest(request: XMLHttpRequest): Promise<void> {
-  const pendingResponse = new DeferredPromise<void>()
-
-  request.addEventListener('loadend', () => pendingResponse.resolve())
-  request.addEventListener('abort', () =>
-    pendingResponse.reject(new Error('Request aborted'))
-  )
-
-  return pendingResponse
 }
 
 export async function toWebResponse(

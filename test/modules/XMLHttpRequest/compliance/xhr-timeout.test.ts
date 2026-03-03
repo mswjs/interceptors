@@ -6,7 +6,7 @@ import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { waitForXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (_req, res) => {

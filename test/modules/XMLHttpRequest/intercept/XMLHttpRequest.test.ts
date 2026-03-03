@@ -2,14 +2,11 @@
 import type { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import {
-  useCors,
-  REQUEST_ID_REGEXP,
-  waitForXMLHttpRequest,
-} from '#/test/helpers'
+import { useCors, REQUEST_ID_REGEXP } from '#/test/helpers'
 import { toArrayBuffer, encodeBuffer } from '#/src/utils/bufferUtils'
 import { RequestController } from '#/src/RequestController'
 import { HttpRequestEventMap } from '#/src/glossary'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 declare namespace window {
   export const _resourceLoader: {

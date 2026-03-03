@@ -32,16 +32,16 @@ jobs:
         run: pnpm install
 
       - name: Unit tests
-        run: pnpm test:unit
+        run: pnpm test -- --project=unit
 
       - name: Build
         run: pnpm build
 
       - name: Node.js tests
-        run: pnpm test:node
+        run: pnpm test -- --project=node
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps --only-shell
 
       - name: Browser tests
-        run: pnpm test:browser
+        run: pnpm test -- --project=browser

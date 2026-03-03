@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { useCors, waitForXMLHttpRequest } from '#/test/helpers'
+import { useCors } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 interface ResponseType {
   requestRawHeaders: Array<string>

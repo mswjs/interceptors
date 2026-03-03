@@ -3,7 +3,7 @@
  * @see https://github.com/mswjs/msw/issues/273
  */
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { waitForXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', ({ request, controller }) => {

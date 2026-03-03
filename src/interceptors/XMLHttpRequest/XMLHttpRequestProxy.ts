@@ -84,6 +84,7 @@ export function createXMLHttpRequestProxy({
         )
 
         await handleRequest({
+          initiator: this.request,
           request,
           requestId,
           controller,
@@ -103,6 +104,7 @@ export function createXMLHttpRequestProxy({
         )
 
         emitter.emit('response', {
+          initiator: this.request,
           response,
           isMockedResponse,
           request,

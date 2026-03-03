@@ -1,17 +1,12 @@
 // @vitest-environment jsdom
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import {
-  useCors,
-  REQUEST_ID_REGEXP,
-  toWebResponse,
-  WebResponse,
-  waitForXMLHttpRequest,
-} from '#/test/helpers'
+import { useCors, REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
 import { BatchInterceptor } from '#/src/BatchInterceptor'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
 import { RequestController } from '#/src/RequestController'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const httpServer = new HttpServer((app) => {
   app.use(useCors)

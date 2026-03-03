@@ -1,6 +1,6 @@
 import { HttpServer } from '@open-draft/test-server/http'
 import { useCors } from '#/test/helpers'
-import { test, expect } from '../../../playwright.extend'
+import { test, expect } from '#/test/playwright.extend'
 
 declare namespace window {
   export let originalUrl: string

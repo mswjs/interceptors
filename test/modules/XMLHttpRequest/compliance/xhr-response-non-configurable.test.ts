@@ -6,7 +6,8 @@ import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import { FetchResponse } from '#/src/utils/fetchUtils'
-import { waitForXMLHttpRequest, useCors } from '#/test/helpers'
+import { useCors } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new XMLHttpRequestInterceptor()
 

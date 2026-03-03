@@ -48,13 +48,6 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const request = new Request(resolvedInput, init)
 
-          /**
-           * @note Set the raw request only if a Request instance was provided to fetch.
-           */
-          if (input instanceof Request) {
-            // setRawRequest(request, input)
-          }
-
           const responsePromise = new DeferredPromise<Response>()
 
           const controller = new RequestController(request, {

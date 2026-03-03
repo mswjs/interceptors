@@ -6,7 +6,8 @@ import { HttpRequestEventMap } from '#/src/index'
 import { BatchInterceptor } from '#/src/BatchInterceptor'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { useCors, toWebResponse, waitForXMLHttpRequest } from '#/test/helpers'
+import { useCors, toWebResponse } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 declare namespace window {
   export const _resourceLoader: {

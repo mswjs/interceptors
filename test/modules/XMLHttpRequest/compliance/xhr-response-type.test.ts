@@ -2,7 +2,8 @@
 import { encodeBuffer } from '#/src/index'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import { toArrayBuffer } from '#/src/utils/bufferUtils'
-import { readBlob, waitForXMLHttpRequest } from '#/test/helpers'
+import { readBlob } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', ({ controller }) => {

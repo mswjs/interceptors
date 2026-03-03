@@ -6,7 +6,8 @@ import { ClientRequestInterceptor } from '#/src/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
 import { FetchInterceptor } from '#/src/interceptors/fetch/node'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { toWebResponse, waitForXMLHttpRequest } from '#/test/helpers'
+import { toWebResponse } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '../setup/helpers-neutral'
 
 const interceptor = new BatchInterceptor({
   name: 'interceptor',
