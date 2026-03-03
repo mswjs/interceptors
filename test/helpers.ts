@@ -12,46 +12,20 @@ import { FetchResponse } from '#/src/utils/fetchUtils'
 
 export const REQUEST_ID_REGEXP = /^\w{9,}$/
 
-interface PromisifiedFetchPayload {
-  res: Response
-  url: string
-  init?: RequestInit
-}
-
-export async function fetch(
-  info: RequestInfo | URL,
-  init?: RequestInit
-): Promise<PromisifiedFetchPayload> {
-  let url: string = ''
-  const res = await globalThis.fetch(info, init)
-
-  if (typeof info === 'string') {
-    url = info
-  } else if ('href' in info) {
-    url = info.href
-  } else if ('url' in info) {
-    url = info.url
-  }
-
-  return {
-    res,
-    url,
-    init,
-  }
-}
-
 export async function readBlob(
   blob: Blob
 ): Promise<string | ArrayBuffer | null> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.addEventListener('loadend', () => {
-      resolve(reader.result)
-    })
-    reader.addEventListener('abort', reject)
-    reader.addEventListener('error', reject)
-    reader.readAsText(blob)
+  const pendingResult = new DeferredPromise<string | ArrayBuffer | null>()
+
+  const reader = new FileReader()
+  reader.addEventListener('loadend', () => {
+    pendingResult.resolve(reader.result)
   })
+  reader.addEventListener('abort', () => pendingResult.reject())
+  reader.addEventListener('error', () => pendingResult.reject())
+  reader.readAsText(blob)
+
+  return pendingResult
 }
 
 export function createXMLHttpRequest(
