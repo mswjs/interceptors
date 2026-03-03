@@ -6,7 +6,7 @@ const server = new HttpServer((app) => {
   app.use(useCors)
 
   app.all('*', (req, res) => {
-    res.status(200)
+    res.status(200).set(req.headers)
     req.pipe(res)
   })
 })
