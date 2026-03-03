@@ -1,119 +1,16 @@
 import { invariant } from 'outvariant'
-import zlib from 'node:zlib'
 import net from 'node:net'
+import zlib from 'node:zlib'
 import { Readable } from 'node:stream'
-import { urlToHttpOptions } from 'node:url'
-import http, { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
-import https from 'node:https'
+import http from 'node:http'
 import { RequestHandler } from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { Page } from '@playwright/test'
 import { MockedFunction } from 'node_modules/vitest/dist'
-import { getIncomingMessageBody } from '#/src/interceptors/ClientRequest/utils/getIncomingMessageBody'
 import { SerializedRequest } from '#/src/RemoteHttpInterceptor'
 import { FetchResponse } from '#/src/utils/fetchUtils'
 
 export const REQUEST_ID_REGEXP = /^\w{9,}$/
-
-export interface PromisifiedResponse {
-  req: ClientRequest
-  res: IncomingMessage
-  resBody: string
-  url: string
-  options: RequestOptions
-}
-
-export function httpGet(
-  url: string,
-  options: RequestOptions = {}
-): Promise<PromisifiedResponse> {
-  const parsedUrl = new URL(url)
-  return new Promise((resolve, reject) => {
-    const req = http.get(parsedUrl, options, async (res) => {
-      res.setEncoding('utf8')
-      const resBody = await getIncomingMessageBody(res)
-      resolve({ req, res, resBody, url, options })
-    })
-
-    req.on('error', reject)
-  })
-}
-
-export function httpsGet(
-  url: string,
-  options?: RequestOptions
-): Promise<PromisifiedResponse> {
-  const parsedUrl = new URL(url)
-  const resolvedOptions = Object.assign(
-    {},
-    urlToHttpOptions(parsedUrl),
-    options
-  )
-
-  return new Promise((resolve, reject) => {
-    const req = https.get(resolvedOptions, async (res) => {
-      res.setEncoding('utf8')
-      const resBody = await getIncomingMessageBody(res)
-      resolve({ req, res, resBody, url, options: resolvedOptions })
-    })
-
-    req.on('error', reject)
-  })
-}
-
-export function httpRequest(
-  url: string,
-  options?: RequestOptions,
-  body?: string
-): Promise<PromisifiedResponse> {
-  const parsedUrl = new URL(url)
-  const resolvedOptions = Object.assign(
-    {},
-    urlToHttpOptions(parsedUrl),
-    options
-  )
-
-  return new Promise((resolve) => {
-    const req = http.request(resolvedOptions, async (res) => {
-      res.setEncoding('utf8')
-      const resBody = await getIncomingMessageBody(res)
-      resolve({ req, res, resBody, url, options: resolvedOptions })
-    })
-
-    if (body) {
-      req.write(body)
-    }
-
-    req.end()
-  })
-}
-
-export function httpsRequest(
-  url: string,
-  options?: RequestOptions,
-  body?: string
-): Promise<PromisifiedResponse> {
-  const parsedUrl = new URL(url)
-  const resolvedOptions = Object.assign(
-    {},
-    urlToHttpOptions(parsedUrl),
-    options
-  )
-
-  return new Promise((resolve) => {
-    const req = https.request(resolvedOptions, async (res) => {
-      res.setEncoding('utf8')
-      const resBody = await getIncomingMessageBody(res)
-      resolve({ req, res, resBody, url, options: resolvedOptions })
-    })
-
-    if (body) {
-      req.write(body)
-    }
-
-    req.end()
-  })
-}
 
 interface PromisifiedFetchPayload {
   res: Response

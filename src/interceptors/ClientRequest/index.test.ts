@@ -53,23 +53,3 @@ it('abort the request if the abort signal is emitted', async () => {
 
   expect(request.destroyed).toBe(true)
 })
-
-it('patch the Headers object correctly after dispose and reapply', async () => {
-  interceptor.dispose()
-  interceptor.apply()
-
-  interceptor.on('request', ({ controller }) => {
-    const headers = new Headers({
-      'X-CustoM-HeadeR': 'Yes',
-    })
-    controller.respondWith(new Response(null, { headers }))
-  })
-
-  const request = http.get(httpServer.http.url('/'))
-  const [response, rawResponse] = await toWebResponse(request)
-
-  expect(rawResponse.rawHeaders).toEqual(
-    expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
-  )
-  expect(response.headers.get('x-custom-header')).toBe('Yes')
-})

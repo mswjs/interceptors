@@ -1,6 +1,7 @@
 // @vitest-environment node
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { httpGet, PromisifiedResponse, useCors } from '#/test/helpers'
+import { PromisifiedResponse, toWebResponse, useCors } from '#/test/helpers'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 function arrayWith<V>(length: number, mapFn: (index: number) => V): V[] {
@@ -11,11 +12,9 @@ function randomBetween(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1) + min)
 }
 
-function parallelRequests(
-  makeRequest: (index: number) => Promise<PromisifiedResponse>
-) {
+function parallelRequests(makeRequest: (index: number) => Promise<Response>) {
   return (index: number) => {
-    return new Promise<PromisifiedResponse>((resolve) => {
+    return new Promise<Response>((resolve) => {
       setTimeout(() => resolve(makeRequest(index)), randomBetween(100, 500))
     })
   }
@@ -53,24 +52,34 @@ it.skip('returns responses for 500 matching parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
-      parallelRequests((i) => httpGet(httpServer.http.url(`/user?id=${i + 1}`)))
+      parallelRequests(async (i) => {
+        const [response] = await toWebResponse(
+          http.get(httpServer.http.url(`/user?id=${i + 1}`))
+        )
+        return response
+      })
     )
   )
-  const bodies = responses.map((response) => response.resBody)
+  const bodies = responses.map((response) => response.text())
   const expectedBodies = arrayWith(500, (i) => `mocked ${i + 1}`)
 
-  expect(bodies).toEqual(expectedBodies)
+  await expect(Promise.all(bodies)).resolves.toEqual(expectedBodies)
 })
 
 it.skip('returns responses for 500 bypassed parallel requests', async () => {
   const responses = await Promise.all(
     arrayWith(
       500,
-      parallelRequests((i) => httpGet(httpServer.http.url(`/number/${i + 1}`)))
+      parallelRequests(async (i) => {
+        const [response] = await toWebResponse(
+          http.get(httpServer.http.url(`/number/${i + 1}`))
+        )
+        return response
+      })
     )
   )
-  const bodies = responses.map((response) => response.resBody)
+  const bodies = responses.map((response) => response.text())
   const expectedBodies = arrayWith(500, (i) => `real ${i + 1}`)
 
-  expect(bodies).toEqual(expectedBodies)
+  await expect(Promise.all(bodies)).resolves.toEqual(expectedBodies)
 })

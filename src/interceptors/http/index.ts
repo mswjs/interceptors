@@ -15,7 +15,6 @@ import { RequestController } from '../../RequestController'
 import {
   getRawFetchHeaders,
   recordRawFetchHeaders,
-  restoreHeadersPrototype,
 } from '../ClientRequest/utils/recordRawHeaders'
 import { SocketInterceptor } from '../net'
 import { connectionOptionsToUrl } from '../net/utils/connection-options-to-url'
@@ -49,8 +48,12 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     socketInterceptor.apply()
     this.subscriptions.push(() => socketInterceptor.dispose())
 
-    recordRawFetchHeaders()
-    this.subscriptions.push(() => restoreHeadersPrototype())
+    /**
+     * @note Record the raw values provided to Headers set/append
+     * in order to support "IncomingMessage.prototype.rawHeaders".
+     * This is meant for the headers in mocked responses.
+     */
+    this.subscriptions.push(recordRawFetchHeaders())
 
     socketInterceptor.on(
       'connection',

@@ -1,9 +1,11 @@
 // @vitest-environment miniflare
+import http from 'node:http'
+import https from 'node:https'
 import { BatchInterceptor } from '#/src/index'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import { FetchInterceptor } from '#/src/interceptors/fetch'
-import { httpGet, httpsGet } from '#/test/helpers'
+import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new BatchInterceptor({
   name: 'setup-server',
@@ -32,7 +34,7 @@ test('responds to fetch', async () => {
     controller.respondWith(new Response('mocked-body'))
   })
 
-  const response = await fetch('https://example.com')
+  const response = await fetch('https://any.host.here/')
   expect(response.status).toEqual(200)
   expect(await response.text()).toEqual('mocked-body')
 })
@@ -42,8 +44,8 @@ test('responds to http.get', async () => {
     controller.respondWith(new Response('mocked-body'))
   })
 
-  const { resBody } = await httpGet('http://example.com')
-  expect(resBody).toEqual('mocked-body')
+  const [response] = await toWebResponse(http.get('http://any.host.here/'))
+  await expect(response.text()).resolves.toEqual('mocked-body')
 })
 
 test('responds to https.get', async () => {
@@ -51,8 +53,8 @@ test('responds to https.get', async () => {
     controller.respondWith(new Response('mocked-body'))
   })
 
-  const { resBody } = await httpsGet('https://example.com')
-  expect(resBody).toEqual('mocked-body')
+  const [response] = await toWebResponse(https.get('https://any.host.here/'))
+  await expect(response.text()).resolves.toEqual('mocked-body')
 })
 
 test('throws when responding with a network error', async () => {
@@ -64,13 +66,13 @@ test('throws when responding with a network error', async () => {
     controller.respondWith(Response.error())
   })
 
-  const { res, resBody } = await httpGet('http://example.com')
+  const [response] = await toWebResponse(http.get('http://any.host.here/'))
 
   // Unhandled exceptions in the interceptor are coerced
   // to 500 error responses.
-  expect(res.statusCode).toEqual(500)
-  expect(res.statusMessage).toEqual('Unhandled Exception')
-  expect(JSON.parse(resBody)).toEqual({
+  expect(response.status).toBe(500)
+  expect(response.statusText).toBe('Unhandled Exception')
+  await expect(response.json()).resolves.toEqual({
     name: 'TypeError',
     message: 'Response.error is not a function',
     stack: expect.any(String),

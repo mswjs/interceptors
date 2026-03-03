@@ -4,6 +4,7 @@ import { Interceptor } from '../../Interceptor'
 import { canParseUrl } from '../../utils/canParseUrl'
 import { requestContext } from '../../request-context'
 import { applyPatch } from '../../utils/apply-patch'
+import { recordRawFetchHeaders } from '../ClientRequest/utils/recordRawHeaders'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
@@ -18,6 +19,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
   protected setup(): void {
     this.subscriptions.push(
+      recordRawFetchHeaders(),
       applyPatch(globalThis, 'fetch', (realFetch) => {
         return (input, init) => {
           /**

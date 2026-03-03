@@ -69,7 +69,7 @@ function defineRawHeadersSymbol(headers: Headers, rawHeaders: RawHeaders) {
  * h.append('x-custom', 'two')
  * h[Symbol('headers map')] // Map { 'X-Custom' => 'one, two' }
  */
-export function recordRawFetchHeaders() {
+export function recordRawFetchHeaders(): () => void {
   // Prevent patching the Headers prototype multiple times.
   if (Reflect.get(Headers, kRestorePatches)) {
     return Reflect.get(Headers, kRestorePatches)
@@ -222,6 +222,8 @@ export function recordRawFetchHeaders() {
       },
     }),
   })
+
+  return restoreHeadersPrototype
 }
 
 export function restoreHeadersPrototype() {

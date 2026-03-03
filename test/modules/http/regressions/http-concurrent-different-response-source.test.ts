@@ -1,8 +1,9 @@
 // @vitest-environment node
+import http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { httpGet } from '#/test/helpers'
+import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (req, res) => {
@@ -39,17 +40,19 @@ it('handles concurrent requests with different response sources', async () => {
   })
 
   const requests = await Promise.all([
-    httpGet(httpServer.http.url('/')),
-    httpGet(httpServer.http.url('/'), {
-      headers: {
-        'x-ignore-request': 'yes',
-      },
-    }),
+    toWebResponse(http.get(httpServer.http.url('/'))),
+    toWebResponse(
+      http.get(httpServer.http.url('/'), {
+        headers: {
+          'x-ignore-request': 'yes',
+        },
+      })
+    ),
   ])
 
-  expect(requests[0].res.statusCode).toEqual(201)
-  expect(requests[0].resBody).toEqual('mocked-response')
+  expect(requests[0][0].status).toEqual(201)
+  await expect(requests[0][0].text()).resolves.toBe('mocked-response')
 
-  expect(requests[1].res.statusCode).toEqual(200)
-  expect(requests[1].resBody).toEqual('original-response')
+  expect(requests[1][0].status).toEqual(200)
+  await expect(requests[1][0].text()).resolves.toBe('original-response')
 })
