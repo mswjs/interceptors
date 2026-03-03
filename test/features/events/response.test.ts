@@ -274,8 +274,6 @@ it('fetch: emits the "response" event upon a mocked response', async () => {
     HttpRequestEventMap['response'][0]
   >()
   interceptor.on('response', (args) => {
-    console.log('RESPONSE!', args.response)
-
     responseListenerArgs.resolve({
       ...args,
       request: args.request.clone(),

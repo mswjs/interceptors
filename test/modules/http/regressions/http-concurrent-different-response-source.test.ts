@@ -1,12 +1,12 @@
 // @vitest-environment node
+import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { httpGet } from '#/test/helpers'
-import { sleep } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (req, res) => {
-    await sleep(300)
+    await setTimeout(300)
     res.status(200).send('original-response')
   })
 })
@@ -33,7 +33,7 @@ it('handles concurrent requests with different response sources', async () => {
       return
     }
 
-    await sleep(250)
+    await setTimeout(250)
 
     controller.respondWith(new Response('mocked-response', { status: 201 }))
   })

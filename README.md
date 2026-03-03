@@ -282,10 +282,12 @@ Note that a single request _can only be handled once_. You may want to introduce
 Requests must be responded to within the same tick as the request listener. This means you cannot respond to a request using `setTimeout`, as this will delegate the callback to the next tick. If you wish to introduce asynchronous side-effects in the listener, consider making it an `async` function, awaiting any side-effects you need.
 
 ```js
+import { setTimeout } from 'node:timers/promises'
+
 // Respond to all requests with a 500 response
 // delayed by 500ms.
 interceptor.on('request', async ({ controller }) => {
-  await sleep(500)
+  await setTimeout(500)
   controller.respondWith(new Response(null, { status: 500 }))
 })
 ```

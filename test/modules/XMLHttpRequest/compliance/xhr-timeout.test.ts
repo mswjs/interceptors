@@ -2,15 +2,15 @@
 /**
  * @see https://github.com/mswjs/interceptors/issues/7
  */
+import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { sleep } from '#/test/helpers'
 import { createXMLHttpRequest } from '#/test/helpers'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (_req, res) => {
-    await sleep(50)
+    await setTimeout(50)
     res.send('ok')
   })
 })

@@ -1,12 +1,9 @@
 import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '.'
-import {
-  sleep,
-  toWebResponse,
-  waitForClientRequest,
-} from '../../../test/helpers'
+import { toWebResponse } from '../../../test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
@@ -37,7 +34,7 @@ it('abort the request if the abort signal is emitted', async () => {
   const requestUrl = httpServer.http.url('/')
 
   interceptor.on('request', async function delayedResponse({ controller }) {
-    await sleep(1_000)
+    await setTimeout(1000)
     controller.respondWith(new Response())
   })
 

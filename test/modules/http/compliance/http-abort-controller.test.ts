@@ -4,11 +4,11 @@ import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { sleep, toWebResponse } from '#/test/helpers'
+import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', async (req, res) => {
-    await sleep(200)
+    await setTimeout(200)
     res.status(500).end()
   })
 })

@@ -3,7 +3,6 @@ import { setTimeout } from 'node:timers/promises'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { FetchInterceptor } from '#/src/interceptors/fetch'
-import { sleep } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
@@ -56,7 +55,7 @@ it('aborts a pending request when the original request is aborted', async () => 
 
   interceptor.on('request', async ({ controller }) => {
     requestListenerCalled.resolve()
-    await sleep(1000)
+    await setTimeout(1000)
     controller.respondWith(new Response())
   })
 
@@ -103,7 +102,7 @@ it('forwards custom abort reason to the request if pending', async () => {
 
   interceptor.once('request', async ({ controller }) => {
     requestListenerCalled.resolve()
-    await sleep(1000)
+    await setTimeout(1000)
     controller.respondWith(new Response())
   })
 

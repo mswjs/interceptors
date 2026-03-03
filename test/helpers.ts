@@ -317,12 +317,6 @@ export async function toWebResponse(
   return pendingResponse
 }
 
-export function sleep(duration: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, duration)
-  })
-}
-
 export const useCors: RequestHandler = (_req, res, next) => {
   res.set({
     'access-control-allow-origin': '*',

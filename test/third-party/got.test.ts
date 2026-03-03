@@ -1,7 +1,8 @@
+// @vitest-environment node
+import { setTimeout } from 'node:timers/promises'
 import got from 'got'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { sleep } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -45,7 +46,7 @@ it('bypasses an unhandled request made with "got"', async () => {
 
 it('supports timeout before resolving request as-is', async () => {
   interceptor.on('request', async ({ controller }) => {
-    await sleep(750)
+    await setTimeout(750)
     controller.respondWith(new Response('mocked response'))
   })
 

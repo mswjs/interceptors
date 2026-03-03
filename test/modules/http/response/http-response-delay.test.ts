@@ -1,7 +1,8 @@
 // @vitest-environment node
 import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
-import { sleep, toWebResponse } from '#/test/helpers'
+import { toWebResponse } from '#/test/helpers'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
@@ -24,7 +25,7 @@ afterAll(async () => {
 
 it('supports custom delay before responding with a mock', async () => {
   interceptor.once('request', async ({ controller }) => {
-    await sleep(750)
+    await setTimeout(750)
     controller.respondWith(new Response('mocked response'))
   })
 
@@ -42,7 +43,7 @@ it('supports custom delay before receiving the original response', async () => {
   interceptor.once('request', async () => {
     // This will simply delay the request execution before
     // it receives the original response.
-    await sleep(750)
+    await setTimeout(750)
   })
 
   const requestStart = Date.now()

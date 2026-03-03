@@ -1,8 +1,9 @@
 // @vitest-environment node
 import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { sleep, toWebResponse } from '#/test/helpers'
+import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -29,7 +30,7 @@ afterAll(() => {
 
 it('suppresses ECONNREFUSED error given a mocked response', async () => {
   interceptor.once('request', async ({ controller }) => {
-    await sleep(250)
+    await setTimeout(250)
     controller.respondWith(new Response('mocked'))
   })
 
@@ -74,7 +75,7 @@ it('forwards ECONNREFUSED error given a bypassed request', async () => {
 
 it('suppresses ENOTFOUND error given a mocked response', async () => {
   interceptor.once('request', async ({ controller }) => {
-    await sleep(250)
+    await setTimeout(250)
     controller.respondWith(new Response('mocked'))
   })
 
@@ -107,7 +108,7 @@ it('forwards ENOTFOUND error for a bypassed request', async () => {
 
 it('suppresses EHOSTUNREACH error given a mocked response', async () => {
   interceptor.once('request', async ({ controller }) => {
-    await sleep(250)
+    await setTimeout(250)
     controller.respondWith(new Response('mocked'))
   })
 
@@ -162,7 +163,7 @@ it('allows throwing connection errors in the request listener', async () => {
   }
 
   interceptor.on('request', async () => {
-    await sleep(250)
+    await setTimeout(250)
 
     // A connection error thrown in the request listener
     // will not be suppressed, and will forward to the consumer.

@@ -1,8 +1,9 @@
 // @vitest-environment node
 import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { sleep, toWebResponse } from '#/test/helpers'
+import { toWebResponse } from '#/test/helpers'
 
 const server = new HttpServer((app) => {
   app.get('/original', async (req, res) => {
@@ -20,7 +21,7 @@ async function getResponse(request: Request): Promise<Response | undefined> {
       return new Promise(async (resolve) => {
         // Defer the resolution of the promise to the next tick.
         // Request handlers in MSW resolve on the next tick.
-        await sleep(0)
+        await setTimeout(0)
 
         const originalRequest = http.get(server.http.url('/original'))
         const [response, rawResponse] = await toWebResponse(originalRequest)
