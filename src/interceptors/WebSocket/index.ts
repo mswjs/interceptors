@@ -70,7 +70,7 @@ export type WebSocketConnectionData = {
  * the global `WebSocket` class.
  */
 export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
-  static symbol = Symbol('websocket-interceptor')
+  static symbol = Symbol.for('websocket-interceptor')
 
   constructor() {
     super(WebSocketInterceptor.symbol)

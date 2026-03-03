@@ -38,7 +38,7 @@ import { requestContext } from '../../request-context'
 const log = createLogger('HttpRequestInterceptor')
 
 export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static symbol = Symbol('http-request-interceptor')
+  static symbol = Symbol.for('http-request-interceptor')
 
   constructor() {
     super(HttpRequestInterceptor.symbol)

@@ -17,7 +17,7 @@ import { applyPatch } from '../../utils/apply-patch'
 import { copyRawHeaders } from '../ClientRequest/utils/recordRawHeaders'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
-  static symbol = Symbol('fetch')
+  static symbol = Symbol.for('fetch-interceptor')
 
   constructor() {
     super(FetchInterceptor.symbol)

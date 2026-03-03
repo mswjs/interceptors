@@ -5,7 +5,7 @@ import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { applyPatch } from '../../utils/apply-patch'
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static interceptorSymbol = Symbol('xhr-interceptor')
+  static interceptorSymbol = Symbol.for('xhr-interceptor')
 
   constructor() {
     super(XMLHttpRequestInterceptor.interceptorSymbol)

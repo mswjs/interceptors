@@ -23,7 +23,7 @@ interface SocketEventMap {
 const log = createLogger('SocketInterceptor')
 
 export class SocketInterceptor extends Interceptor<SocketEventMap> {
-  static symbol = Symbol('socket-interceptor')
+  static symbol = Symbol.for('socket-interceptor')
 
   constructor() {
     super(SocketInterceptor.symbol)

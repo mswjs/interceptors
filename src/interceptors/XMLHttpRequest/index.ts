@@ -8,7 +8,7 @@ import { applyPatch } from '../../utils/apply-patch'
 export type XMLHttpRequestEmitter = Emitter<HttpRequestEventMap>
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static interceptorSymbol = Symbol('xhr')
+  static interceptorSymbol = Symbol.for('xhr-interceptor')
 
   constructor() {
     super(XMLHttpRequestInterceptor.interceptorSymbol)
