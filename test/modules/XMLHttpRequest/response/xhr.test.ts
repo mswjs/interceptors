@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors } from '#/test/helpers'
+import { useCors, waitForXMLHttpRequest } from '#/test/helpers'
 
 declare namespace window {
   export const _resourceLoader: {
@@ -71,71 +71,77 @@ afterAll(async () => {
 })
 
 it('responds to an HTTP request handled in the middleware', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/'))
-    req.send()
-  })
-  const responseHeaders = req.getAllResponseHeaders()
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/'))
+  request.send()
 
-  expect(req.status).toEqual(301)
+  await waitForXMLHttpRequest(request)
+  const responseHeaders = request.getAllResponseHeaders()
+
+  expect(request.status).toEqual(301)
   expect(responseHeaders).toContain('content-type: application/hal+json')
-  expect(req.response).toEqual('foo')
+  expect(request.response).toEqual('foo')
 })
 
 it('bypasses an HTTP request not handled in the middleware', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/get'))
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/get'))
+  request.send()
 
-  expect(req.status).toEqual(200)
-  expect(req.response).toEqual('/get')
+  await waitForXMLHttpRequest(request)
+
+  expect(request.status).toEqual(200)
+  expect(request.response).toEqual('/get')
 })
 
 it('responds to an HTTPS request handled in the middleware', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.url('/'))
-    req.send()
-  })
-  const responseHeaders = req.getAllResponseHeaders()
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.https.url('/'))
+  request.send()
 
-  expect(req.status).toEqual(301)
+  await waitForXMLHttpRequest(request)
+  const responseHeaders = request.getAllResponseHeaders()
+
+  expect(request.status).toEqual(301)
   expect(responseHeaders).toContain('content-type: application/hal+json')
-  expect(req.response).toEqual('foo')
-  expect(req.responseURL).toEqual(httpServer.https.url('/'))
+  expect(request.response).toEqual('foo')
+  expect(request.responseURL).toEqual(httpServer.https.url('/'))
 })
 
 it('bypasses an HTTPS request not handled in the middleware', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.url('/get'))
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.https.url('/get'))
+  request.send()
 
-  expect(req.status).toEqual(200)
-  expect(req.response).toEqual('/get')
-  expect(req.responseURL).toEqual(httpServer.https.url('/get'))
+  await waitForXMLHttpRequest(request)
+
+  expect(request.status).toEqual(200)
+  expect(request.response).toEqual('/get')
+  expect(request.responseURL).toEqual(httpServer.https.url('/get'))
 })
 
 it('responds to an HTTP request to a relative URL that is handled in the middleware', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.url('/login'))
-    req.send()
-  })
-  const responseHeaders = req.getAllResponseHeaders()
+  const request = new XMLHttpRequest()
+  request.open('POST', httpServer.https.url('/login'))
+  request.send()
 
-  expect(req.status).toEqual(301)
+  await waitForXMLHttpRequest(request)
+  const responseHeaders = request.getAllResponseHeaders()
+
+  expect(request.status).toEqual(301)
   expect(responseHeaders).toContain('content-type: application/hal+json')
-  expect(req.response).toEqual('foo')
-  expect(req.responseURL).toEqual(httpServer.https.url('/login'))
+  expect(request.response).toEqual('foo')
+  expect(request.responseURL).toEqual(httpServer.https.url('/login'))
 })
 
 it('produces a request error for a mocked Response.error() response', async () => {
   const errorListener = vi.fn()
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', 'http://localhost/network-error')
-    req.addEventListener('error', errorListener)
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', 'http://localhost/network-error')
+  request.addEventListener('error', errorListener)
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(errorListener).toHaveBeenCalledTimes(1)
 
@@ -144,15 +150,16 @@ it('produces a request error for a mocked Response.error() response', async () =
   expect(progressEvent).toBeInstanceOf(ProgressEvent)
 
   // Request must still exist.
-  expect(req.status).toBe(0)
+  expect(request.status).toBe(0)
 })
 
 it('produces a 500 response for an unhandled exception in the interceptor', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'json'
-    request.open('GET', 'http://localhost/exception')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.responseType = 'json'
+  request.open('GET', 'http://localhost/exception')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(500)
   expect(request.statusText).toBe('Unhandled Exception')
@@ -164,23 +171,25 @@ it('produces a 500 response for an unhandled exception in the interceptor', asyn
 })
 
 it('does not propagate the forbidden "cookie" header on the bypassed response', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.url('/cookies'))
-    req.send()
-  })
-  const responseHeaders = req.getAllResponseHeaders()
+  const request = new XMLHttpRequest()
+  request.open('POST', httpServer.https.url('/cookies'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
+  const responseHeaders = request.getAllResponseHeaders()
   expect(responseHeaders).not.toMatch(/cookie/)
 })
 
 it('bypasses any request when the interceptor is restored', async () => {
   interceptor.dispose()
 
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.url('/'))
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.https.url('/'))
+  request.send()
 
-  expect(req.status).toEqual(200)
-  expect(req.response).toEqual('/')
-  expect(req.responseURL).toEqual(httpServer.https.url('/'))
+  await waitForXMLHttpRequest(request)
+
+  expect(request.status).toEqual(200)
+  expect(request.response).toEqual('/')
+  expect(request.responseURL).toEqual(httpServer.https.url('/'))
 })

@@ -4,7 +4,7 @@
 // @vitest-environment jsdom
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -75,23 +75,24 @@ it.each<[name: string, getUrl: () => string]>([
     const loadListener = vi.fn()
     const loadEndListener = vi.fn()
 
-    const request = await createXMLHttpRequest((request) => {
-      request.open('GET', url)
+    const request = new XMLHttpRequest()
+    request.open('GET', url)
 
-      request.onreadystatechange = onReadyStateChangeHandler
-      request.onloadstart = onLoadStartHandler
-      request.onprogress = onProgressHandler
-      request.onload = onLoadHandler
-      request.onloadend = onLoadEndHandler
+    request.onreadystatechange = onReadyStateChangeHandler
+    request.onloadstart = onLoadStartHandler
+    request.onprogress = onProgressHandler
+    request.onload = onLoadHandler
+    request.onloadend = onLoadEndHandler
 
-      request.addEventListener('readystatechange', onReadyStateChangeListener)
-      request.addEventListener('loadstart', loadStartListener)
-      request.addEventListener('progress', progressListener)
-      request.addEventListener('load', loadListener)
-      request.addEventListener('loadend', loadEndListener)
+    request.addEventListener('readystatechange', onReadyStateChangeListener)
+    request.addEventListener('loadstart', loadStartListener)
+    request.addEventListener('progress', progressListener)
+    request.addEventListener('load', loadListener)
+    request.addEventListener('loadend', loadEndListener)
 
-      request.send()
-    })
+    request.send()
+
+    await waitForXMLHttpRequest(request)
 
     expect(request.readyState).toBe(4)
     expect(request.status).toBe(200)
@@ -139,23 +140,24 @@ it.each<[name: string, getUrl: () => string]>([
   const loadListener = vi.fn()
   const loadEndListener = vi.fn()
 
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', url)
+  const request = new XMLHttpRequest()
+  request.open('GET', url)
 
-    request.onreadystatechange = onReadyStateChangeHandler
-    request.onloadstart = onLoadStartHandler
-    request.onprogress = onProgressHandler
-    request.onload = onLoadHandler
-    request.onloadend = onLoadEndHandler
+  request.onreadystatechange = onReadyStateChangeHandler
+  request.onloadstart = onLoadStartHandler
+  request.onprogress = onProgressHandler
+  request.onload = onLoadHandler
+  request.onloadend = onLoadEndHandler
 
-    request.addEventListener('readystatechange', onReadyStateChangeListener)
-    request.addEventListener('loadstart', loadStartListener)
-    request.addEventListener('progress', progressListener)
-    request.addEventListener('load', loadListener)
-    request.addEventListener('loadend', loadEndListener)
+  request.addEventListener('readystatechange', onReadyStateChangeListener)
+  request.addEventListener('loadstart', loadStartListener)
+  request.addEventListener('progress', progressListener)
+  request.addEventListener('load', loadListener)
+  request.addEventListener('loadend', loadEndListener)
 
-    request.send()
-  })
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.readyState).toBe(4)
   expect(request.status).toBe(500)
@@ -202,23 +204,24 @@ it.each<[name: string, getUrl: () => string]>([
   const loadListener = vi.fn()
   const loadEndListener = vi.fn()
 
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', url)
+  const request = new XMLHttpRequest()
+  request.open('GET', url)
 
-    request.onreadystatechange = onReadyStateChangeHandler
-    request.onloadstart = onLoadStartHandler
-    request.onprogress = onProgressHandler
-    request.onload = onLoadHandler
-    request.onloadend = onLoadEndHandler
+  request.onreadystatechange = onReadyStateChangeHandler
+  request.onloadstart = onLoadStartHandler
+  request.onprogress = onProgressHandler
+  request.onload = onLoadHandler
+  request.onloadend = onLoadEndHandler
 
-    request.addEventListener('readystatechange', onReadyStateChangeListener)
-    request.addEventListener('loadstart', loadStartListener)
-    request.addEventListener('progress', progressListener)
-    request.addEventListener('load', loadListener)
-    request.addEventListener('loadend', loadEndListener)
+  request.addEventListener('readystatechange', onReadyStateChangeListener)
+  request.addEventListener('loadstart', loadStartListener)
+  request.addEventListener('progress', progressListener)
+  request.addEventListener('load', loadListener)
+  request.addEventListener('loadend', loadEndListener)
 
-    request.send()
-  })
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.readyState).toBe(4)
   expect(request.status).toBe(0)
@@ -258,29 +261,30 @@ it('dispatched relevant events upon an unhandled exception in the interceptor', 
   const loadEndListener = vi.fn()
   const errorListener = vi.fn()
 
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'json'
+  const request = new XMLHttpRequest()
+  request.responseType = 'json'
 
-    request.onreadystatechange = onReadyStateChangeHandler
-    request.onloadstart = onLoadStartHandler
-    request.onprogress = onProgressHandler
-    request.onload = onLoadHandler
-    request.onloadend = onLoadEndHandler
-    request.onerror = onErrorHandler
+  request.onreadystatechange = onReadyStateChangeHandler
+  request.onloadstart = onLoadStartHandler
+  request.onprogress = onProgressHandler
+  request.onload = onLoadHandler
+  request.onloadend = onLoadEndHandler
+  request.onerror = onErrorHandler
 
-    request.addEventListener('readystatechange', onReadyStateChangeListener)
-    request.addEventListener('loadstart', loadStartListener)
-    request.addEventListener('progress', progressListener)
-    request.addEventListener('load', loadListener)
-    request.addEventListener('loadend', loadEndListener)
-    request.addEventListener('error', errorListener)
+  request.addEventListener('readystatechange', onReadyStateChangeListener)
+  request.addEventListener('loadstart', loadStartListener)
+  request.addEventListener('progress', progressListener)
+  request.addEventListener('load', loadListener)
+  request.addEventListener('loadend', loadEndListener)
+  request.addEventListener('error', errorListener)
 
-    // Open the connection after the callbacks/listeners have been added.
-    // Some XHR interactions, like file uploads, require you to add the
-    // progress listeners BEFORE the request is open.
-    request.open('GET', httpServer.https.url('/exception'))
-    request.send()
-  })
+  // Open the connection after the callbacks/listeners have been added.
+  // Some XHR interactions, like file uploads, require you to add the
+  // progress listeners BEFORE the request is open.
+  request.open('GET', httpServer.https.url('/exception'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.readyState).toBe(4)
   expect(request.status).toBe(500)

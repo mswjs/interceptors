@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -23,10 +23,11 @@ it('supports lowercase HTTP request method', async () => {
     }
   })
 
-  const request = await createXMLHttpRequest((request) => {
-    request.open('post', 'http://localhost/resource')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('post', 'http://localhost/resource')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.responseText).toBe('hello world')
 })

@@ -2,7 +2,7 @@
 import http from 'node:http'
 import { BatchInterceptor } from '../../../lib/node/index.mjs'
 import nodeInterceptors from '../../../lib/node/presets/node.mjs'
-import { createXMLHttpRequest, toWebResponse } from '#/test/helpers'
+import { toWebResponse, waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new BatchInterceptor({
   name: 'node-preset-interceptor',
@@ -45,10 +45,11 @@ it('intercepts and mocks a ClientRequest', async () => {
 })
 
 it('intercepts and mocks an XMLHttpRequest (jsdom)', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', 'http://localhost:3001/resource')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', 'http://localhost:3001/resource')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(requestListener).toHaveBeenCalledWith(
     expect.objectContaining({

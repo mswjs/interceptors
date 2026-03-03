@@ -4,7 +4,7 @@
  */
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors } from '#/test/helpers'
+import { useCors, waitForXMLHttpRequest } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.use(useCors)
@@ -60,11 +60,12 @@ afterAll(async () => {
 
 it('emits correct events sequence for an unhandled request with no response body', async () => {
   const listener = vi.fn()
-  const req = await createXMLHttpRequest((req) => {
-    spyOnEvents(req, listener)
-    req.open('GET', httpServer.http.url())
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  spyOnEvents(request, listener)
+  request.open('GET', httpServer.http.url())
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(listener.mock.calls).toEqual([
     ['readystatechange', 1], // OPEN
@@ -75,16 +76,17 @@ it('emits correct events sequence for an unhandled request with no response body
     ['load', 4],
     ['loadend', 4],
   ])
-  expect(req.readyState).toEqual(4)
+  expect(request.readyState).toEqual(4)
 })
 
 it('emits correct events sequence for a handled request with no response body', async () => {
   const listener = vi.fn()
-  const req = await createXMLHttpRequest((req) => {
-    spyOnEvents(req, listener)
-    req.open('GET', httpServer.http.url('/user'))
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  spyOnEvents(request, listener)
+  request.open('GET', httpServer.http.url('/user'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(listener.mock.calls).toEqual([
     ['readystatechange', 1], // OPEN
@@ -95,16 +97,17 @@ it('emits correct events sequence for a handled request with no response body', 
     ['load', 4],
     ['loadend', 4],
   ])
-  expect(req.readyState).toBe(4)
+  expect(request.readyState).toBe(4)
 })
 
 it('emits correct events sequence for an unhandled request with a response body', async () => {
   const listener = vi.fn()
-  const req = await createXMLHttpRequest((req) => {
-    spyOnEvents(req, listener)
-    req.open('GET', httpServer.http.url('/numbers'))
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  spyOnEvents(request, listener)
+  request.open('GET', httpServer.http.url('/numbers'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(listener.mock.calls).toEqual([
     ['readystatechange', 1], // OPEN
@@ -116,16 +119,17 @@ it('emits correct events sequence for an unhandled request with a response body'
     ['load', 4],
     ['loadend', 4],
   ])
-  expect(req.readyState).toBe(4)
+  expect(request.readyState).toBe(4)
 })
 
 it('emits correct events sequence for a handled request with a response body', async () => {
   const listener = vi.fn()
-  const req = await createXMLHttpRequest((req) => {
-    spyOnEvents(req, listener)
-    req.open('GET', httpServer.http.url('/numbers-mock'))
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  spyOnEvents(request, listener)
+  request.open('GET', httpServer.http.url('/numbers-mock'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(listener.mock.calls).toEqual([
     ['readystatechange', 1], // OPEN
@@ -137,5 +141,5 @@ it('emits correct events sequence for a handled request with a response body', a
     ['load', 4],
     ['loadend', 4],
   ])
-  expect(req.readyState).toBe(4)
+  expect(request.readyState).toBe(4)
 })

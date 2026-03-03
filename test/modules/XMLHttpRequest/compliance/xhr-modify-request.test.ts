@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors } from '#/test/helpers'
+import { useCors, waitForXMLHttpRequest } from '#/test/helpers'
 
 const server = new HttpServer((app) => {
   app.use(useCors)
@@ -44,15 +44,16 @@ it('allows modifying outgoing request headers', async () => {
     request.headers.set('X-Set-Header', 'new-value')
   })
 
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', server.http.url('/user'))
-    req.setRequestHeader('X-Delete-Header', 'a')
-    req.setRequestHeader('X-Append-Header', '1')
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', server.http.url('/user'))
+  request.setRequestHeader('X-Delete-Header', 'a')
+  request.setRequestHeader('X-Append-Header', '1')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   // Cannot delete XMLHttpRequest headers.
-  expect(req.getResponseHeader('x-delete-header')).toBe('a')
+  expect(request.getResponseHeader('x-delete-header')).toBe('a')
   expect(console.warn).toHaveBeenCalledWith(
     expect.stringMatching(
       `XMLHttpRequest: Cannot remove a "X-Delete-Header" header from the Fetch API representation of the "GET http://127.0.0.1:\\d+/user" request. XMLHttpRequest headers cannot be removed.`
@@ -60,6 +61,6 @@ it('allows modifying outgoing request headers', async () => {
   )
 
   // Adding and modifying XMLHttpRequest headers is allowed.
-  expect(req.getResponseHeader('x-append-header')).toBe('1, 2')
-  expect(req.getResponseHeader('x-set-header')).toBe('new-value')
+  expect(request.getResponseHeader('x-append-header')).toBe('1, 2')
+  expect(request.getResponseHeader('x-set-header')).toBe('new-value')
 })

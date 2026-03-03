@@ -2,10 +2,11 @@
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import {
-  createXMLHttpRequest,
   useCors,
   REQUEST_ID_REGEXP,
   toWebResponse,
+  WebResponse,
+  waitForXMLHttpRequest,
 } from '#/test/helpers'
 import { BatchInterceptor } from '#/src/BatchInterceptor'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
@@ -72,28 +73,31 @@ it('XMLHttpRequest: emits the "request" event upon the request (no CORS)', async
   interceptor.on('request', requestListener)
 
   const url = httpServer.http.url('/user')
-  await createXMLHttpRequest((req) => {
-    req.open('POST', url)
-    req.setRequestHeader('Content-Type', 'application/json')
-    req.send(JSON.stringify({ userId: 'abc-123' }))
-  })
+  const request = new XMLHttpRequest()
+  request.open('POST', url)
+  request.setRequestHeader('Content-Type', 'application/json')
+  request.send(JSON.stringify({ userId: 'abc-123' }))
+
+  await waitForXMLHttpRequest(request)
 
   /**
-   * @note This XHR request, while cross-origin, doesn't have any other criteria
+   * @note This XHR request, while cross-origin, doesn't have enough criteria
    * to trigger the OPTIONS preflight request.
    */
   expect(requestListener).toHaveBeenCalledTimes(1)
 
-  const [{ request, requestId, controller }] = requestListener.mock.calls[0]
+  {
+    const [{ request, requestId, controller }] = requestListener.mock.calls[0]
 
-  expect(request.method).toBe('POST')
-  expect(request.url).toBe(url)
-  expect(request.headers.get('content-type')).toBe('application/json')
-  expect(request.credentials).toBe('same-origin')
-  await expect(request.json()).resolves.toEqual({ userId: 'abc-123' })
-  expect(controller).toBeInstanceOf(RequestController)
+    expect(request.method).toBe('POST')
+    expect(request.url).toBe(url)
+    expect(request.headers.get('content-type')).toBe('application/json')
+    expect(request.credentials).toBe('same-origin')
+    await expect(request.json()).resolves.toEqual({ userId: 'abc-123' })
+    expect(controller).toBeInstanceOf(RequestController)
 
-  expect(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect(requestId).toMatch(REQUEST_ID_REGEXP)
+  }
 })
 
 it('XMLHttpRequest: emits the preflight "request" event upon the request (CORS)', async () => {
@@ -101,15 +105,16 @@ it('XMLHttpRequest: emits the preflight "request" event upon the request (CORS)'
   interceptor.on('request', requestListener)
 
   const url = httpServer.http.url('/user')
-  await createXMLHttpRequest((req) => {
-    req.open('POST', url)
-    req.setRequestHeader('Content-Type', 'application/json')
-    /**
-     * @note The addition of this custom header triggers the OPTIONS request in XHR.
-     */
-    req.setRequestHeader('X-Custom-Header', 'yes')
-    req.send(JSON.stringify({ userId: 'abc-123' }))
-  })
+  const request = new XMLHttpRequest()
+  request.open('POST', url)
+  request.setRequestHeader('Content-Type', 'application/json')
+  /**
+   * @note The addition of this custom header triggers the OPTIONS request in XHR.
+   */
+  request.setRequestHeader('X-Custom-Header', 'yes')
+  request.send(JSON.stringify({ userId: 'abc-123' }))
+
+  await waitForXMLHttpRequest(request)
 
   expect(requestListener).toHaveBeenCalledTimes(2)
 
@@ -132,14 +137,16 @@ it('XMLHttpRequest: emits the preflight "request" event upon the request (CORS)'
     })
   )
 
-  const [{ request, requestId, controller }] = requestListener.mock.calls[1]
+  {
+    const [{ request, requestId, controller }] = requestListener.mock.calls[1]
 
-  expect(request.method).toBe('POST')
-  expect(request.url).toBe(url)
-  expect(request.headers.get('content-type')).toBe('application/json')
-  expect(request.credentials).toBe('same-origin')
-  await expect(request.json()).resolves.toEqual({ userId: 'abc-123' })
-  expect(controller).toBeInstanceOf(RequestController)
+    expect(request.method).toBe('POST')
+    expect(request.url).toBe(url)
+    expect(request.headers.get('content-type')).toBe('application/json')
+    expect(request.credentials).toBe('same-origin')
+    await expect(request.json()).resolves.toEqual({ userId: 'abc-123' })
+    expect(controller).toBeInstanceOf(RequestController)
 
-  expect(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect(requestId).toMatch(REQUEST_ID_REGEXP)
+  }
 })

@@ -3,7 +3,7 @@
  * @see https://github.com/mswjs/interceptors/issues/281
  */
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -32,28 +32,31 @@ afterAll(() => {
 })
 
 it('keeps "status" as 0 if the request fails', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', '/cors')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', '/cors')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(0)
 })
 
 it('respects error response status', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', '?status=500')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', '?status=500')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(500)
 })
 
 it('respects a custom "status" from the response', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', '/?status=201')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', '/?status=201')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(201)
 })

@@ -3,10 +3,10 @@
  * @see https://github.com/mswjs/msw/issues/2307
  */
 import { HttpServer } from '@open-draft/test-server/http'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import { FetchResponse } from '#/src/utils/fetchUtils'
-import { createXMLHttpRequest, useCors } from '#/test/helpers'
-import { DeferredPromise } from '@open-draft/deferred-promise'
+import { waitForXMLHttpRequest, useCors } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -38,10 +38,11 @@ it('handles non-configurable responses from the actual server', async () => {
     responsePromise.resolve(response)
   })
 
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', httpServer.http.url('/resource'))
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/resource'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(101)
   expect(request.statusText).toBe('Switching Protocols')
@@ -65,10 +66,11 @@ it('supports mocking non-configurable responses', async () => {
     responsePromise.resolve(response)
   })
 
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', httpServer.http.url('/resource'))
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/resource'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(101)
   expect(request.responseText).toBe('')

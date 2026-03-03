@@ -2,7 +2,7 @@
 import { encodeBuffer } from '#/src/index'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import { toArrayBuffer } from '#/src/utils/bufferUtils'
-import { createXMLHttpRequest, readBlob } from '#/test/helpers'
+import { readBlob, waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', ({ controller }) => {
@@ -30,25 +30,27 @@ afterAll(() => {
 })
 
 it('responds with an object when "responseType" equals "json"', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', '/arbitrary-url')
-    req.responseType = 'json'
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', '/arbitrary-url')
+  request.responseType = 'json'
+  request.send()
 
-  expect(typeof req.response).toBe('object')
-  expect(req.response).toEqual({
+  await waitForXMLHttpRequest(request)
+
+  expect(typeof request.response).toBe('object')
+  expect(request.response).toEqual({
     firstName: 'John',
     lastName: 'Maverick',
   })
 })
 
 it('responds with a Blob when "responseType" equals "blob"', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', '/arbitrary-url')
-    req.responseType = 'blob'
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', '/arbitrary-url')
+  request.responseType = 'blob'
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   const expectedBlob = new Blob(
     [
@@ -62,7 +64,7 @@ it('responds with a Blob when "responseType" equals "blob"', async () => {
     }
   )
 
-  const responseBlob: Blob = req.response
+  const responseBlob: Blob = request.response
   const expectedBlobContents = await readBlob(responseBlob)
 
   expect(responseBlob).toBeInstanceOf(Blob)
@@ -78,11 +80,12 @@ it('responds with a Blob when "responseType" equals "blob"', async () => {
 })
 
 it('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', '/arbitrary-url')
-    req.responseType = 'arraybuffer'
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', '/arbitrary-url')
+  request.responseType = 'arraybuffer'
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   const expectedArrayBuffer = toArrayBuffer(
     encodeBuffer(
@@ -93,7 +96,7 @@ it('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', asyn
     )
   )
 
-  const responseBuffer = req.response as ArrayBuffer
+  const responseBuffer = request.response as ArrayBuffer
 
   const isBufferEqual = (left: ArrayBuffer, right: ArrayBuffer): boolean => {
     const first = new Uint8Array(left)

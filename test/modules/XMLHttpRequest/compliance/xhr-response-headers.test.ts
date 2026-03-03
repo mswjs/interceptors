@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors } from '#/test/helpers'
+import { useCors, waitForXMLHttpRequest } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.use(useCors)
@@ -46,23 +46,27 @@ afterAll(async () => {
 })
 
 it('retrieves the mocked response headers when called ".getAllResponseHeaders()"', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', '/?mock=true')
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', '/?mock=true')
+  request.send()
 
-  const responseHeaders = req.getAllResponseHeaders()
-  expect(responseHeaders).toEqual('etag: 123\r\nx-response-type: mock')
+  await waitForXMLHttpRequest(request)
+
+  expect(request.getAllResponseHeaders()).toBe(
+    'etag: 123\r\nx-response-type: mock'
+  )
 })
 
 it('returns the bypass response headers when called ".getAllResponseHeaders()"', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    // Perform a HEAD request so that the response has no "Content-Type" header
-    // always appended by Express.
-    req.open('HEAD', httpServer.http.url('/'))
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  // Perform a HEAD request so that the response has no "Content-Type" header
+  // always appended by Express.
+  request.open('HEAD', httpServer.http.url('/'))
+  request.send()
 
-  const responseHeaders = req.getAllResponseHeaders()
-  expect(responseHeaders).toEqual('etag: 456\r\nx-response-type: bypass')
+  await waitForXMLHttpRequest(request)
+
+  expect(request.getAllResponseHeaders()).toBe(
+    'etag: 456\r\nx-response-type: bypass'
+  )
 })

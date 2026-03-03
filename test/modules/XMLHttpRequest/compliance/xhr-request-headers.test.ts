@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors } from '#/test/helpers'
+import { useCors, waitForXMLHttpRequest } from '#/test/helpers'
 
 interface ResponseType {
   requestRawHeaders: Array<string>
@@ -36,14 +36,15 @@ afterAll(async () => {
 })
 
 it('sends the request headers to the server', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/'))
-    req.setRequestHeader('X-ClienT-HeadeR', 'abc-123')
-    req.setRequestHeader('X-Multi-Value', 'value1; value2')
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/'))
+  request.setRequestHeader('X-ClienT-HeadeR', 'abc-123')
+  request.setRequestHeader('X-Multi-Value', 'value1; value2')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   // Normalized request headers list all headers in lower-case.
-  expect(req.getResponseHeader('x-client-header')).toEqual('abc-123')
-  expect(req.getResponseHeader('x-multi-value')).toEqual('value1; value2')
+  expect(request.getResponseHeader('x-client-header')).toEqual('abc-123')
+  expect(request.getResponseHeader('x-multi-value')).toEqual('value1; value2')
 })

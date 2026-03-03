@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const XML_STRING = '<node key="value">Content</node>'
 
@@ -24,10 +24,11 @@ describe('Content-Type: application/xml', () => {
   })
 
   it('supports a mocked response with an XML response body', async () => {
-    const request = await createXMLHttpRequest((request) => {
-      request.open('GET', '/arbitrary-url')
-      request.send()
-    })
+    const request = new XMLHttpRequest()
+    request.open('GET', '/arbitrary-url')
+    request.send()
+
+    await waitForXMLHttpRequest(request)
 
     expect(request.responseXML).toStrictEqual(
       new DOMParser().parseFromString(XML_STRING, 'application/xml')
@@ -55,10 +56,11 @@ describe('Content-Type: text/xml', () => {
   })
 
   it('supports a mocked response with an XML response body', async () => {
-    const request = await createXMLHttpRequest((request) => {
-      request.open('GET', '/arbitrary-url')
-      request.send()
-    })
+    const request = new XMLHttpRequest()
+    request.open('GET', '/arbitrary-url')
+    request.send()
+
+    await waitForXMLHttpRequest(request)
 
     expect(request.responseXML).toStrictEqual(
       new DOMParser().parseFromString(XML_STRING, 'text/xml')

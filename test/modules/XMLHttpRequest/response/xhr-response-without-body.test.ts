@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors } from '#/test/helpers'
+import { useCors, waitForXMLHttpRequest } from '#/test/helpers'
 import type { HttpRequestEventMap } from '#/src/index'
 
 const httpServer = new HttpServer((app) => {
@@ -32,10 +32,11 @@ afterAll(async () => {
 })
 
 it('represents a 204 response without body using fetch api response', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', httpServer.http.url('/204'))
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/204'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.response).toBe('')
   expect(responseListener).toHaveBeenNthCalledWith(
@@ -51,10 +52,11 @@ it('represents a 204 response without body using fetch api response', async () =
 })
 
 it('represents a 205 response without body using fetch api response', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', httpServer.http.url('/205'))
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/205'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.response).toBe('')
   expect(responseListener).toHaveBeenNthCalledWith(
@@ -70,10 +72,11 @@ it('represents a 205 response without body using fetch api response', async () =
 })
 
 it('represents a 304 response without body using fetch api response', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', httpServer.http.url('/304'))
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/304'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.response).toBe('')
   expect(responseListener).toHaveBeenNthCalledWith(

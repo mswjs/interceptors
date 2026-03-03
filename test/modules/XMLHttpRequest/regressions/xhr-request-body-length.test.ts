@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -24,11 +24,12 @@ it('does not lock the request body stream when calculating the body size', async
   })
 
   const uploadLoadStartListener = vi.fn()
-  const request = await createXMLHttpRequest((request) => {
-    request.upload.addEventListener('loadstart', uploadLoadStartListener)
-    request.open('POST', '/resource')
-    request.send('request-body')
-  })
+  const request = new XMLHttpRequest()
+  request.upload.addEventListener('loadstart', uploadLoadStartListener)
+  request.open('POST', '/resource')
+  request.send('request-body')
+
+  await waitForXMLHttpRequest(request)
 
   // Must calculate the total request body size for the upload event.
   const progressEvent = uploadLoadStartListener.mock.calls[0][0]

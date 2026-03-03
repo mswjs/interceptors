@@ -4,9 +4,9 @@
  */
 import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', async (_req, res) => {
@@ -30,14 +30,15 @@ afterAll(async () => {
 it('handles request timeout via the "ontimeout" callback', async () => {
   const timeoutCalled = new DeferredPromise<number>()
 
-  createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/'))
-    req.timeout = 1
-    req.ontimeout = function customTimeoutCallback() {
-      timeoutCalled.resolve(this.readyState)
-    }
-    req.send()
-  }).catch(console.error)
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/'))
+  request.timeout = 1
+  request.ontimeout = function customTimeoutCallback() {
+    timeoutCalled.resolve(this.readyState)
+  }
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   const nextReadyState = await timeoutCalled
   expect(nextReadyState).toBe(4)
@@ -46,15 +47,16 @@ it('handles request timeout via the "ontimeout" callback', async () => {
 it('handles request timeout via the "timeout" event listener', async () => {
   const timeoutCalled = new DeferredPromise<number>()
 
-  createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/'))
-    req.timeout = 1
-    req.addEventListener('timeout', function customTimeoutListener() {
-      expect(this.readyState).toBe(4)
-      timeoutCalled.resolve(this.readyState)
-    })
-    req.send()
-  }).catch(console.error)
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/'))
+  request.timeout = 1
+  request.addEventListener('timeout', function customTimeoutListener() {
+    expect(this.readyState).toBe(4)
+    timeoutCalled.resolve(this.readyState)
+  })
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   const nextReadyState = await timeoutCalled
   expect(nextReadyState).toBe(4)

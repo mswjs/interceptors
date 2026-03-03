@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', ({ controller }) => {
@@ -21,11 +21,12 @@ afterAll(() => {
 })
 
 it('sends a mocked response with an empty response body', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', '/arbitrary-url')
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', '/arbitrary-url')
+  request.send()
 
-  expect(req.status).toEqual(401)
-  expect(req.response).toEqual('')
+  await waitForXMLHttpRequest(request)
+
+  expect(request.status).toEqual(401)
+  expect(request.response).toEqual('')
 })

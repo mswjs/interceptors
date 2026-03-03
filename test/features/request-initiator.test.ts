@@ -6,7 +6,7 @@ import { ClientRequestInterceptor } from '#/src/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
 import { FetchInterceptor } from '#/src/interceptors/fetch/node'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { createXMLHttpRequest, toWebResponse } from '#/test/helpers'
+import { toWebResponse, waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new BatchInterceptor({
   name: 'interceptor',
@@ -58,10 +58,11 @@ it('exposes the initiator of a mocked XMLHttpRequest request', async () => {
     )
   })
 
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', 'http://localhost/api')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', 'http://localhost/api')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   await expect(initiatorPromise).resolves.toEqual(request)
   expect(request.responseText).toBe('mocked')

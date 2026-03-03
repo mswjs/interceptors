@@ -3,7 +3,7 @@
  * @see https://github.com/mswjs/interceptors/issues/335
  */
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -22,12 +22,13 @@ it('handles Response.error() as a request error', async () => {
 
   const loadListener = vi.fn()
   const errorListener = vi.fn()
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', 'http://localhost')
-    request.addEventListener('load', loadListener)
-    request.addEventListener('error', errorListener)
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', 'http://localhost')
+  request.addEventListener('load', loadListener)
+  request.addEventListener('error', errorListener)
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(0)
   expect(request.readyState).toBe(4)
@@ -41,11 +42,12 @@ it('handles interceptor exceptions as 500 error responses', async () => {
     throw new Error('Network error')
   })
 
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'json'
-    request.open('GET', 'http://localhost')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.responseType = 'json'
+  request.open('GET', 'http://localhost')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(500)
   expect(request.statusText).toBe('Unhandled Exception')

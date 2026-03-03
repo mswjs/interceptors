@@ -2,9 +2,9 @@
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import {
-  createXMLHttpRequest,
   useCors,
   REQUEST_ID_REGEXP,
+  waitForXMLHttpRequest,
 } from '#/test/helpers'
 import { HttpRequestEventMap } from '#/src/index'
 import { RequestController } from '#/src/RequestController'
@@ -47,10 +47,11 @@ it('emits events for a handled request', async () => {
   interceptor.on('request', requestListener)
   interceptor.on('response', responseListener)
 
-  await createXMLHttpRequest((request) => {
-    request.open('GET', server.http.url('/user'))
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', server.http.url('/user'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   // Must call the "request" event listener.
   expect(requestListener).toHaveBeenCalledTimes(1)
@@ -90,10 +91,11 @@ it('emits events for a bypassed request', async () => {
   interceptor.on('request', requestListener)
   interceptor.on('response', responseListener)
 
-  await createXMLHttpRequest((request) => {
-    request.open('GET', server.http.url('/bypassed'))
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', server.http.url('/bypassed'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   // Must call the "request" event listener.
   expect(requestListener).toHaveBeenCalledTimes(1)

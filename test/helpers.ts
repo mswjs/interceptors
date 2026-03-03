@@ -1,4 +1,4 @@
-import { invariant } from 'outvariant'
+import { invariant, InvariantError } from 'outvariant'
 import net from 'node:net'
 import zlib from 'node:zlib'
 import { Readable } from 'node:stream'
@@ -26,28 +26,6 @@ export async function readBlob(
   reader.readAsText(blob)
 
   return pendingResult
-}
-
-export function createXMLHttpRequest(
-  middleware: (req: XMLHttpRequest) => void
-): Promise<XMLHttpRequest> {
-  const request = new XMLHttpRequest()
-  middleware(request)
-
-  if (request.readyState < 1) {
-    throw new Error(
-      'Failed to create an XMLHttpRequest. Did you forget to call `.open()` in the middleware function?'
-    )
-  }
-
-  return new Promise((resolve, reject) => {
-    request.addEventListener('loadend', () => {
-      resolve(request)
-    })
-    request.addEventListener('abort', (error) => {
-      reject(error)
-    })
-  })
 }
 
 export interface XMLHttpResponse {
@@ -159,6 +137,17 @@ export function createBrowserXMLHttpRequest(page: Page) {
       createRawBrowserXMLHttpRequest(page)(requestInit),
     ])
   }
+}
+
+export function waitForXMLHttpRequest(request: XMLHttpRequest): Promise<void> {
+  const pendingResponse = new DeferredPromise<void>()
+
+  request.addEventListener('loadend', () => pendingResponse.resolve())
+  request.addEventListener('abort', () =>
+    pendingResponse.reject(new Error('Request aborted'))
+  )
+
+  return pendingResponse
 }
 
 export async function toWebResponse(

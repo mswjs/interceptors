@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', ({ controller }) => {
@@ -18,11 +18,12 @@ afterAll(async () => {
 it('treats "Response.error()" as request error', async () => {
   const requestErrorListener = vi.fn()
 
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', 'http://localhost:3001/resource')
-    request.addEventListener('error', requestErrorListener)
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', 'http://localhost:3001/resource')
+  request.addEventListener('error', requestErrorListener)
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   // Request must reflect the request error state.
   expect(request.readyState).toBe(request.DONE)

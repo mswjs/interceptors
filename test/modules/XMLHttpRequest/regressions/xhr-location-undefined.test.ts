@@ -1,6 +1,6 @@
 // @vitest-environment react-native-like
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -17,28 +17,27 @@ it('responds to a request with an absolute URL', async () => {
     controller.respondWith(new Response('Hello world'))
   })
 
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', 'https://example.com/resource')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', 'https://example.com/resource')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(200)
   expect(request.response).toBe('Hello world')
 })
 
 it('throws on a request with a relative URL', async () => {
-  const createRequest = () => {
-    return createXMLHttpRequest((request) => {
-      /**
-       * @note Since the "location" is not present in React Native,
-       * relative requests will throw (nothing to be relative to).
-       * This is the correct behavior in React Native, where relative
-       * requests are a no-op.
-       */
-      request.open('GET', '/relative/url')
-      request.send()
-    })
-  }
+  expect(() => {
+    const request = new XMLHttpRequest()
 
-  expect(createRequest).toThrow('Invalid URL')
+    /**
+     * @note Since the "location" is not present in React Native,
+     * relative requests will throw (nothing to be relative to).
+     * This is the correct behavior in React Native, where relative
+     * requests are a no-op.
+     */
+    request.open('GET', '/relative/url')
+    request.send()
+  }).toThrow('Invalid URL')
 })

@@ -3,7 +3,7 @@
  * @see https://github.com/mswjs/msw/issues/273
  */
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/helpers'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', ({ request, controller }) => {
@@ -30,18 +30,16 @@ afterAll(() => {
 })
 
 it('calls the "load" event attached via "addEventListener" with a mocked response', async () => {
-  await createXMLHttpRequest((req) => {
-    req.open('GET', 'https://test.mswjs.io/user')
-    req.responseType = 'json'
+  const request = new XMLHttpRequest()
+  request.open('GET', 'https://test.mswjs.io/user')
+  request.responseType = 'json'
+  request.send()
 
-    req.addEventListener('load', function () {
-      const { status, response } = this
-      const headers = this.getAllResponseHeaders()
+  await waitForXMLHttpRequest(request)
 
-      expect(status).toBe(200)
-      expect(headers).toContain('x-header: yes')
-      expect(response).toEqual({ mocked: true })
-    })
-    req.send()
-  })
+  expect(request.status).toBe(200)
+  expect(request.getAllResponseHeaders()).toEqual(
+    `content-type: application/json\r\nx-header: yes`
+  )
+  expect(request.response).toEqual({ mocked: true })
 })
