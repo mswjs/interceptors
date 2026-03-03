@@ -14,6 +14,7 @@ import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { FetchResponse } from '../../utils/fetchUtils'
 import { isResponseError } from '../../utils/responseUtils'
 import { applyPatch } from '../../utils/apply-patch'
+import { copyRawHeaders } from '../ClientRequest/utils/recordRawHeaders'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -120,6 +121,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                   headers: rawResponse.headers,
                 }
               )
+
+              copyRawHeaders(rawResponse.headers, response.headers)
 
               /**
                * Undici's handling of following redirect responses.
