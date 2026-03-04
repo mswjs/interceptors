@@ -1,3 +1,4 @@
+import { until } from '@open-draft/until'
 import { invariant } from 'outvariant'
 import { isNodeProcess } from 'is-node-process'
 import type { Logger } from '@open-draft/logger'
@@ -14,10 +15,12 @@ import { parseJson } from '../../utils/parseJson'
 import { createResponse } from './utils/createResponse'
 import { createRequestId } from '../../createRequestId'
 import { getBodyByteLength } from './utils/getBodyByteLength'
+import { FetchResponse } from '../../utils/fetchUtils'
 
 const kIsRequestHandled = Symbol('kIsRequestHandled')
 const IS_NODE = isNodeProcess()
 const kFetchRequest = Symbol('kFetchRequest')
+const MAX_REDIRECTS = 20
 
 /**
  * An `XMLHttpRequest` instance controller that allows us
@@ -49,6 +52,7 @@ export class XMLHttpRequestController {
   private url: URL = null as any
   private requestHeaders: Headers
   private responseBuffer: Uint8Array
+  private redirectCount: number
   private events: Map<keyof XMLHttpRequestEventTargetEventMap, Array<Function>>
   private uploadEvents: Map<
     keyof XMLHttpRequestEventTargetEventMap,
@@ -61,6 +65,7 @@ export class XMLHttpRequestController {
   ) {
     this[kIsRequestHandled] = false
 
+    this.redirectCount = 0
     this.events = new Map()
     this.uploadEvents = new Map()
     this.requestId = createRequestId()
@@ -281,6 +286,30 @@ export class XMLHttpRequestController {
      * calculating request/response total body length is asynchronous.
      */
     this[kIsRequestHandled] = true
+
+    // Follow redirect responses to maintain parity with browser XHR behavior.
+    // Browsers follow redirects transparently so XHR never sees 3xx responses.
+    const redirectLocation = response.headers.get('location')
+    if (
+      redirectLocation &&
+      FetchResponse.isRedirectResponse(response.status)
+    ) {
+      const redirectUrl = new URL(redirectLocation, location.href)
+      const redirectMethod = FetchResponse.isResponseWithBody(response.status)
+        ? this.method
+        : 'GET'
+
+      const redirectResult = await until(() =>
+        this.followRedirect(redirectMethod, redirectUrl)
+      )
+
+      if (redirectResult.error) {
+        return
+      }
+
+      this.url = new URL(redirectResult.data.responseURL)
+      return this.respondWith(redirectResult.data.response)
+    }
 
     /**
      * Dispatch request upload events for requests with a body.
@@ -559,6 +588,39 @@ export class XMLHttpRequestController {
     }
 
     return null
+  }
+
+  private followRedirect(
+    method: string,
+    url: URL
+  ): Promise<{ response: Response; responseURL: string }> {
+    this.redirectCount++
+
+    if (this.redirectCount > MAX_REDIRECTS) {
+      const reason = new Error('Too many redirects')
+      this.errorWith(reason)
+      return Promise.reject(reason)
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest()
+      request.responseType = this.request.responseType
+
+      request.addEventListener('load', () => {
+        resolve({
+          response: createResponse(request, request.response),
+          responseURL: request.responseURL,
+        })
+      })
+
+      request.addEventListener('error', () => {
+        this.errorWith()
+        reject(new Error('Redirect request failed'))
+      })
+
+      request.open(method, url.href)
+      request.send()
+    })
   }
 
   public errorWith(error?: Error): void {
