@@ -21,7 +21,12 @@ const server = new HttpServer((app) => {
 
   app.all('*', (req, res) => {
     res.status(200).set(req.headers)
-    req.pipe(res)
+
+    if (req.method === 'GET') {
+      res.send('original-response')
+    } else {
+      req.pipe(res)
+    }
   })
 })
 
@@ -30,7 +35,7 @@ export async function setup(project: TestProject) {
 
   project.provide('server', {
     http: server.http.address.href,
-    https: server.http.address.href,
+    https: server.https.address.href,
   })
 }
 
