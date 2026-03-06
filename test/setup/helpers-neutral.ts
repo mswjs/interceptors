@@ -1,12 +1,30 @@
 import { DeferredPromise } from '@open-draft/deferred-promise'
 
-export function waitForXMLHttpRequest(request: XMLHttpRequest): Promise<void> {
+export function waitForXMLHttpRequest(
+  request: XMLHttpRequest,
+  async = true
+): Promise<void> {
   const pendingResponse = new DeferredPromise<void>()
 
-  request.addEventListener('loadend', () => pendingResponse.resolve())
-  request.addEventListener('abort', () =>
-    pendingResponse.reject(new Error('Request aborted'))
-  )
+  if (async) {
+    request.addEventListener('loadend', () => {
+      pendingResponse.resolve()
+    })
+
+    request.addEventListener('abort', () => {
+      pendingResponse.reject(new Error('Request aborted'))
+    })
+  } else {
+    if (request.readyState === XMLHttpRequest.DONE) {
+      pendingResponse.resolve()
+    } else {
+      request.addEventListener('loadend', () => {
+        if (request.readyState === XMLHttpRequest.DONE) {
+          pendingResponse.resolve()
+        }
+      })
+    }
+  }
 
   return pendingResponse
 }
@@ -16,8 +34,6 @@ export function spyOnXMLHttpRequest(request: XMLHttpRequest) {
 
   const addEvent = (name: string) => {
     return (event: unknown) => {
-      console.log('EVENT:', name, event, request.readyState)
-
       if (event instanceof ProgressEvent) {
         events.push([
           name,
@@ -34,7 +50,7 @@ export function spyOnXMLHttpRequest(request: XMLHttpRequest) {
   request.onprogress = addEvent('progress')
   request.onloadstart = addEvent('loadstart')
   request.onload = addEvent('load')
-  request.onload = addEvent('loadend')
+  request.onloadend = addEvent('loadend')
   request.ontimeout = addEvent('timeout')
   request.onerror = addEvent('error')
   request.onabort = addEvent('abort')

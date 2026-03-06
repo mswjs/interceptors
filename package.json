@@ -26,10 +26,18 @@
       "default": "./lib/node/interceptors/ClientRequest/index.cjs"
     },
     "./XMLHttpRequest": {
-      "browser": "./lib/browser/interceptors/XMLHttpRequest/index.mjs",
-      "require": "./lib/node/interceptors/XMLHttpRequest/index.cjs",
-      "import": "./lib/node/interceptors/XMLHttpRequest/index.mjs",
-      "default": "./lib/node/interceptors/XMLHttpRequest/index.cjs"
+      "browser": "./lib/browser/interceptors/XMLHttpRequest/web.mjs",
+      "require": "./lib/node/interceptors/XMLHttpRequest/node.cjs",
+      "import": "./lib/node/interceptors/XMLHttpRequest/node.mjs",
+      "default": "./lib/node/interceptors/XMLHttpRequest/node.cjs"
+    },
+    "./XMLHttpRequest/node": {
+      "import": "./lib/node/interceptors/XMLHttpRequest/node.mjs",
+      "default": "./lib/node/interceptors/XMLHttpRequest/node.cjs"
+    },
+    "./XMLHttpRequest/web": {
+      "import": "./lib/browser/interceptors/XMLHttpRequest/web.mjs",
+      "default": "./lib/browser/interceptors/XMLHttpRequest/web.cjs"
     },
     "./fetch": {
       "browser": "./lib/browser/interceptors/fetch/index.mjs",
@@ -80,6 +88,7 @@
     "start": "tsdown --watch",
     "test": "vitest",
     "test:nock": "./test/third-party/nock.sh",
+    "lint": "publint",
     "build": "tsdown",
     "prepare": "pnpm simple-git-hooks init",
     "release": "release publish"
@@ -129,6 +138,7 @@
     "https-proxy-agent": "^7.0.6",
     "node-fetch": "3.3.2",
     "playwright": "^1.58.2",
+    "publint": "^0.3.18",
     "simple-git-hooks": "^2.7.0",
     "socket.io": "^4.7.4",
     "socket.io-client": "^4.7.4",

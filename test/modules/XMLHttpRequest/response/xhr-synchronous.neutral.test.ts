@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
-import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
+import {
+  spyOnXMLHttpRequest,
+  waitForXMLHttpRequest,
+} from '#/test/setup/helpers-neutral'
 import { getTestServer } from '#/test/setup/vitest'
 
 const server = getTestServer()
-
 const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(() => {
@@ -19,21 +21,72 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('mocks response to a synchronous XMLHttpRequest', async () => {
-  interceptor.on('request', ({ controller }) => {
-    controller.respondWith(new Response('hello world'))
-  })
-
+it('intercepts a synchronous bypassed request', async ({ task }) => {
   const request = new XMLHttpRequest()
-  request.open('GET', server.http.url('/'), false)
-  request.send()
+  const { events } = spyOnXMLHttpRequest(request)
+  request.open('POST', server.http.url('/'), false)
+  request.setRequestHeader('content-type', 'text/plain')
+  request.send('hello world')
 
-  await waitForXMLHttpRequest(request)
+  /**
+   * @note In a regular synchronous XMLHttpRequest, you don't have to
+   * await anything as ".send()" will block the thread and consume the
+   * response body synchronously. We cannot do that since ".respondWith()"
+   * is async by design.
+   */
+  await waitForXMLHttpRequest(request, false)
 
   expect.soft(request.status).toBe(200)
   expect
     .soft(request.getAllResponseHeaders().toLowerCase())
-    .toBe('content-type: text/plain;charset=utf-8')
+    .toContain('content-type: text/plain')
   expect.soft(request.response).toBe('hello world')
   expect.soft(request.responseText).toBe('hello world')
+
+  if (task.file.projectName === 'browser') {
+    expect(events).toEqual([
+      ['readystatechange', 1],
+      ['readystatechange', 4],
+      ['load', 4, { loaded: 11, total: 11 }],
+      ['loadend', 4, { loaded: 11, total: 11 }],
+    ])
+  }
+})
+
+/**
+ * @fixme HappyDOM's sync request is invisible to the HttpRequestInterceptor?
+ */
+it('mocks response to a synchronous XMLHttpRequest', async ({ task }) => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response('hello world', {
+        headers: {
+          'access-control-allow-origin': '*',
+        },
+      })
+    )
+  })
+
+  const request = new XMLHttpRequest()
+  const { events } = spyOnXMLHttpRequest(request)
+  request.open('GET', server.http.url('/'), false)
+  request.send()
+
+  await waitForXMLHttpRequest(request, false)
+
+  expect.soft(request.status).toBe(200)
+  expect
+    .soft(request.getAllResponseHeaders().toLowerCase())
+    .toContain('content-type: text/plain')
+  expect.soft(request.response).toBe('hello world')
+  expect.soft(request.responseText).toBe('hello world')
+
+  if (task.file.projectName === 'browser') {
+    expect(events).toEqual([
+      ['readystatechange', 1],
+      ['readystatechange', 4],
+      ['load', 4, { loaded: 11, total: 11 }],
+      ['loadend', 4, { loaded: 11, total: 11 }],
+    ])
+  }
 })

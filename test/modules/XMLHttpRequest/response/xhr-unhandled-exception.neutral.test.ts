@@ -17,7 +17,17 @@ afterAll(() => {
 })
 
 it('treats an unhandled exception as a 500 response for an HTTP request', async () => {
-  interceptor.on('request', () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.method === 'OPTIONS') {
+      return controller.respondWith(
+        new Response(null, {
+          headers: {
+            'access-control-allow-origin': '*',
+          },
+        })
+      )
+    }
+
     throw new Error('Custom error message')
   })
 
@@ -38,7 +48,17 @@ it('treats an unhandled exception as a 500 response for an HTTP request', async 
 })
 
 it('treats an unhandled exception as a 500 response for an HTTPS request', async () => {
-  interceptor.on('request', () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.method === 'OPTIONS') {
+      return controller.respondWith(
+        new Response(null, {
+          headers: {
+            'access-control-allow-origin': '*',
+          },
+        })
+      )
+    }
+
     throw new Error('Custom error message')
   })
 

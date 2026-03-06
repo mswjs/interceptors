@@ -169,6 +169,7 @@ export async function toWebResponse(
 export const useCors: RequestHandler = (_req, res, next) => {
   res.set({
     'access-control-allow-origin': '*',
+    'access-control-allow-headers': '*',
   })
   return next()
 }

@@ -19,6 +19,10 @@ const server = new HttpServer((app) => {
     res.status(200).send('destination-body')
   })
 
+  app.get('/network-error', (req, res) => {
+    res.destroy()
+  })
+
   app.all('*', (req, res) => {
     res.status(200).set(req.headers)
 

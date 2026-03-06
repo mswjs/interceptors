@@ -129,6 +129,9 @@ importers:
       playwright:
         specifier: ^1.58.2
         version: 1.58.2
+      publint:
+        specifier: ^0.3.18
+        version: 0.3.18
       simple-git-hooks:
         specifier: ^2.7.0
         version: 2.11.1
@@ -149,7 +152,7 @@ importers:
         version: 7.0.0
       tsdown:
         specifier: ^0.18.1
-        version: 0.18.1(publint@0.3.16)(typescript@5.8.2)
+        version: 0.18.1(publint@0.3.18)(typescript@5.8.2)
       typescript:
         specifier: ^5.8.2
         version: 5.8.2
@@ -637,8 +640,8 @@ packages:
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
-  '@publint/pack@0.1.2':
-    resolution: {integrity: sha512-S+9ANAvUmjutrshV4jZjaiG8XQyuJIZ8a4utWmN/vW1sgQ9IfBnPndwkmQYw53QmouOIytT874u65HEmu6H5jw==}
+  '@publint/pack@0.1.4':
+    resolution: {integrity: sha512-HDVTWq3H0uTXiU0eeSQntcVUTPP3GamzeXI41+x7uU9J65JgWQh3qWZHblR1i0npXfFtF+mxBiU2nJH8znxWnQ==}
     engines: {node: '>=18'}
 
   '@quansync/fs@1.0.0':
@@ -2554,8 +2557,8 @@ packages:
   proxy-from-env@1.1.0:
     resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
 
-  publint@0.3.16:
-    resolution: {integrity: sha512-MFqyfRLAExPVZdTQFwkAQELzA8idyXzROVOytg6nEJ/GEypXBUmMGrVaID8cTuzRS1U5L8yTOdOJtMXgFUJAeA==}
+  publint@0.3.18:
+    resolution: {integrity: sha512-JRJFeBTrfx4qLwEuGFPk+haJOJN97KnPuK01yj+4k/Wj5BgoOK5uNsivporiqBjk2JDaslg7qJOhGRnpltGeog==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -3847,7 +3850,7 @@ snapshots:
       outvariant: 1.4.3
       pino: 7.11.0
       pino-pretty: 7.6.1
-      publint: 0.3.16
+      publint: 0.3.18
       rc: 1.2.8
       registry-auth-token: 5.1.0
       semver: 7.7.3
@@ -3874,7 +3877,7 @@ snapshots:
 
   '@polka/url@1.0.0-next.29': {}
 
-  '@publint/pack@0.1.2': {}
+  '@publint/pack@0.1.4': {}
 
   '@quansync/fs@1.0.0':
     dependencies:
@@ -5793,9 +5796,9 @@ snapshots:
 
   proxy-from-env@1.1.0: {}
 
-  publint@0.3.16:
+  publint@0.3.18:
     dependencies:
-      '@publint/pack': 0.1.2
+      '@publint/pack': 0.1.4
       package-manager-detector: 1.6.0
       picocolors: 1.1.1
       sade: 1.8.1
@@ -6306,7 +6309,7 @@ snapshots:
 
   tree-kill@1.2.2: {}
 
-  tsdown@0.18.1(publint@0.3.16)(typescript@5.8.2):
+  tsdown@0.18.1(publint@0.3.18)(typescript@5.8.2):
     dependencies:
       ansis: 4.2.0
       cac: 6.7.14
@@ -6325,7 +6328,7 @@ snapshots:
       unconfig-core: 7.4.2
       unrun: 0.2.20
     optionalDependencies:
-      publint: 0.3.16
+      publint: 0.3.18
       typescript: 5.8.2
     transitivePeerDependencies:
       - '@ts-macro/tsc'

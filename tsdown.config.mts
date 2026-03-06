@@ -8,7 +8,7 @@ export default defineConfig([
       './src/presets/node.ts',
       './src/RemoteHttpInterceptor.ts',
       './src/interceptors/ClientRequest/index.ts',
-      './src/interceptors/XMLHttpRequest/index.ts',
+      './src/interceptors/XMLHttpRequest/node.ts',
       './src/interceptors/fetch/index.ts',
     ],
     external: ['_http_common'],
@@ -29,7 +29,7 @@ export default defineConfig([
     entry: [
       './src/index.ts',
       './src/presets/browser.ts',
-      './src/interceptors/XMLHttpRequest/index.ts',
+      './src/interceptors/XMLHttpRequest/web.ts',
       './src/interceptors/fetch/index.ts',
       './src/interceptors/WebSocket/index.ts',
     ],

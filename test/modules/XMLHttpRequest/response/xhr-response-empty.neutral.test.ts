@@ -38,6 +38,7 @@ it('intercepts a bypassed request with an empty response', async ({ task }) => {
       ['loadstart', 1, { loaded: 0, total: 0 }],
       ['readystatechange', 2],
       ['readystatechange', 4],
+      ['load', 4, { loaded: 0, total: 0 }],
       ['loadend', 4, { loaded: 0, total: 0 }],
     ])
   }
@@ -79,6 +80,7 @@ it('responds with an empty mocked response to an HTTP request', async ({
       ['loadstart', 1, { loaded: 0, total: 0 }],
       ['readystatechange', 2],
       ['readystatechange', 4],
+      ['load', 4, { loaded: 0, total: 0 }],
       ['loadend', 4, { loaded: 0, total: 0 }],
     ])
   }
@@ -117,6 +119,7 @@ it('responds with an empty mocked response to an HTTPS request', async ({
       ['loadstart', 1, { loaded: 0, total: 0 }],
       ['readystatechange', 2],
       ['readystatechange', 4],
+      ['load', 4, { loaded: 0, total: 0 }],
       ['loadend', 4, { loaded: 0, total: 0 }],
     ])
   }
