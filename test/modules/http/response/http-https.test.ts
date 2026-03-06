@@ -1,134 +1,132 @@
 // @vitest-environment node
 import http from 'node:http'
 import https from 'node:https'
-import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
+import { getTestServer } from '#/test/setup/vitest'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (_req, res) => {
-    res.status(200).send('/')
-  })
-  app.get('/get', (_req, res) => {
-    res.status(200).send('/get')
-  })
-})
+const server = getTestServer()
 
 const interceptor = new HttpRequestInterceptor()
-interceptor.on('request', ({ request, controller }) => {
-  const url = new URL(request.url)
 
-  if (url.pathname === '/non-existing') {
-    controller.respondWith(
-      new Response('mocked', {
-        status: 301,
-        statusText: 'Moved Permanently',
-        headers: {
-          'Content-Type': 'text/plain',
-        },
-      })
-    )
-  }
-
-  if (url.href === 'http://error.me/') {
-    throw new Error('Custom exception message')
-  }
-})
-
-beforeAll(async () => {
-  await httpServer.listen()
-
+beforeAll(() => {
   interceptor.apply()
 })
 
-afterAll(async () => {
+afterEach(() => {
+  interceptor.removeAllListeners()
+})
+
+afterAll(() => {
   interceptor.dispose()
-  await httpServer.close()
 })
 
 it('responds to a handled request issued by "http.get"', async () => {
-  const req = http.get('http://any.localhost/non-existing')
-  const [response] = await toWebResponse(req)
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked'))
+  })
 
-  expect(response.status).toBe(301)
-  expect(response.statusText).toBe('Moved Permanently')
-  expect(response.headers.get('content-type')).toBe('text/plain')
+  const request = http.get('http://any.localhost/non-existing')
+  const [response] = await toWebResponse(request)
+
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.statusText).toBe('OK')
+  expect
+    .soft(response.headers.get('content-type'))
+    .toBe('text/plain;charset=UTF-8')
   await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('responds to a handled request issued by "https.get"', async () => {
-  const req = https.get('https://any.localhost/non-existing')
-  const [response] = await toWebResponse(req)
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked'))
+  })
 
-  expect(response.status).toBe(301)
-  expect(response.statusText).toBe('Moved Permanently')
-  expect(response.headers.get('content-type')).toBe('text/plain')
+  const request = https.get('https://any.localhost/non-existing')
+  const [response] = await toWebResponse(request)
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.statusText).toBe('OK')
+  expect
+    .soft(response.headers.get('content-type'))
+    .toBe('text/plain;charset=UTF-8')
   await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('bypasses an unhandled request issued by "http.get"', async () => {
-  const req = http.get(httpServer.http.url('/get'))
-  const [response] = await toWebResponse(req)
+  const request = http.get(server.http.url('/get'))
+  const [response] = await toWebResponse(request)
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
-  await expect(response.text()).resolves.toEqual('/get')
+  await expect(response.text()).resolves.toBe('original-response')
 })
 
 it('bypasses an unhandled request issued by "https.get"', async () => {
-  const req = https.get(httpServer.https.url('/get'), {
+  const request = https.get(server.https.url('/get'), {
     rejectUnauthorized: false,
   })
-  const [response] = await toWebResponse(req)
+  const [response] = await toWebResponse(request)
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
-  await expect(response.text()).resolves.toEqual('/get')
+  await expect(response.text()).resolves.toBe('original-response')
 })
 
 it('responds to a handled request issued by "http.request"', async () => {
-  const req = http.request('http://any.localhost/non-existing')
-  req.end()
-  const [response] = await toWebResponse(req)
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked'))
+  })
 
-  expect(response.status).toBe(301)
-  expect(response.statusText).toEqual('Moved Permanently')
-  expect(response.headers.get('content-type')).toBe('text/plain')
+  const request = http.request('http://any.localhost/non-existing')
+  request.end()
+  const [response] = await toWebResponse(request)
+
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.statusText).toBe('OK')
+  expect
+    .soft(response.headers.get('content-type'))
+    .toBe('text/plain;charset=UTF-8')
   await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('responds to a handled request issued by "https.request"', async () => {
-  const req = https.request('https://any.localhost/non-existing')
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked'))
+  })
 
-  req.end()
-  const [response] = await toWebResponse(req)
+  const request = https.request('https://any.localhost/non-existing')
+  request.end()
 
-  expect(response.status).toBe(301)
-  expect(response.statusText).toBe('Moved Permanently')
-  expect(response.headers.get('content-type')).toBe('text/plain')
+  const [response] = await toWebResponse(request)
+
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.statusText).toBe('OK')
+  expect
+    .soft(response.headers.get('content-type'))
+    .toBe('text/plain;charset=UTF-8')
   await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('bypasses an unhandled request issued by "http.request"', async () => {
-  const req = http.request(httpServer.http.url('/get'))
-  req.end()
-  const [response] = await toWebResponse(req)
+  const request = http.request(server.http.url('/get'))
+  request.end()
+  const [response] = await toWebResponse(request)
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
-  await expect(response.text()).resolves.toEqual('/get')
+  await expect(response.text()).resolves.toBe('original-response')
 })
 
 it('bypasses an unhandled request issued by "https.request"', async () => {
-  const req = https.request(httpServer.https.url('/get'), {
+  const request = https.request(server.https.url('/get'), {
     rejectUnauthorized: false,
   })
-  req.end()
-  const [response] = await toWebResponse(req)
+  request.end()
+  const [response] = await toWebResponse(request)
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
-  await expect(response.text()).resolves.toEqual('/get')
+  await expect(response.text()).resolves.toBe('original-response')
 })
 
 it('throws a request error when the middleware throws an exception', async () => {
@@ -141,10 +139,10 @@ it('throws a request error when the middleware throws an exception', async () =>
 it('bypasses any request after the interceptor was restored', async () => {
   interceptor.dispose()
 
-  const req = http.get(httpServer.http.url('/'))
-  const [response] = await toWebResponse(req)
+  const request = http.get(server.http.url('/'))
+  const [response] = await toWebResponse(request)
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
-  await expect(response.text()).resolves.toEqual('/')
+  await expect(response.text()).resolves.toBe('original-response')
 })
