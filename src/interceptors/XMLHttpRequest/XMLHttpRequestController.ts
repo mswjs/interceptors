@@ -1,6 +1,5 @@
 import { until } from '@open-draft/until'
 import { invariant } from 'outvariant'
-import { isNodeProcess } from 'is-node-process'
 import type { Logger } from '@open-draft/logger'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { createEvent } from './utils/createEvent'
@@ -16,9 +15,9 @@ import { createResponse } from './utils/createResponse'
 import { createRequestId } from '../../createRequestId'
 import { getBodyByteLength } from './utils/getBodyByteLength'
 import { FetchResponse } from '../../utils/fetchUtils'
+import { isResponseError } from '../../utils/responseUtils'
 
 const kIsRequestHandled = Symbol('kIsRequestHandled')
-const IS_NODE = isNodeProcess()
 const kFetchRequest = Symbol('kFetchRequest')
 const MAX_REDIRECTS = 20
 
@@ -48,6 +47,7 @@ export class XMLHttpRequestController {
 
   [kIsRequestHandled]: boolean;
   [kFetchRequest]?: Request
+  private sync: boolean = false
   private method: string = 'GET'
   private url: URL = null as any
   private requestHeaders: Headers
@@ -98,7 +98,12 @@ export class XMLHttpRequestController {
       methodCall: ([methodName, args], invoke) => {
         switch (methodName) {
           case 'open': {
-            const [method, url] = args as [string, string | undefined]
+            const [method, url, sync] = args as [
+              string,
+              string | undefined,
+              boolean | undefined,
+            ]
+            this.sync = sync ?? false
 
             if (typeof url === 'undefined') {
               this.method = 'GET'
@@ -287,6 +292,97 @@ export class XMLHttpRequestController {
      */
     this[kIsRequestHandled] = true
 
+    this.logger.info(
+      'responding with a mocked response: %d %s',
+      response.status,
+      response.statusText
+    )
+
+    define(this.request, 'status', response.status)
+    define(this.request, 'statusText', response.statusText)
+    define(this.request, 'responseURL', this.url.href)
+
+    // Update the response getters to resolve against the mocked response.
+    Object.defineProperties(this.request, {
+      response: {
+        enumerable: true,
+        configurable: false,
+        get: () => this.response,
+      },
+      responseText: {
+        enumerable: true,
+        configurable: false,
+        get: () => this.responseText,
+      },
+      responseXML: {
+        enumerable: true,
+        configurable: false,
+        get: () => this.responseXML,
+      },
+    })
+
+    // 1. Fire a progress event named loadstart at this with 0 and 0.
+    this.trigger('loadstart', this.request, { loaded: 0, total: 0 })
+
+    // 2. Let requestBodyTransmitted be 0.
+    let requestBodyTransmitted = 0
+    let uploadComplete = false
+
+    if (this[kFetchRequest]) {
+      const requestBodyLength = await getBodyByteLength(this[kFetchRequest])
+
+      // 5. If this’s upload complete flag is unset and this’s upload listener flag is set, then fire a progress event named loadstart at this’s upload object with requestBodyTransmitted and requestBodyLength.
+      if (!uploadComplete) {
+        this.trigger('loadstart', this.request.upload, {
+          loaded: 0,
+          total: requestBodyLength,
+        })
+      }
+
+      const processRequestBodyChunkLength = (bytesLength: number) => {
+        requestBodyTransmitted += bytesLength
+
+        this.trigger('progress', this.request.upload, {
+          loaded: requestBodyTransmitted,
+          total: requestBodyLength,
+        })
+      }
+
+      const processRequestEndOfBody = () => {
+        uploadComplete = true
+
+        this.trigger('progress', this.request.upload, {
+          loaded: requestBodyTransmitted,
+          total: requestBodyLength,
+        })
+        this.trigger('load', this.request.upload, {
+          loaded: requestBodyTransmitted,
+          total: requestBodyLength,
+        })
+        this.trigger('loadend', this.request.upload, {
+          loaded: requestBodyTransmitted,
+          total: requestBodyLength,
+        })
+      }
+
+      if (this[kFetchRequest]?.body != null) {
+        const reader = this[kFetchRequest].body.getReader()
+
+        while (true) {
+          const { value, done } = await reader.read()
+
+          if (done) {
+            processRequestEndOfBody()
+            break
+          }
+
+          processRequestBodyChunkLength(value.byteLength)
+        }
+      } else {
+        processRequestEndOfBody()
+      }
+    }
+
     // Follow redirect responses to maintain parity with browser XHR behavior.
     // Browsers follow redirects transparently so XHR never sees 3xx responses.
     const redirectLocation = response.headers.get('location')
@@ -308,43 +404,144 @@ export class XMLHttpRequestController {
       return this.respondWith(redirectResult.data.response)
     }
 
-    /**
-     * Dispatch request upload events for requests with a body.
-     * @see https://github.com/mswjs/interceptors/issues/573
-     */
-    if (this[kFetchRequest]) {
-      const totalRequestBodyLength = await getBodyByteLength(
-        this[kFetchRequest]
-      )
+    let timedOut = false
+    const responseReadController = new AbortController()
 
-      this.trigger('loadstart', this.request.upload, {
-        loaded: 0,
-        total: totalRequestBodyLength,
-      })
-      this.trigger('progress', this.request.upload, {
-        loaded: totalRequestBodyLength,
-        total: totalRequestBodyLength,
-      })
-      this.trigger('load', this.request.upload, {
-        loaded: totalRequestBodyLength,
-        total: totalRequestBodyLength,
-      })
-
-      this.trigger('loadend', this.request.upload, {
-        loaded: totalRequestBodyLength,
-        total: totalRequestBodyLength,
-      })
+    const handleErrors = () => {
+      if (timedOut) {
+        requestErrorSteps(
+          'timeout',
+          new DOMException('The operation timed out.')
+        )
+      } else if (responseReadController.signal.aborted) {
+        requestErrorSteps(
+          'abort',
+          new DOMException('The operation was aborted.')
+        )
+      } else if (isResponseError(response)) {
+        requestErrorSteps('error', new TypeError('A network error occurred.'))
+      }
     }
 
-    this.logger.info(
-      'responding with a mocked response: %d %s',
-      response.status,
-      response.statusText
-    )
+    const requestErrorSteps = (
+      event: keyof XMLHttpRequestEventTargetEventMap,
+      exception?: Error
+    ) => {
+      this.setReadyState(this.request.DONE)
 
-    define(this.request, 'status', response.status)
-    define(this.request, 'statusText', response.statusText)
-    define(this.request, 'responseURL', this.url.href)
+      if (this.sync) {
+        throw exception
+      }
+
+      if (!uploadComplete) {
+        this.trigger(event, this.request.upload, {
+          loaded: 0,
+          total: 0,
+        })
+        this.trigger('loadend', this.request.upload, {
+          loaded: 0,
+          total: 0,
+        })
+      }
+
+      this.trigger(event, this.request, { loaded: 0, total: 0 })
+      this.trigger('loadend', this.request, { loaded: 0, total: 0 })
+    }
+
+    const processResponse = async (response: Response) => {
+      handleErrors()
+
+      if (isResponseError(response)) {
+        return
+      }
+
+      this.setReadyState(this.request.HEADERS_RECEIVED)
+
+      let responseBodyLength =
+        response.body != null ? await getBodyByteLength(response.clone()) : 0
+      let receivedBytes = 0
+
+      const processResponseBodyChunk = (bytesLength: number) => {
+        receivedBytes += bytesLength
+
+        if (this.request.readyState === this.request.HEADERS_RECEIVED) {
+          this.setReadyState(this.request.LOADING)
+        }
+
+        this.trigger('readystatechange', this.request)
+        this.trigger('progress', this.request, {
+          loaded: receivedBytes,
+          total: responseBodyLength,
+        })
+      }
+
+      const processResponseEndOfBody = () => {
+        handleErrors()
+
+        if (isResponseError(response)) {
+          return
+        }
+
+        // 3. Let transmitted be xhr’s received bytes’s length.
+        let transmitted = receivedBytes
+
+        // 8. If xhr’s synchronous flag is unset, then fire a progress event named progress at xhr with transmitted and length.
+        if (!this.sync) {
+          this.trigger('progress', this.request, {
+            loaded: transmitted,
+            total: responseBodyLength,
+          })
+        }
+
+        // 9. Fire an event named readystatechange at xhr.
+        this.setReadyState(this.request.DONE)
+        // 10. Fire a progress event named load at xhr with transmitted and length.
+        this.trigger('load', this.request, {
+          loaded: transmitted,
+          total: responseBodyLength,
+        })
+        // 11. Fire a progress event named loadend at xhr with transmitted and length.
+        this.trigger('loadend', this.request, {
+          loaded: transmitted,
+          total: responseBodyLength,
+        })
+      }
+
+      // 7. If this’s response’s body is null, then run handle response end-of-body for this and return.
+      if (response.body == null) {
+        processResponseEndOfBody()
+      } else {
+        const reader = response.body.getReader()
+
+        while (true) {
+          if (responseReadController.signal.aborted) {
+            break
+          }
+
+          const { value, done } = await reader.read()
+
+          if (done) {
+            processResponseEndOfBody()
+            return
+          }
+
+          processResponseBodyChunk(value.byteLength)
+          this.responseBuffer = concatArrayBuffer(this.responseBuffer, value)
+        }
+      }
+    }
+
+    processResponse(response)
+
+    // 12.1, 12.2.
+    if (this.request.timeout) {
+      setTimeout(() => {
+        if (this.request.readyState !== this.request.DONE) {
+          timedOut = true
+          responseReadController.abort()
+        }
+      }, this.request.timeout)
+    }
 
     this.request.getResponseHeader = new Proxy(this.request.getResponseHeader, {
       apply: (_, __, args: [name: string]) => {
@@ -394,92 +591,6 @@ export class XMLHttpRequestController {
         },
       }
     )
-
-    // Update the response getters to resolve against the mocked response.
-    Object.defineProperties(this.request, {
-      response: {
-        enumerable: true,
-        configurable: false,
-        get: () => this.response,
-      },
-      responseText: {
-        enumerable: true,
-        configurable: false,
-        get: () => this.responseText,
-      },
-      responseXML: {
-        enumerable: true,
-        configurable: false,
-        get: () => this.responseXML,
-      },
-    })
-
-    const totalResponseBodyLength = await getBodyByteLength(response.clone())
-
-    this.logger.info('calculated response body length', totalResponseBodyLength)
-
-    this.trigger('loadstart', this.request, {
-      loaded: 0,
-      total: 0,
-    })
-
-    this.setReadyState(this.request.HEADERS_RECEIVED)
-
-    /**
-     * @note The request never transitions to the loading state if the response body is empty.
-     * @see https://xhr.spec.whatwg.org/#handle-response-end-of-body
-     */
-    if (totalResponseBodyLength > 0) {
-      this.setReadyState(this.request.LOADING)
-    }
-
-    const finalizeResponse = () => {
-      this.logger.info('finalizing the mocked response...')
-
-      this.setReadyState(this.request.DONE)
-
-      this.trigger('load', this.request, {
-        loaded: this.responseBuffer.byteLength,
-        total: totalResponseBodyLength,
-      })
-
-      this.trigger('loadend', this.request, {
-        loaded: this.responseBuffer.byteLength,
-        total: totalResponseBodyLength,
-      })
-    }
-
-    if (response.body) {
-      this.logger.info('mocked response has body, streaming...')
-
-      const reader = response.body.getReader()
-
-      const readNextResponseBodyChunk = async () => {
-        const { value, done } = await reader.read()
-
-        if (done) {
-          this.logger.info('response body stream done!')
-          finalizeResponse()
-          return
-        }
-
-        if (value) {
-          this.logger.info('read response body chunk:', value)
-          this.responseBuffer = concatArrayBuffer(this.responseBuffer, value)
-
-          this.trigger('progress', this.request, {
-            loaded: this.responseBuffer.byteLength,
-            total: totalResponseBodyLength,
-          })
-        }
-
-        readNextResponseBodyChunk()
-      }
-
-      readNextResponseBodyChunk()
-    } else {
-      finalizeResponse()
-    }
   }
 
   private responseBufferToText(): string {
