@@ -464,15 +464,25 @@ export class XMLHttpRequestController {
       const processResponseBodyChunk = (bytesLength: number) => {
         receivedBytes += bytesLength
 
+        /**
+         * @note Decouple "readyState" change and "readystatechange" event here.
+         * This is intentional and per specification.
+         * @see https://xhr.spec.whatwg.org/#the-send()-method (11.9.10.4).
+         */
         if (this.request.readyState === this.request.HEADERS_RECEIVED) {
-          this.setReadyState(this.request.LOADING)
+          this.setReadyState(this.request.LOADING, false)
         }
-
         this.trigger('readystatechange', this.request)
+
         this.trigger('progress', this.request, {
           loaded: receivedBytes,
           total: responseBodyLength,
         })
+      }
+
+      const processResponseBodyError = () => {
+        response = Response.error()
+        handleErrors()
       }
 
       const processResponseEndOfBody = () => {
@@ -484,14 +494,6 @@ export class XMLHttpRequestController {
 
         // 3. Let transmitted be xhr’s received bytes’s length.
         let transmitted = receivedBytes
-
-        // 8. If xhr’s synchronous flag is unset, then fire a progress event named progress at xhr with transmitted and length.
-        if (!this.sync) {
-          this.trigger('progress', this.request, {
-            loaded: transmitted,
-            total: responseBodyLength,
-          })
-        }
 
         // 9. Fire an event named readystatechange at xhr.
         this.setReadyState(this.request.DONE)
@@ -518,15 +520,19 @@ export class XMLHttpRequestController {
             break
           }
 
-          const { value, done } = await reader.read()
+          try {
+            const { value, done } = await reader.read()
 
-          if (done) {
-            processResponseEndOfBody()
-            return
+            if (done) {
+              processResponseEndOfBody()
+              return
+            }
+
+            processResponseBodyChunk(value.byteLength)
+            this.responseBuffer = concatArrayBuffer(this.responseBuffer, value)
+          } catch {
+            processResponseBodyError()
           }
-
-          processResponseBodyChunk(value.byteLength)
-          this.responseBuffer = concatArrayBuffer(this.responseBuffer, value)
         }
       }
     }
@@ -754,7 +760,10 @@ export class XMLHttpRequestController {
   /**
    * Transitions this request's `readyState` to the given one.
    */
-  private setReadyState(nextReadyState: number): void {
+  private setReadyState(
+    nextReadyState: number,
+    triggerReadyStateChangeEvent = true
+  ): void {
     this.logger.info(
       'setReadyState: %d -> %d',
       this.request.readyState,
@@ -769,6 +778,10 @@ export class XMLHttpRequestController {
     define(this.request, 'readyState', nextReadyState)
 
     this.logger.info('set readyState to: %d', nextReadyState)
+
+    if (!triggerReadyStateChangeEvent) {
+      return
+    }
 
     if (nextReadyState !== this.request.UNSENT) {
       this.logger.info('triggering "readystatechange" event...')
