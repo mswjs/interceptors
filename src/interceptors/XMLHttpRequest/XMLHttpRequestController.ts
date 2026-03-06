@@ -290,10 +290,7 @@ export class XMLHttpRequestController {
     // Follow redirect responses to maintain parity with browser XHR behavior.
     // Browsers follow redirects transparently so XHR never sees 3xx responses.
     const redirectLocation = response.headers.get('location')
-    if (
-      redirectLocation &&
-      FetchResponse.isRedirectResponse(response.status)
-    ) {
+    if (redirectLocation && FetchResponse.isRedirectResponse(response.status)) {
       const redirectUrl = new URL(redirectLocation, location.href)
       const redirectMethod = FetchResponse.isResponseWithBody(response.status)
         ? this.method
@@ -423,7 +420,7 @@ export class XMLHttpRequestController {
 
     this.trigger('loadstart', this.request, {
       loaded: 0,
-      total: totalResponseBodyLength,
+      total: 0,
     })
 
     this.setReadyState(this.request.HEADERS_RECEIVED)
