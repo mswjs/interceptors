@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import express from 'express'
 import supertest from 'supertest'
 import { HttpRequestEventMap } from '#/src/index'

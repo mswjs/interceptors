@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { encodeBuffer } from '#/src/index'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import { toArrayBuffer } from '#/src/utils/bufferUtils'

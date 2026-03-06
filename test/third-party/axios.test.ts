@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'

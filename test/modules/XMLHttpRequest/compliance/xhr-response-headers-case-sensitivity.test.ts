@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { HttpServer } from '@open-draft/test-server/http'
 import { useCors } from '#/test/helpers'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'

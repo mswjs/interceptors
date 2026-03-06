@@ -1,7 +1,7 @@
 /**
  * @note https://xhr.spec.whatwg.org/#event-handlers
  */
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'

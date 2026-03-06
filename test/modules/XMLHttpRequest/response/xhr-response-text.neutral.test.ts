@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
@@ -29,8 +29,8 @@ it('responds with a mocked text response to an HTTP request', async () => {
 
   expect.soft(request.status).toBe(200)
   expect
-    .soft(request.getAllResponseHeaders())
-    .toBe('content-type: text/plain;charset=UTF-8')
+    .soft(request.getAllResponseHeaders().toLowerCase())
+    .toBe('content-type: text/plain;charset=utf-8')
   expect.soft(request.response).toBe('hello world')
   expect.soft(request.responseText).toBe('hello world')
 })
@@ -48,8 +48,8 @@ it('responds with a mocked text response to an HTTPS request', async () => {
 
   expect.soft(request.status).toBe(200)
   expect
-    .soft(request.getAllResponseHeaders())
-    .toBe('content-type: text/plain;charset=UTF-8')
+    .soft(request.getAllResponseHeaders().toLowerCase())
+    .toBe('content-type: text/plain;charset=utf-8')
   expect.soft(request.response).toBe('hello world')
   expect.soft(request.responseText).toBe('hello world')
 })

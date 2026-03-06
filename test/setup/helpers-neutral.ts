@@ -16,6 +16,8 @@ export function spyOnXMLHttpRequest(request: XMLHttpRequest) {
 
   const addEvent = (name: string) => {
     return (event: unknown) => {
+      console.log('EVENT:', name, event, request.readyState)
+
       if (event instanceof ProgressEvent) {
         events.push([
           name,

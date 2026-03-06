@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()

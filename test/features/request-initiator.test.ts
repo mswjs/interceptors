@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { BatchInterceptor } from '#/src/BatchInterceptor'

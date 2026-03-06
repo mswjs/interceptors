@@ -22,6 +22,13 @@ const server = new HttpServer((app) => {
   app.all('*', (req, res) => {
     res.status(200).set(req.headers)
 
+    if (req.headers['set-cookie']) {
+      res.cookie('cookie', 'supersecret', {
+        secure: true,
+        expires: new Date(Date.now() + 90000),
+      })
+    }
+
     if (req.method === 'GET') {
       res.send('original-response')
     } else {

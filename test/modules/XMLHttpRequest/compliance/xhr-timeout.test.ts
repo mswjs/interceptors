@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 /**
  * @see https://github.com/mswjs/interceptors/issues/7
  */

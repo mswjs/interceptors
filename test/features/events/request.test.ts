@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { useCors, REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'

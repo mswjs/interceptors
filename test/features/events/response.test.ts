@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'

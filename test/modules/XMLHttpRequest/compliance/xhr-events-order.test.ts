@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 /**
  * @see https://xhr.spec.whatwg.org/#events
  */

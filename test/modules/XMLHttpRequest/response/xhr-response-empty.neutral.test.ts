@@ -1,7 +1,9 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
+import { getTestServer } from '#/test/setup/vitest'
 
+const server = getTestServer()
 const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(() => {
@@ -14,6 +16,16 @@ afterEach(() => {
 
 afterAll(() => {
   interceptor.dispose()
+})
+
+it('intercepts a bypassed request with an empty response', async () => {
+  const request = new XMLHttpRequest()
+  request.open('POST', server.http.url('/empty'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
+
+  expect(request.response).toBe('')
 })
 
 it('responds with an empty mocked response to an HTTP request', async () => {
