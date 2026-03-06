@@ -350,6 +350,15 @@ export class TcpSocketController extends SocketController {
 
       log(this.readyState, 'write:', args)
 
+      /**
+       * @note Buffer the write BEFORE pushing data to the server socket.
+       * `#push` triggers the 'data' event on the server socket synchronously,
+       * which may lead to `passthrough()` being called within the same call stack.
+       * If we buffer after `#push`, passthrough will read an empty `#bufferedWrites`
+       * and the request data will never be flushed to the real socket.
+       */
+      this.#bufferedWrites.push(args)
+
       // The server socket will NEVER have any "data" listeners attached
       // becuase the "connection" interceptor event emits on the next tick.
       if (this.socket.listenerCount('internal:write') === 0) {
@@ -368,24 +377,20 @@ export class TcpSocketController extends SocketController {
         this.#push(data)
       }
 
-      if (typeof callback === 'function') {
-        log(this.readyState, 'write with callback, executing...', callback)
-
+      /**
+       * @note Only call the callback if the socket is still in PENDING state.
+       * If `#push` triggered `passthrough()` synchronously (e.g. when the handler
+       * decided to pass through the request), the buffered write was already
+       * flushed to the real socket with the original callback. Calling it again
+       * here would result in "Callback called multiple times" error.
+       */
+      if (
+        typeof callback === 'function' &&
+        this.readyState === SocketController.PENDING
+      ) {
         callback()
         args[3] = function mockNoop() {}
       }
-
-      /**
-       * @note Do NOT tap into Node.js internal buffering for three reasons:
-       * 1. Delaying writes to "connect" is problematic as you cannot tell such writes from
-       * regular writes after claim/passthrough connects.
-       * 2. "_pendingData" does NOT accumulate writes. It always points to the last buffered
-       * chunk so we cannot tell if we're writing a scheduled chunk or not in case multiple
-       * chunks were buffered.
-       * 3. Node.js logic here is extremely simple anyway. No harm in buffering writes ourselves
-       * if that gives us more control.
-       */
-      this.#bufferedWrites.push(args)
     }
   }
 
@@ -554,6 +559,13 @@ export class TcpSocketController extends SocketController {
 
     if (realSocket !== this.#passthroughSocket) {
       this.#passthroughSocket = realSocket
+    }
+
+    if (this.#bufferedWrites.length === 0) {
+      log(
+        this.readyState,
+        'WARNING: passthrough with empty writes buffer! This likely indicates an issue.'
+      )
     }
 
     /**
