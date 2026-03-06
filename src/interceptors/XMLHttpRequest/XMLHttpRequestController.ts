@@ -424,7 +424,14 @@ export class XMLHttpRequestController {
     })
 
     this.setReadyState(this.request.HEADERS_RECEIVED)
-    this.setReadyState(this.request.LOADING)
+
+    /**
+     * @note The request never transitions to the loading state if the response body is empty.
+     * @see https://xhr.spec.whatwg.org/#handle-response-end-of-body
+     */
+    if (totalResponseBodyLength > 0) {
+      this.setReadyState(this.request.LOADING)
+    }
 
     const finalizeResponse = () => {
       this.logger.info('finalizing the mocked response...')
