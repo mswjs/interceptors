@@ -98,12 +98,12 @@ export class XMLHttpRequestController {
       methodCall: ([methodName, args], invoke) => {
         switch (methodName) {
           case 'open': {
-            const [method, url, sync] = args as [
+            const [method, url, async] = args as [
               string,
               string | undefined,
               boolean | undefined,
             ]
-            this.sync = sync ?? false
+            this.sync = !(async ?? true)
 
             if (typeof url === 'undefined') {
               this.method = 'GET'
@@ -298,9 +298,7 @@ export class XMLHttpRequestController {
       response.statusText
     )
 
-    define(this.request, 'status', response.status)
-    define(this.request, 'statusText', response.statusText)
-    define(this.request, 'responseURL', this.url.href)
+    FetchResponse.setUrl(this.url.href, response)
 
     // Update the response getters to resolve against the mocked response.
     Object.defineProperties(this.request, {
@@ -321,15 +319,19 @@ export class XMLHttpRequestController {
       },
     })
 
-    // 1. Fire a progress event named loadstart at this with 0 and 0.
-    this.trigger('loadstart', this.request, { loaded: 0, total: 0 })
+    if (!this.sync) {
+      // 1. Fire a progress event named loadstart at this with 0 and 0.
+      this.trigger('loadstart', this.request, { loaded: 0, total: 0 })
+    }
 
     // 2. Let requestBodyTransmitted be 0.
     let requestBodyTransmitted = 0
     let uploadComplete = false
 
     if (this[kFetchRequest]) {
-      const requestBodyLength = await getBodyByteLength(this[kFetchRequest])
+      const requestBodyLength = await getBodyByteLength(
+        this[kFetchRequest].clone()
+      )
 
       // 5. If this’s upload complete flag is unset and this’s upload listener flag is set, then fire a progress event named loadstart at this’s upload object with requestBodyTransmitted and requestBodyLength.
       if (!uploadComplete) {
@@ -383,45 +385,8 @@ export class XMLHttpRequestController {
       }
     }
 
-    // Follow redirect responses to maintain parity with browser XHR behavior.
-    // Browsers follow redirects transparently so XHR never sees 3xx responses.
-    const redirectLocation = response.headers.get('location')
-    if (redirectLocation && FetchResponse.isRedirectResponse(response.status)) {
-      const redirectUrl = new URL(redirectLocation, location.href)
-      const redirectMethod = FetchResponse.isResponseWithBody(response.status)
-        ? this.method
-        : 'GET'
-
-      const redirectResult = await until(() =>
-        this.followRedirect(redirectMethod, redirectUrl)
-      )
-
-      if (redirectResult.error) {
-        return
-      }
-
-      this.url = new URL(redirectResult.data.responseURL)
-      return this.respondWith(redirectResult.data.response)
-    }
-
     let timedOut = false
     const responseReadController = new AbortController()
-
-    const handleErrors = () => {
-      if (timedOut) {
-        requestErrorSteps(
-          'timeout',
-          new DOMException('The operation timed out.')
-        )
-      } else if (responseReadController.signal.aborted) {
-        requestErrorSteps(
-          'abort',
-          new DOMException('The operation was aborted.')
-        )
-      } else if (isResponseError(response)) {
-        requestErrorSteps('error', new TypeError('A network error occurred.'))
-      }
-    }
 
     const requestErrorSteps = (
       event: keyof XMLHttpRequestEventTargetEventMap,
@@ -449,16 +414,65 @@ export class XMLHttpRequestController {
     }
 
     const processResponse = async (response: Response) => {
+      const handleErrors = () => {
+        if (timedOut) {
+          requestErrorSteps(
+            'timeout',
+            new DOMException('The operation timed out.')
+          )
+        } else if (responseReadController.signal.aborted) {
+          requestErrorSteps(
+            'abort',
+            new DOMException('The operation was aborted.')
+          )
+        } else if (isResponseError(response)) {
+          requestErrorSteps('error', new TypeError('A network error occurred.'))
+        }
+      }
+
       handleErrors()
+
+      define(this.request, 'status', response.status)
+      define(this.request, 'statusText', response.statusText)
+
+      if (!this.request.responseURL) {
+        define(this.request, 'responseURL', response.url)
+      }
 
       if (isResponseError(response)) {
         return
       }
 
-      this.setReadyState(this.request.HEADERS_RECEIVED)
-
       let responseBodyLength =
         response.body != null ? await getBodyByteLength(response.clone()) : 0
+
+      /**
+       * @note The specification deviates in handling synchronous requests earlier,
+       * but it's easier for us to keep the logic around consistent by handling them here.
+       */
+      if (this.sync) {
+        this.responseBuffer = await response
+          .arrayBuffer()
+          .then((arrayBuffer) => {
+            return new Uint8Array(arrayBuffer)
+          })
+
+        this.setReadyState(this.request.DONE)
+
+        this.trigger('load', this.request, {
+          loaded: responseBodyLength,
+          total: responseBodyLength,
+        })
+        this.trigger('loadend', this.request, {
+          loaded: responseBodyLength,
+          total: responseBodyLength,
+        })
+
+        return
+      }
+
+      this.setReadyState(this.request.HEADERS_RECEIVED)
+
       let receivedBytes = 0
 
       const processResponseBodyChunk = (bytesLength: number) => {
@@ -481,8 +495,7 @@ export class XMLHttpRequestController {
       }
 
       const processResponseBodyError = () => {
-        response = Response.error()
-        handleErrors()
+        requestErrorSteps('error', new TypeError('A network error occurred.'))
       }
 
       const processResponseEndOfBody = () => {
@@ -537,7 +550,17 @@ export class XMLHttpRequestController {
       }
     }
 
-    processResponse(response)
+    // Redirects are followed as a part of the fetch controller. Since we don't have one,
+    // retrieve the final response and then continue with processing it instead of the mocked one.
+    const { error: redirectError, data: finalResponse } = await until(() => {
+      return this.followRedirects(response)
+    })
+
+    if (redirectError) {
+      return
+    }
+
+    processResponse(finalResponse)
 
     // 12.1, 12.2.
     if (this.request.timeout) {
@@ -555,12 +578,10 @@ export class XMLHttpRequestController {
 
         if (this.request.readyState < this.request.HEADERS_RECEIVED) {
           this.logger.info('headers not received yet, returning null')
-
-          // Headers not received yet, nothing to return.
           return null
         }
 
-        const headerValue = response.headers.get(args[0])
+        const headerValue = finalResponse.headers.get(args[0])
         this.logger.info(
           'resolved response header "%s" to',
           args[0],
@@ -579,12 +600,10 @@ export class XMLHttpRequestController {
 
           if (this.request.readyState < this.request.HEADERS_RECEIVED) {
             this.logger.info('headers not received yet, returning empty string')
-
-            // Headers not received yet, nothing to return.
             return ''
           }
 
-          const headersList = Array.from(response.headers)
+          const headersList = Array.from(finalResponse.headers)
           const allHeaders = headersList
             .map(([headerName, headerValue]) => {
               return `${headerName}: ${headerValue}`
@@ -711,27 +730,34 @@ export class XMLHttpRequestController {
     return null
   }
 
-  private followRedirect(
-    method: string,
-    url: URL
-  ): Promise<{ response: Response; responseURL: string }> {
+  private async followRedirects(response: Response): Promise<Response> {
+    const redirectLocation = response.headers.get('location')
+
+    if (
+      !redirectLocation ||
+      !FetchResponse.isRedirectResponse(response.status)
+    ) {
+      return response
+    }
+
     this.redirectCount++
 
     if (this.redirectCount > MAX_REDIRECTS) {
-      const reason = new Error('Too many redirects')
-      this.errorWith(reason)
-      return Promise.reject(reason)
+      throw new Error('Too many redirects')
     }
 
-    return new Promise((resolve, reject) => {
+    const redirectUrl = new URL(redirectLocation, location.href)
+    const redirectMethod = FetchResponse.isResponseWithBody(response.status)
+      ? this.method
+      : 'GET'
+
+    const redirectResponse = await new Promise<Response>((resolve, reject) => {
       const request = new XMLHttpRequest()
       request.responseType = this.request.responseType
 
       request.addEventListener('load', () => {
-        resolve({
-          response: createResponse(request, request.response),
-          responseURL: request.responseURL,
-        })
+        this.url = new URL(request.responseURL)
+        resolve(createResponse(request, request.response))
       })
 
       request.addEventListener('error', () => {
@@ -739,9 +765,11 @@ export class XMLHttpRequestController {
         reject(new Error('Redirect request failed'))
       })
 
-      request.open(method, url.href)
+      request.open(redirectMethod, redirectUrl.href)
       request.send()
     })
+
+    return this.followRedirects(redirectResponse)
   }
 
   public errorWith(error?: Error): void {
