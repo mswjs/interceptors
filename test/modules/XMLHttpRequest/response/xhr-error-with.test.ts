@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
-import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
+import {
+  spyOnXMLHttpRequest,
+  waitForXMLHttpRequest,
+} from '#/test/setup/helpers-neutral'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
 })
 
@@ -12,19 +15,19 @@ afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
 })
 
-it('treats Response.error() as a request error for an HTTP request', async () => {
+it('treats "controller.errorWith()" as a request error for an HTTP request', async () => {
   interceptor.on('request', ({ controller }) => {
-    controller.respondWith(Response.error())
+    controller.errorWith(new Error('Network failure'))
   })
 
-  const errorListener = vi.fn()
   const request = new XMLHttpRequest()
+  const { events } = spyOnXMLHttpRequest(request)
+
   request.open('GET', 'http://any.host.here/irrelevant')
-  request.addEventListener('error', errorListener)
   request.send()
 
   await waitForXMLHttpRequest(request)
@@ -32,18 +35,23 @@ it('treats Response.error() as a request error for an HTTP request', async () =>
   expect.soft(request.status).toBe(0)
   expect.soft(request.statusText).toBe('')
   expect.soft(request.response).toBe('')
-  expect.soft(errorListener).toHaveBeenCalledTimes(1)
+  expect.soft(request.readyState).toBe(request.DONE)
+  expect.soft(events).toEqual([
+    ['readystatechange', 1],
+    ['readystatechange', 4],
+    ['error', 4, { loaded: 0, total: 0 }],
+  ])
 })
 
-it('treats Response.error() as a request error for an HTTPS request', async () => {
+it('treats "controller.errorWith()" as a request error for an HTTPS request', async () => {
   interceptor.on('request', ({ controller }) => {
-    controller.respondWith(Response.error())
+    controller.errorWith(new Error('Network failure'))
   })
 
-  const errorListener = vi.fn()
   const request = new XMLHttpRequest()
+  const { events } = spyOnXMLHttpRequest(request)
+
   request.open('GET', 'https://any.host.here/irrelevant')
-  request.addEventListener('error', errorListener)
   request.send()
 
   await waitForXMLHttpRequest(request)
@@ -51,5 +59,10 @@ it('treats Response.error() as a request error for an HTTPS request', async () =
   expect.soft(request.status).toBe(0)
   expect.soft(request.statusText).toBe('')
   expect.soft(request.response).toBe('')
-  expect.soft(errorListener).toHaveBeenCalledTimes(1)
+  expect.soft(request.readyState).toBe(request.DONE)
+  expect.soft(events).toEqual([
+    ['readystatechange', 1],
+    ['readystatechange', 4],
+    ['error', 4, { loaded: 0, total: 0 }],
+  ])
 })

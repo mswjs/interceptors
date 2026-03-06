@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
-import { toArrayBuffer } from '#/src/utils/bufferUtils'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
 })
 
@@ -13,7 +12,7 @@ afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
 })
 

@@ -5,6 +5,20 @@ import { useCors } from './test/helpers'
 const server = new HttpServer((app) => {
   app.use(useCors)
 
+  app.get('/redirect', (req, res) => {
+    const baseUrl = new URL(
+      `${req.secure ? 'https' : 'http'}://${req.get('host')}/`
+    )
+
+    res
+      .status(301)
+      .set({ location: new URL('/redirect/destination', baseUrl) })
+      .end()
+  })
+  app.get('/redirect/destination', (req, res) => {
+    res.status(200).send('destination-body')
+  })
+
   app.all('*', (req, res) => {
     res.status(200).set(req.headers)
     req.pipe(res)

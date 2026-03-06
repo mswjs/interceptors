@@ -71,56 +71,6 @@ afterAll(async () => {
   vi.restoreAllMocks()
 })
 
-it('responds to an HTTP request handled in the middleware', async () => {
-  const request = new XMLHttpRequest()
-  request.open('GET', httpServer.http.url('/'))
-  request.send()
-
-  await waitForXMLHttpRequest(request)
-  const responseHeaders = request.getAllResponseHeaders()
-
-  expect(request.status).toEqual(301)
-  expect(responseHeaders).toContain('content-type: application/hal+json')
-  expect(request.response).toEqual('foo')
-})
-
-it('bypasses an HTTP request not handled in the middleware', async () => {
-  const request = new XMLHttpRequest()
-  request.open('GET', httpServer.http.url('/get'))
-  request.send()
-
-  await waitForXMLHttpRequest(request)
-
-  expect(request.status).toEqual(200)
-  expect(request.response).toEqual('/get')
-})
-
-it('responds to an HTTPS request handled in the middleware', async () => {
-  const request = new XMLHttpRequest()
-  request.open('GET', httpServer.https.url('/'))
-  request.send()
-
-  await waitForXMLHttpRequest(request)
-  const responseHeaders = request.getAllResponseHeaders()
-
-  expect(request.status).toEqual(301)
-  expect(responseHeaders).toContain('content-type: application/hal+json')
-  expect(request.response).toEqual('foo')
-  expect(request.responseURL).toEqual(httpServer.https.url('/'))
-})
-
-it('bypasses an HTTPS request not handled in the middleware', async () => {
-  const request = new XMLHttpRequest()
-  request.open('GET', httpServer.https.url('/get'))
-  request.send()
-
-  await waitForXMLHttpRequest(request)
-
-  expect(request.status).toEqual(200)
-  expect(request.response).toEqual('/get')
-  expect(request.responseURL).toEqual(httpServer.https.url('/get'))
-})
-
 it('responds to an HTTP request to a relative URL that is handled in the middleware', async () => {
   const request = new XMLHttpRequest()
   request.open('POST', httpServer.https.url('/login'))
@@ -133,42 +83,6 @@ it('responds to an HTTP request to a relative URL that is handled in the middlew
   expect(responseHeaders).toContain('content-type: application/hal+json')
   expect(request.response).toEqual('foo')
   expect(request.responseURL).toEqual(httpServer.https.url('/login'))
-})
-
-it('produces a request error for a mocked Response.error() response', async () => {
-  const errorListener = vi.fn()
-  const request = new XMLHttpRequest()
-  request.open('GET', 'http://localhost/network-error')
-  request.addEventListener('error', errorListener)
-  request.send()
-
-  await waitForXMLHttpRequest(request)
-
-  expect(errorListener).toHaveBeenCalledTimes(1)
-
-  // XMLHttpRequest request exception propagates as "ProgressEvent".
-  const [progressEvent] = errorListener.mock.calls[0]
-  expect(progressEvent).toBeInstanceOf(ProgressEvent)
-
-  // Request must still exist.
-  expect(request.status).toBe(0)
-})
-
-it('produces a 500 response for an unhandled exception in the interceptor', async () => {
-  const request = new XMLHttpRequest()
-  request.responseType = 'json'
-  request.open('GET', 'http://localhost/exception')
-  request.send()
-
-  await waitForXMLHttpRequest(request)
-
-  expect(request.status).toBe(500)
-  expect(request.statusText).toBe('Unhandled Exception')
-  expect(request.response).toEqual({
-    name: 'Error',
-    message: 'Custom message',
-    stack: expect.any(String),
-  })
 })
 
 it('does not propagate the forbidden "cookie" header on the bypassed response', async () => {

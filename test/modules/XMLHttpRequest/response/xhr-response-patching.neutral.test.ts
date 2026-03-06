@@ -7,7 +7,7 @@ const server = getTestServer()
 
 const interceptor = new XMLHttpRequestInterceptor()
 
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
 })
 
@@ -15,7 +15,7 @@ afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
 })
 

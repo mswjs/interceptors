@@ -16,6 +16,7 @@ const interceptor = new XMLHttpRequestInterceptor()
 
 const responseListener =
   vi.fn<(...args: HttpRequestEventMap['response']) => void>()
+
 interceptor.on('response', responseListener)
 
 beforeAll(async () => {
@@ -32,7 +33,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('represents a 204 response without body using fetch api response', async () => {
+it('supports a 204 response withouth body for a bypassed request', async () => {
   const request = new XMLHttpRequest()
   request.open('GET', httpServer.http.url('/204'))
   request.send()
@@ -49,10 +50,10 @@ it('represents a 204 response without body using fetch api response', async () =
       } satisfies Partial<Response>),
     })
   )
-  expect(responseListener).toHaveBeenCalledTimes(1)
+  expect(responseListener).toHaveBeenCalledOnce()
 })
 
-it('represents a 205 response without body using fetch api response', async () => {
+it('supports a 202 response withouth body for a bypassed request', async () => {
   const request = new XMLHttpRequest()
   request.open('GET', httpServer.http.url('/205'))
   request.send()
@@ -60,8 +61,7 @@ it('represents a 205 response without body using fetch api response', async () =
   await waitForXMLHttpRequest(request)
 
   expect(request.response).toBe('')
-  expect(responseListener).toHaveBeenNthCalledWith(
-    1,
+  expect(responseListener).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({
       response: expect.objectContaining({
         status: 205,
@@ -69,7 +69,6 @@ it('represents a 205 response without body using fetch api response', async () =
       } satisfies Partial<Response>),
     })
   )
-  expect(responseListener).toHaveBeenCalledTimes(1)
 })
 
 it('represents a 304 response without body using fetch api response', async () => {
@@ -80,8 +79,7 @@ it('represents a 304 response without body using fetch api response', async () =
   await waitForXMLHttpRequest(request)
 
   expect(request.response).toBe('')
-  expect(responseListener).toHaveBeenNthCalledWith(
-    1,
+  expect(responseListener).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({
       response: expect.objectContaining({
         status: 304,
@@ -89,5 +87,4 @@ it('represents a 304 response without body using fetch api response', async () =
       } satisfies Partial<Response>),
     })
   )
-  expect(responseListener).toHaveBeenCalledTimes(1)
 })
