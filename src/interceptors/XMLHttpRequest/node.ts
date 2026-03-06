@@ -4,6 +4,7 @@ import { applyPatch } from '#/src/utils/apply-patch'
 import { Interceptor } from '#/src/Interceptor'
 import { HttpRequestEventMap } from '#/src/glossary'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { emitAsync } from '#/src/utils/emitAsync'
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('xhr-interceptor')
@@ -23,14 +24,14 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     this.subscriptions.push(() => httpInterceptor.dispose())
 
     httpInterceptor
-      .on('request', (args) => {
+      .on('request', async (args) => {
         if (args.initiator instanceof XMLHttpRequest) {
-          this.emitter.emit('request', args)
+          await emitAsync(this.emitter, 'request', args)
         }
       })
-      .on('response', (args) => {
+      .on('response', async (args) => {
         if (args.initiator instanceof XMLHttpRequest) {
-          this.emitter.emit('response', args)
+          emitAsync(this.emitter, 'response', args)
         }
       })
 
