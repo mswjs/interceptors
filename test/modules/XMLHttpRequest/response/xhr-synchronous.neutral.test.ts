@@ -54,7 +54,9 @@ it('intercepts a synchronous bypassed request', async ({ task }) => {
 })
 
 /**
- * @fixme HappyDOM's sync request is invisible to the HttpRequestInterceptor?
+ * @note The way HappyDOM performs synchronous XMLHttpRequest is via "ChildProcess.execFileSync",
+ * which bypassed the "net.connect()" and makes such requests invisible to our interceptor.
+ * We do not support synchronous XMLHttpRequest.
  */
 it('mocks response to a synchronous XMLHttpRequest', async ({ task }) => {
   interceptor.on('request', ({ controller }) => {
@@ -62,6 +64,7 @@ it('mocks response to a synchronous XMLHttpRequest', async ({ task }) => {
       new Response('hello world', {
         headers: {
           'access-control-allow-origin': '*',
+          'content-length': '11',
         },
       })
     )

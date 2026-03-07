@@ -73,7 +73,7 @@ it('fires the upload events for a mocked request', async ({ task }) => {
       new Response(request.body, {
         headers: {
           'content-type': 'text/plain',
-          // 'content-length': '11',
+          'content-length': '11',
         },
       })
     )

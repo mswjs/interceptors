@@ -69,6 +69,7 @@ it('responds with a mocked Blob response to an HTTP request', async ({
       new Response(blob, {
         headers: {
           'access-control-allow-origin': '*',
+          'content-length': '11',
         },
       })
     )
@@ -119,6 +120,7 @@ it('responds with a mocked Blob response to an HTTP request', async ({
       new Response(blob, {
         headers: {
           'access-control-allow-origin': '*',
+          'content-length': '11',
         },
       })
     )

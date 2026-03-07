@@ -78,7 +78,13 @@ it('responds with a mocked redirect response', async ({ task }) => {
       )
     }
 
-    controller.respondWith(new Response('destination-body'))
+    controller.respondWith(
+      new Response('destination-body', {
+        headers: {
+          'content-length': '16',
+        },
+      })
+    )
   })
 
   const request = new XMLHttpRequest()

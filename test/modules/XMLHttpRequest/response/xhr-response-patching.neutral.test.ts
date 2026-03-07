@@ -48,7 +48,11 @@ it.only('patches the original XMLHttpRequest response', async ({ task }) => {
     await waitForXMLHttpRequest(originalRequest)
 
     controller.respondWith(
-      new Response(`${originalRequest.responseText}-patched`)
+      new Response(`${originalRequest.responseText}-patched`, {
+        headers: {
+          'content-length': '15',
+        },
+      })
     )
   })
 

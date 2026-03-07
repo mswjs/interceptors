@@ -61,6 +61,7 @@ it('responds with a mocked text response to an HTTP request', async ({
         {
           headers: {
             'access-control-allow-origin': '*',
+            'content-length': '24',
           },
         }
       )
@@ -105,6 +106,7 @@ it('responds with a mocked text response to an HTTPS request', async ({
         {
           headers: {
             'access-control-allow-origin': '*',
+            'content-length': '24',
           },
         }
       )

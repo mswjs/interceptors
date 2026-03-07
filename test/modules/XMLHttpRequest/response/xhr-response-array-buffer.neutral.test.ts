@@ -78,6 +78,7 @@ it('responds with a mocked ArrayBuffer response to an HTTP request', async ({
         headers: {
           'access-control-allow-origin': '*',
           'content-type': 'application/octet-stream',
+          'content-length': '11',
         },
       })
     )
@@ -122,6 +123,7 @@ it('responds with a mocked ArrayBuffer response to an HTTPS request', async ({
         headers: {
           'access-control-allow-origin': '*',
           'content-type': 'application/octet-stream',
+          'content-length': '11',
         },
       })
     )

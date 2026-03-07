@@ -58,6 +58,7 @@ it('responds with a mocked text response to an HTTP request', async ({
       new Response('hello world', {
         headers: {
           'access-control-allow-origin': '*',
+          'content-length': '11',
         },
       })
     )
@@ -99,6 +100,7 @@ it('responds with a mocked text response to an HTTPS request', async ({
       new Response('hello world', {
         headers: {
           'access-control-allow-origin': '*',
+          'content-length': '11',
         },
       })
     )
