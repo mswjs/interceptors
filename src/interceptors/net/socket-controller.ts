@@ -378,15 +378,20 @@ export class TcpSocketController extends SocketController {
       }
 
       /**
-       * @note Only call the callback if the socket is still in PENDING state.
-       * If `#push` triggered `passthrough()` synchronously (e.g. when the handler
-       * decided to pass through the request), the buffered write was already
-       * flushed to the real socket with the original callback. Calling it again
-       * here would result in "Callback called multiple times" error.
+       * @note Only skip the callback if the socket transitioned to PASSTHROUGH.
+       * In the passthrough case, `#push` triggered `passthrough()` synchronously
+       * and the buffered write was already flushed to the real socket with the
+       * original callback. Calling it again would result in "Callback called
+       * multiple times" error.
+       *
+       * For CLAIMED state, `#push` may have triggered `claim()` synchronously
+       * (e.g. the handler responded with a mocked response). In that case,
+       * the callback was NOT flushed anywhere and must still be called here
+       * so the socket's writable state completes properly (enabling "finish").
        */
       if (
         typeof callback === 'function' &&
-        this.readyState === SocketController.PENDING
+        this.readyState !== SocketController.PASSTHROUGH
       ) {
         callback()
         args[3] = function mockNoop() {}
