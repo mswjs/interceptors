@@ -1,3 +1,5 @@
+import { Readable } from 'node:stream'
+import { setTimeout } from 'node:timers/promises'
 import { TestProject } from 'vitest/node'
 import { HttpServer } from '@open-draft/test-server/http'
 import { useCors } from './test/helpers'
@@ -17,6 +19,31 @@ const server = new HttpServer((app) => {
   })
   app.get('/redirect/destination', (req, res) => {
     res.status(200).send('destination-body')
+  })
+
+  app.get('/stream', (req, res) => {
+    const encoder = new TextEncoder()
+    const pad = (value: string) => value + ' '.repeat(1024 - value.length)
+    const chunks = [pad('hello'), pad(' '), pad('world')]
+
+    res.status(200).set({
+      'content-type': 'text/plain',
+      'content-length': chunks.join('').length,
+    })
+
+    const stream = new ReadableStream({
+      async pull(controller) {
+        const chunk = chunks.shift()
+
+        if (chunk) {
+          await setTimeout(100)
+          return controller.enqueue(encoder.encode(chunk))
+        }
+
+        controller.close()
+      },
+    })
+    Readable.fromWeb(stream as any).pipe(res)
   })
 
   app.get('/network-error', (req, res) => {

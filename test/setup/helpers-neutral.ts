@@ -1,5 +1,15 @@
 import { DeferredPromise } from '@open-draft/deferred-promise'
 
+/**
+ * Environment-agnostic, Promise-based "setTimeout".
+ * The one from `node:timers/promises` is awesome but it won't run in the browser.
+ */
+export function setTimeout(duration: number): Promise<void> {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, duration)
+  })
+}
+
 export function waitForXMLHttpRequest(
   request: XMLHttpRequest,
   async = true
@@ -7,12 +17,11 @@ export function waitForXMLHttpRequest(
   const pendingResponse = new DeferredPromise<void>()
 
   if (async) {
-    request.addEventListener('loadend', () => {
-      pendingResponse.resolve()
-    })
-
     request.addEventListener('abort', () => {
       pendingResponse.reject(new Error('Request aborted'))
+    })
+    request.addEventListener('loadend', () => {
+      pendingResponse.resolve()
     })
   } else {
     if (request.readyState === XMLHttpRequest.DONE) {
@@ -54,6 +63,28 @@ export function spyOnXMLHttpRequest(request: XMLHttpRequest) {
   request.ontimeout = addEvent('timeout')
   request.onerror = addEvent('error')
   request.onabort = addEvent('abort')
+
+  return {
+    events,
+  }
+}
+
+export function spyOnXMLHttpRequestUpload(upload: XMLHttpRequestUpload) {
+  const events: Array<[string, { loaded: number; total: number }]> = []
+
+  const addUploadEvent = (name: string) => {
+    return (event: ProgressEvent) => {
+      events.push([name, { loaded: event.loaded, total: event.total }])
+    }
+  }
+
+  upload.onloadstart = addUploadEvent('loadstart')
+  upload.onprogress = addUploadEvent('progress')
+  upload.onload = addUploadEvent('load')
+  upload.onloadend = addUploadEvent('loadend')
+  upload.onabort = addUploadEvent('abort')
+  upload.onerror = addUploadEvent('error')
+  upload.ontimeout = addUploadEvent('timeout')
 
   return {
     events,
