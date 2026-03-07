@@ -31,7 +31,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
       })
       .on('response', async (args) => {
         if (args.initiator instanceof XMLHttpRequest) {
-          emitAsync(this.emitter, 'response', args)
+          await emitAsync(this.emitter, 'response', args)
         }
       })
 

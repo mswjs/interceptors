@@ -5,6 +5,7 @@ import { canParseUrl } from '#/src/utils/canParseUrl'
 import { requestContext } from '#/src/request-context'
 import { applyPatch } from '#/src/utils/apply-patch'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { emitAsync } from '#/src/utils/emitAsync'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
@@ -24,14 +25,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     this.subscriptions.push(() => httpInterceptor.dispose())
 
     httpInterceptor
-      .on('request', (args) => {
+      .on('request', async (args) => {
         if (args.initiator instanceof Request) {
-          this.emitter.emit('request', args)
+          await emitAsync(this.emitter, 'request', args)
         }
       })
-      .on('response', (args) => {
+      .on('response', async (args) => {
         if (args.initiator instanceof Request) {
-          this.emitter.emit('response', args)
+          await emitAsync(this.emitter, 'response', args)
         }
       })
 
