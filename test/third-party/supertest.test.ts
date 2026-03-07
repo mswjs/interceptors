@@ -1,16 +1,15 @@
-// @vitest-environment jsdom
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+// @vitest-environment happy-dom
 import express from 'express'
 import supertest from 'supertest'
-import { HttpRequestEventMap } from '../../src'
-import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
+import { HttpRequestEventMap } from '#/src/index'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const requestListener =
   vi.fn<(...args: HttpRequestEventMap['request']) => void>()
 const responseListener =
   vi.fn<(...args: HttpRequestEventMap['response']) => void>()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', requestListener)
 interceptor.on('response', responseListener)
 

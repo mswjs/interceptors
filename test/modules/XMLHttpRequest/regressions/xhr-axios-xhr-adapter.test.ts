@@ -3,7 +3,6 @@
  * @note This issue is only reproducible in "happy-dom".
  * @see https://github.com/mswjs/msw/issues/1816
  */
-import { beforeAll, afterAll, it, expect } from 'vitest'
 import axios from 'axios'
 /**
  * @note Use `Response` from Undici because "happy-dom"
@@ -11,7 +10,7 @@ import axios from 'axios'
  * Node's Readable instead, which is completely incompatible.
  */
 import { Response as UndiciResponse } from 'undici'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 
 const request = axios.create({
   baseURL: 'http://localhost',

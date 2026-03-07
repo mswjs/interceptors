@@ -1,12 +1,8 @@
-/**
- * @vitest-environment node-with-websocket
- */
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
-import waitForExpect from 'wait-for-expect'
+// @vitest-environment node-with-websocket
 import {
   WebSocketClientConnection,
   WebSocketInterceptor,
-} from '../../../../src/interceptors/WebSocket'
+} from '#/src/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -32,16 +28,12 @@ it('removes the listener for the given event', async () => {
   const ws = new WebSocket('wss://example.com')
   ws.onopen = () => ws.send('hello')
 
-  await waitForExpect(() => {
-    expect(firstListener).toHaveBeenCalledTimes(1)
-    expect(secondListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => firstListener).toHaveBeenCalledOnce()
+  await expect.poll(() => secondListener).toHaveBeenCalledOnce()
 
   capturedClient?.removeEventListener('message', secondListener)
   ws.send('hello')
 
-  await waitForExpect(() => {
-    expect(firstListener).toHaveBeenCalledTimes(2)
-    expect(secondListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => firstListener).toHaveBeenCalledTimes(2)
+  await expect.poll(() => secondListener).toHaveBeenCalledOnce()
 })

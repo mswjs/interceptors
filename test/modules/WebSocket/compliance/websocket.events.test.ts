@@ -3,12 +3,11 @@
  * This test suite asserts that the intercepted WebSocket client
  * still dispatches the correct events in mocked/bypassed scenarios.
  */
-import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import { setTimeout } from 'node:timers/promises'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
 import { getWsUrl } from '../utils/getWsUrl'
-import { sleep } from '../../../helpers'
 
 const wsServer = new WebSocketServer({
   host: '127.0.0.1',
@@ -288,7 +287,7 @@ it('allows erroring the connection from an asynchronous listener', async ({
   vi.spyOn(console, 'error').mockImplementation(() => {})
 
   interceptor.once('connection', async () => {
-    await sleep(200)
+    await setTimeout(200)
     throw new Error('mock error')
   })
 

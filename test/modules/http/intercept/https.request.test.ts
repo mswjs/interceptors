@@ -1,11 +1,11 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import https from 'https'
+// @vitest-environment node
+import https from 'node:https'
 import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
-import { HttpRequestEventMap } from '../../../../src'
-import { RequestController } from '../../../../src/RequestController'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
+import { HttpRequestEventMap } from '#/src/index'
+import { RequestController } from '#/src/RequestController'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const httpServer = new HttpServer((app) => {
   const handleUserRequest: RequestHandler = (req, res) => {
@@ -21,7 +21,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -48,7 +48,7 @@ it('intercepts a HEAD request', async () => {
     },
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -73,7 +73,7 @@ it('intercepts a GET request', async () => {
     },
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -99,7 +99,7 @@ it('intercepts a POST request', async () => {
   })
   req.write('post-payload')
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -108,7 +108,7 @@ it('intercepts a POST request', async () => {
   expect(request.method).toBe('POST')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('post-payload')
+  await expect(request.text()).resolves.toBe('post-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -125,7 +125,7 @@ it('intercepts a PUT request', async () => {
   })
   req.write('put-payload')
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -134,7 +134,7 @@ it('intercepts a PUT request', async () => {
   expect(request.method).toBe('PUT')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('put-payload')
+  await expect(request.text()).resolves.toBe('put-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -151,7 +151,7 @@ it('intercepts a PATCH request', async () => {
   })
   req.write('patch-payload')
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -160,7 +160,7 @@ it('intercepts a PATCH request', async () => {
   expect(request.method).toBe('PATCH')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('patch-payload')
+  await expect(request.text()).resolves.toBe('patch-payload')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -176,7 +176,7 @@ it('intercepts a DELETE request', async () => {
     },
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -185,7 +185,7 @@ it('intercepts a DELETE request', async () => {
   expect(request.method).toBe('DELETE')
   expect(request.url).toBe(httpServer.https.url('/user?id=123'))
   expect(request.credentials).toBe('same-origin')
-  expect(await request.text()).toBe('')
+  await expect(request.text()).resolves.toBe('')
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
@@ -199,7 +199,7 @@ it('intercepts an http.request request given RequestOptions without a protocol',
     path: '/user?id=123',
   })
   req.end()
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 

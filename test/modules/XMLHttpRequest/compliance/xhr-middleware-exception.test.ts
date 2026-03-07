@@ -1,11 +1,10 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 /**
  * @see https://github.com/mswjs/msw/issues/355
  */
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import axios from 'axios'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -26,11 +25,12 @@ it('XMLHttpRequest: treats unhandled interceptor exceptions as 500 responses', a
     throw new Error('Custom error')
   })
 
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'json'
-    request.open('GET', 'http://localhost/api')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.responseType = 'json'
+  request.open('GET', 'http://localhost/api')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(500)
   expect(request.statusText).toBe('Unhandled Exception')
@@ -67,11 +67,12 @@ it('treats a thrown Response instance as a mocked response', async () => {
     throw new Response('hello world')
   })
 
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'text'
-    request.open('GET', 'http://localhost/api')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.responseType = 'text'
+  request.open('GET', 'http://localhost/api')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(200)
   expect(request.response).toBe('hello world')
@@ -84,12 +85,13 @@ it('treats a Response.error() as a network error', async () => {
   })
 
   const requestErrorListener = vi.fn()
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'text'
-    request.open('GET', 'http://localhost/api')
-    request.addEventListener('error', requestErrorListener)
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.responseType = 'text'
+  request.open('GET', 'http://localhost/api')
+  request.addEventListener('error', requestErrorListener)
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(0)
   expect(requestErrorListener).toHaveBeenCalledTimes(1)
@@ -101,12 +103,13 @@ it('treats a thrown Response.error() as a network error', async () => {
   })
 
   const requestErrorListener = vi.fn()
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'text'
-    request.open('GET', 'http://localhost/api')
-    request.addEventListener('error', requestErrorListener)
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.responseType = 'text'
+  request.open('GET', 'http://localhost/api')
+  request.addEventListener('error', requestErrorListener)
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(0)
   expect(requestErrorListener).toHaveBeenCalledTimes(1)
@@ -120,11 +123,12 @@ it('handles exceptions by default if "unhandledException" listener is provided b
   })
   interceptor.on('unhandledException', unhandledExceptionListener)
 
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'json'
-    request.open('GET', 'http://localhost/api')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.responseType = 'json'
+  request.open('GET', 'http://localhost/api')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   // Must emit the "unhandledException" interceptor event.
   expect(unhandledExceptionListener).toHaveBeenCalledWith(
@@ -158,12 +162,13 @@ it('handles exceptions as instructed in "unhandledException" listener (mock resp
   })
 
   const requestErrorListener = vi.fn()
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'text'
-    request.open('GET', 'http://localhost/api')
-    request.addEventListener('error', requestErrorListener)
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.responseType = 'text'
+  request.open('GET', 'http://localhost/api')
+  request.addEventListener('error', requestErrorListener)
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toBe(200)
   expect(request.response).toBe('fallback response')
@@ -192,12 +197,13 @@ it('handles exceptions as instructed in "unhandledException" listener (request e
   })
 
   const requestErrorListener = vi.fn()
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'text'
-    request.open('GET', 'http://localhost/api')
-    request.addEventListener('error', requestErrorListener)
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.responseType = 'text'
+  request.open('GET', 'http://localhost/api')
+  request.addEventListener('error', requestErrorListener)
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(requestErrorListener).toHaveBeenCalledOnce()
   expect(request.readyState).toBe(request.DONE)

@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
-import { it, expect, beforeAll, afterAll } from 'vitest'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+// @vitest-environment happy-dom
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -36,25 +35,27 @@ afterAll(() => {
 })
 
 it('handles response of type "json" and missing response JSON body', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('PUT', '/no-body')
-    req.responseType = 'json'
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('PUT', '/no-body')
+  request.responseType = 'json'
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   // When XHR fails to parse a given response JSON body,
   // fall back to null, as the failed JSON parsing result.
-  expect(req.response).toBe(null)
-  expect(req.responseType).toBe('json')
+  expect(request.response).toBe(null)
+  expect(request.responseType).toBe('json')
 })
 
 it('handles response of type "json" and invalid response JSON body', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', '/invalid-json')
-    req.responseType = 'json'
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', '/invalid-json')
+  request.responseType = 'json'
+  request.send()
 
-  expect(req.response).toBe(null)
-  expect(req.responseType).toEqual('json')
+  await waitForXMLHttpRequest(request)
+
+  expect(request.response).toBe(null)
+  expect(request.responseType).toEqual('json')
 })

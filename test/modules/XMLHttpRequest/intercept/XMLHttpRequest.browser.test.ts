@@ -2,7 +2,7 @@ import { invariant } from 'outvariant'
 import { HttpServer } from '@open-draft/test-server/http'
 import { RequestHandler } from 'express-serve-static-core'
 import { test, expect } from '../../../playwright.extend'
-import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../../../src/Interceptor'
+import { INTERNAL_REQUEST_ID_HEADER_NAME } from '#/src/Interceptor'
 
 const httpServer = new HttpServer((app) => {
   const strictCorsMiddleware: RequestHandler = (req, res, next) => {

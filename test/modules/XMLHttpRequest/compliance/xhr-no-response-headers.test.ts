@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
-import { it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment happy-dom
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -25,11 +24,12 @@ afterAll(async () => {
 })
 
 it('handles original response without any headers', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', httpServer.http.url('/user'))
-    request.setRequestHeader('accept', 'plain/text')
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/user'))
+  request.setRequestHeader('accept', 'plain/text')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toEqual(200)
   expect(request.statusText).toEqual('OK')

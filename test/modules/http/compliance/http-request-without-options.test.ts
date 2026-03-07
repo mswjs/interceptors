@@ -1,12 +1,9 @@
-/**
- * @vitest-environment node
- */
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+// @vitest-environment node
 import http from 'node:http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 interceptor.on('request', ({ request, controller }) => {
   if (request.url === 'http://localhost/') {
@@ -34,7 +31,7 @@ it('supports "http.request()" without any arguments', async () => {
   request.on('response', responseListener)
   request.on('error', errorListener)
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   expect(errorListener).not.toHaveBeenCalled()
   expect(responseListener).toHaveBeenCalledTimes(1)
@@ -42,8 +39,8 @@ it('supports "http.request()" without any arguments', async () => {
   expect(request.method).toBe('GET')
   expect(request.protocol).toBe('http:')
   expect(request.host).toBe('localhost')
-  expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('Mocked')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('Mocked')
 })
 
 it('supports "http.get()" without any arguments', async () => {
@@ -58,7 +55,7 @@ it('supports "http.get()" without any arguments', async () => {
   request.on('response', responseListener)
   request.on('error', errorListener)
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   expect(errorListener).not.toHaveBeenCalled()
   expect(responseListener).toHaveBeenCalledTimes(1)
@@ -66,6 +63,6 @@ it('supports "http.get()" without any arguments', async () => {
   expect(request.method).toBe('GET')
   expect(request.protocol).toBe('http:')
   expect(request.host).toBe('localhost')
-  expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('Mocked')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('Mocked')
 })

@@ -1,0 +1,92 @@
+import { DeferredPromise } from '@open-draft/deferred-promise'
+
+/**
+ * Environment-agnostic, Promise-based "setTimeout".
+ * The one from `node:timers/promises` is awesome but it won't run in the browser.
+ */
+export function setTimeout(duration: number): Promise<void> {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, duration)
+  })
+}
+
+export function waitForXMLHttpRequest(
+  request: XMLHttpRequest,
+  async = true
+): Promise<void> {
+  const pendingResponse = new DeferredPromise<void>()
+
+  if (async) {
+    request.addEventListener('abort', () => {
+      pendingResponse.reject(new Error('Request aborted'))
+    })
+    request.addEventListener('loadend', () => {
+      pendingResponse.resolve()
+    })
+  } else {
+    if (request.readyState === XMLHttpRequest.DONE) {
+      pendingResponse.resolve()
+    } else {
+      request.addEventListener('loadend', () => {
+        if (request.readyState === XMLHttpRequest.DONE) {
+          pendingResponse.resolve()
+        }
+      })
+    }
+  }
+
+  return pendingResponse
+}
+
+export function spyOnXMLHttpRequest(request: XMLHttpRequest) {
+  const events: Array<[string, number] | [string, number, any]> = []
+
+  const addEvent = (name: string) => {
+    return (event: unknown) => {
+      if (event instanceof ProgressEvent) {
+        events.push([
+          name,
+          request.readyState,
+          { loaded: event.loaded, total: event.total },
+        ])
+      } else {
+        events.push([name, request.readyState])
+      }
+    }
+  }
+
+  request.onreadystatechange = addEvent('readystatechange')
+  request.onprogress = addEvent('progress')
+  request.onloadstart = addEvent('loadstart')
+  request.onload = addEvent('load')
+  request.onloadend = addEvent('loadend')
+  request.ontimeout = addEvent('timeout')
+  request.onerror = addEvent('error')
+  request.onabort = addEvent('abort')
+
+  return {
+    events,
+  }
+}
+
+export function spyOnXMLHttpRequestUpload(upload: XMLHttpRequestUpload) {
+  const events: Array<[string, { loaded: number; total: number }]> = []
+
+  const addUploadEvent = (name: string) => {
+    return (event: ProgressEvent) => {
+      events.push([name, { loaded: event.loaded, total: event.total }])
+    }
+  }
+
+  upload.onloadstart = addUploadEvent('loadstart')
+  upload.onprogress = addUploadEvent('progress')
+  upload.onload = addUploadEvent('load')
+  upload.onloadend = addUploadEvent('loadend')
+  upload.onabort = addUploadEvent('abort')
+  upload.onerror = addUploadEvent('error')
+  upload.ontimeout = addUploadEvent('timeout')
+
+  return {
+    events,
+  }
+}

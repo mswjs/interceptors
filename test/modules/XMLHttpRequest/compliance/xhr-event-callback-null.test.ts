@@ -1,11 +1,10 @@
+// @vitest-environment happy-dom
 /**
- * @note https://xhr.spec.whatwg.org/#event-handlers
+ * @see https://xhr.spec.whatwg.org/#event-handlers
  */
-// @vitest-environment jsdom
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new XMLHttpRequestInterceptor()
 
@@ -60,18 +59,17 @@ it.each<[name: string, getUrl: () => string]>([
   async (_, getUrl) => {
     const url = getUrl()
 
-    const request = await createXMLHttpRequest((request) => {
-      request.open('GET', url)
+    const request = new XMLHttpRequest()
+    request.open('GET', url)
+    request.onreadystatechange = null
+    request.onloadstart = null
+    request.onprogress = null
+    request.onload = null
+    request.onloadend = null
+    request.ontimeout = null
+    request.send()
 
-      request.onreadystatechange = null
-      request.onloadstart = null
-      request.onprogress = null
-      request.onload = null
-      request.onloadend = null
-      request.ontimeout = null
-
-      request.send()
-    })
+    await waitForXMLHttpRequest(request)
 
     expect(request.readyState).toBe(4)
     expect(request.status).toBe(200)
@@ -87,18 +85,17 @@ it.each<[name: string, getUrl: () => string]>([
   async (_, getUrl) => {
     const url = getUrl()
 
-    const request = await createXMLHttpRequest((request) => {
-      request.open('GET', url)
+    const request = new XMLHttpRequest()
+    request.open('GET', url)
+    request.onreadystatechange = null
+    request.onloadstart = null
+    request.onprogress = null
+    request.onload = null
+    request.onloadend = null
+    request.ontimeout = null
+    request.send()
 
-      request.onreadystatechange = null
-      request.onloadstart = null
-      request.onprogress = null
-      request.onload = null
-      request.onloadend = null
-      request.ontimeout = null
-
-      request.send()
-    })
+    await waitForXMLHttpRequest(request)
 
     expect(request.readyState).toBe(4)
     expect(request.status).toBe(500)
@@ -114,18 +111,17 @@ it.each<[name: string, getUrl: () => string]>([
   async (_, getUrl) => {
     const url = getUrl()
 
-    const request = await createXMLHttpRequest((request) => {
-      request.open('GET', url)
+    const request = new XMLHttpRequest()
+    request.open('GET', url)
+    request.onreadystatechange = null
+    request.onloadstart = null
+    request.onprogress = null
+    request.onload = null
+    request.onloadend = null
+    request.ontimeout = null
+    request.send()
 
-      request.onreadystatechange = null
-      request.onloadstart = null
-      request.onprogress = null
-      request.onload = null
-      request.onloadend = null
-      request.ontimeout = null
-
-      request.send()
-    })
+    await waitForXMLHttpRequest(request)
 
     expect(request.readyState).toBe(4)
     expect(request.status).toBe(0)
@@ -134,19 +130,18 @@ it.each<[name: string, getUrl: () => string]>([
 )
 
 it('does not fail when unsetting event handlers during unhandled exception in the interceptor', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'json'
-    request.open('GET', httpServer.https.url('/exception'))
+  const request = new XMLHttpRequest()
+  request.responseType = 'json'
+  request.open('GET', httpServer.https.url('/exception'))
+  request.onreadystatechange = null
+  request.onloadstart = null
+  request.onprogress = null
+  request.onload = null
+  request.onloadend = null
+  request.ontimeout = null
+  request.send()
 
-    request.onreadystatechange = null
-    request.onloadstart = null
-    request.onprogress = null
-    request.onload = null
-    request.onloadend = null
-    request.ontimeout = null
-
-    request.send()
-  })
+  await waitForXMLHttpRequest(request)
 
   expect(request.readyState).toBe(4)
   expect(request.status).toBe(500)

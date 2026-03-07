@@ -1,3 +1,5 @@
+import { findLastIndex } from 'node_modules/es-toolkit/dist/compat/compat.mjs'
+
 const encoder = new TextEncoder()
 
 export function encodeBuffer(text: string): Uint8Array {
@@ -19,4 +21,19 @@ export function toArrayBuffer(array: Uint8Array): ArrayBuffer {
     array.byteOffset,
     array.byteOffset + array.byteLength
   )
+}
+
+export function toBuffer(
+  data: string | Buffer | Uint8Array<ArrayBufferLike>,
+  encoding?: BufferEncoding
+): Buffer {
+  if (Buffer.isBuffer(data)) {
+    return data
+  }
+
+  if (data instanceof Uint8Array) {
+    return Buffer.from(data.buffer)
+  }
+
+  return Buffer.from(data, encoding)
 }

@@ -14,6 +14,7 @@ import { isNodeLikeError } from './isNodeLikeError'
 import { isObject } from './isObject'
 
 interface HandleRequestOptions {
+  initiator: unknown
   requestId: string
   request: Request
   emitter: Emitter<HttpRequestEventMap>
@@ -77,18 +78,6 @@ export async function handleRequest(
     return false
   }
 
-  // Add the last "request" listener to check if the request
-  // has been handled in any way. If it hasn't, resolve the
-  // response promise with undefined.
-  // options.emitter.once('request', async ({ requestId: pendingRequestId }) => {
-  //   if (
-  //     pendingRequestId === options.requestId &&
-  //     options.controller.readyState === RequestController.PENDING
-  //   ) {
-  //     await options.controller.passthrough()
-  //   }
-  // })
-
   const requestAbortPromise = new DeferredPromise<void, unknown>()
 
   /**
@@ -115,6 +104,7 @@ export async function handleRequest(
     // By the end of this promise, the developer cannot affect the
     // request anymore.
     const requestListenersPromise = emitAsync(options.emitter, 'request', {
+      initiator: options.initiator,
       requestId: options.requestId,
       request: options.request,
       controller: options.controller,

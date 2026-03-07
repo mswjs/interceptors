@@ -1,9 +1,8 @@
 import type { Logger } from '@open-draft/logger'
-import { XMLHttpRequestEmitter } from '.'
+import { XMLHttpRequestEmitter } from './web'
 import { RequestController } from '../../RequestController'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
 import { handleRequest } from '../../utils/handleRequest'
-import { isResponseError } from '../../utils/responseUtils'
 
 export interface XMLHttpRequestProxyOptions {
   emitter: XMLHttpRequestEmitter
@@ -60,11 +59,6 @@ export function createXMLHttpRequestProxy({
             )
           },
           respondWith: async (response) => {
-            if (isResponseError(response)) {
-              this.errorWith(new TypeError('Network error'))
-              return
-            }
-
             await this.respondWith(response)
           },
           errorWith: (reason) => {
@@ -84,6 +78,7 @@ export function createXMLHttpRequestProxy({
         )
 
         await handleRequest({
+          initiator: this.request,
           request,
           requestId,
           controller,
@@ -103,6 +98,7 @@ export function createXMLHttpRequestProxy({
         )
 
         emitter.emit('response', {
+          initiator: this.request,
           response,
           isMockedResponse,
           request,

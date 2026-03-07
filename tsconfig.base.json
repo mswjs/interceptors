@@ -1,0 +1,21 @@
+{
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "strict": true,
+    "target": "es2018",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "lib": ["dom", "dom.iterable", "ES2018.AsyncGenerator"],
+    "baseUrl": ".",
+    "paths": {
+      "#/src/*": ["./src/*"],
+      "#/test/*": ["./test/*"],
+      "_http_common": ["./_http_common.d.ts"],
+      "internal:brotli-decompress": [
+        "./src/interceptors/fetch/utils/brotli-decompress.ts",
+      ],
+    },
+  },
+}

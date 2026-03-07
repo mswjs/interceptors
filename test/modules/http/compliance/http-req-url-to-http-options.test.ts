@@ -1,11 +1,10 @@
 // @vitest-environment node
 import { urlToHttpOptions } from 'node:url'
 import http from 'node:http'
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../../test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -29,10 +28,10 @@ it('supports `urlToHttpOptions()` as the ClientRequest options', async () => {
   const request = http
     .request(urlToHttpOptions(new URL('http://localhost')))
     .end()
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('hello world')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('hello world')
 
   expect(requestCallback).toHaveBeenCalledOnce()
   const [fetchRequest] = requestCallback.mock.calls[0]
@@ -56,10 +55,10 @@ it('supports augmented `urlToHttpOptions()` as the ClientRequest options', async
       },
     })
     .end(JSON.stringify({ hello: 'world' }))
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('hello world')
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('hello world')
 
   expect(requestCallback).toHaveBeenCalledOnce()
   const [fetchRequest] = requestCallback.mock.calls[0]

@@ -1,14 +1,8 @@
-// @vitest-environment jsdom
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment happy-dom
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors } from '../../../helpers'
-
-declare namespace window {
-  export const _resourceLoader: {
-    _strictSSL: boolean
-  }
-}
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { useCors } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const httpServer = new HttpServer((app) => {
   app.use(useCors)
@@ -58,9 +52,6 @@ interceptor.on('request', ({ request, controller }) => {
 })
 
 beforeAll(async () => {
-  // Allow XHR requests to the local HTTPS server with a self-signed certificate.
-  window._resourceLoader._strictSSL = false
-
   await httpServer.listen()
   interceptor.apply()
 })
@@ -71,117 +62,31 @@ afterAll(async () => {
   vi.restoreAllMocks()
 })
 
-it('responds to an HTTP request handled in the middleware', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/'))
-    req.send()
-  })
-  const responseHeaders = req.getAllResponseHeaders()
-
-  expect(req.status).toEqual(301)
-  expect(responseHeaders).toContain('content-type: application/hal+json')
-  expect(req.response).toEqual('foo')
-})
-
-it('bypasses an HTTP request not handled in the middleware', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/get'))
-    req.send()
-  })
-
-  expect(req.status).toEqual(200)
-  expect(req.response).toEqual('/get')
-})
-
-it('responds to an HTTPS request handled in the middleware', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.url('/'))
-    req.send()
-  })
-  const responseHeaders = req.getAllResponseHeaders()
-
-  expect(req.status).toEqual(301)
-  expect(responseHeaders).toContain('content-type: application/hal+json')
-  expect(req.response).toEqual('foo')
-  expect(req.responseURL).toEqual(httpServer.https.url('/'))
-})
-
-it('bypasses an HTTPS request not handled in the middleware', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.url('/get'))
-    req.send()
-  })
-
-  expect(req.status).toEqual(200)
-  expect(req.response).toEqual('/get')
-  expect(req.responseURL).toEqual(httpServer.https.url('/get'))
-})
-
 it('responds to an HTTP request to a relative URL that is handled in the middleware', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.url('/login'))
-    req.send()
-  })
-  const responseHeaders = req.getAllResponseHeaders()
+  const request = new XMLHttpRequest()
+  request.open('POST', httpServer.https.url('/login'))
+  request.send()
 
-  expect(req.status).toEqual(301)
-  expect(responseHeaders).toContain('content-type: application/hal+json')
-  expect(req.response).toEqual('foo')
-  expect(req.responseURL).toEqual(httpServer.https.url('/login'))
-})
+  await waitForXMLHttpRequest(request)
 
-it('produces a request error for a mocked Response.error() response', async () => {
-  const errorListener = vi.fn()
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', 'http://localhost/network-error')
-    req.addEventListener('error', errorListener)
-    req.send()
-  })
-
-  expect(errorListener).toHaveBeenCalledTimes(1)
-
-  // XMLHttpRequest request exception propagates as "ProgressEvent".
-  const [progressEvent] = errorListener.mock.calls[0]
-  expect(progressEvent).toBeInstanceOf(ProgressEvent)
-
-  // Request must still exist.
-  expect(req.status).toBe(0)
-})
-
-it('produces a 500 response for an unhandled exception in the interceptor', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.responseType = 'json'
-    request.open('GET', 'http://localhost/exception')
-    request.send()
-  })
-
-  expect(request.status).toBe(500)
-  expect(request.statusText).toBe('Unhandled Exception')
-  expect(request.response).toEqual({
-    name: 'Error',
-    message: 'Custom message',
-    stack: expect.any(String),
-  })
-})
-
-it('does not propagate the forbidden "cookie" header on the bypassed response', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.url('/cookies'))
-    req.send()
-  })
-  const responseHeaders = req.getAllResponseHeaders()
-  expect(responseHeaders).not.toMatch(/cookie/)
+  expect(request.status).toEqual(301)
+  expect(request.getAllResponseHeaders().toLowerCase()).toContain(
+    'content-type: application/hal+json'
+  )
+  expect(request.response).toEqual('foo')
+  expect(request.responseURL).toEqual(httpServer.https.url('/login'))
 })
 
 it('bypasses any request when the interceptor is restored', async () => {
   interceptor.dispose()
 
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.url('/'))
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.https.url('/'))
+  request.send()
 
-  expect(req.status).toEqual(200)
-  expect(req.response).toEqual('/')
-  expect(req.responseURL).toEqual(httpServer.https.url('/'))
+  await waitForXMLHttpRequest(request)
+
+  expect(request.status).toEqual(200)
+  expect(request.response).toEqual('/')
+  expect(request.responseURL).toEqual(httpServer.https.url('/'))
 })

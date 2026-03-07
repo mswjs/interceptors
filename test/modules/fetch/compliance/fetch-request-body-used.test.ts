@@ -1,8 +1,7 @@
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import * as express from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
-import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 

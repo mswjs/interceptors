@@ -1,14 +1,10 @@
-// @vitest-environment jsdom
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment happy-dom
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import {
-  createXMLHttpRequest,
-  useCors,
-  REQUEST_ID_REGEXP,
-} from '../../../helpers'
-import { HttpRequestEventMap } from '../../../../src'
-import { RequestController } from '../../../../src/RequestController'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { useCors, REQUEST_ID_REGEXP } from '#/test/helpers'
+import { HttpRequestEventMap } from '#/src/index'
+import { RequestController } from '#/src/RequestController'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const server = new HttpServer((app) => {
   app.use(useCors)
@@ -48,10 +44,11 @@ it('emits events for a handled request', async () => {
   interceptor.on('request', requestListener)
   interceptor.on('response', responseListener)
 
-  await createXMLHttpRequest((request) => {
-    request.open('GET', server.http.url('/user'))
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', server.http.url('/user'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   // Must call the "request" event listener.
   expect(requestListener).toHaveBeenCalledTimes(1)
@@ -91,10 +88,11 @@ it('emits events for a bypassed request', async () => {
   interceptor.on('request', requestListener)
   interceptor.on('response', responseListener)
 
-  await createXMLHttpRequest((request) => {
-    request.open('GET', server.http.url('/bypassed'))
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', server.http.url('/bypassed'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   // Must call the "request" event listener.
   expect(requestListener).toHaveBeenCalledTimes(1)

@@ -1,4 +1,3 @@
-import { it, expect } from 'vitest'
 import { parseJson } from './parseJson'
 
 it('parses a given string into JSON', () => {

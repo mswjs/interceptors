@@ -1,15 +1,14 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
 import { HttpServer } from '@open-draft/test-server/lib/http'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => res.sendStatus(200))
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -37,9 +36,9 @@ it('emits the "error" event when a bypassed response is destroyed', async () => 
       response.destroy(new Error('reason'))
     })
 
-  const { res } = await waitForClientRequest(request)
+  const [, rawResponse] = await toWebResponse(request)
 
-  expect(res.destroyed).toBe(true)
+  expect(rawResponse.destroyed).toBe(true)
   expect(socketErrorListener).toHaveBeenCalledOnce()
   expect(socketErrorListener).toHaveBeenCalledWith(new Error('reason'))
 })
@@ -60,9 +59,9 @@ it('emits the "error" event when a mocked response is destroyed', async () => {
       response.destroy(new Error('reason'))
     })
 
-  const { res } = await waitForClientRequest(request)
+  const [, rawResponse] = await toWebResponse(request)
 
-  expect(res.destroyed).toBe(true)
+  expect(rawResponse.destroyed).toBe(true)
   expect(socketErrorListener).toHaveBeenCalledOnce()
   expect(socketErrorListener).toHaveBeenCalledWith(new Error('reason'))
 })

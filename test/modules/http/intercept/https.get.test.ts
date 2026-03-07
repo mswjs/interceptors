@@ -1,10 +1,9 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import https from 'https'
+import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
-import { HttpRequestEventMap } from '../../../../src/glossary'
-import { RequestController } from '../../../../src/RequestController'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
+import { HttpRequestEventMap } from '#/src/glossary'
+import { RequestController } from '#/src/RequestController'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -13,7 +12,7 @@ const httpServer = new HttpServer((app) => {
 })
 
 const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -39,7 +38,7 @@ it('intercepts a GET request', async () => {
     },
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -70,7 +69,7 @@ it('intercepts an https.get request given RequestOptions without a protocol', as
     // Suppress the "certificate has expired" error.
     rejectUnauthorized: false,
   })
-  await waitForClientRequest(req)
+  await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
