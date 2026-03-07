@@ -1,4 +1,5 @@
 import { until } from '@open-draft/until'
+import { debounce } from 'es-toolkit'
 import { invariant } from 'outvariant'
 import type { Logger } from '@open-draft/logger'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
@@ -344,10 +345,12 @@ export class XMLHttpRequestController {
       const processRequestBodyChunkLength = (bytesLength: number) => {
         requestBodyTransmitted += bytesLength
 
-        this.trigger('progress', this.request.upload, {
-          loaded: requestBodyTransmitted,
-          total: requestBodyLength,
-        })
+        if (requestBodyTransmitted < requestBodyLength) {
+          this.trigger('progress', this.request.upload, {
+            loaded: requestBodyTransmitted,
+            total: requestBodyLength,
+          })
+        }
       }
 
       const processRequestEndOfBody = () => {
@@ -443,8 +446,13 @@ export class XMLHttpRequestController {
         return
       }
 
-      let responseBodyLength =
-        response.body != null ? await getBodyByteLength(response.clone()) : 0
+      /**
+       * @note The response body length is derived ONLY from the "content-length" header.
+       * If that response header is not set, the "total" in all progress events must be 0.
+       */
+      const responseBodyLength = Number(
+        response.headers.get('content-length') ?? '0'
+      )
 
       /**
        * @note The specification deviates in handling synchronous requests earlier,
@@ -474,20 +482,26 @@ export class XMLHttpRequestController {
       this.setReadyState(this.request.HEADERS_RECEIVED)
 
       let receivedBytes = 0
+      let lastReceivedResponseBytesAt = performance.now()
 
       const processResponseBodyChunk = (bytesLength: number) => {
         receivedBytes += bytesLength
 
-        /**
-         * @note Decouple "readyState" change and "readystatechange" event here.
-         * This is intentional and per specification.
-         * @see https://xhr.spec.whatwg.org/#the-send()-method (11.9.10.4).
-         */
+        const now = performance.now()
+        const shouldBuffer =
+          now - lastReceivedResponseBytesAt <= 60 &&
+          receivedBytes < responseBodyLength
+        lastReceivedResponseBytesAt = now
+
+        if (shouldBuffer) {
+          return
+        }
+
         if (this.request.readyState === this.request.HEADERS_RECEIVED) {
           this.setReadyState(this.request.LOADING, false)
         }
-        this.trigger('readystatechange', this.request)
 
+        this.trigger('readystatechange', this.request)
         this.trigger('progress', this.request, {
           loaded: receivedBytes,
           total: responseBodyLength,
@@ -498,7 +512,7 @@ export class XMLHttpRequestController {
         requestErrorSteps('error', new TypeError('A network error occurred.'))
       }
 
-      const processResponseEndOfBody = () => {
+      const processResponseEndOfBody = async () => {
         handleErrors()
 
         if (isResponseError(response)) {
