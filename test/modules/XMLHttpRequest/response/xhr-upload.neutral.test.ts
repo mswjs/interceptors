@@ -22,7 +22,9 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('intercepts a bypassed request ...', async ({ task }) => {
+it('intercepts a bypassed request with the upload listeners', async ({
+  task,
+}) => {
   const request = new XMLHttpRequest()
   const { events } = spyOnXMLHttpRequest(request)
   const { events: uploadEvents } = spyOnXMLHttpRequestUpload(request.upload)
@@ -55,7 +57,7 @@ it('intercepts a bypassed request ...', async ({ task }) => {
   }
 })
 
-it('dispatches the "upload" events for a mocked request', async ({ task }) => {
+it('fires the upload events for a mocked request', async ({ task }) => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.method === 'OPTIONS') {
       return controller.respondWith(
@@ -67,7 +69,14 @@ it('dispatches the "upload" events for a mocked request', async ({ task }) => {
       )
     }
 
-    controller.respondWith(new Response('hello world'))
+    controller.respondWith(
+      new Response(request.body, {
+        headers: {
+          'content-type': 'text/plain',
+          // 'content-length': '11',
+        },
+      })
+    )
   })
 
   const request = new XMLHttpRequest()
@@ -77,6 +86,9 @@ it('dispatches the "upload" events for a mocked request', async ({ task }) => {
   request.send(new Blob(['hello', ' ', 'world']))
 
   await waitForXMLHttpRequest(request)
+
+  expect.soft(request.status).toBe(200)
+  expect.soft(request.response).toBe('hello world')
 
   if (task.file.projectName === 'browser') {
     expect.soft(events).toEqual([
