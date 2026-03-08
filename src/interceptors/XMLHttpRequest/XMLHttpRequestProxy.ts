@@ -3,6 +3,7 @@ import { XMLHttpRequestEmitter } from './web'
 import { RequestController } from '../../RequestController'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
 import { handleRequest } from '../../utils/handleRequest'
+import { emitAsync } from '../../utils/emitAsync'
 
 export interface XMLHttpRequestProxyOptions {
   emitter: XMLHttpRequestEmitter
@@ -97,7 +98,7 @@ export function createXMLHttpRequestProxy({
           emitter.listenerCount('response')
         )
 
-        emitter.emit('response', {
+        await emitAsync(emitter, 'response', {
           initiator: this.request,
           response,
           isMockedResponse,
