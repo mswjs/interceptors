@@ -57,16 +57,6 @@ it('intercepts a bypassed request with a redirect response', async ({
 
 it('responds with a mocked redirect response', async ({ task }) => {
   interceptor.on('request', ({ request, controller }) => {
-    if (request.method === 'OPTIONS') {
-      return controller.respondWith(
-        new Response(null, {
-          headers: {
-            'access-control-allow-origin': '*',
-          },
-        })
-      )
-    }
-
     if (request.url.endsWith('/original')) {
       return controller.respondWith(
         new Response(null, {
@@ -81,6 +71,7 @@ it('responds with a mocked redirect response', async ({ task }) => {
     controller.respondWith(
       new Response('destination-body', {
         headers: {
+          'access-control-allow-origin': '*',
           'content-length': '16',
         },
       })

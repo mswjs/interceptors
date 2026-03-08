@@ -59,19 +59,10 @@ it('intercepts a bypassed request with the upload listeners', async ({
 
 it('fires the upload events for a mocked request', async ({ task }) => {
   interceptor.on('request', ({ request, controller }) => {
-    if (request.method === 'OPTIONS') {
-      return controller.respondWith(
-        new Response(null, {
-          headers: {
-            'access-control-allow-origin': '*',
-          },
-        })
-      )
-    }
-
     controller.respondWith(
       new Response(request.body, {
         headers: {
+          'access-control-allow-origin': '*',
           'content-type': 'text/plain',
           'content-length': '11',
         },

@@ -29,16 +29,6 @@ it.only('patches the original XMLHttpRequest response', async ({ task }) => {
       return controller.passthrough()
     }
 
-    if (request.method === 'OPTIONS') {
-      return controller.respondWith(
-        new Response(null, {
-          headers: {
-            'access-control-allow-origin': '*',
-          },
-        })
-      )
-    }
-
     const originalRequest = new XMLHttpRequest()
     url.searchParams.set('type', 'passthrough')
     originalRequest.open(request.method, url.href)
@@ -50,6 +40,7 @@ it.only('patches the original XMLHttpRequest response', async ({ task }) => {
     controller.respondWith(
       new Response(`${originalRequest.responseText}-patched`, {
         headers: {
+          'access-control-allow-origin': '*',
           'content-length': '15',
         },
       })

@@ -47,21 +47,13 @@ it('intercepts a bypassed request with an empty response', async ({ task }) => {
 it('responds with an empty mocked response to an HTTP request', async ({
   task,
 }) => {
-  interceptor.on('request', ({ request, controller }) => {
-    /**
-     * @see Browser-likes dispatch an extra preflight request.
-     */
-    if (request.method === 'OPTIONS') {
-      return controller.respondWith(
-        new Response(null, {
-          headers: {
-            'access-control-allow-origin': '*',
-          },
-        })
-      )
-    }
-
-    controller.respondWith(new Response(null, { status: 204 }))
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(null, {
+        status: 204,
+        headers: { 'access-control-allow-origin': '*' },
+      })
+    )
   })
 
   const request = new XMLHttpRequest()
@@ -89,18 +81,15 @@ it('responds with an empty mocked response to an HTTP request', async ({
 it('responds with an empty mocked response to an HTTPS request', async ({
   task,
 }) => {
-  interceptor.on('request', ({ request, controller }) => {
-    if (request.method === 'OPTIONS') {
-      return controller.respondWith(
-        new Response(null, {
-          headers: {
-            'access-control-allow-origin': '*',
-          },
-        })
-      )
-    }
-
-    controller.respondWith(new Response(null, { status: 204 }))
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(null, {
+        status: 204,
+        headers: {
+          'access-control-allow-origin': '*',
+        },
+      })
+    )
   })
 
   const request = new XMLHttpRequest()

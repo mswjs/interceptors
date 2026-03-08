@@ -20,23 +20,13 @@ afterAll(() => {
 it('sets "credentials" to "same-origin" for the request that does not have "withCredentials" set', async () => {
   const pendingRequestFromRequestListener = Promise.withResolvers<Request>()
   interceptor.on('request', ({ request, controller }) => {
-    if (request.method === 'OPTIONS') {
-      return controller.respondWith(
-        new Response(null, {
-          headers: {
-            'access-control-allow-origin': '*',
-            'access-control-allow-credentials': 'true',
-          },
-        })
-      )
-    }
-
     pendingRequestFromRequestListener.resolve(request)
 
     controller.respondWith(
       new Response('hello world', {
         headers: {
           'access-control-allow-origin': '*',
+          'access-control-allow-credentials': 'true',
         },
       })
     )
@@ -70,23 +60,13 @@ it('sets "credentials" to "same-origin" for the request that does not have "with
 it('sets "credentials" to "include" for the request that has "withCredentials" set to true', async () => {
   const pendingRequestFromRequestListener = Promise.withResolvers<Request>()
   interceptor.on('request', ({ request, controller }) => {
-    if (request.method === 'OPTIONS') {
-      return controller.respondWith(
-        new Response(null, {
-          headers: {
-            'access-control-allow-origin': '*',
-            'access-control-allow-credentials': 'true',
-          },
-        })
-      )
-    }
-
     pendingRequestFromRequestListener.resolve(request)
 
     controller.respondWith(
       new Response('hello world', {
         headers: {
           'access-control-allow-origin': '*',
+          'access-control-allow-credentials': 'true',
         },
       })
     )
@@ -121,23 +101,13 @@ it('sets "credentials" to "include" for the request that has "withCredentials" s
 it('sets "credentials" to "same-origin" for the request that has "withCredentials" set to false', async () => {
   const pendingRequestFromRequestListener = Promise.withResolvers<Request>()
   interceptor.on('request', ({ request, controller }) => {
-    if (request.method === 'OPTIONS') {
-      return controller.respondWith(
-        new Response(null, {
-          headers: {
-            'access-control-allow-origin': '*',
-            'access-control-allow-credentials': 'true',
-          },
-        })
-      )
-    }
-
     pendingRequestFromRequestListener.resolve(request)
 
     controller.respondWith(
       new Response('hello world', {
         headers: {
           'access-control-allow-origin': '*',
+          'access-control-allow-credentials': 'true',
         },
       })
     )

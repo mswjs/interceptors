@@ -54,16 +54,6 @@ it('intercepts a bypassed request with a stream response', async ({ task }) => {
 
 it('responds with a mocked immediate chunked response', async ({ task }) => {
   interceptor.on('request', ({ request, controller }) => {
-    if (request.method === 'OPTIONS') {
-      return controller.respondWith(
-        new Response(null, {
-          headers: {
-            'access-control-allow-origin': '*',
-          },
-        })
-      )
-    }
-
     const pad = (value: string) => value + ' '.repeat(1024 - value.length)
     const chunks = [pad('hello'), pad(' '), pad('world')]
 
@@ -82,6 +72,7 @@ it('responds with a mocked immediate chunked response', async ({ task }) => {
     controller.respondWith(
       new Response(stream, {
         headers: {
+          'access-control-allow-origin': '*',
           'content-type': 'text/plain',
           'content-length': chunks.join('').length.toString(),
         },
@@ -115,16 +106,6 @@ it('responds with a mocked immediate chunked response', async ({ task }) => {
 
 it('responds with a mocked delayed chunked response', async ({ task }) => {
   interceptor.on('request', ({ request, controller }) => {
-    if (request.method === 'OPTIONS') {
-      return controller.respondWith(
-        new Response(null, {
-          headers: {
-            'access-control-allow-origin': '*',
-          },
-        })
-      )
-    }
-
     /**
      * @note The browser buffers the incoming response chunks unless a chunk exceeds
      * 1KB. Simulate three chunks, each 1KB in size to trigger the "progress" event for each chunk.
@@ -148,6 +129,7 @@ it('responds with a mocked delayed chunked response', async ({ task }) => {
     controller.respondWith(
       new Response(stream, {
         headers: {
+          'access-control-allow-origin': '*',
           'content-type': 'text/plain',
           'content-length': chunks.join('').length.toString(),
         },
