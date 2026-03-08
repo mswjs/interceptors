@@ -24,7 +24,7 @@ afterAll(() => {
 it('intercepts a bypassed request with a text response', async ({ task }) => {
   const request = new XMLHttpRequest()
   const { events } = spyOnXMLHttpRequest(request)
-  request.open('POST', server.http.url('/blob'))
+  request.open('POST', server.http.url('/'))
   request.send('hello world')
 
   await waitForXMLHttpRequest(request)
