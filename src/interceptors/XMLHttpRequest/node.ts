@@ -26,11 +26,13 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     httpInterceptor
       .on('request', async (args) => {
         if (args.initiator instanceof XMLHttpRequest) {
+          args.request = this.#transformRequest(args.request, args.initiator)
           await emitAsync(this.emitter, 'request', args)
         }
       })
       .on('response', async (args) => {
         if (args.initiator instanceof XMLHttpRequest) {
+          args.request = this.#transformRequest(args.request, args.initiator)
           await emitAsync(this.emitter, 'response', args)
         }
       })
@@ -60,5 +62,12 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     )
 
     this.logger.info('global "XMLHttpRequest" patched!')
+  }
+
+  #transformRequest(request: Request, initiator: XMLHttpRequest): Request {
+    return new Request(request.url, {
+      ...request,
+      credentials: initiator.withCredentials ? 'include' : 'same-origin',
+    })
   }
 }

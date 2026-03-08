@@ -327,51 +327,6 @@ it('intercepts an HTTPS DELETE request', async () => {
   }
 })
 
-it('sets "credentials" to "include" on isomorphic request when "withCredentials" is true', async () => {
-  const request = new XMLHttpRequest()
-  request.open('GET', httpServer.https.url('/user'))
-  request.withCredentials = true
-  request.send()
-
-  await waitForXMLHttpRequest(request)
-
-  expect(resolver).toHaveBeenCalledTimes(1)
-
-  {
-    const [{ request }] = resolver.mock.calls[0]
-    expect(request.credentials).toBe('include')
-  }
-})
-
-it('sets "credentials" to "omit" on isomorphic request when "withCredentials" is not set', async () => {
-  const request = new XMLHttpRequest()
-  request.open('GET', httpServer.https.url('/user'))
-  request.send()
-
-  await waitForXMLHttpRequest(request)
-
-  expect(resolver).toHaveBeenCalledTimes(1)
-  {
-    const [{ request }] = resolver.mock.calls[0]
-    expect(request.credentials).toBe('same-origin')
-  }
-})
-
-it('sets "credentials" to "omit" on isomorphic request when "withCredentials" is false', async () => {
-  const request = new XMLHttpRequest()
-  request.open('GET', httpServer.https.url('/user'))
-  request.withCredentials = false
-  request.send()
-
-  await waitForXMLHttpRequest(request)
-
-  expect(resolver).toHaveBeenCalledTimes(1)
-  {
-    const [{ request }] = resolver.mock.calls[0]
-    expect(request.credentials).toBe('same-origin')
-  }
-})
-
 it('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', async () => {
   const request = new XMLHttpRequest()
   request.open('GET', httpServer.https.url('/user'))

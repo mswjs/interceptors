@@ -14,7 +14,7 @@ import { parseJson } from '../../utils/parseJson'
 import { createResponse } from './utils/createResponse'
 import { createRequestId } from '../../createRequestId'
 import { getBodyByteLength } from './utils/getBodyByteLength'
-import { FetchResponse } from '../../utils/fetchUtils'
+import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
 import { isResponseError } from '../../utils/responseUtils'
 
 const kIsRequestHandled = Symbol('kIsRequestHandled')
@@ -855,16 +855,14 @@ export class XMLHttpRequestController {
     const resolvedBody =
       body instanceof Document ? body.documentElement.innerText : body
 
-    const fetchRequest = new Request(this.url.href, {
+    const fetchRequest = new FetchRequest(this.url.href, {
       method: this.method,
       headers: this.requestHeaders,
       /**
        * @see https://xhr.spec.whatwg.org/#cross-origin-credentials
        */
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
-      body: ['GET', 'HEAD'].includes(this.method.toUpperCase())
-        ? null
-        : resolvedBody,
+      body: resolvedBody,
     })
 
     const proxyHeaders = createProxy(fetchRequest.headers, {
