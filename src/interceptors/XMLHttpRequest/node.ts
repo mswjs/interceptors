@@ -5,6 +5,7 @@ import { Interceptor } from '#/src/Interceptor'
 import { HttpRequestEventMap } from '#/src/glossary'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { emitAsync } from '#/src/utils/emitAsync'
+import { FetchRequest } from '#/src/utils/fetchUtils'
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('xhr-interceptor')
@@ -65,9 +66,12 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
   }
 
   #transformRequest(request: Request, initiator: XMLHttpRequest): Request {
-    return new Request(request.url, {
+    return new FetchRequest(request.url, {
       ...request,
+      method: request.method,
+      headers: request.headers,
       credentials: initiator.withCredentials ? 'include' : 'same-origin',
+      body: request.body,
     })
   }
 }
