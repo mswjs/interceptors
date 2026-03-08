@@ -90,3 +90,21 @@ export function spyOnXMLHttpRequestUpload(upload: XMLHttpRequestUpload) {
     events,
   }
 }
+
+/**
+ * @note Use this utility because in Node.js (JSDOM), "request.response"
+ * becomes Uint8Array while in the browser it's correctly ArrayBuffer.
+ */
+export function toArrayBuffer(
+  value: ArrayBuffer | Uint8Array
+): ArrayBufferLike {
+  if (value instanceof Uint8Array) {
+    return value.buffer
+  }
+
+  return value
+}
+
+export function arrayBufferFrom(input: string): ArrayBufferLike {
+  return new TextEncoder().encode(input).buffer
+}

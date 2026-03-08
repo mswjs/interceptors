@@ -1,5 +1,3 @@
-import { findLastIndex } from 'node_modules/es-toolkit/dist/compat/compat.mjs'
-
 const encoder = new TextEncoder()
 
 export function encodeBuffer(text: string): Uint8Array {

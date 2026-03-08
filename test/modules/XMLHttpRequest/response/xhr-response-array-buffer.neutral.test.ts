@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import {
   spyOnXMLHttpRequest,
+  toArrayBuffer,
   waitForXMLHttpRequest,
 } from '#/test/setup/helpers-neutral'
 import { getTestServer } from '#/test/setup/vitest'
@@ -20,18 +21,6 @@ afterEach(() => {
 afterAll(() => {
   interceptor.dispose()
 })
-
-/**
- * @note Use this utility because in Node.js (JSDOM), "request.response"
- * becomes Uint8Array while in the browser it's correctly ArrayBuffer.
- */
-function toArrayBuffer(value: ArrayBuffer | Uint8Array): ArrayBuffer {
-  if (value instanceof Uint8Array) {
-    return value.buffer
-  }
-
-  return value
-}
 
 it('intercepts a bypassed request with an ArrayBuffer response', async ({
   task,
