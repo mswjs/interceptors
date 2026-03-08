@@ -1,5 +1,4 @@
 import { until } from '@open-draft/until'
-import { debounce } from 'es-toolkit'
 import { invariant } from 'outvariant'
 import type { Logger } from '@open-draft/logger'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
@@ -48,6 +47,7 @@ export class XMLHttpRequestController {
 
   [kIsRequestHandled]: boolean;
   [kFetchRequest]?: Request
+
   private sync: boolean = false
   private method: string = 'GET'
   private url: URL = null as any
@@ -104,6 +104,7 @@ export class XMLHttpRequestController {
               string | undefined,
               boolean | undefined,
             ]
+
             this.sync = !(async ?? true)
 
             if (typeof url === 'undefined') {
@@ -145,6 +146,13 @@ export class XMLHttpRequestController {
             const [body] = args as [
               body?: XMLHttpRequestBodyInit | Document | null,
             ]
+
+            if (this.sync) {
+              console.warn(
+                `Failed to intercept an XMLHttpRequest (${this.method} ${this.url}): synchronous requests are not supported. This request will be performed as-is.`
+              )
+              return invoke()
+            }
 
             this.request.addEventListener('load', () => {
               if (typeof this.onResponse !== 'undefined') {
@@ -320,10 +328,8 @@ export class XMLHttpRequestController {
       },
     })
 
-    if (!this.sync) {
-      // 1. Fire a progress event named loadstart at this with 0 and 0.
-      this.trigger('loadstart', this.request, { loaded: 0, total: 0 })
-    }
+    // 1. Fire a progress event named loadstart at this with 0 and 0.
+    this.trigger('loadstart', this.request, { loaded: 0, total: 0 })
 
     // 2. Let requestBodyTransmitted be 0.
     let requestBodyTransmitted = 0
@@ -392,14 +398,9 @@ export class XMLHttpRequestController {
     const responseReadController = new AbortController()
 
     const requestErrorSteps = (
-      event: keyof XMLHttpRequestEventTargetEventMap,
-      exception?: Error
+      event: keyof XMLHttpRequestEventTargetEventMap
     ) => {
       this.setReadyState(this.request.DONE)
-
-      if (this.sync) {
-        throw exception
-      }
 
       if (!uploadComplete) {
         this.trigger(event, this.request.upload, {
@@ -419,17 +420,11 @@ export class XMLHttpRequestController {
     const processResponse = async (response: Response) => {
       const handleErrors = () => {
         if (timedOut) {
-          requestErrorSteps(
-            'timeout',
-            new DOMException('The operation timed out.')
-          )
+          requestErrorSteps('timeout')
         } else if (responseReadController.signal.aborted) {
-          requestErrorSteps(
-            'abort',
-            new DOMException('The operation was aborted.')
-          )
+          requestErrorSteps('abort')
         } else if (isResponseError(response)) {
-          requestErrorSteps('error', new TypeError('A network error occurred.'))
+          requestErrorSteps('error')
         }
       }
 
@@ -453,31 +448,6 @@ export class XMLHttpRequestController {
       const responseBodyLength = Number(
         response.headers.get('content-length') ?? '0'
       )
-
-      /**
-       * @note The specification deviates in handling synchronous requests earlier,
-       * but it's easier for us to keep the logic around consistent by handling them here.
-       */
-      if (this.sync) {
-        this.responseBuffer = await response
-          .arrayBuffer()
-          .then((arrayBuffer) => {
-            return new Uint8Array(arrayBuffer)
-          })
-
-        this.setReadyState(this.request.DONE)
-
-        this.trigger('load', this.request, {
-          loaded: responseBodyLength,
-          total: responseBodyLength,
-        })
-        this.trigger('loadend', this.request, {
-          loaded: responseBodyLength,
-          total: responseBodyLength,
-        })
-
-        return
-      }
 
       this.setReadyState(this.request.HEADERS_RECEIVED)
 
@@ -509,7 +479,7 @@ export class XMLHttpRequestController {
       }
 
       const processResponseBodyError = () => {
-        requestErrorSteps('error', new TypeError('A network error occurred.'))
+        requestErrorSteps('error')
       }
 
       const processResponseEndOfBody = async () => {
