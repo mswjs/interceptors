@@ -35,6 +35,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           await emitAsync(this.emitter, 'response', args)
         }
       })
+      .on('unhandledException', async (args) => {
+        if (args.initiator instanceof Request) {
+          await emitAsync(this.emitter, 'unhandledException', args)
+        }
+      })
 
     this.subscriptions.push(
       applyPatch(globalThis, 'fetch', (realFetch) => {
