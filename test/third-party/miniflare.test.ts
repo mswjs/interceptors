@@ -1,10 +1,10 @@
 // @vitest-environment miniflare
 import http from 'node:http'
 import https from 'node:https'
-import { BatchInterceptor } from '#/src/index'
-import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
-import { FetchInterceptor } from '#/src/interceptors/fetch'
+import { BatchInterceptor } from '@mswjs/interceptors'
+import { HttpRequestInterceptor } from '@mswjs/interceptors/http'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new BatchInterceptor({
