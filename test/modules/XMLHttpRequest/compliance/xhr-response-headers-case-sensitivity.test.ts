@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { HttpServer } from '@open-draft/test-server/http'
 import { useCors } from '#/test/helpers'
-import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const httpServer = new HttpServer((app) => {

@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
-import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const XML_STRING = '<node key="value">Content</node>'
 
 describe('Content-Type: application/xml', () => {
   const interceptor = new XMLHttpRequestInterceptor()
+
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(
       new Response(XML_STRING, {

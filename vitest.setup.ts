@@ -50,6 +50,11 @@ const server = new HttpServer((app) => {
     res.destroy()
   })
 
+  app.get('/delay', async (req, res) => {
+    await setTimeout(150)
+    res.send('original-response')
+  })
+
   app.all('*', (req, res) => {
     res.status(200).set(req.headers)
 

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { encodeBuffer } from '#/src/index'
-import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 import { toArrayBuffer } from '#/src/utils/bufferUtils'
 import { readBlob } from '#/test/helpers'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'

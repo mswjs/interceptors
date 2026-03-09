@@ -182,8 +182,6 @@ it('errors the intercepted "CONNECT" request', async () => {
 
 it.skip('mocks the entire proxy flow end-to-end', async () => {
   interceptor.on('request', ({ request, controller }) => {
-    console.log('-->', request.method, request.url)
-
     if (request.method === 'CONNECT') {
       return controller.respondWith(new Response())
     }

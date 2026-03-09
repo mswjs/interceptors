@@ -1,5 +1,5 @@
+// @vitest-environment happy-dom
 /**
- * @vitest-environment happy-dom
  * @note This issue is only reproducible in "happy-dom".
  * @see https://github.com/mswjs/msw/issues/1816
  */
@@ -10,7 +10,7 @@ import axios from 'axios'
  * Node's Readable instead, which is completely incompatible.
  */
 import { Response as UndiciResponse } from 'undici'
-import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 const request = axios.create({
   baseURL: 'http://localhost',
@@ -34,7 +34,7 @@ it('performs a request with the "xhr" axios adapter', async () => {
     )
   })
 
-  const res = await request('/resource')
-  expect(res.status).toBe(200)
-  expect(res.data).toBe('Hello world')
+  const response = await request('/resource')
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.data).toBe('Hello world')
 })

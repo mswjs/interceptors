@@ -55,14 +55,14 @@ export function spyOnXMLHttpRequest(request: XMLHttpRequest) {
     }
   }
 
-  request.onreadystatechange = addEvent('readystatechange')
-  request.onprogress = addEvent('progress')
-  request.onloadstart = addEvent('loadstart')
-  request.onload = addEvent('load')
-  request.onloadend = addEvent('loadend')
-  request.ontimeout = addEvent('timeout')
-  request.onerror = addEvent('error')
-  request.onabort = addEvent('abort')
+  request.addEventListener('readystatechange', addEvent('readystatechange'))
+  request.addEventListener('progress', addEvent('progress'))
+  request.addEventListener('loadstart', addEvent('loadstart'))
+  request.addEventListener('load', addEvent('load'))
+  request.addEventListener('loadend', addEvent('loadend'))
+  request.addEventListener('timeout', addEvent('timeout'))
+  request.addEventListener('error', addEvent('error'))
+  request.addEventListener('abort', addEvent('abort'))
 
   return {
     events,
@@ -78,13 +78,13 @@ export function spyOnXMLHttpRequestUpload(upload: XMLHttpRequestUpload) {
     }
   }
 
-  upload.onloadstart = addUploadEvent('loadstart')
-  upload.onprogress = addUploadEvent('progress')
-  upload.onload = addUploadEvent('load')
-  upload.onloadend = addUploadEvent('loadend')
-  upload.onabort = addUploadEvent('abort')
-  upload.onerror = addUploadEvent('error')
-  upload.ontimeout = addUploadEvent('timeout')
+  upload.addEventListener('loadstart', addUploadEvent('loadstart'))
+  upload.addEventListener('progress', addUploadEvent('progress'))
+  upload.addEventListener('load', addUploadEvent('load'))
+  upload.addEventListener('loadend', addUploadEvent('loadend'))
+  upload.addEventListener('abort', addUploadEvent('abort'))
+  upload.addEventListener('error', addUploadEvent('error'))
+  upload.addEventListener('timeout', addUploadEvent('timeout'))
 
   return {
     events,
