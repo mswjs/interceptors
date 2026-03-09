@@ -46,6 +46,9 @@ const server = new HttpServer((app) => {
     Readable.fromWeb(stream as any).pipe(res)
   })
 
+  app.get('/server-error', (req, res) => {
+    res.status(500).send('Internal Server Error')
+  })
   app.get('/network-error', (req, res) => {
     res.destroy()
   })
