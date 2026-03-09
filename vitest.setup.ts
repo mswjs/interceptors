@@ -60,6 +60,10 @@ const server = new HttpServer((app) => {
       })
     }
 
+    if (res.getHeader('content-type') == null) {
+      res.set('content-type', 'text/plain; charset=utf-8')
+    }
+
     if (req.method === 'GET') {
       res.send('original-response')
     } else {
