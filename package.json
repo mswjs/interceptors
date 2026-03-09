@@ -15,6 +15,16 @@
       "import": "./lib/node/index.mjs",
       "default": "./lib/node/index.cjs"
     },
+    "./http": {
+      "node": {
+        "require": "./lib/node/interceptors/http/index.cjs",
+        "import": "./lib/node/interceptors/http/index.mjs"
+      },
+      "browser": null,
+      "require": "./lib/node/interceptors/http/index.cjs",
+      "import": "./lib/node/interceptors/http/index.mjs",
+      "default": "./lib/node/interceptors/http/index.cjs"
+    },
     "./ClientRequest": {
       "node": {
         "require": "./lib/node/interceptors/ClientRequest/index.cjs",
@@ -149,7 +159,7 @@
     "typescript": "^5.8.2",
     "undici": "^7.22.0",
     "vitest": "^4.0.18",
-    "vitest-environment-miniflare": "^2.14.1",
+    "vitest-environment-miniflare": "^2.14.4",
     "web-encoding": "^1.1.5",
     "webpack": "^5.105.0",
     "webpack-http-server": "^0.5.0",
