@@ -42,7 +42,16 @@ it('XMLHttpRequest: treats unhandled interceptor exceptions as 500 responses', a
 })
 
 it('axios: unhandled interceptor exceptions are treated as 500 responses', async () => {
-  interceptor.on('request', () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.method === 'OPTIONS') {
+      return controller.respondWith(
+        new Response(null, {
+          status: 204,
+          headers: { 'access-control-allow-origin': '*' },
+        })
+      )
+    }
+
     throw new Error('Custom error')
   })
 
@@ -154,11 +163,10 @@ it('handles exceptions as instructed in "unhandledException" listener (mock resp
     throw new Error('Custom error')
   })
   interceptor.on('unhandledException', (args) => {
-    const { controller } = args
     unhandledExceptionListener(args)
 
     // Handle exceptions as a fallback 200 OK response.
-    controller.respondWith(new Response('fallback response'))
+    args.controller.respondWith(new Response('fallback response'))
   })
 
   const requestErrorListener = vi.fn()
@@ -170,30 +178,38 @@ it('handles exceptions as instructed in "unhandledException" listener (mock resp
 
   await waitForXMLHttpRequest(request)
 
-  expect(request.status).toBe(200)
-  expect(request.response).toBe('fallback response')
+  expect.soft(request.status).toBe(200)
+  expect.soft(request.response).toBe('fallback response')
 
-  expect(unhandledExceptionListener).toHaveBeenCalledWith(
+  expect.soft(unhandledExceptionListener).toHaveBeenCalledWith(
     expect.objectContaining({
       error: new Error('Custom error'),
     })
   )
-  expect(unhandledExceptionListener).toHaveBeenCalledOnce()
-  expect(requestErrorListener).not.toHaveBeenCalled()
+  expect.soft(unhandledExceptionListener).toHaveBeenCalledOnce()
+  expect.soft(requestErrorListener).not.toHaveBeenCalled()
 })
 
 it('handles exceptions as instructed in "unhandledException" listener (request error)', async () => {
   const unhandledExceptionListener = vi.fn()
 
-  interceptor.on('request', () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.method === 'OPTIONS') {
+      return controller.respondWith(
+        new Response(null, {
+          status: 204,
+          headers: { 'access-control-allow-origin': '*' },
+        })
+      )
+    }
+
     throw new Error('Custom error')
   })
   interceptor.on('unhandledException', (args) => {
-    const { request, controller } = args
     unhandledExceptionListener(args)
 
     // Handle exceptions as request errors.
-    controller.errorWith(new Error('Fallback error'))
+    args.controller.errorWith(new Error('Fallback error'))
   })
 
   const requestErrorListener = vi.fn()
@@ -206,7 +222,7 @@ it('handles exceptions as instructed in "unhandledException" listener (request e
   await waitForXMLHttpRequest(request)
 
   expect(requestErrorListener).toHaveBeenCalledOnce()
-  expect(request.readyState).toBe(request.DONE)
+  expect(request.readyState).toBe(4)
 
   expect(unhandledExceptionListener).toHaveBeenCalledWith(
     expect.objectContaining({

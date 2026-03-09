@@ -164,6 +164,7 @@ export async function handleRequest(
       )
 
       await emitAsync(options.emitter, 'unhandledException', {
+        initiator: options.initiator,
         error: result.error,
         request: options.request,
         requestId: options.requestId,

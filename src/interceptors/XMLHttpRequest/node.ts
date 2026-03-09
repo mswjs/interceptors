@@ -37,6 +37,11 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
           await emitAsync(this.emitter, 'response', args)
         }
       })
+      .on('unhandledException', async (args) => {
+        if (args.initiator instanceof XMLHttpRequest) {
+          await emitAsync(this.emitter, 'unhandledException', args)
+        }
+      })
 
     this.logger.info('patching global "XMLHttpRequest"...')
 

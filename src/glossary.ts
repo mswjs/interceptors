@@ -28,6 +28,7 @@ export type HttpRequestEventMap = {
   ]
   unhandledException: [
     args: {
+      initiator: unknown
       error: unknown
       request: Request
       requestId: string
