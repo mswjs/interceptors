@@ -3,36 +3,24 @@ import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
+import { getTestServer } from '#/test/setup/vitest'
 
-const server = new HttpServer((app) => {
-  app.use('/user', (req, res) => {
-    const header = req.headers['x-appended-header']
-
-    if (header) {
-      res.set('x-appended-header', header)
-    }
-
-    res.end()
-  })
-})
-
+const server = getTestServer()
 const interceptor = new HttpRequestInterceptor()
 
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
-  await server.listen()
 })
 
 afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
-  await server.close()
 })
 
-it('allows modifying the outgoing headers for a request without a body', async () => {
+it('allows modifying the request headers for a request without a body', async () => {
   interceptor.on('request', ({ request }) => {
     request.headers.set('x-appended-header', 'modified')
   })
@@ -46,7 +34,7 @@ it('allows modifying the outgoing headers for a request without a body', async (
   })
 })
 
-it('allows modifying the outgoing request headers in a request with a body', async () => {
+it('allows modifying the request headers for a request with a body', async () => {
   interceptor.on('request', ({ request }) => {
     request.headers.set('x-appended-header', 'modified')
   })

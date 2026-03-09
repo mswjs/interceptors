@@ -22,7 +22,7 @@ import { toBuffer } from '../../utils/bufferUtils'
 import { createRequestId } from '../../createRequestId'
 import { HttpRequestParser, HttpResponseParser } from './http-parser'
 import { emitAsync } from '../../utils/emitAsync'
-import { handleRequest } from '../../utils/handleRequest'
+import { handleRequest, HandleRequestOptions } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { createLogger } from '../../utils/logger'
 import {
@@ -114,7 +114,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   const respond = () => {
                     return this.respondWith({
                       socket: socketController[kRawSocket],
-                      request,
+                      request: context.request,
                       response,
                     })
                   }
@@ -145,7 +145,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     await emitAsync(this.emitter, 'response', {
                       initiator,
                       requestId,
-                      request,
+                      request: context.request,
                       response: responseClone,
                       isMockedResponse: true,
                     })
@@ -161,7 +161,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     /**
                      * @todo Would be great NOT to run this if request headers weren't modified.
                      */
-                    this.#modifyHttpHeaders(request)
+                    this.#modifyHttpHeaders(context.request)
                   )
 
                   if (this.emitter.listenerCount('response')) {
@@ -198,7 +198,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                         await emitAsync(this.emitter, 'response', {
                           initiator,
                           requestId,
-                          request,
+                          request: context.request,
                           response,
                           isMockedResponse: false,
                         })
@@ -223,13 +223,20 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 socketController['readyState']
               )
 
-              await handleRequest({
+              /**
+               * @note Create a request resolution context.
+               * This is so modifications to the "request" in upstream interceptors
+               * are correctly picked up by the underlying HTTP interceptor.
+               */
+              const context: HandleRequestOptions = {
                 initiator,
-                request,
                 requestId,
+                request,
                 controller: requestController,
                 emitter: this.emitter,
-              })
+              }
+
+              await handleRequest(context)
             },
           })
 
@@ -346,10 +353,23 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       )
 
       const rawHeaders = getRawFetchHeaders(request.headers)
+      const visitedHeaders = new Set<string>()
 
-      for (const [name, value] of rawHeaders) {
-        httpMessageHeaders.set(name, value)
+      for (const [headerName] of rawHeaders) {
+        const normalizedHeaderName = headerName.toLowerCase()
+
+        if (visitedHeaders.has(normalizedHeaderName)) {
+          continue
+        }
+
+        visitedHeaders.add(normalizedHeaderName)
+
+        // Use the merged value from Headers to correctly handle
+        // appended headers (e.g. "1, 2" instead of just "2").
+        httpMessageHeaders.set(headerName, request.headers.get(headerName)!)
       }
+
+      visitedHeaders.clear()
 
       const httpMessageHeadersString = Array.from(httpMessageHeaders)
         .map(([name, value]) => `${name}: ${value}`)

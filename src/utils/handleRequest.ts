@@ -13,7 +13,7 @@ import { InterceptorError } from '../InterceptorError'
 import { isNodeLikeError } from './isNodeLikeError'
 import { isObject } from './isObject'
 
-interface HandleRequestOptions {
+export interface HandleRequestOptions {
   initiator: unknown
   requestId: string
   request: Request
@@ -103,12 +103,17 @@ export async function handleRequest(
     // for that event are finished (e.g. async listeners awaited).
     // By the end of this promise, the developer cannot affect the
     // request anymore.
-    const requestListenersPromise = emitAsync(options.emitter, 'request', {
+    const requestArgs = {
       initiator: options.initiator,
       requestId: options.requestId,
       request: options.request,
       controller: options.controller,
-    })
+    }
+    const requestListenersPromise = emitAsync(
+      options.emitter,
+      'request',
+      requestArgs
+    )
 
     await Promise.race([
       // Short-circuit the request handling promise if the request gets aborted.
@@ -116,6 +121,16 @@ export async function handleRequest(
       requestListenersPromise,
       options.controller.handled,
     ])
+
+    /**
+     * @note If the "request" listener has replaced the request instance,
+     * propagate that mutation back to the underlying insterceptor.
+     * This happens with XMLHttpRequest that replaces request instances
+     * to correctly reflect the "withCredentials" option on the Fetch API request.
+     */
+    if (requestArgs.request !== options.request) {
+      options.request = requestArgs.request
+    }
   })
 
   // Handle the request being aborted while waiting for the request listeners.
