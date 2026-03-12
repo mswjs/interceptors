@@ -1,33 +1,35 @@
 import http from 'node:http'
 import https from 'node:https'
-import { HttpRequestEventMap } from '#/src/events/http'
-import { Interceptor } from '#/src/Interceptor'
 import { runInRequestContext } from '#/src/request-context'
 import { applyPatch } from '#/src/utils/apply-patch'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { propagateHttpEvents } from '#/src/utils/interceptor-utils'
+import { Interceptor } from '#/src/Interceptor'
+import { HttpRequestEventMap } from '#/src/events/http'
+import { proxyEventListeners } from '#/src/utils/interceptor-utils'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static symbol = Symbol('client-request-interceptor')
+  static symbol = Symbol.for('client-request-interceptor')
+
+  #httpInterceptor: HttpRequestInterceptor
 
   constructor() {
     super(ClientRequestInterceptor.symbol)
+
+    this.#httpInterceptor = new HttpRequestInterceptor()
+    this.subscriptions.push(
+      proxyEventListeners({
+        from: this.emitter,
+        to: this.#httpInterceptor['emitter'],
+        filter: (event) => {
+          return event.initiator instanceof http.ClientRequest
+        },
+      })
+    )
   }
 
   protected setup(): void {
-    const httpInterceptor = new HttpRequestInterceptor()
-
-    httpInterceptor.apply()
-    this.subscriptions.push(() => httpInterceptor.dispose())
-
-    const { controller } = propagateHttpEvents(
-      httpInterceptor['emitter'],
-      this.emitter,
-      (event) => {
-        return event.initiator instanceof http.ClientRequest
-      }
-    )
-    this.subscriptions.push(() => controller.abort())
+    this.#httpInterceptor.apply()
+    this.subscriptions.push(() => this.#httpInterceptor.dispose())
 
     this.subscriptions.push(
       applyPatch(http, 'ClientRequest', (ClientRequest) => {

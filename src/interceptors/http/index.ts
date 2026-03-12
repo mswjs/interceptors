@@ -296,7 +296,10 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       callback?.()
     }
 
-    responseSocket._destroy = () => {
+    responseSocket._destroy = (
+      _error: Error | null,
+      callback: (error: Error | null) => void
+    ) => {
       /**
        * Destroy the socket if the response stream errored.
        * @see https://github.com/mswjs/interceptors/issues/738
@@ -306,6 +309,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
        * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/_http_client.js#L586
        */
       socket.destroy()
+      callback(null)
     }
 
     serverResponse.assignSocket(responseSocket)

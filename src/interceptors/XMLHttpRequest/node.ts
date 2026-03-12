@@ -1,17 +1,39 @@
+import { Emitter } from 'rettime'
 import { requestContext } from '#/src/request-context'
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
-import { applyPatch } from '#/src/utils/apply-patch'
 import { Interceptor } from '#/src/Interceptor'
-import { HttpRequestEventMap } from '../../events/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { applyPatch } from '#/src/utils/apply-patch'
 import { FetchRequest } from '#/src/utils/fetchUtils'
-import { propagateHttpEvents } from '#/src/utils/interceptor-utils'
+import { HttpRequestEventMap } from '#/src/events/http'
+import { proxyEventListeners } from '#/src/utils/interceptor-utils'
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('xhr-interceptor')
 
+  #httpInterceptor: HttpRequestInterceptor
+
   constructor() {
     super(XMLHttpRequestInterceptor.symbol)
+
+    this.#httpInterceptor = new HttpRequestInterceptor()
+    this.subscriptions.push(
+      proxyEventListeners({
+        from: this.emitter,
+        to: this.#httpInterceptor['emitter'],
+        filter: (event) => {
+          if (event.initiator instanceof XMLHttpRequest) {
+            event.request = this.#transformRequest(
+              event.request,
+              event.initiator
+            )
+            return true
+          }
+
+          return false
+        },
+      })
+    )
   }
 
   protected checkEnvironment() {
@@ -19,28 +41,8 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
   }
 
   protected setup(): void {
-    const httpInterceptor = new HttpRequestInterceptor()
-
-    httpInterceptor.apply()
-    this.subscriptions.push(() => httpInterceptor.dispose())
-
-    this.emitter.hooks.on('beforeEmit', (event) => {
-      event.modify = true
-    })
-
-    const { controller } = propagateHttpEvents(
-      httpInterceptor['emitter'],
-      this.emitter,
-      (event) => {
-        if (event.initiator instanceof XMLHttpRequest) {
-          event.request = this.#transformRequest(event.request, event.initiator)
-          return true
-        }
-
-        return false
-      }
-    )
-    this.subscriptions.push(() => controller.abort())
+    this.#httpInterceptor.apply()
+    this.subscriptions.push(() => this.#httpInterceptor.dispose())
 
     this.logger.info('patching global "XMLHttpRequest"...')
 
@@ -70,11 +72,19 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
   }
 
   #transformRequest(request: Request, initiator: XMLHttpRequest): Request {
+    const expectedCredentials = initiator.withCredentials
+      ? 'include'
+      : 'same-origin'
+
+    if (request.credentials === expectedCredentials) {
+      return request
+    }
+
     return new FetchRequest(request.url, {
       ...request,
       method: request.method,
       headers: request.headers,
-      credentials: initiator.withCredentials ? 'include' : 'same-origin',
+      credentials: expectedCredentials,
       body: request.body,
     })
   }

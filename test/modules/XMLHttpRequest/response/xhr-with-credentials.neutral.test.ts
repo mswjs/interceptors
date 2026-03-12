@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
-import { getTestServer } from '#/test/setup/vitest'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 const interceptor = new XMLHttpRequestInterceptor()
@@ -38,7 +37,7 @@ it('sets "credentials" to "same-origin" for the request that does not have "with
   })
 
   const request = new XMLHttpRequest()
-  request.open('GET', 'http://any.host.here/irrelevant')
+  request.open('GET', 'http://any.host.here/irrelevants')
   request.send()
 
   await waitForXMLHttpRequest(request)

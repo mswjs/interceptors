@@ -2,32 +2,21 @@
 import https from 'node:https'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { BatchInterceptor, HttpRequestEventMap } from '@mswjs/interceptors'
-import { HttpRequestInterceptor } from '@mswjs/interceptors/http'
+import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
-import { useCors, toWebResponse } from '#/test/helpers'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
+import { toWebResponse } from '#/test/helpers'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 import { getTestServer } from '#/test/setup/vitest'
-
-// const httpServer = new HttpServer((app) => {
-//   app.use(useCors)
-
-//   app.get('/user', (_req, res) => {
-//     res.status(509).send('must-use-mocks')
-//   })
-
-//   app.post('/account', (_req, res) => {
-//     return res
-//       .status(200)
-//       .set('access-control-expose-headers', 'x-response-type')
-//       .set('x-response-type', 'original')
-//       .send('original-response-text')
-//   })
-// })
 
 const server = getTestServer()
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',
-  interceptors: [new HttpRequestInterceptor(), new XMLHttpRequestInterceptor()],
+  interceptors: [
+    new ClientRequestInterceptor(),
+    new XMLHttpRequestInterceptor(),
+    new FetchInterceptor(),
+  ],
 })
 
 beforeAll(() => {
@@ -198,7 +187,7 @@ it('XMLHttpRequest: emits the "response" event upon a mocked response', async ()
   }
 })
 
-it.only('XMLHttpRequest: emits the "response" event upon the original response', async () => {
+it('XMLHttpRequest: emits the "response" event upon the original response', async () => {
   const responseListener =
     vi.fn<(event: HttpRequestEventMap['response']) => void>()
   interceptor.on('response', responseListener)
@@ -297,6 +286,14 @@ it(
   'fetch: emits the "response" event upon the original response',
   { timeout: 1500 },
   async () => {
+    interceptor.on('request', ({ initiator, request }) => {
+      console.log(request.method, request.url, initiator?.constructor?.name)
+
+      if (request.method === 'OPTIONS') {
+        console.trace('fetch options?!')
+      }
+    })
+
     const responseListenerArgs = new DeferredPromise<
       HttpRequestEventMap['response']
     >()
@@ -334,7 +331,7 @@ it(
 )
 
 it('supports reading the request and response bodies in the "response" listener', async () => {
-  interceptor.on('request', ({ request, controller }) => {
+  interceptor.on('request', ({ controller }) => {
     controller.respondWith(
       new Response('mocked-response-text', {
         statusText: 'OK',

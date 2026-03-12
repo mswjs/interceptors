@@ -114,9 +114,7 @@ export async function handleRequest(
       controller: options.controller,
     }
     const requestEvent = new HttpRequestEvent(requestEventData)
-    const requestListenersPromise = options.emitter.emitAsPromise(
-      requestEvent
-    )
+    const requestListenersPromise = options.emitter.emitAsPromise(requestEvent)
 
     await Promise.race([
       // Short-circuit the request handling promise if the request gets aborted.
@@ -152,7 +150,6 @@ export async function handleRequest(
     // If the developer has added "unhandledException" listeners,
     // allow them to handle the error. They can translate it to a
     // mocked response, network error, or forward it as-is.
-    console.log('[DEBUG handleRequest] unhandledException listenerCount:', options.emitter.listenerCount('unhandledException'))
     if (options.emitter.listenerCount('unhandledException') > 0) {
       // Create a new request controller just for the unhandled exception case.
       // This is needed because the original controller might have been already

@@ -1,65 +1,45 @@
-import { DefaultEventMap, Emitter, EventMap } from 'rettime'
+import { Emitter } from 'rettime'
 
-export function propagateHttpEvents<SourceEventMap extends DefaultEventMap>(
-  source: Emitter<SourceEventMap>,
-  destination: Emitter<any>,
-  predicate: (event: EventMap.Events<SourceEventMap>) => boolean
-) {
+export function proxyEventListeners<T extends Emitter<any>>(options: {
+  from: T
+  to: T
+  filter: (event: Emitter.Events<T>) => boolean
+}) {
   const controller = new AbortController()
 
-  const propagateEvent = async (event: EventMap.Events<SourceEventMap>) => {
-    if (predicate(event)) {
-      await destination.emitAsPromise(event)
+  const propagateEvent = async (event: Emitter.Events<T>) => {
+    if (options.filter(event)) {
+      await options.from.emitAsPromise(event)
     }
   }
 
-  source.on(
-    '*',
-    async (event) => {
-      if (event.type !== 'response') {
-        await propagateEvent(event)
-      }
-    },
-    { signal: controller.signal }
-  )
-
-  /**
-   * @note Lazily add a "response" listener to the HTTP interceptor if this
-   * interceptor receives a response listener. HTTP interceptor creates a
-   * response parser only if a "response" listener is present.
-   *
-   * Cannot use hooks for this because `removeAllListeners()` in rettime
-   * also removes hooks listeners, breaking lazy registration across tests.
-   */
-  destination.hooks.on(
+  options.from.hooks.on(
     'newListener',
     (type) => {
-      if (
-        type === 'response' &&
-        !source.listeners('response').includes(propagateEvent)
-      ) {
-        source.on('response', propagateEvent, { signal: controller.signal })
-      }
-    },
-    { signal: controller.signal }
-  )
-
-  destination.hooks.on(
-    'removeListener',
-    (type) => {
-      if (
-        type === 'response' &&
-        source.listeners('response').includes(propagateEvent)
-      ) {
-        source.removeListener('response', propagateEvent)
+      if (!options.to.listeners(type).includes(propagateEvent)) {
+        options.to.on(type, propagateEvent, { signal: controller.signal })
       }
     },
     {
+      persist: true,
       signal: controller.signal,
     }
   )
 
-  return {
-    controller,
+  options.from.hooks.on(
+    'removeListener',
+    (type) => {
+      if (options.from.listenerCount(type) === 1) {
+        options.to.removeListener(type, propagateEvent)
+      }
+    },
+    {
+      persist: true,
+      signal: controller.signal,
+    }
+  )
+
+  return () => {
+    controller.abort()
   }
 }

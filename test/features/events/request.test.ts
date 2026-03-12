@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import http from 'node:http'
 import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
-import { BatchInterceptor } from '#/src/BatchInterceptor'
-import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
+import { BatchInterceptor } from '@mswjs/interceptors'
+import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 import { RequestController } from '#/src/RequestController'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 import { getTestServer } from '#/test/setup/vitest'
@@ -11,7 +12,11 @@ import { getTestServer } from '#/test/setup/vitest'
 const server = getTestServer()
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',
-  interceptors: [new HttpRequestInterceptor(), new XMLHttpRequestInterceptor()],
+  interceptors: [
+    new ClientRequestInterceptor(),
+    new XMLHttpRequestInterceptor(),
+    new FetchInterceptor(),
+  ],
 })
 
 beforeAll(() => {
@@ -55,24 +60,9 @@ it('ClientRequest: emits the "request" event upon the request', async () => {
   expect.soft(requestId).toMatch(REQUEST_ID_REGEXP)
 })
 
-it.only('XMLHttpRequest: emits the "request" event upon the request (no CORS)', async () => {
+it('XMLHttpRequest: emits the "request" event upon the request (no CORS)', async () => {
   const requestListener = vi.fn()
   interceptor.on('request', requestListener)
-
-  /**
-   * @fixme Since both HttpRequestInterceptor and XMLHttpRequestInterceptor are used simultaneously,
-   * they produce DOUBLE events:
-   * - HTTP fires "request"
-   * - XHR *also* fires "request" (modified).
-   *
-   * This should be fixable if interceptors emit actual EVENTS and the upstream interceptors (e.g. XHR)
-   * can just call "event.preventImmediatePropagation()" for the underlying HTTP interceptor.
-   */
-  throw new Error('READ THE COMMENT ABOVE THIS ERROR')
-
-  // interceptor.on('request', ({ request }) => {
-  //   console.trace(request.method, request.url)
-  // })
 
   const url = server.http.url('/user')
   const request = new XMLHttpRequest()

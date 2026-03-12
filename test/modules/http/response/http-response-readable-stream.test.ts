@@ -398,7 +398,7 @@ it('treats unhandled exceptions during bypass response stream as response errors
   )
 })
 
-it('treats unhandled exceptions during mock response stream as response errors', async () => {
+it.only('treats unhandled exceptions during mock response stream as response errors', async () => {
   interceptor.on('request', ({ controller }) => {
     const stream = new ReadableStream({
       start(controller) {
