@@ -10,7 +10,7 @@ import type { ReadableStream } from 'node:stream/web'
 import { pipeline } from 'node:stream/promises'
 import { invariant } from 'outvariant'
 import { Interceptor } from '../../Interceptor'
-import { type HttpRequestEventMap } from '../../glossary'
+import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
 import { RequestController } from '../../RequestController'
 import {
   getRawFetchHeaders,
@@ -21,7 +21,6 @@ import { connectionOptionsToUrl } from '../net/utils/connection-options-to-url'
 import { toBuffer } from '../../utils/bufferUtils'
 import { createRequestId } from '../../createRequestId'
 import { HttpRequestParser, HttpResponseParser } from './http-parser'
-import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest, HandleRequestOptions } from '../../utils/handleRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { createLogger } from '../../utils/logger'
@@ -111,6 +110,15 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     url: request.url,
                   })
 
+                  /**
+                   * @note Clone the response before "respondWith" because it will
+                   * consume its body. This way, we can have a readable response copy
+                   * for the "response" event below.
+                   */
+                  const responseClone = isResponseError(response)
+                    ? null
+                    : response.clone()
+
                   const respond = () => {
                     return this.respondWith({
                       socket: socketController[kRawSocket],
@@ -131,24 +139,16 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     await respond()
                   }
 
-                  if (
-                    this.emitter.listenerCount('response') > 0 &&
-                    /**
-                     * @note The "response" event is designed to observe responses.
-                     * While a mocked "Response.error()" is, technically, a response,
-                     * it must not emit the "response" event as it's treated as a request error.
-                     */
-                    !isResponseError(response)
-                  ) {
-                    const responseClone = response.clone()
-
-                    await emitAsync(this.emitter, 'response', {
-                      initiator,
-                      requestId,
-                      request: context.request,
-                      response: responseClone,
-                      isMockedResponse: true,
-                    })
+                  if (responseClone) {
+                    await this.emitter.emitAsPromise(
+                      new HttpResponseEvent({
+                        initiator,
+                        requestId,
+                        request: context.request,
+                        response: responseClone,
+                        responseType: 'mock',
+                      })
+                    )
                   }
                 },
                 errorWith: (reason) => {
@@ -195,13 +195,15 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                         FetchResponse.setUrl(request.url, response)
 
                         log('emitting "response" event...')
-                        await emitAsync(this.emitter, 'response', {
-                          initiator,
-                          requestId,
-                          request: context.request,
-                          response,
-                          isMockedResponse: false,
-                        })
+                        await this.emitter.emitAsPromise(
+                          new HttpResponseEvent({
+                            initiator,
+                            requestId,
+                            request: context.request,
+                            response,
+                            responseType: 'original',
+                          })
+                        )
 
                         log('resuming socket...')
                         mockSocket.resume()

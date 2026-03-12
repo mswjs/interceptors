@@ -40,7 +40,7 @@ afterAll(async () => {
 
 it('intercepts an HTTP HEAD request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -70,7 +70,7 @@ it('intercepts an HTTP HEAD request', async () => {
 
 it('intercepts an HTTP GET request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -99,7 +99,7 @@ it('intercepts an HTTP GET request', async () => {
 
 it('intercepts an HTTP POST request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -132,7 +132,7 @@ it('intercepts an HTTP POST request', async () => {
 
 it('intercepts an HTTP PUT request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -165,7 +165,7 @@ it('intercepts an HTTP PUT request', async () => {
 
 it('intercepts an HTTP DELETE request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -197,7 +197,7 @@ it('intercepts an HTTP DELETE request', async () => {
 
 it('intercepts an HTTP PATCH request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -230,7 +230,7 @@ it('intercepts an HTTP PATCH request', async () => {
 
 it('intercepts an HTTPS HEAD request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -262,7 +262,7 @@ it('intercepts an HTTPS HEAD request', async () => {
 
 it('intercepts an HTTPS GET request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -293,7 +293,7 @@ it('intercepts an HTTPS GET request', async () => {
 
 it('intercepts an HTTPS POST request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -327,7 +327,7 @@ it('intercepts an HTTPS POST request', async () => {
 
 it('intercepts an HTTPS PUT request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -360,7 +360,7 @@ it('intercepts an HTTPS PUT request', async () => {
 
 it('intercepts an HTTPS DELETE request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({
@@ -392,7 +392,7 @@ it('intercepts an HTTPS DELETE request', async () => {
 
 it('intercepts an HTTPS PATCH request', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({

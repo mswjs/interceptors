@@ -1,10 +1,11 @@
-export * from './glossary'
 export * from './Interceptor'
 export * from './BatchInterceptor'
 export {
   RequestController,
   type RequestControllerSource,
 } from './RequestController'
+export type { HttpRequestEventMap } from './events/http'
+export type { WebSocketEventMap } from './events/websocket'
 
 /* Utils */
 export { createRequestId } from './createRequestId'

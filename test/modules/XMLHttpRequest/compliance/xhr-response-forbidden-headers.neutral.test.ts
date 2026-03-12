@@ -27,6 +27,5 @@ it('does not propagate the forbidden "cookie" header on the bypassed response', 
 
   await waitForXMLHttpRequest(request)
 
-  console.log(request.getAllResponseHeaders())
   expect(request.getAllResponseHeaders()).not.toMatch(/cookie/)
 })

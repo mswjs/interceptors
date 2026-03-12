@@ -32,7 +32,7 @@ afterAll(async () => {
 it('intercepts an HTTP ClientRequest request with request options', async () => {
   const url = new URL(httpServer.http.url('/user?id=123'))
   const requestListener =
-    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+    vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
   interceptor.on('request', requestListener)
 
@@ -71,7 +71,7 @@ it('intercepts an HTTP ClientRequest request with request options', async () => 
 it('intercepts an HTTP ClientRequest request with URL string', async () => {
   const url = httpServer.http.url('/user?id=123')
   const requestListener =
-    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+    vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
   interceptor.on('request', requestListener)
   const req = new http.ClientRequest(url)
@@ -101,7 +101,7 @@ it('intercepts an HTTP ClientRequest request with URL string', async () => {
 it('intercepts an HTTP ClientRequest request with URL instance', async () => {
   const url = new URL(httpServer.http.url('/user?id=123'))
   const requestListener =
-    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+    vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
   interceptor.on('request', requestListener)
   const req = new http.ClientRequest(url)
@@ -131,7 +131,7 @@ it('intercepts an HTTP ClientRequest request with URL instance', async () => {
 it('intercepts an HTTPS ClientRequest request with URL string', async () => {
   const url = httpServer.https.url('/user?id=123')
   const requestListener =
-    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+    vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
   interceptor.on('request', requestListener)
   const req = new http.ClientRequest(url, {
@@ -164,7 +164,7 @@ it('intercepts an HTTPS ClientRequest request with URL string', async () => {
 it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
   const url = new URL(httpServer.https.url('/user?id=123'))
   const requestListener =
-    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+    vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
   interceptor.on('request', requestListener)
   const req = new http.ClientRequest(url, {
@@ -197,7 +197,7 @@ it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
 it('intercepts an HTTPS ClientRequest request with request options', async () => {
   const url = new URL(httpServer.https.url('/user?id=123'))
   const requestListener =
-    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+    vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
   interceptor.on('request', requestListener)
   const req = new http.ClientRequest({

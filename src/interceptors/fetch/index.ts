@@ -1,9 +1,8 @@
 import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpRequestEventMap } from '../../glossary'
+import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
 import { Interceptor } from '../../Interceptor'
 import { RequestController } from '../../RequestController'
-import { emitAsync } from '../../utils/emitAsync'
 import { handleRequest } from '../../utils/handleRequest'
 import { canParseUrl } from '../../utils/canParseUrl'
 import { createRequestId } from '../../createRequestId'
@@ -76,13 +75,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 this.logger.info('emitting the "response" event...')
 
                 const responseClone = originalResponse.clone()
-                await emitAsync(this.emitter, 'response', {
-                  initiator: requestCloneForResponseEvent,
-                  response: responseClone,
-                  isMockedResponse: false,
-                  request: requestCloneForResponseEvent,
-                  requestId,
-                })
+                await this.emitter.emitAsPromise(
+                  new HttpResponseEvent({
+                    initiator: requestCloneForResponseEvent,
+                    request: requestCloneForResponseEvent,
+                    requestId,
+                    response: responseClone,
+                    responseType: 'original',
+                  })
+                )
               }
 
               // Resolve the response promise with the original response
@@ -152,16 +153,18 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 // Await the response listeners to finish before resolving
                 // the response promise. This ensures all your logic finishes
                 // before the interceptor resolves the pending response.
-                await emitAsync(this.emitter, 'response', {
-                  initiator: request,
-                  // Clone the mocked response for the "response" event listener.
-                  // This way, the listener can read the response and not lock its body
-                  // for the actual fetch consumer.
-                  response: response.clone(),
-                  isMockedResponse: true,
-                  request,
-                  requestId,
-                })
+                await this.emitter.emitAsPromise(
+                  new HttpResponseEvent({
+                    initiator: request,
+                    // Clone the mocked response for the "response" event listener.
+                    // This way, the listener can read the response and not lock its body
+                    // for the actual fetch consumer.
+                    response: response.clone(),
+                    responseType: 'mock',
+                    request,
+                    requestId,
+                  })
+                )
               }
 
               responsePromise.resolve(response)

@@ -2,44 +2,34 @@
 /**
  * @see https://github.com/mswjs/msw/issues/2307
  */
-import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 import { FetchResponse } from '#/src/utils/fetchUtils'
-import { useCors } from '#/test/helpers'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
+import { getTestServer } from '#/test/setup/vitest'
 
+const server = getTestServer()
 const interceptor = new XMLHttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.use(useCors)
-  app.get('/resource', (_req, res) => {
-    res.writeHead(101, 'Switching Protocols')
-    res.end()
-  })
-})
-
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
-  await httpServer.listen()
 })
 
 afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
-  await httpServer.close()
 })
 
 it('handles non-configurable responses from the actual server', async () => {
   const responseListener = vi.fn()
   interceptor.on('response', responseListener)
 
-  const url = httpServer.http.url('/resource')
+  const url = server.http.url('/status')
   const request = new XMLHttpRequest()
-  request.open('GET', url)
-  request.send()
+  request.open('POST', url)
+  request.send('101')
 
   await waitForXMLHttpRequest(request)
 
@@ -47,20 +37,22 @@ it('handles non-configurable responses from the actual server', async () => {
   expect.soft(request.statusText).toBe('Switching Protocols')
   expect.soft(request.responseText).toBe('')
 
+  expect(responseListener).toHaveBeenCalledTimes(2)
+
   // Preflight response.
   {
     const [{ request, response }] = responseListener.mock.calls[0]
 
     expect.soft(request.method).toBe('OPTIONS')
-    expect.soft(request.url).toBe(url)
-    expect.soft(response.status).toBe(204)
+    expect.soft(request.url).toBe(url.href)
+    expect.soft(response.status).toBe(200)
   }
 
   {
     const [{ request, response }] = responseListener.mock.calls[1]
 
-    expect.soft(request.method).toBe('GET')
-    expect.soft(request.url).toBe(url)
+    expect.soft(request.method).toBe('POST')
+    expect.soft(request.url).toBe(url.href)
     expect.soft(response.status).toBe(101)
   }
 })

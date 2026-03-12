@@ -1,6 +1,7 @@
 import { until } from '@open-draft/until'
 import { invariant } from 'outvariant'
 import type { Logger } from '@open-draft/logger'
+import type { HttpResponseType } from '../../events/http'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { createEvent } from './utils/createEvent'
 import {
@@ -39,7 +40,7 @@ export class XMLHttpRequestController {
     this: XMLHttpRequestController,
     args: {
       response: Response
-      isMockedResponse: boolean
+      responseType: HttpResponseType
       request: Request
       requestId: string
     }
@@ -150,7 +151,7 @@ export class XMLHttpRequestController {
                 // Notify the consumer about the response.
                 this.onResponse.call(this, {
                   response: fetchResponse,
-                  isMockedResponse: this[kIsRequestHandled],
+                  responseType: this[kIsRequestHandled] ? 'mock' : 'original',
                   request: fetchRequest,
                   requestId: this.requestId!,
                 })

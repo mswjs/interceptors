@@ -1,5 +1,5 @@
 import { Logger } from '@open-draft/logger'
-import { Emitter, Listener } from 'strict-event-emitter'
+import { Emitter, TypedListenerOptions } from 'rettime'
 
 export type InterceptorEventMap = Record<string, any>
 export type InterceptorSubscription = () => void
@@ -39,9 +39,6 @@ export enum InterceptorReadyState {
   DISPOSED = 'DISPOSED',
 }
 
-export type ExtractEventNames<Events extends Record<string, any>> =
-  Events extends Record<infer EventName, any> ? EventName : never
-
 export class Interceptor<Events extends InterceptorEventMap> {
   protected emitter: Emitter<Events>
   protected subscriptions: Array<InterceptorSubscription>
@@ -55,10 +52,6 @@ export class Interceptor<Events extends InterceptorEventMap> {
     this.emitter = new Emitter()
     this.subscriptions = []
     this.logger = new Logger(symbol.description!)
-
-    // Do not limit the maximum number of listeners
-    // so not to limit the maximum amount of parallel events emitted.
-    this.emitter.setMaxListeners(0)
 
     this.logger.info('constructing the interceptor...')
   }
@@ -107,7 +100,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
         // Add listeners to the running instance so they appear
         // at the top of the event listeners list and are executed first.
-        runningInstance.emitter.addListener(event, listener)
+        runningInstance.emitter.on(event, listener)
 
         // Ensure that once this interceptor instance is disposed,
         // it removes all listeners it has appended to the running interceptor instance.
@@ -145,9 +138,10 @@ export class Interceptor<Events extends InterceptorEventMap> {
   /**
    * Listen to the interceptor's public events.
    */
-  public on<EventName extends ExtractEventNames<Events>>(
-    event: EventName,
-    listener: Listener<Events[EventName]>
+  public on<EventType extends Emitter.AllEventTypes<typeof this.emitter>>(
+    event: EventType,
+    listener: Emitter.Listener<typeof this.emitter, EventType>,
+    options?: TypedListenerOptions
   ): this {
     const logger = this.logger.extend('on')
 
@@ -161,29 +155,32 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
     logger.info('adding "%s" event listener:', event, listener)
 
-    this.emitter.on(event, listener)
+    this.emitter.on(event, listener, options)
     return this
   }
 
-  public once<EventName extends ExtractEventNames<Events>>(
-    event: EventName,
-    listener: Listener<Events[EventName]>
+  public once<EventType extends Emitter.AllEventTypes<typeof this.emitter>>(
+    event: EventType,
+    listener: Emitter.Listener<typeof this.emitter, EventType>,
+    options: Omit<TypedListenerOptions, 'once'>
   ): this {
-    this.emitter.once(event, listener)
+    this.emitter.once(event, listener, options)
     return this
   }
 
-  public off<EventName extends ExtractEventNames<Events>>(
-    event: EventName,
-    listener: Listener<Events[EventName]>
+  public removeListener<
+    EventType extends Emitter.AllEventTypes<typeof this.emitter>,
+  >(
+    event: EventType,
+    listener: Emitter.Listener<typeof this.emitter, EventType>
   ): this {
-    this.emitter.off(event, listener)
+    this.emitter.removeListener(event, listener)
     return this
   }
 
-  public removeAllListeners<EventName extends ExtractEventNames<Events>>(
-    event?: EventName
-  ): this {
+  public removeAllListeners<
+    EventType extends Emitter.AllEventTypes<typeof this.emitter>,
+  >(event?: EventType): this {
     this.emitter.removeAllListeners(event)
     return this
   }

@@ -1,10 +1,11 @@
 import http from 'node:http'
 import https from 'node:https'
-import { HttpRequestEventMap } from '#/src/glossary'
+import { HttpRequestEventMap } from '#/src/events/http'
 import { Interceptor } from '#/src/Interceptor'
 import { runInRequestContext } from '#/src/request-context'
 import { applyPatch } from '#/src/utils/apply-patch'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { propagateHttpEvents } from '#/src/utils/interceptor-utils'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('client-request-interceptor')
@@ -19,17 +20,14 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     httpInterceptor.apply()
     this.subscriptions.push(() => httpInterceptor.dispose())
 
-    httpInterceptor
-      .on('request', (args) => {
-        if (args.initiator instanceof http.ClientRequest) {
-          this.emitter.emit('request', args)
-        }
-      })
-      .on('response', (args) => {
-        if (args.initiator instanceof http.ClientRequest) {
-          this.emitter.emit('response', args)
-        }
-      })
+    const { controller } = propagateHttpEvents(
+      httpInterceptor['emitter'],
+      this.emitter,
+      (event) => {
+        return event.initiator instanceof http.ClientRequest
+      }
+    )
+    this.subscriptions.push(() => controller.abort())
 
     this.subscriptions.push(
       applyPatch(http, 'ClientRequest', (ClientRequest) => {

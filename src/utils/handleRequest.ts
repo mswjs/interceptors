@@ -1,8 +1,12 @@
-import type { Emitter } from 'strict-event-emitter'
+import type { Emitter } from 'rettime'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
-import type { HttpRequestEventMap } from '../glossary'
-import { emitAsync } from './emitAsync'
+import {
+  HttpRequestEvent,
+  HttpRequestEventData,
+  UnhandledHttpException,
+  type HttpRequestEventMap,
+} from '../events/http'
 import { RequestController } from '../RequestController'
 import {
   createServerErrorResponse,
@@ -103,16 +107,15 @@ export async function handleRequest(
     // for that event are finished (e.g. async listeners awaited).
     // By the end of this promise, the developer cannot affect the
     // request anymore.
-    const requestArgs = {
+    const requestEventData: HttpRequestEventData = {
       initiator: options.initiator,
       requestId: options.requestId,
       request: options.request,
       controller: options.controller,
     }
-    const requestListenersPromise = emitAsync(
-      options.emitter,
-      'request',
-      requestArgs
+    const requestEvent = new HttpRequestEvent(requestEventData)
+    const requestListenersPromise = options.emitter.emitAsPromise(
+      requestEvent
     )
 
     await Promise.race([
@@ -128,8 +131,8 @@ export async function handleRequest(
      * This happens with XMLHttpRequest that replaces request instances
      * to correctly reflect the "withCredentials" option on the Fetch API request.
      */
-    if (requestArgs.request !== options.request) {
-      options.request = requestArgs.request
+    if (requestEvent.request !== options.request) {
+      options.request = requestEvent.request
     }
   })
 
@@ -149,6 +152,7 @@ export async function handleRequest(
     // If the developer has added "unhandledException" listeners,
     // allow them to handle the error. They can translate it to a
     // mocked response, network error, or forward it as-is.
+    console.log('[DEBUG handleRequest] unhandledException listenerCount:', options.emitter.listenerCount('unhandledException'))
     if (options.emitter.listenerCount('unhandledException') > 0) {
       // Create a new request controller just for the unhandled exception case.
       // This is needed because the original controller might have been already
@@ -178,13 +182,15 @@ export async function handleRequest(
         }
       )
 
-      await emitAsync(options.emitter, 'unhandledException', {
-        initiator: options.initiator,
-        error: result.error,
-        request: options.request,
-        requestId: options.requestId,
-        controller: unhandledExceptionController,
-      })
+      await options.emitter.emitAsPromise(
+        new UnhandledHttpException({
+          initiator: options.initiator,
+          error: result.error,
+          request: options.request,
+          requestId: options.requestId,
+          controller: unhandledExceptionController,
+        })
+      )
 
       // If all the "unhandledException" listeners have finished
       // but have not handled the request in any way, passthrough.

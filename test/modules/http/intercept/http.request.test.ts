@@ -3,7 +3,7 @@ import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
 import type { RequestHandler } from 'express'
 import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
-import { HttpRequestEventMap } from '#/src/glossary'
+import { HttpRequestEventMap } from '#/src/events/http'
 import { RequestController } from '#/src/RequestController'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
@@ -18,7 +18,7 @@ const httpServer = new HttpServer((app) => {
   app.head('/user', handleUserRequest)
 })
 
-const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+const resolver = vi.fn<(event: HttpRequestEventMap['request']) => void>()
 const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 

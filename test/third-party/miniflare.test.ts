@@ -8,7 +8,7 @@ import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new BatchInterceptor({
-  name: 'setup-server',
+  name: 'interceptor',
   interceptors: [
     new HttpRequestInterceptor(),
     new XMLHttpRequestInterceptor(),
@@ -22,24 +22,23 @@ beforeAll(() => {
 
 afterEach(() => {
   interceptor.removeAllListeners()
-  vi.clearAllMocks()
 })
 
 afterAll(() => {
   interceptor.dispose()
 })
 
-test('responds to fetch', async () => {
+it('responds to fetch', async () => {
   interceptor.once('request', ({ controller }) => {
     controller.respondWith(new Response('mocked-body'))
   })
 
   const response = await fetch('https://any.host.here/')
   expect(response.status).toEqual(200)
-  expect(await response.text()).toEqual('mocked-body')
+  await expect(response.text()).resolves.toEqual('mocked-body')
 })
 
-test('responds to http.get', async () => {
+it('responds to http.get', async () => {
   interceptor.once('request', ({ controller }) => {
     controller.respondWith(new Response('mocked-body'))
   })
@@ -48,7 +47,7 @@ test('responds to http.get', async () => {
   await expect(response.text()).resolves.toEqual('mocked-body')
 })
 
-test('responds to https.get', async () => {
+it('responds to https.get', async () => {
   interceptor.once('request', ({ controller }) => {
     controller.respondWith(new Response('mocked-body'))
   })
@@ -57,7 +56,7 @@ test('responds to https.get', async () => {
   await expect(response.text()).resolves.toEqual('mocked-body')
 })
 
-test('throws when responding with a network error', async () => {
+it('throws when responding with a network error', async () => {
   interceptor.once('request', ({ controller }) => {
     /**
      * @note "Response.error()" static method is NOT implemented in Miniflare.

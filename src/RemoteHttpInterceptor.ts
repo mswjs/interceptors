@@ -1,5 +1,5 @@
 import { ChildProcess } from 'child_process'
-import { HttpRequestEventMap } from './glossary'
+import { HttpRequestEventMap, HttpResponseEvent } from './events/http'
 import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
@@ -202,20 +202,22 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
           this.process.send(
             `response:${requestJson.id}:${serializedResponse}`,
-            (error) => {
+            async (error) => {
               if (error) {
                 return
               }
 
               // Emit an optimistic "response" event at this point,
               // not to rely on the back-and-forth signaling for the sake of the event.
-              this.emitter.emit('response', {
-                initiator: null,
-                request,
-                requestId: requestJson.id,
-                response: responseClone,
-                isMockedResponse: true,
-              })
+              await this.emitter.emitAsPromise(
+                new HttpResponseEvent({
+                  initiator: null,
+                  request,
+                  requestId: requestJson.id,
+                  response: responseClone,
+                  responseType: 'mock',
+                })
+              )
             }
           )
 

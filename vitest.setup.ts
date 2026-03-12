@@ -1,11 +1,16 @@
 import { Readable } from 'node:stream'
 import { setTimeout } from 'node:timers/promises'
 import { TestProject } from 'vitest/node'
+import * as express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { useCors } from './test/helpers'
 
 const server = new HttpServer((app) => {
   app.use(useCors)
+
+  app.post('/status', express.text(), (req, res) => {
+    res.writeHead(req.body).end()
+  })
 
   app.get('/redirect', (req, res) => {
     const baseUrl = new URL(

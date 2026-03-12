@@ -1,11 +1,11 @@
 import { Interceptor } from '#/src/Interceptor'
-import { HttpRequestEventMap } from '#/src/glossary'
+import type { HttpRequestEventMap } from '#/src/events/http'
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
 import { canParseUrl } from '#/src/utils/canParseUrl'
 import { requestContext } from '#/src/request-context'
 import { applyPatch } from '#/src/utils/apply-patch'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { emitAsync } from '#/src/utils/emitAsync'
+import { propagateHttpEvents } from '#/src/utils/interceptor-utils'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
@@ -24,22 +24,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     httpInterceptor.apply()
     this.subscriptions.push(() => httpInterceptor.dispose())
 
-    httpInterceptor
-      .on('request', async (args) => {
-        if (args.initiator instanceof Request) {
-          await emitAsync(this.emitter, 'request', args)
-        }
-      })
-      .on('response', async (args) => {
-        if (args.initiator instanceof Request) {
-          await emitAsync(this.emitter, 'response', args)
-        }
-      })
-      .on('unhandledException', async (args) => {
-        if (args.initiator instanceof Request) {
-          await emitAsync(this.emitter, 'unhandledException', args)
-        }
-      })
+    const { controller } = propagateHttpEvents(
+      httpInterceptor['emitter'],
+      this.emitter,
+      (event) => {
+        return event.initiator instanceof Request
+      }
+    )
+    this.subscriptions.push(() => controller.abort())
 
     this.subscriptions.push(
       applyPatch(globalThis, 'fetch', (realFetch) => {

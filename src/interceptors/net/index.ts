@@ -9,15 +9,32 @@ import { TcpSocketController, TlsSocketController } from './socket-controller'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
 import { createLogger } from '../../utils/logger'
 import { applyPatch } from '../../utils/apply-patch'
+import { TypedEvent } from 'rettime'
 
-interface SocketEventMap {
-  connection: [
-    {
-      socket: net.Socket | tls.TLSSocket
-      controller: TcpSocketController | TlsSocketController
-      connectionOptions: NetworkConnectionOptions
-    },
-  ]
+interface SocketConnectionEventData {
+  socket: net.Socket | tls.TLSSocket
+  connectionOptions: NetworkConnectionOptions
+  controller: TcpSocketController | TlsSocketController
+}
+
+class SocketConnectionEvent<
+  DataType extends SocketConnectionEventData = SocketConnectionEventData,
+> extends TypedEvent<DataType, void, 'connection'> {
+  public socket: net.Socket | tls.TLSSocket
+  public connectionOptions: NetworkConnectionOptions
+  public controller: TcpSocketController | TlsSocketController
+
+  constructor(data: DataType) {
+    super(...(['connection', {}] as any))
+
+    this.socket = data.socket
+    this.connectionOptions = data.connectionOptions
+    this.controller = data.controller
+  }
+}
+
+type SocketEventMap = {
+  connection: SocketConnectionEvent
 }
 
 const log = createLogger('SocketInterceptor')
@@ -47,11 +64,13 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
           process.nextTick(() => {
             if (
-              !this.emitter.emit('connection', {
-                socket: controller.serverSocket,
-                controller,
-                connectionOptions,
-              })
+              !this.emitter.emit(
+                new SocketConnectionEvent({
+                  socket: controller.serverSocket,
+                  controller,
+                  connectionOptions,
+                })
+              )
             ) {
               log(
                 'no "connection" listeners found on the interceptor, passthrough...'
@@ -115,11 +134,13 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
           process.nextTick(() => {
             if (
-              !this.emitter.emit('connection', {
-                socket: controller.serverSocket,
-                controller,
-                connectionOptions: tlsConnectionOptions,
-              })
+              !this.emitter.emit(
+                new SocketConnectionEvent({
+                  socket: controller.serverSocket,
+                  controller,
+                  connectionOptions: tlsConnectionOptions,
+                })
+              )
             ) {
               log(
                 'no "connection" listeners found on the interceptor, passthrough...'

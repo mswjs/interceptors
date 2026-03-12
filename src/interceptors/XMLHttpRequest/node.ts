@@ -2,10 +2,10 @@ import { requestContext } from '#/src/request-context'
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
 import { applyPatch } from '#/src/utils/apply-patch'
 import { Interceptor } from '#/src/Interceptor'
-import { HttpRequestEventMap } from '#/src/glossary'
+import { HttpRequestEventMap } from '../../events/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { emitAsync } from '#/src/utils/emitAsync'
 import { FetchRequest } from '#/src/utils/fetchUtils'
+import { propagateHttpEvents } from '#/src/utils/interceptor-utils'
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('xhr-interceptor')
@@ -24,24 +24,23 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     httpInterceptor.apply()
     this.subscriptions.push(() => httpInterceptor.dispose())
 
-    httpInterceptor
-      .on('request', async (args) => {
-        if (args.initiator instanceof XMLHttpRequest) {
-          args.request = this.#transformRequest(args.request, args.initiator)
-          await emitAsync(this.emitter, 'request', args)
+    this.emitter.hooks.on('beforeEmit', (event) => {
+      event.modify = true
+    })
+
+    const { controller } = propagateHttpEvents(
+      httpInterceptor['emitter'],
+      this.emitter,
+      (event) => {
+        if (event.initiator instanceof XMLHttpRequest) {
+          event.request = this.#transformRequest(event.request, event.initiator)
+          return true
         }
-      })
-      .on('response', async (args) => {
-        if (args.initiator instanceof XMLHttpRequest) {
-          args.request = this.#transformRequest(args.request, args.initiator)
-          await emitAsync(this.emitter, 'response', args)
-        }
-      })
-      .on('unhandledException', async (args) => {
-        if (args.initiator instanceof XMLHttpRequest) {
-          await emitAsync(this.emitter, 'unhandledException', args)
-        }
-      })
+
+        return false
+      }
+    )
+    this.subscriptions.push(() => controller.abort())
 
     this.logger.info('patching global "XMLHttpRequest"...')
 

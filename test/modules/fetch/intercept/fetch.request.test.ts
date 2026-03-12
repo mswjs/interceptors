@@ -29,7 +29,7 @@ afterAll(async () => {
 
 it('intercepts fetch requests constructed via a "Request" instance', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({

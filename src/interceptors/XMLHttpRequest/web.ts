@@ -1,11 +1,8 @@
-import { Emitter } from 'strict-event-emitter'
-import { HttpRequestEventMap } from '../../glossary'
+import { HttpRequestEventMap } from '../../events/http'
 import { Interceptor } from '../../Interceptor'
 import { createXMLHttpRequestProxy } from './XMLHttpRequestProxy'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { applyPatch } from '../../utils/apply-patch'
-
-export type XMLHttpRequestEmitter = Emitter<HttpRequestEventMap>
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static interceptorSymbol = Symbol.for('xhr-interceptor')

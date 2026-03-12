@@ -39,7 +39,7 @@ afterAll(async () => {
 
 it('intercepts a bypassed request with a 204 response', async () => {
   const responseListener =
-    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
+    vi.fn<(event: HttpRequestEventMap['response']) => void>()
   interceptor.on('response', responseListener)
 
   const url = httpServer.http.url('/204')
@@ -88,7 +88,7 @@ it('intercepts a bypassed request with a 204 response', async () => {
 
 it('intercepts a bypassed request with a 202 response', async () => {
   const responseListener =
-    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
+    vi.fn<(event: HttpRequestEventMap['response']) => void>()
   interceptor.on('response', responseListener)
 
   const url = httpServer.http.url('/205')
@@ -148,7 +148,7 @@ it('intercepts a bypassed request with a 202 response', async () => {
 
 it('exposes a fetch api reference for a 304 response without body', async () => {
   const responseListener =
-    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
+    vi.fn<(event: HttpRequestEventMap['response']) => void>()
   interceptor.on('response', responseListener)
 
   const url = httpServer.http.url('/cacheable')

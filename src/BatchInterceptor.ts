@@ -1,20 +1,21 @@
-import { EventMap, Listener } from 'strict-event-emitter'
-import { Interceptor, ExtractEventNames } from './Interceptor'
+import { DefaultEventMap, Emitter, TypedListenerOptions } from 'rettime'
+import { Interceptor } from './Interceptor'
 
 export interface BatchInterceptorOptions<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>
+  InterceptorList extends ReadonlyArray<Interceptor<any>>,
 > {
   name: string
   interceptors: InterceptorList
 }
 
 export type ExtractEventMapType<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>
-> = InterceptorList extends ReadonlyArray<infer InterceptorType>
-  ? InterceptorType extends Interceptor<infer EventMap>
-    ? EventMap
+  InterceptorList extends ReadonlyArray<Interceptor<any>>,
+> =
+  InterceptorList extends ReadonlyArray<infer InterceptorType>
+    ? InterceptorType extends Interceptor<infer EventMap>
+      ? EventMap
+      : never
     : never
-  : never
 
 /**
  * A batch interceptor that exposes a single interface
@@ -22,14 +23,14 @@ export type ExtractEventMapType<
  */
 export class BatchInterceptor<
   InterceptorList extends ReadonlyArray<Interceptor<any>>,
-  Events extends EventMap = ExtractEventMapType<InterceptorList>
+  Events extends DefaultEventMap = ExtractEventMapType<InterceptorList>,
 > extends Interceptor<Events> {
   static symbol: symbol
 
   private interceptors: InterceptorList
 
   constructor(options: BatchInterceptorOptions<InterceptorList>) {
-    BatchInterceptor.symbol = Symbol(options.name)
+    BatchInterceptor.symbol = Symbol.for(options.name)
     super(BatchInterceptor.symbol)
     this.interceptors = options.interceptors
   }
@@ -48,44 +49,48 @@ export class BatchInterceptor<
     }
   }
 
-  public on<EventName extends ExtractEventNames<Events>>(
-    event: EventName,
-    listener: Listener<Events[EventName]>
+  public on<EventType extends Emitter.AllEventTypes<typeof this.emitter>>(
+    type: EventType,
+    listener: Emitter.Listener<typeof this.emitter, EventType>,
+    options?: TypedListenerOptions
   ): this {
     // Instead of adding a listener to the batch interceptor,
     // propagate the listener to each of the individual interceptors.
     for (const interceptor of this.interceptors) {
-      interceptor.on(event, listener)
+      interceptor.on(type, listener, options)
     }
 
     return this
   }
 
-  public once<EventName extends ExtractEventNames<Events>>(
-    event: EventName,
-    listener: Listener<Events[EventName]>
+  public once<EventType extends Emitter.AllEventTypes<typeof this.emitter>>(
+    event: EventType,
+    listener: Emitter.Listener<typeof this.emitter, EventType>,
+    options?: Omit<TypedListenerOptions, 'once'>
   ): this {
     for (const interceptor of this.interceptors) {
-      interceptor.once(event, listener)
+      interceptor.once(event, listener, options)
     }
 
     return this
   }
 
-  public off<EventName extends ExtractEventNames<Events>>(
-    event: EventName,
-    listener: Listener<Events[EventName]>
+  public removeListener<
+    EventType extends Emitter.AllEventTypes<typeof this.emitter>,
+  >(
+    event: EventType,
+    listener: Emitter.Listener<typeof this.emitter, EventType>
   ): this {
     for (const interceptor of this.interceptors) {
-      interceptor.off(event, listener)
+      interceptor.removeListener(event, listener)
     }
 
     return this
   }
 
-  public removeAllListeners<EventName extends ExtractEventNames<Events>>(
-    event?: EventName | undefined
-  ): this {
+  public removeAllListeners<
+    EventType extends Emitter.AllEventTypes<typeof this.emitter>,
+  >(event?: EventType | undefined): this {
     for (const interceptors of this.interceptors) {
       interceptors.removeAllListeners(event)
     }
