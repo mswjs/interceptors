@@ -1,4 +1,4 @@
-import { describe, vi, it, expect, afterEach } from 'vitest'
+import { TypedEvent } from 'rettime'
 import {
   Interceptor,
   getGlobalSymbol,
@@ -11,11 +11,6 @@ const symbol = Symbol('test')
 
 afterEach(() => {
   deleteGlobalSymbol(symbol)
-})
-
-it('does not set a maximum listeners limit', () => {
-  const interceptor = new Interceptor(symbol)
-  expect(interceptor['emitter'].getMaxListeners()).toBe(0)
 })
 
 describe('on()', () => {
@@ -37,15 +32,16 @@ describe('once()', () => {
     interceptor.once('foo', listener)
     expect(listener).not.toHaveBeenCalled()
 
-    interceptor['emitter'].emit('foo', 'bar')
+    const event = new TypedEvent('foo', { data: 'bar' })
+    interceptor['emitter'].emit(event)
 
     expect(listener).toHaveBeenCalledTimes(1)
-    expect(listener).toHaveBeenCalledWith('bar')
+    expect(listener).toHaveBeenCalledExactlyOnceWith(event)
 
     listener.mockReset()
 
-    interceptor['emitter'].emit('foo', 'baz')
-    interceptor['emitter'].emit('foo', 'xyz')
+    interceptor['emitter'].emit(new TypedEvent('foo', { data: 'baz' }))
+    interceptor['emitter'].emit(new TypedEvent('foo', { data: 'xyz' }))
     expect(listener).toHaveBeenCalledTimes(0)
   })
 })
@@ -59,7 +55,7 @@ describe('off()', () => {
     interceptor.on('event', listener)
     expect(interceptor['emitter'].listenerCount('event')).toBe(1)
 
-    interceptor.off('event', listener)
+    interceptor.removeListener('event', listener)
     expect(interceptor['emitter'].listenerCount('event')).toBe(0)
   })
 })
@@ -171,14 +167,11 @@ describe('apply', () => {
     secondInterceptor.on('test', secondListener)
 
     // Emitting event in the first interceptor will bubble to the second one.
-    firstInterceptor['emitter'].emit('test', 'hello world')
+    const event = new TypedEvent('test', { data: 'hello world' })
+    firstInterceptor['emitter'].emit(event)
 
-    expect(firstListener).toHaveBeenCalledTimes(1)
-    expect(firstListener).toHaveBeenCalledWith('hello world')
-
-    expect(secondListener).toHaveBeenCalledTimes(1)
-    expect(secondListener).toHaveBeenCalledWith('hello world')
-
+    expect(firstListener).toHaveBeenCalledExactlyOnceWith(event)
+    expect(secondListener).toHaveBeenCalledExactlyOnceWith(event)
     expect(secondInterceptor['emitter'].listenerCount('test')).toBe(0)
   })
 })

@@ -1,10 +1,9 @@
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpRequestEventMap } from '../../../../src'
-import { REQUEST_ID_REGEXP } from '../../../helpers'
-import { FetchInterceptor } from '../../../../src/interceptors/fetch'
-import { RequestController } from '../../../../src/RequestController'
+import { HttpRequestEventMap } from '#/src/index'
+import { REQUEST_ID_REGEXP } from '#/test/helpers'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
+import { RequestController } from '#/src/RequestController'
 
 const httpServer = new HttpServer((app) => {
   app.post('/user', (_req, res) => {
@@ -30,7 +29,7 @@ afterAll(async () => {
 
 it('intercepts fetch requests constructed via a "Request" instance', async () => {
   const requestListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['request'][0]
+    HttpRequestEventMap['request']
   >()
   interceptor.on('request', (args) => {
     requestListenerArgs.resolve({

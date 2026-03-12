@@ -1,8 +1,8 @@
 import { HttpServer } from '@open-draft/test-server/http'
 import { test, expect } from '../../../playwright.extend'
-import { compressResponse, useCors } from '../../../helpers'
-import { parseContentEncoding } from '../../../../src/interceptors/fetch/utils/decompression'
-import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+import { compressResponse, useCors } from '#/test/helpers'
+import { parseContentEncoding } from '#/src/interceptors/fetch/utils/decompression'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
 
 declare namespace window {
   const interceptor: FetchInterceptor

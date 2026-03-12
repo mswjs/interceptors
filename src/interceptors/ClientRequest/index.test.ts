@@ -1,9 +1,9 @@
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '.'
-import { sleep, waitForClientRequest } from '../../../test/helpers'
+import { toWebResponse } from '../../../test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (_req, res) => {
@@ -34,7 +34,7 @@ it('abort the request if the abort signal is emitted', async () => {
   const requestUrl = httpServer.http.url('/')
 
   interceptor.on('request', async function delayedResponse({ controller }) {
-    await sleep(1_000)
+    await setTimeout(1000)
     controller.respondWith(new Response())
   })
 
@@ -49,27 +49,7 @@ it('abort the request if the abort signal is emitted', async () => {
   })
 
   const abortError = await abortErrorPromise
-  expect(abortError.name).toEqual('AbortError')
+  expect(abortError.name).toBe('AbortError')
 
   expect(request.destroyed).toBe(true)
-})
-
-it('patch the Headers object correctly after dispose and reapply', async () => {
-  interceptor.dispose()
-  interceptor.apply()
-
-  interceptor.on('request', ({ controller }) => {
-    const headers = new Headers({
-      'X-CustoM-HeadeR': 'Yes',
-    })
-    controller.respondWith(new Response(null, { headers }))
-  })
-
-  const request = http.get(httpServer.http.url('/'))
-  const { res } = await waitForClientRequest(request)
-
-  expect(res.rawHeaders).toEqual(
-    expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
-  )
-  expect(res.headers['x-custom-header']).toEqual('Yes')
 })

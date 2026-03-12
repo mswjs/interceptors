@@ -1,12 +1,20 @@
 {
-  "main": "../lib/node/interceptors/XMLHttpRequest/index.cjs",
-  "module": "../lib/node/interceptors/XMLHttpRequest/index.mjs",
-  "browser": "../lib/browser/interceptors/XMLHttpRequest/index.mjs",
+  "main": "../lib/node/interceptors/XMLHttpRequest/node.cjs",
+  "module": "../lib/node/interceptors/XMLHttpRequest/node.mjs",
+  "browser": "../lib/browser/interceptors/XMLHttpRequest/web.mjs",
   "exports": {
     ".": {
-      "browser": "./../lib/browser/interceptors/XMLHttpRequest/index.mjs",
-      "import": "./../lib/node/interceptors/XMLHttpRequest/index.mjs",
-      "default": "./../lib/node/interceptors/XMLHttpRequest/index.cjs"
+      "browser": "./../lib/browser/interceptors/XMLHttpRequest/web.mjs",
+      "import": "./../lib/node/interceptors/XMLHttpRequest/node.mjs",
+      "default": "./../lib/node/interceptors/XMLHttpRequest/node.cjs"
+    },
+    "./node": {
+      "import": "./../lib/node/interceptors/XMLHttpRequest/node.mjs",
+      "default": "./../lib/node/interceptors/XMLHttpRequest/node.cjs"
+    },
+    "./web": {
+      "import": "./../lib/browser/interceptors/XMLHttpRequest/web.mjs",
+      "default": "./../lib/browser/interceptors/XMLHttpRequest/web.cjs"
     }
   }
 }

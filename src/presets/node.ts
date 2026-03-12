@@ -1,6 +1,6 @@
 import { ClientRequestInterceptor } from '../interceptors/ClientRequest'
-import { XMLHttpRequestInterceptor } from '../interceptors/XMLHttpRequest'
-import { FetchInterceptor } from '../interceptors/fetch'
+import { XMLHttpRequestInterceptor } from '../interceptors/XMLHttpRequest/node'
+import { FetchInterceptor } from '../interceptors/fetch/node'
 
 /**
  * The default preset provisions the interception of requests
