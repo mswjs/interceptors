@@ -38,9 +38,10 @@ it('emits the "error" event when a bypassed response is destroyed', async () => 
 
   const [, rawResponse] = await toWebResponse(request)
 
-  expect(rawResponse.destroyed).toBe(true)
-  expect(socketErrorListener).toHaveBeenCalledOnce()
-  expect(socketErrorListener).toHaveBeenCalledWith(new Error('reason'))
+  expect.soft(rawResponse.destroyed).toBe(true)
+  expect
+    .soft(socketErrorListener)
+    .toHaveBeenCalledExactlyOnceWith(new Error('reason'))
 })
 
 it('emits the "error" event when a mocked response is destroyed', async () => {
@@ -61,7 +62,8 @@ it('emits the "error" event when a mocked response is destroyed', async () => {
 
   const [, rawResponse] = await toWebResponse(request)
 
-  expect(rawResponse.destroyed).toBe(true)
-  expect(socketErrorListener).toHaveBeenCalledOnce()
-  expect(socketErrorListener).toHaveBeenCalledWith(new Error('reason'))
+  expect.soft(rawResponse.destroyed).toBe(true)
+  expect
+    .soft(socketErrorListener)
+    .toHaveBeenCalledExactlyOnceWith(new Error('reason'))
 })

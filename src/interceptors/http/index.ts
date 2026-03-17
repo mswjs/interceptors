@@ -1,5 +1,4 @@
 import net from 'node:net'
-import { Readable } from 'node:stream'
 import {
   METHODS,
   STATUS_CODES,
@@ -7,7 +6,6 @@ import {
   IncomingMessage,
 } from 'node:http'
 import type { ReadableStream } from 'node:stream/web'
-import { pipeline } from 'node:stream/promises'
 import { invariant } from 'outvariant'
 import { Interceptor } from '../../Interceptor'
 import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
@@ -297,18 +295,20 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     }
 
     responseSocket._destroy = (
-      _error: Error | null,
+      error: Error | null,
       callback: (error: Error | null) => void
     ) => {
       /**
-       * Destroy the socket if the response stream errored.
+       * Only destroy the socket on stream errors.
+       * On a clean end, the socket is already signaled via `socket.push(null)`
+       * in the main response flow. Destroying it here prematurely would prevent
+       * the client from processing the response (e.g. calling `response.destroy()`).
        * @see https://github.com/mswjs/interceptors/issues/738
-       *
-       * Response errors destroy the socket gracefully (no error).
-       * Instead, the "error" event is emitted with a more detailed error.
-       * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/_http_client.js#L586
        */
-      socket.destroy()
+      if (error) {
+        socket.destroy()
+      }
+
       callback(null)
     }
 
@@ -324,16 +324,79 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       rawResponseHeaders
     )
 
+    /**
+     * @note Override the socket's `_destroy` before writing the response body.
+     * The underlying TCP handle (from `socket.connect()`) makes `_destroy` async
+     * (`_handle.close()` callback), which delays the 'error' event. Since the real
+     * TCP connection is irrelevant for mocked responses, take the synchronous path
+     * so that user-initiated `response.destroy(error)` emits the error promptly.
+     * This must happen before `serverResponse.end()` because the HTTP parser may
+     * fire the 'response' event synchronously during `socket.push()`.
+     */
+    socket._destroy = function (
+      error: Error | null,
+      callback: (error: Error | null) => void
+    ) {
+      if (error) {
+        /**
+         * Emit the error event as a microtask instead of relying on the default
+         * `process.nextTick(emitErrorNT)` from `callback(error)`. This is necessary
+         * because `respondWith` runs inside a microtask (from `await reader.read()`).
+         * A resolved DeferredPromise continuation (from toWebResponse) is queued as
+         * another microtask during the same phase. Since microtasks are drained before
+         * nextTick, the test's `await` would resolve before the error event fires.
+         * Using `queueMicrotask` ensures the error event is emitted within the current
+         * microtask phase, before other queued microtasks.
+         */
+        queueMicrotask(() => this.emit('error', error))
+        callback(null)
+      } else {
+        callback(null)
+      }
+    }
+
     if (response.body) {
-      await pipeline(
-        Readable.fromWeb(response.body as ReadableStream),
-        serverResponse
-      )
+      const reader = response.body.getReader()
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+
+          if (done) {
+            serverResponse.end()
+            break
+          }
+
+          if (!serverResponse.write(value)) {
+            await new Promise<void>((resolve) => {
+              serverResponse.once('drain', resolve)
+            })
+          }
+        }
+      } catch {
+        /**
+         * @note Delay the socket destruction to allow the event loop
+         * to flush already-pushed response data (headers + body chunks)
+         * through the HTTP parser. Without this, the socket is destroyed
+         * on the same tick as `socket.push(data)` and the client never
+         * reads the response.
+         */
+        await new Promise<void>((resolve) => process.nextTick(resolve))
+        socket.destroy()
+        return
+      }
     } else {
       serverResponse.end()
     }
 
     if (request.method !== 'CONNECT') {
+      /**
+       * @note Defer the end-of-stream signal so the HTTP parser has a chance
+       * to process already-pushed response data and fire the 'response' event
+       * before the socket is ended. Without this, the parser marks the response
+       * as "complete" before the client can interact with it (e.g. `response.destroy()`).
+       */
+      await new Promise<void>((resolve) => process.nextTick(resolve))
       socket.push(null)
     }
   }
