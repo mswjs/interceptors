@@ -19,7 +19,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     this.subscriptions.push(
       proxyEventListeners({
         from: this.emitter,
-        to: this.#httpInterceptor['emitter'],
+        to: () => this.#httpInterceptor['emitter'],
         filter: (event) => {
           return event.initiator instanceof http.ClientRequest
         },

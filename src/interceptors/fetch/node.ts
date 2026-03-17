@@ -16,12 +16,13 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     super(FetchInterceptor.symbol)
 
     this.#httpInterceptor = new HttpRequestInterceptor()
+
     this.subscriptions.push(
       proxyEventListeners({
         from: this.emitter,
-        to: this.#httpInterceptor['emitter'],
+        to: () => this.#httpInterceptor['emitter'],
         filter: (event) => {
-          return event.initiator instanceof XMLHttpRequest
+          return event.initiator instanceof Request
         },
       })
     )
@@ -39,7 +40,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       applyPatch(globalThis, 'fetch', (realFetch) => {
         return (input, init) => {
           /**
-           * @note Resolve potentially relative request URL against the present `location`.
+           * Resolve potentially relative request URL against the present `location`.
            * This is mainly for native `fetch` in browser-like environments.
            * @see https://github.com/mswjs/msw/issues/1625
            */

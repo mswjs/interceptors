@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import http from 'node:http'
-import { BatchInterceptor } from '../../../lib/node/index.mjs'
-import nodeInterceptors from '../../../lib/node/presets/node.mjs'
+import { BatchInterceptor } from '@mswjs/interceptors'
+import nodeInterceptors from '@mswjs/interceptors/presets/node'
 import { toWebResponse } from '#/test/helpers'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
@@ -10,12 +10,23 @@ const interceptor = new BatchInterceptor({
   interceptors: nodeInterceptors,
 })
 
-const requestListener = vi.fn()
-
 beforeAll(() => {
   interceptor.apply()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
+})
+
+afterAll(() => {
+  interceptor.dispose()
+})
+
+it('intercepts and mocks a ClientRequest', async () => {
+  const requestListener = vi.fn()
   interceptor.on('request', ({ request, controller }) => {
     requestListener(request)
+
     controller.respondWith(
       new Response('mocked', {
         headers: {
@@ -24,17 +35,7 @@ beforeAll(() => {
       })
     )
   })
-})
 
-afterEach(() => {
-  vi.clearAllMocks()
-})
-
-afterAll(() => {
-  interceptor.dispose()
-})
-
-it('intercepts and mocks a ClientRequest', async () => {
   const request = http.get('http://localhost:3001/resource')
   const [response] = await toWebResponse(request)
 
@@ -52,6 +53,19 @@ it('intercepts and mocks a ClientRequest', async () => {
 })
 
 it('intercepts and mocks an XMLHttpRequest (jsdom)', async () => {
+  const requestListener = vi.fn()
+  interceptor.on('request', ({ request, controller }) => {
+    requestListener(request)
+
+    controller.respondWith(
+      new Response('mocked', {
+        headers: {
+          'access-control-allow-origin': '*',
+        },
+      })
+    )
+  })
+
   const request = new XMLHttpRequest()
   request.open('GET', 'http://localhost:3001/resource')
   request.send()
@@ -70,6 +84,20 @@ it('intercepts and mocks an XMLHttpRequest (jsdom)', async () => {
 })
 
 it('intercepts and mocks a fetch request', async () => {
+  const requestListener = vi.fn()
+  interceptor.on('request', ({ request, controller }) => {
+
+    requestListener(request)
+
+    controller.respondWith(
+      new Response('mocked', {
+        headers: {
+          'access-control-allow-origin': '*',
+        },
+      })
+    )
+  })
+
   const response = await fetch('http://localhost:3001/resource')
 
   expect(requestListener).toHaveBeenCalledWith(

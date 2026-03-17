@@ -2,7 +2,12 @@ import { Emitter } from 'rettime'
 
 export function proxyEventListeners<T extends Emitter<any>>(options: {
   from: T
-  to: T
+  /**
+   * A lazy getter of the destination emitter.
+   * Handy because proxying has to be set up during an interceptor's constructor
+   * when the this.emitter = runningInstance.emitter assignment hasn't been made yet.
+   */
+  to: () => T
   filter: (event: Emitter.Events<T>) => boolean
 }) {
   const controller = new AbortController()
@@ -16,8 +21,10 @@ export function proxyEventListeners<T extends Emitter<any>>(options: {
   options.from.hooks.on(
     'newListener',
     (type) => {
-      if (!options.to.listeners(type).includes(propagateEvent)) {
-        options.to.on(type, propagateEvent, { signal: controller.signal })
+      const to = options.to()
+
+      if (!to.listeners(type).includes(propagateEvent)) {
+        to.on(type, propagateEvent, { signal: controller.signal })
       }
     },
     {
@@ -29,8 +36,10 @@ export function proxyEventListeners<T extends Emitter<any>>(options: {
   options.from.hooks.on(
     'removeListener',
     (type) => {
+      const to = options.to()
+
       if (options.from.listenerCount(type) === 1) {
-        options.to.removeListener(type, propagateEvent)
+        to.removeListener(type, propagateEvent)
       }
     },
     {

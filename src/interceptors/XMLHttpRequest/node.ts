@@ -1,4 +1,3 @@
-import { Emitter } from 'rettime'
 import { requestContext } from '#/src/request-context'
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
 import { Interceptor } from '#/src/Interceptor'
@@ -17,10 +16,11 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     super(XMLHttpRequestInterceptor.symbol)
 
     this.#httpInterceptor = new HttpRequestInterceptor()
+
     this.subscriptions.push(
       proxyEventListeners({
         from: this.emitter,
-        to: this.#httpInterceptor['emitter'],
+        to: () => this.#httpInterceptor['emitter'],
         filter: (event) => {
           if (event.initiator instanceof XMLHttpRequest) {
             event.request = this.#transformRequest(

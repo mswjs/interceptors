@@ -1,5 +1,6 @@
 import { Logger } from '@open-draft/logger'
 import { Emitter, TypedListenerOptions } from 'rettime'
+import { listenerCount } from 'superagent'
 
 export type InterceptorEventMap = Record<string, any>
 export type InterceptorSubscription = () => void
@@ -94,23 +95,32 @@ export class Interceptor<Events extends InterceptorEventMap> {
     if (runningInstance) {
       logger.info('found a running instance, reusing...')
 
+      // Point this instance's emitter to the running instance's emitter
+      // so that any references to `this.emitter` (e.g. in proxyEventListeners)
+      // resolve to the emitter that actually dispatches events.
+      this.emitter = runningInstance.emitter
+
+      const listenersController = new AbortController()
+
       // Proxy any listeners you set on this instance to the running instance.
       this.on = (event, listener) => {
         logger.info('proxying the "%s" listener', event)
 
         // Add listeners to the running instance so they appear
         // at the top of the event listeners list and are executed first.
-        runningInstance.emitter.on(event, listener)
-
-        // Ensure that once this interceptor instance is disposed,
-        // it removes all listeners it has appended to the running interceptor instance.
-        this.subscriptions.push(() => {
-          runningInstance.emitter.removeListener(event, listener)
-          logger.info('removed proxied "%s" listener!', event)
+        runningInstance.emitter.on(event, listener, {
+          signal: listenersController.signal,
         })
 
         return this
       }
+
+      // Ensure that once this interceptor instance is disposed,
+      // it removes all listeners it has appended to the running interceptor instance.
+      this.subscriptions.push(() => {
+        listenersController.abort()
+        logger.info('removed all proxied listeners!')
+      })
 
       this.readyState = InterceptorReadyState.APPLIED
 
