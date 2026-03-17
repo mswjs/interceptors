@@ -3,14 +3,13 @@
  * @see https://github.com/mswjs/msw/issues/2307
  */
 import http from 'node:http'
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { FetchResponse } from '../../../../src/utils/fetchUtils'
-import { waitForClientRequest } from '../../../helpers'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { FetchResponse } from '#/src/utils/fetchUtils'
+import { toWebResponse } from '#/test/helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (_req, res) => {
@@ -40,12 +39,12 @@ it('handles non-configurable responses from the actual server', async () => {
   })
 
   const request = http.get(httpServer.http.url('/resource'))
-  const { res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must passthrough non-configurable responses
   // (i.e. those that cannot be created using the Fetch API).
-  expect(res.statusCode).toBe(101)
-  expect(res.statusMessage).toBe('Switching Protocols')
+  expect(response.status).toBe(101)
+  expect(response.statusText).toBe('Switching Protocols')
 
   // Must expose the exact response in the listener.
   await expect(responsePromise).resolves.toHaveProperty('status', 101)
@@ -66,9 +65,9 @@ it('supports mocking non-configurable responses', async () => {
   })
 
   const request = http.get('http://localhost/irrelevant')
-  const { res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(101)
+  expect(response.status).toBe(101)
 
   // Must expose the exact response in the listener.
   await expect(responsePromise).resolves.toHaveProperty('status', 101)

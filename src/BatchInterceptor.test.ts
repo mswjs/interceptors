@@ -1,4 +1,4 @@
-import { vi, it, expect, afterEach } from 'vitest'
+import { TypedEvent } from 'rettime'
 import { Interceptor } from './Interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 
@@ -39,14 +39,16 @@ it('applies child interceptors', () => {
 })
 
 it('proxies event listeners to the interceptors', () => {
-  class PrimaryInterceptor extends Interceptor<{ hello: [string] }> {
+  class PrimaryInterceptor extends Interceptor<{
+    hello: TypedEvent<string>
+  }> {
     constructor() {
       super(Symbol('primary'))
     }
   }
 
   class SecondaryInterceptor extends Interceptor<{
-    goodbye: [string]
+    goodbye: TypedEvent<string>
   }> {
     constructor() {
       super(Symbol('secondary'))
@@ -70,14 +72,15 @@ it('proxies event listeners to the interceptors', () => {
   interceptor.on('goodbye', goodbyeListener)
 
   // Emulate the child interceptor emitting events.
-  instances.primary['emitter'].emit('hello', 'John')
-  instances.secondary['emitter'].emit('goodbye', 'Kate')
+  const helloEvent = new TypedEvent('hello', { data: 'John' })
+  instances.primary['emitter'].emit(helloEvent)
+
+  const goodbyeEvent = new TypedEvent('goodbye', { data: 'Kate' })
+  instances.secondary['emitter'].emit(goodbyeEvent)
 
   // Must call the batch interceptor listener.
-  expect(helloListener).toHaveBeenCalledTimes(1)
-  expect(helloListener).toHaveBeenCalledWith('John')
-  expect(goodbyeListener).toHaveBeenCalledTimes(1)
-  expect(goodbyeListener).toHaveBeenCalledWith('Kate')
+  expect(helloListener).toHaveBeenCalledExactlyOnceWith(helloEvent)
+  expect(goodbyeListener).toHaveBeenCalledExactlyOnceWith(goodbyeEvent)
 })
 
 it('disposes of child interceptors', async () => {
@@ -167,7 +170,7 @@ it('forwards listeners removal via "off()"', () => {
 
   const listener = vi.fn()
   interceptor.on('foo', listener)
-  interceptor.off('foo', listener)
+  interceptor.removeListener('foo', listener)
 
   expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(0)
   expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
@@ -175,8 +178,8 @@ it('forwards listeners removal via "off()"', () => {
 
 it('forwards removal of all listeners by name via ".removeAllListeners()"', () => {
   type Events = {
-    foo: []
-    bar: []
+    foo: TypedEvent
+    bar: TypedEvent
   }
 
   class FirstInterceptor extends Interceptor<Events> {

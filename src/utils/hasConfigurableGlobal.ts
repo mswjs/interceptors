@@ -2,7 +2,9 @@
  * Returns a boolean indicating whether the given global property
  * is defined and is configurable.
  */
-export function hasConfigurableGlobal(propertyName: string): boolean {
+export function hasConfigurableGlobal(
+  propertyName: keyof typeof globalThis
+): boolean {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, propertyName)
 
   // The property is not set at all.

@@ -1,4 +1,3 @@
-import { vi, it, expect } from 'vitest'
 import { createProxy } from './createProxy'
 
 it('does not interfere with default constructors', () => {
@@ -86,7 +85,10 @@ it('infer prototype descriptors', () => {
 
 it('spies on the constructor', () => {
   const OriginalClass = class {
-    constructor(public name: string, public age: number) {}
+    constructor(
+      public name: string,
+      public age: number
+    ) {}
   }
 
   const constructorCall = vi.fn<

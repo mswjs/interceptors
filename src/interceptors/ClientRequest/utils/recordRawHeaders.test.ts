@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { it, expect, afterEach } from 'vitest'
 import {
   recordRawFetchHeaders,
   restoreHeadersPrototype,

@@ -1,4 +1,3 @@
-import { it, expect } from 'vitest'
 import { isObject } from './isObject'
 
 it('returns true given an object', () => {

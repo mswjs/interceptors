@@ -1,12 +1,11 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import http from 'node:http'
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../../test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => res.send('hello world'))
@@ -37,7 +36,7 @@ it('preserves the context of the "createConnection" function in a custom http ag
   const agent = new CustomHttpAgent()
 
   const request = http.get(httpServer.http.url('/resource'), { agent })
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   const [context] = createConnectionContextSpy.mock.calls[0] || []
   expect(context.constructor.name).toBe('CustomHttpAgent')
@@ -57,7 +56,7 @@ it('preserves the context of the "createConnection" function in a custom https a
     agent,
     rejectUnauthorized: false,
   })
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   const [context] = createConnectionContextSpy.mock.calls[0]
   expect(context.constructor.name).toBe('CustomHttpsAgent')

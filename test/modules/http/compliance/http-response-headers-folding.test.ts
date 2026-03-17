@@ -1,10 +1,9 @@
 // @vitest-environment node
-import { it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import http from 'node:http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -30,10 +29,12 @@ it('preserves the original mocked response headers casing in "rawHeaders"', asyn
   })
 
   const request = http.get('http://localhost/resource')
-  const { res } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect(res.rawHeaders).toStrictEqual(['X-CustoM-HeadeR', 'Yes'])
-  expect(res.headers).toStrictEqual({ 'x-custom-header': 'Yes' })
+  expect(rawResponse.rawHeaders).toStrictEqual(['X-CustoM-HeadeR', 'Yes'])
+  expect(Object.fromEntries(response.headers)).toStrictEqual({
+    'x-custom-header': 'Yes',
+  })
 })
 
 it('folds duplicate response headers for a mocked response', async () => {
@@ -67,7 +68,7 @@ it('folds duplicate response headers for a mocked response', async () => {
   })
 
   const request = http.get('http://localhost/resource')
-  const { res } = await waitForClientRequest(request)
+  const [, rawResponse] = await toWebResponse(request)
 
-  expect(res.rawHeaders).toEqual(responseHeaders)
+  expect(rawResponse.rawHeaders).toEqual(responseHeaders)
 })

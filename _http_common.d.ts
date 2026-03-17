@@ -1,6 +1,8 @@
 import type { Socket } from 'node:net'
 import type { IncomingMessage, OutgoingMessage } from 'node:http'
 
+declare var methods: Array<string>
+
 declare var HTTPParser: {
   new (): HTTPParser<number>
   REQUEST: 0
@@ -21,15 +23,15 @@ declare var HTTPParser: {
 export interface HTTPParser<ParserType extends number> {
   new (): HTTPParser<ParserType>
 
-  [HTTPParser.kOnMessageBegin]: (() => void) | null
-  [HTTPParser.kOnHeaders]: HeadersCallback | null
-  [HTTPParser.kOnHeadersComplete]: ParserType extends 0
+  [HTTPParser.kOnMessageBegin]?: (() => void) | null
+  [HTTPParser.kOnHeaders]?: HeadersCallback
+  [HTTPParser.kOnHeadersComplete]?: ParserType extends 0
     ? RequestHeadersCompleteCallback | null
     : ResponseHeadersCompleteCallback | null
-  [HTTPParser.kOnBody]: ((chunk: Buffer) => void) | null
-  [HTTPParser.kOnMessageComplete]: (() => void) | null
-  [HTTPParser.kOnExecute]: (() => void) | null
-  [HTTPParser.kOnTimeout]: (() => void) | null
+  [HTTPParser.kOnBody]?: ((chunk: Buffer) => void) | null
+  [HTTPParser.kOnMessageComplete]?: (() => void) | null
+  [HTTPParser.kOnExecute]?: (() => void) | null
+  [HTTPParser.kOnTimeout]?: (() => void) | null
 
   initialize(type: ParserType, asyncResource: object): void
   execute(buffer: Buffer): void

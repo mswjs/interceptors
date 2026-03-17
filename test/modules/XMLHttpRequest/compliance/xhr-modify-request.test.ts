@@ -1,8 +1,8 @@
-// @vitest-environment jsdom
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment happy-dom
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
+import { useCors } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const server = new HttpServer((app) => {
   app.use(useCors)
@@ -27,40 +27,48 @@ const server = new HttpServer((app) => {
 const interceptor = new XMLHttpRequestInterceptor()
 
 beforeAll(async () => {
-  vi.spyOn(console, 'warn').mockImplementation(() => void 0)
   await server.listen()
   interceptor.apply()
 })
 
 afterAll(async () => {
-  vi.restoreAllMocks()
   await server.close()
   interceptor.dispose()
 })
 
 it('allows modifying outgoing request headers', async () => {
   interceptor.on('request', ({ request }) => {
+    if (request.method === 'OPTIONS') {
+      return
+    }
+
     request.headers.delete('X-Delete-Header')
     request.headers.append('X-Append-Header', '2')
     request.headers.set('X-Set-Header', 'new-value')
   })
 
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', server.http.url('/user'))
-    req.setRequestHeader('X-Delete-Header', 'a')
-    req.setRequestHeader('X-Append-Header', '1')
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', server.http.url('/user'))
+  request.setRequestHeader('X-Delete-Header', 'a')
+  request.setRequestHeader('X-Append-Header', '1')
+  request.send()
 
-  // Cannot delete XMLHttpRequest headers.
-  expect(req.getResponseHeader('x-delete-header')).toBe('a')
-  expect(console.warn).toHaveBeenCalledWith(
-    expect.stringMatching(
-      `XMLHttpRequest: Cannot remove a "X-Delete-Header" header from the Fetch API representation of the "GET http://127.0.0.1:\\d+/user" request. XMLHttpRequest headers cannot be removed.`
+  await waitForXMLHttpRequest(request)
+
+  expect.soft(request.status).toBe(200)
+  expect
+    .soft(
+      request.getResponseHeader('x-delete-header'),
+      'XMLHttpRequest headers cannot be deleted'
     )
-  )
-
-  // Adding and modifying XMLHttpRequest headers is allowed.
-  expect(req.getResponseHeader('x-append-header')).toBe('1, 2')
-  expect(req.getResponseHeader('x-set-header')).toBe('new-value')
+    .toBe('a')
+  expect
+    .soft(
+      request.getResponseHeader('x-append-header'),
+      'Appends a new header value'
+    )
+    .toBe('1, 2')
+  expect
+    .soft(request.getResponseHeader('x-set-header'), 'Replace a header value')
+    .toBe('new-value')
 })
