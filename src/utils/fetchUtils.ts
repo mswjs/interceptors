@@ -1,11 +1,58 @@
 import { canParseUrl } from './canParseUrl'
 import { getValueBySymbol } from './getValueBySymbol'
 
+interface UndiciRequestState extends RequestInit {}
+
+interface FetchRequestInit extends Omit<RequestInit, 'mode'> {
+  mode?: RequestMode | 'websocket' | 'webtransport'
+}
+
+export class FetchRequest extends Request {
+  static isMethodWithBody(method: string): boolean {
+    return method !== 'HEAD' && method !== 'GET'
+  }
+
+  /**
+   * Check if the given request `mode` is configurable.
+   * @see https://fetch.spec.whatwg.org/#concept-request-mode
+   */
+  static isConfigurableMode(mode: string): boolean {
+    return (
+      mode !== 'navigate' && mode !== 'websocket' && mode !== 'webtransport'
+    )
+  }
+
+  constructor(input: RequestInfo, init?: FetchRequestInit) {
+    const mode = (init?.mode as RequestMode) ?? undefined
+    const safeMode = FetchRequest.isConfigurableMode(mode) ? mode : undefined
+
+    super(input, {
+      ...(init || {}),
+      mode: safeMode,
+    })
+
+    if (init?.mode != null && init?.mode !== safeMode) {
+      const state = getValueBySymbol<UndiciRequestState>('state', this)
+
+      if (state) {
+        state.mode = mode
+      } else {
+        Object.defineProperty(this, 'mode', {
+          value: mode,
+          enumerable: true,
+          configurable: true,
+          writable: false,
+        })
+      }
+    }
+  }
+}
+
 export interface FetchResponseInit extends ResponseInit {
   url?: string
 }
 
-interface UndiciFetchInternalState {
+interface UndiciResponseState {
   aborted: boolean
   rangeRequested: boolean
   timingAllowPassed: boolean
@@ -54,7 +101,7 @@ export class FetchResponse extends Response {
       return
     }
 
-    const state = getValueBySymbol<UndiciFetchInternalState>('state', response)
+    const state = getValueBySymbol<UndiciResponseState>('state', response)
 
     if (state) {
       // In Undici, push the URL to the internal list of URLs.
@@ -100,7 +147,7 @@ export class FetchResponse extends Response {
        * @note Undici keeps an internal "Symbol(state)" that holds
        * the actual value of response status. Update that in Node.js.
        */
-      const state = getValueBySymbol<UndiciFetchInternalState>('state', this)
+      const state = getValueBySymbol<UndiciResponseState>('state', this)
 
       if (state) {
         state.status = status
