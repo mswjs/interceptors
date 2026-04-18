@@ -53,6 +53,34 @@ export class FetchRequest extends Request {
       this.#setInternalProperty('method', method)
     }
 
+    if (method === 'CONNECT') {
+      const url = new URL(input instanceof Request ? input.url : input)
+
+      let authority: string
+
+      /**
+       * @note Node.js has a bug parsing raw CONNECT requests URLs like
+       * "http://127.0.0.1:1337/localhost:80". It would treat "localhost:" as a protocol.
+       */
+      if (url.protocol === 'localhost:') {
+        authority = url.href
+      } else {
+        authority = url.pathname.replace(/^\/+/, '')
+      }
+
+      /**
+       * @note Define "url" as a getter because Undici uses their own
+       * logic to resolve the "request.url" property. Simply reassigning
+       * its value doesn't do anything. This is a destructive action
+       * but it's safe because "CONNECT" requests are forbidden per fetch.
+       */
+      Object.defineProperty(this, 'url', {
+        get: () => authority,
+        enumerable: true,
+        configurable: true,
+      })
+    }
+
     if (mode != null && mode !== safeMode) {
       this.#setInternalProperty('mode', mode)
     }
