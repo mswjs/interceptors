@@ -27,4 +27,36 @@ describe('FetchRequest', () => {
       .soft(new FetchRequest(URL, { mode: 'webtransport' }))
       .toHaveProperty('mode', 'webtransport')
   })
+
+  it('ignores body for the requests without a body', () => {
+    expect
+      .soft(new FetchRequest(URL, { body: null }))
+      .toHaveProperty('body', null)
+    expect
+      .soft(new FetchRequest(URL, { body: undefined }))
+      .toHaveProperty('body', null)
+    expect
+      .soft(new FetchRequest(URL, { body: 'hello' }))
+      .toHaveProperty('body', null)
+
+    expect
+      .soft(new FetchRequest(URL, { method: 'GET', body: 'hello' }))
+      .toHaveProperty('body', null)
+    expect
+      .soft(new FetchRequest(URL, { method: 'HEAD', body: 'hello' }))
+      .toHaveProperty('body', null)
+    expect
+      .soft(new FetchRequest(URL, { method: 'CONNECT', body: 'hello' }))
+      .toHaveProperty('body', null)
+    expect
+      .soft(new FetchRequest(URL, { method: 'TRACE', body: 'hello' }))
+      .toHaveProperty('body', null)
+    expect
+      .soft(new FetchRequest(URL, { method: 'TRACK', body: 'hello' }))
+      .toHaveProperty('body', null)
+
+    expect
+      .soft(new FetchRequest(URL, { method: 'POST', body: 'hello' }))
+      .toHaveProperty('body', expect.any(ReadableStream))
+  })
 })

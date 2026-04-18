@@ -5,6 +5,7 @@ interface UndiciRequestState extends RequestInit {}
 
 interface FetchRequestInit extends Omit<RequestInit, 'mode'> {
   mode?: RequestMode | 'websocket' | 'webtransport'
+  duplex?: 'half' | 'full'
 }
 
 export class FetchRequest extends Request {
@@ -39,6 +40,9 @@ export class FetchRequest extends Request {
     const safeMethod = FetchRequest.isConfigurableMethod(method)
       ? method
       : 'GET'
+    const safeBody = FetchRequest.isMethodWithBody(method)
+      ? init?.body
+      : undefined
 
     const mode = (init?.mode as RequestMode) ?? undefined
     const safeMode = FetchRequest.isConfigurableMode(mode) ? mode : undefined
@@ -47,6 +51,10 @@ export class FetchRequest extends Request {
       ...(init || {}),
       method: safeMethod,
       mode: safeMode,
+      // @ts-expect-error Untyped Node.js property.
+      duplex:
+        init?.duplex != null ? init.duplex : safeBody ? 'half' : undefined,
+      body: safeBody,
     })
 
     if (method !== safeMethod) {
