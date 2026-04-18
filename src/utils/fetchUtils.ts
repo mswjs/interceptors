@@ -48,9 +48,22 @@ export class FetchRequest extends Request {
     const safeMethod = FetchRequest.isConfigurableMethod(method)
       ? method
       : 'GET'
-    const safeBody = FetchRequest.isMethodWithBody(method)
-      ? FetchRequest.#resolveProperty(input, init, 'body')
-      : undefined
+
+    const hasExplicitBody = init != null && 'body' in init
+
+    /**
+     * Only include `body` in the super init when it needs to be overridden.
+     * When `input` is a Request and no explicit body is in `init`, let the
+     * Request constructor handle body transfer naturally so it properly
+     * marks the original request's body as consumed (bodyUsed = true).
+     */
+    const bodyInit: { body?: BodyInit | null } = !FetchRequest.isMethodWithBody(
+      method
+    )
+      ? { body: undefined }
+      : hasExplicitBody
+        ? { body: init.body }
+        : {}
 
     const mode =
       (FetchRequest.#resolveProperty(input, init, 'mode') as RequestMode) ??
@@ -63,12 +76,9 @@ export class FetchRequest extends Request {
       mode: safeMode,
       // @ts-expect-error Untyped Node.js property.
       duplex:
-        init?.duplex != null
-          ? init.duplex
-          : FetchRequest.isMethodWithBody(method)
-            ? 'half'
-            : undefined,
-      body: safeBody,
+        init?.duplex ??
+        (FetchRequest.isMethodWithBody(method) ? 'half' : undefined),
+      ...bodyInit,
     })
 
     if (method !== safeMethod) {
