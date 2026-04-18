@@ -16,6 +16,7 @@ import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { createRequestId } from '../../createRequestId'
 import { getBodyByteLength } from './utils/getBodyByteLength'
 import { setRawRequest } from '../../getRawRequest'
+import { FetchRequest } from '../../utils/fetchUtils'
 
 const kIsRequestHandled = Symbol('kIsRequestHandled')
 const IS_NODE = isNodeProcess()
@@ -671,7 +672,7 @@ export class XMLHttpRequestController {
     const resolvedBody =
       body instanceof Document ? body.documentElement.innerText : body
 
-    const fetchRequest = new Request(this.url.href, {
+    const fetchRequest = new FetchRequest(this.url.href, {
       method: this.method,
       headers: this.requestHeaders,
       /**

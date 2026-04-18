@@ -12,7 +12,7 @@ import { createNetworkError } from './utils/createNetworkError'
 import { followFetchRedirect } from './utils/followRedirect'
 import { decompressResponse } from './utils/decompression'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { FetchResponse } from '../../utils/fetchUtils'
+import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
 import { setRawRequest } from '../../getRawRequest'
 import { isResponseError } from '../../utils/responseUtils'
 
@@ -51,7 +51,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           ? new URL(input, location.href)
           : input
 
-      const request = new Request(resolvedInput, init)
+      const request = new FetchRequest(resolvedInput, init)
 
       /**
        * @note Set the raw request only if a Request instance was provided to fetch.

@@ -4,15 +4,27 @@ import { FetchRequest } from './fetchUtils'
 describe('FetchRequest', () => {
   const URL = 'https://example.com/'
 
+  it('passes instanceof check with the regular Request', () => {
+    expect(new FetchRequest(URL)).toBeInstanceOf(Request)
+  })
+
   it('creates a request with a non-configurable method', () => {
     expect
       .soft(new FetchRequest(URL, { method: 'CONNECT' }))
       .toHaveProperty('method', 'CONNECT')
+
     expect
       .soft(new FetchRequest(URL, { method: 'TRACE' }))
       .toHaveProperty('method', 'TRACE')
     expect
+      .soft(new FetchRequest(new FetchRequest(URL, { method: 'TRACE' })))
+      .toHaveProperty('method', 'TRACE')
+
+    expect
       .soft(new FetchRequest(URL, { method: 'TRACK' }))
+      .toHaveProperty('method', 'TRACK')
+    expect
+      .soft(new FetchRequest(new FetchRequest(URL, { method: 'TRACK' })))
       .toHaveProperty('method', 'TRACK')
   })
 
@@ -21,10 +33,21 @@ describe('FetchRequest', () => {
       .soft(new FetchRequest(URL, { mode: 'navigate' }))
       .toHaveProperty('mode', 'navigate')
     expect
+      .soft(new FetchRequest(new FetchRequest(URL, { mode: 'navigate' })))
+      .toHaveProperty('mode', 'navigate')
+
+    expect
       .soft(new FetchRequest(URL, { mode: 'websocket' }))
       .toHaveProperty('mode', 'websocket')
     expect
+      .soft(new FetchRequest(new FetchRequest(URL, { mode: 'websocket' })))
+      .toHaveProperty('mode', 'websocket')
+
+    expect
       .soft(new FetchRequest(URL, { mode: 'webtransport' }))
+      .toHaveProperty('mode', 'webtransport')
+    expect
+      .soft(new FetchRequest(new FetchRequest(URL, { mode: 'webtransport' })))
       .toHaveProperty('mode', 'webtransport')
   })
 

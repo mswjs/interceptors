@@ -9,6 +9,14 @@ interface FetchRequestInit extends Omit<RequestInit, 'mode'> {
 }
 
 export class FetchRequest extends Request {
+  static #resolveProperty<T extends keyof FetchRequestInit & keyof Request>(
+    input: RequestInfo | URL,
+    init: FetchRequestInit = {},
+    key: T
+  ): FetchRequestInit[T] {
+    return init[key] ?? (input instanceof Request ? input[key] : undefined)
+  }
+
   /**
    * Check if the given request method is configurable.
    * @see https://fetch.spec.whatwg.org/#methods
@@ -35,16 +43,18 @@ export class FetchRequest extends Request {
     )
   }
 
-  constructor(input: RequestInfo, init?: FetchRequestInit) {
-    const method = init?.method || 'GET'
+  constructor(input: URL | RequestInfo, init?: FetchRequestInit) {
+    const method = FetchRequest.#resolveProperty(input, init, 'method') || 'GET'
     const safeMethod = FetchRequest.isConfigurableMethod(method)
       ? method
       : 'GET'
     const safeBody = FetchRequest.isMethodWithBody(method)
-      ? init?.body
+      ? FetchRequest.#resolveProperty(input, init, 'body')
       : undefined
 
-    const mode = (init?.mode as RequestMode) ?? undefined
+    const mode =
+      (FetchRequest.#resolveProperty(input, init, 'mode') as RequestMode) ??
+      undefined
     const safeMode = FetchRequest.isConfigurableMode(mode) ? mode : undefined
 
     super(input, {
@@ -53,7 +63,11 @@ export class FetchRequest extends Request {
       mode: safeMode,
       // @ts-expect-error Untyped Node.js property.
       duplex:
-        init?.duplex != null ? init.duplex : safeBody ? 'half' : undefined,
+        init?.duplex != null
+          ? init.duplex
+          : FetchRequest.isMethodWithBody(method)
+            ? 'half'
+            : undefined,
       body: safeBody,
     })
 
