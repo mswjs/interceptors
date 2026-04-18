@@ -1,3 +1,5 @@
+import { FetchRequest, FetchResponse } from '../../../utils/fetchUtils'
+
 type HeaderTuple = [string, string]
 type RawHeaders = Array<HeaderTuple>
 type SetHeaderBehavior = 'set' | 'append'
@@ -91,6 +93,11 @@ export function recordRawFetchHeaders() {
 
       globalThis.Request = OriginalRequest
       globalThis.Response = OriginalResponse
+
+      Object.setPrototypeOf(FetchRequest, OriginalRequest)
+      Object.setPrototypeOf(FetchRequest.prototype, OriginalRequest.prototype)
+      Object.setPrototypeOf(FetchResponse, OriginalResponse)
+      Object.setPrototypeOf(FetchResponse.prototype, OriginalResponse.prototype)
 
       Reflect.deleteProperty(Headers, kRestorePatches)
     },
@@ -222,6 +229,17 @@ export function recordRawFetchHeaders() {
       },
     }),
   })
+
+  /**
+   * Re-parent FetchRequest/FetchResponse so their `super()` calls go
+   * through the proxied globalThis.Request/Response above. Without this,
+   * FetchRequest extends the statically-captured (original) Request,
+   * bypassing the construct proxy that records raw headers.
+   */
+  Object.setPrototypeOf(FetchRequest, globalThis.Request)
+  Object.setPrototypeOf(FetchRequest.prototype, globalThis.Request.prototype)
+  Object.setPrototypeOf(FetchResponse, globalThis.Response)
+  Object.setPrototypeOf(FetchResponse.prototype, globalThis.Response.prototype)
 }
 
 export function restoreHeadersPrototype() {
