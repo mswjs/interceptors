@@ -8,8 +8,20 @@ interface FetchRequestInit extends Omit<RequestInit, 'mode'> {
 }
 
 export class FetchRequest extends Request {
+  /**
+   * Check if the given request method is configurable.
+   * @see https://fetch.spec.whatwg.org/#methods
+   */
+  static isConfigurableMethod(method: string): boolean {
+    return method !== 'CONNECT' && method !== 'TRACE' && method !== 'TRACK'
+  }
+
   static isMethodWithBody(method: string): boolean {
-    return method !== 'HEAD' && method !== 'GET'
+    return (
+      method !== 'HEAD' &&
+      method !== 'GET' &&
+      FetchRequest.isConfigurableMethod(method)
+    )
   }
 
   /**
@@ -23,27 +35,44 @@ export class FetchRequest extends Request {
   }
 
   constructor(input: RequestInfo, init?: FetchRequestInit) {
+    const method = init?.method || 'GET'
+    const safeMethod = FetchRequest.isConfigurableMethod(method)
+      ? method
+      : 'GET'
+
     const mode = (init?.mode as RequestMode) ?? undefined
     const safeMode = FetchRequest.isConfigurableMode(mode) ? mode : undefined
 
     super(input, {
       ...(init || {}),
+      method: safeMethod,
       mode: safeMode,
     })
 
-    if (init?.mode != null && init?.mode !== safeMode) {
-      const state = getValueBySymbol<UndiciRequestState>('state', this)
+    if (method !== safeMethod) {
+      this.#setInternalProperty('method', method)
+    }
 
-      if (state) {
-        state.mode = mode
-      } else {
-        Object.defineProperty(this, 'mode', {
-          value: mode,
-          enumerable: true,
-          configurable: true,
-          writable: false,
-        })
-      }
+    if (mode != null && mode !== safeMode) {
+      this.#setInternalProperty('mode', mode)
+    }
+  }
+
+  #setInternalProperty<T extends keyof Request>(
+    key: T,
+    value: Request[T]
+  ): void {
+    const internalState = getValueBySymbol<UndiciRequestState>('state', this)
+
+    if (internalState) {
+      Reflect.set(internalState, key, value)
+    } else {
+      Object.defineProperty(this, key, {
+        value,
+        enumerable: true,
+        configurable: true,
+        writable: false,
+      })
     }
   }
 }
