@@ -1,3 +1,5 @@
+import { getDeepPropertyDescriptor } from './globalsRegistry'
+
 /**
  * Returns a boolean indicating whether the given global property
  * is defined and is configurable.
@@ -5,12 +7,14 @@
 export function hasConfigurableGlobal(
   propertyName: keyof typeof globalThis
 ): boolean {
-  const descriptor = getDeepPropertyDescriptor(globalThis, propertyName)
+  const match = getDeepPropertyDescriptor(globalThis, propertyName)
 
   // The property is not set at all.
-  if (typeof descriptor === 'undefined') {
+  if (typeof match === 'undefined') {
     return false
   }
+
+  const { descriptor } = match
 
   // The property is set to a getter that returns undefined.
   if (
@@ -33,28 +37,4 @@ export function hasConfigurableGlobal(
   }
 
   return true
-}
-
-/**
- * Returns a property descriptor for the given property on the owner.
- * Walks down the prototype chain if the property does not exist on the owner.
- * Handy for getting a global property descriptor where `globalThis` is
- * replaced with a controlled class (e.g. ServiceWorkerGlobalScope).
- */
-function getDeepPropertyDescriptor<Owner extends object>(
-  owner: Owner,
-  key: keyof Owner
-): PropertyDescriptor | undefined {
-  let currentOwner: Owner | null = owner
-  let descriptor: PropertyDescriptor | undefined
-
-  while (currentOwner) {
-    descriptor = Object.getOwnPropertyDescriptor(currentOwner, key)
-
-    if (descriptor) {
-      return descriptor
-    }
-
-    currentOwner = Object.getPrototypeOf(currentOwner)
-  }
 }
