@@ -18,6 +18,7 @@ import {
 import { bindEvent } from './utils/bindEvent'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { emitAsync } from '../../utils/emitAsync'
+import { globalsRegistry } from '../../utils/globalsRegistry'
 
 export {
   type WebSocketData,
@@ -80,10 +81,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
   }
 
   protected setup(): void {
-    const originalWebSocketDescriptor = Object.getOwnPropertyDescriptor(
-      globalThis,
-      'WebSocket'
-    )
+    const logger = this.logger.extend('setup')
 
     const WebSocketProxy = new Proxy(globalThis.WebSocket, {
       construct: (
@@ -175,17 +173,12 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
       },
     })
 
-    Object.defineProperty(globalThis, 'WebSocket', {
-      value: WebSocketProxy,
-      configurable: true,
-    })
+    logger.info('patching global WebSocket...')
 
-    this.subscriptions.push(() => {
-      Object.defineProperty(
-        globalThis,
-        'WebSocket',
-        originalWebSocketDescriptor!
-      )
-    })
+    this.subscriptions.push(
+      globalsRegistry.replaceGlobal('WebSocket', WebSocketProxy)
+    )
+
+    logger.info('global WebSocket patched!', globalThis.WebSocket.name)
   }
 }

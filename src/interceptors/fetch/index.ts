@@ -1,7 +1,6 @@
-import { invariant } from 'outvariant'
 import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
+import { HttpRequestEventMap } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { RequestController } from '../../RequestController'
 import { emitAsync } from '../../utils/emitAsync'
@@ -15,6 +14,7 @@ import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
 import { setRawRequest } from '../../getRawRequest'
 import { isResponseError } from '../../utils/responseUtils'
+import { globalsRegistry } from '../../utils/globalsRegistry'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -28,14 +28,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected async setup() {
+    const logger = this.logger.extend('setup')
+
     const pureFetch = globalThis.fetch
 
-    invariant(
-      !(pureFetch as any)[IS_PATCHED_MODULE],
-      'Failed to patch the "fetch" module: already patched.'
-    )
-
-    globalThis.fetch = async (input, init) => {
+    const fetchProxy: typeof fetch = async (input, init) => {
       const requestId = createRequestId()
 
       /**
@@ -192,23 +189,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       return responsePromise
     }
 
-    Object.defineProperty(globalThis.fetch, IS_PATCHED_MODULE, {
-      enumerable: true,
-      configurable: true,
-      value: true,
-    })
+    logger.info('patching global fetch...')
 
-    this.subscriptions.push(() => {
-      Object.defineProperty(globalThis.fetch, IS_PATCHED_MODULE, {
-        value: undefined,
-      })
+    this.subscriptions.push(globalsRegistry.replaceGlobal('fetch', fetchProxy))
 
-      globalThis.fetch = pureFetch
-
-      this.logger.info(
-        'restored native "globalThis.fetch"!',
-        globalThis.fetch.name
-      )
-    })
+    logger.info('global fetch patched!', globalThis.fetch.name)
   }
 }
