@@ -21,7 +21,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it.only('patches the original XMLHttpRequest response', async ({ task }) => {
+it('patches the original XMLHttpRequest response', async ({ task }) => {
   interceptor.on('request', async ({ request, controller }) => {
     const url = new URL(request.url)
 

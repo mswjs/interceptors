@@ -295,18 +295,20 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     }
 
     responseSocket._destroy = (
-      _error: Error | null,
+      error: Error | null,
       callback: (error: Error | null) => void
     ) => {
       /**
-       * Destroy the socket if the response stream errored.
+       * Only destroy the socket on stream errors.
+       * On a clean end, the socket is already signaled via `socket.push(null)`
+       * in the main response flow. Destroying it here prematurely would prevent
+       * the client from processing the response (e.g. calling `response.destroy()`).
        * @see https://github.com/mswjs/interceptors/issues/738
-       *
-       * Response errors destroy the socket gracefully (no error).
-       * Instead, the "error" event is emitted with a more detailed error.
-       * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/_http_client.js#L586
        */
-      socket.destroy()
+      if (error) {
+        socket.destroy()
+      }
+
       callback(null)
     }
 
@@ -331,10 +333,9 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
      * This must happen before `serverResponse.end()` because the HTTP parser may
      * fire the 'response' event synchronously during `socket.push()`.
      */
-    const originalSocketDestroy = socket._destroy.bind(socket)
     socket._destroy = function (
       error: Error | null,
-      callback: (error?: Error | null) => void
+      callback: (error: Error | null) => void
     ) {
       if (error) {
         /**
@@ -350,7 +351,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         queueMicrotask(() => this.emit('error', error))
         callback(null)
       } else {
-        originalSocketDestroy(error, callback)
+        callback(null)
       }
     }
 
