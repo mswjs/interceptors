@@ -1,12 +1,15 @@
 import { vi, beforeAll, afterEach, afterAll, it, expect } from 'vitest'
 import { hasConfigurableGlobal } from './hasConfigurableGlobal'
 
+let originalGlobalPrototype = Object.getPrototypeOf(globalThis)
+
 beforeAll(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
 afterEach(() => {
   vi.clearAllMocks()
+  Object.setPrototypeOf(globalThis, originalGlobalPrototype)
 })
 
 afterAll(() => {
@@ -80,4 +83,12 @@ it('returns false and prints an error for global property that only has a getter
   expect(console.error).toHaveBeenCalledWith(
     '[MSW] Failed to apply interceptor: the global `_onlyGetter` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.'
   )
+})
+
+it('returns true for a property on a global prototype', () => {
+  function FakeGlobalScope() {}
+  FakeGlobalScope.prototype._prototypeGlobal = 123
+  Object.setPrototypeOf(globalThis, FakeGlobalScope.prototype)
+
+  expect(hasConfigurableGlobal('_prototypeGlobal')).toBe(true)
 })
