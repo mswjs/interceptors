@@ -23,6 +23,16 @@ interface HandleRequestOptions {
 export async function handleRequest(
   options: HandleRequestOptions
 ): Promise<void> {
+  /**
+   * @note If there are no "request" event listeners, passthrough immediately
+   * without going through the full async machinery. This reduces the number
+   * of microtask checkpoints, which helps avoid timing issues with
+   * high-concurrency requests (e.g., EPIPE errors with Unix sockets).
+   */
+  if (options.emitter.listenerCount('request') === 0) {
+    return options.controller.passthrough()
+  }
+
   const handleResponse = async (
     response: Response | Error | Record<string, any>
   ) => {
