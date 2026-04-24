@@ -7,7 +7,7 @@
     "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "downlevelIteration": true,
-    "lib": ["dom", "dom.iterable", "ES2018.AsyncGenerator", "es2024"],
+    "lib": ["dom", "dom.iterable", "ES2018.AsyncGenerator", "es2021", "es2024"],
     "baseUrl": ".",
     "paths": {
       "#/src/*": ["./src/*"],

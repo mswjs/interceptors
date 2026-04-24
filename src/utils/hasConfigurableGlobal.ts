@@ -1,3 +1,5 @@
+import { getDeepPropertyDescriptor } from './globalsRegistry'
+
 /**
  * Returns a boolean indicating whether the given global property
  * is defined and is configurable.
@@ -5,12 +7,14 @@
 export function hasConfigurableGlobal(
   propertyName: keyof typeof globalThis
 ): boolean {
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis, propertyName)
+  const match = getDeepPropertyDescriptor(globalThis, propertyName)
 
   // The property is not set at all.
-  if (typeof descriptor === 'undefined') {
+  if (typeof match === 'undefined') {
     return false
   }
+
+  const { descriptor } = match
 
   // The property is set to a getter that returns undefined.
   if (
