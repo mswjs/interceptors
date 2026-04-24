@@ -2,7 +2,7 @@ import { HttpRequestEventMap } from '../../events/http'
 import { Interceptor } from '../../Interceptor'
 import { createXMLHttpRequestProxy } from './XMLHttpRequestProxy'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { applyPatch } from '../../utils/apply-patch'
+import { globalsRegistry } from '../../utils/globalsRegistry'
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static interceptorSymbol = Symbol.for('xhr-interceptor')
@@ -21,7 +21,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     logger.info('patching "XMLHttpRequest"...')
 
     this.subscriptions.push(
-      applyPatch(globalThis, 'XMLHttpRequest', () => {
+      globalsRegistry.replaceGlobal(globalThis, 'XMLHttpRequest', () => {
         return createXMLHttpRequestProxy({
           emitter: this.emitter,
           logger: this.logger,

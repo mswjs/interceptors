@@ -155,7 +155,11 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
     logger.info('patching global WebSocket...')
 
     this.subscriptions.push(
-      globalsRegistry.replaceGlobal('WebSocket', WebSocketProxy)
+      globalsRegistry.replaceGlobal(
+        globalThis,
+        'WebSocket',
+        () => WebSocketProxy
+      )
     )
 
     logger.info('global WebSocket patched!', globalThis.WebSocket.name)

@@ -8,7 +8,7 @@ import {
 import { TcpSocketController, TlsSocketController } from './socket-controller'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
 import { createLogger } from '../../utils/logger'
-import { applyPatch } from '../../utils/apply-patch'
+import { globalsRegistry } from '../../utils/globalsRegistry'
 import { TypedEvent } from 'rettime'
 
 interface SocketConnectionEventData {
@@ -48,7 +48,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
   protected setup(): void {
     this.subscriptions.push(
-      applyPatch(net, 'connect', (realNetConnect) => {
+      globalsRegistry.replaceGlobal(net, 'connect', (realNetConnect) => {
         return (...args: [any, any]) => {
           log('net.connect()', args)
 
@@ -98,7 +98,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           return socket.connect(connectionOptions, connectionCallback)
         }
       }),
-      applyPatch(tls, 'connect', (realTlsConnect) => {
+      globalsRegistry.replaceGlobal(tls, 'connect', (realTlsConnect) => {
         return (...args: [any, any]) => {
           log('tls.connect()', args)
 

@@ -1,7 +1,7 @@
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
 import { canParseUrl } from '#/src/utils/canParseUrl'
 import { requestContext } from '#/src/request-context'
-import { applyPatch } from '#/src/utils/apply-patch'
+import { globalsRegistry } from '#/src/utils/globalsRegistry'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { Interceptor } from '#/src/Interceptor'
 import { HttpRequestEventMap } from '#/src/events/http'
@@ -37,7 +37,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     this.subscriptions.push(() => this.#httpInterceptor.dispose())
 
     this.subscriptions.push(
-      applyPatch(globalThis, 'fetch', (realFetch) => {
+      globalsRegistry.replaceGlobal(globalThis, 'fetch', (realFetch) => {
         return (input, init) => {
           /**
            * Resolve potentially relative request URL against the present `location`.

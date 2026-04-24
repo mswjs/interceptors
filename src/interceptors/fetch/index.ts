@@ -12,7 +12,7 @@ import { decompressResponse } from './utils/decompression'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { FetchResponse } from '../../utils/fetchUtils'
 import { isResponseError } from '../../utils/responseUtils'
-import { applyPatch } from '../../utils/apply-patch'
+import { globalsRegistry } from '../../utils/globalsRegistry'
 import { copyRawHeaders } from '../ClientRequest/utils/recordRawHeaders'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
@@ -28,7 +28,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
   protected async setup() {
     this.subscriptions.push(
-      applyPatch(globalThis, 'fetch', (realFetch) => {
+      globalsRegistry.replaceGlobal(globalThis, 'fetch', (realFetch) => {
         return async (input, init) => {
           const requestId = createRequestId()
 

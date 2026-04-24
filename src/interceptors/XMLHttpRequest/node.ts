@@ -2,7 +2,7 @@ import { requestContext } from '#/src/request-context'
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
 import { Interceptor } from '#/src/Interceptor'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { applyPatch } from '#/src/utils/apply-patch'
+import { globalsRegistry } from '#/src/utils/globalsRegistry'
 import { FetchRequest } from '#/src/utils/fetchUtils'
 import { HttpRequestEventMap } from '#/src/events/http'
 import { proxyEventListeners } from '#/src/utils/interceptor-utils'
@@ -47,8 +47,8 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     this.logger.info('patching global "XMLHttpRequest"...')
 
     this.subscriptions.push(
-      applyPatch(globalThis, 'XMLHttpRequest', () => {
-        return new Proxy(globalThis.XMLHttpRequest, {
+      globalsRegistry.replaceGlobal(globalThis, 'XMLHttpRequest', (realXMLHttpRequest) => {
+        return new Proxy(realXMLHttpRequest, {
           construct(target, args, newTarget) {
             const xmlHttpRequest = Reflect.construct(target, args, newTarget)
 

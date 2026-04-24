@@ -1,38 +1,43 @@
 import { invariant } from 'outvariant'
 
 class GlobalsRegistry {
-  #globals = new Map<keyof typeof globalThis, () => void>()
+  #replacements = new Map<object, Map<PropertyKey, () => void>>()
 
-  public replaceGlobal<K extends keyof typeof globalThis>(
+  public replaceGlobal<Owner extends object, K extends keyof Owner>(
+    owner: Owner,
     key: K,
-    nextValue: (typeof globalThis)[K]
+    getNextValue: (realValue: Owner[K]) => Owner[K]
   ): () => void {
+    const ownerReplacements = this.#replacements.get(owner)
+
     invariant(
-      !this.#globals.has(key),
-      `Failed to replace a global value at "${key}": already replaced.`
+      !ownerReplacements?.has(key),
+      `Failed to replace a global value at "${String(key)}": already replaced.`
     )
 
-    const match = getDeepPropertyDescriptor(globalThis, key)
+    const match = getDeepPropertyDescriptor(owner, key)
 
     if (typeof match === 'undefined') {
       console.warn(
-        `Failed to replace a global value at "${key}": not a global value.`
+        `Failed to replace a global value at "${String(key)}": not a global value.`
       )
       return () => {}
     }
 
-    Object.defineProperty(globalThis, key, {
-      value: nextValue,
+    Object.defineProperty(owner, key, {
+      value: getNextValue(owner[key]),
       enumerable: true,
       configurable: true,
     })
 
     const restoreGlobal = () => {
-      if (!this.#globals.has(key)) {
+      const currentReplacements = this.#replacements.get(owner)
+
+      if (!currentReplacements?.has(key)) {
         return
       }
 
-      if (match.owner === globalThis) {
+      if (match.owner === owner) {
         Object.defineProperty(match.owner, key, match.descriptor)
       } else {
         /**
@@ -40,13 +45,21 @@ class GlobalsRegistry {
          * If the owner isn't `globalThis`, the property is likely nested in the prototype.
          * The registry does not meddle with those, they are left intact.
          */
-        Reflect.deleteProperty(globalThis, key)
+        Reflect.deleteProperty(owner, key)
       }
 
-      this.#globals.delete(key)
+      currentReplacements.delete(key)
+
+      if (currentReplacements.size === 0) {
+        this.#replacements.delete(owner)
+      }
     }
 
-    this.#globals.set(key, restoreGlobal)
+    if (ownerReplacements) {
+      ownerReplacements.set(key, restoreGlobal)
+    } else {
+      this.#replacements.set(owner, new Map([[key, restoreGlobal]]))
+    }
 
     return restoreGlobal
   }
@@ -54,14 +67,16 @@ class GlobalsRegistry {
   public restoreAllGlobals(): void {
     const errors: Array<Error> = []
 
-    for (const [, restoreGlobal] of this.#globals) {
-      try {
-        restoreGlobal()
-      } catch (error) {
-        if (error instanceof Error) {
-          errors.push(error)
-        } else {
-          throw error
+    for (const [, ownerReplacements] of this.#replacements) {
+      for (const [, restoreGlobal] of ownerReplacements) {
+        try {
+          restoreGlobal()
+        } catch (error) {
+          if (error instanceof Error) {
+            errors.push(error)
+          } else {
+            throw error
+          }
         }
       }
     }
