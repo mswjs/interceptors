@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { FetchRequest } from './fetchUtils'
+import { FetchRequest, FetchResponse } from './fetchUtils'
 
 describe('FetchRequest', () => {
   const URL = 'https://example.com/'
@@ -81,5 +81,29 @@ describe('FetchRequest', () => {
     expect
       .soft(new FetchRequest(URL, { method: 'POST', body: 'hello' }))
       .toHaveProperty('body', expect.any(ReadableStream))
+  })
+})
+
+describe('FetchResponse', () => {
+  it('clones a regular response', () => {
+    const response = new Response('hello world')
+    expect(FetchResponse.clone(response)).toMatchObject(response)
+  })
+
+  it('returns a mocked 500 response if cloning throws', async () => {
+    const response = new Response('hello world')
+    const error = new Error('Cannot clone!')
+    response.clone = function () {
+      throw error
+    }
+
+    const clone = FetchResponse.clone(response)
+    expect.soft(clone.status).toBe(500)
+    expect.soft(clone.statusText).toBe('Unclonable Response')
+    await expect.soft(clone.json()).resolves.toEqual({
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    })
   })
 })

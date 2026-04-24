@@ -218,6 +218,34 @@ export class FetchResponse extends Response {
     return headers
   }
 
+  /**
+   * Safely clones the given `Response`.
+   * Coerces response clone exceptions into 500 mocked responses.
+   * Handy in the environments that introduce arbitrary response
+   * cloning restrictions, like "101 Switching Protocols" cloning
+   * in "miniflare".
+   */
+  static clone(response: Response): Response {
+    try {
+      const clone = response.clone()
+      return clone
+    } catch (error) {
+      return Response.json(
+        error instanceof Error
+          ? {
+              name: error.name,
+              message: error.message,
+              stack: error.stack,
+            }
+          : {},
+        {
+          status: 500,
+          statusText: 'Unclonable Response',
+        }
+      )
+    }
+  }
+
   constructor(body?: BodyInit | null, init: FetchResponseInit = {}) {
     const status = init.status ?? 200
     const safeStatus = FetchResponse.isConfigurableStatusCode(status)

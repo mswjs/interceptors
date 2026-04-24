@@ -189,7 +189,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
           this.logger.info('received mocked response!', { response })
 
-          const responseClone = response.clone()
+          const responseClone = FetchResponse.clone(response)
           const responseText = await responseClone.text()
 
           // // Send the mocked response to the child process.

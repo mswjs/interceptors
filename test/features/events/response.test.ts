@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import https from 'node:https'
-import waitForExpect from 'wait-for-expect'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap } from '../../../src'
@@ -100,7 +99,7 @@ it('ClientRequest: emits the "response" event for a mocked response', async () =
   expect(res.statusCode).toBe(200)
   expect(res.statusMessage).toBe('OK')
 
-  expect(responseListener).toHaveBeenCalledTimes(1)
+  expect(responseListener).toHaveBeenCalledOnce()
 
   const [{ response, request, isMockedResponse }] =
     responseListener.mock.calls[0]
@@ -135,7 +134,7 @@ it('ClientRequest: emits the "response" event upon the original response', async
   req.end()
   await waitForClientRequest(req)
 
-  expect(responseListener).toHaveBeenCalledTimes(1)
+  expect(responseListener).toHaveBeenCalledOnce()
 
   const [{ response, request, isMockedResponse }] =
     responseListener.mock.calls[0]
@@ -166,7 +165,7 @@ it('XMLHttpRequest: emits the "response" event upon a mocked response', async ()
     req.send()
   })
 
-  expect(responseListener).toHaveBeenCalledTimes(1)
+  expect(responseListener).toHaveBeenCalledOnce()
 
   const [{ response, request, isMockedResponse }] =
     responseListener.mock.calls.find(([{ request }]) => {
@@ -323,9 +322,7 @@ it('supports reading the request and response bodies in the "response" listener'
     body: 'request-body',
   })
 
-  await waitForExpect(() => {
-    expect(responseListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => responseListener).toHaveBeenCalledOnce()
 
   expect(requestCallback).toHaveBeenCalledWith('request-body')
   expect(responseCallback).toHaveBeenCalledWith('mocked-response-text')

@@ -85,7 +85,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           if (this.emitter.listenerCount('response') > 0) {
             this.logger.info('emitting the "response" event...')
 
-            const responseClone = originalResponse.clone()
+            const responseClone = FetchResponse.clone(originalResponse)
             await emitAsync(this.emitter, 'response', {
               response: responseClone,
               isMockedResponse: false,
@@ -156,7 +156,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               // Clone the mocked response for the "response" event listener.
               // This way, the listener can read the response and not lock its body
               // for the actual fetch consumer.
-              response: response.clone(),
+              response: FetchResponse.clone(response),
               isMockedResponse: true,
               request,
               requestId,
