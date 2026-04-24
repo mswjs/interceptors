@@ -27,6 +27,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected async setup() {
+    const logger = this.logger.extend('setup')
+
+    logger.info('patching global fetch...')
+
     this.subscriptions.push(
       patchesRegistry.applyPatch(globalThis, 'fetch', (realFetch) => {
         return async (input, init) => {
@@ -195,5 +199,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         }
       })
     )
+
+    logger.info('global fetch patched!', globalThis.fetch.name)
   }
 }
