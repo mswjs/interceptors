@@ -1,27 +1,21 @@
-// @vitest-environment jsdom
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+// @vitest-environment happy-dom
 import http from 'node:http'
-import { BatchInterceptor } from '../../../lib/node/index.mjs'
-import nodeInterceptors from '../../../lib/node/presets/node.mjs'
-import { createXMLHttpRequest, waitForClientRequest } from '../../helpers'
+import { BatchInterceptor } from '@mswjs/interceptors'
+import nodeInterceptors from '@mswjs/interceptors/presets/node'
+import { toWebResponse } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new BatchInterceptor({
   name: 'node-preset-interceptor',
   interceptors: nodeInterceptors,
 })
 
-const requestListener = vi.fn()
-
 beforeAll(() => {
   interceptor.apply()
-  interceptor.on('request', ({ request, controller }) => {
-    requestListener(request)
-    controller.respondWith(new Response('mocked'))
-  })
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(() => {
@@ -29,8 +23,21 @@ afterAll(() => {
 })
 
 it('intercepts and mocks a ClientRequest', async () => {
+  const requestListener = vi.fn()
+  interceptor.on('request', ({ request, controller }) => {
+    requestListener(request)
+
+    controller.respondWith(
+      new Response('mocked', {
+        headers: {
+          'access-control-allow-origin': '*',
+        },
+      })
+    )
+  })
+
   const request = http.get('http://localhost:3001/resource')
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must call the "request" event listener.
   expect(requestListener).toHaveBeenCalledWith(
@@ -41,15 +48,29 @@ it('intercepts and mocks a ClientRequest', async () => {
   )
 
   // The listener must send back a mocked response.
-  expect(res.statusCode).toBe(200)
-  await expect(text()).resolves.toBe('mocked')
+  expect.soft(response.status).toBe(200)
+  await expect.soft(response.text()).resolves.toBe('mocked')
 })
 
 it('intercepts and mocks an XMLHttpRequest (jsdom)', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', 'http://localhost:3001/resource')
-    request.send()
+  const requestListener = vi.fn()
+  interceptor.on('request', ({ request, controller }) => {
+    requestListener(request)
+
+    controller.respondWith(
+      new Response('mocked', {
+        headers: {
+          'access-control-allow-origin': '*',
+        },
+      })
+    )
   })
+
+  const request = new XMLHttpRequest()
+  request.open('GET', 'http://localhost:3001/resource')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(requestListener).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -63,6 +84,20 @@ it('intercepts and mocks an XMLHttpRequest (jsdom)', async () => {
 })
 
 it('intercepts and mocks a fetch request', async () => {
+  const requestListener = vi.fn()
+  interceptor.on('request', ({ request, controller }) => {
+
+    requestListener(request)
+
+    controller.respondWith(
+      new Response('mocked', {
+        headers: {
+          'access-control-allow-origin': '*',
+        },
+      })
+    )
+  })
+
   const response = await fetch('http://localhost:3001/resource')
 
   expect(requestListener).toHaveBeenCalledWith(

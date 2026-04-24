@@ -1,5 +1,9 @@
 import { Interceptor } from '../../Interceptor'
 import {
+  WebSocketConnectionEvent,
+  type WebSocketEventMap,
+} from '../../events/websocket'
+import {
   WebSocketClientConnectionProtocol,
   WebSocketClientConnection,
   type WebSocketClientEventMap,
@@ -17,7 +21,6 @@ import {
 } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { emitAsync } from '../../utils/emitAsync'
 import { patchesRegistry } from '../../utils/patchesRegistry'
 
 export {
@@ -39,38 +42,12 @@ export {
   CancelableMessageEvent,
 } from './utils/events'
 
-export type WebSocketEventMap = {
-  connection: [args: WebSocketConnectionData]
-}
-
-export type WebSocketConnectionData = {
-  /**
-   * The incoming WebSocket client connection.
-   */
-  client: WebSocketClientConnection
-
-  /**
-   * The original WebSocket server connection.
-   */
-  server: WebSocketServerConnection
-
-  /**
-   * The connection information.
-   */
-  info: {
-    /**
-     * The protocols supported by the WebSocket client.
-     */
-    protocols: string | Array<string> | undefined
-  }
-}
-
 /**
  * Intercept the outgoing WebSocket connections created using
  * the global `WebSocket` class.
  */
 export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
-  static symbol = Symbol('websocket')
+  static symbol = Symbol.for('websocket-interceptor')
 
   constructor() {
     super(WebSocketInterceptor.symbol)
@@ -118,13 +95,15 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
             // The "globalThis.WebSocket" class stands for
             // the client-side connection. Assume it's established
             // as soon as the WebSocket instance is constructed.
-            await emitAsync(this.emitter, 'connection', {
-              client: new WebSocketClientConnection(socket, transport),
-              server,
-              info: {
-                protocols,
-              },
-            })
+            await this.emitter.emitAsPromise(
+              new WebSocketConnectionEvent({
+                client: new WebSocketClientConnection(socket, transport),
+                server,
+                info: {
+                  protocols,
+                },
+              })
+            )
 
             if (hasConnectionListeners) {
               socket[kPassthroughPromise].resolve(false)

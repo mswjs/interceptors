@@ -1,25 +1,6 @@
 {
-  "compilerOptions": {
-    "strict": true,
-    "target": "es2018",
-    "module": "NodeNext",
-    "sourceMap": true,
-    "outDir": "lib",
-    "declaration": true,
-    "moduleResolution": "NodeNext",
-    "removeComments": false,
-    "esModuleInterop": true,
-    "downlevelIteration": true,
-    "lib": ["dom", "dom.iterable", "ES2018.AsyncGenerator", "es2021"],
-    "types": ["@types/node"],
-    "baseUrl": ".",
-    "paths": {
-      "_http_common": ["./_http_common.d.ts"],
-      "internal:brotli-decompress": [
-        "./src/interceptors/fetch/utils/brotli-decompress.ts",
-      ],
-    },
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "**/*.test.*"],
+  "references": [
+    { "path": "./tsconfig.src.json" },
+    { "path": "./tsconfig.vitest.json" },
+  ],
 }

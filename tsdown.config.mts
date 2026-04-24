@@ -6,10 +6,10 @@ export default defineConfig([
     entry: [
       './src/index.ts',
       './src/presets/node.ts',
-      './src/utils/node/index.ts',
       './src/RemoteHttpInterceptor.ts',
+      './src/interceptors/http/index.ts',
       './src/interceptors/ClientRequest/index.ts',
-      './src/interceptors/XMLHttpRequest/index.ts',
+      './src/interceptors/XMLHttpRequest/node.ts',
       './src/interceptors/fetch/index.ts',
     ],
     external: ['_http_common'],
@@ -23,13 +23,14 @@ export default defineConfig([
     format: ['cjs', 'esm'],
     sourcemap: true,
     dts: true,
+    tsconfig: './tsconfig.src.json',
   },
   {
     name: 'browser',
     entry: [
       './src/index.ts',
       './src/presets/browser.ts',
-      './src/interceptors/XMLHttpRequest/index.ts',
+      './src/interceptors/XMLHttpRequest/web.ts',
       './src/interceptors/fetch/index.ts',
       './src/interceptors/WebSocket/index.ts',
     ],

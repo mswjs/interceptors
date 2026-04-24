@@ -4,12 +4,11 @@
  */
 import http from 'node:http'
 import path from 'node:path'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { vi, afterAll, beforeAll, afterEach, it, expect } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import superagent from 'superagent'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.post('/upload', (req, res) => {
@@ -34,7 +33,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it('does not skip first request bytes on passthrough POST request', async () => {
+it('does not skip the first request bytes on passthrough POST request', async () => {
   const socketDataCallback = vi.fn()
 
   const underlyingServer = httpServer['_http'] as http.Server
@@ -58,16 +57,13 @@ it('does not skip first request bytes on passthrough POST request', async () => 
       expect.fail('Request must not error')
     })
 
-  expect(response.status).toBe(200)
-  // Must send the uploaded file to the server.
-  expect(response.body).toEqual({
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.body).toEqual({
     contentType: expect.stringMatching('multipart/form-data; boundary='),
     contentLength: '3723',
   })
 
-  // Must send correct request headers.
-  expect(socketDataCallback).toHaveBeenNthCalledWith(
-    1,
+  expect(socketDataCallback).toHaveBeenCalledExactlyOnceWith(
     expect.stringContaining('POST /upload HTTP/1.1\r\n')
   )
 })

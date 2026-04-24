@@ -1,4 +1,3 @@
-import { vi, beforeAll, afterEach, afterAll, it, expect } from 'vitest'
 import { hasConfigurableGlobal } from './hasConfigurableGlobal'
 
 let originalGlobalPrototype = Object.getPrototypeOf(globalThis)

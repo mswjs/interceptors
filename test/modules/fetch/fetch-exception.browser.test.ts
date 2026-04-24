@@ -1,4 +1,4 @@
-import { FetchInterceptor } from '../../../src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
 import { test, expect } from '../../playwright.extend'
 
 declare global {

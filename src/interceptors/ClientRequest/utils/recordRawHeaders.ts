@@ -71,7 +71,7 @@ function defineRawHeadersSymbol(headers: Headers, rawHeaders: RawHeaders) {
  * h.append('x-custom', 'two')
  * h[Symbol('headers map')] // Map { 'X-Custom' => 'one, two' }
  */
-export function recordRawFetchHeaders() {
+export function recordRawFetchHeaders(): () => void {
   // Prevent patching the Headers prototype multiple times.
   if (Reflect.get(Headers, kRestorePatches)) {
     return Reflect.get(Headers, kRestorePatches)
@@ -240,6 +240,8 @@ export function recordRawFetchHeaders() {
   Object.setPrototypeOf(FetchRequest.prototype, globalThis.Request.prototype)
   Object.setPrototypeOf(FetchResponse, globalThis.Response)
   Object.setPrototypeOf(FetchResponse.prototype, globalThis.Response.prototype)
+
+  return restoreHeadersPrototype
 }
 
 export function restoreHeadersPrototype() {
@@ -277,4 +279,29 @@ function inferRawHeaders(headers: HeadersInit): RawHeaders {
   }
 
   return Reflect.get(new Headers(headers), kRawHeaders)
+}
+
+export function copyRawHeaders(source: Headers, destination: Headers): void {
+  const rawHeaders = [...getRawFetchHeaders(source)]
+
+  if (rawHeaders.length === 0) {
+    return
+  }
+
+  /**
+   * @note Add headers from trhe destination that raw headers from the source
+   * don't have. Undici automatically appends a "Content-Type" header for responses
+   * and, for some reason, that change is not recorded. This preserves it.
+   */
+  for (const [name, value] of destination) {
+    if (
+      rawHeaders.every(
+        (header) => header[0].toLowerCase() !== name.toLowerCase()
+      )
+    ) {
+      rawHeaders.push([name, value])
+    }
+  }
+
+  defineRawHeadersSymbol(destination, rawHeaders)
 }

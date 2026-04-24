@@ -1,5 +1,4 @@
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 

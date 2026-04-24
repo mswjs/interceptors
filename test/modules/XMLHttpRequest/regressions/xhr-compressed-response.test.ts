@@ -1,12 +1,12 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 /**
  * @see https://github.com/mswjs/interceptors/issues/308
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
 import zlib from 'zlib'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
-import { createXMLHttpRequest, useCors } from '../../../helpers'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
+import { useCors } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const httpServer = new HttpServer((app) => {
   app.use(useCors)
@@ -31,10 +31,11 @@ afterAll(async () => {
 })
 
 it('bypasses a compressed HTTP request', async () => {
-  const request = await createXMLHttpRequest((request) => {
-    request.open('GET', httpServer.http.url('/compressed'))
-    request.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/compressed'))
+  request.send()
+
+  await waitForXMLHttpRequest(request)
 
   expect(request.status).toEqual(200)
   expect(request.response).toEqual('compressed-body')

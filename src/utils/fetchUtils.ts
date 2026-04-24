@@ -1,5 +1,7 @@
+import { copyRawHeaders } from '../interceptors/ClientRequest/utils/recordRawHeaders'
 import { canParseUrl } from './canParseUrl'
 import { getValueBySymbol } from './getValueBySymbol'
+import { isResponseError } from './responseUtils'
 
 interface UndiciRequestState extends RequestInit {}
 
@@ -161,6 +163,27 @@ interface UndiciResponseState {
 }
 
 export class FetchResponse extends Response {
+  static from(response: Response, init?: FetchResponseInit): FetchResponse {
+    if (response instanceof FetchResponse) {
+      return response
+    }
+
+    if (isResponseError(response)) {
+      return response
+    }
+
+    const fetchResponse = new FetchResponse(response.body, {
+      url: init?.url ?? response.url,
+      status: init?.status || response.status,
+      statusText: init?.statusText ?? response.statusText,
+      headers: init?.headers ?? response.headers,
+    })
+
+    copyRawHeaders(response.headers, fetchResponse.headers)
+
+    return fetchResponse
+  }
+
   /**
    * Response status codes for responses that cannot have body.
    * @see https://fetch.spec.whatwg.org/#statuses
@@ -185,9 +208,31 @@ export class FetchResponse extends Response {
     return !FetchResponse.STATUS_CODES_WITHOUT_BODY.includes(status)
   }
 
-  static setUrl(url: string | undefined, response: Response): void {
+  static setStatus(status: number, response: Response): void {
+    /**
+     * @note Undici keeps an internal "Symbol(state)" that holds
+     * the actual value of response status. Update that in Node.js.
+     */
+    const internalState = getValueBySymbol<UndiciResponseState>(
+      'state',
+      response
+    )
+
+    if (internalState) {
+      internalState.status = status
+    } else {
+      Object.defineProperty(response, 'status', {
+        value: status,
+        enumerable: true,
+        configurable: true,
+        writable: false,
+      })
+    }
+  }
+
+  static setUrl(url: string | undefined, response: Response): boolean {
     if (!url || url === 'about:' || !canParseUrl(url)) {
-      return
+      return false
     }
 
     const state = getValueBySymbol<UndiciResponseState>('state', response)
@@ -205,6 +250,8 @@ export class FetchResponse extends Response {
         writable: false,
       })
     }
+
+    return true
   }
 
   /**
@@ -212,9 +259,11 @@ export class FetchResponse extends Response {
    */
   static parseRawHeaders(rawHeaders: Array<string>): Headers {
     const headers = new Headers()
+
     for (let line = 0; line < rawHeaders.length; line += 2) {
       headers.append(rawHeaders[line], rawHeaders[line + 1])
     }
+
     return headers
   }
 
@@ -246,6 +295,9 @@ export class FetchResponse extends Response {
     }
   }
 
+  #status?: number
+  #url?: string
+
   constructor(body?: BodyInit | null, init: FetchResponseInit = {}) {
     const status = init.status ?? 200
     const safeStatus = FetchResponse.isConfigurableStatusCode(status)
@@ -259,7 +311,15 @@ export class FetchResponse extends Response {
       headers: init.headers,
     })
 
+    /**
+     * Since Node.js v24, Undici stores the Response state in an inaccessible field "#state".
+     * Forward the modified status/URL to the cloned response manually.
+     * @see https://github.com/nodejs/undici/blob/f734c87280e626c75f59aad55b65eb6a89cef392/lib/web/fetch/response.js#L242
+     */
     if (status !== safeStatus) {
+      this.#status = status
+      FetchResponse.setStatus(status, this)
+
       /**
        * @note Undici keeps an internal "Symbol(state)" that holds
        * the actual value of response status. Update that in Node.js.
@@ -278,6 +338,22 @@ export class FetchResponse extends Response {
       }
     }
 
-    FetchResponse.setUrl(init.url, this)
+    if (init.url && FetchResponse.setUrl(init.url, this)) {
+      this.#url = init.url
+    }
+  }
+
+  public clone() {
+    const clonedResponse = super.clone()
+
+    if (this.#status) {
+      FetchResponse.setStatus(this.#status, clonedResponse)
+    }
+
+    if (this.#url) {
+      FetchResponse.setUrl(this.#url, clonedResponse)
+    }
+
+    return clonedResponse
   }
 }

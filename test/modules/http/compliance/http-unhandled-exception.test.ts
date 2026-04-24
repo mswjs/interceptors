@@ -1,10 +1,9 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -24,11 +23,11 @@ it('handles a thrown Response as a mocked response', async () => {
   })
 
   const request = http.get('http://localhost/resource')
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  expect(res.statusMessage).toBe('OK')
-  expect(await text()).toBe('hello world')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toBe('hello world')
 })
 
 it('treats unhandled interceptor errors as 500 responses', async () => {
@@ -37,11 +36,11 @@ it('treats unhandled interceptor errors as 500 responses', async () => {
   })
 
   const request = http.get('http://localhost/resource')
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(500)
-  expect(res.statusMessage).toBe('Unhandled Exception')
-  expect(JSON.parse(await text())).toEqual({
+  expect(response.status).toBe(500)
+  expect(response.statusText).toBe('Unhandled Exception')
+  await expect(response.json()).resolves.toEqual({
     name: 'Error',
     message: 'Custom error',
     stack: expect.any(String),
@@ -61,7 +60,7 @@ it('handles exceptions by default if "unhandledException" listener is provided b
   const requestErrorListener = vi.fn()
   request.on('error', requestErrorListener)
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must emit the "unhandledException" interceptor event.
   expect(unhandledExceptionListener).toHaveBeenCalledWith(
@@ -74,9 +73,9 @@ it('handles exceptions by default if "unhandledException" listener is provided b
   // Since the "unhandledException" listener didn't handle the
   // exception, it will be translated to the 500 error response
   // (the default behavior).
-  expect(res.statusCode).toBe(500)
-  expect(res.statusMessage).toBe('Unhandled Exception')
-  expect(JSON.parse(await text())).toEqual({
+  expect(response.status).toBe(500)
+  expect(response.statusText).toBe('Unhandled Exception')
+  await expect(response.json()).resolves.toEqual({
     name: 'Error',
     message: 'Custom error',
     stack: expect.any(String),
@@ -102,11 +101,11 @@ it('handles exceptions as instructed in "unhandledException" listener (mock resp
   const requestErrorListener = vi.fn()
   request.on('error', requestErrorListener)
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  expect(res.statusMessage).toBe('OK')
-  expect(await text()).toBe('fallback response')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toBe('fallback response')
 
   expect(unhandledExceptionListener).toHaveBeenCalledWith(
     expect.objectContaining({
