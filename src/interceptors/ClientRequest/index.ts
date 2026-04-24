@@ -1,7 +1,7 @@
 import http from 'node:http'
 import https from 'node:https'
 import { runInRequestContext } from '#/src/request-context'
-import { globalsRegistry } from '#/src/utils/globalsRegistry'
+import { patchesRegistry } from '#/src/utils/patchesRegistry'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { Interceptor } from '#/src/Interceptor'
 import { HttpRequestEventMap } from '#/src/events/http'
@@ -32,7 +32,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     this.subscriptions.push(() => this.#httpInterceptor.dispose())
 
     this.subscriptions.push(
-      globalsRegistry.replaceGlobal(http, 'ClientRequest', (ClientRequest) => {
+      patchesRegistry.applyPatch(http, 'ClientRequest', (ClientRequest) => {
         return new Proxy(ClientRequest, {
           construct(target, args, newTarget) {
             return runInRequestContext(() => {
@@ -41,28 +41,28 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           },
         })
       }),
-      globalsRegistry.replaceGlobal(http, 'get', (httpGet) => {
+      patchesRegistry.applyPatch(http, 'get', (httpGet) => {
         return function mockHttpGet(...args) {
           return runInRequestContext(() => {
             return httpGet(...(args as [any, any]))
           })
         }
       }),
-      globalsRegistry.replaceGlobal(http, 'request', (httpRequest) => {
+      patchesRegistry.applyPatch(http, 'request', (httpRequest) => {
         return function mockHttpRequest(...args) {
           return runInRequestContext(() => {
             return httpRequest(...(args as [any, any]))
           })
         }
       }),
-      globalsRegistry.replaceGlobal(https, 'get', (httpsGet) => {
+      patchesRegistry.applyPatch(https, 'get', (httpsGet) => {
         return function mockHttpsGet(...args) {
           return runInRequestContext(() => {
             return httpsGet(...(args as [any, any]))
           })
         }
       }),
-      globalsRegistry.replaceGlobal(https, 'request', (httpsRequest) => {
+      patchesRegistry.applyPatch(https, 'request', (httpsRequest) => {
         return function mockHttpsRequest(...args) {
           return runInRequestContext(() => {
             return httpsRequest(...(args as [any, any]))

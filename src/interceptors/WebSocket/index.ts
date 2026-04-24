@@ -21,7 +21,7 @@ import {
 } from './WebSocketOverride'
 import { bindEvent } from './utils/bindEvent'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { globalsRegistry } from '../../utils/globalsRegistry'
+import { patchesRegistry } from '../../utils/patchesRegistry'
 
 export {
   type WebSocketData,
@@ -155,11 +155,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
     logger.info('patching global WebSocket...')
 
     this.subscriptions.push(
-      globalsRegistry.replaceGlobal(
-        globalThis,
-        'WebSocket',
-        () => WebSocketProxy
-      )
+      patchesRegistry.applyPatch(globalThis, 'WebSocket', () => WebSocketProxy)
     )
 
     logger.info('global WebSocket patched!', globalThis.WebSocket.name)

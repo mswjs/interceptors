@@ -1,4 +1,4 @@
-import { getDeepPropertyDescriptor } from './globalsRegistry'
+import { getDeepPropertyDescriptor } from './patchesRegistry'
 
 /**
  * Returns a boolean indicating whether the given global property

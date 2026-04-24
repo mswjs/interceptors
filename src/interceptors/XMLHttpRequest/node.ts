@@ -2,7 +2,7 @@ import { requestContext } from '#/src/request-context'
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
 import { Interceptor } from '#/src/Interceptor'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { globalsRegistry } from '#/src/utils/globalsRegistry'
+import { patchesRegistry } from '#/src/utils/patchesRegistry'
 import { FetchRequest } from '#/src/utils/fetchUtils'
 import { HttpRequestEventMap } from '#/src/events/http'
 import { proxyEventListeners } from '#/src/utils/interceptor-utils'
@@ -47,25 +47,29 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     this.logger.info('patching global "XMLHttpRequest"...')
 
     this.subscriptions.push(
-      globalsRegistry.replaceGlobal(globalThis, 'XMLHttpRequest', (realXMLHttpRequest) => {
-        return new Proxy(realXMLHttpRequest, {
-          construct(target, args, newTarget) {
-            const xmlHttpRequest = Reflect.construct(target, args, newTarget)
+      patchesRegistry.applyPatch(
+        globalThis,
+        'XMLHttpRequest',
+        (realXMLHttpRequest) => {
+          return new Proxy(realXMLHttpRequest, {
+            construct(target, args, newTarget) {
+              const xmlHttpRequest = Reflect.construct(target, args, newTarget)
 
-            /**
-             * @note Use `.enterWith()` here because XHR in JSDOM is implemented
-             * via `http`/`https`. This makes the initiator cascading work properly.
-             */
-            requestContext.enterWith({ initiator: xmlHttpRequest })
+              /**
+               * @note Use `.enterWith()` here because XHR in JSDOM is implemented
+               * via `http`/`https`. This makes the initiator cascading work properly.
+               */
+              requestContext.enterWith({ initiator: xmlHttpRequest })
 
-            /**
-             * @todo Do we need to exit the async context at some point?
-             */
+              /**
+               * @todo Do we need to exit the async context at some point?
+               */
 
-            return xmlHttpRequest
-          },
-        })
-      })
+              return xmlHttpRequest
+            },
+          })
+        }
+      )
     )
 
     this.logger.info('global "XMLHttpRequest" patched!')

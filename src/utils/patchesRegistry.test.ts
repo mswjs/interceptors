@@ -1,5 +1,5 @@
 import { it, beforeEach, afterEach, expect, vi } from 'vitest'
-import { globalsRegistry } from './globalsRegistry'
+import { patchesRegistry } from './patchesRegistry'
 
 declare global {
   var foo: { original: boolean }
@@ -13,16 +13,16 @@ beforeEach(() => {
 
 afterEach(() => {
   Object.setPrototypeOf(global, realGlobalPrototype)
-  globalsRegistry.restoreAllGlobals()
+  patchesRegistry.restoreAllPatches()
 })
 
 it('replaces the global', () => {
-  globalsRegistry.replaceGlobal(global, 'foo', () => ({ original: false }))
+  patchesRegistry.applyPatch(global, 'foo', () => ({ original: false }))
   expect(global.foo).toEqual({ original: false })
 })
 
 it('exposes the real value to the replacement callback', () => {
-  globalsRegistry.replaceGlobal(global, 'foo', (realValue) => {
+  patchesRegistry.applyPatch(global, 'foo', (realValue) => {
     expect(realValue).toEqual({ original: true })
     return { original: false }
   })
@@ -38,7 +38,7 @@ it('replaces the global set on the prototype', () => {
   expect(global.foo).toEqual({ prototype: true })
   expect(FakeGlobalScope.prototype.foo).toEqual({ prototype: true })
 
-  globalsRegistry.replaceGlobal(global, 'foo', () => ({ original: false }))
+  patchesRegistry.applyPatch(global, 'foo', () => ({ original: false }))
 
   expect(global.foo).toEqual({ original: false })
   expect(FakeGlobalScope.prototype.foo, 'Preserves prototype value').toEqual({
@@ -47,7 +47,7 @@ it('replaces the global set on the prototype', () => {
 })
 
 it('replaces the global after it was restored', () => {
-  const restoreGlobal = globalsRegistry.replaceGlobal(global, 'foo', () => ({
+  const restoreGlobal = patchesRegistry.applyPatch(global, 'foo', () => ({
     original: false,
   }))
   expect(global.foo).toEqual({ original: false })
@@ -55,13 +55,13 @@ it('replaces the global after it was restored', () => {
   restoreGlobal()
   expect(global.foo).toEqual({ original: true })
 
-  globalsRegistry.replaceGlobal(global, 'foo', () => ({ original: false }))
+  patchesRegistry.applyPatch(global, 'foo', () => ({ original: false }))
   expect(global.foo).toEqual({ original: false })
 })
 
 it('replaces a property on a custom owner', () => {
   const owner = { bar: { original: true } }
-  const restoreGlobal = globalsRegistry.replaceGlobal(owner, 'bar', () => ({
+  const restoreGlobal = patchesRegistry.applyPatch(owner, 'bar', () => ({
     original: false,
   }))
 
@@ -76,16 +76,8 @@ it('tracks replacements per owner independently', () => {
   const ownerA = { shared: 'a-original' }
   const ownerB = { shared: 'b-original' }
 
-  const restoreA = globalsRegistry.replaceGlobal(
-    ownerA,
-    'shared',
-    () => 'a-next'
-  )
-  const restoreB = globalsRegistry.replaceGlobal(
-    ownerB,
-    'shared',
-    () => 'b-next'
-  )
+  const restoreA = patchesRegistry.applyPatch(ownerA, 'shared', () => 'a-next')
+  const restoreB = patchesRegistry.applyPatch(ownerB, 'shared', () => 'b-next')
 
   expect(ownerA.shared).toBe('a-next')
   expect(ownerB.shared).toBe('b-next')
@@ -101,7 +93,7 @@ it('tracks replacements per owner independently', () => {
 it('warns on replacing a non-existing global', () => {
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-  globalsRegistry.replaceGlobal(
+  patchesRegistry.applyPatch(
     global,
     // @ts-expect-error Intentionally invalid value.
     'NON-EXISTING',
@@ -113,16 +105,16 @@ it('warns on replacing a non-existing global', () => {
 })
 
 it('throws if replacing an already replaced global', () => {
-  globalsRegistry.replaceGlobal(global, 'foo', () => ({ original: false }))
+  patchesRegistry.applyPatch(global, 'foo', () => ({ original: false }))
   expect(global.foo).toEqual({ original: false })
 
   expect(() =>
-    globalsRegistry.replaceGlobal(global, 'foo', () => ({ original: false }))
+    patchesRegistry.applyPatch(global, 'foo', () => ({ original: false }))
   ).toThrow('Failed to replace a global value at "foo": already replaced.')
 })
 
 it('does nothing if restoring an already restored global', () => {
-  const restoreGlobal = globalsRegistry.replaceGlobal(global, 'foo', () => ({
+  const restoreGlobal = patchesRegistry.applyPatch(global, 'foo', () => ({
     original: false,
   }))
 
@@ -136,7 +128,7 @@ it('does nothing if restoring an already restored global', () => {
 })
 
 it('restores the global', () => {
-  const restoreGlobal = globalsRegistry.replaceGlobal(global, 'foo', () => ({
+  const restoreGlobal = patchesRegistry.applyPatch(global, 'foo', () => ({
     original: false,
   }))
   expect(global.foo).toEqual({ original: false })
@@ -153,7 +145,7 @@ it('restores the global set on the prototype', () => {
 
   expect(global.foo).toEqual({ prototype: true })
 
-  const restoreGlobal = globalsRegistry.replaceGlobal(global, 'foo', () => ({
+  const restoreGlobal = patchesRegistry.applyPatch(global, 'foo', () => ({
     original: false,
   }))
 
@@ -173,7 +165,7 @@ it('restores global to the original property descriptor', () => {
   Object.defineProperty(global, 'foo', descriptor)
   expect(Object.getOwnPropertyDescriptor(global, 'foo')).toEqual(descriptor)
 
-  const restoreGlobal = globalsRegistry.replaceGlobal(global, 'foo', () => ({
+  const restoreGlobal = patchesRegistry.applyPatch(global, 'foo', () => ({
     original: false,
   }))
 

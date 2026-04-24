@@ -1,9 +1,9 @@
 import { invariant } from 'outvariant'
 
-class GlobalsRegistry {
+class PatchesRegistry {
   #replacements = new Map<object, Map<PropertyKey, () => void>>()
 
-  public replaceGlobal<Owner extends object, K extends keyof Owner>(
+  public applyPatch<Owner extends object, K extends keyof Owner>(
     owner: Owner,
     key: K,
     getNextValue: (realValue: Owner[K]) => Owner[K]
@@ -30,7 +30,7 @@ class GlobalsRegistry {
       configurable: true,
     })
 
-    const restoreGlobal = () => {
+    const restorePatch = () => {
       const currentReplacements = this.#replacements.get(owner)
 
       if (!currentReplacements?.has(key)) {
@@ -42,7 +42,7 @@ class GlobalsRegistry {
       } else {
         /**
          * @todo Delete the proxy property set by the registry.
-         * If the owner isn't `globalThis`, the property is likely nested in the prototype.
+         * If the match's owner isn't the original owner, the property is likely nested in the prototype.
          * The registry does not meddle with those, they are left intact.
          */
         Reflect.deleteProperty(owner, key)
@@ -56,21 +56,21 @@ class GlobalsRegistry {
     }
 
     if (ownerReplacements) {
-      ownerReplacements.set(key, restoreGlobal)
+      ownerReplacements.set(key, restorePatch)
     } else {
-      this.#replacements.set(owner, new Map([[key, restoreGlobal]]))
+      this.#replacements.set(owner, new Map([[key, restorePatch]]))
     }
 
-    return restoreGlobal
+    return restorePatch
   }
 
-  public restoreAllGlobals(): void {
+  public restoreAllPatches(): void {
     const errors: Array<Error> = []
 
     for (const [, ownerReplacements] of this.#replacements) {
-      for (const [, restoreGlobal] of ownerReplacements) {
+      for (const [, restorePatch] of ownerReplacements) {
         try {
-          restoreGlobal()
+          restorePatch()
         } catch (error) {
           if (error instanceof Error) {
             errors.push(error)
@@ -87,7 +87,7 @@ class GlobalsRegistry {
   }
 }
 
-export const globalsRegistry = new GlobalsRegistry()
+export const patchesRegistry = new PatchesRegistry()
 
 interface DeepDescriptorMatch {
   owner: object
