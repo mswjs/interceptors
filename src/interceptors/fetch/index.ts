@@ -14,7 +14,7 @@ import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
 import { setRawRequest } from '../../getRawRequest'
 import { isResponseError } from '../../utils/responseUtils'
-import { globalsRegistry } from '../../utils/globalsRegistry'
+import { patchesRegistry } from '../../utils/patchesRegistry'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -191,7 +191,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
     logger.info('patching global fetch...')
 
-    this.subscriptions.push(globalsRegistry.replaceGlobal('fetch', fetchProxy))
+    this.subscriptions.push(
+      patchesRegistry.applyPatch(globalThis, 'fetch', () => fetchProxy)
+    )
 
     logger.info('global fetch patched!', globalThis.fetch.name)
   }
