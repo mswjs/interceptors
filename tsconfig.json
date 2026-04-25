@@ -18,6 +18,9 @@
       "internal:brotli-decompress": [
         "./src/interceptors/fetch/utils/brotli-decompress.ts",
       ],
+      "internal:decompression": [
+        "./src/interceptors/fetch/utils/decompression.ts",
+      ],
     },
   },
   "include": ["src/**/*.ts"],

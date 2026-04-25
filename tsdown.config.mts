@@ -45,4 +45,19 @@ export default defineConfig([
     dts: true,
     tsconfig: './tsconfig.browser.json',
   },
+  {
+    name: 'native',
+    entry: ['./src/index.ts', './src/interceptors/fetch/index.ts'],
+    outDir: './lib/native',
+    platform: 'browser',
+    target: 'es2020',
+    format: ['cjs', 'esm'],
+    outExtensions: (context) => ({
+      js: context.format === 'cjs' ? '.cjs' : '.mjs',
+      dts: context.format === 'cjs' ? '.d.cts' : '.d.mts',
+    }),
+    sourcemap: true,
+    dts: true,
+    tsconfig: './tsconfig.react-native.json',
+  },
 ])

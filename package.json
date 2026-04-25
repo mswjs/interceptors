@@ -8,6 +8,10 @@
   "types": "./lib/node/index.d.cts",
   "exports": {
     ".": {
+      "react-native": {
+        "import": "./lib/native/index.mjs",
+        "default": "./lib/native/index.cjs"
+      },
       "browser": {
         "import": "./lib/browser/index.mjs",
         "default": "./lib/browser/index.cjs"
@@ -32,6 +36,10 @@
       "default": "./lib/node/interceptors/XMLHttpRequest/index.cjs"
     },
     "./fetch": {
+      "react-native": {
+        "import": "./lib/native/interceptors/fetch/index.mjs",
+        "require": "./lib/native/interceptors/fetch/index.cjs"
+      },
       "browser": "./lib/browser/interceptors/fetch/index.mjs",
       "require": "./lib/node/interceptors/fetch/index.cjs",
       "import": "./lib/node/interceptors/fetch/index.mjs",

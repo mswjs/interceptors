@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["./src/interceptors/fetch"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "internal:decompression": [
+        "./src/interceptors/fetch/utils/decompression.native.ts",
+      ],
+    },
+  },
+}
