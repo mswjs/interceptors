@@ -106,4 +106,26 @@ describe('FetchResponse', () => {
       stack: error.stack,
     })
   })
+
+  it('sets the response URL', () => {
+    const response = new Response('hello world')
+    FetchResponse.setUrl('https://example.com/', response)
+
+    expect(response.url).toBe('https://example.com/')
+  })
+
+  it('preserves a custom response URL after cloning Response', () => {
+    const response = new FetchResponse('hello world')
+    FetchResponse.setUrl('https://example.com/', response)
+
+    expect(response.clone().url).toBe('https://example.com/')
+  })
+
+  it('preserves a custom response URL after cloning FetchResponse', () => {
+    const response = new FetchResponse('hello world', {
+      url: 'https://example.com/',
+    })
+
+    expect(response.clone().url).toBe('https://example.com/')
+  })
 })

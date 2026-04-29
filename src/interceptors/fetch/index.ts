@@ -112,12 +112,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           // Decompress the mocked response body, if applicable.
           const decompressedStream = decompressResponse(rawResponse)
-          const response =
-            decompressedStream === null
-              ? rawResponse
-              : new FetchResponse(decompressedStream, rawResponse)
-
-          FetchResponse.setUrl(request.url, response)
+          const response = new FetchResponse(
+            decompressedStream || rawResponse.body,
+            {
+              url: request.url,
+              status: rawResponse.status,
+              statusText: rawResponse.statusText,
+              headers: rawResponse.headers,
+            }
+          )
 
           /**
            * Undici's handling of following redirect responses.

@@ -160,6 +160,9 @@ interface UndiciResponseState {
   }
 }
 
+const kStatus = Symbol('kStatus')
+const kUrl = Symbol('kUrl')
+
 export class FetchResponse extends Response {
   /**
    * Response status codes for responses that cannot have body.
@@ -185,6 +188,33 @@ export class FetchResponse extends Response {
     return !FetchResponse.STATUS_CODES_WITHOUT_BODY.includes(status)
   }
 
+  static setStatus(status: number, response: Response): void {
+    /**
+     * @note Undici keeps an internal "Symbol(state)" that holds
+     * the actual value of response status. Update that in Node.js.
+     */
+    const internalState = getValueBySymbol<UndiciResponseState>(
+      'state',
+      response
+    )
+
+    if (internalState) {
+      internalState.status = status
+    } else {
+      Object.defineProperty(response, 'status', {
+        value: status,
+        enumerable: true,
+        configurable: true,
+        writable: false,
+      })
+    }
+
+    Object.defineProperty(response, kStatus, {
+      value: status,
+      enumerable: false,
+    })
+  }
+
   static setUrl(url: string | undefined, response: Response): void {
     if (!url || url === 'about:' || !canParseUrl(url)) {
       return
@@ -205,6 +235,11 @@ export class FetchResponse extends Response {
         writable: false,
       })
     }
+
+    Object.defineProperty(response, kUrl, {
+      value: url,
+      enumerable: false,
+    })
   }
 
   /**
@@ -212,9 +247,11 @@ export class FetchResponse extends Response {
    */
   static parseRawHeaders(rawHeaders: Array<string>): Headers {
     const headers = new Headers()
+
     for (let line = 0; line < rawHeaders.length; line += 2) {
       headers.append(rawHeaders[line], rawHeaders[line + 1])
     }
+
     return headers
   }
 
@@ -259,25 +296,33 @@ export class FetchResponse extends Response {
       headers: init.headers,
     })
 
+    /**
+     * Since Node.js v24, Undici stores the Response state in an inaccessible field "#state".
+     * Forward the modified status/URL to the cloned response manually.
+     * @see https://github.com/nodejs/undici/blob/f734c87280e626c75f59aad55b65eb6a89cef392/lib/web/fetch/response.js#L242
+     */
     if (status !== safeStatus) {
-      /**
-       * @note Undici keeps an internal "Symbol(state)" that holds
-       * the actual value of response status. Update that in Node.js.
-       */
-      const state = getValueBySymbol<UndiciResponseState>('state', this)
-
-      if (state) {
-        state.status = status
-      } else {
-        Object.defineProperty(this, 'status', {
-          value: status,
-          enumerable: true,
-          configurable: true,
-          writable: false,
-        })
-      }
+      FetchResponse.setStatus(status, this)
     }
 
     FetchResponse.setUrl(init.url, this)
+  }
+
+  public clone() {
+    const clonedResponse = super.clone()
+
+    const customStatus = Reflect.get(this, kStatus) as number | undefined
+
+    if (customStatus) {
+      FetchResponse.setStatus(customStatus, clonedResponse)
+    }
+
+    const customUrl = Reflect.get(this, kUrl) as string | undefined
+
+    if (customUrl) {
+      FetchResponse.setUrl(customUrl, clonedResponse)
+    }
+
+    return clonedResponse
   }
 }
