@@ -1,7 +1,5 @@
 import type { RequestController } from './RequestController'
 
-export const IS_PATCHED_MODULE: unique symbol = Symbol('isPatchedModule')
-
 /**
  * @note Export `RequestController` as a type only.
  * It's never meant to be created in the userland.
@@ -16,7 +14,7 @@ export type HttpRequestEventMap = {
       request: Request
       requestId: string
       controller: RequestController
-    }
+    },
   ]
   response: [
     args: {
@@ -24,7 +22,7 @@ export type HttpRequestEventMap = {
       isMockedResponse: boolean
       request: Request
       requestId: string
-    }
+    },
   ]
   unhandledException: [
     args: {
@@ -32,6 +30,6 @@ export type HttpRequestEventMap = {
       request: Request
       requestId: string
       controller: RequestController
-    }
+    },
   ]
 }

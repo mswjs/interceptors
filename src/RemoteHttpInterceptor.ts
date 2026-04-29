@@ -7,7 +7,7 @@ import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
 import { FetchInterceptor } from './interceptors/fetch'
 import { handleRequest } from './utils/handleRequest'
 import { RequestController } from './RequestController'
-import { FetchResponse } from './utils/fetchUtils'
+import { FetchRequest, FetchResponse } from './utils/fetchUtils'
 import { isResponseError } from './utils/responseUtils'
 
 export interface SerializedRequest {
@@ -172,7 +172,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
       logger.info('parsed intercepted request', requestJson)
 
-      const request = new Request(requestJson.url, {
+      const request = new FetchRequest(requestJson.url, {
         method: requestJson.method,
         headers: new Headers(requestJson.headers),
         credentials: requestJson.credentials,
@@ -189,7 +189,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
           this.logger.info('received mocked response!', { response })
 
-          const responseClone = response.clone()
+          const responseClone = FetchResponse.clone(response)
           const responseText = await responseClone.text()
 
           // // Send the mocked response to the child process.

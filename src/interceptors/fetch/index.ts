@@ -1,7 +1,6 @@
-import { invariant } from 'outvariant'
 import { until } from '@open-draft/until'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpRequestEventMap, IS_PATCHED_MODULE } from '../../glossary'
+import { HttpRequestEventMap } from '../../glossary'
 import { Interceptor } from '../../Interceptor'
 import { RequestController } from '../../RequestController'
 import { emitAsync } from '../../utils/emitAsync'
@@ -12,9 +11,10 @@ import { createNetworkError } from './utils/createNetworkError'
 import { followFetchRedirect } from './utils/followRedirect'
 import { decompressResponse } from './utils/decompression'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { FetchResponse } from '../../utils/fetchUtils'
+import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
 import { setRawRequest } from '../../getRawRequest'
 import { isResponseError } from '../../utils/responseUtils'
+import { patchesRegistry } from '../../utils/patchesRegistry'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol('fetch')
@@ -28,14 +28,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected async setup() {
+    const logger = this.logger.extend('setup')
+
     const pureFetch = globalThis.fetch
 
-    invariant(
-      !(pureFetch as any)[IS_PATCHED_MODULE],
-      'Failed to patch the "fetch" module: already patched.'
-    )
-
-    globalThis.fetch = async (input, init) => {
+    const fetchProxy: typeof fetch = async (input, init) => {
       const requestId = createRequestId()
 
       /**
@@ -51,7 +48,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           ? new URL(input, location.href)
           : input
 
-      const request = new Request(resolvedInput, init)
+      const request = new FetchRequest(resolvedInput, init)
 
       /**
        * @note Set the raw request only if a Request instance was provided to fetch.
@@ -88,7 +85,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           if (this.emitter.listenerCount('response') > 0) {
             this.logger.info('emitting the "response" event...')
 
-            const responseClone = originalResponse.clone()
+            const responseClone = FetchResponse.clone(originalResponse)
             await emitAsync(this.emitter, 'response', {
               response: responseClone,
               isMockedResponse: false,
@@ -159,7 +156,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               // Clone the mocked response for the "response" event listener.
               // This way, the listener can read the response and not lock its body
               // for the actual fetch consumer.
-              response: response.clone(),
+              response: FetchResponse.clone(response),
               isMockedResponse: true,
               request,
               requestId,
@@ -192,23 +189,12 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       return responsePromise
     }
 
-    Object.defineProperty(globalThis.fetch, IS_PATCHED_MODULE, {
-      enumerable: true,
-      configurable: true,
-      value: true,
-    })
+    logger.info('patching global fetch...')
 
-    this.subscriptions.push(() => {
-      Object.defineProperty(globalThis.fetch, IS_PATCHED_MODULE, {
-        value: undefined,
-      })
+    this.subscriptions.push(
+      patchesRegistry.applyPatch(globalThis, 'fetch', () => fetchProxy)
+    )
 
-      globalThis.fetch = pureFetch
-
-      this.logger.info(
-        'restored native "globalThis.fetch"!',
-        globalThis.fetch.name
-      )
-    })
+    logger.info('global fetch patched!', globalThis.fetch.name)
   }
 }

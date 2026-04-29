@@ -30,7 +30,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
   public protocol: string
   public extensions: string
   public binaryType: BinaryType
-  public readyState: number
+  public readyState: WebSocket['readyState']
   public bufferedAmount: number
 
   private _onopen: WebSocketEventListener | null = null

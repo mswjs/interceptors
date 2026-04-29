@@ -15,7 +15,7 @@ import { isPropertyAccessible } from '../../utils/isPropertyAccessible'
 import { baseUrlFromConnectionOptions } from '../Socket/utils/baseUrlFromConnectionOptions'
 import { createRequestId } from '../../createRequestId'
 import { getRawFetchHeaders } from './utils/recordRawHeaders'
-import { FetchResponse } from '../../utils/fetchUtils'
+import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
 import { setRawRequest } from '../../getRawRequest'
 import { setRawRequestBodyStream } from '../../utils/node'
 import { freeParser } from './utils/parserUtils'
@@ -576,7 +576,7 @@ export class MockHttpSocket extends MockSocket {
     })
 
     const requestId = createRequestId()
-    this.request = new Request(url, {
+    this.request = new FetchRequest(url, {
       method,
       headers,
       credentials: 'same-origin',
