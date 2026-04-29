@@ -122,7 +122,10 @@ export function recordRawFetchHeaders() {
         ) {
           // Ensure each header tuple has exactly 2 elements (name, value).
           // Node.js 24+ may have stored tuples with extra internal arguments.
-          const rawHeadersFromInit = Reflect.get(headersInit, kRawHeaders) as RawHeaders
+          const rawHeadersFromInit = Reflect.get(
+            headersInit,
+            kRawHeaders
+          ) as RawHeaders
           const sanitizedHeaders = rawHeadersFromInit.map(
             (tuple): HeaderTuple => [tuple[0], tuple[1]]
           )

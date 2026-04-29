@@ -267,31 +267,25 @@ it('ignores extra internal arguments passed to .set() and .append()', () => {
   recordRawFetchHeaders()
   const headers = new Headers()
 
-    // Simulate Node.js 24+ behavior where internal calls may pass extra arguments
-    // by calling the prototype methods directly with additional arguments.
-    ; (Headers.prototype.set as Function).call(
-      headers,
-      'X-Set-Header',
-      'set-value',
-      true // extra internal argument
-    )
-    ; (Headers.prototype.append as Function).call(
-      headers,
-      'X-Append-Header',
-      'append-value',
-      true // extra internal argument
-    )
+  // Simulate Node.js 24+ behavior where internal calls may pass extra arguments
+  // by calling the prototype methods directly with additional arguments.
+  Headers.prototype.set.call(
+    headers,
+    'X-Set-Header',
+    'set-value',
+    // @ts-expect-error Internal argument
+    true
+  )
+  Headers.prototype.append.call(
+    headers,
+    'X-Append-Header',
+    'append-value',
+    // @ts-expect-error Internal argument
+    true
+  )
 
-  const rawHeaders = getRawFetchHeaders(headers)
-
-  // Verify that raw headers only contain [name, value] tuples
-  expect(rawHeaders).toEqual([
+  expect(getRawFetchHeaders(headers)).toEqual([
     ['X-Set-Header', 'set-value'],
     ['X-Append-Header', 'append-value'],
   ])
-
-  // Ensure no extra elements in each tuple
-  for (const tuple of rawHeaders) {
-    expect(tuple).toHaveLength(2)
-  }
 })
