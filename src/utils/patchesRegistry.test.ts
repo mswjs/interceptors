@@ -221,3 +221,20 @@ it('replaces a non-configurable writable property', () => {
     'Restores the original descriptor'
   ).toEqual(descriptor)
 })
+
+it('throws when replacing a non-configurable non-writable property', () => {
+  let owner = {} as { foo: { original: boolean } }
+  const descriptor: PropertyDescriptor = {
+    value: { original: true },
+    enumerable: true,
+    writable: false,
+    configurable: false,
+  }
+  Object.defineProperty(owner, 'foo', descriptor)
+
+  expect(() =>
+    patchesRegistry.applyPatch(owner, 'foo', () => ({
+      original: false,
+    }))
+  ).toThrow('Failed to patch a non-configurable non-writable property "foo"')
+})
