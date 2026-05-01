@@ -44,16 +44,25 @@ export class BatchInterceptor<
     this.#interceptors = options.interceptors
 
     for (const interceptor of options.interceptors) {
-      interceptor.on('*', (event) => {
-        this.emitter.emit(event)
+      interceptor.on('*', async (event) => {
+        await this.emitter.emitAsPromise(event)
       })
     }
   }
 
   protected predicate(): boolean {
-    return this.#interceptors.every((interceptor) => {
-      return interceptor['predicate']()
-    })
+    for (const interceptor of this.#interceptors) {
+      if (interceptor['predicate']()) {
+        /**
+         * @note If at least one of the provided interceptors suits the environment,
+         * treat this batch interceptor as matching. Since all the interceptors abide
+         * by the same event map, it will handle the events from any that match.
+         */
+        return true
+      }
+    }
+
+    return false
   }
 
   protected setup() {
