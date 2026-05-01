@@ -1,11 +1,10 @@
 // @vitest-environment happy-dom
 import http from 'node:http'
 import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
-import { BatchInterceptor } from '@mswjs/interceptors'
+import { BatchInterceptor, RequestController } from '@mswjs/interceptors'
 import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
-import { RequestController } from '#/src/RequestController'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 import { getTestServer } from '#/test/setup/vitest'
 
@@ -79,7 +78,7 @@ it('XMLHttpRequest: emits the "request" event upon the request (no CORS)', async
 
   // Preflight request.
   {
-    const [{ request }] = requestListener.mock.calls[1]
+    const [{ request }] = requestListener.mock.calls[0]
 
     expect.soft(request.method).toBe('OPTIONS')
     expect.soft(request.url).toBe(url.href)
@@ -117,24 +116,18 @@ it('XMLHttpRequest: emits the preflight "request" event upon the request (CORS)'
   await waitForXMLHttpRequest(request)
 
   expect.soft(requestListener).toHaveBeenCalledTimes(2)
-  expect.soft(requestListener).toHaveBeenNthCalledWith(
-    1,
-    expect.objectContaining({
-      request: expect.objectContaining({
-        method: 'OPTIONS',
-        url,
-      }),
-    })
-  )
-  expect.soft(requestListener).toHaveBeenNthCalledWith(
-    2,
-    expect.objectContaining({
-      request: expect.objectContaining({
-        method: 'POST',
-        url,
-      }),
-    })
-  )
+
+  {
+    const [{ request, requestId, controller }] = requestListener.mock.calls[0]
+
+    expect.soft(request.method).toBe('OPTIONS')
+    expect.soft(request.url).toBe(url.href)
+    expect.soft(request.credentials).toBe('same-origin')
+    await expect.soft(request.text()).resolves.toBe('')
+    expect.soft(controller).toBeInstanceOf(RequestController)
+
+    expect.soft(requestId).toMatch(REQUEST_ID_REGEXP)
+  }
 
   {
     const [{ request, requestId, controller }] = requestListener.mock.calls[1]
