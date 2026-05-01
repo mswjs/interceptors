@@ -127,18 +127,6 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     })
                   }
 
-                  if (socket.connecting) {
-                    // Send a mocked response once the socket connects, just like the real server would.
-                    // This preserves the correct order of events (e.g. connect, then data).
-                    socket.once('connect', respond)
-                  } else {
-                    /**
-                     * @note Reused sockets stay connected between requests and will not
-                     * emit "connect" anymore. If that's the case, respond immediately.
-                     */
-                    await respond()
-                  }
-
                   if (responseClone) {
                     await this.emitter.emitAsPromise(
                       new HttpResponseEvent({
@@ -149,6 +137,18 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                         responseType: 'mock',
                       })
                     )
+                  }
+
+                  if (socket.connecting) {
+                    // Send a mocked response once the socket connects, just like the real server would.
+                    // This preserves the correct order of events (e.g. connect, then data).
+                    socket.once('connect', respond)
+                  } else {
+                    /**
+                     * @note Reused sockets stay connected between requests and will not
+                     * emit "connect" anymore. If that's the case, respond immediately.
+                     */
+                    await respond()
                   }
                 },
                 errorWith: (reason) => {
