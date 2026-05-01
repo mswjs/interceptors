@@ -24,11 +24,19 @@ class PatchesRegistry {
       return () => {}
     }
 
-    Object.defineProperty(owner, key, {
-      value: getNextValue(owner[key]),
-      enumerable: true,
-      configurable: true,
-    })
+    if (match.descriptor.configurable) {
+      Object.defineProperty(owner, key, {
+        value: getNextValue(owner[key]),
+        enumerable: true,
+        configurable: true,
+      })
+    } else if (match.descriptor.writable) {
+      owner[key] = getNextValue(owner[key])
+    } else {
+      throw new Error(
+        `Failed to patch a non-configurable non-writable property "${key.toString()}"`
+      )
+    }
 
     const restorePatch = () => {
       const currentReplacements = this.#replacements.get(owner)
@@ -38,6 +46,10 @@ class PatchesRegistry {
       }
 
       if (match.owner === owner) {
+        /**
+         * @note Restoring non-configurable properties works as long as "writable: true"
+         * and none of the other descriptor properties except for "value" have changed.
+         */
         Object.defineProperty(match.owner, key, match.descriptor)
       } else {
         /**
