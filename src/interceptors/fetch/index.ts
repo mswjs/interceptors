@@ -148,7 +148,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 }
               }
 
-              if (this.emitter.listenerCount('response') > 0) {
+              if (
+                this.emitter.listenerCount('response') +
+                  this.emitter.listenerCount('*') >
+                0
+              ) {
                 logger.info('emitting the "response" event...')
 
                 // Await the response listeners to finish before resolving

@@ -164,7 +164,11 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                     this.#modifyHttpHeaders(context.request)
                   )
 
-                  if (this.emitter.listenerCount('response')) {
+                  if (
+                    this.emitter.listenerCount('response') +
+                      this.emitter.listenerCount('*') >
+                    0
+                  ) {
                     log('found "response" listener, pausing socket...')
 
                     const mockSocket = socketController[kRawSocket]
