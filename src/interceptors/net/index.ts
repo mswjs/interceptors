@@ -1,6 +1,6 @@
 import net from 'node:net'
 import tls from 'node:tls'
-import { Interceptor } from '../../Interceptor'
+import { TypedEvent } from 'rettime'
 import {
   type NetworkConnectionOptions,
   normalizeNetConnectArgs,
@@ -9,7 +9,7 @@ import { TcpSocketController, TlsSocketController } from './socket-controller'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
 import { createLogger } from '../../utils/logger'
 import { patchesRegistry } from '../../utils/patchesRegistry'
-import { TypedEvent } from 'rettime'
+import { Interceptor } from '#/src/interceptor'
 
 interface SocketConnectionEventData {
   socket: net.Socket | tls.TLSSocket
@@ -42,8 +42,8 @@ const log = createLogger('SocketInterceptor')
 export class SocketInterceptor extends Interceptor<SocketEventMap> {
   static symbol = Symbol.for('socket-interceptor')
 
-  constructor() {
-    super(SocketInterceptor.symbol)
+  protected predicate(): boolean {
+    return true
   }
 
   protected setup(): void {

@@ -1,5 +1,4 @@
-import { Emitter } from 'rettime'
-import { InterceptorEventMap } from './Interceptor'
+import { Emitter, type DefaultEventMap } from 'rettime'
 import { Disposable } from './disposable'
 
 export enum InterceptorReadyState {
@@ -11,7 +10,7 @@ export enum InterceptorReadyState {
 const interceptorsRegistry = new Map<symbol, Interceptor<any>>()
 
 export abstract class Interceptor<
-  Events extends InterceptorEventMap,
+  Events extends DefaultEventMap,
 > extends Disposable {
   declare ['constructor']: typeof Interceptor
 

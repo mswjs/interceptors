@@ -1,6 +1,6 @@
 import { ChildProcess } from 'child_process'
 import { HttpRequestEventMap, HttpResponseEvent } from './events/http'
-import { Interceptor } from './Interceptor'
+import { Interceptor } from './interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest/web'

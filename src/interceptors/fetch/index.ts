@@ -1,7 +1,7 @@
 import { until } from '@open-draft/until'
+import { Logger } from '@open-draft/logger'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
-import { Interceptor } from '../../Interceptor'
 import { RequestController } from '../../RequestController'
 import { handleRequest } from '../../utils/handleRequest'
 import { canParseUrl } from '../../utils/canParseUrl'
@@ -14,21 +14,18 @@ import { FetchResponse } from '../../utils/fetchUtils'
 import { isResponseError } from '../../utils/responseUtils'
 import { patchesRegistry } from '../../utils/patchesRegistry'
 import { copyRawHeaders } from '../ClientRequest/utils/recordRawHeaders'
+import { Interceptor } from '../../interceptor'
+
+const logger = new Logger('fetch')
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
 
-  constructor() {
-    super(FetchInterceptor.symbol)
-  }
-
-  protected checkEnvironment() {
+  protected predicate() {
     return hasConfigurableGlobal('fetch')
   }
 
   protected async setup() {
-    const logger = this.logger.extend('setup')
-
     logger.info('patching global fetch...')
 
     this.subscriptions.push(
@@ -55,7 +52,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const controller = new RequestController(request, {
             passthrough: async () => {
-              this.logger.info('request has not been handled, passthrough...')
+              logger.info('request has not been handled, passthrough...')
 
               /**
                * @note Clone the request instance right before performing it.
@@ -73,10 +70,10 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 return responsePromise.reject(responseError)
               }
 
-              this.logger.info('original fetch performed', originalResponse)
+              logger.info('original fetch performed', originalResponse)
 
               if (this.emitter.listenerCount('response') > 0) {
-                this.logger.info('emitting the "response" event...')
+                logger.info('emitting the "response" event...')
 
                 const responseClone = FetchResponse.clone(originalResponse)
                 await this.emitter.emitAsPromise(
@@ -97,14 +94,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             respondWith: async (rawResponse) => {
               // Handle mocked `Response.error()` (i.e. request errors).
               if (isResponseError(rawResponse)) {
-                this.logger.info('request has errored!', {
+                logger.info('request has errored!', {
                   response: rawResponse,
                 })
                 responsePromise.reject(createNetworkError(rawResponse))
                 return
               }
 
-              this.logger.info('received mocked response!', {
+              logger.info('received mocked response!', {
                 rawResponse,
               })
 
@@ -152,7 +149,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               }
 
               if (this.emitter.listenerCount('response') > 0) {
-                this.logger.info('emitting the "response" event...')
+                logger.info('emitting the "response" event...')
 
                 // Await the response listeners to finish before resolving
                 // the response promise. This ensures all your logic finishes
@@ -174,15 +171,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               responsePromise.resolve(response)
             },
             errorWith: (reason) => {
-              this.logger.info('request has been aborted!', { reason })
+              logger.info('request has been aborted!', { reason })
               responsePromise.reject(reason)
             },
           })
 
-          this.logger.info('[%s] %s', request.method, request.url)
-          this.logger.info('awaiting for the mocked response...')
+          logger.info('[%s] %s', request.method, request.url)
+          logger.info('awaiting for the mocked response...')
 
-          this.logger.info(
+          logger.info(
             'emitting the "request" event for %s listener(s)...',
             this.emitter.listenerCount('request')
           )

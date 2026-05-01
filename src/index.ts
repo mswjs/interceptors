@@ -1,5 +1,5 @@
-export * from './Interceptor'
-export * from './BatchInterceptor'
+export { Interceptor } from './interceptor'
+export { BatchInterceptor } from './BatchInterceptor'
 export {
   RequestController,
   type RequestControllerSource,

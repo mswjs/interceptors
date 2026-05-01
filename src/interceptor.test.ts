@@ -1,5 +1,5 @@
 import { TypedEvent } from 'rettime'
-import { Interceptor } from './interceptor-v2'
+import { Interceptor } from './interceptor'
 
 it('nesting interceptors', async () => {
   const socketSetup = vi.fn()
@@ -133,4 +133,62 @@ it('nesting interceptors', async () => {
   expect(numberListener).toHaveBeenNthCalledWith(1, 1)
   expect(numberListener).toHaveBeenNthCalledWith(2, 2)
   expect(stringListener).toHaveBeenCalledExactlyOnceWith('hello')
+})
+
+it('treats an interceptor as a singleton via "Interceptor.singleton()"', () => {
+  const setup = vi.fn()
+  const dispose = vi.fn()
+
+  class MyInterceptor extends Interceptor<{ test: TypedEvent }> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {
+      setup()
+    }
+
+    public dispose(): void {
+      super.dispose()
+      dispose()
+    }
+  }
+
+  const interceptor = Interceptor.singleton(MyInterceptor)
+  expect(setup).not.toHaveBeenCalled()
+
+  interceptor.apply()
+  expect(setup).toHaveBeenCalledOnce()
+
+  {
+    const interceptor = Interceptor.singleton(MyInterceptor)
+    expect(setup).toHaveBeenCalledOnce()
+
+    interceptor.dispose()
+    expect(dispose).toHaveBeenCalledOnce()
+  }
+
+  interceptor.dispose()
+  expect(dispose).toHaveBeenCalledTimes(2)
+})
+
+it('removes all listeners when the interceptor is disposed', () => {
+  class MyInterceptor extends Interceptor<{ test: TypedEvent }> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {}
+  }
+
+  const interceptor = new MyInterceptor()
+  interceptor.apply()
+
+  const listener = vi.fn()
+  interceptor.on('test', listener)
+
+  interceptor.dispose()
+
+  interceptor['emitter'].emit(new TypedEvent('test'))
+  expect(listener).not.toHaveBeenCalled()
 })

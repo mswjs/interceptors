@@ -1,198 +1,194 @@
 import { TypedEvent } from 'rettime'
-import {
-  Interceptor,
-  getGlobalSymbol,
-  deleteGlobalSymbol,
-  InterceptorReadyState,
-} from './Interceptor'
-import { nextTickAsync } from './utils/nextTick'
+import { Interceptor } from './interceptor'
 
-const symbol = Symbol('test')
+it('nesting interceptors', async () => {
+  const socketSetup = vi.fn()
+  const protocolSetup = vi.fn()
 
-afterEach(() => {
-  deleteGlobalSymbol(symbol)
-})
+  class SocketInterceptor extends Interceptor<{
+    data: TypedEvent<string | number>
+  }> {
+    static symbol = Symbol.for('socket-interceptor')
 
-describe('on()', () => {
-  it('adds a new listener using "on()"', () => {
-    const interceptor = new Interceptor(symbol)
-    expect(interceptor['emitter'].listenerCount('event')).toBe(0)
-
-    const listener = vi.fn()
-    interceptor.on('event', listener)
-    expect(interceptor['emitter'].listenerCount('event')).toBe(1)
-  })
-})
-
-describe('once()', () => {
-  it('calls the listener only once', () => {
-    const interceptor = new Interceptor(symbol)
-    const listener = vi.fn()
-
-    interceptor.once('foo', listener)
-    expect(listener).not.toHaveBeenCalled()
-
-    const event = new TypedEvent('foo', { data: 'bar' })
-    interceptor['emitter'].emit(event)
-
-    expect(listener).toHaveBeenCalledTimes(1)
-    expect(listener).toHaveBeenCalledExactlyOnceWith(event)
-
-    listener.mockReset()
-
-    interceptor['emitter'].emit(new TypedEvent('foo', { data: 'baz' }))
-    interceptor['emitter'].emit(new TypedEvent('foo', { data: 'xyz' }))
-    expect(listener).toHaveBeenCalledTimes(0)
-  })
-})
-
-describe('off()', () => {
-  it('removes a listener using "off()"', () => {
-    const interceptor = new Interceptor(symbol)
-    expect(interceptor['emitter'].listenerCount('event')).toBe(0)
-
-    const listener = vi.fn()
-    interceptor.on('event', listener)
-    expect(interceptor['emitter'].listenerCount('event')).toBe(1)
-
-    interceptor.removeListener('event', listener)
-    expect(interceptor['emitter'].listenerCount('event')).toBe(0)
-  })
-})
-
-describe('persistence', () => {
-  it('stores global reference to the applied interceptor', () => {
-    const interceptor = new Interceptor(symbol)
-    interceptor.apply()
-
-    expect(getGlobalSymbol(symbol)).toEqual(interceptor)
-  })
-
-  it('deletes global reference when the interceptor is disposed', () => {
-    const interceptor = new Interceptor(symbol)
-
-    interceptor.apply()
-    interceptor.dispose()
-
-    expect(getGlobalSymbol(symbol)).toBeUndefined()
-  })
-})
-
-describe('readyState', () => {
-  it('sets the state to "INACTIVE" when the interceptor is created', () => {
-    const interceptor = new Interceptor(symbol)
-    expect(interceptor.readyState).toBe(InterceptorReadyState.INACTIVE)
-  })
-
-  it('leaves state as "INACTIVE" if the interceptor failed the environment check', async () => {
-    class MyInterceptor extends Interceptor<any> {
-      protected checkEnvironment(): boolean {
-        return false
-      }
-    }
-    const interceptor = new MyInterceptor(symbol)
-    interceptor.apply()
-
-    expect(interceptor.readyState).toBe(InterceptorReadyState.INACTIVE)
-  })
-
-  it('performs state transition when the interceptor is applying', async () => {
-    const interceptor = new Interceptor(symbol)
-    interceptor.apply()
-
-    // The interceptor's state transitions to APPLIED immediately.
-    // The only exception is if something throws during the setup.
-    expect(interceptor.readyState).toBe(InterceptorReadyState.APPLIED)
-  })
-
-  it('performs state transition when disposing of the interceptor', async () => {
-    const interceptor = new Interceptor(symbol)
-    interceptor.apply()
-    interceptor.dispose()
-
-    // The interceptor's state transitions to DISPOSED immediately.
-    // The only exception is if something throws during the teardown.
-    expect(interceptor.readyState).toBe(InterceptorReadyState.DISPOSED)
-  })
-})
-
-describe('apply', () => {
-  it('does not apply the same interceptor multiple times', () => {
-    const interceptor = new Interceptor(symbol)
-    const setupSpy = vi.spyOn(
-      interceptor,
-      // @ts-expect-error Protected property spy.
-      'setup'
-    )
-
-    // Intentionally apply the same interceptor multiple times.
-    interceptor.apply()
-    interceptor.apply()
-    interceptor.apply()
-
-    // The "setup" must not be called repeatedly.
-    expect(setupSpy).toHaveBeenCalledTimes(1)
-
-    expect(getGlobalSymbol(symbol)).toEqual(interceptor)
-  })
-
-  it('does not call "apply" if the interceptor fails environment check', () => {
-    class MyInterceptor extends Interceptor<{}> {
-      checkEnvironment() {
-        return false
-      }
+    protected predicate(): boolean {
+      return true
     }
 
-    const interceptor = new MyInterceptor(Symbol('test'))
-    const setupSpy = vi.spyOn(
-      interceptor,
-      // @ts-expect-error Protected property spy.
-      'setup'
-    )
-    interceptor.apply()
+    protected setup(): void {
+      socketSetup()
 
-    expect(setupSpy).not.toHaveBeenCalled()
-  })
+      queueMicrotask(() => {
+        this.emitter.emit(new TypedEvent('data', { data: 1 }))
+        this.emitter.emit(new TypedEvent('data', { data: 'hello' }))
+        this.emitter.emit(new TypedEvent('data', { data: 2 }))
+      })
+    }
+  }
 
-  it('proxies listeners from new interceptor to already running interceptor', () => {
-    const firstInterceptor = new Interceptor(symbol)
-    const secondInterceptor = new Interceptor(symbol)
+  class ProtocolInterceptor extends Interceptor<{
+    request: TypedEvent<string | number>
+  }> {
+    static symbol = Symbol.for('protocol-interceptor')
 
-    firstInterceptor.apply()
-    const firstListener = vi.fn()
-    firstInterceptor.on('test', firstListener)
+    protected predicate(): boolean {
+      return true
+    }
 
-    secondInterceptor.apply()
-    const secondListener = vi.fn()
-    secondInterceptor.on('test', secondListener)
+    protected setup(): void {
+      protocolSetup()
 
-    // Emitting event in the first interceptor will bubble to the second one.
-    const event = new TypedEvent('test', { data: 'hello world' })
-    firstInterceptor['emitter'].emit(event)
+      const socket = Interceptor.singleton(SocketInterceptor)
+      socket.apply()
+      this.subscriptions.push(() => socket.dispose())
 
-    expect(firstListener).toHaveBeenCalledExactlyOnceWith(event)
-    expect(secondListener).toHaveBeenCalledExactlyOnceWith(event)
-    expect(secondInterceptor['emitter'].listenerCount('test')).toBe(0)
-  })
+      const controller = new AbortController()
+      this.subscriptions.push(() => controller.abort())
+
+      socket.on(
+        'data',
+        ({ data }) => {
+          this.emitter.emit(new TypedEvent('request', { data }))
+        },
+        { signal: controller.signal }
+      )
+    }
+  }
+
+  class NumberInterceptor extends Interceptor<{
+    number: TypedEvent<number>
+  }> {
+    static symbol = Symbol.for('number-interceptor')
+
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {
+      const protocol = Interceptor.singleton(ProtocolInterceptor)
+      protocol.apply()
+      this.subscriptions.push(() => protocol.dispose())
+
+      const controller = new AbortController()
+      this.subscriptions.push(() => controller.abort())
+
+      protocol.on(
+        'request',
+        ({ data }) => {
+          if (typeof data === 'number') {
+            this.emitter.emit(new TypedEvent('number', { data }))
+          }
+        },
+        { signal: controller.signal }
+      )
+    }
+  }
+
+  class StringInterceptor extends Interceptor<{
+    string: TypedEvent<string>
+  }> {
+    static symbol = Symbol.for('string-interceptor')
+
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {
+      const protocol = Interceptor.singleton(ProtocolInterceptor)
+      protocol.apply()
+      this.subscriptions.push(() => protocol.dispose())
+
+      const controller = new AbortController()
+      this.subscriptions.push(() => controller.abort())
+
+      protocol.on(
+        'request',
+        ({ data }) => {
+          if (typeof data === 'string') {
+            this.emitter.emit(new TypedEvent('string', { data }))
+          }
+        },
+        { signal: controller.signal }
+      )
+    }
+  }
+
+  const numberListener = vi.fn()
+  const numberInterceptor = new NumberInterceptor()
+  numberInterceptor.on('number', ({ data }) => numberListener(data))
+  numberInterceptor.apply()
+
+  const stringListener = vi.fn()
+  const stringInterceptor = new StringInterceptor()
+  stringInterceptor.on('string', ({ data }) => stringListener(data))
+  stringInterceptor.apply()
+
+  expect(socketSetup).toHaveBeenCalledOnce()
+  expect(protocolSetup).toHaveBeenCalledOnce()
+
+  await expect.poll(() => numberListener).toHaveBeenCalledTimes(2)
+
+  numberInterceptor.dispose()
+  stringInterceptor.dispose()
+
+  expect(numberListener).toHaveBeenNthCalledWith(1, 1)
+  expect(numberListener).toHaveBeenNthCalledWith(2, 2)
+  expect(stringListener).toHaveBeenCalledExactlyOnceWith('hello')
 })
 
-describe('dispose', () => {
-  it('removes all listeners when the interceptor is disposed', async () => {
-    const interceptor = new Interceptor(symbol)
+it('treats an interceptor as a singleton via "Interceptor.singleton()"', () => {
+  const setup = vi.fn()
+  const dispose = vi.fn()
 
-    interceptor.apply()
-    const listener = vi.fn()
-    interceptor.on('test', listener)
+  class MyInterceptor extends Interceptor<{ test: TypedEvent }> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {
+      setup()
+    }
+
+    public dispose(): void {
+      super.dispose()
+      dispose()
+    }
+  }
+
+  const interceptor = Interceptor.singleton(MyInterceptor)
+  expect(setup).not.toHaveBeenCalled()
+
+  interceptor.apply()
+  expect(setup).toHaveBeenCalledOnce()
+
+  {
+    const interceptor = Interceptor.singleton(MyInterceptor)
+    expect(setup).toHaveBeenCalledOnce()
+
     interceptor.dispose()
+    expect(dispose).toHaveBeenCalledOnce()
+  }
 
-    // Even after emitting an event, the listener must not get called.
-    interceptor['emitter'].emit('test')
-    expect(listener).not.toHaveBeenCalled()
+  interceptor.dispose()
+  expect(dispose).toHaveBeenCalledTimes(2)
+})
 
-    // The listener must not be called on the next tick either.
-    await nextTickAsync(() => {
-      interceptor['emitter'].emit('test')
-      expect(listener).not.toHaveBeenCalled()
-    })
-  })
+it('removes all listeners when the interceptor is disposed', () => {
+  class MyInterceptor extends Interceptor<{ test: TypedEvent }> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {}
+  }
+
+  const interceptor = new MyInterceptor()
+  interceptor.apply()
+
+  const listener = vi.fn()
+  interceptor.on('test', listener)
+
+  interceptor.dispose()
+
+  interceptor['emitter'].emit(new TypedEvent('test'))
+  expect(listener).not.toHaveBeenCalled()
 })

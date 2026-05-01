@@ -1,4 +1,4 @@
-import { Interceptor } from '../../Interceptor'
+import { Interceptor } from '../../interceptor'
 import {
   WebSocketConnectionEvent,
   type WebSocketEventMap,
@@ -22,6 +22,7 @@ import {
 import { bindEvent } from './utils/bindEvent'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { patchesRegistry } from '../../utils/patchesRegistry'
+import { Logger } from '@open-draft/logger'
 
 export {
   type WebSocketData,
@@ -42,6 +43,8 @@ export {
   CancelableMessageEvent,
 } from './utils/events'
 
+const logger = new Logger('websocket')
+
 /**
  * Intercept the outgoing WebSocket connections created using
  * the global `WebSocket` class.
@@ -49,16 +52,12 @@ export {
 export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
   static symbol = Symbol.for('websocket-interceptor')
 
-  constructor() {
-    super(WebSocketInterceptor.symbol)
-  }
-
-  protected checkEnvironment(): boolean {
+  protected predicate(): boolean {
     return hasConfigurableGlobal('WebSocket')
   }
 
   protected setup(): void {
-    const logger = this.logger.extend('setup')
+    logger.info('setup')
 
     const WebSocketProxy = new Proxy(globalThis.WebSocket, {
       construct: (

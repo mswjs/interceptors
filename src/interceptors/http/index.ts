@@ -6,7 +6,6 @@ import {
   IncomingMessage,
 } from 'node:http'
 import { invariant } from 'outvariant'
-import { Interceptor } from '../../Interceptor'
 import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
 import { RequestController } from '../../RequestController'
 import {
@@ -29,18 +28,19 @@ import {
 import { unwrapPendingData } from '../net/utils/flush-writes'
 import { FetchResponse } from '../../utils/fetchUtils'
 import { requestContext } from '../../request-context'
+import { Interceptor } from '#/src/interceptor'
 
 const log = createLogger('HttpRequestInterceptor')
 
 export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('http-request-interceptor')
 
-  constructor() {
-    super(HttpRequestInterceptor.symbol)
+  protected predicate(): boolean {
+    return true
   }
 
   protected setup(): void {
-    const socketInterceptor = new SocketInterceptor()
+    const socketInterceptor = Interceptor.singleton(SocketInterceptor)
     socketInterceptor.apply()
     this.subscriptions.push(() => socketInterceptor.dispose())
 
@@ -50,6 +50,9 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
      * This is meant for the headers in mocked responses.
      */
     this.subscriptions.push(recordRawFetchHeaders())
+
+    const controller = new AbortController()
+    this.subscriptions.push(() => controller.abort())
 
     socketInterceptor.on(
       'connection',
@@ -251,6 +254,9 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
             })
             .on('close', () => requestParser.free())
         })
+      },
+      {
+        signal: controller.signal,
       }
     )
   }

@@ -3,38 +3,35 @@ import { canParseUrl } from '#/src/utils/canParseUrl'
 import { requestContext } from '#/src/request-context'
 import { patchesRegistry } from '#/src/utils/patchesRegistry'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { Interceptor } from '#/src/Interceptor'
 import { HttpRequestEventMap } from '#/src/events/http'
-import { proxyEventListeners } from '#/src/utils/interceptor-utils'
+import { Interceptor } from '../../interceptor'
 
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
 
-  #httpInterceptor: HttpRequestInterceptor
-
-  constructor() {
-    super(FetchInterceptor.symbol)
-
-    this.#httpInterceptor = new HttpRequestInterceptor()
-
-    this.subscriptions.push(
-      proxyEventListeners({
-        from: this.emitter,
-        to: () => this.#httpInterceptor['emitter'],
-        filter: (event) => {
-          return event.initiator instanceof Request
-        },
-      })
-    )
-  }
-
-  protected checkEnvironment() {
+  protected predicate() {
     return hasConfigurableGlobal('fetch')
   }
 
   protected setup(): void {
-    this.#httpInterceptor.apply()
-    this.subscriptions.push(() => this.#httpInterceptor.dispose())
+    const httpInterceptor = Interceptor.singleton(HttpRequestInterceptor)
+    httpInterceptor.apply()
+    this.subscriptions.push(() => httpInterceptor.dispose())
+
+    const controller = new AbortController()
+    this.subscriptions.push(() => controller.abort())
+
+    httpInterceptor.on(
+      'request',
+      (event) => {
+        if (event.initiator instanceof Request) {
+          this.emitter.emit(event)
+        }
+      },
+      {
+        signal: controller.signal,
+      }
+    )
 
     this.subscriptions.push(
       patchesRegistry.applyPatch(globalThis, 'fetch', (realFetch) => {
