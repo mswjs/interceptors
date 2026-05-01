@@ -26,10 +26,10 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
 
     httpInterceptor.on(
       'request',
-      (event) => {
+      async (event) => {
         if (event.initiator instanceof XMLHttpRequest) {
           event.request = this.#transformRequest(event.request, event.initiator)
-          this.emitter.emit(event)
+          await this.emitter.emitAsPromise(event)
         }
       },
       {
@@ -38,10 +38,10 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
     )
     httpInterceptor.on(
       'response',
-      (event) => {
+      async (event) => {
         if (event.initiator instanceof XMLHttpRequest) {
           event.request = this.#transformRequest(event.request, event.initiator)
-          this.emitter.emit(event)
+          await this.emitter.emitAsPromise(event)
         }
       },
       {

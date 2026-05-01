@@ -23,9 +23,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
     httpInterceptor.on(
       'request',
-      (event) => {
+      async (event) => {
         if (event.initiator instanceof Request) {
-          this.emitter.emit(event)
+          await this.emitter.emitAsPromise(event)
         }
       },
       {
@@ -34,9 +34,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
     )
     httpInterceptor.on(
       'response',
-      (event) => {
+      async (event) => {
         if (event.initiator instanceof Request) {
-          this.emitter.emit(event)
+          await this.emitter.emitAsPromise(event)
         }
       },
       {

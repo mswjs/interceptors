@@ -23,9 +23,9 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
     httpInterceptor.on(
       'request',
-      (event) => {
+      async (event) => {
         if (event.initiator instanceof http.ClientRequest) {
-          this.emitter.emit(event)
+          await this.emitter.emitAsPromise(event)
         }
       },
       {
@@ -34,9 +34,9 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
     )
     httpInterceptor.on(
       'response',
-      (event) => {
+      async (event) => {
         if (event.initiator instanceof http.ClientRequest) {
-          this.emitter.emit(event)
+          await this.emitter.emitAsPromise(event)
         }
       },
       {
