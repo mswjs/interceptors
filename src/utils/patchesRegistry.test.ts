@@ -8,7 +8,12 @@ declare global {
 const realGlobalPrototype = Object.getPrototypeOf(global)
 
 beforeEach(() => {
-  global.foo = { original: true }
+  Object.defineProperty(global, 'foo', {
+    value: { original: true },
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  })
 })
 
 afterEach(() => {
@@ -181,4 +186,55 @@ it('restores global to the original property descriptor', () => {
 
   expect(global.foo).toEqual({ original: true })
   expect(Object.getOwnPropertyDescriptor(global, 'foo')).toEqual(descriptor)
+})
+
+it('replaces a non-configurable writable property', () => {
+  const owner = {} as { foo: { original: boolean } }
+  const descriptor: PropertyDescriptor = {
+    value: { original: true },
+    enumerable: true,
+    writable: true,
+    configurable: false,
+  }
+  Object.defineProperty(owner, 'foo', descriptor)
+
+  const restoreGlobal = patchesRegistry.applyPatch(owner, 'foo', () => ({
+    original: false,
+  }))
+
+  expect(owner.foo).toEqual({ original: false })
+  expect(
+    Object.getOwnPropertyDescriptor(owner, 'foo'),
+    'Preserves the original descriptor'
+  ).toEqual({
+    value: { original: false },
+    enumerable: true,
+    configurable: false,
+    writable: true,
+  })
+
+  restoreGlobal()
+
+  expect(owner.foo).toEqual({ original: true })
+  expect(
+    Object.getOwnPropertyDescriptor(owner, 'foo'),
+    'Restores the original descriptor'
+  ).toEqual(descriptor)
+})
+
+it('throws when replacing a non-configurable non-writable property', () => {
+  let owner = {} as { foo: { original: boolean } }
+  const descriptor: PropertyDescriptor = {
+    value: { original: true },
+    enumerable: true,
+    writable: false,
+    configurable: false,
+  }
+  Object.defineProperty(owner, 'foo', descriptor)
+
+  expect(() =>
+    patchesRegistry.applyPatch(owner, 'foo', () => ({
+      original: false,
+    }))
+  ).toThrow('Failed to patch a non-configurable non-writable property "foo"')
 })
