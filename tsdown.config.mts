@@ -15,7 +15,7 @@ export default defineConfig([
     external: ['_http_common'],
     outDir: './lib/node',
     platform: 'node',
-    target: 'node20',
+    target: 'node22',
     outExtensions: (context) => ({
       js: context.format === 'cjs' ? '.cjs' : '.mjs',
       dts: context.format === 'cjs' ? '.d.cts' : '.d.mts',
