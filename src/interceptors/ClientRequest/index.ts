@@ -43,6 +43,17 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         signal: controller.signal,
       }
     )
+    httpInterceptor.on(
+      'unhandledException',
+      async (event) => {
+        if (event.initiator instanceof http.ClientRequest) {
+          await this.emitter.emitAsPromise(event)
+        }
+      },
+      {
+        signal: controller.signal,
+      }
+    )
 
     this.subscriptions.push(
       patchesRegistry.applyPatch(http, 'ClientRequest', (ClientRequest) => {

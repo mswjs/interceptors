@@ -48,6 +48,18 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
         signal: controller.signal,
       }
     )
+    httpInterceptor.on(
+      'unhandledException',
+      async (event) => {
+        if (event.initiator instanceof XMLHttpRequest) {
+          event.request = this.#transformRequest(event.request, event.initiator)
+          await this.emitter.emitAsPromise(event)
+        }
+      },
+      {
+        signal: controller.signal,
+      }
+    )
 
     log('patching global "XMLHttpRequest"...')
 
