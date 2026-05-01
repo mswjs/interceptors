@@ -5,14 +5,12 @@ import { BatchInterceptor } from '#/src/BatchInterceptor'
 import { ClientRequestInterceptor } from '#/src/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
 import { FetchInterceptor } from '#/src/interceptors/fetch/node'
-import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
-import { waitForXMLHttpRequest } from '../setup/helpers-neutral'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new BatchInterceptor({
   name: 'interceptor',
   interceptors: [
-    new HttpRequestInterceptor(),
     new ClientRequestInterceptor(),
     new XMLHttpRequestInterceptor(),
     new FetchInterceptor(),
