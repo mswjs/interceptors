@@ -162,6 +162,9 @@ interface UndiciResponseState {
   }
 }
 
+const kStatus = Symbol('kStatus')
+const kUrl = Symbol('kUrl')
+
 export class FetchResponse extends Response {
   static from(response: Response, init?: FetchResponseInit): FetchResponse {
     if (response instanceof FetchResponse) {
@@ -228,11 +231,16 @@ export class FetchResponse extends Response {
         writable: false,
       })
     }
+
+    Object.defineProperty(response, kStatus, {
+      value: status,
+      enumerable: false,
+    })
   }
 
-  static setUrl(url: string | undefined, response: Response): boolean {
+  static setUrl(url: string | undefined, response: Response): void {
     if (!url || url === 'about:' || !canParseUrl(url)) {
-      return false
+      return
     }
 
     const state = getValueBySymbol<UndiciResponseState>('state', response)
@@ -251,7 +259,10 @@ export class FetchResponse extends Response {
       })
     }
 
-    return true
+    Object.defineProperty(response, kUrl, {
+      value: url,
+      enumerable: false,
+    })
   }
 
   /**
@@ -317,41 +328,25 @@ export class FetchResponse extends Response {
      * @see https://github.com/nodejs/undici/blob/f734c87280e626c75f59aad55b65eb6a89cef392/lib/web/fetch/response.js#L242
      */
     if (status !== safeStatus) {
-      this.#status = status
       FetchResponse.setStatus(status, this)
-
-      /**
-       * @note Undici keeps an internal "Symbol(state)" that holds
-       * the actual value of response status. Update that in Node.js.
-       */
-      const state = getValueBySymbol<UndiciResponseState>('state', this)
-
-      if (state) {
-        state.status = status
-      } else {
-        Object.defineProperty(this, 'status', {
-          value: status,
-          enumerable: true,
-          configurable: true,
-          writable: false,
-        })
-      }
     }
 
-    if (init.url && FetchResponse.setUrl(init.url, this)) {
-      this.#url = init.url
-    }
+    FetchResponse.setUrl(init.url, this)
   }
 
   public clone() {
     const clonedResponse = super.clone()
 
-    if (this.#status) {
-      FetchResponse.setStatus(this.#status, clonedResponse)
+    const customStatus = Reflect.get(this, kStatus) as number | undefined
+
+    if (customStatus) {
+      FetchResponse.setStatus(customStatus, clonedResponse)
     }
 
-    if (this.#url) {
-      FetchResponse.setUrl(this.#url, clonedResponse)
+    const customUrl = Reflect.get(this, kUrl) as string | undefined
+
+    if (customUrl) {
+      FetchResponse.setUrl(customUrl, clonedResponse)
     }
 
     return clonedResponse

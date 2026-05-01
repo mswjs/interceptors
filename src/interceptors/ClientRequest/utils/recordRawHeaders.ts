@@ -120,9 +120,18 @@ export function recordRawFetchHeaders(): () => void {
           headersInit instanceof Headers &&
           Reflect.has(headersInit, kRawHeaders)
         ) {
+          // Ensure each header tuple has exactly 2 elements (name, value).
+          // Node.js 24+ may have stored tuples with extra internal arguments.
+          const rawHeadersFromInit = Reflect.get(
+            headersInit,
+            kRawHeaders
+          ) as RawHeaders
+          const sanitizedHeaders = rawHeadersFromInit.map(
+            (tuple): HeaderTuple => [tuple[0], tuple[1]]
+          )
           const headers = Reflect.construct(
             target,
-            [Reflect.get(headersInit, kRawHeaders)],
+            [sanitizedHeaders],
             newTarget
           )
           ensureRawHeadersSymbol(headers, [
@@ -131,7 +140,7 @@ export function recordRawFetchHeaders(): () => void {
              * This prevents multiple Headers instances from pointing
              * at the same internal "rawHeaders" array.
              */
-            ...Reflect.get(headersInit, kRawHeaders),
+            ...sanitizedHeaders,
           ])
           return headers
         }
@@ -156,14 +165,20 @@ export function recordRawFetchHeaders(): () => void {
 
   Headers.prototype.set = new Proxy(Headers.prototype.set, {
     apply(target, thisArg, args: HeaderTuple) {
-      recordRawHeader(thisArg, args, 'set')
+      // Use only the first two arguments (name, value) to record raw headers.
+      // Node.js 24+ may pass additional internal arguments that should not
+      // be included in the raw headers array.
+      recordRawHeader(thisArg, [args[0], args[1]], 'set')
       return Reflect.apply(target, thisArg, args)
     },
   })
 
   Headers.prototype.append = new Proxy(Headers.prototype.append, {
     apply(target, thisArg, args: HeaderTuple) {
-      recordRawHeader(thisArg, args, 'append')
+      // Use only the first two arguments (name, value) to record raw headers.
+      // Node.js 24+ may pass additional internal arguments that should not
+      // be included in the raw headers array.
+      recordRawHeader(thisArg, [args[0], args[1]], 'append')
       return Reflect.apply(target, thisArg, args)
     },
   })
