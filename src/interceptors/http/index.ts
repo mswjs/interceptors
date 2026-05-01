@@ -354,10 +354,19 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
          * microtask phase, before other queued microtasks.
          */
         queueMicrotask(() => this.emit('error', error))
-        callback(null)
-      } else {
-        callback(null)
       }
+
+      callback(null)
+
+      /**
+       * @note `net.Socket` is constructed with `emitClose: false`, so Node's
+       * stream destroy machinery does not emit `'close'` automatically; the
+       * stock `net.Socket._destroy` only emits it via `_handle.close()`.
+       * Since this override replaces `_destroy`, emit `'close'` here so the
+       * mocked socket completes its lifecycle (otherwise consumers waiting
+       * on `'close'`, like `http.ClientRequest`, hang).
+       */
+      process.nextTick(() => this.emit('close', error != null))
     }
 
     if (response.body) {
