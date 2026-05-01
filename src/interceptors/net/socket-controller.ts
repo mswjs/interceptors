@@ -74,6 +74,7 @@ export interface TcpHandle {
   setBlocking: (blocking: boolean) => OperationStatus
   setNoDelay?: (noDelay: boolean) => void
   setKeepAlive?: (keepAlive: boolean, initialDelay: number) => void
+  setTypeOfService?: (tos: number) => OperationStatus
   shutdown: (reqest: unknown /* ShutdownWrap */) => OperationStatus
   close: () => void
 
@@ -327,6 +328,16 @@ export class TcpSocketController extends SocketController {
           }
         })
       })
+
+      /**
+       * Remove the "setTypeOfService" from the handle, if present (Node.js v24+).
+       * Removing it has no effect on the socket but prevents the "setTypeOfService EBADF" error.
+       * @see https://github.com/nodejs/node/blob/69a970f76814d40f55cf162d0cc3632fe8a7e599/lib/net.js#L661
+       * @see https://github.com/nodejs/undici/blob/bf684f7de01616708a33a5d1c092177622394442/lib/dispatcher/client-h1.js#L1136
+       */
+      if (handle.setTypeOfService) {
+        handle.setTypeOfService = undefined
+      }
 
       handle.connect = handle.connect6 = (request) => {
         log('handle.connect()')
