@@ -32,6 +32,17 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
         signal: controller.signal,
       }
     )
+    httpInterceptor.on(
+      'response',
+      (event) => {
+        if (event.initiator instanceof Request) {
+          this.emitter.emit(event)
+        }
+      },
+      {
+        signal: controller.signal,
+      }
+    )
 
     this.subscriptions.push(
       patchesRegistry.applyPatch(globalThis, 'fetch', (realFetch) => {
