@@ -36,8 +36,8 @@ importers:
         specifier: ^1.4.3
         version: 1.4.3
       rettime:
-        specifier: ^0.11.6
-        version: link:../../rettime
+        specifier: ^0.11.8
+        version: 0.11.8
     devDependencies:
       '@commitlint/cli':
         specifier: ^19.7.1
@@ -2666,6 +2666,9 @@ packages:
   restore-cursor@3.1.0:
     resolution: {integrity: sha512-l+sSefzHpj5qimhFSE5a8nufZYAM3sBSVMAPtYkmC+4EH2anSGaEMXSD0izRQbu9nfyQ9y5JrVmp7E8oZrUjvA==}
     engines: {node: '>=8'}
+
+  rettime@0.11.8:
+    resolution: {integrity: sha512-0fERGXktJTyJ+h8fBEiPxHPEFOu0h15JY7JtwrOVqR5K+vb99ho6IyOo7ekLS3h4sJCzIDy4VWKIbZUfe9njmg==}
 
   rfdc@1.4.1:
     resolution: {integrity: sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA==}
@@ -5906,6 +5909,8 @@ snapshots:
     dependencies:
       onetime: 5.1.2
       signal-exit: 3.0.7
+
+  rettime@0.11.8: {}
 
   rfdc@1.4.1: {}
 

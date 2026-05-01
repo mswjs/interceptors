@@ -174,7 +174,7 @@
     "es-toolkit": "^1.44.0",
     "is-node-process": "^1.2.0",
     "outvariant": "^1.4.3",
-    "rettime": "^0.11.6"
+    "rettime": "^0.11.8"
   },
   "resolutions": {
     "memfs": "^3.4.13"
