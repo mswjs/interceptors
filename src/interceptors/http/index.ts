@@ -447,9 +447,20 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
         visitedHeaders.add(normalizedHeaderName)
 
+        /**
+         * @note Forbidden Fetch headers (e.g. Host, Origin, Connection)
+         * are stripped from `request.headers` but remain in the raw
+         * headers list. Skip them so the original values from the
+         * outgoing HTTP message are preserved.
+         */
+        const headerValue = request.headers.get(headerName)
+        if (headerValue === null) {
+          continue
+        }
+
         // Use the merged value from Headers to correctly handle
         // appended headers (e.g. "1, 2" instead of just "2").
-        httpMessageHeaders.set(headerName, request.headers.get(headerName)!)
+        httpMessageHeaders.set(headerName, headerValue)
       }
 
       visitedHeaders.clear()

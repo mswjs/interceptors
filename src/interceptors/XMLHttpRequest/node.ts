@@ -1,6 +1,6 @@
 import { requestContext } from '#/src/request-context'
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
-import { Interceptor } from '../../interceptor'
+import { Interceptor } from '#/src/interceptor'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { patchesRegistry } from '#/src/utils/patchesRegistry'
 import { FetchRequest } from '#/src/utils/fetchUtils'
