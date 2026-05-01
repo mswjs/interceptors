@@ -5,7 +5,6 @@ import {
   ServerResponse,
   IncomingMessage,
 } from 'node:http'
-import type { ReadableStream } from 'node:stream/web'
 import { invariant } from 'outvariant'
 import { Interceptor } from '../../Interceptor'
 import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'

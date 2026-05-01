@@ -1,6 +1,5 @@
 import { Logger } from '@open-draft/logger'
 import { Emitter, TypedListenerOptions } from 'rettime'
-import { listenerCount } from 'superagent'
 
 export type InterceptorEventMap = Record<string, any>
 export type InterceptorSubscription = () => void
@@ -216,7 +215,12 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
     // Delete the global symbol as soon as possible,
     // indicating that the interceptor is no longer running.
-    this.clearInstance()
+    if (this === this.getInstance()) {
+      this.clearInstance()
+
+      this.emitter.removeAllListeners()
+      logger.info('removed the listeners!')
+    }
 
     logger.info('global symbol deleted:', getGlobalSymbol(this.symbol))
 
@@ -231,9 +235,6 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
       logger.info('disposed of all subscriptions!', this.subscriptions.length)
     }
-
-    this.emitter.removeAllListeners()
-    logger.info('destroyed the listener!')
 
     this.readyState = InterceptorReadyState.DISPOSED
   }
