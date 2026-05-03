@@ -1,193 +1,150 @@
 import http from 'node:http'
 import https from 'node:https'
-import { Interceptor } from '../../Interceptor'
-import type { HttpRequestEventMap } from '../../glossary'
-import {
-  kRequestId,
-  MockHttpSocketRequestCallback,
-  MockHttpSocketResponseCallback,
-} from './MockHttpSocket'
-import { MockAgent, MockHttpsAgent } from './agents'
-import { RequestController } from '../../RequestController'
-import { emitAsync } from '../../utils/emitAsync'
-import { normalizeClientRequestArgs } from './utils/normalizeClientRequestArgs'
-import { handleRequest } from '../../utils/handleRequest'
-import {
-  recordRawFetchHeaders,
-  restoreHeadersPrototype,
-} from './utils/recordRawHeaders'
+import type { Emitter } from 'rettime'
+import { requestContext, runInRequestContext } from '#/src/request-context'
+import { patchesRegistry } from '#/src/utils/patchesRegistry'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { Interceptor } from '../../interceptor'
+import { HttpRequestEventMap } from '#/src/events/http'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static symbol = Symbol('client-request-interceptor')
+  static symbol = Symbol.for('client-request-interceptor')
 
-  constructor() {
-    super(ClientRequestInterceptor.symbol)
+  protected predicate(): boolean {
+    return true
   }
 
   protected setup(): void {
-    const {
-      ClientRequest: OriginalClientRequest,
-      get: originalGet,
-      request: originalRequest,
-    } = http
-    const { get: originalHttpsGet, request: originalHttpsRequest } = https
+    const httpInterceptor = Interceptor.singleton(HttpRequestInterceptor)
+    httpInterceptor.apply()
+    this.subscriptions.push(() => httpInterceptor.dispose())
 
-    const onRequest = this.onRequest.bind(this)
-    const onResponse = this.onResponse.bind(this)
+    const controller = new AbortController()
+    this.subscriptions.push(() => controller.abort())
 
-    // Support requests performed via the `ClientRequest` constructor directly.
-    http.ClientRequest = new Proxy(http.ClientRequest, {
-      construct: (target, args: Parameters<typeof http.request>) => {
-        const [url, options, callback] = normalizeClientRequestArgs(
-          'http:',
-          args
-        )
-
-        // Create a mock agent instance appropriate for the request protocol.
-        const Agent = options.protocol === 'https:' ? MockHttpsAgent : MockAgent
-        const mockAgent = new Agent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
-
-        return Reflect.construct(target, [url, options, callback])
-      },
-    })
-
-    http.request = new Proxy(http.request, {
-      apply: (target, thisArg, args: Parameters<typeof http.request>) => {
-        const [url, options, callback] = normalizeClientRequestArgs(
-          'http:',
-          args
-        )
-        const mockAgent = new MockAgent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
-
-        return Reflect.apply(target, thisArg, [url, options, callback])
-      },
-    })
-
-    http.get = new Proxy(http.get, {
-      apply: (target, thisArg, args: Parameters<typeof http.get>) => {
-        const [url, options, callback] = normalizeClientRequestArgs(
-          'http:',
-          args
-        )
-
-        const mockAgent = new MockAgent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
-
-        return Reflect.apply(target, thisArg, [url, options, callback])
-      },
-    })
-
-    //
-    // HTTPS.
-    //
-
-    https.request = new Proxy(https.request, {
-      apply: (target, thisArg, args: Parameters<typeof https.request>) => {
-        const [url, options, callback] = normalizeClientRequestArgs(
-          'https:',
-          args
-        )
-
-        const mockAgent = new MockHttpsAgent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
-
-        return Reflect.apply(target, thisArg, [url, options, callback])
-      },
-    })
-
-    https.get = new Proxy(https.get, {
-      apply: (target, thisArg, args: Parameters<typeof https.get>) => {
-        const [url, options, callback] = normalizeClientRequestArgs(
-          'https:',
-          args
-        )
-
-        const mockAgent = new MockHttpsAgent({
-          customAgent: options.agent,
-          onRequest,
-          onResponse,
-        })
-        options.agent = mockAgent
-
-        return Reflect.apply(target, thisArg, [url, options, callback])
-      },
-    })
-
-    // Spy on `Header.prototype.set` and `Header.prototype.append` calls
-    // and record the raw header names provided. This is to support
-    // `IncomingMessage.prototype.rawHeaders`.
-    recordRawFetchHeaders()
-
-    this.subscriptions.push(() => {
-      http.ClientRequest = OriginalClientRequest
-
-      http.get = originalGet
-      http.request = originalRequest
-
-      https.get = originalHttpsGet
-      https.request = originalHttpsRequest
-
-      restoreHeadersPrototype()
-    })
-  }
-
-  private onRequest: MockHttpSocketRequestCallback = async ({
-    request,
-    socket,
-  }) => {
-    const controller = new RequestController(request, {
-      passthrough() {
-        socket.passthrough()
-      },
-      async respondWith(response) {
-        await socket.respondWith(response)
-      },
-      errorWith(reason) {
-        if (reason instanceof Error) {
-          socket.errorWith(reason)
+    httpInterceptor.on(
+      'request',
+      async (event) => {
+        if (event.initiator instanceof http.ClientRequest) {
+          await this.emitter.emitAsPromise(event)
         }
       },
-    })
+      {
+        signal: controller.signal,
+      }
+    )
 
-    await handleRequest({
-      request,
-      requestId: Reflect.get(request, kRequestId),
-      controller,
-      emitter: this.emitter,
-    })
-  }
+    const responseListener: Emitter.Listener<
+      (typeof httpInterceptor)['emitter'],
+      'response'
+    > = async (event) => {
+      if (event.initiator instanceof http.ClientRequest) {
+        await this.emitter.emitAsPromise(event)
+      }
+    }
 
-  public onResponse: MockHttpSocketResponseCallback = async ({
-    requestId,
-    request,
-    response,
-    isMockedResponse,
-  }) => {
-    // Return the promise to when all the response event listeners
-    // are finished.
-    return emitAsync(this.emitter, 'response', {
-      requestId,
-      request,
-      response,
-      isMockedResponse,
-    })
+    const unhandledExceptionListener: Emitter.Listener<
+      (typeof httpInterceptor)['emitter'],
+      'unhandledException'
+    > = async (event) => {
+      if (event.initiator instanceof http.ClientRequest) {
+        await this.emitter.emitAsPromise(event)
+      }
+    }
+
+    this.emitter.hooks.on(
+      'newListener',
+      (type) => {
+        if (
+          type === 'response' &&
+          !httpInterceptor.listeners('response').includes(responseListener)
+        ) {
+          httpInterceptor.on('response', responseListener, {
+            signal: controller.signal,
+          })
+        }
+
+        if (
+          type === 'unhandledException' &&
+          !httpInterceptor
+            .listeners('unhandledException')
+            .includes(unhandledExceptionListener)
+        ) {
+          httpInterceptor.on('unhandledException', unhandledExceptionListener, {
+            signal: controller.signal,
+          })
+        }
+      },
+      {
+        signal: controller.signal,
+        persist: true,
+      }
+    )
+
+    this.emitter.hooks.on(
+      'removeListener',
+      (type) => {
+        if (
+          type === 'response' &&
+          this.emitter.listenerCount('response') === 0
+        ) {
+          httpInterceptor.removeListener('response', responseListener)
+        }
+
+        if (
+          type === 'unhandledException' &&
+          this.emitter.listenerCount('unhandledException') === 0
+        ) {
+          httpInterceptor.removeListener(
+            'unhandledException',
+            unhandledExceptionListener
+          )
+        }
+      },
+      {
+        signal: controller.signal,
+        persist: true,
+      }
+    )
+
+    this.subscriptions.push(
+      patchesRegistry.applyPatch(http, 'ClientRequest', (ClientRequest) => {
+        return new Proxy(ClientRequest, {
+          construct(target, args, newTarget) {
+            return runInRequestContext(() => {
+              return Reflect.construct(target, args, newTarget)
+            })
+          },
+        })
+      }),
+      patchesRegistry.applyPatch(http, 'get', (httpGet) => {
+        return function mockHttpGet(...args) {
+          return runInRequestContext(() => {
+            return httpGet(...(args as [any, any]))
+          })
+        }
+      }),
+      patchesRegistry.applyPatch(http, 'request', (httpRequest) => {
+        return function mockHttpRequest(...args) {
+          return runInRequestContext(() => {
+            return httpRequest(...(args as [any, any]))
+          })
+        }
+      }),
+      patchesRegistry.applyPatch(https, 'get', (httpsGet) => {
+        return function mockHttpsGet(...args) {
+          return runInRequestContext(() => {
+            return httpsGet(...(args as [any, any]))
+          })
+        }
+      }),
+      patchesRegistry.applyPatch(https, 'request', (httpsRequest) => {
+        return function mockHttpsRequest(...args) {
+          return runInRequestContext(() => {
+            return httpsRequest(...(args as [any, any]))
+          })
+        }
+      })
+    )
   }
 }

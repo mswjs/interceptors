@@ -1,8 +1,12 @@
-import type { Emitter } from 'strict-event-emitter'
+import type { Emitter } from 'rettime'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
-import type { HttpRequestEventMap } from '../glossary'
-import { emitAsync } from './emitAsync'
+import {
+  HttpRequestEvent,
+  HttpRequestEventData,
+  UnhandledHttpException,
+  type HttpRequestEventMap,
+} from '../events/http'
 import { RequestController } from '../RequestController'
 import {
   createServerErrorResponse,
@@ -13,7 +17,8 @@ import { InterceptorError } from '../InterceptorError'
 import { isNodeLikeError } from './isNodeLikeError'
 import { isObject } from './isObject'
 
-interface HandleRequestOptions {
+export interface HandleRequestOptions {
+  initiator: unknown
   requestId: string
   request: Request
   emitter: Emitter<HttpRequestEventMap>
@@ -77,18 +82,6 @@ export async function handleRequest(
     return false
   }
 
-  // Add the last "request" listener to check if the request
-  // has been handled in any way. If it hasn't, resolve the
-  // response promise with undefined.
-  // options.emitter.once('request', async ({ requestId: pendingRequestId }) => {
-  //   if (
-  //     pendingRequestId === options.requestId &&
-  //     options.controller.readyState === RequestController.PENDING
-  //   ) {
-  //     await options.controller.passthrough()
-  //   }
-  // })
-
   const requestAbortPromise = new DeferredPromise<void, unknown>()
 
   /**
@@ -114,11 +107,14 @@ export async function handleRequest(
     // for that event are finished (e.g. async listeners awaited).
     // By the end of this promise, the developer cannot affect the
     // request anymore.
-    const requestListenersPromise = emitAsync(options.emitter, 'request', {
+    const requestEventData: HttpRequestEventData = {
+      initiator: options.initiator,
       requestId: options.requestId,
       request: options.request,
       controller: options.controller,
-    })
+    }
+    const requestEvent = new HttpRequestEvent(requestEventData)
+    const requestListenersPromise = options.emitter.emitAsPromise(requestEvent)
 
     await Promise.race([
       // Short-circuit the request handling promise if the request gets aborted.
@@ -126,6 +122,16 @@ export async function handleRequest(
       requestListenersPromise,
       options.controller.handled,
     ])
+
+    /**
+     * @note If the "request" listener has replaced the request instance,
+     * propagate that mutation back to the underlying insterceptor.
+     * This happens with XMLHttpRequest that replaces request instances
+     * to correctly reflect the "withCredentials" option on the Fetch API request.
+     */
+    if (requestEvent.request !== options.request) {
+      options.request = requestEvent.request
+    }
   })
 
   // Handle the request being aborted while waiting for the request listeners.
@@ -173,12 +179,15 @@ export async function handleRequest(
         }
       )
 
-      await emitAsync(options.emitter, 'unhandledException', {
-        error: result.error,
-        request: options.request,
-        requestId: options.requestId,
-        controller: unhandledExceptionController,
-      })
+      await options.emitter.emitAsPromise(
+        new UnhandledHttpException({
+          initiator: options.initiator,
+          error: result.error,
+          request: options.request,
+          requestId: options.requestId,
+          controller: unhandledExceptionController,
+        })
+      )
 
       // If all the "unhandledException" listeners have finished
       // but have not handled the request in any way, passthrough.

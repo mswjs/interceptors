@@ -1,6 +1,7 @@
+import { until } from '@open-draft/until'
 import { invariant } from 'outvariant'
-import { isNodeProcess } from 'is-node-process'
 import type { Logger } from '@open-draft/logger'
+import type { HttpResponseType } from '../../events/http'
 import { concatArrayBuffer } from './utils/concatArrayBuffer'
 import { createEvent } from './utils/createEvent'
 import {
@@ -12,15 +13,14 @@ import { createProxy } from '../../utils/createProxy'
 import { isDomParserSupportedType } from './utils/isDomParserSupportedType'
 import { parseJson } from '../../utils/parseJson'
 import { createResponse } from './utils/createResponse'
-import { INTERNAL_REQUEST_ID_HEADER_NAME } from '../../Interceptor'
 import { createRequestId } from '../../createRequestId'
 import { getBodyByteLength } from './utils/getBodyByteLength'
-import { setRawRequest } from '../../getRawRequest'
-import { FetchRequest } from '../../utils/fetchUtils'
+import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
+import { isResponseError } from '../../utils/responseUtils'
 
 const kIsRequestHandled = Symbol('kIsRequestHandled')
-const IS_NODE = isNodeProcess()
 const kFetchRequest = Symbol('kFetchRequest')
+const MAX_REDIRECTS = 20
 
 /**
  * An `XMLHttpRequest` instance controller that allows us
@@ -40,7 +40,7 @@ export class XMLHttpRequestController {
     this: XMLHttpRequestController,
     args: {
       response: Response
-      isMockedResponse: boolean
+      responseType: HttpResponseType
       request: Request
       requestId: string
     }
@@ -48,10 +48,13 @@ export class XMLHttpRequestController {
 
   [kIsRequestHandled]: boolean;
   [kFetchRequest]?: Request
+
+  private sync: boolean = false
   private method: string = 'GET'
   private url: URL = null as any
   private requestHeaders: Headers
   private responseBuffer: Uint8Array
+  private redirectCount: number
   private events: Map<keyof XMLHttpRequestEventTargetEventMap, Array<Function>>
   private uploadEvents: Map<
     keyof XMLHttpRequestEventTargetEventMap,
@@ -64,6 +67,7 @@ export class XMLHttpRequestController {
   ) {
     this[kIsRequestHandled] = false
 
+    this.redirectCount = 0
     this.events = new Map()
     this.uploadEvents = new Map()
     this.requestId = createRequestId()
@@ -71,32 +75,16 @@ export class XMLHttpRequestController {
     this.responseBuffer = new Uint8Array()
 
     this.request = createProxy(initialRequest, {
-      setProperty: ([propertyName, nextValue], invoke) => {
-        switch (propertyName) {
-          case 'ontimeout': {
-            const eventName = propertyName.slice(
-              2
-            ) as keyof XMLHttpRequestEventTargetEventMap
-
-            /**
-             * @note Proxy callbacks to event listeners because JSDOM has trouble
-             * translating these properties to callbacks. It seemed to be operating
-             * on events exclusively.
-             */
-            this.request.addEventListener(eventName, nextValue as any)
-
-            return invoke()
-          }
-
-          default: {
-            return invoke()
-          }
-        }
-      },
       methodCall: ([methodName, args], invoke) => {
         switch (methodName) {
           case 'open': {
-            const [method, url] = args as [string, string | undefined]
+            const [method, url, async] = args as [
+              string,
+              string | undefined,
+              boolean | undefined,
+            ]
+
+            this.sync = !(async ?? true)
 
             if (typeof url === 'undefined') {
               this.method = 'GET'
@@ -138,6 +126,13 @@ export class XMLHttpRequestController {
               body?: XMLHttpRequestBodyInit | Document | null,
             ]
 
+            if (this.sync) {
+              console.warn(
+                `Failed to intercept an XMLHttpRequest (${this.method} ${this.url}): synchronous requests are not supported. This request will be performed as-is.`
+              )
+              return invoke()
+            }
+
             this.request.addEventListener('load', () => {
               if (typeof this.onResponse !== 'undefined') {
                 // Create a Fetch API Response representation of whichever
@@ -156,7 +151,7 @@ export class XMLHttpRequestController {
                 // Notify the consumer about the response.
                 this.onResponse.call(this, {
                   response: fetchResponse,
-                  isMockedResponse: this[kIsRequestHandled],
+                  responseType: this[kIsRequestHandled] ? 'mock' : 'original',
                   request: fetchRequest,
                   requestId: this.requestId!,
                 })
@@ -188,22 +183,6 @@ export class XMLHttpRequestController {
                     'request callback settled but request has not been handled (readystate %d), performing as-is...',
                     this.request.readyState
                   )
-
-                  /**
-                   * @note Set the intercepted request ID on the original request in Node.js
-                   * so that if it triggers any other interceptors, they don't attempt
-                   * to process it once again.
-                   *
-                   * For instance, XMLHttpRequest is often implemented via "http.ClientRequest"
-                   * and we don't want for both XHR and ClientRequest interceptors to
-                   * handle the same request at the same time (e.g. emit the "response" event twice).
-                   */
-                  if (IS_NODE) {
-                    this.request.setRequestHeader(
-                      INTERNAL_REQUEST_ID_HEADER_NAME,
-                      this.requestId!
-                    )
-                  }
 
                   return invoke()
                 }
@@ -301,92 +280,13 @@ export class XMLHttpRequestController {
      */
     this[kIsRequestHandled] = true
 
-    /**
-     * Dispatch request upload events for requests with a body.
-     * @see https://github.com/mswjs/interceptors/issues/573
-     */
-    if (this[kFetchRequest]) {
-      const totalRequestBodyLength = await getBodyByteLength(
-        this[kFetchRequest]
-      )
-
-      this.trigger('loadstart', this.request.upload, {
-        loaded: 0,
-        total: totalRequestBodyLength,
-      })
-      this.trigger('progress', this.request.upload, {
-        loaded: totalRequestBodyLength,
-        total: totalRequestBodyLength,
-      })
-      this.trigger('load', this.request.upload, {
-        loaded: totalRequestBodyLength,
-        total: totalRequestBodyLength,
-      })
-
-      this.trigger('loadend', this.request.upload, {
-        loaded: totalRequestBodyLength,
-        total: totalRequestBodyLength,
-      })
-    }
-
     this.logger.info(
       'responding with a mocked response: %d %s',
       response.status,
       response.statusText
     )
 
-    define(this.request, 'status', response.status)
-    define(this.request, 'statusText', response.statusText)
-    define(this.request, 'responseURL', this.url.href)
-
-    this.request.getResponseHeader = new Proxy(this.request.getResponseHeader, {
-      apply: (_, __, args: [name: string]) => {
-        this.logger.info('getResponseHeader', args[0])
-
-        if (this.request.readyState < this.request.HEADERS_RECEIVED) {
-          this.logger.info('headers not received yet, returning null')
-
-          // Headers not received yet, nothing to return.
-          return null
-        }
-
-        const headerValue = response.headers.get(args[0])
-        this.logger.info(
-          'resolved response header "%s" to',
-          args[0],
-          headerValue
-        )
-
-        return headerValue
-      },
-    })
-
-    this.request.getAllResponseHeaders = new Proxy(
-      this.request.getAllResponseHeaders,
-      {
-        apply: () => {
-          this.logger.info('getAllResponseHeaders')
-
-          if (this.request.readyState < this.request.HEADERS_RECEIVED) {
-            this.logger.info('headers not received yet, returning empty string')
-
-            // Headers not received yet, nothing to return.
-            return ''
-          }
-
-          const headersList = Array.from(response.headers.entries())
-          const allHeaders = headersList
-            .map(([headerName, headerValue]) => {
-              return `${headerName}: ${headerValue}`
-            })
-            .join('\r\n')
-
-          this.logger.info('resolved all response headers to', allHeaders)
-
-          return allHeaders
-        },
-      }
-    )
+    FetchResponse.setUrl(this.url.href, response)
 
     // Update the response getters to resolve against the mocked response.
     Object.defineProperties(this.request, {
@@ -407,65 +307,278 @@ export class XMLHttpRequestController {
       },
     })
 
-    const totalResponseBodyLength = await getBodyByteLength(response.clone())
+    // 1. Fire a progress event named loadstart at this with 0 and 0.
+    this.trigger('loadstart', this.request, { loaded: 0, total: 0 })
 
-    this.logger.info('calculated response body length', totalResponseBodyLength)
+    // 2. Let requestBodyTransmitted be 0.
+    let requestBodyTransmitted = 0
+    let uploadComplete = false
 
-    this.trigger('loadstart', this.request, {
-      loaded: 0,
-      total: totalResponseBodyLength,
-    })
+    if (this[kFetchRequest]) {
+      const requestBodyLength = await getBodyByteLength(
+        this[kFetchRequest].clone()
+      )
 
-    this.setReadyState(this.request.HEADERS_RECEIVED)
-    this.setReadyState(this.request.LOADING)
+      // 5. If this’s upload complete flag is unset and this’s upload listener flag is set, then fire a progress event named loadstart at this’s upload object with requestBodyTransmitted and requestBodyLength.
+      if (!uploadComplete) {
+        this.trigger('loadstart', this.request.upload, {
+          loaded: 0,
+          total: requestBodyLength,
+        })
+      }
 
-    const finalizeResponse = () => {
-      this.logger.info('finalizing the mocked response...')
+      const processRequestBodyChunkLength = (bytesLength: number) => {
+        requestBodyTransmitted += bytesLength
 
-      this.setReadyState(this.request.DONE)
+        if (requestBodyTransmitted < requestBodyLength) {
+          this.trigger('progress', this.request.upload, {
+            loaded: requestBodyTransmitted,
+            total: requestBodyLength,
+          })
+        }
+      }
 
-      this.trigger('load', this.request, {
-        loaded: this.responseBuffer.byteLength,
-        total: totalResponseBodyLength,
-      })
+      const processRequestEndOfBody = () => {
+        uploadComplete = true
 
-      this.trigger('loadend', this.request, {
-        loaded: this.responseBuffer.byteLength,
-        total: totalResponseBodyLength,
-      })
+        this.trigger('progress', this.request.upload, {
+          loaded: requestBodyTransmitted,
+          total: requestBodyLength,
+        })
+        this.trigger('load', this.request.upload, {
+          loaded: requestBodyTransmitted,
+          total: requestBodyLength,
+        })
+        this.trigger('loadend', this.request.upload, {
+          loaded: requestBodyTransmitted,
+          total: requestBodyLength,
+        })
+      }
+
+      if (this[kFetchRequest]?.body != null) {
+        const reader = this[kFetchRequest].body.getReader()
+
+        while (true) {
+          const { value, done } = await reader.read()
+
+          if (done) {
+            processRequestEndOfBody()
+            break
+          }
+
+          processRequestBodyChunkLength(value.byteLength)
+        }
+      } else {
+        processRequestEndOfBody()
+      }
     }
 
-    if (response.body) {
-      this.logger.info('mocked response has body, streaming...')
+    let timedOut = false
+    const responseReadController = new AbortController()
 
-      const reader = response.body.getReader()
+    const requestErrorSteps = (
+      event: keyof XMLHttpRequestEventTargetEventMap
+    ) => {
+      this.setReadyState(this.request.DONE)
 
-      const readNextResponseBodyChunk = async () => {
-        const { value, done } = await reader.read()
+      if (!uploadComplete) {
+        this.trigger(event, this.request.upload, {
+          loaded: 0,
+          total: 0,
+        })
+        this.trigger('loadend', this.request.upload, {
+          loaded: 0,
+          total: 0,
+        })
+      }
 
-        if (done) {
-          this.logger.info('response body stream done!')
-          finalizeResponse()
+      this.trigger(event, this.request, { loaded: 0, total: 0 })
+      this.trigger('loadend', this.request, { loaded: 0, total: 0 })
+    }
+
+    const processResponse = async (response: Response) => {
+      const handleErrors = () => {
+        if (timedOut) {
+          requestErrorSteps('timeout')
+        } else if (responseReadController.signal.aborted) {
+          requestErrorSteps('abort')
+        } else if (isResponseError(response)) {
+          requestErrorSteps('error')
+        }
+      }
+
+      handleErrors()
+
+      define(this.request, 'status', response.status)
+      define(this.request, 'statusText', response.statusText)
+
+      if (!this.request.responseURL) {
+        define(this.request, 'responseURL', response.url)
+      }
+
+      if (isResponseError(response)) {
+        return
+      }
+
+      /**
+       * @note The response body length is derived ONLY from the "content-length" header.
+       * If that response header is not set, the "total" in all progress events must be 0.
+       */
+      const responseBodyLength = Number(
+        response.headers.get('content-length') ?? '0'
+      )
+
+      this.setReadyState(this.request.HEADERS_RECEIVED)
+
+      let receivedBytes = 0
+      let lastReceivedResponseBytesAt = performance.now()
+
+      const processResponseBodyChunk = (bytesLength: number) => {
+        receivedBytes += bytesLength
+
+        const now = performance.now()
+        const shouldBuffer =
+          now - lastReceivedResponseBytesAt <= 60 &&
+          receivedBytes < responseBodyLength
+        lastReceivedResponseBytesAt = now
+
+        if (shouldBuffer) {
           return
         }
 
-        if (value) {
-          this.logger.info('read response body chunk:', value)
-          this.responseBuffer = concatArrayBuffer(this.responseBuffer, value)
-
-          this.trigger('progress', this.request, {
-            loaded: this.responseBuffer.byteLength,
-            total: totalResponseBodyLength,
-          })
+        if (this.request.readyState === this.request.HEADERS_RECEIVED) {
+          this.setReadyState(this.request.LOADING, false)
         }
 
-        readNextResponseBodyChunk()
+        this.trigger('readystatechange', this.request)
+        this.trigger('progress', this.request, {
+          loaded: receivedBytes,
+          total: responseBodyLength,
+        })
       }
 
-      readNextResponseBodyChunk()
-    } else {
-      finalizeResponse()
+      const processResponseBodyError = () => {
+        requestErrorSteps('error')
+      }
+
+      const processResponseEndOfBody = async () => {
+        handleErrors()
+
+        if (isResponseError(response)) {
+          return
+        }
+
+        // 3. Let transmitted be xhr’s received bytes’s length.
+        let transmitted = receivedBytes
+
+        // 9. Fire an event named readystatechange at xhr.
+        this.setReadyState(this.request.DONE)
+        // 10. Fire a progress event named load at xhr with transmitted and length.
+        this.trigger('load', this.request, {
+          loaded: transmitted,
+          total: responseBodyLength,
+        })
+        // 11. Fire a progress event named loadend at xhr with transmitted and length.
+        this.trigger('loadend', this.request, {
+          loaded: transmitted,
+          total: responseBodyLength,
+        })
+      }
+
+      // 7. If this’s response’s body is null, then run handle response end-of-body for this and return.
+      if (response.body == null) {
+        processResponseEndOfBody()
+      } else {
+        const reader = response.body.getReader()
+
+        while (true) {
+          if (responseReadController.signal.aborted) {
+            break
+          }
+
+          try {
+            const { value, done } = await reader.read()
+
+            if (done) {
+              processResponseEndOfBody()
+              return
+            }
+
+            processResponseBodyChunk(value.byteLength)
+            this.responseBuffer = concatArrayBuffer(this.responseBuffer, value)
+          } catch {
+            processResponseBodyError()
+          }
+        }
+      }
     }
+
+    // Redirects are followed as a part of the fetch controller. Since we don't have one,
+    // retrieve the final response and then continue with processing it instead of the mocked one.
+    const { error: redirectError, data: finalResponse } = await until(() => {
+      return this.followRedirects(response)
+    })
+
+    if (redirectError) {
+      return
+    }
+
+    processResponse(finalResponse)
+
+    // 12.1, 12.2.
+    if (this.request.timeout) {
+      setTimeout(() => {
+        if (this.request.readyState !== this.request.DONE) {
+          timedOut = true
+          responseReadController.abort()
+        }
+      }, this.request.timeout)
+    }
+
+    this.request.getResponseHeader = new Proxy(this.request.getResponseHeader, {
+      apply: (_, __, args: [name: string]) => {
+        this.logger.info('getResponseHeader', args[0])
+
+        if (this.request.readyState < this.request.HEADERS_RECEIVED) {
+          this.logger.info('headers not received yet, returning null')
+          return null
+        }
+
+        const headerValue = finalResponse.headers.get(args[0])
+        this.logger.info(
+          'resolved response header "%s" to',
+          args[0],
+          headerValue
+        )
+
+        return headerValue
+      },
+    })
+
+    this.request.getAllResponseHeaders = new Proxy(
+      this.request.getAllResponseHeaders,
+      {
+        apply: () => {
+          this.logger.info('getAllResponseHeaders')
+
+          if (this.request.readyState < this.request.HEADERS_RECEIVED) {
+            this.logger.info('headers not received yet, returning empty string')
+            return ''
+          }
+
+          const headersList = Array.from(finalResponse.headers)
+          const allHeaders = headersList
+            .map(([headerName, headerValue]) => {
+              return `${headerName}: ${headerValue}`
+            })
+            .join('\r\n')
+
+          this.logger.info('resolved all response headers to', allHeaders)
+
+          return allHeaders
+        },
+      }
+    )
   }
 
   private responseBufferToText(): string {
@@ -580,6 +693,48 @@ export class XMLHttpRequestController {
     return null
   }
 
+  private async followRedirects(response: Response): Promise<Response> {
+    const redirectLocation = response.headers.get('location')
+
+    if (
+      !redirectLocation ||
+      !FetchResponse.isRedirectResponse(response.status)
+    ) {
+      return response
+    }
+
+    this.redirectCount++
+
+    if (this.redirectCount > MAX_REDIRECTS) {
+      throw new Error('Too many redirects')
+    }
+
+    const redirectUrl = new URL(redirectLocation, location.href)
+    const redirectMethod = FetchResponse.isResponseWithBody(response.status)
+      ? this.method
+      : 'GET'
+
+    const redirectResponse = await new Promise<Response>((resolve, reject) => {
+      const request = new XMLHttpRequest()
+      request.responseType = this.request.responseType
+
+      request.addEventListener('load', () => {
+        this.url = new URL(request.responseURL)
+        resolve(createResponse(request, request.response))
+      })
+
+      request.addEventListener('error', () => {
+        this.errorWith()
+        reject(new Error('Redirect request failed'))
+      })
+
+      request.open(redirectMethod, redirectUrl.href)
+      request.send()
+    })
+
+    return this.followRedirects(redirectResponse)
+  }
+
   public errorWith(error?: Error): void {
     /**
      * @note Mark this request as handled even if it received a mock error.
@@ -596,7 +751,10 @@ export class XMLHttpRequestController {
   /**
    * Transitions this request's `readyState` to the given one.
    */
-  private setReadyState(nextReadyState: number): void {
+  private setReadyState(
+    nextReadyState: number,
+    triggerReadyStateChangeEvent = true
+  ): void {
     this.logger.info(
       'setReadyState: %d -> %d',
       this.request.readyState,
@@ -611,6 +769,10 @@ export class XMLHttpRequestController {
     define(this.request, 'readyState', nextReadyState)
 
     this.logger.info('set readyState to: %d', nextReadyState)
+
+    if (!triggerReadyStateChangeEvent) {
+      return
+    }
 
     if (nextReadyState !== this.request.UNSENT) {
       this.logger.info('triggering "readystatechange" event...')
@@ -679,9 +841,7 @@ export class XMLHttpRequestController {
        * @see https://xhr.spec.whatwg.org/#cross-origin-credentials
        */
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
-      body: ['GET', 'HEAD'].includes(this.method.toUpperCase())
-        ? null
-        : resolvedBody,
+      body: resolvedBody,
     })
 
     const proxyHeaders = createProxy(fetchRequest.headers, {
@@ -710,7 +870,7 @@ export class XMLHttpRequestController {
       },
     })
     define(fetchRequest, 'headers', proxyHeaders)
-    setRawRequest(fetchRequest, this.request)
+    // setRawRequest(fetchRequest, this.request)
 
     this.logger.info('converted request to a Fetch API Request!', fetchRequest)
 

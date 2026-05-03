@@ -1,7 +1,6 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import * as path from 'path'
 import { spawn } from 'child_process'
-import { RemoteHttpResolver } from '../../../src/RemoteHttpInterceptor'
+import { RemoteHttpResolver } from '#/src/RemoteHttpInterceptor'
 
 const CHILD_PATH = path.resolve(__dirname, 'child.js')
 
@@ -13,24 +12,12 @@ const resolver = new RemoteHttpResolver({
   process: child,
 })
 
-resolver.on('request', ({ controller }) => {
-  controller.respondWith(
-    new Response(
-      JSON.stringify({
-        mockedFromParent: true,
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
-  )
-})
-
 beforeAll(() => {
   resolver.apply()
+})
+
+afterEach(() => {
+  resolver.removeAllListeners()
 })
 
 afterAll(() => {
@@ -42,6 +29,22 @@ afterAll(() => {
 })
 
 it('intercepts an HTTP request made in a child process', async () => {
+  resolver.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(
+        JSON.stringify({
+          mockedFromParent: true,
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+    )
+  })
+
   child.send('make:request')
 
   const response = await new Promise((resolve, reject) => {

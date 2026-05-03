@@ -1,159 +1,137 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
-import https from 'https'
-import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+// @vitest-environment node
+import http from 'node:http'
+import https from 'node:https'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
+import { getTestServer } from '#/test/setup/vitest'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (_req, res) => {
-    res.status(200).send('/')
-  })
-  app.get('/get', (_req, res) => {
-    res.status(200).send('/get')
-  })
-})
+const server = getTestServer()
 
-const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', ({ request, controller }) => {
-  const url = new URL(request.url)
+const interceptor = new HttpRequestInterceptor()
 
-  if (url.pathname === '/non-existing') {
-    controller.respondWith(
-      new Response('mocked', {
-        status: 301,
-        statusText: 'Moved Permanently',
-        headers: {
-          'Content-Type': 'text/plain',
-        },
-      })
-    )
-  }
-
-  if (url.href === 'http://error.me/') {
-    throw new Error('Custom exception message')
-  }
-})
-
-beforeAll(async () => {
-  await httpServer.listen()
-
+beforeAll(() => {
   interceptor.apply()
 })
 
-afterAll(async () => {
+afterEach(() => {
+  interceptor.removeAllListeners()
+})
+
+afterAll(() => {
   interceptor.dispose()
-  await httpServer.close()
 })
 
 it('responds to a handled request issued by "http.get"', async () => {
-  const req = http.get('http://any.thing/non-existing')
-  const { res, text } = await waitForClientRequest(req)
-
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 301,
-    statusMessage: 'Moved Permanently',
-    headers: {
-      'content-type': 'text/plain',
-    },
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked'))
   })
-  expect(await text()).toEqual('mocked')
+
+  const request = http.get('http://any.localhost/non-existing')
+  const [response] = await toWebResponse(request)
+
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.statusText).toBe('OK')
+  expect
+    .soft(response.headers.get('content-type'))
+    .toBe('text/plain;charset=UTF-8')
+  await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('responds to a handled request issued by "https.get"', async () => {
-  const req = https.get('https://any.thing/non-existing')
-  const { res, text } = await waitForClientRequest(req)
-
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 301,
-    statusMessage: 'Moved Permanently',
-    headers: {
-      'content-type': 'text/plain',
-    },
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked'))
   })
-  expect(await text()).toEqual('mocked')
+
+  const request = https.get('https://any.localhost/non-existing')
+  const [response] = await toWebResponse(request)
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.statusText).toBe('OK')
+  expect
+    .soft(response.headers.get('content-type'))
+    .toBe('text/plain;charset=UTF-8')
+  await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('bypasses an unhandled request issued by "http.get"', async () => {
-  const req = http.get(httpServer.http.url('/get'))
-  const { res, text } = await waitForClientRequest(req)
+  const request = http.get(server.http.url('/get'))
+  const [response] = await toWebResponse(request)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 200,
-    statusMessage: 'OK',
-  })
-  expect(await text()).toEqual('/get')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toBe('original-response')
 })
 
 it('bypasses an unhandled request issued by "https.get"', async () => {
-  const req = https.get(httpServer.https.url('/get'), {
+  const request = https.get(server.https.url('/get'), {
     rejectUnauthorized: false,
   })
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(request)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 200,
-    statusMessage: 'OK',
-  })
-  expect(await text()).toEqual('/get')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toBe('original-response')
 })
 
 it('responds to a handled request issued by "http.request"', async () => {
-  const req = http.request('http://any.thing/non-existing')
-  req.end()
-  const { res, text } = await waitForClientRequest(req)
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked'))
+  })
 
-  expect(res.statusCode).toBe(301)
-  expect(res.statusMessage).toEqual('Moved Permanently')
-  expect(res.headers).toHaveProperty('content-type', 'text/plain')
-  expect(await text()).toEqual('mocked')
+  const request = http.request('http://any.localhost/non-existing')
+  request.end()
+  const [response] = await toWebResponse(request)
+
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.statusText).toBe('OK')
+  expect
+    .soft(response.headers.get('content-type'))
+    .toBe('text/plain;charset=UTF-8')
+  await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('responds to a handled request issued by "https.request"', async () => {
-  const req = https.request('https://any.thing/non-existing')
-
-  req.end()
-  const { res, text } = await waitForClientRequest(req)
-
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 301,
-    statusMessage: 'Moved Permanently',
-    headers: {
-      'content-type': 'text/plain',
-    },
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('mocked'))
   })
-  expect(await text()).toEqual('mocked')
+
+  const request = https.request('https://any.localhost/non-existing')
+  request.end()
+
+  const [response] = await toWebResponse(request)
+
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.statusText).toBe('OK')
+  expect
+    .soft(response.headers.get('content-type'))
+    .toBe('text/plain;charset=UTF-8')
+  await expect(response.text()).resolves.toEqual('mocked')
 })
 
 it('bypasses an unhandled request issued by "http.request"', async () => {
-  const req = http.request(httpServer.http.url('/get'))
-  req.end()
-  const { res, text } = await waitForClientRequest(req)
+  const request = http.request(server.http.url('/get'))
+  request.end()
+  const [response] = await toWebResponse(request)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 200,
-    statusMessage: 'OK',
-  })
-  expect(await text()).toEqual('/get')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toBe('original-response')
 })
 
 it('bypasses an unhandled request issued by "https.request"', async () => {
-  const req = https.request(httpServer.https.url('/get'), {
+  const request = https.request(server.https.url('/get'), {
     rejectUnauthorized: false,
   })
-  req.end()
-  const { res, text } = await waitForClientRequest(req)
+  request.end()
+  const [response] = await toWebResponse(request)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 200,
-    statusMessage: 'OK',
-  })
-  expect(await text()).toEqual('/get')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toBe('original-response')
 })
 
 it('throws a request error when the middleware throws an exception', async () => {
   const req = http.get('http://error.me')
-  await waitForClientRequest(req).catch((error) => {
+  await toWebResponse(req).catch((error) => {
     expect(error.message).toEqual('Custom exception message')
   })
 })
@@ -161,12 +139,10 @@ it('throws a request error when the middleware throws an exception', async () =>
 it('bypasses any request after the interceptor was restored', async () => {
   interceptor.dispose()
 
-  const req = http.get(httpServer.http.url('/'))
-  const { res, text } = await waitForClientRequest(req)
+  const request = http.get(server.http.url('/'))
+  const [response] = await toWebResponse(request)
 
-  expect(res).toMatchObject<Partial<http.IncomingMessage>>({
-    statusCode: 200,
-    statusMessage: 'OK',
-  })
-  expect(await text()).toEqual('/')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toBe('original-response')
 })

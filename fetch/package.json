@@ -1,12 +1,12 @@
 {
-  "main": "../lib/node/interceptors/fetch/index.cjs",
-  "module": "../lib/node/interceptors/fetch/index.mjs",
-  "browser": "../lib/browser/interceptors/fetch/index.mjs",
+  "main": "../lib/node/interceptors/fetch/node.cjs",
+  "module": "../lib/node/interceptors/fetch/node.mjs",
+  "browser": "../lib/browser/interceptors/fetch/web.mjs",
   "exports": {
     ".": {
-      "browser": "./../lib/browser/interceptors/fetch/index.mjs",
-      "import": "./../lib/node/interceptors/fetch/index.mjs",
-      "default": "./../lib/node/interceptors/fetch/index.cjs"
+      "browser": "./../lib/browser/interceptors/fetch/web.mjs",
+      "import": "./../lib/node/interceptors/fetch/node.mjs",
+      "default": "./../lib/node/interceptors/fetch/node.cjs"
     }
   }
 }

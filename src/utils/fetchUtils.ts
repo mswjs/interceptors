@@ -1,5 +1,7 @@
+import { copyRawHeaders } from '../interceptors/ClientRequest/utils/recordRawHeaders'
 import { canParseUrl } from './canParseUrl'
 import { getValueBySymbol } from './getValueBySymbol'
+import { isResponseError } from './responseUtils'
 
 interface UndiciRequestState extends RequestInit {}
 
@@ -164,6 +166,27 @@ const kStatus = Symbol('kStatus')
 const kUrl = Symbol('kUrl')
 
 export class FetchResponse extends Response {
+  static from(response: Response, init?: FetchResponseInit): FetchResponse {
+    if (response instanceof FetchResponse) {
+      return response
+    }
+
+    if (isResponseError(response)) {
+      return response
+    }
+
+    const fetchResponse = new FetchResponse(response.body, {
+      url: init?.url ?? response.url,
+      status: init?.status || response.status,
+      statusText: init?.statusText ?? response.statusText,
+      headers: init?.headers ?? response.headers,
+    })
+
+    copyRawHeaders(response.headers, fetchResponse.headers)
+
+    return fetchResponse
+  }
+
   /**
    * Response status codes for responses that cannot have body.
    * @see https://fetch.spec.whatwg.org/#statuses
@@ -282,6 +305,9 @@ export class FetchResponse extends Response {
       )
     }
   }
+
+  #status?: number
+  #url?: string
 
   constructor(body?: BodyInit | null, init: FetchResponseInit = {}) {
     const status = init.status ?? 200

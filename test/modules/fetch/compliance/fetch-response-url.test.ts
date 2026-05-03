@@ -1,6 +1,5 @@
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch/web'
 
 const interceptor = new FetchInterceptor()
 
@@ -84,6 +83,7 @@ it('returns the last response url in case of redirects', async () => {
   })
 
   const response = await fetch('http://localhost/target')
+
   expect(response.url).toBe('http://localhost/destination')
   await expect(response.text()).resolves.toBe('hello world')
 })

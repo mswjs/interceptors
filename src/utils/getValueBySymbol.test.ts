@@ -1,4 +1,3 @@
-import { it, expect } from 'vitest'
 import { getValueBySymbol } from './getValueBySymbol'
 
 it('returns undefined given a non-existing symbol', () => {
