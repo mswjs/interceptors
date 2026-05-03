@@ -147,12 +147,15 @@ it('forwards listeners added via "on()"', () => {
   const listener = vi.fn()
   interceptor.on('foo', listener)
 
-  expect(firstInterceptor['emitter'].listenerCount('*')).toBe(1)
-  expect(secondInterceptor['emitter'].listenerCount('*')).toBe(1)
-  expect(interceptor['emitter'].listenerCount('foo')).toBe(1)
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(1)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(1)
+  expect(
+    interceptor['emitter'].listenerCount('foo'),
+    'Does not add the listener onto the batch interceptor'
+  ).toBe(0)
 })
 
-it('forwards listeners removal via "off()"', () => {
+it('forwards listeners removal via "removeListener()"', () => {
   type Events = {
     foo: []
   }
@@ -218,13 +221,11 @@ it('forwards removal of all listeners by name via ".removeAllListeners()"', () =
   interceptor.on('foo', listener)
   interceptor.on('bar', listener)
 
-  expect(firstInterceptor['emitter'].listenerCount('*')).toBe(1)
-  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(0)
-  expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(0)
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
 
-  expect(secondInterceptor['emitter'].listenerCount('*')).toBe(1)
-  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
-  expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(0)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
 
   interceptor.removeAllListeners('foo')
 
@@ -258,12 +259,10 @@ it('forwards removal of all listeners via ".removeAllListeners()"', () => {
   interceptor.on('foo', listener)
   interceptor.on('bar', listener)
 
-  expect(firstInterceptor['emitter'].listenerCount('*')).toBe(1)
-  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(0)
-  expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(0)
-  expect(secondInterceptor['emitter'].listenerCount('*')).toBe(1)
-  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
-  expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(0)
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
 
   interceptor.removeAllListeners()
 
