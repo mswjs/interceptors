@@ -2,7 +2,7 @@ import { HttpServer } from '@open-draft/test-server/http'
 import { Page } from '@playwright/test'
 import { test, expect } from '../../../playwright.extend'
 import { useCors } from '#/test/helpers'
-import { FetchInterceptor } from '#/src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch/web'
 
 declare namespace window {
   export const interceptor: FetchInterceptor

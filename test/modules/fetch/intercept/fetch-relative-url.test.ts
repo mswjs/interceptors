@@ -1,7 +1,5 @@
-/**
- * @vitest-environment jsdom
- */
-import { FetchInterceptor } from '#/src/interceptors/fetch'
+// @vitest-environment jsdom
+import { FetchInterceptor } from '#/src/interceptors/fetch/web'
 
 const interceptor = new FetchInterceptor()
 

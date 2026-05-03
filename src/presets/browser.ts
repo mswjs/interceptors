@@ -1,4 +1,4 @@
-import { FetchInterceptor } from '../interceptors/fetch'
+import { FetchInterceptor } from '../interceptors/fetch/web'
 import { XMLHttpRequestInterceptor } from '../interceptors/XMLHttpRequest/web'
 
 /**

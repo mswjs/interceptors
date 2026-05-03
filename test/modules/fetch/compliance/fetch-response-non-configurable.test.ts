@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { FetchInterceptor } from '#/src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch/web'
 import { FetchResponse } from '#/src/utils/fetchUtils'
 
 const interceptor = new FetchInterceptor()

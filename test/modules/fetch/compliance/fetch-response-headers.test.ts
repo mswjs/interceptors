@@ -1,4 +1,4 @@
-import { FetchInterceptor } from '#/src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch/web'
 
 const interceptor = new FetchInterceptor()
 

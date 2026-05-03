@@ -2,7 +2,7 @@ import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestEventMap } from '#/src/index'
 import { REQUEST_ID_REGEXP } from '#/test/helpers'
-import { FetchInterceptor } from '#/src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch/web'
 import { RequestController } from '#/src/RequestController'
 
 const httpServer = new HttpServer((app) => {
