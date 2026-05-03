@@ -7,7 +7,12 @@ export enum InterceptorReadyState {
   DISPOSED = 'DISPOSED',
 }
 
-const interceptorsRegistry = new Map<symbol, Interceptor<any>>()
+declare global {
+  var __MSW_INTERCEPTORS_REGISTRY: Map<symbol, Interceptor<any>> | undefined
+}
+
+const interceptorsRegistry = (globalThis.__MSW_INTERCEPTORS_REGISTRY ??=
+  new Map<symbol, Interceptor<any>>())
 
 export abstract class Interceptor<
   Events extends DefaultEventMap,
