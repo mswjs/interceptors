@@ -22,10 +22,6 @@ export abstract class Interceptor<
   protected emitter: Emitter<Events>
 
   public readyState: InterceptorReadyState
-  public on: Emitter<Events>['on']
-  public once: Emitter<Events>['once']
-  public removeListener: Emitter<Events>['removeListener']
-  public removeAllListeners: Emitter<Events>['removeAllListeners']
 
   static readonly symbol: symbol
 
@@ -51,12 +47,7 @@ export abstract class Interceptor<
 
     this.#leaseCount = 0
     this.readyState = InterceptorReadyState.INACTIVE
-
     this.emitter = new Emitter()
-    this.on = this.emitter.on.bind(this.emitter)
-    this.once = this.emitter.once.bind(this.emitter)
-    this.removeListener = this.emitter.removeListener.bind(this.emitter)
-    this.removeAllListeners = this.emitter.removeAllListeners.bind(this.emitter)
   }
 
   protected abstract predicate(): boolean
@@ -100,5 +91,32 @@ export abstract class Interceptor<
       this.emitter.removeAllListeners()
       this.readyState = InterceptorReadyState.DISPOSED
     }
+  }
+
+  public on: Emitter<Events>['on'] = (type, listener, options) => {
+    return this.emitter.on(type, listener, options)
+  }
+
+  public once: Emitter<Events>['once'] = (type, listener, options) => {
+    return this.emitter.once(type, listener, options)
+  }
+
+  public listeners: Emitter<Events>['listeners'] = (type) => {
+    return this.emitter.listeners(type)
+  }
+
+  public listenerCount: Emitter<Events>['listenerCount'] = (type) => {
+    return this.emitter.listenerCount(type)
+  }
+
+  public removeListener: Emitter<Events>['removeListener'] = (
+    type,
+    listener
+  ) => {
+    return this.emitter.removeListener(type, listener)
+  }
+
+  public removeAllListeners: Emitter<Events>['removeAllListeners'] = (type) => {
+    return this.emitter.removeAllListeners(type)
   }
 }

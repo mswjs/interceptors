@@ -2,18 +2,12 @@
 import http from 'node:http'
 import https from 'node:https'
 import { BatchInterceptor } from '@mswjs/interceptors'
-import { HttpRequestInterceptor } from '@mswjs/interceptors/http'
-import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
-import { FetchInterceptor } from '@mswjs/interceptors/fetch'
+import nodeInterceptors from '@mswjs/interceptors/presets/node'
 import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new BatchInterceptor({
   name: 'interceptor',
-  interceptors: [
-    new HttpRequestInterceptor(),
-    new XMLHttpRequestInterceptor(),
-    new FetchInterceptor(),
-  ],
+  interceptors: nodeInterceptors,
 })
 
 beforeAll(() => {

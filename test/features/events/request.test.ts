@@ -2,20 +2,14 @@
 import http from 'node:http'
 import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
 import { BatchInterceptor, RequestController } from '@mswjs/interceptors'
-import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
-import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
-import { FetchInterceptor } from '@mswjs/interceptors/fetch'
+import nodeInterceptors from '@mswjs/interceptors/presets/node'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 import { getTestServer } from '#/test/setup/vitest'
 
 const server = getTestServer()
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',
-  interceptors: [
-    new ClientRequestInterceptor(),
-    new XMLHttpRequestInterceptor(),
-    new FetchInterceptor(),
-  ],
+  interceptors: nodeInterceptors,
 })
 
 beforeAll(() => {

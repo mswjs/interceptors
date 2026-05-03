@@ -1,3 +1,4 @@
+import type { Emitter } from 'rettime'
 import { requestContext } from '#/src/request-context'
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
 import { Interceptor } from '#/src/interceptor'
@@ -36,28 +37,79 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
         signal: controller.signal,
       }
     )
-    httpInterceptor.on(
-      'response',
-      async (event) => {
-        if (event.initiator instanceof XMLHttpRequest) {
-          event.request = this.#transformRequest(event.request, event.initiator)
-          await this.emitter.emitAsPromise(event)
+
+    const responseListener: Emitter.Listener<
+      (typeof httpInterceptor)['emitter'],
+      'response'
+    > = async (event) => {
+      if (event.initiator instanceof XMLHttpRequest) {
+        event.request = this.#transformRequest(event.request, event.initiator)
+        await this.emitter.emitAsPromise(event)
+      }
+    }
+
+    const unhandledExceptionListener: Emitter.Listener<
+      (typeof httpInterceptor)['emitter'],
+      'unhandledException'
+    > = async (event) => {
+      if (event.initiator instanceof XMLHttpRequest) {
+        event.request = this.#transformRequest(event.request, event.initiator)
+        await this.emitter.emitAsPromise(event)
+      }
+    }
+
+    this.emitter.hooks.on(
+      'newListener',
+      (type) => {
+        if (
+          type === 'response' &&
+          !httpInterceptor.listeners('response').includes(responseListener)
+        ) {
+          httpInterceptor.on('response', responseListener, {
+            signal: controller.signal,
+          })
+        }
+
+        if (
+          type === 'unhandledException' &&
+          !httpInterceptor
+            .listeners('unhandledException')
+            .includes(unhandledExceptionListener)
+        ) {
+          httpInterceptor.on('unhandledException', unhandledExceptionListener, {
+            signal: controller.signal,
+          })
         }
       },
       {
         signal: controller.signal,
+        persist: true,
       }
     )
-    httpInterceptor.on(
-      'unhandledException',
-      async (event) => {
-        if (event.initiator instanceof XMLHttpRequest) {
-          event.request = this.#transformRequest(event.request, event.initiator)
-          await this.emitter.emitAsPromise(event)
+
+    this.emitter.hooks.on(
+      'removeListener',
+      (type) => {
+        if (
+          type === 'response' &&
+          this.emitter.listenerCount('response') === 0
+        ) {
+          httpInterceptor.removeListener('response', responseListener)
+        }
+
+        if (
+          type === 'unhandledException' &&
+          this.emitter.listenerCount('unhandledException') === 0
+        ) {
+          httpInterceptor.removeListener(
+            'unhandledException',
+            unhandledExceptionListener
+          )
         }
       },
       {
         signal: controller.signal,
+        persist: true,
       }
     )
 

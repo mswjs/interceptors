@@ -10,7 +10,7 @@ export default defineConfig([
       './src/interceptors/http/index.ts',
       './src/interceptors/ClientRequest/index.ts',
       './src/interceptors/XMLHttpRequest/node.ts',
-      './src/interceptors/fetch/index.ts',
+      './src/interceptors/fetch/node.ts',
     ],
     external: ['_http_common'],
     outDir: './lib/node',

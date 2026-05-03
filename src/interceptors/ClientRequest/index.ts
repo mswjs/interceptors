@@ -1,6 +1,7 @@
 import http from 'node:http'
 import https from 'node:https'
-import { runInRequestContext } from '#/src/request-context'
+import type { Emitter } from 'rettime'
+import { requestContext, runInRequestContext } from '#/src/request-context'
 import { patchesRegistry } from '#/src/utils/patchesRegistry'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { Interceptor } from '../../interceptor'
@@ -32,26 +33,77 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         signal: controller.signal,
       }
     )
-    httpInterceptor.on(
-      'response',
-      async (event) => {
-        if (event.initiator instanceof http.ClientRequest) {
-          await this.emitter.emitAsPromise(event)
+
+    const responseListener: Emitter.Listener<
+      (typeof httpInterceptor)['emitter'],
+      'response'
+    > = async (event) => {
+      if (event.initiator instanceof http.ClientRequest) {
+        await this.emitter.emitAsPromise(event)
+      }
+    }
+
+    const unhandledExceptionListener: Emitter.Listener<
+      (typeof httpInterceptor)['emitter'],
+      'unhandledException'
+    > = async (event) => {
+      if (event.initiator instanceof http.ClientRequest) {
+        await this.emitter.emitAsPromise(event)
+      }
+    }
+
+    this.emitter.hooks.on(
+      'newListener',
+      (type) => {
+        if (
+          type === 'response' &&
+          !httpInterceptor.listeners('response').includes(responseListener)
+        ) {
+          httpInterceptor.on('response', responseListener, {
+            signal: controller.signal,
+          })
+        }
+
+        if (
+          type === 'unhandledException' &&
+          !httpInterceptor
+            .listeners('unhandledException')
+            .includes(unhandledExceptionListener)
+        ) {
+          httpInterceptor.on('unhandledException', unhandledExceptionListener, {
+            signal: controller.signal,
+          })
         }
       },
       {
         signal: controller.signal,
+        persist: true,
       }
     )
-    httpInterceptor.on(
-      'unhandledException',
-      async (event) => {
-        if (event.initiator instanceof http.ClientRequest) {
-          await this.emitter.emitAsPromise(event)
+
+    this.emitter.hooks.on(
+      'removeListener',
+      (type) => {
+        if (
+          type === 'response' &&
+          this.emitter.listenerCount('response') === 0
+        ) {
+          httpInterceptor.removeListener('response', responseListener)
+        }
+
+        if (
+          type === 'unhandledException' &&
+          this.emitter.listenerCount('unhandledException') === 0
+        ) {
+          httpInterceptor.removeListener(
+            'unhandledException',
+            unhandledExceptionListener
+          )
         }
       },
       {
         signal: controller.signal,
+        persist: true,
       }
     )
 
