@@ -119,6 +119,7 @@ it('allows reusing the same socket for multiple bypassed requests', async () => 
   {
     const request = https.request(httpServer.https.url('/resource/two'), {
       rejectUnauthorized: false,
+      headers: { 'content-length': '6' },
     })
     request.write('second')
     request.end()
