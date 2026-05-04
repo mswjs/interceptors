@@ -1,82 +1,7 @@
-import {
-  methods as HTTP_METHODS,
-  HTTPParser,
-  type HeadersCallback,
-  type RequestHeadersCompleteCallback,
-  type ResponseHeadersCompleteCallback,
-} from '_http_common'
-import net from 'node:net'
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
-
-type HttpParserKind = typeof HTTPParser.REQUEST | typeof HTTPParser.RESPONSE
-
-interface ParserHooks<ParserKind extends HttpParserKind> {
-  onMessageBegin?: () => void
-  onHeaders?: HeadersCallback
-  onHeadersComplete?: ParserKind extends typeof HTTPParser.REQUEST
-    ? RequestHeadersCompleteCallback
-    : ResponseHeadersCompleteCallback
-  onBody?: (chunk: Buffer) => void
-  onMessageComplete?: () => void
-  onExecute?: () => void
-  onTimeout?: () => void
-}
-
-class HttpParser<ParserKind extends HttpParserKind> {
-  static REQUEST = HTTPParser.REQUEST
-  static RESPONSE = HTTPParser.RESPONSE
-
-  #parser: HTTPParser<ParserKind>
-
-  constructor(kind: ParserKind, hooks: ParserHooks<ParserKind>) {
-    this.#parser = new HTTPParser()
-    this.#parser.initialize(kind, {})
-
-    this.#parser[HTTPParser.kOnMessageBegin] = hooks.onMessageBegin
-    this.#parser[HTTPParser.kOnHeaders] = hooks.onHeaders
-    this.#parser[HTTPParser.kOnHeadersComplete] = hooks.onHeadersComplete
-    this.#parser[HTTPParser.kOnBody] = hooks.onBody
-    this.#parser[HTTPParser.kOnMessageComplete] = hooks.onMessageComplete
-    this.#parser[HTTPParser.kOnExecute] = hooks.onExecute
-    this.#parser[HTTPParser.kOnTimeout] = hooks.onTimeout
-  }
-
-  public execute(data: Buffer): void {
-    this.#parser.execute(data)
-  }
-
-  /**
-   * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/_http_common.js#L180
-   */
-  public free(socket?: net.Socket): void {
-    if (this.#parser._consumed) {
-      this.#parser.unconsume()
-    }
-
-    this.#parser._headers = []
-    this.#parser._url = ''
-    this.#parser.socket = null
-    this.#parser.incoming = null
-    this.#parser.outgoing = null
-    this.#parser.maxHeaderPairs = 2000
-    this.#parser[HTTPParser.kOnMessageBegin] = null
-    this.#parser[HTTPParser.kOnExecute] = null
-    this.#parser[HTTPParser.kOnTimeout] = null
-    this.#parser._consumed = false
-    this.#parser.onIncoming = null
-    this.#parser.joinDuplicateHeaders = null
-
-    this.#parser.remove()
-    this.#parser.free()
-
-    if (socket) {
-      Reflect.set(socket, 'parser', null)
-    }
-  }
-}
-
+import { HTTPRequestParser, HTTPResponseParser, constants } from './http-parser/index'
 interface HttpRequestParserOptions {
   connectionOptions: {
     method?: string
@@ -85,26 +10,20 @@ interface HttpRequestParserOptions {
   onRequest: (request: Request) => void
 }
 
-export class HttpRequestParser extends HttpParser<typeof HttpParser.REQUEST> {
+export class HttpRequestParser extends HTTPRequestParser {
   #rawHeadersBuffer: Array<string>
   #requestBodyStream?: Readable
 
   constructor(options: HttpRequestParserOptions) {
-    super(HttpParser.REQUEST, {
-      onHeaders: (rawHeaders) => {
-        this.#rawHeadersBuffer.push(...rawHeaders)
-      },
-      onHeadersComplete: (
-        _,
-        __,
-        rawHeaders = [],
-        rawMethod,
-        path,
-        ____,
-        _____,
-        ______,
-        shouldKeepAlive
-      ) => {
+    super({
+      // onHeaders: (rawHeaders) => {
+      //   this.#rawHeadersBuffer.push(...rawHeaders)
+      // },
+      onHeadersComplete: ({
+        rawHeaders,
+        method,
+        url: path,
+      }) => {
         /**
          * @note When the socket is reused, "connectionOptions" will point
          * to the "net.connect()" call options that established the connection,
@@ -112,10 +31,10 @@ export class HttpRequestParser extends HttpParser<typeof HttpParser.REQUEST> {
          * Rely on the HTTPParser supplying us with the correct "rawMethod" number.
          */
         const resolvedMethod =
-          (typeof rawMethod === 'string'
-            ? rawMethod
-            : typeof rawMethod === 'number'
-              ? HTTP_METHODS[rawMethod]
+          (typeof method === 'string'
+            ? method
+            : typeof method === 'number'
+              ? constants.METHODS[method]
               : options.connectionOptions.method) ||
           options.connectionOptions.method ||
           'GET'
@@ -154,7 +73,6 @@ export class HttpRequestParser extends HttpParser<typeof HttpParser.REQUEST> {
           credentials: 'same-origin',
           body: Readable.toWeb(this.#requestBodyStream) as any,
         })
-
         options.onRequest(request)
       },
       onBody: (chunk) => {
@@ -174,31 +92,27 @@ export class HttpRequestParser extends HttpParser<typeof HttpParser.REQUEST> {
     this.#rawHeadersBuffer = []
   }
 
-  public free(socket?: net.Socket): void {
-    super.free(socket)
+  public free(): void {
+    this.destroy()
     this.#rawHeadersBuffer.length = 0
     this.#requestBodyStream = undefined
   }
 }
 
-export class HttpResponseParser extends HttpParser<typeof HttpParser.RESPONSE> {
+export class HttpResponseParser extends HTTPResponseParser {
   #responseRawHeadersBuffer: Array<string>
   #responseBodyStream?: Readable | null
 
   constructor(options: { onResponse: (response: Response) => void }) {
-    super(HttpParser.RESPONSE, {
-      onHeaders: (rawHeaders) => {
-        this.#responseRawHeadersBuffer.push(...rawHeaders)
-      },
-      onHeadersComplete: (
-        versionMajor,
-        versionMinor,
+    super({
+      // onHeaders: (rawHeaders) => {
+      //   this.#responseRawHeadersBuffer.push(...rawHeaders)
+      // },
+      onHeadersComplete: ({
         rawHeaders,
-        method,
-        url,
-        status,
-        statusText
-      ) => {
+        statusCode: status,
+        statusMessage: statusText,
+      }) => {
         const headers = FetchResponse.parseRawHeaders([
           ...this.#responseRawHeadersBuffer,
           ...(rawHeaders || []),
@@ -211,7 +125,6 @@ export class HttpResponseParser extends HttpParser<typeof HttpParser.RESPONSE> {
             ? (Readable.toWeb(this.#responseBodyStream) as any)
             : null,
           {
-            url,
             status,
             statusText,
             headers,
@@ -236,8 +149,8 @@ export class HttpResponseParser extends HttpParser<typeof HttpParser.RESPONSE> {
     this.#responseRawHeadersBuffer = []
   }
 
-  public free(socket?: net.Socket): void {
-    super.free(socket)
+  public free(): void {
+    this.destroy()
     this.#responseRawHeadersBuffer = []
     this.#responseBodyStream = null
   }
