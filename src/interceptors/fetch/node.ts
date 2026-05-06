@@ -135,7 +135,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             initiator: request,
           })
 
-          return realFetch(input, init)
+          return realFetch(request)
         }
       })
     )
