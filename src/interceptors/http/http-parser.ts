@@ -1,7 +1,8 @@
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
-import { HTTPRequestParser, HTTPResponseParser, constants } from './http-parser/index'
+import { HttpParser, constants } from './http-parser/index'
+
 interface HttpRequestParserOptions {
   connectionOptions: {
     method?: string
@@ -10,20 +11,16 @@ interface HttpRequestParserOptions {
   onRequest: (request: Request) => void
 }
 
-export class HttpRequestParser extends HTTPRequestParser {
+export class HttpRequestParser extends HttpParser<1> {
   #rawHeadersBuffer: Array<string>
   #requestBodyStream?: Readable
 
   constructor(options: HttpRequestParserOptions) {
-    super({
+    super(1, {
       // onHeaders: (rawHeaders) => {
       //   this.#rawHeadersBuffer.push(...rawHeaders)
       // },
-      onHeadersComplete: ({
-        rawHeaders,
-        method,
-        url: path,
-      }) => {
+      onHeadersComplete: ({ rawHeaders, method, url: path }) => {
         /**
          * @note When the socket is reused, "connectionOptions" will point
          * to the "net.connect()" call options that established the connection,
@@ -99,12 +96,12 @@ export class HttpRequestParser extends HTTPRequestParser {
   }
 }
 
-export class HttpResponseParser extends HTTPResponseParser {
+export class HttpResponseParser extends HttpParser<2> {
   #responseRawHeadersBuffer: Array<string>
   #responseBodyStream?: Readable | null
 
   constructor(options: { onResponse: (response: Response) => void }) {
-    super({
+    super(2, {
       // onHeaders: (rawHeaders) => {
       //   this.#responseRawHeadersBuffer.push(...rawHeaders)
       // },
