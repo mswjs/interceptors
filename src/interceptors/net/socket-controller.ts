@@ -248,7 +248,6 @@ export class TcpSocketController extends SocketController {
   #connectionOptions?: NetworkConnectionOptions
   #realWriteGeneric: net.Socket['_writeGeneric']
   #passthroughSocket: net.Socket | null = null
-  #passthroughPausedBuffer: Array<Buffer> = []
   #bufferedWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
 
   constructor(
@@ -288,7 +287,6 @@ export class TcpSocketController extends SocketController {
       .on('close', () => {
         log('client socket closed!')
         this.#passthroughSocket = null
-        this.#passthroughPausedBuffer = []
         this.#bufferedWrites = []
       })
 
@@ -451,14 +449,6 @@ export class TcpSocketController extends SocketController {
   #onRealSocketData = (data: Buffer) => {
     log('real socket "data" event:\n', data?.toString())
 
-    if (this.socket.isPaused()) {
-      log('client socket paused, buffering...')
-      this.#passthroughPausedBuffer.push(data)
-      return
-    }
-
-    log('pushing real data to the client socket...')
-
     if (!this.socket.push(data)) {
       log(
         'client socket forbade more pushes, pausing the passthrough socket...'
@@ -613,27 +603,6 @@ export class TcpSocketController extends SocketController {
       this.#push(args[1])
       return this.#realWriteGeneric.apply(this.socket, args)
     }
-
-    // Buffer to hold data chunks while the mock socket is paused.
-    // This allows async response event listeners to complete before
-    // data flows to the mock socket and triggers ClientRequest events.
-    this.#passthroughPausedBuffer = []
-    this.socket.resume = new Proxy(this.socket.resume, {
-      apply: (target, thisArg, argArray) => {
-        const result = Reflect.apply(target, thisArg, argArray)
-
-        while (this.#passthroughPausedBuffer.length > 0) {
-          const bufferedData = this.#passthroughPausedBuffer.shift()!
-
-          if (!this.socket.push(bufferedData)) {
-            this.#passthroughSocket?.pause()
-            break
-          }
-        }
-
-        return result
-      },
-    })
 
     this.socket.address = realSocket.address.bind(realSocket)
 
