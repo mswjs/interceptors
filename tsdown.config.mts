@@ -16,7 +16,6 @@ export default defineConfig([
       from: './src/interceptors/http/http-parser/llhttp/**',
       to: './lib/node/llhttp',
     },
-    external: ['_http_common'],
     outDir: './lib/node',
     platform: 'node',
     target: 'node22',
