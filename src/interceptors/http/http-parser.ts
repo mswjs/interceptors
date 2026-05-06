@@ -1,7 +1,7 @@
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
 import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
-import { HttpParser, constants } from './http-parser/index'
+import { HttpParser } from './http-parser/index'
 
 interface HttpRequestParserOptions {
   connectionOptions: {
@@ -23,27 +23,23 @@ export class HttpRequestParser extends HttpParser<1> {
          * which may differ from the description of the current request (e.g. method).
          * Rely on the HTTPParser supplying us with the correct "rawMethod" number.
          */
-        const resolvedMethod =
-          (typeof method === 'string'
-            ? method
-            : typeof method === 'number'
-              ? constants.METHODS[method]
-              : options.connectionOptions.method) ||
+        const finalMethod = (
+          method ||
           options.connectionOptions.method ||
           'GET'
-        const finalMethod = resolvedMethod.toUpperCase()
+        ).toUpperCase()
 
         const url = new URL(path || '', options.connectionOptions.url)
-        const headers = FetchResponse.parseRawHeaders([...(rawHeaders || [])])
+        const headers = FetchResponse.parseRawHeaders([...rawHeaders])
 
         // Translate the basic authorization to request headers.
         // Constructing a Request instance with a URL containing auth is no-op.
         if (url.username || url.password) {
           if (!headers.has('authorization')) {
-            headers.set(
-              'authorization',
-              `Basic ${url.username}:${url.password}`
-            )
+            const credentials = Buffer.from(
+              `${url.username}:${url.password}`
+            ).toString('base64')
+            headers.set('authorization', `Basic ${credentials}`)
           }
           url.username = ''
           url.password = ''
@@ -81,6 +77,7 @@ export class HttpRequestParser extends HttpParser<1> {
 
   public free(): void {
     this.destroy()
+    this.#requestBodyStream?.destroy()
     this.#requestBodyStream = undefined
   }
 }
@@ -95,13 +92,13 @@ export class HttpResponseParser extends HttpParser<2> {
         statusCode: status,
         statusMessage: statusText,
       }) => {
-        const headers = FetchResponse.parseRawHeaders([...(rawHeaders || [])])
-
-        this.#responseBodyStream = new Readable({ read() {} })
+        const headers = FetchResponse.parseRawHeaders([...rawHeaders])
 
         const response = new FetchResponse(
           FetchResponse.isResponseWithBody(status)
-            ? (Readable.toWeb(this.#responseBodyStream) as any)
+            ? (Readable.toWeb(
+                (this.#responseBodyStream = new Readable({ read() {} }))
+              ) as any)
             : null,
           {
             status,
