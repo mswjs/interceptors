@@ -3,7 +3,7 @@ import {
   recordRawFetchHeaders,
   restoreHeadersPrototype,
   getRawFetchHeaders,
-} from './recordRawHeaders'
+} from './record-raw-headers'
 
 const url = 'http://localhost'
 

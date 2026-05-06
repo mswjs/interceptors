@@ -11,7 +11,7 @@ import { RequestController } from '../../RequestController'
 import {
   getRawFetchHeaders,
   recordRawFetchHeaders,
-} from '../ClientRequest/utils/recordRawHeaders'
+} from '../ClientRequest/utils/record-raw-headers'
 import { SocketInterceptor } from '../net'
 import { connectionOptionsToUrl } from '../net/utils/connection-options-to-url'
 import { toBuffer } from '../../utils/bufferUtils'

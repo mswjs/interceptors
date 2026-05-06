@@ -13,7 +13,7 @@ import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { FetchResponse } from '../../utils/fetchUtils'
 import { isResponseError } from '../../utils/responseUtils'
 import { patchesRegistry } from '../../utils/patchesRegistry'
-import { copyRawHeaders } from '../ClientRequest/utils/recordRawHeaders'
+import { copyRawHeaders } from '../ClientRequest/utils/record-raw-headers'
 import { Interceptor } from '../../interceptor'
 
 const logger = new Logger('fetch')

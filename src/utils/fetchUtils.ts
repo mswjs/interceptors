@@ -1,4 +1,4 @@
-import { copyRawHeaders } from '../interceptors/ClientRequest/utils/recordRawHeaders'
+import { copyRawHeaders } from '../interceptors/ClientRequest/utils/record-raw-headers'
 import { canParseUrl } from './canParseUrl'
 import { getValueBySymbol } from './getValueBySymbol'
 import { isResponseError } from './responseUtils'
