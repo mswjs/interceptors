@@ -7,6 +7,13 @@ import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { HttpRequestEventMap } from '#/src/events/http'
 import { Interceptor } from '../../interceptor'
 
+/**
+ * Interceptor for `fetch` requests in Node.js.
+ * @note This interceptor only affects requests performed via
+ * the global `fetch` function. To intercept fetch requests performed
+ * by other means (e.g. direct `request()` from Undici) use the
+ * `HttpRequestInterceptor` instead.
+ */
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
 

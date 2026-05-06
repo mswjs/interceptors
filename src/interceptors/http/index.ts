@@ -32,6 +32,10 @@ import { Interceptor } from '#/src/interceptor'
 
 const log = createLogger('HttpRequestInterceptor')
 
+/**
+ * Interceptor for HTTP requests in Node.js.
+ * Routes socket connections through an HTTP parser.
+ */
 export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('http-request-interceptor')
 

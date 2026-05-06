@@ -1,12 +1,15 @@
 import http from 'node:http'
 import https from 'node:https'
 import type { Emitter } from 'rettime'
-import { requestContext, runInRequestContext } from '#/src/request-context'
+import { runInRequestContext } from '#/src/request-context'
 import { patchesRegistry } from '#/src/utils/patchesRegistry'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { Interceptor } from '../../interceptor'
 import { HttpRequestEventMap } from '#/src/events/http'
 
+/**
+ * Interceptor for HTTP requests in Node.js made via `http.ClientRequest`.
+ */
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('client-request-interceptor')
 

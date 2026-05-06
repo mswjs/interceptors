@@ -18,6 +18,9 @@ import { Interceptor } from '../../interceptor'
 
 const logger = new Logger('fetch')
 
+/**
+ * Interceptor for `fetch` requests in the browser.
+ */
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
 

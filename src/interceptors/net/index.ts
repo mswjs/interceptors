@@ -39,6 +39,9 @@ type SocketEventMap = {
 
 const log = createLogger('SocketInterceptor')
 
+/**
+ * Interceptor for `net.Socket` connections.
+ */
 export class SocketInterceptor extends Interceptor<SocketEventMap> {
   static symbol = Symbol.for('socket-interceptor')
 
