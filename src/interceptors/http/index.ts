@@ -158,9 +158,6 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                 },
                 passthrough: () => {
                   const realSocket = socketController.passthrough(
-                    /**
-                     * @todo Would be great NOT to run this if request headers weren't modified.
-                     */
                     this.#modifyHttpHeaders(context.request)
                   )
 
@@ -431,14 +428,39 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       const parts = httpMessage.toString(encoding).split('\r\n')
       const headersEndIndex = parts.findIndex((field) => field === '')
       const httpMessageHeaderPairs = parts.slice(1, headersEndIndex)
+
+      // Extract raw [name, value] tuples from the wire format so they
+      // can be compared against the request's raw fetch headers.
+      const httpMessageRawHeaders = httpMessageHeaderPairs.map(
+        (line): [string, string] => {
+          const separatorIndex = line.indexOf(': ')
+          return [line.slice(0, separatorIndex), line.slice(separatorIndex + 2)]
+        }
+      )
+
+      const requestRawHeaders = getRawFetchHeaders(request.headers)
+
+      // If the raw headers from the outgoing HTTP message and the request
+      // headers are identical, send the message as-is to avoid the cost
+      // (and side effects) of reserializing the headers block.
+      const headersUnchanged =
+        httpMessageRawHeaders.length === requestRawHeaders.length &&
+        httpMessageRawHeaders.every((tuple, index) => {
+          const requestTuple = requestRawHeaders[index]
+          return tuple[0] === requestTuple[0] && tuple[1] === requestTuple[1]
+        })
+
+      if (headersUnchanged) {
+        return httpMessage
+      }
+
       const httpMessageHeaders = FetchResponse.parseRawHeaders(
         httpMessageHeaderPairs.flatMap((header) => header.split(': '))
       )
 
-      const rawHeaders = getRawFetchHeaders(request.headers)
       const visitedHeaders = new Set<string>()
 
-      for (const [headerName] of rawHeaders) {
+      for (const [headerName] of requestRawHeaders) {
         const normalizedHeaderName = headerName.toLowerCase()
 
         if (visitedHeaders.has(normalizedHeaderName)) {
