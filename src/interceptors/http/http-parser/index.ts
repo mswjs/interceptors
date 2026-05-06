@@ -47,8 +47,13 @@ const kUrl = Symbol('kUrl')
 const kStatusMessage = Symbol('kStatusMessage')
 const kHeadersFields = Symbol('kHeadersFields')
 const kHeadersValues = Symbol('kHeadersValues')
+const kLastHeaderCallback = Symbol('kLastHeaderCallback')
 const kCallbacks = Symbol('kCallbacks')
 const kType = Symbol('kType')
+
+const HEADER_CB_NONE = 0
+const HEADER_CB_FIELD = 1
+const HEADER_CB_VALUE = 2
 
 const parsersMap = new Map<number, HttpParser<any>>()
 
@@ -57,7 +62,7 @@ const methodNames = Object.fromEntries(
 ) as Record<number, string>
 
 function readStringFrom(pointer: number, length: number): string {
-  return Buffer.from(llhttp_memory.buffer, pointer, length).toString()
+  return Buffer.from(llhttp_memory.buffer, pointer, length).toString('latin1')
 }
 
 const llhttpModule = new WebAssembly.Module(
@@ -66,12 +71,13 @@ const llhttpModule = new WebAssembly.Module(
 
 const llhttpInstance = new WebAssembly.Instance(llhttpModule, {
   env: {
-    wasm_on_message_begin(parserPtr: number) {
-      const parser = parsersMap.get(parserPtr)!
+    wasm_on_message_begin(parserPointer: number) {
+      const parser = parsersMap.get(parserPointer)!
       parser[kUrl] = ''
       parser[kStatusMessage] = ''
       parser[kHeadersFields] = []
       parser[kHeadersValues] = []
+      parser[kLastHeaderCallback] = HEADER_CB_NONE
       return parser[kCallbacks].onMessageBegin?.() ?? 0
     },
     // Request only
@@ -88,31 +94,53 @@ const llhttpInstance = new WebAssembly.Instance(llhttpModule, {
       return 0
     },
     wasm_on_header_field(parserPointer: number, at: number, length: number) {
-      parsersMap
-        .get(parserPointer)!
-        [kHeadersFields].push(readStringFrom(at, length))
+      const parser = parsersMap.get(parserPointer)!
+      const chunk = readStringFrom(at, length)
+      const fields = parser[kHeadersFields]
+
+      // llhttp emits header field/value across multiple callbacks when the
+      // bytes span buffer boundaries. Concatenate consecutive same-type
+      // callbacks into a single entry; switch entries on field<->value transitions.
+      if (parser[kLastHeaderCallback] === HEADER_CB_FIELD) {
+        fields[fields.length - 1] += chunk
+      } else {
+        fields.push(chunk)
+        parser[kLastHeaderCallback] = HEADER_CB_FIELD
+      }
       return 0
     },
     wasm_on_header_value(parserPointer: number, at: number, length: number) {
-      parsersMap
-        .get(parserPointer)!
-        [kHeadersValues].push(readStringFrom(at, length))
+      const parser = parsersMap.get(parserPointer)!
+      const chunk = readStringFrom(at, length)
+      const values = parser[kHeadersValues]
+
+      if (parser[kLastHeaderCallback] === HEADER_CB_VALUE) {
+        values[values.length - 1] += chunk
+      } else {
+        values.push(chunk)
+        parser[kLastHeaderCallback] = HEADER_CB_VALUE
+      }
       return 0
     },
-    wasm_on_headers_complete(parserPtr: number) {
-      const parser = parsersMap.get(parserPtr)!
-      const versionMajor = llhttp_get_version_major(parserPtr)
-      const versionMinor = llhttp_get_version_minor(parserPtr)
+    wasm_on_headers_complete(
+      parserPointer: number,
+      statusCode: number,
+      rawUpgrade: number,
+      rawShouldKeepAlive: number
+    ) {
+      const parser = parsersMap.get(parserPointer)!
+      const versionMajor = llhttp_get_version_major(parserPointer)
+      const versionMinor = llhttp_get_version_minor(parserPointer)
       const rawHeaders: Array<string> = []
-      const upgrade = Boolean(llhttp_get_upgrade(parserPtr))
-      const shouldKeepAlive = Boolean(llhttp_should_keep_alive(parserPtr))
+      const upgrade = rawUpgrade === 1
+      const shouldKeepAlive = rawShouldKeepAlive === 1
 
       for (let c = 0; c < parser[kHeadersFields].length; c++) {
         rawHeaders.push(parser[kHeadersFields][c]!, parser[kHeadersValues][c]!)
       }
 
       if (parser[kType] === KIND_REQUEST) {
-        const method = methodNames[llhttp_get_method(parserPtr)]
+        const method = methodNames[llhttp_get_method(parserPointer)]
         const url = parser[kUrl]
         const callback = parser[kCallbacks] as ParserCallbacks<
           typeof KIND_REQUEST
@@ -130,7 +158,7 @@ const llhttpInstance = new WebAssembly.Instance(llhttpModule, {
           }) ?? 0
         )
       } else {
-        const statusCode = llhttp_get_status_code(parserPtr) as number
+        const statusCode = llhttp_get_status_code(parserPointer) as number
         const statusMessage = parser[kStatusMessage]
         const callback = parser[kCallbacks] as ParserCallbacks<
           typeof KIND_RESPONSE
@@ -149,15 +177,17 @@ const llhttpInstance = new WebAssembly.Instance(llhttpModule, {
         )
       }
     },
-    wasm_on_body(parserPtr: number, at: number, length: number) {
-      const parser = parsersMap.get(parserPtr)!
+    wasm_on_body(parserPointer: number, at: number, length: number) {
+      const parser = parsersMap.get(parserPointer)!
       // Create a copy of the body chunk, as the underlying memory buffer is reused by llhttp and can be overwritten on the next callback call.
       // Maybe not the most efficient way, but it is simple and safe.
       const body = Buffer.from(new Uint8Array(llhttp_memory.buffer, at, length))
       return parser[kCallbacks].onBody?.(body) ?? 0
     },
-    wasm_on_message_complete(parserPtr: number) {
-      return parsersMap.get(parserPtr)![kCallbacks].onMessageComplete?.() ?? 0
+    wasm_on_message_complete(parserPointer: number) {
+      return (
+        parsersMap.get(parserPointer)![kCallbacks].onMessageComplete?.() ?? 0
+      )
     },
   },
 })
@@ -195,13 +225,21 @@ export class HttpParser<K extends ParserKind> {
   [kStatusMessage]: string = '';
   [kHeadersFields]: Array<string> = [];
   [kHeadersValues]: Array<string> = [];
+  [kLastHeaderCallback]: number = HEADER_CB_NONE;
   [kCallbacks]: ParserCallbacks<K>;
   [kType]: ParserKind
 
   constructor(type: K, callbacks: ParserCallbacks<K>) {
     this[kType] = type
     this[kCallbacks] = callbacks
-    this[kPointer] = llhttp_alloc(type)
+
+    const parserPointer = llhttp_alloc(type)
+
+    if (parserPointer === 0) {
+      throw new Error('Failed to allocate llhttp parser')
+    }
+
+    this[kPointer] = parserPointer
     parsersMap.set(this[kPointer], this)
   }
 
@@ -218,9 +256,22 @@ export class HttpParser<K extends ParserKind> {
 
   execute(data: Buffer) {
     const pointer = llhttp_malloc(data.byteLength)
-    const buffer = new Uint8Array(llhttp_memory.buffer)
-    buffer.set(data, pointer)
-    const ret = llhttp_execute(this[kPointer], pointer, data.length)
+
+    if (pointer === 0) {
+      throw new Error('Failed to allocate llhttp input buffer')
+    }
+
+    let ret: number
+    try {
+      const buffer = new Uint8Array(llhttp_memory.buffer)
+      buffer.set(data, pointer)
+      ret = llhttp_execute(this[kPointer], pointer, data.byteLength)
+    } catch (error) {
+      // Free the input buffer if a user callback threw synchronously,
+      // otherwise the wasm heap leaks the chunk on every execute() call.
+      llhttp_free(pointer)
+      throw error
+    }
 
     if (ret === constants.ERROR.PAUSED_UPGRADE) {
       // Find how many bytes llhttp consumed
@@ -232,12 +283,12 @@ export class HttpParser<K extends ParserKind> {
     }
 
     llhttp_free(pointer)
-    this.checkErr(ret)
+    this.#checkError(ret)
 
     return null // fully consumed
   }
 
-  private checkErr(errorCode: number) {
+  #checkError(errorCode: number) {
     if (errorCode === constants.ERROR.OK) {
       return
     }
