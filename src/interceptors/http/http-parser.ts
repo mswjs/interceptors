@@ -12,14 +12,10 @@ interface HttpRequestParserOptions {
 }
 
 export class HttpRequestParser extends HttpParser<1> {
-  #rawHeadersBuffer: Array<string>
   #requestBodyStream?: Readable
 
   constructor(options: HttpRequestParserOptions) {
     super(1, {
-      // onHeaders: (rawHeaders) => {
-      //   this.#rawHeadersBuffer.push(...rawHeaders)
-      // },
       onHeadersComplete: ({ rawHeaders, method, url: path }) => {
         /**
          * @note When the socket is reused, "connectionOptions" will point
@@ -38,10 +34,7 @@ export class HttpRequestParser extends HttpParser<1> {
         const finalMethod = resolvedMethod.toUpperCase()
 
         const url = new URL(path || '', options.connectionOptions.url)
-        const headers = FetchResponse.parseRawHeaders([
-          ...this.#rawHeadersBuffer,
-          ...rawHeaders,
-        ])
+        const headers = FetchResponse.parseRawHeaders([...(rawHeaders || [])])
 
         // Translate the basic authorization to request headers.
         // Constructing a Request instance with a URL containing auth is no-op.
@@ -81,39 +74,28 @@ export class HttpRequestParser extends HttpParser<1> {
         this.#requestBodyStream.push(chunk)
       },
       onMessageComplete: () => {
-        this.#rawHeadersBuffer.length = 0
         this.#requestBodyStream?.push(null)
       },
     })
-
-    this.#rawHeadersBuffer = []
   }
 
   public free(): void {
     this.destroy()
-    this.#rawHeadersBuffer.length = 0
     this.#requestBodyStream = undefined
   }
 }
 
 export class HttpResponseParser extends HttpParser<2> {
-  #responseRawHeadersBuffer: Array<string>
   #responseBodyStream?: Readable | null
 
   constructor(options: { onResponse: (response: Response) => void }) {
     super(2, {
-      // onHeaders: (rawHeaders) => {
-      //   this.#responseRawHeadersBuffer.push(...rawHeaders)
-      // },
       onHeadersComplete: ({
         rawHeaders,
         statusCode: status,
         statusMessage: statusText,
       }) => {
-        const headers = FetchResponse.parseRawHeaders([
-          ...this.#responseRawHeadersBuffer,
-          ...(rawHeaders || []),
-        ])
+        const headers = FetchResponse.parseRawHeaders([...(rawHeaders || [])])
 
         this.#responseBodyStream = new Readable({ read() {} })
 
@@ -142,13 +124,10 @@ export class HttpResponseParser extends HttpParser<2> {
         this.#responseBodyStream?.push(null)
       },
     })
-
-    this.#responseRawHeadersBuffer = []
   }
 
   public free(): void {
     this.destroy()
-    this.#responseRawHeadersBuffer = []
     this.#responseBodyStream = null
   }
 }
