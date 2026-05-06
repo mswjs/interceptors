@@ -33,14 +33,10 @@ export class BatchInterceptor<
   InterceptorList extends ReadonlyArray<Interceptor<any>>,
   Events extends DefaultEventMap = ExtractEventMapType<InterceptorList>,
 > extends Interceptor<Events> {
-  static symbol: symbol
-
   #logger: Logger
   #interceptors: InterceptorList
 
   constructor(options: BatchInterceptorOptions<InterceptorList>) {
-    BatchInterceptor.symbol = Symbol.for(options.name)
-
     super()
 
     this.#logger = logger.extend(options.name)
