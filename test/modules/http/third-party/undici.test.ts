@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { fetch, request } from 'undici'
-import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { HttpRequestInterceptor } from '@mswjs/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
+
 beforeAll(() => {
   interceptor.apply()
 })
