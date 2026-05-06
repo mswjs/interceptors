@@ -12,7 +12,10 @@ export default defineConfig([
       './src/interceptors/XMLHttpRequest/node.ts',
       './src/interceptors/fetch/node.ts',
     ],
-    external: ['_http_common'],
+    copy: {
+      from: './src/interceptors/http/http-parser/llhttp/**',
+      to: './lib/node/llhttp',
+    },
     outDir: './lib/node',
     platform: 'node',
     target: 'node22',
