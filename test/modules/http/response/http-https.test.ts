@@ -146,3 +146,16 @@ it('bypasses any request after the interceptor was restored', async () => {
   expect(response.statusText).toBe('OK')
   await expect(response.text()).resolves.toBe('original-response')
 })
+
+it('big response', async () => {
+  const responseBody = new Array(1024 * 1024 + 1).join('.')
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response(responseBody))
+  })
+  const request = http.get('http://any.localhost/non-existing')
+  const [response] = await toWebResponse(request)
+
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  await expect(response.text()).resolves.toBe(responseBody)
+});

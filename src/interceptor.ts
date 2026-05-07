@@ -54,10 +54,6 @@ export abstract class Interceptor<
   protected abstract setup(): void
 
   public apply(): void {
-    if (this.readyState === InterceptorReadyState.DISPOSED) {
-      return
-    }
-
     if (!this.predicate()) {
       return
     }

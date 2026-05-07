@@ -1,5 +1,5 @@
 import { TypedEvent } from 'rettime'
-import { Interceptor } from './interceptor'
+import { Interceptor, InterceptorReadyState } from './interceptor'
 
 it('nesting interceptors', async () => {
   const socketSetup = vi.fn()
@@ -191,4 +191,21 @@ it('removes all listeners when the interceptor is disposed', () => {
 
   interceptor['emitter'].emit(new TypedEvent('test'))
   expect(listener).not.toHaveBeenCalled()
+})
+
+it('can apply after disposal', () => {
+  class MyInterceptor extends Interceptor<{ test: TypedEvent }> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {}
+  }
+  const interceptor = new MyInterceptor()
+
+  interceptor.apply()
+  interceptor.dispose()
+  interceptor.apply()
+
+  expect(interceptor.readyState).toBe(InterceptorReadyState.ACTIVE)
 })
