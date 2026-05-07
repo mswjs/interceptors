@@ -149,6 +149,7 @@ it('bypasses any request after the interceptor was restored', async () => {
 
 it('big response', async () => {
   const responseBody = new Array(1024 * 1024 + 1).join('.')
+  interceptor.apply()
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response(responseBody))
   })
