@@ -193,8 +193,8 @@ it('removes all listeners when the interceptor is disposed', () => {
   expect(listener).not.toHaveBeenCalled()
 })
 
-it('can apply after disposal', () => {
-  class MyInterceptor extends Interceptor<{ test: TypedEvent }> {
+it('applies the interceptor after disposal', () => {
+  class MyInterceptor extends Interceptor<{}> {
     protected predicate(): boolean {
       return true
     }
@@ -204,8 +204,9 @@ it('can apply after disposal', () => {
   const interceptor = new MyInterceptor()
 
   interceptor.apply()
+  expect(interceptor.readyState).toBe(InterceptorReadyState.ACTIVE)
   interceptor.dispose()
+  expect(interceptor.readyState).toBe(InterceptorReadyState.DISPOSED)
   interceptor.apply()
-
   expect(interceptor.readyState).toBe(InterceptorReadyState.ACTIVE)
 })

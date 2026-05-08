@@ -147,8 +147,8 @@ it('bypasses any request after the interceptor was restored', async () => {
   await expect(response.text()).resolves.toBe('original-response')
 })
 
-it('big response', async () => {
-  const responseBody = new Array(1024 * 1024 + 1).join('.')
+it('responds with a body larger than the high water mark', async () => {
+  const responseBody = new Uint8Array(1024 * 1024)
   interceptor.apply()
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response(responseBody))
@@ -158,5 +158,5 @@ it('big response', async () => {
 
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
-  await expect(response.text()).resolves.toBe(responseBody)
+  await expect(response.arrayBuffer()).resolves.toEqual(responseBody.buffer)
 });
