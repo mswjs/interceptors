@@ -204,7 +204,7 @@ it('returns socket address for a mocked IPv6 request', async () => {
 
   await expect(addressPromise).resolves.toEqual({
     address: '::1',
-    family: 'ipv6',
+    family: 'IPv6',
     port: 80,
   })
 })
@@ -224,7 +224,7 @@ it('returns socket address for a mocked request with IPv6 hostname', async () =>
 
   await expect(addressPromise).resolves.toEqual({
     address: '::1',
-    family: 'ipv6',
+    family: 'IPv6',
     port: 80,
   })
 })
