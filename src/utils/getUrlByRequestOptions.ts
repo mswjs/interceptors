@@ -94,7 +94,7 @@ function getHostname(options: ResolvedRequestOptions): string | undefined {
 
   if (host) {
     if (isRawIPv6Address(host)) {
-       host = `[${host}]`
+      host = `[${host}]`
     }
 
     // Check the presence of the port, and if it's present,
@@ -103,6 +103,15 @@ function getHostname(options: ResolvedRequestOptions): string | undefined {
   }
 
   return DEFAULT_HOSTNAME
+}
+
+function isAbsoluteUrl(path: string): boolean {
+  try {
+    new URL(path)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -121,6 +130,14 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
 
   logger.info('figuring out url from request options...')
 
+  const path = options.path || DEFAULT_PATH
+  logger.info('path', path)
+
+  if (isAbsoluteUrl(path)) {
+    logger.info('using absolute-form request path as url: %s', path)
+    return new URL(path)
+  }
+
   const protocol = getProtocolByRequestOptions(options)
   logger.info('protocol', protocol)
 
@@ -129,9 +146,6 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
 
   const hostname = getHostname(options)
   logger.info('hostname', hostname)
-
-  const path = options.path || DEFAULT_PATH
-  logger.info('path', path)
 
   const credentials = getAuthByRequestOptions(options)
   logger.info('credentials', credentials)

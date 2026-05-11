@@ -87,6 +87,16 @@ it('respects explicitly provided port', () => {
   ).toBe('http://127.0.0.1:4002/')
 })
 
+it('resolves absolute-form paths as the request target URL', () => {
+  expect(
+    getUrlByRequestOptions({
+      protocol: 'http:',
+      host: '127.0.0.1:3000',
+      path: 'https://google.com/search?q=msw',
+    }).href
+  ).toBe('https://google.com/search?q=msw')
+})
+
 it('inherits "username" and "password"', () => {
   const url = getUrlByRequestOptions({
     protocol: 'https:',
@@ -149,7 +159,6 @@ it('parses "host" in IPv6', () => {
       path: '/resource',
     }).href
   ).toBe('http://[::1]/resource')
-
 })
 
 it('parses "host" and "port" in IPv6', () => {
