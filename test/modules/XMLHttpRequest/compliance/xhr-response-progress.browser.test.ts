@@ -74,6 +74,62 @@ test('supports response progress for a mocked response', async ({
   ])
 })
 
+test('marks response progress length as not computable when total length fails', async ({
+  loadExample,
+  page,
+}) => {
+  await loadExample(require.resolve('./xhr-upload.browser.runtime.js'))
+
+  await page.evaluate(() => {
+    window.interceptor.on('request', ({ controller }) => {
+      const response = new Response(new Blob(['hello world']))
+
+      Object.defineProperty(response, 'clone', {
+        value: () => {
+          throw new Error('Failed to clone response')
+        },
+      })
+
+      controller.respondWith(response)
+    })
+  })
+
+  const events = await page.evaluate(() => {
+    const xhr = new XMLHttpRequest()
+    const events: Array<{
+      type: string
+      lengthComputable: boolean
+      loaded: number
+      total: number
+    }> = []
+
+    for (const eventType of ['loadstart', 'progress', 'load', 'loadend']) {
+      xhr.addEventListener(eventType, (event) => {
+        const progressEvent = event as ProgressEvent
+
+        events.push({
+          type: progressEvent.type,
+          lengthComputable: progressEvent.lengthComputable,
+          loaded: progressEvent.loaded,
+          total: progressEvent.total,
+        })
+      })
+    }
+
+    xhr.open('GET', '/does-not-matter')
+    xhr.send()
+
+    return window.waitForXMLHttpRequest(xhr).then(() => events)
+  })
+
+  expect(events).toEqual([
+    { type: 'loadstart', lengthComputable: false, loaded: 0, total: 0 },
+    { type: 'progress', lengthComputable: false, loaded: 11, total: 0 },
+    { type: 'load', lengthComputable: false, loaded: 11, total: 0 },
+    { type: 'loadend', lengthComputable: false, loaded: 11, total: 0 },
+  ])
+})
+
 test('supports response progress for a bypassed response', async ({
   loadExample,
   page,

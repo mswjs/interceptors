@@ -28,7 +28,7 @@ export function createEvent(
 
   const event = progressEvents.includes(type)
     ? new ProgressEventClass(type, {
-        lengthComputable: true,
+        lengthComputable: init?.lengthComputable ?? true,
         loaded: init?.loaded || 0,
         total: init?.total || 0,
       })

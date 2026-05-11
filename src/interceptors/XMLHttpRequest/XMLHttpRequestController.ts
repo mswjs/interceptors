@@ -22,6 +22,29 @@ const kIsRequestHandled = Symbol('kIsRequestHandled')
 const IS_NODE = isNodeProcess()
 const kFetchRequest = Symbol('kFetchRequest')
 
+type BodyByteLengthResult = {
+  length: number
+  lengthComputable: boolean
+}
+
+async function getBodyByteLengthResult(
+  input: Request | Response | (() => Request | Response)
+): Promise<BodyByteLengthResult> {
+  try {
+    const body = typeof input === 'function' ? input() : input
+
+    return {
+      length: await getBodyByteLength(body),
+      lengthComputable: true,
+    }
+  } catch {
+    return {
+      length: 0,
+      lengthComputable: false,
+    }
+  }
+}
+
 /**
  * An `XMLHttpRequest` instance controller that allows us
  * to handle any given request instance (e.g. responding to it).
@@ -306,26 +329,30 @@ export class XMLHttpRequestController {
      * @see https://github.com/mswjs/interceptors/issues/573
      */
     if (this[kFetchRequest]) {
-      const totalRequestBodyLength = await getBodyByteLength(
+      const totalRequestBodyLength = await getBodyByteLengthResult(
         this[kFetchRequest]
       )
 
       this.trigger('loadstart', this.request.upload, {
         loaded: 0,
-        total: totalRequestBodyLength,
+        total: totalRequestBodyLength.length,
+        lengthComputable: totalRequestBodyLength.lengthComputable,
       })
       this.trigger('progress', this.request.upload, {
-        loaded: totalRequestBodyLength,
-        total: totalRequestBodyLength,
+        loaded: totalRequestBodyLength.length,
+        total: totalRequestBodyLength.length,
+        lengthComputable: totalRequestBodyLength.lengthComputable,
       })
       this.trigger('load', this.request.upload, {
-        loaded: totalRequestBodyLength,
-        total: totalRequestBodyLength,
+        loaded: totalRequestBodyLength.length,
+        total: totalRequestBodyLength.length,
+        lengthComputable: totalRequestBodyLength.lengthComputable,
       })
 
       this.trigger('loadend', this.request.upload, {
-        loaded: totalRequestBodyLength,
-        total: totalRequestBodyLength,
+        loaded: totalRequestBodyLength.length,
+        total: totalRequestBodyLength.length,
+        lengthComputable: totalRequestBodyLength.lengthComputable,
       })
     }
 
@@ -407,13 +434,16 @@ export class XMLHttpRequestController {
       },
     })
 
-    const totalResponseBodyLength = await getBodyByteLength(response.clone())
+    const totalResponseBodyLength = await getBodyByteLengthResult(() =>
+      response.clone()
+    )
 
     this.logger.info('calculated response body length', totalResponseBodyLength)
 
     this.trigger('loadstart', this.request, {
       loaded: 0,
-      total: totalResponseBodyLength,
+      total: totalResponseBodyLength.length,
+      lengthComputable: totalResponseBodyLength.lengthComputable,
     })
 
     this.setReadyState(this.request.HEADERS_RECEIVED)
@@ -426,12 +456,14 @@ export class XMLHttpRequestController {
 
       this.trigger('load', this.request, {
         loaded: this.responseBuffer.byteLength,
-        total: totalResponseBodyLength,
+        total: totalResponseBodyLength.length,
+        lengthComputable: totalResponseBodyLength.lengthComputable,
       })
 
       this.trigger('loadend', this.request, {
         loaded: this.responseBuffer.byteLength,
-        total: totalResponseBodyLength,
+        total: totalResponseBodyLength.length,
+        lengthComputable: totalResponseBodyLength.lengthComputable,
       })
     }
 
@@ -455,7 +487,8 @@ export class XMLHttpRequestController {
 
           this.trigger('progress', this.request, {
             loaded: this.responseBuffer.byteLength,
-            total: totalResponseBodyLength,
+            total: totalResponseBodyLength.length,
+            lengthComputable: totalResponseBodyLength.lengthComputable,
           })
         }
 
