@@ -286,6 +286,17 @@ export class MockHttpSocket extends MockSocket {
       })
     }
 
+    let passthroughReadableEnded = false
+    let passthroughCloseEmitted = false
+    const emitPassthroughCloseOnce = (hadError: boolean) => {
+      if (passthroughCloseEmitted) {
+        return
+      }
+
+      passthroughCloseEmitted = true
+      this.emit('close', hadError)
+    }
+
     socket
       .on('lookup', (...args) => this.emit('lookup', ...args))
       .on('connect', () => {
@@ -311,8 +322,21 @@ export class MockHttpSocket extends MockSocket {
       .on('timeout', () => this.emit('timeout'))
       .on('prefinish', () => this.emit('prefinish'))
       .on('finish', () => this.emit('finish'))
-      .on('close', (hadError) => this.emit('close', hadError))
-      .on('end', () => this.emit('end'))
+      .on('close', (hadError) => {
+        if (hadError || !passthroughReadableEnded || this.readableEnded) {
+          emitPassthroughCloseOnce(hadError)
+          return
+        }
+
+        // Node's HTTP client expects the response readable side to end before
+        // the socket closes. The original socket can close before the pushed
+        // EOF surfaces on this socket, so defer "close" to avoid an abort.
+        this.once('end', () => emitPassthroughCloseOnce(hadError))
+      })
+      .on('end', () => {
+        passthroughReadableEnded = true
+        this.push(null)
+      })
   }
 
   /**
