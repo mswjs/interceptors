@@ -18,6 +18,6 @@ export function getAddressInfoByConnectionOptions(
   return {
     address: ipAddress || isIPv6 ? '::1' : '127.0.0.1',
     port: options.port || (options.protocol === 'https:' ? 443 : 80),
-    family: isIPv6 ? 'ipv6' : 'ipv4',
+    family: isIPv6 ? 'IPv6' : 'IPv4',
   }
 }

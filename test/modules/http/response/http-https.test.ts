@@ -9,7 +9,7 @@ const server = getTestServer()
 
 const interceptor = new HttpRequestInterceptor()
 
-beforeAll(() => {
+beforeEach(() => {
   interceptor.apply()
 })
 
@@ -145,4 +145,19 @@ it('bypasses any request after the interceptor was restored', async () => {
   expect(response.status).toBe(200)
   expect(response.statusText).toBe('OK')
   await expect(response.text()).resolves.toBe('original-response')
+})
+
+it('responds with a body larger than the high watermark', async () => {
+  const responseBody = new Uint8Array(1024 * 1024)
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response(responseBody))
+  })
+  const request = http.get('http://any.localhost/non-existing')
+  const [response] = await toWebResponse(request)
+
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.statusText).toBe('OK')
+  await expect
+    .soft(response.arrayBuffer())
+    .resolves.toEqual(responseBody.buffer)
 })

@@ -318,6 +318,7 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       callback(null)
     }
 
+    responseSocket.on('drain', () => serverResponse.emit('drain'))
     serverResponse.assignSocket(responseSocket)
 
     serverResponse.removeHeader('connection')
