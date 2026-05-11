@@ -18,7 +18,7 @@ import {
 } from './utils/recordRawHeaders'
 
 export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static symbol = Symbol('client-request-interceptor')
+  static symbol = Symbol.for('client-request-interceptor')
 
   constructor() {
     super(ClientRequestInterceptor.symbol)

@@ -8,10 +8,10 @@ import { patchesRegistry } from '../../utils/patchesRegistry'
 export type XMLHttpRequestEmitter = Emitter<HttpRequestEventMap>
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static interceptorSymbol = Symbol('xhr')
+  static symbol = Symbol.for('xhr-interceptor')
 
   constructor() {
-    super(XMLHttpRequestInterceptor.interceptorSymbol)
+    super(XMLHttpRequestInterceptor.symbol)
   }
 
   protected checkEnvironment() {

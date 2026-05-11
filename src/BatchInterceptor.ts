@@ -2,19 +2,20 @@ import { EventMap, Listener } from 'strict-event-emitter'
 import { Interceptor, ExtractEventNames } from './Interceptor'
 
 export interface BatchInterceptorOptions<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>
+  InterceptorList extends ReadonlyArray<Interceptor<any>>,
 > {
   name: string
   interceptors: InterceptorList
 }
 
 export type ExtractEventMapType<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>
-> = InterceptorList extends ReadonlyArray<infer InterceptorType>
-  ? InterceptorType extends Interceptor<infer EventMap>
-    ? EventMap
+  InterceptorList extends ReadonlyArray<Interceptor<any>>,
+> =
+  InterceptorList extends ReadonlyArray<infer InterceptorType>
+    ? InterceptorType extends Interceptor<infer EventMap>
+      ? EventMap
+      : never
     : never
-  : never
 
 /**
  * A batch interceptor that exposes a single interface
@@ -22,14 +23,14 @@ export type ExtractEventMapType<
  */
 export class BatchInterceptor<
   InterceptorList extends ReadonlyArray<Interceptor<any>>,
-  Events extends EventMap = ExtractEventMapType<InterceptorList>
+  Events extends EventMap = ExtractEventMapType<InterceptorList>,
 > extends Interceptor<Events> {
   static symbol: symbol
 
   private interceptors: InterceptorList
 
   constructor(options: BatchInterceptorOptions<InterceptorList>) {
-    BatchInterceptor.symbol = Symbol(options.name)
+    BatchInterceptor.symbol = Symbol.for(options.name)
     super(BatchInterceptor.symbol)
     this.interceptors = options.interceptors
   }
