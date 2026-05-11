@@ -454,8 +454,8 @@ export class MockHttpSocket extends MockSocket {
   /**
    * Close this socket connection with the given error.
    */
-  public errorWith(error?: Error): void {
-    this.destroy(error)
+  public errorWith(error?: unknown): void {
+    this.destroy(error as Error)
   }
 
   private mockConnect(): void {

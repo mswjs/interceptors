@@ -73,3 +73,25 @@ it('patch the Headers object correctly after dispose and reapply', async () => {
   )
   expect(res.headers['x-custom-header']).toEqual('Yes')
 })
+
+it('errors the request with an arbitrary error reason', async () => {
+  const reason = { message: 'custom error', code: 'test' }
+
+  interceptor.on('request', ({ controller }) => {
+    controller.errorWith(reason)
+  })
+
+  const errorPromise = new DeferredPromise<unknown>()
+  const request = http.request(httpServer.http.url('/'))
+
+  request.on('response', () => {
+    errorPromise.reject(new Error('Expected request error, got response'))
+  })
+  request.on('error', (error) => {
+    errorPromise.resolve(error)
+  })
+
+  request.end()
+
+  await expect(errorPromise).resolves.toBe(reason)
+})

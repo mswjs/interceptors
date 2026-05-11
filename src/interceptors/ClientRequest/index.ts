@@ -161,9 +161,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         await socket.respondWith(response)
       },
       errorWith(reason) {
-        if (reason instanceof Error) {
-          socket.errorWith(reason)
-        }
+        socket.errorWith(reason)
       },
     })
 
