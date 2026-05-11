@@ -25,18 +25,21 @@ interface MockAgentOptions {
   customAgent?: http.RequestOptions['agent']
   onRequest: MockHttpSocketRequestCallback
   onResponse: MockHttpSocketResponseCallback
+  signal?: AbortSignal
 }
 
 export class MockAgent extends http.Agent {
   private customAgent?: http.RequestOptions['agent']
   private onRequest: MockHttpSocketRequestCallback
   private onResponse: MockHttpSocketResponseCallback
+  private signal?: AbortSignal
 
   constructor(options: MockAgentOptions) {
     super()
     this.customAgent = options.customAgent
     this.onRequest = options.onRequest
     this.onResponse = options.onResponse
+    this.signal = options.signal
   }
 
   public createConnection(options: any, callback: any): net.Socket {
@@ -62,6 +65,7 @@ export class MockAgent extends http.Agent {
       ),
       onRequest: this.onRequest.bind(this),
       onResponse: this.onResponse.bind(this),
+      signal: this.signal,
     })
 
     return socket
@@ -72,12 +76,14 @@ export class MockHttpsAgent extends https.Agent {
   private customAgent?: https.RequestOptions['agent']
   private onRequest: MockHttpSocketRequestCallback
   private onResponse: MockHttpSocketResponseCallback
+  private signal?: AbortSignal
 
   constructor(options: MockAgentOptions) {
     super()
     this.customAgent = options.customAgent
     this.onRequest = options.onRequest
     this.onResponse = options.onResponse
+    this.signal = options.signal
   }
 
   public createConnection(options: any, callback: any): net.Socket {
@@ -103,6 +109,7 @@ export class MockHttpsAgent extends https.Agent {
       ),
       onRequest: this.onRequest.bind(this),
       onResponse: this.onResponse.bind(this),
+      signal: this.signal,
     })
 
     return socket

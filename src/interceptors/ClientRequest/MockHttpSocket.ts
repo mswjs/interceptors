@@ -41,6 +41,7 @@ interface MockHttpSocketOptions {
   createConnection: () => net.Socket
   onRequest: MockHttpSocketRequestCallback
   onResponse: MockHttpSocketResponseCallback
+  signal?: AbortSignal
 }
 
 export const kRequestId = Symbol('kRequestId')
@@ -52,6 +53,7 @@ export class MockHttpSocket extends MockSocket {
 
   private onRequest: MockHttpSocketRequestCallback
   private onResponse: MockHttpSocketResponseCallback
+  private signal?: AbortSignal
   private responseListenersPromise?: Promise<void>
 
   private requestRawHeadersBuffer: Array<string> = []
@@ -110,6 +112,7 @@ export class MockHttpSocket extends MockSocket {
     this.createConnection = options.createConnection
     this.onRequest = options.onRequest
     this.onResponse = options.onResponse
+    this.signal = options.signal
 
     this.baseUrl = baseUrlFromConnectionOptions(this.connectionOptions)
 
@@ -580,7 +583,7 @@ export class MockHttpSocket extends MockSocket {
       method,
       headers,
       credentials: 'same-origin',
-      // @ts-expect-error Undocumented Fetch property.
+      signal: this.signal,
       duplex: canHaveBody ? 'half' : undefined,
       body: canHaveBody ? (Readable.toWeb(this.requestStream!) as any) : null,
     })

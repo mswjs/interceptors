@@ -54,6 +54,31 @@ it('abort the request if the abort signal is emitted', async () => {
   expect(request.destroyed).toBe(true)
 })
 
+it('forwards the abort signal to the intercepted request', async () => {
+  const requestUrl = httpServer.http.url('/')
+  const abortController = new AbortController()
+  const requestListenerPromise = new DeferredPromise<void>()
+  const signalAbortPromise = new DeferredPromise<unknown>()
+
+  interceptor.on('request', ({ request, controller }) => {
+    request.signal.addEventListener(
+      'abort',
+      () => signalAbortPromise.resolve(request.signal.reason),
+      { once: true }
+    )
+    requestListenerPromise.resolve()
+    controller.passthrough()
+  })
+
+  const request = http.get(requestUrl, { signal: abortController.signal })
+  request.on('error', () => {})
+  await requestListenerPromise
+
+  abortController.abort('abort reason')
+
+  await expect(signalAbortPromise).resolves.toBe('abort reason')
+})
+
 it('patch the Headers object correctly after dispose and reapply', async () => {
   interceptor.dispose()
   interceptor.apply()

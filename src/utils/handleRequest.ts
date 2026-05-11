@@ -130,7 +130,10 @@ export async function handleRequest(
 
   // Handle the request being aborted while waiting for the request listeners.
   if (requestAbortPromise.state === 'rejected') {
-    await options.controller.errorWith(requestAbortPromise.rejectionReason)
+    if (options.controller.readyState === RequestController.PENDING) {
+      await options.controller.errorWith(requestAbortPromise.rejectionReason)
+    }
+
     return
   }
 

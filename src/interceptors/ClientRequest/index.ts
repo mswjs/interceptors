@@ -49,6 +49,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           customAgent: options.agent,
           onRequest,
           onResponse,
+          signal: options.signal,
         })
         options.agent = mockAgent
 
@@ -66,6 +67,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           customAgent: options.agent,
           onRequest,
           onResponse,
+          signal: options.signal,
         })
         options.agent = mockAgent
 
@@ -84,6 +86,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           customAgent: options.agent,
           onRequest,
           onResponse,
+          signal: options.signal,
         })
         options.agent = mockAgent
 
@@ -106,6 +109,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           customAgent: options.agent,
           onRequest,
           onResponse,
+          signal: options.signal,
         })
         options.agent = mockAgent
 
@@ -124,6 +128,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           customAgent: options.agent,
           onRequest,
           onResponse,
+          signal: options.signal,
         })
         options.agent = mockAgent
 
