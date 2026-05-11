@@ -8,7 +8,7 @@ import { patchesRegistry } from '../../utils/patchesRegistry'
 export type XMLHttpRequestEmitter = Emitter<HttpRequestEventMap>
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static interceptorSymbol = Symbol('xhr')
+  static interceptorSymbol = Symbol.for('mswjs.interceptors.XMLHttpRequest')
 
   constructor() {
     super(XMLHttpRequestInterceptor.interceptorSymbol)
