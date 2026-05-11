@@ -16,6 +16,27 @@ import { setRawRequest } from '../../getRawRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { patchesRegistry } from '../../utils/patchesRegistry'
 
+function createAbortableResponse(
+  response: Response,
+  signal: AbortSignal
+): Response {
+  if (!response.body) {
+    return response
+  }
+
+  const stream = new TransformStream()
+  response.body.pipeTo(stream.writable, { signal }).catch(() => {
+    // The consumer observes aborts and stream failures through `stream.readable`.
+  })
+
+  return new FetchResponse(stream.readable, {
+    url: response.url,
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  })
+}
+
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
 
@@ -149,6 +170,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             }
           }
 
+          const mockedResponse = createAbortableResponse(
+            response,
+            request.signal
+          )
+
           if (this.emitter.listenerCount('response') > 0) {
             this.logger.info('emitting the "response" event...')
 
@@ -159,14 +185,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               // Clone the mocked response for the "response" event listener.
               // This way, the listener can read the response and not lock its body
               // for the actual fetch consumer.
-              response: FetchResponse.clone(response),
+              response: FetchResponse.clone(mockedResponse),
               isMockedResponse: true,
               request,
               requestId,
             })
           }
 
-          responsePromise.resolve(response)
+          responsePromise.resolve(mockedResponse)
         },
         errorWith: (reason) => {
           this.logger.info('request has been aborted!', { reason })

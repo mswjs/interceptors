@@ -162,3 +162,39 @@ it('aborts the pending request via "AbortSignal.timeout"', async () => {
     message: 'The operation was aborted due to timeout',
   })
 })
+
+it('aborts the mocked response body when the request is aborted after response', async () => {
+  const sourceCancelled = new DeferredPromise<unknown>()
+
+  interceptor.on('request', ({ controller }) => {
+    let interval: NodeJS.Timeout
+    const body = new ReadableStream({
+      start(controller) {
+        interval = globalThis.setInterval(() => {
+          controller.enqueue(new TextEncoder().encode('hello'))
+        }, 10)
+      },
+      cancel(reason) {
+        clearInterval(interval)
+        sourceCancelled.resolve(reason)
+      },
+    })
+
+    controller.respondWith(new Response(body))
+  })
+
+  const controller = new AbortController()
+  const response = await fetch(httpServer.http.url('/'), {
+    signal: controller.signal,
+  })
+  const bodyErrorPromise = response.text().then<unknown>(
+    () => expect.fail('must not finish reading the response body'),
+    (error) => error
+  )
+  const abortReason = new DOMException('Body aborted', 'AbortError')
+
+  controller.abort(abortReason)
+
+  await expect(bodyErrorPromise).resolves.toBe(abortReason)
+  await expect(sourceCancelled).resolves.toBe(abortReason)
+})
