@@ -1,5 +1,5 @@
 import { HttpServer } from '@open-draft/test-server/http'
-import { useCors } from '../../../helpers'
+import { useCors } from '#/test/helpers'
 import { test, expect } from '../../../playwright.extend'
 
 declare namespace window {

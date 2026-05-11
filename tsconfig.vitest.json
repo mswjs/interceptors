@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": ["./vitest.config", "./vitest.setup"],
+  "compilerOptions": {
+    "composite": true,
+    "types": ["node", "./test/setup/vitest.d.ts"],
+  },
+}

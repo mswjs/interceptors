@@ -1,7 +1,6 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { HttpServer } from '@open-draft/test-server/http'
-import { FetchInterceptor } from '../../../../src/interceptors/fetch'
+import { FetchInterceptor } from '#/src/interceptors/fetch/web'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {

@@ -1,6 +1,5 @@
 // @vitest-environment miniflare
-import { afterAll, expect, test } from 'vitest'
-import { XMLHttpRequestInterceptor } from '../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 let interceptor: XMLHttpRequestInterceptor
 

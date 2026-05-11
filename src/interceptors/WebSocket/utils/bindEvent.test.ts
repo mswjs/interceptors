@@ -1,7 +1,6 @@
 /**
  * @vitest-environment node
  */
-import { it, expect } from 'vitest'
 import { bindEvent } from './bindEvent'
 
 it('sets the "target" on the given event', () => {

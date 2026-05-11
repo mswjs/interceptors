@@ -1,26 +1,20 @@
-/**
- * @vitest-environment node
- */
+// @vitest-environment node
 import { Readable } from 'node:stream'
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import express from 'express'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { sleep, waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
-  app.post('/resource', express.text({ type: '*/*' }), (req, res) => {
+  app.post('/resource/*', express.text({ type: '*/*' }), (req, res) => {
     res.send(req.body)
   })
 })
 
-const interceptedRequestBody = vi.fn()
-
-const interceptor = new ClientRequestInterceptor()
-interceptor.on('request', async ({ request }) => {
-  interceptedRequestBody(await request.clone().text())
-})
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -28,17 +22,22 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  vi.resetAllMocks()
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
   interceptor.dispose()
-  vi.restoreAllMocks()
   await httpServer.close()
 })
 
 it('writes string request body', async () => {
-  const req = http.request(httpServer.http.url('/resource'), {
+  const requestBodyPromise = new DeferredPromise<string>()
+
+  interceptor.on('request', async ({ request }) => {
+    requestBodyPromise.resolve(await request.clone().text())
+  })
+
+  const req = http.request(httpServer.http.url('/resource/write-string'), {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain',
@@ -49,15 +48,20 @@ it('writes string request body', async () => {
   req.write('two')
   req.end('three')
 
-  const { text } = await waitForClientRequest(req)
-  const expectedBody = 'onetwothree'
+  const [response] = await toWebResponse(req)
 
-  expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(await text()).toEqual(expectedBody)
+  await expect(requestBodyPromise).resolves.toBe('onetwothree')
+  await expect(response.text()).resolves.toEqual('onetwothree')
 })
 
 it('writes JSON request body', async () => {
-  const req = http.request(httpServer.http.url('/resource'), {
+  const requestBodyPromise = new DeferredPromise<string>()
+
+  interceptor.on('request', async ({ request }) => {
+    requestBodyPromise.resolve(await request.clone().text())
+  })
+
+  const req = http.request(httpServer.http.url('/resource/write-json'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -68,15 +72,20 @@ it('writes JSON request body', async () => {
   req.write(':"value"')
   req.end('}')
 
-  const { text } = await waitForClientRequest(req)
-  const expectedBody = `{"key":"value"}`
+  const [response] = await toWebResponse(req)
 
-  expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(await text()).toEqual(expectedBody)
+  await expect(requestBodyPromise).resolves.toBe(`{"key":"value"}`)
+  await expect(response.text()).resolves.toEqual(`{"key":"value"}`)
 })
 
 it('writes Buffer request body', async () => {
-  const req = http.request(httpServer.http.url('/resource'), {
+  const requestBodyPromise = new DeferredPromise<string>()
+
+  interceptor.on('request', async ({ request }) => {
+    requestBodyPromise.resolve(await request.clone().text())
+  })
+
+  const req = http.request(httpServer.http.url('/resource/write-buffer'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -87,15 +96,20 @@ it('writes Buffer request body', async () => {
   req.write(Buffer.from(':"value"'))
   req.end(Buffer.from('}'))
 
-  const { text } = await waitForClientRequest(req)
-  const expectedBody = `{"key":"value"}`
+  const [response] = await toWebResponse(req)
 
-  expect(interceptedRequestBody).toHaveBeenCalledWith(expectedBody)
-  expect(await text()).toEqual(expectedBody)
+  await expect(requestBodyPromise).resolves.toBe(`{"key":"value"}`)
+  await expect(response.text()).resolves.toEqual(`{"key":"value"}`)
 })
 
 it('supports Readable as the request body', async () => {
-  const request = http.request(httpServer.http.url('/resource'), {
+  const requestBodyPromise = new DeferredPromise<string>()
+
+  interceptor.on('request', async ({ request }) => {
+    requestBodyPromise.resolve(await request.clone().text())
+  })
+
+  const request = http.request(httpServer.http.url('/resource/readable'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -105,137 +119,186 @@ it('supports Readable as the request body', async () => {
   const input = ['hello', ' ', 'world', null]
   const readable = new Readable({
     read: async function () {
-      await sleep(10)
+      await setTimeout(10)
       this.push(input.shift())
     },
   })
 
   readable.pipe(request)
 
-  await waitForClientRequest(request)
-  expect(interceptedRequestBody).toHaveBeenCalledWith('hello world')
+  await toWebResponse(request)
+  await expect(requestBodyPromise).resolves.toBe('hello world')
 })
 
 it('calls the write callback when writing an empty string', async () => {
-  const request = http.request(httpServer.http.url('/resource'), {
-    method: 'POST',
-  })
+  const request = http.request(
+    httpServer.http.url('/resource/write-empty-cb'),
+    {
+      method: 'POST',
+    }
+  )
 
   const writeCallback = vi.fn()
   request.write('', writeCallback)
   request.end()
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
-  expect(writeCallback).toHaveBeenCalledTimes(1)
+  expect(writeCallback).toHaveBeenCalledOnce()
 })
 
 it('calls the write callback when writing an empty Buffer', async () => {
-  const request = http.request(httpServer.http.url('/resource'), {
-    method: 'POST',
-  })
+  const request = http.request(
+    httpServer.http.url('/resource/write-callback'),
+    {
+      method: 'POST',
+    }
+  )
 
   const writeCallback = vi.fn()
   request.write(Buffer.from(''), writeCallback)
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
-  expect(writeCallback).toHaveBeenCalledTimes(1)
+  expect(writeCallback).toHaveBeenCalledOnce()
 })
 
 it('emits "finish" for a passthrough request', async () => {
   const prefinishListener = vi.fn()
   const finishListener = vi.fn()
-  const request = http.request(httpServer.http.url('/resource'))
+
+  const request = http.request(httpServer.http.url('/resource/real-finish'))
+
   request.on('prefinish', prefinishListener)
   request.on('finish', finishListener)
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
-  expect(prefinishListener).toHaveBeenCalledTimes(1)
-  expect(finishListener).toHaveBeenCalledTimes(1)
+  expect(prefinishListener).toHaveBeenCalledOnce()
+  expect(finishListener).toHaveBeenCalledOnce()
 })
 
 it('emits "finish" for a mocked request', async () => {
-  interceptor.once('request', ({ controller }) => {
+  interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response())
   })
 
   const prefinishListener = vi.fn()
   const finishListener = vi.fn()
-  const request = http.request(httpServer.http.url('/resource'))
+
+  const request = http.request(httpServer.http.url('/resource/mocked-finish'))
+
   request.on('prefinish', prefinishListener)
   request.on('finish', finishListener)
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
-  expect(prefinishListener).toHaveBeenCalledTimes(1)
-  expect(finishListener).toHaveBeenCalledTimes(1)
+  expect(prefinishListener).toHaveBeenCalledOnce()
+  expect(finishListener).toHaveBeenCalledOnce()
 })
 
-it('calls all write callbacks before the mocked response', async () => {
-  const requestBodyCallback = vi.fn()
-  interceptor.once('request', async ({ request, controller }) => {
-    requestBodyCallback(await request.text())
+it('supports ending a mocked request in a write callback', async () => {
+  const requestBodyPromise = new DeferredPromise<string>()
+
+  interceptor.on('request', async ({ request, controller }) => {
+    requestBodyPromise.resolve(await request.text())
     controller.respondWith(new Response('hello world'))
   })
 
-  const request = http.request(httpServer.http.url('/resource'), {
-    method: 'POST',
-  })
+  const request = http.request(
+    httpServer.http.url('/resource/mocked-end-after-write'),
+    {
+      method: 'POST',
+    }
+  )
+
+  const firstWriteCallback = vi.fn()
+  const secondWriteCallback = vi.fn()
+  const requestEndCallback = vi.fn()
+
   request.write('one', () => {
-    request.end()
+    firstWriteCallback()
+
+    request.write('two', () => {
+      secondWriteCallback()
+
+      request.end(requestEndCallback)
+    })
   })
 
-  const { text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect(requestBodyCallback).toHaveBeenCalledWith('one')
-  expect(await text()).toBe('hello world')
+  expect(firstWriteCallback).toHaveBeenCalledBefore(secondWriteCallback)
+  expect(secondWriteCallback).toHaveBeenCalledBefore(requestEndCallback)
+  expect(requestEndCallback).toHaveBeenCalledOnce()
+
+  await expect(requestBodyPromise).resolves.toBe('onetwo')
+  await expect(response.text()).resolves.toBe('hello world')
+})
+
+/**
+ * @see https://github.com/mswjs/interceptors/issues/684
+ */
+it('supports ending a bypassed request in a write callback', async () => {
+  const request = http.request(
+    httpServer.http.url('/resource/real-end-after-write'),
+    {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+    }
+  )
+
+  const firstWriteCallback = vi.fn()
+  const secondWriteCallback = vi.fn()
+  const requestEndCallback = vi.fn()
+
+  request.write('hello ', () => {
+    firstWriteCallback()
+
+    request.write('world', () => {
+      secondWriteCallback()
+
+      request.end(requestEndCallback)
+    })
+  })
+
+  const [response] = await toWebResponse(request)
+
+  expect(firstWriteCallback).toHaveBeenCalledBefore(secondWriteCallback)
+  expect(secondWriteCallback).toHaveBeenCalledBefore(requestEndCallback)
+  expect(requestEndCallback).toHaveBeenCalledOnce()
+
+  await expect(response.text()).resolves.toBe('hello world')
 })
 
 it('calls the write callbacks when reading request body in the interceptor', async () => {
   const requestBodyCallback = vi.fn()
   const requestWriteCallback = vi.fn()
 
-  interceptor.once('request', async ({ request }) => {
+  interceptor.on('request', async ({ request }) => {
     requestBodyCallback(await request.text())
   })
 
-  const request = http.request(httpServer.http.url('/resource'), {
-    method: 'POST',
-    headers: { 'content-type': 'text/plain' },
-  })
-  request.write('one', requestWriteCallback)
-  request.write('two', requestWriteCallback)
-  request.end('three', requestWriteCallback)
+  const request = http.request(
+    httpServer.http.url('/resource/write-callback'),
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'text/plain',
+      },
+    }
+  )
+  request.write('ash', requestWriteCallback)
+  request.write('amber', requestWriteCallback)
+  request.end('fire', requestWriteCallback)
 
-  const { text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  // Must call each write callback once.
-  expect(requestWriteCallback).toHaveBeenCalledTimes(3)
-  // Must be able to read the request stream in the interceptor.
-  expect(requestBodyCallback).toHaveBeenCalledWith('onetwothree')
-  // Must send the correct request body to the server.
-  expect(await text()).toBe('onetwothree')
-})
-
-/**
- * @see https://github.com/mswjs/interceptors/issues/684
- */
-it('calls the write callback once for a request that ends inside a write', async () => {
-  const requestWriteCallback = vi.fn()
-
-  const request = http.request(httpServer.http.url('/resource'), {
-    method: 'POST',
-    headers: { 'content-type': 'text/plain' },
-  })
-  request.write('one', 'utf8', () => {
-    requestWriteCallback()
-    request.end()
-  })
-
-  await waitForClientRequest(request)
-  expect(requestWriteCallback).toHaveBeenCalledTimes(1)
+  expect.soft(requestWriteCallback).toHaveBeenCalledTimes(3)
+  expect
+    .soft(requestBodyCallback)
+    .toHaveBeenCalledExactlyOnceWith('ashamberfire')
+  await expect.soft(response.text()).resolves.toBe('ashamberfire')
 })

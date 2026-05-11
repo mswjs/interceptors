@@ -1,13 +1,12 @@
 /**
  * Node.js environment superset that has a global WebSocket API.
  */
-import type { Environment } from 'vitest'
-import { builtinEnvironments } from 'vitest/environments'
+import { builtinEnvironments, type Environment } from 'vitest/environments'
 import { WebSocket } from 'undici'
 
 export default <Environment>{
   name: 'node-with-websocket',
-  transformMode: 'ssr',
+  viteEnvironment: 'ssr',
   async setup(global, options) {
     const { teardown } = await builtinEnvironments.node.setup(global, options)
 

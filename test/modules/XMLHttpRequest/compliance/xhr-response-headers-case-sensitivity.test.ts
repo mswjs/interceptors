@@ -1,8 +1,8 @@
-// @vitest-environment jsdom
-import { it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment happy-dom
 import { HttpServer } from '@open-draft/test-server/http'
-import { createXMLHttpRequest, useCors } from '../../../helpers'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
+import { useCors } from '#/test/helpers'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const httpServer = new HttpServer((app) => {
   app.use(useCors)
@@ -28,12 +28,13 @@ afterAll(async () => {
 })
 
 it('ignores casing when retrieving response headers via "getResponseHeader"', async () => {
-  const req = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.http.url('/account'))
-    req.send()
-  })
+  const request = new XMLHttpRequest()
+  request.open('GET', httpServer.http.url('/account'))
+  request.send()
 
-  expect(req.getResponseHeader('x-response-type')).toEqual('bypass')
-  expect(req.getResponseHeader('X-response-Type')).toEqual('bypass')
-  expect(req.getResponseHeader('X-RESPONSE-TYPE')).toEqual('bypass')
+  await waitForXMLHttpRequest(request)
+
+  expect(request.getResponseHeader('x-response-type')).toEqual('bypass')
+  expect(request.getResponseHeader('X-response-Type')).toEqual('bypass')
+  expect(request.getResponseHeader('X-RESPONSE-TYPE')).toEqual('bypass')
 })

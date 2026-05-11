@@ -1,8 +1,9 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment node
 import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { sleep, waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const server = new HttpServer((app) => {
   app.get('/original', async (req, res) => {
@@ -10,7 +11,7 @@ const server = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 async function getResponse(request: Request): Promise<Response | undefined> {
   const url = new URL(request.url)
@@ -20,22 +21,22 @@ async function getResponse(request: Request): Promise<Response | undefined> {
       return new Promise(async (resolve) => {
         // Defer the resolution of the promise to the next tick.
         // Request handlers in MSW resolve on the next tick.
-        await sleep(0)
+        await setTimeout(0)
 
         const originalRequest = http.get(server.http.url('/original'))
-        const { res, text } = await waitForClientRequest(originalRequest)
+        const [response, rawResponse] = await toWebResponse(originalRequest)
 
         const getHeader = (name: string): string | undefined => {
-          const value = res.headers[name]
+          const value = rawResponse.headers[name]
           return Array.isArray(value) ? value.join(', ') : value
         }
 
-        const responseText = (await text()) + ' world'
+        const responseText = (await response.text()) + ' world'
 
         resolve(
           new Response(responseText, {
-            status: res.statusCode,
-            statusText: res.statusMessage,
+            status: response.status,
+            statusText: response.statusText,
             headers: {
               'X-Custom-Header': getHeader('x-custom-header') || '',
             },
@@ -66,10 +67,10 @@ afterAll(async () => {
 
 it('supports response patching', async () => {
   const req = http.get('http://localhost/mocked')
-  const { res, text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
-  expect(res.statusCode).toBe(200)
-  expect(res.statusMessage).toBe('OK')
-  expect(res.headers['x-custom-header']).toBe('yes')
-  expect(await text()).toBe('hello world')
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.headers.get('x-custom-header')).toBe('yes')
+  await expect(response.text()).resolves.toBe('hello world')
 })

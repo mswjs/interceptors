@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "sourceMap": true,
+    "outDir": "lib",
+    "declaration": true,
+    "removeComments": false,
+    "baseUrl": ".",
+    "paths": {
+      "#/src/*": ["./src/*"],
+      "#/test/*": ["./test/*"],
+      "internal:brotli-decompress": [
+        "./src/interceptors/fetch/utils/brotli-decompress.ts",
+      ],
+    },
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.*"],
+}

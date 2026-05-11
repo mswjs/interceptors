@@ -1,9 +1,8 @@
 /**
  * @vitest-environment node-with-websocket
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
 

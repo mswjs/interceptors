@@ -2,7 +2,7 @@ import { RequestHandler } from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
 import { Page, Response } from '@playwright/test'
 import { test, expect } from '../../../playwright.extend'
-import { extractRequestFromPage, useCors } from '../../../helpers'
+import { extractRequestFromPage, useCors } from '#/test/helpers'
 
 const EXAMPLE_PATH = require.resolve('./fetch.browser.runtime.js')
 

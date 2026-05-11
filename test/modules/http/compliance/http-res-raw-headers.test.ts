@@ -1,11 +1,10 @@
 /**
  * @vitest-environment node
  */
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 // The actual server is here for A/B purpose only.
 const httpServer = new HttpServer((app) => {
@@ -15,7 +14,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -43,12 +42,14 @@ it('preserves raw response headers (object init)', async () => {
   })
 
   const request = http.get(httpServer.http.url('/'))
-  const { res } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect(res.rawHeaders).toEqual(
+  expect(rawResponse.rawHeaders).toEqual(
     expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
   )
-  expect(res.headers).toStrictEqual({ 'x-custom-header': 'Yes' })
+  expect(Object.fromEntries(response.headers)).toStrictEqual({
+    'x-custom-header': 'Yes',
+  })
 })
 
 it('preserves raw response headers (array init)', async () => {
@@ -61,12 +62,14 @@ it('preserves raw response headers (array init)', async () => {
   })
 
   const request = http.get(httpServer.http.url('/'))
-  const { res } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect(res.rawHeaders).toEqual(
+  expect(rawResponse.rawHeaders).toEqual(
     expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
   )
-  expect(res.headers).toStrictEqual({ 'x-custom-header': 'Yes' })
+  expect(Object.fromEntries(response.headers)).toStrictEqual({
+    'x-custom-header': 'Yes',
+  })
 })
 
 it('preserves raw response headers (set after init)', async () => {
@@ -80,12 +83,12 @@ it('preserves raw response headers (set after init)', async () => {
   })
 
   const request = http.get(httpServer.http.url('/'))
-  const { res } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect(res.rawHeaders).toEqual(
+  expect(rawResponse.rawHeaders).toEqual(
     expect.arrayContaining(['X-CustoM-HeadeR', 'Yes', 'x-My-Header', '1'])
   )
-  expect(res.headers).toStrictEqual({
+  expect(Object.fromEntries(response.headers)).toStrictEqual({
     'x-custom-header': 'Yes',
     'x-my-header': '1',
   })
@@ -103,9 +106,9 @@ it('preserves raw response headers (append after init)', async () => {
   })
 
   const request = http.get(httpServer.http.url('/'))
-  const { res } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect(res.rawHeaders).toEqual(
+  expect(rawResponse.rawHeaders).toEqual(
     expect.arrayContaining([
       'X-CustoM-HeadeR',
       'Yes',
@@ -115,7 +118,7 @@ it('preserves raw response headers (append after init)', async () => {
       '2',
     ])
   )
-  expect(res.headers).toStrictEqual({
+  expect(Object.fromEntries(response.headers)).toStrictEqual({
     'x-custom-header': 'Yes',
     'x-my-header': '1, 2',
   })
@@ -136,12 +139,12 @@ it('preserves raw response headers (delete after init)', async () => {
   })
 
   const request = http.get(httpServer.http.url('/'))
-  const { res } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect(res.rawHeaders).toEqual(
+  expect(rawResponse.rawHeaders).toEqual(
     expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
   )
-  expect(res.headers).toStrictEqual({
+  expect(Object.fromEntries(response.headers)).toStrictEqual({
     'x-custom-header': 'Yes',
   })
 })
@@ -155,20 +158,22 @@ it('preserves raw response headers (standalone Headers)', async () => {
   })
 
   const request = http.get(httpServer.http.url('/'))
-  const { res } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect(res.rawHeaders).toEqual(
+  expect(rawResponse.rawHeaders).toEqual(
     expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
   )
-  expect(res.headers).toStrictEqual({ 'x-custom-header': 'Yes' })
+  expect(Object.fromEntries(response.headers)).toStrictEqual({
+    'x-custom-header': 'Yes',
+  })
 })
 
 it('preserves raw response headers for unmocked request', async () => {
   const request = http.get(httpServer.http.url('/'))
-  const { res } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect(res.rawHeaders).toEqual(
+  expect(rawResponse.rawHeaders).toEqual(
     expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
   )
-  expect(res.headers['x-custom-header']).toEqual('Yes')
+  expect(response.headers.get('x-custom-header')).toBe('Yes')
 })

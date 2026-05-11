@@ -1,11 +1,10 @@
 /**
  * @vitest-environment node-with-websocket
  */
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket/index'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket/index'
 import { getWsUrl } from '../utils/getWsUrl'
-import { REQUEST_ID_REGEXP } from '../../../helpers'
+import { REQUEST_ID_REGEXP } from '#/test/helpers'
 import { waitForNextTick } from '../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()

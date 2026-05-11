@@ -1,6 +1,6 @@
 import { HttpServer } from '@open-draft/test-server/http'
 import { test, expect } from '../../../playwright.extend'
-import { useCors } from '../../../helpers'
+import { useCors } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.use(useCors)
@@ -17,7 +17,10 @@ test.afterAll(async () => {
   await httpServer.close()
 })
 
-test('onloadend handler is called when not returning a mocked response', async ({ page, loadExample }) => {
+test('onloadend handler is called when not returning a mocked response', async ({
+  page,
+  loadExample,
+}) => {
   await loadExample(require.resolve('./xhr-event-handlers.browser.runtime.js'))
 
   const { request, calls } = await page.evaluate(async (url) => {

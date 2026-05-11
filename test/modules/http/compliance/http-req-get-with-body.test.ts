@@ -1,13 +1,10 @@
-/**
- * @see https://github.com/nock/nock/issues/2826
- */
-import { it, expect, beforeAll, afterAll } from 'vitest'
+// @see https://github.com/nock/nock/issues/2826
 import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { toWebResponse } from '#/test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 const httpServer = new http.Server((req, res) => {
   if (req.url === '/resource') {
@@ -67,8 +64,8 @@ it('allows an HTTP GET request with a body', async () => {
   request.write('hello world')
   request.end()
 
-  const { text } = await waitForClientRequest(request)
-  await expect(text()).resolves.toBe('hello world')
+  const [response] = await toWebResponse(request)
+  await expect(response.text()).resolves.toBe('hello world')
 
   const interceptedRequest = await interceptedRequestPromise
   // The Fetch API representation of this request must NOT have any body.

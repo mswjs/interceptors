@@ -1,20 +1,19 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { sleep, waitForClientRequest } from '../../../helpers'
-import { setTimeout } from 'node:timers/promises'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', async (req, res) => {
-    await sleep(200)
+    await setTimeout(200)
     res.status(500).end()
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -89,7 +88,7 @@ it('handles a request within a timeout', async () => {
   })
   request.on('timeout', timeoutListener)
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(request.destroyed).toBe(false)
   expect(timeoutListener).not.toHaveBeenCalled()
@@ -108,7 +107,7 @@ it('respects "AbortSignal.timeout()" for a handled request', async () => {
   })
   request.on('timeout', timeoutListener)
 
-  const abortError = await waitForClientRequest(request).then(
+  const abortError = await toWebResponse(request).then(
     () => expect.fail('must not return any response'),
     (error) => error
   )

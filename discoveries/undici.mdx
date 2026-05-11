@@ -1,0 +1,22 @@
+# Undici
+
+## `connect` and writing the HTTP message
+
+Undici's `fetch` waits for the underlying socket to emit the `connect` event _before_ it writes the HTTP message to it. That is different than in `http.request()`, where the HTTP message is written _immediately_ but gets buffered (`socket._pendinData`) and flushed once `connect` is emitted.
+
+```
+# Node.js v22
+- dispatch() (lib/web/fetch/index.js:2129)
+  - agent.dispatch()
+    - Client.dispatch()
+      - _resume()
+        - connect()
+          - client[kConnector](options, cb*)
+            - Client.connect()
+              - net.connect(options) // no callback here
+                - socket.once('connect', cb*) // or "secureConnect"
+```
+
+> Note that the `cb` called on `connect` is _internal_. It's not provided as the connection callback to `net.connect()`, which makes it invisible to the interceptor.
+
+Then `connectH1()` calls `writeH1()` to write the HTTP message.

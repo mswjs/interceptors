@@ -2,9 +2,8 @@
  * @vitest-environment node-with-websocket
  * @see https://websockets.spec.whatwg.org/#dom-websocket-close
  */
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
 import { getWsUrl } from '../utils/getWsUrl'
 

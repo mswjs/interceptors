@@ -1,9 +1,10 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
-import { httpGet } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+// @vitest-environment node
+import http from 'node:http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { toWebResponse } from '#/test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -22,8 +23,10 @@ it('supports requests with IPv6 request url', async () => {
     controller.respondWith(new Response('test'))
   })
 
-  const { resBody } = await httpGet(url)
+  const request = http.get(url)
+  const [response] = await toWebResponse(request)
+
   const requestUrl = await listenerUrlPromise
-  expect(resBody).toBe('test')
-  expect(requestUrl).toBe(url)
+  expect.soft(requestUrl).toBe(url)
+  await expect.soft(response.text()).resolves.toBe('test')
 })

@@ -1,4 +1,3 @@
-import { it, expect } from 'vitest'
 import { findPropertySource } from './findPropertySource'
 
 it('returns the source for objects without prototypes', () => {

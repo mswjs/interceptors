@@ -1,8 +1,8 @@
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+// @vitest-environment node
+import { setTimeout } from 'node:timers/promises'
 import got from 'got'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
-import { sleep } from '../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -10,7 +10,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -46,7 +46,7 @@ it('bypasses an unhandled request made with "got"', async () => {
 
 it('supports timeout before resolving request as-is', async () => {
   interceptor.on('request', async ({ controller }) => {
-    await sleep(750)
+    await setTimeout(750)
     controller.respondWith(new Response('mocked response'))
   })
 

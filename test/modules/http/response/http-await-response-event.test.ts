@@ -1,8 +1,8 @@
-import { vi, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+// @vitest-environment node
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
@@ -10,7 +10,7 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
@@ -27,49 +27,49 @@ afterAll(async () => {
 })
 
 it('awaits asynchronous response event listener for a mocked response', async () => {
-  const markStep = vi.fn<(input: number) => void>()
+  const tag = vi.fn<(tag: string) => void>()
 
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('hello world'))
   })
 
   interceptor.on('response', async ({ response }) => {
-    markStep(2)
+    tag('response')
     await response.text()
-    markStep(3)
+    tag('after-response')
   })
 
-  markStep(1)
+  tag('before-request')
   const request = http.get('http://localhost/')
-  const { text } = await waitForClientRequest(request)
-  markStep(4)
+  const [response] = await toWebResponse(request)
+  tag('after-request')
 
-  expect(await text()).toBe('hello world')
+  await expect(response.text()).resolves.toBe('hello world')
 
-  expect(markStep).toHaveBeenNthCalledWith(1, 1)
-  expect(markStep).toHaveBeenNthCalledWith(2, 2)
-  expect(markStep).toHaveBeenNthCalledWith(3, 3)
-  expect(markStep).toHaveBeenNthCalledWith(4, 4)
+  expect.soft(tag).toHaveBeenNthCalledWith(1, 'before-request')
+  expect.soft(tag).toHaveBeenNthCalledWith(2, 'response')
+  expect.soft(tag).toHaveBeenNthCalledWith(3, 'after-response')
+  expect.soft(tag).toHaveBeenNthCalledWith(4, 'after-request')
 })
 
 it('awaits asynchronous response event listener for the original response', async () => {
-  const markStep = vi.fn<(input: number) => void>()
+  const tag = vi.fn<(tag: string) => void>()
 
   interceptor.on('response', async ({ response }) => {
-    markStep(2)
+    tag('response')
     await response.text()
-    markStep(3)
+    tag('after-response')
   })
 
-  markStep(1)
+  tag('before-request')
   const request = http.get(httpServer.http.url('/resource'))
-  const { text } = await waitForClientRequest(request)
-  markStep(4)
+  const [response] = await toWebResponse(request)
+  tag('after-request')
 
-  expect(await text()).toBe('original response')
+  await expect(response.text()).resolves.toBe('original response')
 
-  expect(markStep).toHaveBeenNthCalledWith(1, 1)
-  expect(markStep).toHaveBeenNthCalledWith(2, 2)
-  expect(markStep).toHaveBeenNthCalledWith(3, 3)
-  expect(markStep).toHaveBeenNthCalledWith(4, 4)
+  expect.soft(tag).toHaveBeenNthCalledWith(1, 'before-request')
+  expect.soft(tag).toHaveBeenNthCalledWith(2, 'response')
+  expect.soft(tag).toHaveBeenNthCalledWith(3, 'after-response')
+  expect.soft(tag).toHaveBeenNthCalledWith(4, 'after-request')
 })

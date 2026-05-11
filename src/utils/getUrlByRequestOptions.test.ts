@@ -1,6 +1,5 @@
-import { it, expect } from 'vitest'
-import { Agent as HttpAgent } from 'http'
-import { RequestOptions, Agent as HttpsAgent } from 'https'
+import { Agent as HttpAgent } from 'node:http'
+import { RequestOptions, Agent as HttpsAgent } from 'node:https'
 import { getUrlByRequestOptions } from './getUrlByRequestOptions'
 
 it('returns a URL based on the basic RequestOptions', () => {
@@ -130,9 +129,7 @@ it('use "hostname" if both "hostname" and "host" are specified', () => {
     path: '/resource',
   }
 
-  expect(getUrlByRequestOptions(options).href).toBe(
-    'https://hostname/resource'
-  )
+  expect(getUrlByRequestOptions(options).href).toBe('https://hostname/resource')
 })
 
 it('parses "host" in IPv6', () => {
@@ -149,7 +146,6 @@ it('parses "host" in IPv6', () => {
       path: '/resource',
     }).href
   ).toBe('http://[::1]/resource')
-
 })
 
 it('parses "host" and "port" in IPv6', () => {

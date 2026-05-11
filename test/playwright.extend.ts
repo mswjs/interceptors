@@ -9,7 +9,7 @@ import {
   createBrowserXMLHttpRequest,
   createRawBrowserXMLHttpRequest,
   XMLHttpResponse,
-} from './helpers'
+} from '#/test/helpers'
 import { getWebpackHttpServer } from './webpackHttpServer'
 
 interface TestFixutures {

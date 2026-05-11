@@ -1,11 +1,10 @@
 // @vitest-environment node
 import http from 'node:http'
-import { afterAll, afterEach, beforeAll, it, expect } from 'vitest'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
 import { DeferredPromise } from '@open-draft/deferred-promise'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -42,11 +41,11 @@ it('supports requests with more than default maximum header fields count', async
   request.setHeaders(new Headers(headersPairs))
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
   const requestHeaders = await requestHeadersPromise
 
   expect(Array.from(requestHeaders)).toEqual([
-    ['connection', 'close'],
+    ['connection', 'keep-alive'],
     ['host', 'localhost'],
     ...headersPairs,
   ])
@@ -77,11 +76,11 @@ it('supports multiple parallel "slow" requests', async () => {
     request.setHeaders(new Headers(headersPairs))
     request.end()
 
-    await waitForClientRequest(request)
+    await toWebResponse(request)
     const requestHeaders = await requestHeadersPromise
 
     expect(Array.from(requestHeaders)).toEqual([
-      ['connection', 'close'],
+      ['connection', 'keep-alive'],
       ['host', 'localhost'],
       ...headersPairs,
     ])
@@ -100,9 +99,9 @@ it('supports responses with more than default maximum header fields count', asyn
   interceptor.on('request', ({ controller }) => {
     const response = new Response(null, {
       status: 200,
-      headers: new Headers(responseHeadersPairs)
+      headers: new Headers(responseHeadersPairs),
     })
-    
+
     controller.respondWith(response)
   })
 
@@ -113,7 +112,7 @@ it('supports responses with more than default maximum header fields count', asyn
   const request = http.get('http://localhost/irrelevant')
   request.end()
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
   const responseHeaders = await responseHeadersPromise
 
   expect(Array.from(responseHeaders)).toEqual(responseHeadersPairs)

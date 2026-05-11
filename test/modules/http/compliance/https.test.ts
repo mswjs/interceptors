@@ -1,23 +1,24 @@
-/**
- * @vitest-environment node
- */
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment node
 import https from 'node:https'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
 const httpServer = new HttpServer((app) => {
   app.get('/', (req, res) => {
-    res.send('hello')
+    res.send('original')
   })
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
   await httpServer.listen()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
 })
 
 afterAll(async () => {
@@ -26,13 +27,14 @@ afterAll(async () => {
 })
 
 it('emits correct events for a mocked HTTPS request', async () => {
-  interceptor.once('request', ({ controller }) => {
+  interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response())
   })
 
-  const request = https.get('https://example.com')
+  const request = https.get('https://any.localhost/api')
 
   const socketListener = vi.fn()
+  const socketConnectListener = vi.fn()
   const socketReadyListener = vi.fn()
   const socketSecureListener = vi.fn()
   const socketSecureConnectListener = vi.fn()
@@ -42,24 +44,26 @@ it('emits correct events for a mocked HTTPS request', async () => {
   request.on('socket', (socket) => {
     socketListener(socket)
 
-    socket.on('ready', socketReadyListener)
-    socket.on('secure', socketSecureListener)
-    socket.on('secureConnect', socketSecureConnectListener)
-    socket.on('session', socketSessionListener)
-    socket.on('error', socketErrorListener)
+    socket
+      .on('connect', socketConnectListener)
+      .on('ready', socketReadyListener)
+      .on('secure', socketSecureListener)
+      .on('secureConnect', socketSecureConnectListener)
+      .on('session', socketSessionListener)
+      .on('error', socketErrorListener)
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
-  // Must emit the correct events for a TLS connection.
-  expect(socketListener).toHaveBeenCalledOnce()
-  expect(socketReadyListener).toHaveBeenCalledOnce()
-  expect(socketSecureListener).toHaveBeenCalledOnce()
-  expect(socketSecureConnectListener).toHaveBeenCalledOnce()
-  expect(socketSessionListener).toHaveBeenCalledTimes(2)
-  expect(socketSessionListener).toHaveBeenNthCalledWith(1, expect.any(Buffer))
-  expect(socketSessionListener).toHaveBeenNthCalledWith(2, expect.any(Buffer))
-  expect(socketErrorListener).not.toHaveBeenCalled()
+  expect.soft(socketListener).toHaveBeenCalledOnce()
+  expect.soft(socketReadyListener).toHaveBeenCalledOnce()
+  expect.soft(socketConnectListener).toHaveBeenCalledOnce()
+  expect.soft(socketSecureListener).toHaveBeenCalledOnce()
+  expect.soft(socketSecureConnectListener).toHaveBeenCalledOnce()
+  expect
+    .soft(socketSessionListener)
+    .toHaveBeenCalledExactlyOnceWith(expect.any(Buffer))
+  expect.soft(socketErrorListener).not.toHaveBeenCalled()
 })
 
 it('emits correct events for a passthrough HTTPS request', async () => {
@@ -68,6 +72,7 @@ it('emits correct events for a passthrough HTTPS request', async () => {
   })
 
   const socketListener = vi.fn()
+  const socketConnectListener = vi.fn()
   const socketReadyListener = vi.fn()
   const socketSecureListener = vi.fn()
   const socketSecureConnectListener = vi.fn()
@@ -77,22 +82,28 @@ it('emits correct events for a passthrough HTTPS request', async () => {
   request.on('socket', (socket) => {
     socketListener(socket)
 
-    socket.on('ready', socketReadyListener)
-    socket.on('secure', socketSecureListener)
-    socket.on('secureConnect', socketSecureConnectListener)
-    socket.on('session', socketSessionListener)
-    socket.on('error', socketErrorListener)
+    socket
+      .on('connect', socketConnectListener)
+      .on('ready', socketReadyListener)
+      .on('secure', socketSecureListener)
+      .on('secureConnect', socketSecureConnectListener)
+      .on('session', socketSessionListener)
+      .on('error', socketErrorListener)
   })
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
-  // Must emit the correct events for a TLS connection.
-  expect(socketListener).toHaveBeenCalledOnce()
-  expect(socketReadyListener).toHaveBeenCalledOnce()
-  expect(socketSecureListener).toHaveBeenCalledOnce()
-  expect(socketSecureConnectListener).toHaveBeenCalledOnce()
-  expect(socketSessionListener).toHaveBeenCalledTimes(2)
-  expect(socketSessionListener).toHaveBeenNthCalledWith(1, expect.any(Buffer))
-  expect(socketSessionListener).toHaveBeenNthCalledWith(2, expect.any(Buffer))
-  expect(socketErrorListener).not.toHaveBeenCalled()
+  expect.soft(socketListener).toHaveBeenCalledOnce()
+  expect.soft(socketConnectListener).toHaveBeenCalledOnce()
+  expect.soft(socketReadyListener).toHaveBeenCalledOnce()
+  expect.soft(socketSecureListener).toHaveBeenCalledOnce()
+  expect.soft(socketSecureConnectListener).toHaveBeenCalledOnce()
+  expect.soft(socketSessionListener).toHaveBeenCalledTimes(2)
+  expect
+    .soft(socketSessionListener)
+    .toHaveBeenNthCalledWith(1, expect.any(Buffer))
+  expect
+    .soft(socketSessionListener)
+    .toHaveBeenNthCalledWith(2, expect.any(Buffer))
+  expect.soft(socketErrorListener).not.toHaveBeenCalled()
 })

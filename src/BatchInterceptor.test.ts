@@ -1,5 +1,5 @@
-import { vi, it, expect, afterEach } from 'vitest'
-import { Interceptor } from './Interceptor'
+import { TypedEvent } from 'rettime'
+import { Interceptor } from './interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 
 afterEach(() => {
@@ -8,20 +8,22 @@ afterEach(() => {
 
 it('applies child interceptors', () => {
   class PrimaryInterceptor extends Interceptor<any> {
-    constructor() {
-      super(Symbol('primary'))
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
 
-  class SecondaryInterceptor extends Interceptor<any> {
-    constructor() {
-      super(Symbol('secondary'))
+  class SecondInterceptor extends Interceptor<any> {
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
 
   const instances = {
     primary: new PrimaryInterceptor(),
-    secondary: new SecondaryInterceptor(),
+    secondary: new SecondInterceptor(),
   }
 
   const interceptor = new BatchInterceptor({
@@ -39,23 +41,27 @@ it('applies child interceptors', () => {
 })
 
 it('proxies event listeners to the interceptors', () => {
-  class PrimaryInterceptor extends Interceptor<{ hello: [string] }> {
-    constructor() {
-      super(Symbol('primary'))
+  class PrimaryInterceptor extends Interceptor<{
+    hello: TypedEvent<string>
+  }> {
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
 
-  class SecondaryInterceptor extends Interceptor<{
-    goodbye: [string]
+  class SecondInterceptor extends Interceptor<{
+    goodbye: TypedEvent<string>
   }> {
-    constructor() {
-      super(Symbol('secondary'))
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
 
   const instances = {
     primary: new PrimaryInterceptor(),
-    secondary: new SecondaryInterceptor(),
+    secondary: new SecondInterceptor(),
   }
 
   const interceptor = new BatchInterceptor({
@@ -70,32 +76,35 @@ it('proxies event listeners to the interceptors', () => {
   interceptor.on('goodbye', goodbyeListener)
 
   // Emulate the child interceptor emitting events.
-  instances.primary['emitter'].emit('hello', 'John')
-  instances.secondary['emitter'].emit('goodbye', 'Kate')
+  const helloEvent = new TypedEvent('hello', { data: 'John' })
+  instances.primary['emitter'].emit(helloEvent)
+
+  const goodbyeEvent = new TypedEvent('goodbye', { data: 'Kate' })
+  instances.secondary['emitter'].emit(goodbyeEvent)
 
   // Must call the batch interceptor listener.
-  expect(helloListener).toHaveBeenCalledTimes(1)
-  expect(helloListener).toHaveBeenCalledWith('John')
-  expect(goodbyeListener).toHaveBeenCalledTimes(1)
-  expect(goodbyeListener).toHaveBeenCalledWith('Kate')
+  expect(helloListener).toHaveBeenCalledExactlyOnceWith(helloEvent)
+  expect(goodbyeListener).toHaveBeenCalledExactlyOnceWith(goodbyeEvent)
 })
 
 it('disposes of child interceptors', async () => {
   class PrimaryInterceptor extends Interceptor<any> {
-    constructor() {
-      super(Symbol('primary'))
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
 
-  class SecondaryInterceptor extends Interceptor<any> {
-    constructor() {
-      super(Symbol('secondary'))
+  class SecondInterceptor extends Interceptor<any> {
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
 
   const instances = {
     primary: new PrimaryInterceptor(),
-    secondary: new SecondaryInterceptor(),
+    secondary: new SecondInterceptor(),
   }
 
   const interceptor = new BatchInterceptor({
@@ -115,18 +124,20 @@ it('disposes of child interceptors', async () => {
 
 it('forwards listeners added via "on()"', () => {
   class FirstInterceptor extends Interceptor<any> {
-    constructor() {
-      super(Symbol('first'))
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
-  class SecondaryInterceptor extends Interceptor<any> {
-    constructor() {
-      super(Symbol('second'))
+  class SecondInterceptor extends Interceptor<any> {
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
 
   const firstInterceptor = new FirstInterceptor()
-  const secondInterceptor = new SecondaryInterceptor()
+  const secondInterceptor = new SecondInterceptor()
 
   const interceptor = new BatchInterceptor({
     name: 'batch',
@@ -138,27 +149,32 @@ it('forwards listeners added via "on()"', () => {
 
   expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(1)
   expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(1)
-  expect(interceptor['emitter'].listenerCount('foo')).toBe(0)
+  expect(
+    interceptor['emitter'].listenerCount('foo'),
+    'Does not add the listener onto the batch interceptor'
+  ).toBe(0)
 })
 
-it('forwards listeners removal via "off()"', () => {
+it('forwards listeners removal via "removeListener()"', () => {
   type Events = {
     foo: []
   }
 
   class FirstInterceptor extends Interceptor<Events> {
-    constructor() {
-      super(Symbol('first'))
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
-  class SecondaryInterceptor extends Interceptor<Events> {
-    constructor() {
-      super(Symbol('second'))
+  class SecondInterceptor extends Interceptor<Events> {
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
 
   const firstInterceptor = new FirstInterceptor()
-  const secondInterceptor = new SecondaryInterceptor()
+  const secondInterceptor = new SecondInterceptor()
 
   const interceptor = new BatchInterceptor({
     name: 'batch',
@@ -167,7 +183,7 @@ it('forwards listeners removal via "off()"', () => {
 
   const listener = vi.fn()
   interceptor.on('foo', listener)
-  interceptor.off('foo', listener)
+  interceptor.removeListener('foo', listener)
 
   expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(0)
   expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
@@ -175,23 +191,25 @@ it('forwards listeners removal via "off()"', () => {
 
 it('forwards removal of all listeners by name via ".removeAllListeners()"', () => {
   type Events = {
-    foo: []
-    bar: []
+    foo: TypedEvent
+    bar: TypedEvent
   }
 
   class FirstInterceptor extends Interceptor<Events> {
-    constructor() {
-      super(Symbol('first'))
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
-  class SecondaryInterceptor extends Interceptor<Events> {
-    constructor() {
-      super(Symbol('second'))
+  class SecondInterceptor extends Interceptor<Events> {
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
 
   const firstInterceptor = new FirstInterceptor()
-  const secondInterceptor = new SecondaryInterceptor()
+  const secondInterceptor = new SecondInterceptor()
 
   const interceptor = new BatchInterceptor({
     name: 'batch',
@@ -204,32 +222,32 @@ it('forwards removal of all listeners by name via ".removeAllListeners()"', () =
   interceptor.on('bar', listener)
 
   expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(2)
-  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(2)
   expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
+
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(2)
   expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
 
   interceptor.removeAllListeners('foo')
 
-  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(0)
-  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
-  expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
-  expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
+  expect(interceptor['emitter'].listenerCount('foo')).toBe(0)
 })
 
 it('forwards removal of all listeners via ".removeAllListeners()"', () => {
   class FirstInterceptor extends Interceptor<any> {
-    constructor() {
-      super(Symbol('first'))
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
-  class SecondaryInterceptor extends Interceptor<any> {
-    constructor() {
-      super(Symbol('second'))
+  class SecondInterceptor extends Interceptor<any> {
+    protected predicate(): boolean {
+      return true
     }
+    protected setup(): void {}
   }
 
   const firstInterceptor = new FirstInterceptor()
-  const secondInterceptor = new SecondaryInterceptor()
+  const secondInterceptor = new SecondInterceptor()
 
   const interceptor = new BatchInterceptor({
     name: 'batch',
@@ -242,8 +260,8 @@ it('forwards removal of all listeners via ".removeAllListeners()"', () => {
   interceptor.on('bar', listener)
 
   expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(2)
-  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(2)
   expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(2)
   expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
 
   interceptor.removeAllListeners()

@@ -1,5 +1,5 @@
 import { HttpServer } from '@open-draft/test-server/http'
-import { extractRequestFromPage, useCors } from '../../../helpers'
+import { extractRequestFromPage, useCors } from '#/test/helpers'
 import { test, expect } from '../../../playwright.extend'
 
 const httpServer = new HttpServer((app) => {

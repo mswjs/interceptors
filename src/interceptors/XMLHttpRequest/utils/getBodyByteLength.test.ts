@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { it, expect } from 'vitest'
 import { getBodyByteLength } from './getBodyByteLength'
 
 const url = 'http://localhost'

@@ -1,10 +1,11 @@
-import { ChildProcess } from 'child_process'
-import { HttpRequestEventMap } from './glossary'
-import { Interceptor } from './Interceptor'
+import type { ChildProcess } from 'node:child_process'
+import { Logger } from '@open-draft/logger'
+import { type HttpRequestEventMap, HttpResponseEvent } from './events/http'
+import { Interceptor } from './interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 import { ClientRequestInterceptor } from './interceptors/ClientRequest'
-import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest'
-import { FetchInterceptor } from './interceptors/fetch'
+import { XMLHttpRequestInterceptor } from './interceptors/XMLHttpRequest/node'
+import { FetchInterceptor } from './interceptors/fetch/node'
 import { handleRequest } from './utils/handleRequest'
 import { RequestController } from './RequestController'
 import { FetchRequest, FetchResponse } from './utils/fetchUtils'
@@ -16,7 +17,7 @@ export interface SerializedRequest {
   method: string
   headers: Array<[string, string]>
   credentials: RequestCredentials
-  body: string
+  body: string | null
 }
 
 interface RevivedRequest extends Omit<SerializedRequest, 'url' | 'headers'> {
@@ -28,8 +29,10 @@ export interface SerializedResponse {
   status: number
   statusText: string
   headers: Array<[string, string]>
-  body: string
+  body: string | null
 }
+
+const logger = new Logger('remote-http-interceptor')
 
 export class RemoteHttpInterceptor extends BatchInterceptor<
   [ClientRequestInterceptor, XMLHttpRequestInterceptor, FetchInterceptor]
@@ -62,12 +65,9 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
         body: ['GET', 'HEAD'].includes(request.method)
           ? null
           : await request.text(),
-      } as SerializedRequest)
+      } satisfies SerializedRequest)
 
-      this.logger.info(
-        'sent serialized request to the child:',
-        serializedRequest
-      )
+      logger.info('sent serialized request to the child:', serializedRequest)
 
       process.send?.(`request:${serializedRequest}`)
 
@@ -108,7 +108,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
       })
 
       // Listen for the mocked response message from the parent.
-      this.logger.info(
+      logger.info(
         'add "message" listener to the parent process',
         handleParentMessage
       )
@@ -141,17 +141,19 @@ export interface RemoveResolverOptions {
 }
 
 export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
-  static symbol = Symbol('remote-resolver')
+  static symbol = Symbol('remote-http-resolver')
   private process: ChildProcess
 
   constructor(options: RemoveResolverOptions) {
-    super(RemoteHttpResolver.symbol)
+    super()
     this.process = options.process
   }
 
-  protected setup() {
-    const logger = this.logger.extend('setup')
+  protected predicate(): boolean {
+    return true
+  }
 
+  protected setup() {
     const handleChildMessage: NodeJS.MessageListener = async (message) => {
       logger.info('received message from child!', message)
 
@@ -168,7 +170,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       const requestJson = JSON.parse(
         serializedRequest,
         requestReviver
-      ) as RevivedRequest
+      ) satisfies RevivedRequest
 
       logger.info('parsed intercepted request', requestJson)
 
@@ -183,38 +185,41 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
         passthrough: () => {},
         respondWith: async (response) => {
           if (isResponseError(response)) {
-            this.logger.info('received a network error!', { response })
+            logger.info('received a network error!', { response })
             throw new Error('Not implemented')
           }
 
-          this.logger.info('received mocked response!', { response })
+          logger.info('received mocked response!', { response })
 
           const responseClone = FetchResponse.clone(response)
           const responseText = await responseClone.text()
 
-          // // Send the mocked response to the child process.
+          // Send the mocked response to the child process.
           const serializedResponse = JSON.stringify({
             status: response.status,
             statusText: response.statusText,
             headers: Array.from(response.headers.entries()),
             body: responseText,
-          } as SerializedResponse)
+          } satisfies SerializedResponse)
 
           this.process.send(
             `response:${requestJson.id}:${serializedResponse}`,
-            (error) => {
+            async (error) => {
               if (error) {
                 return
               }
 
               // Emit an optimistic "response" event at this point,
               // not to rely on the back-and-forth signaling for the sake of the event.
-              this.emitter.emit('response', {
-                request,
-                requestId: requestJson.id,
-                response: responseClone,
-                isMockedResponse: true,
-              })
+              await this.emitter.emitAsPromise(
+                new HttpResponseEvent({
+                  initiator: null,
+                  request,
+                  requestId: requestJson.id,
+                  response: responseClone,
+                  responseType: 'mock',
+                })
+              )
             }
           )
 
@@ -224,12 +229,13 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
           )
         },
         errorWith: (reason) => {
-          this.logger.info('request has errored!', { error: reason })
+          logger.info('request has errored!', { error: reason })
           throw new Error('Not implemented')
         },
       })
 
       await handleRequest({
+        initiator: null,
         request,
         requestId: requestJson.id,
         controller,

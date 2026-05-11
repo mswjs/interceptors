@@ -1,10 +1,11 @@
-import { it, expect, beforeAll, afterAll } from 'vitest'
-import http from 'http'
+// @vitest-environment node
+import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
-import { sleep, waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { toWebResponse } from '#/test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 const httpServer = new HttpServer((app) => {
   app.get('/resource', (req, res) => {
@@ -24,17 +25,17 @@ afterAll(async () => {
 
 it('supports custom delay before responding with a mock', async () => {
   interceptor.once('request', async ({ controller }) => {
-    await sleep(750)
+    await setTimeout(750)
     controller.respondWith(new Response('mocked response'))
   })
 
   const requestStart = Date.now()
   const request = http.get('http://non-existing-host.com')
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
   const requestEnd = Date.now()
 
-  expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('mocked response')
+  expect.soft(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('mocked response')
   expect(requestEnd - requestStart).toBeGreaterThanOrEqual(700)
 })
 
@@ -42,15 +43,15 @@ it('supports custom delay before receiving the original response', async () => {
   interceptor.once('request', async () => {
     // This will simply delay the request execution before
     // it receives the original response.
-    await sleep(750)
+    await setTimeout(750)
   })
 
   const requestStart = Date.now()
   const request = http.get(httpServer.http.url('/resource'))
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
   const requestEnd = Date.now()
 
-  expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('original response')
+  expect.soft(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('original response')
   expect(requestEnd - requestStart).toBeGreaterThanOrEqual(700)
 })

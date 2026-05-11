@@ -2,9 +2,9 @@
  * @see https://github.com/mswjs/interceptors/issues/614
  */
 import { HttpServer } from '@open-draft/test-server/http'
-import { XMLHttpRequestInterceptor } from '../../../../src/interceptors/XMLHttpRequest'
+import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest'
 import { test, expect } from '../../../playwright.extend'
-import { useCors } from '../../../helpers'
+import { useCors } from '#/test/helpers'
 
 declare global {
   interface Window {

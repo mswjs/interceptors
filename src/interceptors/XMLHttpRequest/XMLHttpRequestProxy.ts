@@ -1,12 +1,12 @@
 import type { Logger } from '@open-draft/logger'
-import { XMLHttpRequestEmitter } from '.'
+import type { Emitter } from 'rettime'
+import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
 import { RequestController } from '../../RequestController'
 import { XMLHttpRequestController } from './XMLHttpRequestController'
 import { handleRequest } from '../../utils/handleRequest'
-import { isResponseError } from '../../utils/responseUtils'
 
 export interface XMLHttpRequestProxyOptions {
-  emitter: XMLHttpRequestEmitter
+  emitter: Emitter<HttpRequestEventMap>
   logger: Logger
 }
 
@@ -60,11 +60,6 @@ export function createXMLHttpRequestProxy({
             )
           },
           respondWith: async (response) => {
-            if (isResponseError(response)) {
-              this.errorWith(new TypeError('Network error'))
-              return
-            }
-
             await this.respondWith(response)
           },
           errorWith: (reason) => {
@@ -84,6 +79,7 @@ export function createXMLHttpRequestProxy({
         )
 
         await handleRequest({
+          initiator: this.request,
           request,
           requestId,
           controller,
@@ -93,7 +89,7 @@ export function createXMLHttpRequestProxy({
 
       xhrRequestController.onResponse = async function ({
         response,
-        isMockedResponse,
+        responseType,
         request,
         requestId,
       }) {
@@ -102,12 +98,15 @@ export function createXMLHttpRequestProxy({
           emitter.listenerCount('response')
         )
 
-        emitter.emit('response', {
-          response,
-          isMockedResponse,
-          request,
-          requestId,
-        })
+        await emitter.emitAsPromise(
+          new HttpResponseEvent({
+            initiator: this.request,
+            response,
+            responseType,
+            request,
+            requestId,
+          })
+        )
       }
 
       // Return the proxied request from the controller

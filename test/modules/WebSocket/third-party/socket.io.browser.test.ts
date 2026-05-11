@@ -5,7 +5,7 @@ import type { Encoder, Decoder } from 'socket.io-parser'
 import type { encodePacket, decodePacket } from 'engine.io-parser'
 import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import type { WebSocketInterceptor } from '../../../../src/interceptors/WebSocket'
+import type { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
 
 declare global {
   interface Window {

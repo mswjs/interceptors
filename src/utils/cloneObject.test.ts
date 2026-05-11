@@ -1,4 +1,3 @@
-import { it, expect } from 'vitest'
 import { cloneObject } from './cloneObject'
 
 it('clones a shallow object', () => {

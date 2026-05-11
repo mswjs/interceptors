@@ -1,10 +1,9 @@
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import http from 'http'
+import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
-import { RequestController } from '../../../../src/RequestController'
-import { HttpRequestEventMap } from '../../../../src/glossary'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
+import { RequestController } from '#/src/RequestController'
+import { HttpRequestEventMap } from '#/src/glossary'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (req, res) => {
@@ -12,9 +11,9 @@ const httpServer = new HttpServer((app) => {
   })
 })
 
-const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+const resolver = vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
@@ -38,7 +37,8 @@ it('intercepts an http.get request', async () => {
       'x-custom-header': 'yes',
     },
   })
-  const { text } = await waitForClientRequest(req)
+
+  const [response] = await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -54,9 +54,7 @@ it('intercepts an http.get request', async () => {
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
-
-  // Must receive the original response.
-  expect(await text()).toBe('user-body')
+  await expect(response.text()).resolves.toBe('user-body')
 })
 
 it('intercepts an http.get request given RequestOptions without a protocol', async () => {
@@ -67,7 +65,7 @@ it('intercepts an http.get request given RequestOptions without a protocol', asy
     port: httpServer.http.address.port,
     path: '/user?id=123',
   })
-  const { text } = await waitForClientRequest(req)
+  const [response] = await toWebResponse(req)
 
   expect(resolver).toHaveBeenCalledTimes(1)
 
@@ -83,7 +81,5 @@ it('intercepts an http.get request given RequestOptions without a protocol', asy
   expect(controller).toBeInstanceOf(RequestController)
 
   expect(requestId).toMatch(REQUEST_ID_REGEXP)
-
-  // Must receive the original response.
-  expect(await text()).toBe('user-body')
+  await expect(response.text()).resolves.toBe('user-body')
 })

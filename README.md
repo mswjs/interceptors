@@ -104,21 +104,6 @@ You can respond to the intercepted HTTP request by constructing a Fetch API Resp
 - Does **not** provide any request matching logic;
 - Does **not** handle requests by default.
 
-## Limitations
-
-- Interceptors will hang indefinitely if you call `req.end()` in the `connect` event listener of the respective `socket`:
-
-```ts
-req.on('socket', (socket) => {
-  socket.on('connect', () => {
-    // ❌ While this is allowed in Node.js, this cannot be handled in Interceptors.
-    req.end()
-  })
-})
-```
-
-> This limitation is intrinsic to the interception algorithm used by the library. In order for it to emit the `connect` event on the socket, the library must know if you've handled the request in any way (e.g. responded with a mocked response or errored it). For that, it emits the `request` event on the interceptor where you can handle the request. Since you can consume the request stream in the `request` event, it waits until the request body stream is complete (i.e. until `req.end()` is called). This creates a catch 22 that causes this limitation.
-
 ## Getting started
 
 ```bash
@@ -297,10 +282,12 @@ Note that a single request _can only be handled once_. You may want to introduce
 Requests must be responded to within the same tick as the request listener. This means you cannot respond to a request using `setTimeout`, as this will delegate the callback to the next tick. If you wish to introduce asynchronous side-effects in the listener, consider making it an `async` function, awaiting any side-effects you need.
 
 ```js
+import { setTimeout } from 'node:timers/promises'
+
 // Respond to all requests with a 500 response
 // delayed by 500ms.
 interceptor.on('request', async ({ controller }) => {
-  await sleep(500)
+  await setTimeout(500)
   controller.respondWith(new Response(null, { status: 500 }))
 })
 ```
