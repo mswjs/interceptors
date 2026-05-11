@@ -10,15 +10,17 @@ export default defineConfig({
     },
     workspace: [
       {
+        extends: true,
         test: {
           name: 'node',
           root: __dirname,
           include: ['**/*.test.ts'],
-          exclude: ['**/*.memory.test.ts', '**/*.browser.test.ts'],
           alias: {
-            'vitest-environment-node-with-websocket': './envs/node-with-websocket',
+            'vitest-environment-node-with-websocket':
+              './envs/node-with-websocket',
             'vitest-environment-react-native-like': './envs/react-native-like',
           },
+          exclude: ['**/*.memory.test.ts', '**/*.browser.test.ts'],
         },
       },
       {
