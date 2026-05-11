@@ -81,5 +81,5 @@ async function forceGc() {
   parentPort.postMessage({ heldRequests: heldRequests.size })
 })().catch((error) => {
   console.error(error)
-  process.exit(1)
+  parentPort.postMessage({ error: error.message })
 })
