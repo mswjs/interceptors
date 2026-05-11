@@ -66,3 +66,15 @@ it('awaits response listener promise before resolving the original response prom
   expect(markStep).toHaveBeenNthCalledWith(3, 3)
   expect(markStep).toHaveBeenNthCalledWith(4, 4)
 })
+
+it('cancels unconsumed original response event clones', async () => {
+  interceptor.on('response', () => {})
+
+  const response = await fetch(httpServer.http.url('/resource'))
+  const cancelResult = await Promise.race([
+    response.body!.cancel().then(() => 'cancelled'),
+    new Promise((resolve) => setTimeout(() => resolve('timeout'), 500)),
+  ])
+
+  expect(cancelResult).toBe('cancelled')
+})

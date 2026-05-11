@@ -16,6 +16,16 @@ import { setRawRequest } from '../../getRawRequest'
 import { isResponseError } from '../../utils/responseUtils'
 import { patchesRegistry } from '../../utils/patchesRegistry'
 
+function cancelUnconsumedResponseClone(response: Response): void {
+  if (!response.body || response.bodyUsed) {
+    return
+  }
+
+  response.body.cancel().catch(() => {
+    // The response clone is internal and deliberately unused.
+  })
+}
+
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
 
@@ -92,6 +102,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               request: requestCloneForResponseEvent,
               requestId,
             })
+            cancelUnconsumedResponseClone(responseClone)
           }
 
           // Resolve the response promise with the original response
@@ -155,15 +166,18 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             // Await the response listeners to finish before resolving
             // the response promise. This ensures all your logic finishes
             // before the interceptor resolves the pending response.
+            const responseClone = FetchResponse.clone(response)
+
             await emitAsync(this.emitter, 'response', {
               // Clone the mocked response for the "response" event listener.
               // This way, the listener can read the response and not lock its body
               // for the actual fetch consumer.
-              response: FetchResponse.clone(response),
+              response: responseClone,
               isMockedResponse: true,
               request,
               requestId,
             })
+            cancelUnconsumedResponseClone(responseClone)
           }
 
           responsePromise.resolve(response)
