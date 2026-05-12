@@ -171,10 +171,6 @@ export class MockHttpSocket extends MockSocket {
     // can be suppressed by using the "emitClose: false" option.
     freeParser(this.responseParser, this)
 
-    if (error) {
-      this.emit('error', error)
-    }
-
     return super.destroy(error)
   }
 
