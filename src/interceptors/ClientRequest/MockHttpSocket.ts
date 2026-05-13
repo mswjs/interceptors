@@ -263,36 +263,51 @@ export class MockHttpSocket extends MockSocket {
       }
     }
 
-    // Forward TLS Socket properties onto this Socket instance
-    // in the case of a TLS/SSL connection.
-    if (Reflect.get(socket, 'encrypted')) {
-      const tlsProperties = [
-        'encrypted',
-        'authorized',
-        'getProtocol',
-        'getSession',
-        'isSessionReused',
-        'getCipher',
-      ]
-
-      tlsProperties.forEach((propertyName) => {
-        Object.defineProperty(this, propertyName, {
-          enumerable: true,
-          get: () => {
-            const value = Reflect.get(socket, propertyName)
-            return typeof value === 'function' ? value.bind(socket) : value
-          },
-        })
-      })
-    }
-
     socket
       .on('lookup', (...args) => this.emit('lookup', ...args))
       .on('connect', () => {
         this.connecting = socket.connecting
         this.emit('connect')
       })
-      .on('secureConnect', () => this.emit('secureConnect'))
+      .on('secureConnect', () => {
+        /**
+         * Forward TLS Socket properties onto this Socket instance
+         * after the TLS handshake completes. This ensures the real socket
+         * has valid TLS information before we start forwarding it.
+         *
+         * We do this on 'secureConnect' rather than immediately in passthrough()
+         * because TLSSocket.encrypted is true even before the socket connects,
+         * but getCipher(), getProtocol() etc. return undefined until the
+         * TLS handshake completes. By waiting until secureConnect, we allow
+         * the mock TLS properties (set in constructor) to remain accessible
+         * until real values are available.
+         */
+        invariant(
+          Reflect.get(socket, 'encrypted'),
+          'Expected socket to have property `encrypted`'
+        )
+
+        const tlsProperties = [
+          'encrypted',
+          'authorized',
+          'getProtocol',
+          'getSession',
+          'isSessionReused',
+          'getCipher',
+        ]
+
+        tlsProperties.forEach((propertyName) => {
+          Object.defineProperty(this, propertyName, {
+            enumerable: true,
+            get: () => {
+              const value = Reflect.get(socket, propertyName)
+              return typeof value === 'function' ? value.bind(socket) : value
+            },
+          })
+        })
+
+        this.emit('secureConnect')
+      })
       .on('secure', () => this.emit('secure'))
       .on('session', (session) => this.emit('session', session))
       .on('ready', () => this.emit('ready'))
