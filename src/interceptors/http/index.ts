@@ -28,7 +28,7 @@ import {
 import { unwrapPendingData } from '../net/utils/flush-writes'
 import { FetchResponse } from '../../utils/fetchUtils'
 import { requestContext } from '../../request-context'
-import { Interceptor } from '#/src/interceptor'
+import { Interceptor, InterceptorReadyState } from '#/src/interceptor'
 
 const log = createLogger('HttpRequestInterceptor')
 
@@ -45,6 +45,11 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
   protected setup(): void {
     const socketInterceptor = Interceptor.singleton(SocketInterceptor)
+
+    if (socketInterceptor.readyState === InterceptorReadyState.ACTIVE) {
+      return
+    }
+
     socketInterceptor.apply()
     this.subscriptions.push(() => socketInterceptor.dispose())
 
