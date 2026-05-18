@@ -45,7 +45,11 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
   protected setup(): void {
     const socketInterceptor = Interceptor.singleton(SocketInterceptor)
-    if (socketInterceptor.readyState === InterceptorReadyState.ACTIVE) return
+
+    if (socketInterceptor.readyState === InterceptorReadyState.ACTIVE) {
+      return
+    }
+
     socketInterceptor.apply()
     this.subscriptions.push(() => socketInterceptor.dispose())
 

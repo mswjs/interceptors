@@ -25,7 +25,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('does not throw "CANNOT HANDLE ALREADY HANDLED REQUEST" when using BatchInterceptor with HttpRequestInterceptor and FetchInterceptor', async () => {
+it('does not attach multiple "connection" listeners for nested interceptors', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('mocked'))
   })
