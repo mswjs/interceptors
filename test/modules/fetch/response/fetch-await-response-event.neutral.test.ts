@@ -1,18 +1,12 @@
 // @vitest-environment node
-import { HttpServer } from '@open-draft/test-server/http'
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
+import { getTestServer } from '#/test/setup/vitest'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => {
-    res.send('original response')
-  })
-})
-
+const server = getTestServer()
 const interceptor = new FetchInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
 })
 
 afterEach(() => {
@@ -21,7 +15,6 @@ afterEach(() => {
 
 afterAll(async () => {
   interceptor.dispose()
-  await httpServer.close()
 })
 
 it('awaits response listener promise before resolving the mocked response promise', async () => {
@@ -38,7 +31,7 @@ it('awaits response listener promise before resolving the mocked response promis
   })
 
   markStep(1)
-  await fetch('http://localhost/')
+  await fetch(server.http.url('/resource'))
   markStep(4)
 
   expect(markStep).toHaveBeenNthCalledWith(1, 1)
@@ -57,7 +50,7 @@ it('awaits response listener promise before resolving the original response prom
   })
 
   markStep(1)
-  await fetch(httpServer.http.url('/resource'))
+  await fetch(server.http.url('/resource'))
   markStep(4)
 
   expect(markStep).toHaveBeenNthCalledWith(1, 1)
