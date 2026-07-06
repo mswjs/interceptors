@@ -93,6 +93,19 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               url: baseUrl,
             },
             onRequest: async (request) => {
+              /**
+               * @note A subsequent request arriving on a kept-alive socket
+               * that has passed through. Clients like Undici reuse sockets
+               * without emitting the "free" event, so reset the controller
+               * here, at the HTTP message boundary, to handle the new
+               * request from the pending state again.
+               */
+              if (
+                socketController['readyState'] === SocketController.PASSTHROUGH
+              ) {
+                socketController.reset()
+              }
+
               const requestId = createRequestId()
 
               log('received a parsed HTTP request!', {

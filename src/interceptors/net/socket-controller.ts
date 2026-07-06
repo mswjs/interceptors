@@ -305,6 +305,16 @@ export class TcpSocketController extends SocketController {
     this.#reset()
   }
 
+  /**
+   * Reset this controller to the pending state so the next exchange
+   * on this socket can be handled anew. This is meant for kept-alive
+   * sockets that are reused for multiple exchanges by clients that
+   * don't emit the "free" event on the socket (e.g. Undici).
+   */
+  public reset(): void {
+    this.#reset()
+  }
+
   #reset(): void {
     log('resetting the socket...')
 
@@ -676,6 +686,26 @@ export class TcpSocketController extends SocketController {
       log(this.readyState, 'write:', args)
 
       this.#push(args[1])
+
+      /**
+       * @note The controller may be reset synchronously while the pushed
+       * data is being parsed (e.g. a new request written to a kept-alive,
+       * passed-through socket). In that case, buffer this write instead of
+       * forwarding it so it's flushed once the new exchange is handled.
+       */
+      if (this.readyState !== SocketController.PASSTHROUGH) {
+        this.#bufferedWrites.push(args)
+
+        const callback = args[3]
+
+        if (typeof callback === 'function') {
+          callback()
+          args[3] = function mockNoop() {}
+        }
+
+        return
+      }
+
       return this.#realWriteGeneric.apply(this.socket, args)
     }
 
