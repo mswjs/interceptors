@@ -706,6 +706,22 @@ export class TcpSocketController extends SocketController {
         return
       }
 
+      /**
+       * @note While the client socket is still connecting, its original
+       * write implementation buffers the written data and REPLAYS it
+       * through this override once the socket emits the "connect" event
+       * (see `Socket.prototype._writeGeneric` in Node.js). That replay
+       * would push the same data to the server socket twice. Write
+       * directly to the passthrough socket instead, the same way the
+       * buffered writes are flushed in `passthrough()`.
+       */
+      if (this.socket.connecting && this.#passthroughSocket) {
+        return this.#passthroughSocket._writeGeneric.apply(
+          this.#passthroughSocket,
+          args
+        )
+      }
+
       return this.#realWriteGeneric.apply(this.socket, args)
     }
 
