@@ -83,6 +83,9 @@ export async function handleRequest(
   }
 
   const requestAbortPromise = new DeferredPromise<void, unknown>()
+  const onAbort = () => {
+    requestAbortPromise.reject(options.request.signal?.reason)
+  }
 
   /**
    * @note `signal` is not always defined in React Native.
@@ -93,13 +96,7 @@ export async function handleRequest(
       return
     }
 
-    options.request.signal.addEventListener(
-      'abort',
-      () => {
-        requestAbortPromise.reject(options.request.signal.reason)
-      },
-      { once: true }
-    )
+    options.request.signal.addEventListener('abort', onAbort, { once: true })
   }
 
   const result = await until(async () => {
@@ -133,6 +130,8 @@ export async function handleRequest(
       options.request = requestEvent.request
     }
   })
+
+  options.request.signal?.removeEventListener('abort', onAbort)
 
   // Handle the request being aborted while waiting for the request listeners.
   if (requestAbortPromise.state === 'rejected') {

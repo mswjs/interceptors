@@ -26,7 +26,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -39,6 +38,9 @@ jobs:
 
       - name: Node.js tests
         run: pnpm test --project=node
+
+      - name: Memory tests
+        run: pnpm test --project=memory
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps --only-shell

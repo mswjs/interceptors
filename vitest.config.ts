@@ -29,10 +29,31 @@ export default defineConfig({
           environment: 'node',
           globalSetup: './vitest.setup.ts',
           include: ['test/**/*.test.ts'],
-          exclude: [...defaultExclude, '**/*.browser.test.ts'],
+          exclude: [
+            ...defaultExclude,
+            '**/*.browser.test.ts',
+            '**/*.memory.test.ts',
+          ],
           alias: {
             'vitest-environment-node-with-websocket':
               './test/envs/node-with-websocket',
+          },
+        },
+      },
+      /**
+       * Memory tests measure the interceptors for memory leaks.
+       * They require garbage collection to be exposed.
+       */
+      {
+        extends: true,
+        test: {
+          name: 'memory',
+          include: ['test/**/*.memory.test.ts'],
+          pool: 'forks',
+          poolOptions: {
+            forks: {
+              execArgv: ['--expose-gc'],
+            },
           },
         },
       },

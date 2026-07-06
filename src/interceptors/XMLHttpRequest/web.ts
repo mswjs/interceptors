@@ -8,7 +8,7 @@ import { patchesRegistry } from '../../utils/patchesRegistry'
 const logger = new Logger('xhr')
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
-  static interceptorSymbol = Symbol.for('xhr-interceptor')
+  static symbol = Symbol.for('xhr-interceptor')
 
   protected predicate() {
     return hasConfigurableGlobal('XMLHttpRequest')

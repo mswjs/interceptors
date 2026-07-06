@@ -141,7 +141,7 @@ export interface RemoveResolverOptions {
 }
 
 export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
-  static symbol = Symbol('remote-http-resolver')
+  static symbol = Symbol.for('remote-http-resolver')
   private process: ChildProcess
 
   constructor(options: RemoveResolverOptions) {
