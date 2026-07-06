@@ -223,6 +223,16 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                         } finally {
                           log('uncorking socket reads...')
                           socketController.uncorkReads()
+
+                          /**
+                           * @note Informational responses other than
+                           * "101 Switching Protocols" are followed by a final
+                           * response on the same connection. Keep gating that
+                           * final response on the "response" event listeners.
+                           */
+                          if (response.status < 200 && response.status !== 101) {
+                            socketController.corkReads()
+                          }
                         }
                       },
                     })
