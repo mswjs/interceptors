@@ -93,6 +93,19 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
               url: baseUrl,
             },
             onRequest: async (request) => {
+              /**
+               * @note A subsequent request arriving on a kept-alive socket
+               * that has passed through. Clients like Undici reuse sockets
+               * without emitting the "free" event, so reset the controller
+               * here, at the HTTP message boundary, to handle the new
+               * request from the pending state again.
+               */
+              if (
+                socketController['readyState'] === SocketController.PASSTHROUGH
+              ) {
+                socketController.reset()
+              }
+
               const requestId = createRequestId()
 
               log('received a parsed HTTP request!', {
@@ -166,15 +179,16 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
                   )
 
                   if (this.emitter.listenerCount('response') > 0) {
-                    log('found "response" listener, pausing socket...')
+                    log('found "response" listener, corking socket reads...')
 
-                    const mockSocket = socketController[kRawSocket]
-
-                    // Pause the mock socket to prevent the passthrough 'data' listener
-                    // from pushing data to it. The passthrough checks isPaused() and skips
-                    // pushing when paused, allowing realSocket to continue emitting data
-                    // for our response parser without backpressure issues.
-                    mockSocket.pause()
+                    /**
+                     * Suspend the delivery of the original response to the client
+                     * until the "response" event listeners settle. This guarantees
+                     * that the request promise (e.g. `await fetch()`) does not
+                     * resolve before the listeners are done. The real socket keeps
+                     * emitting data for the response parser meanwhile.
+                     */
+                    socketController.corkReads()
 
                     const responseParser = new HttpResponseParser({
                       onResponse: async (response) => {
@@ -186,28 +200,40 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
                         if (isResponseError(response)) {
                           log(
-                            'response is an error response, resuming socket...'
+                            'response is an error response, uncorking socket reads...'
                           )
 
-                          mockSocket.resume()
+                          socketController.uncorkReads()
                           return
                         }
 
                         FetchResponse.setUrl(request.url, response)
 
-                        log('emitting "response" event...')
-                        await this.emitter.emitAsPromise(
-                          new HttpResponseEvent({
-                            initiator,
-                            requestId,
-                            request: context.request,
-                            response,
-                            responseType: 'original',
-                          })
-                        )
+                        try {
+                          log('emitting "response" event...')
+                          await this.emitter.emitAsPromise(
+                            new HttpResponseEvent({
+                              initiator,
+                              requestId,
+                              request: context.request,
+                              response,
+                              responseType: 'original',
+                            })
+                          )
+                        } finally {
+                          log('uncorking socket reads...')
+                          socketController.uncorkReads()
 
-                        log('resuming socket...')
-                        mockSocket.resume()
+                          /**
+                           * @note Informational responses other than
+                           * "101 Switching Protocols" are followed by a final
+                           * response on the same connection. Keep gating that
+                           * final response on the "response" event listeners.
+                           */
+                          if (response.status < 200 && response.status !== 101) {
+                            socketController.corkReads()
+                          }
+                        }
                       },
                     })
 

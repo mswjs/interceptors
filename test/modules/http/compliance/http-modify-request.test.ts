@@ -1,6 +1,5 @@
 // @vitest-environment node
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 import { getTestServer } from '#/test/setup/vitest'

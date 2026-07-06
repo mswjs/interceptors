@@ -1,135 +1,98 @@
-import { test, expect } from '../../../playwright.extend'
-import { Server } from 'socket.io'
-import type { io } from 'socket.io-client'
-import type { Encoder, Decoder } from 'socket.io-parser'
-import type { encodePacket, decodePacket } from 'engine.io-parser'
-import { HttpServer } from '@open-draft/test-server/http'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import type { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
+import { Encoder, Decoder, PacketType } from 'socket.io-parser'
+import { encodePacket, decodePacket, type RawData } from 'engine.io-parser'
+import { getTestServer } from '#/test/setup/vitest'
 
-declare global {
-  interface Window {
-    io: typeof io
-    encoder: Encoder
-    decoder: Decoder
-    encodePacket: typeof encodePacket
-    decodePacket: typeof decodePacket
-    interceptor: WebSocketInterceptor
+const server = getTestServer()
+const interceptor = new WebSocketInterceptor()
+const encoder = new Encoder()
+const decoder = new Decoder()
+
+beforeAll(() => {
+  interceptor.apply()
+})
+
+afterEach(() => {
+  interceptor.removeAllListeners()
+})
+
+afterAll(() => {
+  interceptor.dispose()
+})
+
+function decodeMessage(encodedEngineIoPacket: RawData): Array<unknown> | undefined {
+  const decodedEngineIoPacket = decodePacket(encodedEngineIoPacket)
+
+  if (decodedEngineIoPacket.type !== 'message') {
+    return
   }
+
+  const decodedSocketIoPacket = decoder['decodeString'](
+    decodedEngineIoPacket.data
+  )
+
+  if (decodedSocketIoPacket.type !== PacketType.EVENT) {
+    return
+  }
+
+  return decodedSocketIoPacket.data.slice(1)
 }
 
-const httpServer = new HttpServer()
-const wsServer = new Server(httpServer['_http'], {
-  transports: ['websocket'],
-})
-
-test.beforeAll(async () => {
-  await httpServer.listen()
-})
-
-test.afterAll(async () => {
-  await httpServer.close()
-})
-
-test('intercepts and modifies data sent to socket.io server', async ({
-  loadExample,
-  page,
-}) => {
-  await loadExample(require.resolve('./socket.io.runtime.js'), {
-    /**
-     * @note The WebSocket interceptor must be applied
-     * before "socket.io-client" is evaluated. SocketIO
-     * hoists the global WebSocket class so it cannot
-     * be patched by the interceptor.
-     */
-    markup: `
-<script src="https://cdn.socket.io/4.7.4/socket.io.min.js" integrity="sha384-Gr6Lu2Ajx28mzwyVR8CFkULdCU7kMlZ9UthllibdOSo6qAiN+yXNHqtgdTvFXMT4" crossorigin="anonymous" defer>
-</script>
-    `,
+function encodeMessage(data: unknown): Promise<RawData> {
+  return new Promise((resolve) => {
+    encodePacket(
+      {
+        type: 'message',
+        data: encoder.encode({
+          type: PacketType.EVENT,
+          data: ['message', data],
+          nsp: '/',
+        }),
+      },
+      true,
+      (encodedEngineIoPacket) => {
+        resolve(encodedEngineIoPacket)
+      }
+    )
   })
+}
 
-  const serverMessagePromise = new DeferredPromise<string>()
-  wsServer.on('connection', (socket) => {
-    socket.on('message', (data) => {
-      serverMessagePromise.resolve(data)
+it('intercepts and modifies data sent to a socket.io server', async () => {
+  interceptor.on('connection', ({ client, server }) => {
+    server.connect()
+
+    client.addEventListener('message', async (event) => {
+      const data = decodeMessage(event.data)
+
+      if (data?.[0] === 'hello') {
+        event.preventDefault()
+        server.send(await encodeMessage('mocked hello!'))
+      }
     })
   })
 
-  await page.evaluate((url) => {
-    const { io, interceptor, encoder, encodePacket, decodePacket, decoder } =
-      window
+  /**
+   * @note Import "socket.io-client" after the interceptor is applied.
+   * Socket.IO stores the reference to the global WebSocket class once
+   * it's evaluated so it cannot be patched by the interceptor afterward.
+   */
+  const { io } = await import('socket.io-client')
 
-    const decodeMessage = (
-      // @ts-expect-error
-      encodedEngineIoPacket
-    ) => {
-      const decodedEngineIoPacket = decodePacket(encodedEngineIoPacket)
+  const echoedMessagePromise = new DeferredPromise<string>()
+  const ws = io(server.io.href, {
+    transports: ['websocket'],
+  })
 
-      if (decodedEngineIoPacket.type !== 'message') {
-        return
-      }
-      const decodedSocketIoPacket = decoder['decodeString'](
-        decodedEngineIoPacket.data
-      )
-      /**
-       * @note You should reference "PacketType.EVENT"
-       * from "socket.io-parser" here but can't pass
-       * that through Playwright.
-       */
-      if (decodedSocketIoPacket.type !== 2) {
-        return
-      }
+  // The Socket.IO test server echoes any received message.
+  ws.on('message', (data) => {
+    echoedMessagePromise.resolve(data)
+  })
+  ws.on('connect', () => {
+    ws.send('hello')
+  })
 
-      return decodedSocketIoPacket.data.slice(1)
-    }
+  await expect(echoedMessagePromise).resolves.toBe('mocked hello!')
 
-    const encodeMessage = async (data) => {
-      return new Promise((resolve) => {
-        encodePacket(
-          {
-            type: 'message', // 4
-            data: encoder.encode({
-              type: 2,
-              /**
-               * @noto Not sure if prepending "message"
-               * manually is correct. Either encoder doesn't
-               * do that though.
-               */
-              data: ['message', data],
-              nsp: '/',
-            }),
-          },
-          true,
-          (encodedEngineIoPacket) => {
-            resolve(encodedEngineIoPacket)
-          }
-        )
-      })
-    }
-
-    interceptor.on('connection', ({ client, server }) => {
-      server.connect()
-
-      client.addEventListener('message', async (event) => {
-        const data = decodeMessage(event.data)
-
-        if (data?.[0] === 'hello') {
-          event.preventDefault()
-          const packet = await encodeMessage('mocked hello!')
-          // @ts-expect-error TS in Playwright is hard.
-          server.send(packet)
-        }
-      })
-    })
-
-    const ws = io(url, {
-      transports: ['websocket'],
-    })
-
-    ws.on('connect', () => {
-      ws.send('hello')
-    })
-  }, httpServer.http.address.href)
-
-  expect(await serverMessagePromise).toBe('mocked hello!')
+  ws.close()
 })

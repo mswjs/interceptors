@@ -46,6 +46,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       'response'
     > = async (event) => {
       if (event.initiator instanceof Request) {
+        /**
+         * @note Fetch clients never observe informational responses (1xx).
+         * Undici treats them as a network error, failing the request,
+         * so do not forward their "response" events to fetch consumers.
+         */
+        if (event.response.status < 200) {
+          return
+        }
+
         await this.emitter.emitAsPromise(event)
       }
     }

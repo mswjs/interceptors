@@ -5,9 +5,7 @@ import { Readable } from 'node:stream'
 import http from 'node:http'
 import { RequestHandler } from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { Page } from '@playwright/test'
 import { MockedFunction } from 'node_modules/vitest/dist'
-import { SerializedRequest } from '#/src/RemoteHttpInterceptor'
 import { FetchResponse } from '#/src/utils/fetchUtils'
 
 export const REQUEST_ID_REGEXP = /^\w{9,}$/
@@ -26,117 +24,6 @@ export async function readBlob(
   reader.readAsText(blob)
 
   return pendingResult
-}
-
-export interface XMLHttpResponse {
-  status: number
-  statusText: string
-  headers: string
-  body: string
-}
-
-export interface BrowserXMLHttpRequestInit {
-  method: string
-  url: string
-  headers?: Record<string, string>
-  body?: string
-  withCredentials?: boolean
-  async?: boolean
-}
-
-export async function extractRequestFromPage(page: Page): Promise<Request> {
-  const requestJson = await page.evaluate(() => {
-    return new Promise<SerializedRequest>((resolve, reject) => {
-      const timeoutTimer = setTimeout(() => {
-        reject(
-          new Error(
-            'Browser runtime module did not dispatch the custom "resolver" event'
-          )
-        )
-      }, 5000)
-
-      window.addEventListener(
-        'resolver' as any,
-        (event: CustomEvent<SerializedRequest>) => {
-          clearTimeout(timeoutTimer)
-          resolve(event.detail)
-        }
-      )
-    })
-  })
-
-  const request = new Request(requestJson.url, {
-    method: requestJson.method,
-    headers: new Headers(requestJson.headers),
-    credentials: requestJson.credentials,
-    body: ['GET', 'HEAD'].includes(requestJson.method)
-      ? null
-      : requestJson.body,
-  })
-
-  return request
-}
-
-export function createRawBrowserXMLHttpRequest(page: Page) {
-  return (requestInit: BrowserXMLHttpRequestInit) => {
-    const { method, url, headers, body, withCredentials, async } = requestInit
-
-    return page.evaluate<
-      XMLHttpResponse,
-      [
-        string,
-        string,
-        Record<string, string> | undefined,
-        string | undefined,
-        boolean | undefined,
-        boolean,
-      ]
-    >(
-      (args) => {
-        return new Promise((resolve, reject) => {
-          // Can't use array destructuring because Playwright will explode.
-          const method = args[0]
-          const url = args[1]
-          const headers = args[2] || {}
-          const body = args[3]
-          const withCredentials = args[4]
-
-          const request = new XMLHttpRequest()
-          if (typeof withCredentials !== 'undefined') {
-            Reflect.set(request, 'withCredentials', withCredentials)
-          }
-          request.open(method, url, args[5])
-
-          for (const headerName in headers) {
-            request.setRequestHeader(headerName, headers[headerName])
-          }
-
-          request.addEventListener('load', function () {
-            resolve({
-              status: this.status,
-              statusText: this.statusText,
-              headers: this.getAllResponseHeaders(),
-              body: this.response,
-            })
-          })
-          request.addEventListener('error', reject)
-          request.send(body)
-        })
-      },
-      [method, url, headers, body, withCredentials, async ?? true]
-    )
-  }
-}
-
-export function createBrowserXMLHttpRequest(page: Page) {
-  return async (
-    requestInit: BrowserXMLHttpRequestInit
-  ): Promise<[Request, XMLHttpResponse]> => {
-    return Promise.all([
-      extractRequestFromPage(page),
-      createRawBrowserXMLHttpRequest(page)(requestInit),
-    ])
-  }
 }
 
 export async function toWebResponse(
@@ -171,6 +58,7 @@ export const useCors: RequestHandler = (_req, res, next) => {
     'access-control-allow-origin': '*',
     'access-control-allow-headers': '*',
     'access-control-allow-methods': '*',
+    'access-control-expose-headers': '*',
   })
   return next()
 }

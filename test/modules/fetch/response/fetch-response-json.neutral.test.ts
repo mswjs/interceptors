@@ -1,5 +1,5 @@
-import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 import { getTestServer } from '#/test/setup/vitest'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const server = getTestServer()
 const interceptor = new FetchInterceptor()

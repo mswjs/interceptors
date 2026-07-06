@@ -240,6 +240,11 @@ export type FlushPendingDataFunction = (
   callback: (data: NonNullable<net.Socket['_pendingData']>) => void
 ) => void
 
+type CorkedReadEvent =
+  | { type: 'data'; chunk: Buffer }
+  | { type: 'end' }
+  | { type: 'close'; hadError: boolean }
+
 export class TcpSocketController extends SocketController {
   public serverSocket: net.Socket
 
@@ -249,6 +254,8 @@ export class TcpSocketController extends SocketController {
   #realWriteGeneric: net.Socket['_writeGeneric']
   #passthroughSocket: net.Socket | null = null
   #bufferedWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
+  #readsCorked = false
+  #corkedReads: Array<CorkedReadEvent> = []
 
   constructor(
     protected readonly socket: net.Socket,
@@ -288,11 +295,23 @@ export class TcpSocketController extends SocketController {
         log('client socket closed!')
         this.#passthroughSocket = null
         this.#bufferedWrites = []
+        this.#readsCorked = false
+        this.#corkedReads = []
       })
 
     this.serverSocket = toServerSocket(this.socket)
 
     this.pendingConnection = new DeferredPromise()
+    this.#reset()
+  }
+
+  /**
+   * Reset this controller to the pending state so the next exchange
+   * on this socket can be handled anew. This is meant for kept-alive
+   * sockets that are reused for multiple exchanges by clients that
+   * don't emit the "free" event on the socket (e.g. Undici).
+   */
+  public reset(): void {
     this.#reset()
   }
 
@@ -449,6 +468,12 @@ export class TcpSocketController extends SocketController {
   #onRealSocketData = (data: Buffer) => {
     log('real socket "data" event:\n', data?.toString())
 
+    if (this.#readsCorked) {
+      log('reads are corked, buffering the data...')
+      this.#corkedReads.push({ type: 'data', chunk: data })
+      return
+    }
+
     if (!this.socket.push(data)) {
       log(
         'client socket forbade more pushes, pausing the passthrough socket...'
@@ -479,16 +504,76 @@ export class TcpSocketController extends SocketController {
   }
 
   #onRealSocketEnd = () => {
+    if (this.#readsCorked) {
+      this.#corkedReads.push({ type: 'end' })
+      return
+    }
+
     this.socket.push(null)
   }
 
   #onRealSocketClose = (hadError: boolean) => {
+    if (this.#readsCorked) {
+      this.#corkedReads.push({ type: 'close', hadError })
+      return
+    }
+
     this.socket.emit('close', hadError)
   }
 
   #onMockSocketDrain = () => {
     log('client socket drained!')
     this.#passthroughSocket?.resume()
+  }
+
+  /**
+   * Suspend forwarding of the passthrough socket events ("data", "end", "close")
+   * to the client socket. The events are buffered in order until `uncorkReads()`
+   * is called. This allows the consumer to delay the delivery of the original
+   * response to the client (e.g. until its own asynchronous logic settles).
+   *
+   * @note Pausing the client socket is not enough to delay the delivery.
+   * Consumers like Undici read the pushed data from a paused socket
+   * directly via `socket.read()`, which is unaffected by `socket.pause()`.
+   */
+  public corkReads(): void {
+    this.#readsCorked = true
+  }
+
+  /**
+   * Resume forwarding of the passthrough socket events to the client socket,
+   * replaying any events buffered while the reads were corked.
+   */
+  public uncorkReads(): void {
+    if (!this.#readsCorked) {
+      return
+    }
+
+    this.#readsCorked = false
+
+    for (const corkedRead of this.#corkedReads.splice(0)) {
+      switch (corkedRead.type) {
+        case 'data': {
+          if (!this.socket.push(corkedRead.chunk)) {
+            log(
+              'client socket forbade more pushes, pausing the passthrough socket...'
+            )
+            this.#passthroughSocket?.pause()
+          }
+          break
+        }
+
+        case 'end': {
+          this.socket.push(null)
+          break
+        }
+
+        case 'close': {
+          this.socket.emit('close', corkedRead.hadError)
+          break
+        }
+      }
+    }
   }
 
   public claim(): void {
@@ -601,6 +686,42 @@ export class TcpSocketController extends SocketController {
       log(this.readyState, 'write:', args)
 
       this.#push(args[1])
+
+      /**
+       * @note The controller may be reset synchronously while the pushed
+       * data is being parsed (e.g. a new request written to a kept-alive,
+       * passed-through socket). In that case, buffer this write instead of
+       * forwarding it so it's flushed once the new exchange is handled.
+       */
+      if (this.readyState !== SocketController.PASSTHROUGH) {
+        this.#bufferedWrites.push(args)
+
+        const callback = args[3]
+
+        if (typeof callback === 'function') {
+          callback()
+          args[3] = function mockNoop() {}
+        }
+
+        return
+      }
+
+      /**
+       * @note While the client socket is still connecting, its original
+       * write implementation buffers the written data and REPLAYS it
+       * through this override once the socket emits the "connect" event
+       * (see `Socket.prototype._writeGeneric` in Node.js). That replay
+       * would push the same data to the server socket twice. Write
+       * directly to the passthrough socket instead, the same way the
+       * buffered writes are flushed in `passthrough()`.
+       */
+      if (this.socket.connecting && this.#passthroughSocket) {
+        return this.#passthroughSocket._writeGeneric.apply(
+          this.#passthroughSocket,
+          args
+        )
+      }
+
       return this.#realWriteGeneric.apply(this.socket, args)
     }
 
