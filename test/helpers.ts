@@ -171,6 +171,7 @@ export const useCors: RequestHandler = (_req, res, next) => {
     'access-control-allow-origin': '*',
     'access-control-allow-headers': '*',
     'access-control-allow-methods': '*',
+    'access-control-expose-headers': '*',
   })
   return next()
 }

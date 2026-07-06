@@ -1,7 +1,6 @@
-// @vitest-environment node
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { InterceptorError } from '#/src/InterceptorError'
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
+import { InterceptorError } from '@mswjs/interceptors'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 
@@ -100,7 +99,7 @@ it('throws if "respondWith" is called multiple times across different listeners'
   await expect(response.text()).resolves.toBe('mock')
 })
 
-it('errors the request via "errorWith"', async () => {
+it('errors the request via "errorWith"', async ({ task }) => {
   interceptor.on('request', ({ controller }) => {
     controller.errorWith(new Error('Oops!'))
   })
@@ -110,7 +109,7 @@ it('errors the request via "errorWith"', async () => {
 
   const requestError = await fetch('http://localhost/resource').then<
     null,
-    Error
+    Error & { cause?: unknown }
   >(
     () => null,
     (error) => error
@@ -121,11 +120,24 @@ it('errors the request via "errorWith"', async () => {
 
   // Must reject the response promise with the given error.
   expect(requestError).toBeInstanceOf(Error)
-  expect(requestError).toHaveProperty('name', 'Error')
-  expect(requestError).toHaveProperty('message', 'Oops!')
+
+  if (task.file.projectName === 'browser') {
+    expect(requestError).toHaveProperty('name', 'Error')
+    expect(requestError).toHaveProperty('message', 'Oops!')
+  } else {
+    /**
+     * @note In Node.js, custom request errors surface as the cause
+     * of the fetch rejection because they destroy the underlying socket.
+     */
+    expect(requestError).toHaveProperty('name', 'TypeError')
+    expect(requestError).toHaveProperty('message', 'fetch failed')
+    expect(requestError?.cause).toEqual(new Error('Oops!'))
+  }
 })
 
-it('throws if "errorWith" is called multiple times within the same listener', async () => {
+it('throws if "errorWith" is called multiple times within the same listener', async ({
+  task,
+}) => {
   const errorPromise = new DeferredPromise<unknown>()
 
   interceptor.on('request', ({ controller }) => {
@@ -143,7 +155,7 @@ it('throws if "errorWith" is called multiple times within the same listener', as
 
   const requestError = await fetch('http://localhost/resource').then<
     null,
-    Error
+    Error & { cause?: unknown }
   >(
     () => null,
     (error) => error
@@ -162,13 +174,22 @@ it('throws if "errorWith" is called multiple times within the same listener', as
     `Failed to error the "GET http://localhost/resource" request with "Error: two": the request has already been handled (3)`
   )
 
-  // Must reject the response promise with the given error.
+  // Must reject the response promise with the first given error.
   expect(requestError).toBeInstanceOf(Error)
-  expect(requestError).toHaveProperty('name', 'Error')
-  expect(requestError).toHaveProperty('message', 'one')
+
+  if (task.file.projectName === 'browser') {
+    expect(requestError).toHaveProperty('name', 'Error')
+    expect(requestError).toHaveProperty('message', 'one')
+  } else {
+    expect(requestError).toHaveProperty('name', 'TypeError')
+    expect(requestError).toHaveProperty('message', 'fetch failed')
+    expect(requestError?.cause).toEqual(new Error('one'))
+  }
 })
 
-it('throws if "errorWith" is called multiple times across different listeners', async () => {
+it('throws if "errorWith" is called multiple times across different listeners', async ({
+  task,
+}) => {
   const errorPromise = new DeferredPromise<unknown>()
 
   interceptor.on('request', ({ controller }) => {
@@ -187,7 +208,7 @@ it('throws if "errorWith" is called multiple times across different listeners', 
 
   const requestError = await fetch('http://localhost/resource').then<
     null,
-    Error
+    Error & { cause?: unknown }
   >(
     () => null,
     (error) => error
@@ -206,13 +227,22 @@ it('throws if "errorWith" is called multiple times across different listeners', 
     `Failed to error the "GET http://localhost/resource" request with "Error: two": the request has already been handled (3)`
   )
 
-  // Must reject the response promise with the given error.
+  // Must reject the response promise with the first given error.
   expect(requestError).toBeInstanceOf(Error)
-  expect(requestError).toHaveProperty('name', 'Error')
-  expect(requestError).toHaveProperty('message', 'one')
+
+  if (task.file.projectName === 'browser') {
+    expect(requestError).toHaveProperty('name', 'Error')
+    expect(requestError).toHaveProperty('message', 'one')
+  } else {
+    expect(requestError).toHaveProperty('name', 'TypeError')
+    expect(requestError).toHaveProperty('message', 'fetch failed')
+    expect(requestError?.cause).toEqual(new Error('one'))
+  }
 })
 
-it('throws if "respondWith" is called after "errorWith" was called', async () => {
+it('throws if "respondWith" is called after "errorWith" was called', async ({
+  task,
+}) => {
   const errorPromise = new DeferredPromise<unknown>()
 
   interceptor.on('request', ({ controller }) => {
@@ -229,7 +259,7 @@ it('throws if "respondWith" is called after "errorWith" was called', async () =>
 
   const requestError = await fetch('http://localhost/resource').then<
     null,
-    Error
+    Error & { cause?: unknown }
   >(
     () => null,
     (error) => error
@@ -250,8 +280,15 @@ it('throws if "respondWith" is called after "errorWith" was called', async () =>
 
   // Must reject the response promise with the given error.
   expect(requestError).toBeInstanceOf(Error)
-  expect(requestError).toHaveProperty('name', 'Error')
-  expect(requestError).toHaveProperty('message', 'one')
+
+  if (task.file.projectName === 'browser') {
+    expect(requestError).toHaveProperty('name', 'Error')
+    expect(requestError).toHaveProperty('message', 'one')
+  } else {
+    expect(requestError).toHaveProperty('name', 'TypeError')
+    expect(requestError).toHaveProperty('message', 'fetch failed')
+    expect(requestError?.cause).toEqual(new Error('one'))
+  }
 })
 
 it('throws if "errorWith" is called after "respondWith" was called', async () => {

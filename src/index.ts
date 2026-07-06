@@ -1,5 +1,6 @@
 export { Interceptor } from './interceptor'
 export { BatchInterceptor } from './BatchInterceptor'
+export { InterceptorError } from './InterceptorError'
 export {
   RequestController,
   type RequestControllerSource,

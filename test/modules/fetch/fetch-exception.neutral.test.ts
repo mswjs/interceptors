@@ -1,5 +1,4 @@
-// @vitest-environment node
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 
@@ -26,7 +25,7 @@ it('treats middleware exceptions as 500 responses', async () => {
 
   expect(response.status).toBe(500)
   expect(response.statusText).toBe('Unhandled Exception')
-  expect(await response.json()).toEqual({
+  await expect(response.json()).resolves.toEqual({
     name: 'Error',
     message: 'Network error',
     stack: expect.any(String),
@@ -41,10 +40,10 @@ it('treats a thrown Response as a mocked response', async () => {
   const response = await fetch('http://localhost:3001/resource')
 
   expect(response.status).toBe(200)
-  expect(await response.text()).toBe('hello world')
+  await expect(response.text()).resolves.toBe('hello world')
 })
 
-it('treats a Response.error() as a network error', async () => {
+it('treats a Response.error() as a network error', async ({ task }) => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(Response.error())
   })
@@ -56,11 +55,17 @@ it('treats a Response.error() as a network error', async () => {
     .catch<TypeError & { cause?: unknown }>((error) => error)
 
   expect(requestError.name).toBe('TypeError')
-  expect(requestError.message).toBe('Failed to fetch')
-  expect(requestError.cause).toBeInstanceOf(Response)
+
+  if (task.file.projectName === 'browser') {
+    expect(requestError.message).toBe('Failed to fetch')
+    expect(requestError.cause).toBeInstanceOf(Response)
+  } else {
+    expect(requestError.message).toBe('fetch failed')
+    expect(requestError.cause).toEqual(new TypeError('Network error'))
+  }
 })
 
-it('treats a thrown Response.error() as a network error', async () => {
+it('treats a thrown Response.error() as a network error', async ({ task }) => {
   interceptor.on('request', () => {
     throw Response.error()
   })
@@ -72,8 +77,14 @@ it('treats a thrown Response.error() as a network error', async () => {
     .catch<TypeError & { cause?: unknown }>((error) => error)
 
   expect(requestError.name).toBe('TypeError')
-  expect(requestError.message).toBe('Failed to fetch')
-  expect(requestError.cause).toBeInstanceOf(Response)
+
+  if (task.file.projectName === 'browser') {
+    expect(requestError.message).toBe('Failed to fetch')
+    expect(requestError.cause).toBeInstanceOf(Response)
+  } else {
+    expect(requestError.message).toBe('fetch failed')
+    expect(requestError.cause).toEqual(new TypeError('Network error'))
+  }
 })
 
 it('handles exceptions by default if "unhandledException" is provided but does nothing', async () => {
@@ -88,7 +99,7 @@ it('handles exceptions by default if "unhandledException" is provided but does n
 
   expect(response.status).toBe(500)
   expect(response.statusText).toBe('Unhandled Exception')
-  expect(await response.json()).toEqual({
+  await expect(response.json()).resolves.toEqual({
     name: 'Error',
     message: 'Custom error',
     stack: expect.any(String),
@@ -118,7 +129,7 @@ it('handles exceptions as instructed in "unhandledException" listener (mock resp
   const response = await fetch('http://localhost/resource')
 
   expect(response.status).toBe(200)
-  expect(await response.text()).toBe('fallback response')
+  await expect(response.text()).resolves.toBe('fallback response')
 
   expect(unhandledExceptionListener).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -127,7 +138,9 @@ it('handles exceptions as instructed in "unhandledException" listener (mock resp
   )
 })
 
-it('handles exceptions as instructed in "unhandledException" listener (request error)', async () => {
+it('handles exceptions as instructed in "unhandledException" listener (request error)', async ({
+  task,
+}) => {
   const unhandledExceptionListener = vi.fn()
 
   interceptor.on('request', () => {
@@ -147,9 +160,19 @@ it('handles exceptions as instructed in "unhandledException" listener (request e
     })
     .catch<Error & { cause?: unknown }>((error) => error)
 
-  expect(requestError.name).toBe('Error')
-  expect(requestError.message).toBe('Fallback error')
-  expect(requestError.cause).toBeUndefined()
+  if (task.file.projectName === 'browser') {
+    expect(requestError.name).toBe('Error')
+    expect(requestError.message).toBe('Fallback error')
+    expect(requestError.cause).toBeUndefined()
+  } else {
+    /**
+     * @note In Node.js, custom request errors surface as the cause
+     * of the fetch rejection because they destroy the underlying socket.
+     */
+    expect(requestError.name).toBe('TypeError')
+    expect(requestError.message).toBe('fetch failed')
+    expect(requestError.cause).toEqual(new Error('Fallback error'))
+  }
 
   expect(unhandledExceptionListener).toHaveBeenCalledWith(
     expect.objectContaining({
