@@ -17,8 +17,8 @@ afterAll(() => {
 
 it('intercepts a request without a body', async () => {
   const pendingRequestBody = new DeferredPromise<string>()
-  interceptor.on('request', ({ request, controller }) => {
-    pendingRequestBody.resolve(request.clone().text())
+  interceptor.on('request', async ({ request, controller }) => {
+    pendingRequestBody.resolve(await request.clone().text())
     controller.respondWith(new Response())
   })
 
@@ -29,8 +29,8 @@ it('intercepts a request without a body', async () => {
 
 it('intercepts a request with a Blob body', async () => {
   const pendingRequestBody = new DeferredPromise<string>()
-  interceptor.on('request', ({ request, controller }) => {
-    pendingRequestBody.resolve(request.clone().text())
+  interceptor.on('request', async ({ request, controller }) => {
+    pendingRequestBody.resolve(await request.clone().text())
     controller.respondWith(new Response())
   })
 
@@ -44,8 +44,8 @@ it('intercepts a request with a Blob body', async () => {
 
 it('intercepts a request with a FormData body', async () => {
   const pendingRequestBody = new DeferredPromise<string>()
-  interceptor.on('request', ({ request, controller }) => {
-    pendingRequestBody.resolve(request.clone().text())
+  interceptor.on('request', async ({ request, controller }) => {
+    pendingRequestBody.resolve(await request.clone().text())
     controller.respondWith(new Response())
   })
 
@@ -74,8 +74,8 @@ it('intercepts a request with a FormData body', async () => {
 
 it('intercepts a request with an ArrayBuffer body', async () => {
   const pendingRequestBody = new DeferredPromise<string>()
-  interceptor.on('request', ({ request, controller }) => {
-    pendingRequestBody.resolve(request.clone().text())
+  interceptor.on('request', async ({ request, controller }) => {
+    pendingRequestBody.resolve(await request.clone().text())
     controller.respondWith(new Response())
   })
 
@@ -89,8 +89,8 @@ it('intercepts a request with an ArrayBuffer body', async () => {
 
 it('intercepts a request with a URLSearchParams body', async () => {
   const pendingRequestBody = new DeferredPromise<string>()
-  interceptor.on('request', ({ request, controller }) => {
-    pendingRequestBody.resolve(request.clone().text())
+  interceptor.on('request', async ({ request, controller }) => {
+    pendingRequestBody.resolve(await request.clone().text())
     controller.respondWith(new Response())
   })
 
