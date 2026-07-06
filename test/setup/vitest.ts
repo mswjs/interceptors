@@ -5,6 +5,7 @@ declare module 'vitest' {
     server: {
       http: string
       https: string
+      ws: string
     }
   }
 }
@@ -12,7 +13,7 @@ declare module 'vitest' {
 export function getTestServer() {
   const server = inject('server')
 
-  const createUrlBuilder = (protocol: 'http' | 'https') => {
+  const createUrlBuilder = (protocol: 'http' | 'https' | 'ws') => {
     return (path = '/'): URL => {
       return new URL(path, server[protocol])
     }
@@ -26,6 +27,10 @@ export function getTestServer() {
     https: {
       href: server.https,
       url: createUrlBuilder('https'),
+    },
+    ws: {
+      href: server.ws,
+      url: createUrlBuilder('ws'),
     },
   }
 }

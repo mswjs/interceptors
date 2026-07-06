@@ -1,42 +1,22 @@
 // @vitest-environment node-with-websocket
-import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket/index'
-import { getWsUrl } from '../utils/getWsUrl'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+import { setTimeout } from '#/test/setup/helpers-neutral'
+import { getTestServer } from '#/test/setup/vitest'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
-import { waitForNextTick } from '../utils/waitForNextTick'
 
+const testServer = getTestServer()
 const interceptor = new WebSocketInterceptor()
-
-const wsServer = new WebSocketServer({
-  host: '127.0.0.1',
-  port: 0,
-})
 
 beforeAll(() => {
   interceptor.apply()
 })
 
-afterEach(async () => {
+afterEach(() => {
   interceptor.removeAllListeners()
-
-  for (const client of wsServer.clients) {
-    client.close()
-    await new Promise((resolve, reject) => {
-      client.onerror = reject
-      client.onclose = resolve
-    })
-  }
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
-
-  await new Promise<void>((resolve, reject) => {
-    wsServer.close((error) => {
-      if (error) reject(error)
-      resolve()
-    })
-  })
 })
 
 it('emits "open" event when the server connection is open', async () => {
@@ -46,7 +26,7 @@ it('emits "open" event when the server connection is open', async () => {
     server.addEventListener('open', serverOpenListener)
   })
 
-  const client = new WebSocket(getWsUrl(wsServer))
+  const client = new WebSocket(testServer.ws.url())
   expect(client.readyState).toBe(WebSocket.CONNECTING)
 
   await vi.waitFor(() => {
@@ -54,6 +34,7 @@ it('emits "open" event when the server connection is open', async () => {
   })
 
   expect(client.readyState).toBe(WebSocket.OPEN)
+  client.close()
 })
 
 it('emits "open" event if the listener was added before calling "connect()"', async () => {
@@ -64,7 +45,7 @@ it('emits "open" event if the listener was added before calling "connect()"', as
     server.connect()
   })
 
-  const client = new WebSocket(getWsUrl(wsServer))
+  const client = new WebSocket(testServer.ws.url())
   expect(client.readyState).toBe(WebSocket.CONNECTING)
 
   await vi.waitFor(() => {
@@ -72,13 +53,10 @@ it('emits "open" event if the listener was added before calling "connect()"', as
   })
 
   expect(client.readyState).toBe(WebSocket.OPEN)
+  client.close()
 })
 
 it('emits "close" event when the server connection is closed', async () => {
-  wsServer.addListener('connection', (ws) => {
-    queueMicrotask(() => ws.close())
-  })
-
   const serverErrorListener = vi.fn()
   const serverCloseListener = vi.fn()
 
@@ -88,7 +66,8 @@ it('emits "close" event when the server connection is closed', async () => {
     server.addEventListener('close', serverCloseListener)
   })
 
-  const client = new WebSocket(getWsUrl(wsServer))
+  // The actual server closes every connection immediately.
+  const client = new WebSocket(testServer.ws.url('/?close'))
   expect(client.readyState).toBe(WebSocket.CONNECTING)
 
   await vi.waitFor(() => {
@@ -115,7 +94,7 @@ it('emits "close" event when the server connection is closed by the interceptor'
     server.addEventListener('open', () => server.close())
   })
 
-  const client = new WebSocket(getWsUrl(wsServer))
+  const client = new WebSocket(testServer.ws.url())
   expect(client.readyState).toBe(WebSocket.CONNECTING)
 
   await vi.waitFor(() => {
@@ -134,6 +113,8 @@ it('emits "close" event when the server connection is closed by the interceptor'
   expect(closeEvent).toHaveProperty('reason', '')
 
   expect(serverErrorListener).not.toHaveBeenCalled()
+
+  client.close()
 })
 
 /**
@@ -172,7 +153,7 @@ it.skip('emits both "error" and "close" events when the server connection errors
 
   expect(client.readyState).toBe(WebSocket.CLOSING)
 
-  await waitForNextTick()
+  await setTimeout(0)
   expect(client.readyState).toBe(WebSocket.CLOSED)
 
   // Must emit the "error" event.
@@ -194,7 +175,7 @@ it('prevents "error" event forwarding by calling "event.preventDefault()', async
       event.preventDefault()
       expect(event.defaultPrevented).toBe(true)
 
-      process.nextTick(() => client.close())
+      globalThis.setTimeout(() => client.close(), 0)
     })
   })
 
@@ -208,11 +189,7 @@ it('prevents "error" event forwarding by calling "event.preventDefault()', async
 })
 
 it('prevents "close" event forwarding by calling "event.preventDefault()"', async () => {
-  wsServer.once('connection', (ws) => {
-    ws.close(1003, 'Server reason')
-  })
-
-  interceptor.once('connection', ({ server, client }) => {
+  interceptor.once('connection', ({ server }) => {
     server.connect()
     server.addEventListener('close', (event) => {
       expect(event.defaultPrevented).toBe(false)
@@ -221,7 +198,8 @@ it('prevents "close" event forwarding by calling "event.preventDefault()"', asyn
     })
   })
 
-  const client = new WebSocket(getWsUrl(wsServer))
+  // The actual server closes every connection with a custom code.
+  const client = new WebSocket(testServer.ws.url('/?close=1003,Server reason'))
   const closeListener = vi.fn()
   const errorListener = vi.fn()
   client.addEventListener('close', closeListener)

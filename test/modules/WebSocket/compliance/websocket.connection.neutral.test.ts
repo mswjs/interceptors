@@ -1,30 +1,21 @@
-/**
- * @vitest-environment node-with-websocket
- */
-import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket/index'
-import { getWsUrl } from '../utils/getWsUrl'
-import { REQUEST_ID_REGEXP } from '#/test/helpers'
-import { waitForNextTick } from '../utils/waitForNextTick'
+// @vitest-environment node-with-websocket
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+import { setTimeout } from '#/test/setup/helpers-neutral'
+import { getTestServer } from '#/test/setup/vitest'
 
+const server = getTestServer()
 const interceptor = new WebSocketInterceptor()
-
-const wsServer = new WebSocketServer({
-  host: '127.0.0.1',
-  port: 0,
-})
 
 beforeAll(() => {
   interceptor.apply()
 })
 
 afterEach(() => {
-  wsServer.clients.forEach((client) => client.close())
+  interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
-  wsServer.close()
 })
 
 it('emits the correct "connection" event on the interceptor', async () => {
@@ -36,7 +27,7 @@ it('emits the correct "connection" event on the interceptor', async () => {
   // Must not emit the "connection" event on this tick.
   expect(connectionListener).toHaveBeenCalledTimes(0)
 
-  await waitForNextTick()
+  await setTimeout(0)
 
   // Must emit the "connection" event on the next tick
   // so the client can modify the WebSocket instance meanwhile.
@@ -45,7 +36,7 @@ it('emits the correct "connection" event on the interceptor', async () => {
     1,
     expect.objectContaining({
       client: expect.objectContaining({
-        id: expect.stringMatching(REQUEST_ID_REGEXP),
+        id: expect.stringMatching(/^\w{9,}$/),
         send: expect.any(Function),
         addEventListener: expect.any(Function),
         removeEventListener: expect.any(Function),
@@ -64,17 +55,20 @@ it('emits the correct "connection" event on the interceptor', async () => {
 })
 
 it('does not connect to the actual WebSocket server by default', async () => {
-  const realConnectionListener = vi.fn()
-  wsServer.on('connection', realConnectionListener)
-
   const connectionListener = vi.fn()
   interceptor.once('connection', connectionListener)
 
-  new WebSocket(getWsUrl(wsServer))
-  await waitForNextTick()
+  // Connect to the actual server that greets every connected client.
+  const messageListener = vi.fn()
+  const ws = new WebSocket(server.ws.url('/?greet'))
+  ws.onmessage = messageListener
+
+  await setTimeout(250)
 
   expect(connectionListener).toHaveBeenCalledTimes(1)
-  expect(realConnectionListener).not.toHaveBeenCalled()
+  // Must not receive the greeting since the connection
+  // to the actual server was never established.
+  expect(messageListener).not.toHaveBeenCalled()
 })
 
 it('includes connection information in the "connection" event payload', async () => {
@@ -82,7 +76,7 @@ it('includes connection information in the "connection" event payload', async ()
   interceptor.once('connection', connectionListener)
 
   new WebSocket('wss://example.com', ['protocol1', 'protocol2'])
-  await waitForNextTick()
+  await setTimeout(0)
 
   expect(connectionListener).toHaveBeenCalledTimes(1)
   expect(connectionListener).toHaveBeenNthCalledWith(

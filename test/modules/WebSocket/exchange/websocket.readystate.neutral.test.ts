@@ -1,7 +1,7 @@
 // @vitest-environment node-with-websocket
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+import { setTimeout } from '#/test/setup/helpers-neutral'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
-import { waitForNextTick } from '../utils/waitForNextTick'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -25,14 +25,14 @@ it('dispatches the connection even when the client "readyState" is OPEN', async 
     readyStateListener(client.socket.readyState)
 
     /**
-     * @note Use `process.nextTick()` because it has lower priority
+     * @note Use a macrotask because it has lower priority
      * than `queueMicrotask()`. If you queue a microtask here, it will
      * run BEFORE a queued microtask that dispatches the open event.
      */
-    process.nextTick(() => {
+    globalThis.setTimeout(() => {
       readyStateListener(client.socket.readyState)
       client.close()
-    })
+    }, 0)
   })
 
   const socket = new WebSocket('wss://localhost')
@@ -56,10 +56,10 @@ it('updates "readyState" correctly when closing the connection in the intercepto
     // CLOSING.
     readyStateListener(client.socket.readyState)
 
-    process.nextTick(() => {
+    globalThis.setTimeout(() => {
       // CLOSED.
       readyStateListener(client.socket.readyState)
-    })
+    }, 0)
   })
 
   const openEventListener = vi.fn()
@@ -71,7 +71,7 @@ it('updates "readyState" correctly when closing the connection in the intercepto
   // Must set ready state to CLOSING in the same frame as "client.close()".
   expect(readyStateListener).toHaveBeenNthCalledWith(2, WebSocket.CLOSING)
 
-  await waitForNextTick()
+  await setTimeout(0)
   // Must set ready state to CLOSED in the next frame.
   expect(readyStateListener).toHaveBeenNthCalledWith(3, WebSocket.CLOSED)
 

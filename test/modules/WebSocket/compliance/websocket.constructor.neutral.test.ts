@@ -2,7 +2,9 @@
  * @vitest-environment node-with-websocket
  * @see https://websockets.spec.whatwg.org//#dom-websocket-websocket
  */
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+
+const IS_BROWSER = typeof window !== 'undefined'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -47,7 +49,7 @@ it('throws an error on not allowed schemes', () => {
   )
 })
 
-it('throws on a relative URL in Node.js', () => {
+it.skipIf(IS_BROWSER)('throws on a relative URL in Node.js', () => {
   expect(() => new WebSocket('/not-allowed')).toThrow(
     expect.objectContaining({
       name: 'TypeError',
@@ -56,6 +58,13 @@ it('throws on a relative URL in Node.js', () => {
     })
   )
 })
+
+it.skipIf(!IS_BROWSER)(
+  'resolves a relative WebSocket URL against location',
+  () => {
+    expect(new WebSocket('/api').url).toBe(`ws://${location.host}/api`)
+  }
+)
 
 it('ensures trailing slash where appropriate', () => {
   expect(new WebSocket('wss://localhost:5678').url).toBe(

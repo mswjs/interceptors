@@ -1,6 +1,6 @@
 // @vitest-environment node-with-websocket
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -66,9 +66,6 @@ it('intercepts ArrayBuffer sent over websocket', async () => {
 
   interceptor.once('connection', ({ client }) => {
     client.addEventListener('message', (event) => {
-      /**
-       * @note ArrayBuffer data is represented as Buffer in Node.js.
-       */
       if (event.data instanceof Uint8Array) {
         messageReceivedPromise.resolve(event.data)
       } else {
@@ -84,10 +81,10 @@ it('intercepts ArrayBuffer sent over websocket', async () => {
   expect(await messageReceivedPromise).toEqual(buffer)
 })
 
-it('increases "bufferAmount" before data is sent', async () => {
+it('increases "bufferedAmount" before data is sent', async () => {
   interceptor.once('connection', () => {})
 
-  const bufferAmountPromise = new DeferredPromise<{
+  const bufferedAmountPromise = new DeferredPromise<{
     beforeSend: number
     afterSend: number
   }>()
@@ -97,14 +94,14 @@ it('increases "bufferAmount" before data is sent', async () => {
     ws.send('hello')
     const beforeSend = ws.bufferedAmount
     queueMicrotask(() => {
-      bufferAmountPromise.resolve({
+      bufferedAmountPromise.resolve({
         beforeSend,
         afterSend: ws.bufferedAmount,
       })
     })
   })
 
-  expect(await bufferAmountPromise).toEqual({
+  await expect(bufferedAmountPromise).resolves.toEqual({
     beforeSend: 5,
     afterSend: 0,
   })

@@ -1,37 +1,32 @@
 // @vitest-environment node-with-websocket
-import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
-import { getWsUrl } from '../utils/getWsUrl'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+import { getTestServer } from '#/test/setup/vitest'
 
+const server = getTestServer()
 const interceptor = new WebSocketInterceptor()
-
-const wsServer = new WebSocketServer({
-  host: '127.0.0.1',
-  port: 0,
-})
 
 beforeAll(() => {
   interceptor.apply()
 })
 
+afterEach(() => {
+  interceptor.removeAllListeners()
+})
+
 afterAll(() => {
   interceptor.dispose()
-  wsServer.close()
 })
 
 it('emits a MessageEvent on incoming server message', async () => {
-  wsServer.once('connection', (ws) => {
-    ws.send('hi from server')
-  })
-
   const serverMessageListener = vi.fn()
   interceptor.once('connection', ({ server }) => {
     server.connect()
     server.addEventListener('message', serverMessageListener)
   })
 
+  const url = server.ws.url('/?greet')
   const clientMessageListener = vi.fn()
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(url)
   ws.onmessage = (event) => clientMessageListener(event)
 
   // Must dispatch the correct incoming server MessageEvent.
@@ -41,8 +36,8 @@ it('emits a MessageEvent on incoming server message', async () => {
 
     expect(event).toBeInstanceOf(MessageEvent)
     expect(event.type).toBe('message')
-    expect(event.data).toBe('hi from server')
-    expect(event.origin).toBe(getWsUrl(wsServer))
+    expect(event.data).toBe('hello world')
+    expect(event.origin).toBe(url.origin)
     expect(event.cancelable).toBe(true)
     expect(event.defaultPrevented).toBe(false)
   })
@@ -54,16 +49,14 @@ it('emits a MessageEvent on incoming server message', async () => {
     const event = clientMessageListener.mock.calls[0][0] as MessageEvent
     expect(event).toBeInstanceOf(MessageEvent)
     expect(event.type).toBe('message')
-    expect(event.data).toBe('hi from server')
-    expect(event.origin).toBe(getWsUrl(wsServer))
+    expect(event.data).toBe('hello world')
+    expect(event.origin).toBe(url.origin)
   })
+
+  ws.close()
 })
 
 it('prevents the default server-to-client message forwarding', async () => {
-  wsServer.once('connection', (ws) => {
-    ws.send('hi from server')
-  })
-
   const serverMessageListener = vi.fn()
   interceptor.once('connection', ({ server }) => {
     server.connect()
@@ -74,11 +67,13 @@ it('prevents the default server-to-client message forwarding', async () => {
   })
 
   const clientMessageListener = vi.fn()
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(server.ws.url('/?greet'))
   ws.onmessage = (event) => clientMessageListener(event)
 
   await vi.waitFor(() => {
     expect(serverMessageListener).toHaveBeenCalledTimes(1)
     expect(clientMessageListener).not.toHaveBeenCalled()
   })
+
+  ws.close()
 })

@@ -1,14 +1,9 @@
 // @vitest-environment node-with-websocket
-import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket/index'
-import { getWsUrl } from '../utils/getWsUrl'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+import { getTestServer } from '#/test/setup/vitest'
 
+const server = getTestServer()
 const interceptor = new WebSocketInterceptor()
-
-const wsServer = new WebSocketServer({
-  host: '127.0.0.1',
-  port: 0,
-})
 
 beforeAll(() => {
   interceptor.apply()
@@ -16,7 +11,6 @@ beforeAll(() => {
 
 afterAll(() => {
   interceptor.dispose()
-  wsServer.close()
 })
 
 it('restores the global WebSocket class after the interceptor is disposed', async () => {
@@ -31,11 +25,13 @@ it('restores the global WebSocket class after the interceptor is disposed', asyn
 
   interceptor.dispose()
 
-  const socket = new WebSocket(getWsUrl(wsServer))
+  const socket = new WebSocket(server.ws.url())
   const openListener = vi.fn()
   socket.onopen = openListener
 
   await vi.waitFor(() => {
     expect(openListener).toHaveBeenCalledTimes(1)
   })
+
+  socket.close()
 })

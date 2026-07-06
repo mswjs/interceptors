@@ -1,33 +1,21 @@
-/**
- * @vitest-environment node-with-websocket
- */
-import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
-import { waitForNextTick } from '../utils/waitForNextTick'
-import { getWsUrl } from '../utils/getWsUrl'
+// @vitest-environment node-with-websocket
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+import { setTimeout } from '#/test/setup/helpers-neutral'
+import { getTestServer } from '#/test/setup/vitest'
 
+const testServer = getTestServer()
 const interceptor = new WebSocketInterceptor()
-
-const wsServer = new WebSocketServer({
-  host: '127.0.0.1',
-  port: 0,
-})
 
 beforeAll(() => {
   interceptor.apply()
 })
 
-afterEach(() => {
-  wsServer.clients.forEach((client) => client.close())
-})
-
 afterAll(() => {
   interceptor.dispose()
-  wsServer.close()
 })
 
 it('sets the "onopen" event callback', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(testServer.ws.url())
   expect(ws.onopen).toBeNull()
 
   const openCallback = vi.fn()
@@ -42,7 +30,7 @@ it('sets the "onopen" event callback', async () => {
 })
 
 it('removes previous "onopen" callback when setting the new one', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(testServer.ws.url())
   const firstCallback = vi.fn()
   const secondCallback = vi.fn()
   ws.onopen = firstCallback
@@ -57,7 +45,7 @@ it('removes previous "onopen" callback when setting the new one', async () => {
 })
 
 it('sets the "onmessage" event callback', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(testServer.ws.url())
   expect(ws.onmessage).toBeNull()
 
   const messageCallback = vi.fn()
@@ -66,13 +54,13 @@ it('sets the "onmessage" event callback', async () => {
   expect(messageCallback).not.toHaveBeenCalled()
 
   ws.dispatchEvent(new MessageEvent('message'))
-  await waitForNextTick()
+  await setTimeout(0)
 
   expect(messageCallback).toHaveBeenCalledTimes(1)
 })
 
 it('removes previous "onmessage" callback when setting the new one', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(testServer.ws.url())
   const firstCallback = vi.fn()
   const secondCallback = vi.fn()
   ws.onmessage = firstCallback
@@ -81,14 +69,14 @@ it('removes previous "onmessage" callback when setting the new one', async () =>
   expect(ws.onmessage).toEqual(secondCallback)
 
   ws.dispatchEvent(new MessageEvent('message'))
-  await waitForNextTick()
+  await setTimeout(0)
 
   expect(firstCallback).toHaveBeenCalledTimes(0)
   expect(secondCallback).toHaveBeenCalledTimes(1)
 })
 
 it('sets the "onclose" event callback', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(testServer.ws.url())
   expect(ws.onclose).toBeNull()
 
   const closeCallback = vi.fn()
@@ -97,13 +85,13 @@ it('sets the "onclose" event callback', async () => {
   expect(closeCallback).not.toHaveBeenCalled()
 
   ws.close()
-  await waitForNextTick()
+  await setTimeout(0)
 
   expect(closeCallback).toHaveBeenCalledTimes(1)
 })
 
 it('removes previous "onclose" callback when setting the new one', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(testServer.ws.url())
   const firstCallback = vi.fn()
   const secondCallback = vi.fn()
   ws.onclose = firstCallback
@@ -112,14 +100,14 @@ it('removes previous "onclose" callback when setting the new one', async () => {
   expect(ws.onclose).toEqual(secondCallback)
 
   ws.close()
-  await waitForNextTick()
+  await setTimeout(0)
 
   expect(firstCallback).toHaveBeenCalledTimes(0)
   expect(secondCallback).toHaveBeenCalledTimes(1)
 })
 
 it('sets the "onerror" event callback', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(testServer.ws.url())
   expect(ws.onerror).toBeNull()
 
   const errorCallback = vi.fn()
@@ -128,13 +116,13 @@ it('sets the "onerror" event callback', async () => {
   expect(errorCallback).not.toHaveBeenCalled()
 
   ws.dispatchEvent(new Event('error'))
-  await waitForNextTick()
+  await setTimeout(0)
 
   expect(errorCallback).toHaveBeenCalledTimes(1)
 })
 
 it('removes previous "onerror" callback when setting the new one', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(testServer.ws.url())
   const firstCallback = vi.fn()
   const secondCallback = vi.fn()
   ws.onerror = firstCallback
@@ -143,7 +131,7 @@ it('removes previous "onerror" callback when setting the new one', async () => {
   expect(ws.onerror).toEqual(secondCallback)
 
   ws.dispatchEvent(new Event('error'))
-  await waitForNextTick()
+  await setTimeout(0)
 
   expect(firstCallback).toHaveBeenCalledTimes(0)
   expect(secondCallback).toHaveBeenCalledTimes(1)

@@ -2,16 +2,11 @@
  * @vitest-environment node-with-websocket
  * @see https://websockets.spec.whatwg.org/#dom-websocket-close
  */
-import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
-import { waitForNextTick } from '../utils/waitForNextTick'
-import { getWsUrl } from '../utils/getWsUrl'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+import { setTimeout } from '#/test/setup/helpers-neutral'
+import { getTestServer } from '#/test/setup/vitest'
 
-const wsServer = new WebSocketServer({
-  host: '127.0.0.1',
-  port: 0,
-})
-
+const server = getTestServer()
 const interceptor = new WebSocketInterceptor()
 
 beforeAll(() => {
@@ -20,23 +15,21 @@ beforeAll(() => {
 
 afterEach(() => {
   interceptor.removeAllListeners()
-  wsServer.clients.forEach((client) => client.close())
 })
 
 afterAll(() => {
   interceptor.dispose()
-  wsServer.close()
 })
 
 it('errors when calling "close" with a non-configurable status code', () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(server.ws.url())
   expect(() => {
     ws.close(1003)
   }).toThrow('InvalidAccessError: close code out of user configurable range')
 })
 
 it('closes the connection gracefully given no closure code', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(server.ws.url())
   const closeListener = vi.fn()
   const errorListener = vi.fn()
   ws.onerror = errorListener
@@ -58,7 +51,7 @@ it('closes the connection gracefully given no closure code', async () => {
 })
 
 it('closes the connection with a custom code and reason', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(server.ws.url())
   const closeListener = vi.fn()
   const errorListener = vi.fn()
   ws.onerror = errorListener
@@ -95,7 +88,7 @@ it('removes all listeners after calling "close"', async () => {
   expect(ws.onclose).not.toBeNull()
   expect(ws.onerror).not.toBeNull()
 
-  await waitForNextTick()
+  await setTimeout(0)
 
   expect(ws.onopen).toBeNull()
   expect(ws.onmessage).toBeNull()

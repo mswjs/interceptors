@@ -1,8 +1,6 @@
-/**
- * @vitest-environment node-with-websocket
- */
+// @vitest-environment node-with-websocket
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
 

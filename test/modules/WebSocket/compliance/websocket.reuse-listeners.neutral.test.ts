@@ -1,28 +1,21 @@
 // @vitest-environment node-with-websocket
-import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
-import { getWsUrl } from '../utils/getWsUrl'
+import { getTestServer } from '#/test/setup/vitest'
 
-const wsServer = new WebSocketServer({
-  host: '127.0.0.1',
-  port: 0,
-})
-
+const server = getTestServer()
 const interceptor = new WebSocketInterceptor()
 
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
 })
 
 afterEach(() => {
   interceptor.removeAllListeners()
-  wsServer.clients.forEach((client) => client.close())
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
-  wsServer.close()
 })
 
 it('allows reusing the same function for multiple client listeners', async () => {
@@ -34,13 +27,13 @@ it('allows reusing the same function for multiple client listeners', async () =>
     client.addEventListener('message', clientMessageListener)
 
     /**
-     * @note Use `process.nextTick()` because `queueMicrotask()` has a
+     * @note Use a macrotask because `queueMicrotask()` has a
      * higher priority. We need the connection to open, handle messages,
      * and then close.
      */
-    process.nextTick(() => {
+    globalThis.setTimeout(() => {
       client.close()
-    })
+    }, 0)
   })
 
   const socket = new WebSocket('wss://example.com')
@@ -56,11 +49,6 @@ it('allows reusing the same function for multiple client listeners', async () =>
 })
 
 it('allows reusing the same function for multiple server listeners', async () => {
-  wsServer.once('connection', (ws) => {
-    ws.send('hello from server')
-    queueMicrotask(() => ws.close())
-  })
-
   const serverMessageListener = vi.fn()
 
   interceptor.on('connection', ({ server }) => {
@@ -70,7 +58,8 @@ it('allows reusing the same function for multiple server listeners', async () =>
     server.addEventListener('message', serverMessageListener)
   })
 
-  const socket = new WebSocket(getWsUrl(wsServer))
+  // The actual server greets the client, then closes the connection.
+  const socket = new WebSocket(server.ws.url('/?greet&close'))
 
   await waitForWebSocketEvent('close', socket)
 

@@ -1,40 +1,30 @@
 // @vitest-environment node-with-websocket
-import { WebSocketServer } from 'ws'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
-import { getWsUrl } from '../utils/getWsUrl'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+import { getTestServer } from '#/test/setup/vitest'
 
+const server = getTestServer()
 const interceptor = new WebSocketInterceptor()
-
-const wsServer = new WebSocketServer({
-  host: '127.0.0.1',
-  port: 0,
-})
 
 beforeAll(() => {
   interceptor.apply()
 })
 
 afterEach(() => {
-  wsServer.clients.forEach((client) => client.close(1000))
-  wsServer.removeAllListeners()
+  interceptor.removeAllListeners()
 })
 
 afterAll(() => {
   interceptor.dispose()
-  wsServer.close()
 })
 
 it('forwards incoming server data from the original server', async () => {
-  wsServer.once('connection', (ws) => {
-    ws.send('hello from server')
-  })
-
   interceptor.once('connection', ({ server }) => {
     server.connect()
   })
 
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const url = server.ws.url('/?greet')
+  const ws = new WebSocket(url)
   const messageReceivedPromise = new DeferredPromise<MessageEvent>()
   ws.addEventListener('message', (event) => {
     messageReceivedPromise.resolve(event)
@@ -42,24 +32,21 @@ it('forwards incoming server data from the original server', async () => {
 
   const messageEvent = await messageReceivedPromise
   expect(messageEvent.type).toBe('message')
-  expect(messageEvent.data).toBe('hello from server')
-  expect(messageEvent.origin + '/').toBe(ws.url)
+  expect(messageEvent.data).toBe('hello world')
+  expect(messageEvent.origin).toBe(url.origin)
   expect(messageEvent.target).toEqual(ws)
+
+  ws.close()
 })
 
 it('forwards outgoing client data to the original server', async () => {
-  wsServer.once('connection', (ws) => {
-    ws.on('message', (data) => {
-      ws.send(`Hello, ${data}!`)
-    })
-  })
-
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
     client.addEventListener('message', (event) => server.send(event.data))
   })
 
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const url = server.ws.url('/?echo')
+  const ws = new WebSocket(url)
   const messageReceivedPromise = new DeferredPromise<MessageEvent>()
   ws.addEventListener('open', () => {
     ws.send('John')
@@ -70,13 +57,11 @@ it('forwards outgoing client data to the original server', async () => {
 
   const messageEvent = await messageReceivedPromise
   expect(messageEvent.type).toBe('message')
-  expect(messageEvent.data).toBe('Hello, John!')
-  /**
-   * @note The `MessageEvent.origin` produces by `ws` doesn't have a trailing slash
-   * while the correctly constructed WebSocket.url does.
-   */
-  expect(messageEvent.origin + '/').toBe(ws.url)
+  expect(messageEvent.data).toBe('John')
+  expect(messageEvent.origin).toBe(url.origin)
   expect(messageEvent.target).toEqual(ws)
+
+  ws.close()
 })
 
 it('closes the actual server connection when the client closes', async () => {
@@ -95,7 +80,7 @@ it('closes the actual server connection when the client closes', async () => {
     })
   })
 
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(server.ws.url())
   ws.addEventListener('open', () => {
     ws.send('close')
   })
@@ -126,13 +111,6 @@ it('inherits the "binaryType" from the mock WebSocket', async () => {
   const clientMessageListener = vi.fn<(buffer: ArrayBuffer) => void>()
   const interceptorMessageListener = vi.fn<(buffer: ArrayBuffer) => void>()
 
-  wsServer.on('connection', (ws) => {
-    // Set the "binaryType" for the "ws" package also
-    // so it sends ArrayBuffer and not internal "nodebuffer".
-    ws.binaryType = 'arraybuffer'
-    ws.send(new TextEncoder().encode('hello'))
-  })
-
   interceptor.once('connection', ({ server }) => {
     server.connect()
     server.addEventListener('message', (event) => {
@@ -140,7 +118,7 @@ it('inherits the "binaryType" from the mock WebSocket', async () => {
     })
   })
 
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(server.ws.url('/?greet-binary'))
   // Set a custom binary type for this socket instance.
   ws.binaryType = 'arraybuffer'
   ws.onmessage = (event) => clientMessageListener(event.data)
@@ -152,4 +130,6 @@ it('inherits the "binaryType" from the mock WebSocket', async () => {
     const clientData = clientMessageListener.mock.calls[0][0]
     expect(new TextDecoder().decode(clientData)).toBe('hello')
   })
+
+  ws.close()
 })

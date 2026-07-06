@@ -1,26 +1,10 @@
-/**
- * @vitest-environment node-with-websocket
- * @see https://websockets.spec.whatwg.org/#dom-websocket-close
- */
-import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
+// @vitest-environment node-with-websocket
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
-import { getWsUrl } from '../utils/getWsUrl'
+import { getTestServer } from '#/test/setup/vitest'
 
+const server = getTestServer()
 const interceptor = new WebSocketInterceptor()
-
-const wsServer = new WebSocketServer({
-  host: '127.0.0.1',
-  port: 0,
-  handleProtocols(protocols) {
-    /**
-     * @fixme Server must choose just ONE protocol.
-     * This is a workaround to make Undici work in Node.js v18.
-     * @see https://github.com/nodejs/undici/issues/2844
-     */
-    return Array.from(protocols)[0]
-  },
-})
 
 beforeAll(() => {
   interceptor.apply()
@@ -28,12 +12,10 @@ beforeAll(() => {
 
 afterEach(() => {
   interceptor.removeAllListeners()
-  wsServer.clients.forEach((client) => client.close())
 })
 
 afterAll(() => {
   interceptor.dispose()
-  wsServer.close()
 })
 
 it('returns an empty string if no protocol was provided (mocked)', async () => {
@@ -46,11 +28,13 @@ it('returns an empty string if no protocol was provided (mocked)', async () => {
 })
 
 it('returns an empty string if no protocol was provided (original)', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(server.ws.url())
   expect(ws.protocol).toBe('')
 
   await waitForWebSocketEvent('open', ws)
   expect(ws.protocol).toBe('')
+
+  ws.close()
 })
 
 it('returns the protocol if a single protocol was provided (mocked)', async () => {
@@ -67,7 +51,7 @@ it('returns the protocol if a single protocol was provided (mocked)', async () =
 })
 
 it('returns the protocol if a single protocol was provided (original)', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer), 'chat')
+  const ws = new WebSocket(server.ws.url(), 'chat')
 
   // The protocol is empty on the first tick.
   // This is where the client is waiting for the "server"
@@ -76,6 +60,8 @@ it('returns the protocol if a single protocol was provided (original)', async ()
 
   await waitForWebSocketEvent('open', ws)
   expect(ws.protocol).toBe('chat')
+
+  ws.close()
 })
 
 it('returns the first protocol from the array of provided protocols (mocked)', async () => {
@@ -88,10 +74,11 @@ it('returns the first protocol from the array of provided protocols (mocked)', a
 })
 
 it('returns the first protocol from the array of provided protocols (original)', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer), ['superchat', 'chat'])
+  const ws = new WebSocket(server.ws.url(), ['superchat', 'chat'])
   expect(ws.protocol).toBe('')
 
   await waitForWebSocketEvent('open', ws)
-
   expect(ws.protocol).toBe('superchat')
+
+  ws.close()
 })

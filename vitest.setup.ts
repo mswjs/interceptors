@@ -2,6 +2,7 @@ import { Readable } from 'node:stream'
 import { setTimeout } from 'node:timers/promises'
 import { TestProject } from 'vitest/node'
 import * as express from 'express'
+import { WebSocketServer } from 'ws'
 import { HttpServer } from '@open-draft/test-server/http'
 import { compressResponse, useCors } from './test/helpers'
 
@@ -135,15 +136,67 @@ const server = new HttpServer((app) => {
   })
 })
 
+/**
+ * A WebSocket server whose behavior is controlled via
+ * the connection URL search parameters:
+ * - `?greet`, sends a "hello world" message to the client;
+ * - `?echo`, sends any received message back to the client;
+ * - `?close={code(,reason)}`, closes the client connection.
+ */
+const wsServer = new WebSocketServer({
+  host: '127.0.0.1',
+  port: 0,
+})
+
+wsServer.on('connection', (client, request) => {
+  const url = new URL(request.url || '/', 'ws://localhost')
+
+  if (url.searchParams.has('greet')) {
+    client.send('hello world')
+  }
+
+  if (url.searchParams.has('greet-binary')) {
+    client.send(new TextEncoder().encode('hello'))
+  }
+
+  if (url.searchParams.has('echo')) {
+    client.on('message', (data, isBinary) => {
+      client.send(data, { binary: isBinary })
+    })
+  }
+
+  if (url.searchParams.has('close')) {
+    const [code, reason] = (url.searchParams.get('close') || '').split(',')
+    client.close(Number(code) || undefined, reason)
+  }
+})
+
 export async function setup(project: TestProject) {
   await server.listen()
+
+  const wsAddress = wsServer.address()
 
   project.provide('server', {
     http: server.http.address.href,
     https: server.https.address.href,
+    ws:
+      typeof wsAddress === 'string'
+        ? wsAddress
+        : `ws://${wsAddress.address}:${wsAddress.port}/`,
   })
 }
 
 export async function teardown() {
   await server.close()
+
+  await new Promise<void>((resolve, reject) => {
+    wsServer.clients.forEach((client) => client.close())
+    wsServer.close((error) => {
+      if (error) {
+        return reject(error)
+      }
+
+      resolve()
+    })
+  })
 }

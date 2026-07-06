@@ -3,17 +3,12 @@
  * This test suite asserts that the intercepted WebSocket client
  * still dispatches the correct events in mocked/bypassed scenarios.
  */
-import { setTimeout } from 'node:timers/promises'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { WebSocketServer } from 'ws'
-import { WebSocketInterceptor } from '#/src/interceptors/WebSocket'
-import { getWsUrl } from '../utils/getWsUrl'
+import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
+import { setTimeout } from '#/test/setup/helpers-neutral'
+import { getTestServer } from '#/test/setup/vitest'
 
-const wsServer = new WebSocketServer({
-  host: '127.0.0.1',
-  port: 0,
-})
-
+const testServer = getTestServer()
 const interceptor = new WebSocketInterceptor()
 
 beforeAll(() => {
@@ -23,13 +18,10 @@ beforeAll(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   interceptor.removeAllListeners()
-  wsServer.removeAllListeners()
-  wsServer.clients.forEach((client) => client.close())
 })
 
 afterAll(() => {
   interceptor.dispose()
-  wsServer.close()
 })
 
 it('emits "open" event when mocked connection is opened', async () => {
@@ -54,7 +46,7 @@ it('emits "open" event when mocked connection is opened', async () => {
 })
 
 it('emits "open" event when original connection is opened', async () => {
-  const ws = new WebSocket(getWsUrl(wsServer))
+  const ws = new WebSocket(testServer.ws.url())
   const openListener = vi.fn()
   ws.onopen = openListener
 
@@ -90,11 +82,9 @@ it('emits "message" event on incoming mock server data', async () => {
 })
 
 it('emits "message" event on incoming original server data', async () => {
-  wsServer.once('connection', (ws) => {
-    ws.send('hello')
-  })
-
-  const ws = new WebSocket(getWsUrl(wsServer))
+  // The actual server greets every connected client.
+  const url = testServer.ws.url('/?greet')
+  const ws = new WebSocket(url)
   const messageListener = vi.fn()
   ws.onmessage = messageListener
 
@@ -104,10 +94,10 @@ it('emits "message" event on incoming original server data', async () => {
 
   const [messageEvent] = messageListener.mock.calls[0]
   expect(messageEvent.type).toBe('message')
-  expect(messageEvent.data).toBe('hello')
+  expect(messageEvent.data).toBe('hello world')
   expect(messageEvent.target).toBe(ws)
   expect(messageEvent.currentTarget).toBe(ws)
-  expect(messageEvent.origin + '/').toBe(ws.url)
+  expect(messageEvent.origin).toBe(url.origin)
 })
 
 it('emits "close" event when the mocked client closes the connection', async () => {
@@ -136,11 +126,8 @@ it('emits "close" event when the mocked client closes the connection', async () 
 })
 
 it('emits "close" event when the original server closes the connection', async () => {
-  wsServer.once('connection', (ws) => {
-    ws.close(1000)
-  })
-
-  const ws = new WebSocket(getWsUrl(wsServer))
+  // The actual server closes every connection with the given code.
+  const ws = new WebSocket(testServer.ws.url('/?close=1000'))
   const closeListener = vi.fn()
   ws.onclose = closeListener
 
@@ -199,11 +186,8 @@ it('emits "close" event when the interceptor closes the connection with error co
 })
 
 it('emits "close" event when the original server closes the connection with error code', async () => {
-  wsServer.once('connection', (ws) => {
-    ws.close(1003, 'Server reason')
-  })
-
-  const ws = new WebSocket(getWsUrl(wsServer))
+  // The actual server closes every connection with the given code.
+  const ws = new WebSocket(testServer.ws.url('/?close=1003,Server reason'))
   const closeListener = vi.fn()
   ws.onclose = closeListener
 
