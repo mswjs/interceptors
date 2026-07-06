@@ -1,52 +1,43 @@
-// @vitest-environment node
-import { HttpServer } from '@open-draft/test-server/http'
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
+import { getTestServer } from '#/test/setup/vitest'
 
+const server = getTestServer()
 const interceptor = new FetchInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/original', (req, res) =>
-    res.writeHead(302, { Location: httpServer.http.url('/redirected') }).end()
-  )
-  app.get('/redirected', (req, res) => res.send('redirected'))
-})
-
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
-  await httpServer.listen()
 })
 
 afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
-  await httpServer.close()
 })
 
 it('follows a bypassed redirect response', async () => {
-  const response = await fetch(httpServer.http.url('/original'))
+  const response = await fetch(server.http.url('/redirect'))
 
   expect(response.status).toBe(200)
   expect(response.redirected).toBe(true)
-  await expect(response.text()).resolves.toBe('redirected')
+  await expect(response.text()).resolves.toBe('destination-body')
 })
 
 it('follows a mocked redirect to the original server', async () => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {
       return controller.respondWith(
-        Response.redirect(httpServer.http.url('/redirected'), 302)
+        Response.redirect(server.http.url('/redirect/destination'), 302)
       )
     }
   })
 
-  const response = await fetch(httpServer.http.url('/original'))
+  const response = await fetch(server.http.url('/original'))
 
   expect(response.status).toBe(200)
   expect(response.redirected).toBe(true)
-  await expect(response.text()).resolves.toBe('redirected')
+  await expect(response.text()).resolves.toBe('destination-body')
 })
 
 it('follows a mocked relative redirect to the original server', async () => {
@@ -55,33 +46,33 @@ it('follows a mocked relative redirect to the original server', async () => {
       return controller.respondWith(
         new Response(null, {
           status: 302,
-          headers: { location: '/redirected' },
+          headers: { location: '/redirect/destination' },
         })
       )
     }
   })
 
-  const response = await fetch(httpServer.http.url('/original'))
+  const response = await fetch(server.http.url('/original'))
 
   expect(response.status).toBe(200)
   expect(response.redirected).toBe(true)
-  await expect(response.text()).resolves.toBe('redirected')
+  await expect(response.text()).resolves.toBe('destination-body')
 })
 
 it('follows a mocked redirect to a mocked response', async () => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {
       return controller.respondWith(
-        Response.redirect(httpServer.http.url('/redirected'), 302)
+        Response.redirect(server.http.url('/redirect/destination'), 302)
       )
     }
 
-    if (request.url.endsWith('/redirected')) {
+    if (request.url.endsWith('/redirect/destination')) {
       return controller.respondWith(new Response('mocked response'))
     }
   })
 
-  const response = await fetch(httpServer.http.url('/original'))
+  const response = await fetch(server.http.url('/original'))
 
   expect(response.status).toBe(200)
   expect(response.redirected).toBe(true)
@@ -92,68 +83,93 @@ it('returns the redirect response as-is for a request with "manual" redirect mod
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {
       return controller.respondWith(
-        Response.redirect(httpServer.http.url('/redirected'), 301)
+        Response.redirect(server.http.url('/redirect/destination'), 301)
       )
     }
   })
 
-  const response = await fetch(httpServer.http.url('/original'), {
+  const response = await fetch(server.http.url('/original'), {
     redirect: 'manual',
   })
 
   expect(response.status).toBe(301)
   expect(response.redirected).toBe(false)
   expect(response.headers.get('location')).toBe(
-    httpServer.http.url('/redirected')
+    server.http.url('/redirect/destination').href
   )
 })
 
-it('throws a network error on a redirect for a request with "error" redirect mode', async () => {
+it('throws a network error on a redirect for a request with "error" redirect mode', async ({
+  task,
+}) => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {
       return controller.respondWith(
-        Response.redirect(httpServer.http.url('/redirected'), 301)
+        Response.redirect(server.http.url('/redirect/destination'), 301)
       )
     }
   })
 
   await expect(
-    fetch(httpServer.http.url('/original'), {
+    fetch(server.http.url('/original'), {
       redirect: 'error',
     })
-  ).rejects.toThrow('Failed to fetch')
+  ).rejects.toThrow(
+    task.file.projectName === 'browser' ? 'Failed to fetch' : 'fetch failed'
+  )
 })
 
-it('throws a network error on a non-303 redirect with a body', async () => {
+/**
+ * @note Per the Fetch specification, following a redirect results in
+ * a network error only if the request body cannot be re-read
+ * (i.e. is a stream without a source).
+ * @see https://fetch.spec.whatwg.org/#http-redirect-fetch
+ */
+it('throws a network error on a non-303 redirect with a streaming body', async ({
+  task,
+}) => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {
       return controller.respondWith(
-        Response.redirect(httpServer.http.url('/redirected'), 301)
+        Response.redirect(server.http.url('/redirect/destination'), 301)
       )
     }
   })
 
   await expect(
-    fetch(httpServer.http.url('/original'), {
+    fetch(server.http.url('/original'), {
       method: 'POST',
-      body: 'hello world',
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('hello world'))
+          controller.close()
+        },
+      }),
+      // @ts-expect-error Undocumented Node.js property.
+      duplex: 'half',
     })
-  ).rejects.toThrow('Failed to fetch')
+  ).rejects.toThrow(
+    task.file.projectName === 'browser' ? 'Failed to fetch' : 'fetch failed'
+  )
 })
 
-it('throws a network error on redirects to a non-HTTP scheme', async () => {
+it('throws a network error on redirects to a non-HTTP scheme', async ({
+  task,
+}) => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {
       return controller.respondWith(Response.redirect('wss://localhost', 302))
     }
   })
 
-  await expect(fetch(httpServer.http.url('/original'))).rejects.toThrow(
-    'Failed to fetch'
+  await expect(fetch(server.http.url('/original'))).rejects.toThrow(
+    task.file.projectName === 'browser' ? 'Failed to fetch' : 'fetch failed'
   )
 })
 
-it('throws on a redirect with credentials for a "cors" request', async () => {
+it('throws on a redirect with credentials for a "cors" request', async ({
+  task,
+}) => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {
       return controller.respondWith(
@@ -163,8 +179,10 @@ it('throws on a redirect with credentials for a "cors" request', async () => {
   })
 
   await expect(
-    fetch(httpServer.http.url('/original'), { mode: 'cors' })
-  ).rejects.toThrow('Failed to fetch')
+    fetch(server.http.url('/original'), { mode: 'cors' })
+  ).rejects.toThrow(
+    task.file.projectName === 'browser' ? 'Failed to fetch' : 'fetch failed'
+  )
 })
 
 it('coerces a 301/302 redirect for a POST request to a GET request', async () => {
@@ -183,7 +201,7 @@ it('coerces a 301/302 redirect for a POST request to a GET request', async () =>
     }
   })
 
-  const response = await fetch(httpServer.http.url('/original'), {
+  const response = await fetch(server.http.url('/original'), {
     method: 'POST',
     headers: {
       'content-language': 'en-US',
@@ -196,9 +214,13 @@ it('coerces a 301/302 redirect for a POST request to a GET request', async () =>
 
   expect(response.status).toBe(200)
   // Must remove body-related request headers.
-  expect(Array.from(response.headers)).toEqual([['x-other-header', 'value']])
-  // Non-GET/HEAD request body of a 303 redirect must be null.
-  expect(response.body).toBeNull()
+  expect(response.headers.get('content-language')).toBeNull()
+  expect(response.headers.get('content-location')).toBeNull()
+  expect(response.headers.get('content-type')).toBeNull()
+  expect(response.headers.get('content-length')).toBeNull()
+  expect(response.headers.get('x-other-header')).toBe('value')
+  // The request body of the coerced GET request must be empty.
+  await expect(response.text()).resolves.toBe('')
 })
 
 it('coerces a 303 redirect to a non-HEAD/GET request to a GET request', async () => {
@@ -217,7 +239,7 @@ it('coerces a 303 redirect to a non-HEAD/GET request to a GET request', async ()
     }
   })
 
-  const response = await fetch(httpServer.http.url('/original'), {
+  const response = await fetch(server.http.url('/original'), {
     method: 'POST',
     headers: {
       'content-language': 'en-US',
@@ -230,9 +252,13 @@ it('coerces a 303 redirect to a non-HEAD/GET request to a GET request', async ()
 
   expect(response.status).toBe(200)
   // Must remove body-related request headers.
-  expect(Array.from(response.headers)).toEqual([['x-other-header', 'value']])
-  // Non-GET/HEAD request body of a 303 redirect must be null.
-  expect(response.body).toBeNull()
+  expect(response.headers.get('content-language')).toBeNull()
+  expect(response.headers.get('content-location')).toBeNull()
+  expect(response.headers.get('content-type')).toBeNull()
+  expect(response.headers.get('content-length')).toBeNull()
+  expect(response.headers.get('x-other-header')).toBe('value')
+  // The request body of the coerced GET request must be empty.
+  await expect(response.text()).resolves.toBe('')
 })
 
 it('deletes sensitive request headers for a cross-origin redirect', async () => {
@@ -250,17 +276,18 @@ it('deletes sensitive request headers for a cross-origin redirect', async () => 
     }
   })
 
-  const response = await fetch(httpServer.http.url('/original'), {
+  const response = await fetch(server.http.url('/original'), {
     headers: {
       authorization: 'Bearer TOKEN',
       'proxy-authorization': 'Bearer PROXY_TOKEN',
       cookie: 'a=1',
-      host: 'localhost',
       'x-other-header': 'value',
     },
   })
 
   expect(response.status).toBe(200)
-  expect(Array.from(response.headers)).toEqual([['x-other-header', 'value']])
-  expect(response.body).toBeNull()
+  expect(response.headers.get('authorization')).toBeNull()
+  expect(response.headers.get('proxy-authorization')).toBeNull()
+  expect(response.headers.get('cookie')).toBeNull()
+  expect(response.headers.get('x-other-header')).toBe('value')
 })

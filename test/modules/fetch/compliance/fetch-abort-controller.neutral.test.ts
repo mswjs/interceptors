@@ -1,42 +1,29 @@
-// @vitest-environment node
-import { setTimeout } from 'node:timers/promises'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpServer } from '@open-draft/test-server/http'
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
+import { setTimeout } from '#/test/setup/helpers-neutral'
+import { getTestServer } from '#/test/setup/vitest'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (_req, res) => {
-    res.status(200).send('/')
-  })
-  app.get('/get', (_req, res) => {
-    res.status(200).send('/get')
-  })
-  app.get('/delayed', async (_req, res) => {
-    await setTimeout(1000)
-    res.status(200).send('/delayed')
-  })
-})
-
+const server = getTestServer()
 const interceptor = new FetchInterceptor()
 
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
-  await httpServer.listen()
 })
 
 afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
-  await httpServer.close()
 })
 
-it('aborts unsent request when the original request is aborted', async () => {
+it('aborts unsent request when the original request is aborted', async ({
+  task,
+}) => {
   const controller = new AbortController()
 
-  const abortErrorPromise = fetch(httpServer.http.url('/'), {
+  const abortErrorPromise = fetch(server.http.url('/resource'), {
     signal: controller.signal,
   }).then<Error>(
     () => expect.fail('must not return any response'),
@@ -47,20 +34,25 @@ it('aborts unsent request when the original request is aborted', async () => {
   const abortError = await abortErrorPromise
 
   expect.soft(abortError.name).toBe('AbortError')
-  expect.soft(abortError.message).toBe('This operation was aborted')
+  expect
+    .soft(abortError.message)
+    .toBe(
+      task.file.projectName === 'browser'
+        ? 'signal is aborted without reason'
+        : 'This operation was aborted'
+    )
 })
 
-it('aborts a pending request when the original request is aborted', async () => {
-  const requestListenerCalled = new DeferredPromise<void>()
-
+it('aborts a pending request when the original request is aborted', async ({
+  task,
+}) => {
   interceptor.on('request', async ({ controller }) => {
-    requestListenerCalled.resolve()
     await setTimeout(1000)
     controller.respondWith(new Response())
   })
 
   const controller = new AbortController()
-  const abortErrorPromise = fetch(httpServer.http.url('/delayed'), {
+  const abortErrorPromise = fetch(server.http.url('/delay'), {
     signal: controller.signal,
   }).then<Error>(
     () => expect.fail('must not return any response'),
@@ -70,17 +62,23 @@ it('aborts a pending request when the original request is aborted', async () => 
   controller.abort()
   const abortError = await abortErrorPromise
 
-  expect(abortError.name).toBe('AbortError')
-  expect(abortError.message).toBe('This operation was aborted')
+  expect.soft(abortError.name).toBe('AbortError')
+  expect
+    .soft(abortError.message)
+    .toBe(
+      task.file.projectName === 'browser'
+        ? 'signal is aborted without reason'
+        : 'This operation was aborted'
+    )
 })
 
 it('forwards custom abort reason to the request if aborted before it starts', async () => {
-  interceptor.once('request', () => {
+  interceptor.on('request', () => {
     expect.fail('must not sent the request')
   })
 
   const controller = new AbortController()
-  const request = fetch(httpServer.http.url('/'), {
+  const request = fetch(server.http.url('/resource'), {
     signal: controller.signal,
   })
 
@@ -100,14 +98,14 @@ it('forwards custom abort reason to the request if pending', async () => {
   const requestListenerCalled = new DeferredPromise<void>()
   const requestAborted = new DeferredPromise<Error>()
 
-  interceptor.once('request', async ({ controller }) => {
+  interceptor.on('request', async ({ controller }) => {
     requestListenerCalled.resolve()
     await setTimeout(1000)
     controller.respondWith(new Response())
   })
 
   const controller = new AbortController()
-  const request = fetch(httpServer.http.url('/delayed'), {
+  const request = fetch(server.http.url('/delay'), {
     signal: controller.signal,
   }).then(() => {
     expect.fail('must not return any response')
@@ -120,16 +118,18 @@ it('forwards custom abort reason to the request if pending', async () => {
 
   const abortError = await requestAborted
   expect(abortError.name).toBe('Error')
-  expect(abortError.message).toEqual('Custom abort reason')
+  expect(abortError.message).toBe('Custom abort reason')
 })
 
-it('respects requests aborted before they are dispatched', async () => {
+it('respects requests aborted before they are dispatched', async ({
+  task,
+}) => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('hello world'))
   })
 
   const controller = new AbortController()
-  const request = new Request(httpServer.http.url('/'), {
+  const request = new Request(server.http.url('/resource'), {
     signal: controller.signal,
   })
   controller.abort()
@@ -140,23 +140,35 @@ it('respects requests aborted before they are dispatched', async () => {
   )
 
   expect.soft(abortError.name).toBe('AbortError')
-  expect.soft(abortError.message).toBe('This operation was aborted')
+  expect
+    .soft(abortError.message)
+    .toBe(
+      task.file.projectName === 'browser'
+        ? 'signal is aborted without reason'
+        : 'This operation was aborted'
+    )
 })
 
-it('aborts the pending request via "AbortSignal.timeout"', async () => {
+it('aborts the pending request via "AbortSignal.timeout"', async ({
+  task,
+}) => {
   interceptor.on('request', async () => {
     await setTimeout(300)
   })
 
   const abortError = await fetch('http://localhost/irrelevant', {
     signal: AbortSignal.timeout(200),
-  }).then(
+  }).then<Error>(
     () => expect.fail('must not return any response'),
     (error) => error
   )
 
-  expect(abortError).toMatchObject({
-    name: 'TimeoutError',
-    message: 'The operation was aborted due to timeout',
-  })
+  expect.soft(abortError.name).toBe('TimeoutError')
+  expect
+    .soft(abortError.message)
+    .toBe(
+      task.file.projectName === 'browser'
+        ? 'signal timed out'
+        : 'The operation was aborted due to timeout'
+    )
 })

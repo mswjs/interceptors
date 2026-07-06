@@ -1,8 +1,11 @@
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
+/**
+ * @see https://github.com/mswjs/interceptors/pull/724
+ */
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
 })
 
@@ -10,13 +13,10 @@ afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
 })
 
-/**
- * @see https://github.com/mswjs/interceptors/pull/724
- */
 it('responds with mocked headers defined using the Headers class', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(
@@ -30,6 +30,9 @@ it('responds with mocked headers defined using the Headers class', async () => {
   })
 
   const response = await fetch('http://localhost/')
-  expect(response.headers.get('content-encoding')).toBe('gzip')
-  expect(response.headers.get('x-custom-header')).toBe('yes')
+
+  expect(Object.fromEntries(response.headers)).toMatchObject({
+    'content-encoding': 'gzip',
+    'x-custom-header': 'yes',
+  })
 })

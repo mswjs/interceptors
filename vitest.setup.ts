@@ -3,7 +3,15 @@ import { setTimeout } from 'node:timers/promises'
 import { TestProject } from 'vitest/node'
 import * as express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { useCors } from './test/helpers'
+import { compressResponse, useCors } from './test/helpers'
+
+type SupportedContentCoding = 'gzip' | 'x-gzip' | 'deflate' | 'br'
+
+function isSupportedContentCoding(
+  coding: string
+): coding is SupportedContentCoding {
+  return ['gzip', 'x-gzip', 'deflate', 'br'].includes(coding)
+}
 
 const server = new HttpServer((app) => {
   app.use(useCors)
@@ -49,6 +57,30 @@ const server = new HttpServer((app) => {
       },
     })
     Readable.fromWeb(stream as any).pipe(res)
+  })
+
+  app.get('/compressed', (req, res) => {
+    /**
+     * @note Use a custom header to communicate the expected encoding
+     * because "accept-encoding" is a forbidden browser header.
+     */
+    const contentEncoding = req.header('x-accept-encoding') || ''
+    const codings = contentEncoding
+      .split(',')
+      .map((coding) => coding.trim())
+      .filter(isSupportedContentCoding)
+
+    res
+      .set('content-encoding', contentEncoding)
+      .end(compressResponse(codings, 'hello world'))
+  })
+
+  app.get('/switching-protocols', (req, res) => {
+    res.writeHead(101, 'Switching Protocols', {
+      connection: 'upgrade',
+      upgrade: 'HTTP/2.0',
+    })
+    res.end()
   })
 
   app.get('/server-error', (req, res) => {

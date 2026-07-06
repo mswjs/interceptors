@@ -1,36 +1,38 @@
-import { HttpServer } from '@open-draft/test-server/http'
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
+import { getTestServer } from '#/test/setup/vitest'
 
+const IS_BROWSER = typeof window !== 'undefined'
+
+const server = getTestServer()
 const interceptor = new FetchInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => {
-    res.send('original response')
-  })
-})
-
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
-  await httpServer.listen()
 })
 
 afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
-  await httpServer.close()
 })
 
-it('returns an empty string for a mocked response', async () => {
-  interceptor.on('request', ({ controller }) => {
-    controller.respondWith(new Response('hello world'))
-  })
+/**
+ * @note Requests to non-HTTP schemes (e.g. "about:") never establish
+ * a network connection in Node.js so they cannot be intercepted there.
+ */
+it.skipIf(!IS_BROWSER)(
+  'returns an empty string for a mocked response to an "about:" request',
+  async () => {
+    interceptor.on('request', ({ controller }) => {
+      controller.respondWith(new Response('hello world'))
+    })
 
-  const response = await fetch('about:')
-  expect(response.url).toBe('')
-})
+    const response = await fetch('about:')
+    expect(response.url).toBe('')
+  }
+)
 
 it('returns the request url for a mocked response', async () => {
   interceptor.on('request', ({ controller }) => {
@@ -41,14 +43,17 @@ it('returns the request url for a mocked response', async () => {
   expect(response.url).toBe('http://localhost/does-not-matter')
 })
 
-it('returns an empty string for a cloned mocked response', async () => {
-  interceptor.on('request', ({ controller }) => {
-    controller.respondWith(new Response('hello world'))
-  })
+it.skipIf(!IS_BROWSER)(
+  'returns an empty string for a cloned mocked response to an "about:" request',
+  async () => {
+    interceptor.on('request', ({ controller }) => {
+      controller.respondWith(new Response('hello world'))
+    })
 
-  const response = await fetch('about:')
-  expect(response.clone().url).toBe('')
-})
+    const response = await fetch('about:')
+    expect(response.clone().url).toBe('')
+  }
+)
 
 it('returns the request url for a cloned mocked response', async () => {
   interceptor.on('request', ({ controller }) => {
@@ -60,9 +65,9 @@ it('returns the request url for a cloned mocked response', async () => {
 })
 
 it('returns the request url for a bypassed response', async () => {
-  const requestUrl = httpServer.http.url('/resource')
+  const requestUrl = server.http.url('/resource')
   const response = await fetch(requestUrl)
-  expect(response.url).toBe(requestUrl)
+  expect(response.url).toBe(requestUrl.href)
 })
 
 it('returns the last response url in case of redirects', async () => {
@@ -88,20 +93,26 @@ it('returns the last response url in case of redirects', async () => {
   await expect(response.text()).resolves.toBe('hello world')
 })
 
-it('resolves relative URLs against location', async () => {
+/**
+ * @note The browser does not allow redefining `window.location`.
+ * Relative requests in the browser are covered by the
+ * "fetch-relative-url" test suite.
+ */
+it.skipIf(IS_BROWSER)('resolves relative URLs against location', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('Hello world'))
   })
 
-  const originalLocation = global.location
-  Object.defineProperty(global, 'location', {
+  const originalLocation = globalThis.location
+  Object.defineProperty(globalThis, 'location', {
     value: new URL('http://localhost/path/'),
     configurable: true,
   })
 
   const response = await fetch('?x=y')
   expect(response.url).toBe('http://localhost/path/?x=y')
-  Object.defineProperty(global, 'location', {
+
+  Object.defineProperty(globalThis, 'location', {
     value: originalLocation,
     configurable: true,
   })

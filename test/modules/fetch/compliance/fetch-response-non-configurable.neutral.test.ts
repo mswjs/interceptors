@@ -1,40 +1,36 @@
-// @vitest-environment node
-import { HttpServer } from '@open-draft/test-server/http'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
-import { FetchResponse } from '#/src/utils/fetchUtils'
+import { FetchResponse } from '@mswjs/interceptors'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
+import { getTestServer } from '#/test/setup/vitest'
 
+const IS_BROWSER = typeof window !== 'undefined'
+
+const server = getTestServer()
 const interceptor = new FetchInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (_req, res) => {
-    res.writeHead(101, 'Switching Protocols')
-    res.set('connection', 'upgrade')
-    res.set('upgrade', 'HTTP/2.0')
-    res.end()
-  })
-})
-
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
-  await httpServer.listen()
 })
 
 afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
-  await httpServer.close()
 })
 
-it('handles non-configurable responses from the actual server', async () => {
+/**
+ * @note Chromium stalls a fetch request that receives an actual
+ * "101 Switching Protocols" response, awaiting the protocol upgrade.
+ * There is no fetch-level failure to observe in the browser.
+ */
+it.skipIf(IS_BROWSER)('handles non-configurable responses from the actual server', async () => {
   const responseListener = vi.fn()
   interceptor.on('response', responseListener)
 
   // Fetch doesn't handle 101 responses by spec.
-  await expect(fetch(httpServer.http.url('/resource'))).rejects.toThrow(
+  await expect(fetch(server.http.url('/switching-protocols'))).rejects.toThrow(
     'fetch failed'
   )
 
@@ -42,7 +38,14 @@ it('handles non-configurable responses from the actual server', async () => {
   expect(responseListener).not.toHaveBeenCalled()
 })
 
-it('supports mocking non-configurable responses', async () => {
+/**
+ * @note In Node.js, the mocked response is received over the wire
+ * where fetch (Undici) correctly treats "101 Switching Protocols"
+ * as a network error, as per the Fetch specification. Mocking
+ * non-configurable responses is only supported in the browser,
+ * where the interceptor resolves the mocked response directly.
+ */
+it.skipIf(!IS_BROWSER)('supports mocking non-configurable responses', async () => {
   interceptor.on('request', ({ controller }) => {
     /**
      * @note The Fetch API `Response` will still error on

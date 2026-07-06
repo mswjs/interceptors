@@ -1,28 +1,20 @@
-import * as express from 'express'
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpServer } from '@open-draft/test-server/http'
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
+import { getTestServer } from '#/test/setup/vitest'
 
+const server = getTestServer()
 const interceptor = new FetchInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.post('/resource', express.text(), (req, res) =>
-    res.send(`received: ${req.body}`)
-  )
-})
-
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
-  await httpServer.listen()
 })
 
 afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
-  await httpServer.close()
 })
 
 it('request body is unused in the listener when using Request argument', async () => {
@@ -31,7 +23,7 @@ it('request body is unused in the listener when using Request argument', async (
     requestInListenerPromise.resolve(request)
   })
 
-  const request = new Request(httpServer.http.url('/resource'), {
+  const request = new Request(server.http.url('/resource'), {
     method: 'POST',
     body: 'Hello server',
   })
@@ -52,7 +44,8 @@ it('request body is unused in the listener when using Request argument', async (
   expect(bodyUsedAfterFetch).toBe(true)
   expect(bodyUsedAfterResponse).toBe(true)
 
-  expect(await response.text()).toBe('received: Hello server')
+  // The test server echoes the request body.
+  await expect(response.text()).resolves.toBe('Hello server')
 })
 
 it('request body is unused in the listener when using input and init arguments', async () => {
@@ -61,7 +54,7 @@ it('request body is unused in the listener when using input and init arguments',
     requestInListenerPromise.resolve(request)
   })
 
-  const responsePromise = fetch(httpServer.http.url('/resource'), {
+  const responsePromise = fetch(server.http.url('/resource'), {
     method: 'POST',
     body: 'Hello server',
   })
@@ -73,5 +66,5 @@ it('request body is unused in the listener when using input and init arguments',
 
   expect(bodyUsedInListener).toBe(false)
 
-  expect(await response.text()).toBe('received: Hello server')
+  await expect(response.text()).resolves.toBe('Hello server')
 })

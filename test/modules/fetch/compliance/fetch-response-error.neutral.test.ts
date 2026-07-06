@@ -1,5 +1,4 @@
-// @vitest-environment node
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 
@@ -13,7 +12,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('treats "Response.error()" as a network error', async () => {
+it('treats "Response.error()" as a network error', async ({ task }) => {
   interceptor.on('request', ({ controller }) => {
     /**
      * Responding with "Response.error()" is equivalent to
@@ -26,13 +25,17 @@ it('treats "Response.error()" as a network error', async () => {
 
   const error = await fetch('http://localhost:3001/resource').then<
     null,
-    TypeError & { cause: unknown }
+    TypeError
   >(
     () => null,
     (error) => error
   )
 
   expect(error).toBeInstanceOf(TypeError)
-  expect(error!.message).toBe('Failed to fetch')
-  expect(error!.cause).toEqual(Response.error())
+
+  if (task.file.projectName === 'browser') {
+    expect(error!.message).toBe('Failed to fetch')
+  } else {
+    expect(error!.message).toBe('fetch failed')
+  }
 })
