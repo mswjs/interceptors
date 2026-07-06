@@ -9,7 +9,13 @@
   "exports": {
     ".": {
       "browser": "./lib/browser/index.mjs",
-      "default": "./lib/node/index.mjs"
+      "node": {
+        "require": "./lib/node/index.cjs",
+        "import": "./lib/node/index.mjs"
+      },
+      "require": "./lib/node/index.cjs",
+      "import": "./lib/node/index.mjs",
+      "default": "./lib/node/index.cjs"
     },
     "./http": {
       "node": {
