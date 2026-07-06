@@ -5,7 +5,7 @@ import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 const server = getTestServer()
 const interceptor = new FetchInterceptor()
 
-beforeAll(async () => {
+beforeAll(() => {
   interceptor.apply()
 })
 
@@ -13,48 +13,52 @@ afterEach(() => {
   interceptor.removeAllListeners()
 })
 
-afterAll(async () => {
+afterAll(() => {
   interceptor.dispose()
 })
 
 it('awaits response listener promise before resolving the mocked response promise', async () => {
-  const markStep = vi.fn<(input: number) => void>()
+  const markStep = vi.fn<(event: string) => void>()
 
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('hello world'))
   })
 
   interceptor.on('response', async ({ response }) => {
-    markStep(2)
+    markStep('before-response')
     await response.text()
-    markStep(3)
+    markStep('after-response')
   })
 
-  markStep(1)
+  markStep('before-fetch')
   await fetch(server.http.url('/resource'))
-  markStep(4)
+  markStep('after-fetch')
 
-  expect(markStep).toHaveBeenNthCalledWith(1, 1)
-  expect(markStep).toHaveBeenNthCalledWith(2, 2)
-  expect(markStep).toHaveBeenNthCalledWith(3, 3)
-  expect(markStep).toHaveBeenNthCalledWith(4, 4)
+  expect(markStep.mock.calls).toEqual([
+    ['before-fetch'],
+    ['before-response'],
+    ['after-response'],
+    ['after-fetch'],
+  ])
 })
 
 it('awaits response listener promise before resolving the original response promise', async () => {
-  const markStep = vi.fn<(input: number) => void>()
+  const markStep = vi.fn<(event: string) => void>()
 
   interceptor.on('response', async ({ response }) => {
-    markStep(2)
+    markStep('before-response')
     await response.text()
-    markStep(3)
+    markStep('after-response')
   })
 
-  markStep(1)
+  markStep('before-fetch')
   await fetch(server.http.url('/resource'))
-  markStep(4)
+  markStep('after-fetch')
 
-  expect(markStep).toHaveBeenNthCalledWith(1, 1)
-  expect(markStep).toHaveBeenNthCalledWith(2, 2)
-  expect(markStep).toHaveBeenNthCalledWith(3, 3)
-  expect(markStep).toHaveBeenNthCalledWith(4, 4)
+  expect(markStep.mock.calls).toEqual([
+    ['before-fetch'],
+    ['before-response'],
+    ['after-response'],
+    ['after-fetch'],
+  ])
 })
