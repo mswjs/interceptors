@@ -1,5 +1,10 @@
 // @vitest-environment jsdom
-import { FetchInterceptor } from '#/src/interceptors/fetch/web'
+/**
+ * @note The "jsdom" environment provides the `location` global required
+ * to resolve relative request URLs in Node.js. In the browser, this
+ * pragma has no effect and the actual page location is used instead.
+ */
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
 
@@ -15,7 +20,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('intercepts a fetch request to a relative URL (jsdom)', async () => {
+it('intercepts a fetch request to a relative URL', async () => {
   interceptor.on('request', ({ controller }) => {
     return controller.respondWith(Response.json([1, 2, 3]))
   })
@@ -23,5 +28,5 @@ it('intercepts a fetch request to a relative URL (jsdom)', async () => {
   const response = await fetch('/numbers')
 
   expect(response.status).toBe(200)
-  expect(await response.json()).toEqual([1, 2, 3])
+  await expect(response.json()).resolves.toEqual([1, 2, 3])
 })
