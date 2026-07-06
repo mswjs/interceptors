@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
-import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
-import { REQUEST_ID_REGEXP } from '#/test/helpers'
-import { HttpRequestEventMap } from '#/src/index'
-import { RequestController } from '#/src/RequestController'
+import {
+  RequestController,
+  type HttpRequestEventMap,
+} from '@mswjs/interceptors'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 import { getTestServer } from '#/test/setup/vitest'
 
@@ -21,7 +22,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('emits events for a handled request', async () => {
+it('emits events for a handled request', async ({ task }) => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.method === 'OPTIONS') {
       return controller.respondWith(
@@ -60,34 +61,38 @@ it('emits events for a handled request', async () => {
   await waitForXMLHttpRequest(request)
 
   /**
-   * @note XMLHttpRequest in JSDOM/HappyDOM issues a preflight OPTIONS request.
+   * @note Happy DOM issues a CORS preflight OPTIONS request for
+   * a cross-origin XMLHttpRequest. The browser does not send a preflight
+   * for simple requests.
    */
-  expect.soft(requestListener).toHaveBeenCalledTimes(2)
+  const hasPreflight = task.file.projectName !== 'browser'
 
-  // Preflight request.
-  {
+  expect.soft(requestListener).toHaveBeenCalledTimes(hasPreflight ? 2 : 1)
+
+  if (hasPreflight) {
     const [{ request, requestId }] = requestListener.mock.calls[0]
 
     expect.soft(request).toBeInstanceOf(Request)
     expect.soft(request.method).toBe('OPTIONS')
     expect.soft(request.url).toBe(url.href)
-    expect.soft(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect.soft(requestId).toMatch(/^\w{9,}$/)
   }
 
   {
-    const [{ request, requestId }] = requestListener.mock.calls[1]
+    const [{ request, requestId }] =
+      requestListener.mock.calls[hasPreflight ? 1 : 0]
 
     expect.soft(request).toBeInstanceOf(Request)
     expect.soft(request.method).toBe('GET')
     expect.soft(request.url).toBe(url.href)
-    expect.soft(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect.soft(requestId).toMatch(/^\w{9,}$/)
   }
 
   // Must call the "response" event listener.
-  expect(responseListener).toHaveBeenCalledTimes(2)
+  expect(responseListener).toHaveBeenCalledTimes(hasPreflight ? 2 : 1)
 
-  // Preflight response.
-  {
+  if (hasPreflight) {
+    // Preflight response.
     const [{ response, request, requestId }] = responseListener.mock.calls[0]
 
     expect.soft(response).toBeInstanceOf(Response)
@@ -98,12 +103,13 @@ it('emits events for a handled request', async () => {
     expect.soft(request.method).toBe('OPTIONS')
     expect.soft(request.url).toBe(url.href)
 
-    expect.soft(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect.soft(requestId).toMatch(/^\w{9,}$/)
   }
 
   // Mocked response.
   {
-    const [{ response, request, requestId }] = responseListener.mock.calls[1]
+    const [{ response, request, requestId }] =
+      responseListener.mock.calls[hasPreflight ? 1 : 0]
 
     expect(response).toBeInstanceOf(Response)
     expect(response.status).toBe(200)
@@ -118,11 +124,11 @@ it('emits events for a handled request', async () => {
     expect(request.method).toBe('GET')
     expect(request.url).toBe(url.href)
 
-    expect(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect(requestId).toMatch(/^\w{9,}$/)
   }
 })
 
-it('emits events for a bypassed request', async () => {
+it('emits events for a bypassed request', async ({ task }) => {
   const requestListener =
     vi.fn<(event: HttpRequestEventMap['request']) => void>()
   const responseListener =
@@ -137,33 +143,36 @@ it('emits events for a bypassed request', async () => {
 
   await waitForXMLHttpRequest(request)
 
-  expect(requestListener).toHaveBeenCalledTimes(2)
+  const hasPreflight = task.file.projectName !== 'browser'
 
-  // Preflight request.
-  {
+  expect(requestListener).toHaveBeenCalledTimes(hasPreflight ? 2 : 1)
+
+  if (hasPreflight) {
+    // Preflight request.
     const [{ request, controller, requestId }] = requestListener.mock.calls[0]
 
     expect.soft(request).toBeInstanceOf(Request)
     expect.soft(request.method).toBe('OPTIONS')
     expect.soft(request.url).toBe(url.href)
     expect.soft(controller).toBeInstanceOf(RequestController)
-    expect.soft(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect.soft(requestId).toMatch(/^\w{9,}$/)
   }
 
   {
-    const [{ request, controller, requestId }] = requestListener.mock.calls[1]
+    const [{ request, controller, requestId }] =
+      requestListener.mock.calls[hasPreflight ? 1 : 0]
 
     expect.soft(request).toBeInstanceOf(Request)
     expect.soft(request.method).toBe('GET')
     expect.soft(request.url).toBe(url.href)
     expect.soft(controller).toBeInstanceOf(RequestController)
-    expect.soft(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect.soft(requestId).toMatch(/^\w{9,}$/)
   }
 
-  expect(responseListener).toHaveBeenCalledTimes(2)
+  expect(responseListener).toHaveBeenCalledTimes(hasPreflight ? 2 : 1)
 
-  // Preflight response.
-  {
+  if (hasPreflight) {
+    // Preflight response.
     const [{ response, request, requestId }] = responseListener.mock.calls[0]
 
     expect.soft(response).toBeInstanceOf(Response)
@@ -174,11 +183,12 @@ it('emits events for a bypassed request', async () => {
     expect.soft(request.method).toBe('OPTIONS')
     expect.soft(request.url).toBe(url.href)
 
-    expect.soft(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect.soft(requestId).toMatch(/^\w{9,}$/)
   }
 
   {
-    const [responseParams] = responseListener.mock.calls[1]
+    const [responseParams] =
+      responseListener.mock.calls[hasPreflight ? 1 : 0]
 
     expect.soft(responseParams.response).toBeInstanceOf(Response)
     expect.soft(responseParams.response.status).toBe(200)
@@ -197,6 +207,6 @@ it('emits events for a bypassed request', async () => {
     expect.soft(responseParams.request.url).toBe(url.href)
 
     // The last argument of the response listener is the request ID.
-    expect.soft(responseParams.requestId).toMatch(REQUEST_ID_REGEXP)
+    expect.soft(responseParams.requestId).toMatch(/^\w{9,}$/)
   }
 })

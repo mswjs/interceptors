@@ -4,12 +4,6 @@
  * @see https://github.com/mswjs/msw/issues/1816
  */
 import axios from 'axios'
-/**
- * @note Use `Response` from Undici because "happy-dom"
- * does not implement ReadableStream at all. They use
- * Node's Readable instead, which is completely incompatible.
- */
-import { Response as UndiciResponse } from 'undici'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 
 const request = axios.create({
@@ -27,8 +21,19 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('performs a request with the "xhr" axios adapter', async () => {
-  interceptor.once('request', ({ controller }) => {
+it('performs a request with the "xhr" axios adapter', async ({ task }) => {
+  interceptor.once('request', async ({ controller }) => {
+    if (task.file.projectName === 'browser') {
+      controller.respondWith(new Response('Hello world'))
+      return
+    }
+
+    /**
+     * @note Use `Response` from Undici in Node.js because "happy-dom"
+     * does not implement ReadableStream at all. They use
+     * Node's Readable instead, which is completely incompatible.
+     */
+    const { Response: UndiciResponse } = await import('undici')
     controller.respondWith(
       new UndiciResponse('Hello world') as unknown as Response
     )

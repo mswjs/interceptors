@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral.js'
@@ -21,7 +22,13 @@ it('exposes the initiator for a mocked XMLHttpRequest', async () => {
 
   interceptor.on('request', ({ initiator, controller }) => {
     pendingInitiator.resolve(initiator as XMLHttpRequest)
-    controller.respondWith(new Response('hello world'))
+    controller.respondWith(
+      new Response('hello world', {
+        headers: {
+          'access-control-allow-origin': '*',
+        },
+      })
+    )
   })
 
   const request = new XMLHttpRequest()

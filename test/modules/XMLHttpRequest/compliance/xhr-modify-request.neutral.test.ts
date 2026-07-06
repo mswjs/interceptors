@@ -1,38 +1,20 @@
 // @vitest-environment happy-dom
-import { HttpServer } from '@open-draft/test-server/http'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
-import { useCors } from '#/test/helpers'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
+import { getTestServer } from '#/test/setup/vitest'
 
-const server = new HttpServer((app) => {
-  app.use(useCors)
-  app.get('/user', (req, res) => {
-    res
-      .set({
-        // Explicitly allow for this custom header to be
-        // exposed on the response. Otherwise it's ignored.
-        'Access-Control-Expose-Headers': [
-          'x-delete-header',
-          'x-append-header',
-          'x-set-header',
-        ],
-        'X-Delete-Header': req.headers['x-delete-header'],
-        'X-Append-Header': req.headers['x-append-header'],
-        'X-Set-Header': req.headers['x-set-header'],
-      })
-      .end()
-  })
-})
-
+const server = getTestServer()
 const interceptor = new XMLHttpRequestInterceptor()
 
-beforeAll(async () => {
-  await server.listen()
+beforeAll(() => {
   interceptor.apply()
 })
 
-afterAll(async () => {
-  await server.close()
+afterEach(() => {
+  interceptor.removeAllListeners()
+})
+
+afterAll(() => {
   interceptor.dispose()
 })
 
@@ -47,6 +29,7 @@ it('allows modifying outgoing request headers', async () => {
     request.headers.set('X-Set-Header', 'new-value')
   })
 
+  // The test server echoes the request headers in the response.
   const request = new XMLHttpRequest()
   request.open('GET', server.http.url('/user'))
   request.setRequestHeader('X-Delete-Header', 'a')

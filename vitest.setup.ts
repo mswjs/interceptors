@@ -83,6 +83,16 @@ const server = new HttpServer((app) => {
     res.end()
   })
 
+  app.get('/cacheable', (req, res) => {
+    if (req.headers['if-none-match'] === '"etag-value"') {
+      return res.status(304).end()
+    }
+
+    res.set('etag', '"etag-value"')
+    res.set('cache-control', 'max-age=0, must-revalidate')
+    res.status(200).send('original-response')
+  })
+
   app.get('/server-error', (req, res) => {
     res.status(500).send('Internal Server Error')
   })

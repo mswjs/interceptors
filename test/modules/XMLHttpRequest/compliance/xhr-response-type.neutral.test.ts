@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
-import { encodeBuffer } from '#/src/index'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
-import { toArrayBuffer } from '#/src/utils/bufferUtils'
-import { readBlob } from '#/test/helpers'
-import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
+import {
+  arrayBufferFrom,
+  waitForXMLHttpRequest,
+} from '#/test/setup/helpers-neutral'
 
 const interceptor = new XMLHttpRequestInterceptor()
 interceptor.on('request', ({ controller }) => {
@@ -66,13 +66,12 @@ it('responds with a Blob when "responseType" equals "blob"', async () => {
   )
 
   const responseBlob: Blob = request.response
-  const expectedBlobContents = await readBlob(responseBlob)
 
   expect(responseBlob).toBeInstanceOf(Blob)
   // Blob type must be inferred from the response's "Content-Type".
   expect(responseBlob).toHaveProperty('type', 'application/json')
   expect(responseBlob).toHaveProperty('size', expectedBlob.size)
-  expect(expectedBlobContents).toEqual(
+  await expect(responseBlob.text()).resolves.toBe(
     JSON.stringify({
       firstName: 'John',
       lastName: 'Maverick',
@@ -88,13 +87,11 @@ it('responds with an ArrayBuffer when "responseType" equals "arraybuffer"', asyn
 
   await waitForXMLHttpRequest(request)
 
-  const expectedArrayBuffer = toArrayBuffer(
-    encodeBuffer(
-      JSON.stringify({
-        firstName: 'John',
-        lastName: 'Maverick',
-      })
-    )
+  const expectedArrayBuffer = arrayBufferFrom(
+    JSON.stringify({
+      firstName: 'John',
+      lastName: 'Maverick',
+    })
   )
 
   const responseBuffer = request.response as ArrayBuffer

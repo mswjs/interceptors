@@ -2,10 +2,12 @@
 /**
  * @see https://github.com/mswjs/msw/issues/2307
  */
+import { FetchResponse } from '@mswjs/interceptors'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
-import { FetchResponse } from '#/src/utils/fetchUtils'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 import { getTestServer } from '#/test/setup/vitest'
+
+const IS_BROWSER = typeof window !== 'undefined' && !('happyDOM' in window)
 
 const server = getTestServer()
 const interceptor = new XMLHttpRequestInterceptor()
@@ -22,42 +24,50 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('handles non-configurable responses from the actual server', async () => {
-  const responseListener = vi.fn()
-  interceptor.on('response', responseListener)
+/**
+ * @note Chromium stalls a request that receives an actual
+ * "101 Switching Protocols" response, awaiting the protocol upgrade.
+ */
+it.skipIf(IS_BROWSER)(
+  'handles non-configurable responses from the actual server',
+  async ({ task }) => {
+    const responseListener = vi.fn()
+    interceptor.on('response', responseListener)
 
-  const url = server.http.url('/status')
-  const request = new XMLHttpRequest()
-  request.open('POST', url)
-  request.send('101')
+    const url = server.http.url('/status')
+    const request = new XMLHttpRequest()
+    request.open('POST', url)
+    request.send('101')
 
-  await waitForXMLHttpRequest(request)
+    await waitForXMLHttpRequest(request)
 
-  expect.soft(request.status).toBe(101)
-  expect.soft(request.statusText).toBe('Switching Protocols')
-  expect.soft(request.responseText).toBe('')
+    expect.soft(request.status).toBe(101)
+    expect.soft(request.statusText).toBe('Switching Protocols')
+    expect.soft(request.responseText).toBe('')
 
-  expect(responseListener).toHaveBeenCalledTimes(2)
+    const hasPreflight = task.file.projectName !== 'browser'
+    expect(responseListener).toHaveBeenCalledTimes(hasPreflight ? 2 : 1)
 
-  // Preflight response.
-  {
-    const [{ request, response }] = responseListener.mock.calls[0]
+    if (hasPreflight) {
+      const [{ request, response }] = responseListener.mock.calls[0]
 
-    expect.soft(request.method).toBe('OPTIONS')
-    expect.soft(request.url).toBe(url.href)
-    expect.soft(response.status).toBe(200)
+      expect.soft(request.method).toBe('OPTIONS')
+      expect.soft(request.url).toBe(url.href)
+      expect.soft(response.status).toBe(200)
+    }
+
+    {
+      const [{ request, response }] =
+        responseListener.mock.calls[hasPreflight ? 1 : 0]
+
+      expect.soft(request.method).toBe('POST')
+      expect.soft(request.url).toBe(url.href)
+      expect.soft(response.status).toBe(101)
+    }
   }
+)
 
-  {
-    const [{ request, response }] = responseListener.mock.calls[1]
-
-    expect.soft(request.method).toBe('POST')
-    expect.soft(request.url).toBe(url.href)
-    expect.soft(response.status).toBe(101)
-  }
-})
-
-it('supports mocking non-configurable responses', async () => {
+it('supports mocking non-configurable responses', async ({ task }) => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.method === 'OPTIONS') {
       return controller.respondWith(
@@ -87,10 +97,10 @@ it('supports mocking non-configurable responses', async () => {
   expect.soft(request.status).toBe(101)
   expect.soft(request.response).toBe('')
 
-  expect(responseListener).toHaveBeenCalledTimes(2)
+  const hasPreflight = task.file.projectName !== 'browser'
+  expect(responseListener).toHaveBeenCalledTimes(hasPreflight ? 2 : 1)
 
-  // Preflight response.
-  {
+  if (hasPreflight) {
     const [{ request, response }] = responseListener.mock.calls[0]
 
     expect.soft(request.method).toBe('OPTIONS')
@@ -99,7 +109,8 @@ it('supports mocking non-configurable responses', async () => {
   }
 
   {
-    const [{ request, response }] = responseListener.mock.calls[1]
+    const [{ request, response }] =
+      responseListener.mock.calls[hasPreflight ? 1 : 0]
 
     expect.soft(request.method).toBe('GET')
     expect.soft(request.url).toBe('http://any.host.here/irrelevant')

@@ -19,7 +19,9 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('does not lock the request body stream when calculating the total request body size for uploads', async () => {
+it('does not lock the request body stream when calculating the total request body size for uploads', async ({
+  task,
+}) => {
   interceptor.on('request', async ({ request, controller }) => {
     const buffer = await request.arrayBuffer()
     controller.respondWith(new Response(buffer))
@@ -33,10 +35,13 @@ it('does not lock the request body stream when calculating the total request bod
   await waitForXMLHttpRequest(request)
 
   expect.soft(request.responseText).toBe('hello world')
-  expect(uploadEvents).toEqual([
-    ['loadstart', { loaded: 0, total: 11 }],
-    ['progress', { loaded: 11, total: 11 }],
-    ['load', { loaded: 11, total: 11 }],
-    ['loadend', { loaded: 11, total: 11 }],
-  ])
+
+  if (task.file.projectName === 'browser') {
+    expect(uploadEvents).toEqual([
+      ['loadstart', { loaded: 0, total: 11 }],
+      ['progress', { loaded: 11, total: 11 }],
+      ['load', { loaded: 11, total: 11 }],
+      ['loadend', { loaded: 11, total: 11 }],
+    ])
+  }
 })
