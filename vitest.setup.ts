@@ -53,6 +53,14 @@ const server = new HttpServer((app) => {
           return controller.enqueue(encoder.encode(chunk))
         }
 
+        /**
+         * @note Delay closing the stream the same way the chunks
+         * are delayed. Closing the stream right after the last chunk
+         * makes the last data packet and the end of the response
+         * coalesce into a single read on slower machines (e.g. CI).
+         * The client then observes fewer chunks than sent.
+         */
+        await setTimeout(100)
         controller.close()
       },
     })
