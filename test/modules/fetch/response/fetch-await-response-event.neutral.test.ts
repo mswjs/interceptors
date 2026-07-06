@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { getTestServer } from '#/test/setup/vitest'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
