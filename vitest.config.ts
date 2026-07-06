@@ -10,15 +10,13 @@ declare module 'vitest' {
 export default defineConfig({
   test: {
     globals: true,
-    globalSetup: './vitest.setup.ts',
     hookTimeout: 5000,
     projects: [
       {
         extends: true,
         test: {
           name: 'unit',
-          root: './src',
-          include: ['**/*.test.ts'],
+          include: ['src/**/*.test.ts'],
         },
         esbuild: {
           target: 'es2022',
@@ -29,24 +27,20 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          root: './test',
-          include: ['**/*.test.ts'],
-          exclude: [
-            ...defaultExclude,
-            '**/*.browser.test.ts',
-            '**/*.v-browser.test.ts',
-          ],
+          globalSetup: './vitest.setup.ts',
+          include: ['test/**/*.test.ts'],
+          exclude: [...defaultExclude, '**/*.browser.test.ts'],
           alias: {
             'vitest-environment-node-with-websocket':
-              './envs/node-with-websocket',
+              './test/envs/node-with-websocket',
           },
         },
       },
       {
         extends: true,
         test: {
-          root: './test',
-          include: ['**/*.v-browser.test.ts', '**/*.neutral.test.ts'],
+          globalSetup: './vitest.setup.ts',
+          include: ['test/**/*.browser.test.ts', 'test/**/*.neutral.test.ts'],
           browser: {
             enabled: true,
             provider: playwright(),

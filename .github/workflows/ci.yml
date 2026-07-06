@@ -32,16 +32,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Unit tests
-        run: pnpm test -- --project=unit
+        run: pnpm test --project=unit
 
       - name: Build
         run: pnpm build
 
       - name: Node.js tests
-        run: pnpm test -- --project=node
+        run: pnpm test --project=node
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps --only-shell
 
       - name: Browser tests
-        run: pnpm test -- --project=browser
+        run: pnpm test --project=browser
