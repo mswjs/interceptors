@@ -1,8 +1,10 @@
+import http from 'node:http'
 import { Readable } from 'node:stream'
 import { setTimeout } from 'node:timers/promises'
 import { TestProject } from 'vitest/node'
 import * as express from 'express'
 import { WebSocketServer } from 'ws'
+import { Server as SocketIoServer } from 'socket.io'
 import { HttpServer } from '@open-draft/test-server/http'
 import { compressResponse, useCors } from './test/helpers'
 
@@ -171,8 +173,35 @@ wsServer.on('connection', (client, request) => {
   }
 })
 
+/**
+ * A Socket.IO server that echoes any received message back to the client.
+ */
+const socketIoHttpServer = new http.Server()
+const socketIoServer = new SocketIoServer(socketIoHttpServer, {
+  transports: ['websocket'],
+})
+
+socketIoServer.on('connection', (socket) => {
+  socket.on('message', (data) => {
+    socket.send(data)
+  })
+})
+
+function getSocketIoServerUrl(): string {
+  const address = socketIoHttpServer.address()
+
+  if (address == null || typeof address === 'string') {
+    throw new Error('Failed to retrieve the Socket.IO server address')
+  }
+
+  return `http://localhost:${address.port}/`
+}
+
 export async function setup(project: TestProject) {
   await server.listen()
+  await new Promise<void>((resolve) => {
+    socketIoHttpServer.listen(0, resolve)
+  })
 
   const wsAddress = wsServer.address()
 
@@ -183,11 +212,15 @@ export async function setup(project: TestProject) {
       typeof wsAddress === 'string'
         ? wsAddress
         : `ws://${wsAddress.address}:${wsAddress.port}/`,
+    io: getSocketIoServerUrl(),
   })
 }
 
 export async function teardown() {
   await server.close()
+
+  socketIoServer.disconnectSockets()
+  await socketIoServer.close()
 
   await new Promise<void>((resolve, reject) => {
     wsServer.clients.forEach((client) => client.close())
