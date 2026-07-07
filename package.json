@@ -82,6 +82,7 @@
   "engines": {
     "node": ">=18"
   },
+  "packageManager": "pnpm@9.15.0",
   "scripts": {
     "start": "tsdown --watch",
     "test": "pnpm test:unit && pnpm test:integration",
