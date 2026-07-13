@@ -63,18 +63,33 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     socketInterceptor.on(
       'connection',
       ({ connectionOptions, socket, controller: socketController }) => {
+        let isHttpConnection: boolean | undefined
+        let requestParser: HttpRequestParser | undefined
+
         /**
-         * @note Only listen to the first sent packet.
+         * @note Only inspect the first sent packet to determine the protocol.
          * A single socket cannot be used for different protocols.
          */
-        socket.once('data', (chunk) => {
+        socket.on('data', (chunk) => {
+          if (isHttpConnection === false) {
+            return
+          }
+
+          if (requestParser) {
+            requestParser.execute(toBuffer(chunk))
+            return
+          }
+
           const httpMessage = chunk.toString()
           const httpMethod = httpMessage.split(' ')[0] || ''
 
           // Ignore non-HTTP packets sent via this socket.
           if (!METHODS.includes(httpMethod.toUpperCase())) {
+            isHttpConnection = false
             return
           }
+
+          isHttpConnection = true
 
           const baseUrl = connectionOptionsToUrl(connectionOptions, socket)
 
@@ -89,7 +104,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           const requestContextValue = requestContext.getStore()
           const initiator = requestContextValue?.initiator || socket
 
-          const requestParser = new HttpRequestParser({
+          requestParser = new HttpRequestParser({
             connectionOptions: {
               method: httpMethod,
               url: baseUrl,
@@ -277,16 +292,9 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
           // Forward the first frame to the parser.
           requestParser.execute(toBuffer(chunk))
-
-          // Forward subsequent socket writes to the parser.
-          socket
-            .on('data', (chunk) => {
-              if (chunk) {
-                requestParser.execute(toBuffer(chunk))
-              }
-            })
-            .on('close', () => requestParser.free())
         })
+
+        socket.on('close', () => requestParser?.free())
       },
       {
         signal: controller.signal,
