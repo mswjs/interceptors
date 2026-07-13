@@ -40,6 +40,34 @@ it('applies child interceptors', () => {
   expect(secondaryApplySpy).toHaveBeenCalledTimes(1)
 })
 
+it('applies duplicate child interceptors once', () => {
+  class ChildInterceptor extends Interceptor<{
+    request: TypedEvent
+  }> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {}
+  }
+
+  const childInterceptor = new ChildInterceptor()
+  const interceptor = new BatchInterceptor({
+    name: 'batch-apply-duplicate',
+    interceptors: [childInterceptor, childInterceptor],
+  })
+  const applySpy = vi.spyOn(childInterceptor, 'apply')
+  const listener = vi.fn()
+
+  interceptor.on('request', listener)
+  interceptor.apply()
+
+  expect(applySpy).toHaveBeenCalledOnce()
+  expect(childInterceptor.listenerCount('request')).toBe(1)
+
+  interceptor.dispose()
+})
+
 it('proxies event listeners to the interceptors', () => {
   class PrimaryInterceptor extends Interceptor<{
     hello: TypedEvent<string>
@@ -122,7 +150,7 @@ it('disposes of child interceptors', async () => {
   expect(secondaryDisposeSpy).toHaveBeenCalledTimes(1)
 })
 
-it('forwards listeners added via "on()"', () => {
+it('bridges events to listeners added via "on()"', () => {
   class FirstInterceptor extends Interceptor<any> {
     protected predicate(): boolean {
       return true
@@ -149,10 +177,7 @@ it('forwards listeners added via "on()"', () => {
 
   expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(1)
   expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(1)
-  expect(
-    interceptor['emitter'].listenerCount('foo'),
-    'Does not add the listener onto the batch interceptor'
-  ).toBe(0)
+  expect(interceptor['emitter'].listenerCount('foo')).toBe(1)
 })
 
 it('forwards listeners removal via "removeListener()"', () => {
@@ -221,11 +246,13 @@ it('forwards removal of all listeners by name via ".removeAllListeners()"', () =
   interceptor.on('foo', listener)
   interceptor.on('bar', listener)
 
-  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(1)
   expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
 
-  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(1)
   expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
+  expect(interceptor.listenerCount('foo')).toBe(2)
+  expect(interceptor.listenerCount('bar')).toBe(1)
 
   interceptor.removeAllListeners('foo')
 
@@ -233,6 +260,8 @@ it('forwards removal of all listeners by name via ".removeAllListeners()"', () =
   expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
   expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
   expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
+  expect(interceptor.listenerCount('foo')).toBe(0)
+  expect(interceptor.listenerCount('bar')).toBe(1)
 })
 
 it('forwards removal of all listeners via ".removeAllListeners()"', () => {
@@ -262,10 +291,11 @@ it('forwards removal of all listeners via ".removeAllListeners()"', () => {
   interceptor.on('foo', listener)
   interceptor.on('bar', listener)
 
-  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(1)
   expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
-  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(2)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(1)
   expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
+  expect(interceptor.listenerCount()).toBe(3)
 
   interceptor.removeAllListeners()
 
@@ -273,6 +303,76 @@ it('forwards removal of all listeners via ".removeAllListeners()"', () => {
   expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
   expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(0)
   expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(0)
+  expect(interceptor.listenerCount()).toBe(0)
+})
+
+it('handles the same event instance only once', () => {
+  type Events = {
+    request: TypedEvent<string>
+  }
+
+  class RequestInterceptor extends Interceptor<Events> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {}
+  }
+
+  const firstInterceptor = new RequestInterceptor()
+  const secondInterceptor = new RequestInterceptor()
+  const interceptor = new BatchInterceptor({
+    name: 'batch',
+    interceptors: [firstInterceptor, secondInterceptor],
+  })
+  const listener = vi.fn()
+  const requestEvent = new TypedEvent('request', { data: 'first' })
+
+  interceptor.on('request', listener)
+  firstInterceptor['emitter'].emit(requestEvent)
+  secondInterceptor['emitter'].emit(requestEvent)
+
+  expect(listener).toHaveBeenCalledExactlyOnceWith(requestEvent)
+
+  const nextRequestEvent = new TypedEvent('request', { data: 'second' })
+  secondInterceptor['emitter'].emit(nextRequestEvent)
+
+  expect(listener).toHaveBeenCalledTimes(2)
+  expect(listener).toHaveBeenLastCalledWith(nextRequestEvent)
+})
+
+it('applies "once" across all child interceptors', () => {
+  type Events = {
+    request: TypedEvent<string>
+  }
+
+  class RequestInterceptor extends Interceptor<Events> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {}
+  }
+
+  const firstInterceptor = new RequestInterceptor()
+  const secondInterceptor = new RequestInterceptor()
+  const interceptor = new BatchInterceptor({
+    name: 'batch',
+    interceptors: [firstInterceptor, secondInterceptor],
+  })
+  const listener = vi.fn()
+
+  interceptor.once('request', listener)
+  firstInterceptor['emitter'].emit(
+    new TypedEvent('request', { data: 'first' })
+  )
+  secondInterceptor['emitter'].emit(
+    new TypedEvent('request', { data: 'second' })
+  )
+
+  expect(listener).toHaveBeenCalledOnce()
+  expect(firstInterceptor.listenerCount('request')).toBe(0)
+  expect(secondInterceptor.listenerCount('request')).toBe(0)
 })
 
 it('keeps shared child interceptors active until all batches dispose', () => {

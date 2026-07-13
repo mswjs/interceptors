@@ -1,8 +1,8 @@
-import type { Emitter } from 'rettime'
 import { requestContext } from '#/src/request-context'
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
 import { Interceptor } from '#/src/interceptor'
-import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { forwardHttpEvents } from '#/src/interceptors/http/forward-events'
+import { NodeHttpRequestSource } from '#/src/interceptors/http/source'
 import { patchesRegistry } from '#/src/utils/patchesRegistry'
 import { FetchRequest } from '#/src/utils/fetchUtils'
 import { HttpRequestEventMap } from '#/src/events/http'
@@ -18,104 +18,25 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
   }
 
   protected setup(): void {
-    const httpInterceptor = Interceptor.singleton(HttpRequestInterceptor)
-    httpInterceptor.apply(this)
+    const requestSource = Interceptor.singleton(NodeHttpRequestSource)
+    requestSource.apply(this)
     this.subscriptions.push(() => {
-      httpInterceptor.dispose(this)
+      requestSource.dispose(this)
     })
 
-    const controller = new AbortController()
-    this.subscriptions.push(() => controller.abort())
-
-    httpInterceptor.on(
-      'request',
-      async (event) => {
-        if (event.initiator instanceof XMLHttpRequest) {
-          event.request = this.#transformRequest(event.request, event.initiator)
-          await this.emitter.emitAsPromise(event)
-        }
-      },
-      {
-        signal: controller.signal,
-      }
-    )
-
-    const responseListener: Emitter.Listener<
-      (typeof httpInterceptor)['emitter'],
-      'response'
-    > = async (event) => {
-      if (event.initiator instanceof XMLHttpRequest) {
-        event.request = this.#transformRequest(event.request, event.initiator)
-        await this.emitter.emitAsPromise(event)
-      }
-    }
-
-    const unhandledExceptionListener: Emitter.Listener<
-      (typeof httpInterceptor)['emitter'],
-      'unhandledException'
-    > = async (event) => {
-      if (event.initiator instanceof XMLHttpRequest) {
-        event.request = this.#transformRequest(event.request, event.initiator)
-        await this.emitter.emitAsPromise(event)
-      }
-    }
-
-    this.emitter.hooks.on(
-      'newListener',
-      (type) => {
-        if (
-          type === 'response' &&
-          !httpInterceptor.listeners('response').includes(responseListener)
-        ) {
-          httpInterceptor.on('response', responseListener, {
-            signal: controller.signal,
-          })
-        }
-
-        if (
-          type === 'unhandledException' &&
-          !httpInterceptor
-            .listeners('unhandledException')
-            .includes(unhandledExceptionListener)
-        ) {
-          httpInterceptor.on('unhandledException', unhandledExceptionListener, {
-            signal: controller.signal,
-          })
-        }
-      },
-      {
-        signal: controller.signal,
-        persist: true,
-      }
-    )
-
-    this.emitter.hooks.on(
-      'removeListener',
-      (type) => {
-        if (
-          type === 'response' &&
-          this.emitter.listenerCount('response') === 0
-        ) {
-          httpInterceptor.removeListener('response', responseListener)
-        }
-
-        if (
-          type === 'unhandledException' &&
-          this.emitter.listenerCount('unhandledException') === 0
-        ) {
-          httpInterceptor.removeListener(
-            'unhandledException',
-            unhandledExceptionListener
-          )
-        }
-      },
-      {
-        signal: controller.signal,
-        persist: true,
-      }
+    this.subscriptions.push(
+      forwardHttpEvents({
+        source: requestSource,
+        emitter: this.emitter,
+        predicate: (initiator) => {
+          return initiator instanceof XMLHttpRequest
+        },
+      })
     )
 
     log('patching global "XMLHttpRequest"...')
+
+    const prepareRequest = this.#transformRequest.bind(this)
 
     this.subscriptions.push(
       patchesRegistry.applyPatch(
@@ -130,7 +51,12 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
                * @note Use `.enterWith()` here because XHR in JSDOM is implemented
                * via `http`/`https`. This makes the initiator cascading work properly.
                */
-              requestContext.enterWith({ initiator: xmlHttpRequest })
+              requestContext.enterWith({
+                initiator: xmlHttpRequest,
+                prepareRequest: (request) => {
+                  return prepareRequest(request, xmlHttpRequest)
+                },
+              })
 
               /**
                * @todo Do we need to exit the async context at some point?

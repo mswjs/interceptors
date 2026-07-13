@@ -1,22 +1,43 @@
-import { type DefaultEventMap } from 'rettime'
+import {
+  type DefaultEventMap,
+  Emitter,
+  type TypedEvent,
+  type WithReservedEvents,
+} from 'rettime'
 import { Logger } from '@open-draft/logger'
 import { Interceptor } from './interceptor'
 import { type DisposableSubscription } from './disposable'
 
-interface BatchListenerSubscription {
-  listener: object
-  dispose: DisposableSubscription
+type GenericEventListener = Emitter.Listener<
+  Emitter<DefaultEventMap>,
+  string
+>
+
+function addEventBridge(
+  interceptor: Interceptor<DefaultEventMap>,
+  type: string,
+  listener: GenericEventListener
+): void {
+  interceptor.on(type, listener)
+}
+
+function removeEventBridge(
+  interceptor: Interceptor<DefaultEventMap>,
+  type: string,
+  listener: GenericEventListener
+): void {
+  interceptor.removeListener(type, listener)
 }
 
 export interface BatchInterceptorOptions<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>,
+  InterceptorList extends ReadonlyArray<Interceptor<DefaultEventMap>>,
 > {
   name: string
   interceptors: InterceptorList
 }
 
 export type ExtractEventMapType<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>,
+  InterceptorList extends ReadonlyArray<Interceptor<DefaultEventMap>>,
 > =
   InterceptorList extends ReadonlyArray<infer InterceptorType>
     ? InterceptorType extends Interceptor<infer EventMap>
@@ -31,19 +52,43 @@ const logger = new Logger('BatchInterceptor')
  * to apply and operate with multiple interceptors at once.
  */
 export class BatchInterceptor<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>,
+  InterceptorList extends ReadonlyArray<Interceptor<DefaultEventMap>>,
   Events extends DefaultEventMap = ExtractEventMapType<InterceptorList>,
 > extends Interceptor<Events> {
   #logger: Logger
   #interceptors: InterceptorList
-  #listenerSubscriptions: Map<string, Array<BatchListenerSubscription>>
+  #eventBridges: Map<string, DisposableSubscription>
+  #forwardedEvents: Map<string, WeakSet<object>>
 
   constructor(options: BatchInterceptorOptions<InterceptorList>) {
     super()
 
     this.#logger = logger.extend(options.name)
     this.#interceptors = options.interceptors
-    this.#listenerSubscriptions = new Map()
+    this.#eventBridges = new Map()
+    this.#forwardedEvents = new Map()
+
+    this.emitter.hooks.on(
+      'newListener',
+      (type) => {
+        this.#ensureEventBridge(type)
+      },
+      {
+        persist: true,
+      }
+    )
+
+    this.emitter.hooks.on(
+      'removeListener',
+      (type) => {
+        if (this.emitter.listenerCount(type) === 0) {
+          this.#removeEventBridge(type)
+        }
+      },
+      {
+        persist: true,
+      }
+    )
   }
 
   protected predicate(): boolean {
@@ -61,141 +106,125 @@ export class BatchInterceptor<
     return false
   }
 
-  protected setup() {
-    const logger = this.#logger.extend('setup')
+  protected setup(): void {
+    const setupLogger = this.#logger.extend('setup')
+    const interceptors = new Set(this.#interceptors)
 
-    logger.info('applying all %d interceptors...', this.#interceptors.length)
+    this.#forwardedEvents = new Map()
+
+    setupLogger.info('applying all %d interceptors...', interceptors.size)
 
     this.subscriptions.push(() => {
-      this.#removeAllListeners()
+      this.#removeAllEventBridges()
     })
 
-    for (const interceptor of this.#interceptors) {
-      logger.info('applying "%s" interceptor...', interceptor.constructor.name)
+    for (const interceptor of interceptors) {
+      setupLogger.info(
+        'applying "%s" interceptor...',
+        interceptor.constructor.name
+      )
       interceptor.apply(this)
 
-      logger.info('adding interceptor dispose subscription')
+      setupLogger.info('adding interceptor dispose subscription')
       this.subscriptions.push(() => {
         interceptor.dispose(this)
       })
     }
   }
 
-  public on: (typeof this.emitter)['on'] = (type, listener, options) => {
-    for (const interceptor of this.#interceptors) {
-      interceptor.on(type, listener, options)
-    }
-
-    this.#addListenerSubscription(type, listener, () => {
-      for (const interceptor of this.#interceptors) {
-        interceptor.removeListener(type, listener)
-      }
-    })
-
-    return this.emitter
-  }
-
-  public once: (typeof this.emitter)['once'] = (type, listener, options) => {
-    for (const interceptor of this.#interceptors) {
-      interceptor.once(type, listener, options)
-    }
-
-    this.#addListenerSubscription(type, listener, () => {
-      for (const interceptor of this.#interceptors) {
-        interceptor.removeListener(type, listener)
-      }
-    })
-
-    return this.emitter
-  }
-
-  public removeListener: (typeof this.emitter)['removeListener'] = (
-    type,
-    listener
-  ) => {
-    this.#removeListener(type, listener)
-  }
-
-  public removeAllListeners: (typeof this.emitter)['removeAllListeners'] = (
-    type
-  ) => {
-    this.#removeAllListeners(type)
-  }
-
-  #addListenerSubscription(
-    type: string,
-    listener: object,
-    disposeListener: () => void
+  #ensureEventBridge(
+    type: keyof WithReservedEvents<Events> & string
   ): void {
-    const listenerSubscriptions = this.#listenerSubscriptions.get(type)
-    const listenerSubscription: BatchListenerSubscription = {
-      listener,
-      dispose: disposeListener,
-    }
-
-    if (listenerSubscriptions) {
-      listenerSubscriptions.push(listenerSubscription)
+    if (this.#eventBridges.has(type)) {
       return
     }
 
-    this.#listenerSubscriptions.set(type, [listenerSubscription])
+    if (type === '*') {
+      this.#ensureWildcardEventBridge()
+      return
+    }
+
+    this.#ensureTypedEventBridge(type)
   }
 
-  #removeListener(type: string, listener: object): void {
-    const listenerSubscriptions = this.#listenerSubscriptions.get(type)
-
-    if (!listenerSubscriptions) {
-      return
-    }
-
-    for (
-      let index = listenerSubscriptions.length - 1;
-      index >= 0;
-      index--
-    ) {
-      const listenerSubscription = listenerSubscriptions[index]
-
-      if (listenerSubscription.listener !== listener) {
-        continue
-      }
-
-      listenerSubscription.dispose()
-      listenerSubscriptions.splice(index, 1)
-
-      if (listenerSubscriptions.length === 0) {
-        this.#listenerSubscriptions.delete(type)
-      }
-
-      return
-    }
-  }
-
-  #removeAllListeners(type?: string): void {
-    if (type != null) {
-      const listenerSubscriptions = this.#listenerSubscriptions.get(type)
-
-      if (!listenerSubscriptions) {
+  #ensureTypedEventBridge(type: keyof Events & string): void {
+    const interceptors = new Set(this.#interceptors)
+    const batchEmitter = this.emitter as Emitter<DefaultEventMap>
+    const forwardEvent: GenericEventListener = async (event) => {
+      if (this.#recordForwardedEvent(event)) {
         return
       }
 
-      for (const listenerSubscription of listenerSubscriptions) {
-        listenerSubscription.dispose()
+      await batchEmitter.emitAsPromise(event)
+    }
+
+    for (const interceptor of interceptors) {
+      addEventBridge(interceptor, type, forwardEvent)
+    }
+
+    this.#eventBridges.set(type, () => {
+      for (const interceptor of interceptors) {
+        removeEventBridge(interceptor, type, forwardEvent)
+      }
+    })
+  }
+
+  #ensureWildcardEventBridge(): void {
+    const interceptors = new Set(this.#interceptors)
+    const batchEmitter = this.emitter as Emitter<DefaultEventMap>
+    const forwardEvent: GenericEventListener = (event: TypedEvent): void => {
+      if (this.#recordForwardedEvent(event)) {
+        return
       }
 
-      this.#listenerSubscriptions.delete(type)
+      void batchEmitter.emitAsPromise(event)
+    }
+
+    for (const interceptor of interceptors) {
+      addEventBridge(interceptor, '*', forwardEvent)
+    }
+
+    this.#eventBridges.set('*', () => {
+      for (const interceptor of interceptors) {
+        removeEventBridge(interceptor, '*', forwardEvent)
+      }
+    })
+  }
+
+  #recordForwardedEvent(event: TypedEvent): boolean {
+    const forwardedEvents = this.#forwardedEvents.get(event.type)
+
+    if (forwardedEvents?.has(event)) {
+      return true
+    }
+
+    if (forwardedEvents) {
+      forwardedEvents.add(event)
+      return false
+    }
+
+    this.#forwardedEvents.set(event.type, new WeakSet([event]))
+    return false
+  }
+
+  #removeEventBridge(
+    type: keyof WithReservedEvents<Events> & string
+  ): void {
+    const disposeEventBridge = this.#eventBridges.get(type)
+
+    if (!disposeEventBridge) {
       return
     }
 
-    for (const listenerType of this.#listenerSubscriptions.keys()) {
-      this.#removeAllListeners(listenerType)
+    disposeEventBridge()
+    this.#eventBridges.delete(type)
+  }
+
+  #removeAllEventBridges(): void {
+    for (const disposeEventBridge of this.#eventBridges.values()) {
+      disposeEventBridge()
     }
-  }
 
-  public listeners: (typeof this.emitter)['listeners'] = (type) => {
-    return this.#interceptors[0].listeners(type)
-  }
-
-  public listenerCount: (typeof this.emitter)['listenerCount'] = (type) => {
-    return this.#interceptors[0].listenerCount(type)
+    this.#eventBridges.clear()
   }
 }

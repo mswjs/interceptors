@@ -1,9 +1,9 @@
 import http from 'node:http'
 import https from 'node:https'
-import type { Emitter } from 'rettime'
 import { runInRequestContext } from '#/src/request-context'
 import { patchesRegistry } from '#/src/utils/patchesRegistry'
-import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { forwardHttpEvents } from '#/src/interceptors/http/forward-events'
+import { NodeHttpRequestSource } from '#/src/interceptors/http/source'
 import { Interceptor } from '../../interceptor'
 import { HttpRequestEventMap } from '#/src/events/http'
 
@@ -18,98 +18,20 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected setup(): void {
-    const httpInterceptor = Interceptor.singleton(HttpRequestInterceptor)
-    httpInterceptor.apply(this)
+    const requestSource = Interceptor.singleton(NodeHttpRequestSource)
+    requestSource.apply(this)
     this.subscriptions.push(() => {
-      httpInterceptor.dispose(this)
+      requestSource.dispose(this)
     })
 
-    const controller = new AbortController()
-    this.subscriptions.push(() => controller.abort())
-
-    httpInterceptor.on(
-      'request',
-      async (event) => {
-        if (event.initiator instanceof http.ClientRequest) {
-          await this.emitter.emitAsPromise(event)
-        }
-      },
-      {
-        signal: controller.signal,
-      }
-    )
-
-    const responseListener: Emitter.Listener<
-      (typeof httpInterceptor)['emitter'],
-      'response'
-    > = async (event) => {
-      if (event.initiator instanceof http.ClientRequest) {
-        await this.emitter.emitAsPromise(event)
-      }
-    }
-
-    const unhandledExceptionListener: Emitter.Listener<
-      (typeof httpInterceptor)['emitter'],
-      'unhandledException'
-    > = async (event) => {
-      if (event.initiator instanceof http.ClientRequest) {
-        await this.emitter.emitAsPromise(event)
-      }
-    }
-
-    this.emitter.hooks.on(
-      'newListener',
-      (type) => {
-        if (
-          type === 'response' &&
-          !httpInterceptor.listeners('response').includes(responseListener)
-        ) {
-          httpInterceptor.on('response', responseListener, {
-            signal: controller.signal,
-          })
-        }
-
-        if (
-          type === 'unhandledException' &&
-          !httpInterceptor
-            .listeners('unhandledException')
-            .includes(unhandledExceptionListener)
-        ) {
-          httpInterceptor.on('unhandledException', unhandledExceptionListener, {
-            signal: controller.signal,
-          })
-        }
-      },
-      {
-        signal: controller.signal,
-        persist: true,
-      }
-    )
-
-    this.emitter.hooks.on(
-      'removeListener',
-      (type) => {
-        if (
-          type === 'response' &&
-          this.emitter.listenerCount('response') === 0
-        ) {
-          httpInterceptor.removeListener('response', responseListener)
-        }
-
-        if (
-          type === 'unhandledException' &&
-          this.emitter.listenerCount('unhandledException') === 0
-        ) {
-          httpInterceptor.removeListener(
-            'unhandledException',
-            unhandledExceptionListener
-          )
-        }
-      },
-      {
-        signal: controller.signal,
-        persist: true,
-      }
+    this.subscriptions.push(
+      forwardHttpEvents({
+        source: requestSource,
+        emitter: this.emitter,
+        predicate: (initiator) => {
+          return initiator instanceof http.ClientRequest
+        },
+      })
     )
 
     this.subscriptions.push(

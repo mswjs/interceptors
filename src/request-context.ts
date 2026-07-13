@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 
 interface RequestContext {
   initiator: unknown
+  prepareRequest?: (request: Request) => Request
 }
 
 export const requestContext = new AsyncLocalStorage<RequestContext>()
