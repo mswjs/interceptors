@@ -157,7 +157,6 @@
   },
   "dependencies": {
     "@open-draft/deferred-promise": "^2.2.0",
-    "@open-draft/logger": "^0.3.0",
     "@open-draft/until": "^2.0.0",
     "@types/debug": "^4.1.13",
     "debug": "^4.4.3",

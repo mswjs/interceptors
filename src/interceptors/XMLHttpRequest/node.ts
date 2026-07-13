@@ -8,7 +8,7 @@ import { FetchRequest } from '#/src/utils/fetchUtils'
 import { HttpRequestEventMap } from '#/src/events/http'
 import { createLogger } from '#/src/utils/logger'
 
-const log = createLogger('xhr')
+const logger = createLogger('xhr')
 
 export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('xhr-interceptor')
@@ -34,9 +34,10 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
       })
     )
 
-    log('patching global "XMLHttpRequest"...')
+    logger.verbose('patching global "XMLHttpRequest"...')
 
     const prepareRequest = this.#transformRequest.bind(this)
+    const requestLogger = this.logger
 
     this.subscriptions.push(
       patchesRegistry.applyPatch(
@@ -53,6 +54,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
                */
               requestContext.enterWith({
                 initiator: xmlHttpRequest,
+                logger: requestLogger,
                 prepareRequest: (request) => {
                   return prepareRequest(request, xmlHttpRequest)
                 },
@@ -69,7 +71,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
       )
     )
 
-    log('global "XMLHttpRequest" patched!')
+    logger.verbose('global "XMLHttpRequest" patched!')
   }
 
   #transformRequest(request: Request, initiator: XMLHttpRequest): Request {

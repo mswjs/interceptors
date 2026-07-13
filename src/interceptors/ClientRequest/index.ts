@@ -19,6 +19,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
   protected setup(): void {
     const requestSource = Interceptor.singleton(NodeHttpRequestSource)
+    const requestLogger = this.logger
     requestSource.apply(this)
     this.subscriptions.push(() => {
       requestSource.dispose(this)
@@ -40,7 +41,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
           construct(target, args, newTarget) {
             return runInRequestContext(() => {
               return Reflect.construct(target, args, newTarget)
-            })
+            }, requestLogger)
           },
         })
       }),
@@ -48,28 +49,28 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
         return function mockHttpGet(...args) {
           return runInRequestContext(() => {
             return httpGet(...(args as [any, any]))
-          })
+          }, requestLogger)
         }
       }),
       patchesRegistry.applyPatch(http, 'request', (httpRequest) => {
         return function mockHttpRequest(...args) {
           return runInRequestContext(() => {
             return httpRequest(...(args as [any, any]))
-          })
+          }, requestLogger)
         }
       }),
       patchesRegistry.applyPatch(https, 'get', (httpsGet) => {
         return function mockHttpsGet(...args) {
           return runInRequestContext(() => {
             return httpsGet(...(args as [any, any]))
-          })
+          }, requestLogger)
         }
       }),
       patchesRegistry.applyPatch(https, 'request', (httpsRequest) => {
         return function mockHttpsRequest(...args) {
           return runInRequestContext(() => {
             return httpsRequest(...(args as [any, any]))
-          })
+          }, requestLogger)
         }
       })
     )

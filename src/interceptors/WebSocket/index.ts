@@ -22,7 +22,7 @@ import {
 import { bindEvent } from './utils/bindEvent'
 import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
 import { patchesRegistry } from '../../utils/patchesRegistry'
-import { Logger } from '@open-draft/logger'
+import { createLogger } from '../../utils/logger'
 
 export {
   type WebSocketData,
@@ -43,7 +43,7 @@ export {
   CancelableMessageEvent,
 } from './utils/events'
 
-const logger = new Logger('websocket')
+const logger = createLogger('websocket')
 
 /**
  * Intercept the outgoing WebSocket connections created using
@@ -57,7 +57,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
   }
 
   protected setup(): void {
-    logger.info('setup')
+    logger.verbose('setup')
 
     const WebSocketProxy = new Proxy(globalThis.WebSocket, {
       construct: (
@@ -66,6 +66,11 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
         newTarget
       ) => {
         const [url, protocols] = args
+
+        logger.info('connection intercepted %o', {
+          url: url.toString(),
+          protocols,
+        })
 
         const createConnection = (): WebSocket => {
           return Reflect.construct(target, args, newTarget)
@@ -151,12 +156,12 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
       },
     })
 
-    logger.info('patching global WebSocket...')
+    logger.verbose('patching global WebSocket...')
 
     this.subscriptions.push(
       patchesRegistry.applyPatch(globalThis, 'WebSocket', () => WebSocketProxy)
     )
 
-    logger.info('global WebSocket patched!', globalThis.WebSocket.name)
+    logger.verbose('global WebSocket patched: %s', globalThis.WebSocket.name)
   }
 }

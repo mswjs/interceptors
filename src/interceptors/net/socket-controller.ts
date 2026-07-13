@@ -11,7 +11,7 @@ import { getAddressInfoByConnectionOptions } from './utils/address-info'
 const kListenerWrap = Symbol('kListenerWrap')
 export const kRawSocket = Symbol('kRawSocket')
 
-const log = createLogger('SocketController')
+const logger = createLogger('socket')
 
 // Internally, Node.js represents the result of various operations
 // by the number they return: 0 (error), 1 (success).
@@ -272,7 +272,7 @@ export class TcpSocketController extends SocketController {
 
     this.socket.connect = new Proxy(this.socket.connect, {
       apply: (target, thisArg, args) => {
-        log('socket.connect()', args)
+        logger.verbose('socket.connect() %o', args)
 
         this.#connectionOptions = args[0]
         return Reflect.apply(target, thisArg, args)
@@ -288,11 +288,11 @@ export class TcpSocketController extends SocketController {
      */
     socket
       .on('free', () => {
-        log('client socket freed!')
+        logger.verbose('client socket freed!')
         this.#reset()
       })
       .on('close', () => {
-        log('client socket closed!')
+        logger.verbose('client socket closed!')
         this.#passthroughSocket = null
         this.#bufferedWrites = []
         this.#readsCorked = false
@@ -316,7 +316,7 @@ export class TcpSocketController extends SocketController {
   }
 
   #reset(): void {
-    log('resetting the socket...')
+    logger.verbose('resetting the socket...')
 
     this.readyState = SocketController.PENDING
     this.pendingConnection = new DeferredPromise()
@@ -324,7 +324,7 @@ export class TcpSocketController extends SocketController {
 
     const wrapHandle = (handle: TcpHandle) => {
       this.pendingConnection.then(() => {
-        log('connection request resolved!', this.readyState)
+        logger.verbose('connection request resolved!', this.readyState)
 
         process.nextTick(() => {
           /**
@@ -340,7 +340,7 @@ export class TcpSocketController extends SocketController {
             this.#bufferedWrites.length === 0 &&
             this.socket.listenerCount('connect') > 0
           ) {
-            log('assume connect->write socket, calling "connect" listeners...')
+            logger.verbose('assume connect->write socket, calling "connect" listeners...')
             this.emulateConnect()
           }
         })
@@ -357,11 +357,11 @@ export class TcpSocketController extends SocketController {
       }
 
       handle.connect = handle.connect6 = (request) => {
-        log('handle.connect()')
+        logger.verbose('handle.connect()')
         this.pendingConnection.resolve([request, handle])
       }
 
-      log('socket handle wrapped! waiting for connection request...')
+      logger.verbose('socket handle wrapped! waiting for connection request...')
     }
 
     if (this.socket._handle) {
@@ -376,7 +376,7 @@ export class TcpSocketController extends SocketController {
       const data = args[1]
       const callback = args[3]
 
-      log(this.readyState, 'write:', args)
+      logger.verbose('socket write (state: %d) %o', this.readyState, args)
 
       /**
        * @note Buffer the write BEFORE pushing data to the server socket.
@@ -390,18 +390,21 @@ export class TcpSocketController extends SocketController {
       // The server socket will NEVER have any "data" listeners attached
       // becuase the "connection" interceptor event emits on the next tick.
       if (this.socket.listenerCount('internal:write') === 0) {
-        log('no server data listeners, scheduling to the next tick...')
+        logger.verbose('no server data listeners, scheduling to the next tick...')
 
         process.nextTick(() => {
-          log(
+          logger.verbose(
+            'forwarding scheduled write to server socket (state: %d) %o',
             this.readyState,
-            '(scheduled) forwarding write to server socket...',
             data
           )
           this.#push(data)
         })
       } else {
-        log(this.readyState, 'found server data listeners, pushing...')
+        logger.verbose(
+          'pushing to server data listeners (state: %d)',
+          this.readyState
+        )
         this.#push(data)
       }
 
@@ -444,10 +447,10 @@ export class TcpSocketController extends SocketController {
       return
     }
 
-    log('(server) push:', data)
+    logger.verbose('server push %o', data)
 
     unwrapPendingData(data, (chunk, encoding) => {
-      log('(server) emitting "data"...', { chunk, encoding })
+      logger.verbose('server emitting "data" %o', { chunk, encoding })
 
       this.socket.emit('internal:write', chunk, encoding)
     })
@@ -466,16 +469,16 @@ export class TcpSocketController extends SocketController {
   }
 
   #onRealSocketData = (data: Buffer) => {
-    log('real socket "data" event:\n', data?.toString())
+    logger.verbose('real socket "data" event %o', data)
 
     if (this.#readsCorked) {
-      log('reads are corked, buffering the data...')
+      logger.verbose('reads are corked, buffering the data...')
       this.#corkedReads.push({ type: 'data', chunk: data })
       return
     }
 
     if (!this.socket.push(data)) {
-      log(
+      logger.verbose(
         'client socket forbade more pushes, pausing the passthrough socket...'
       )
       this.#passthroughSocket?.pause()
@@ -483,16 +486,16 @@ export class TcpSocketController extends SocketController {
   }
 
   #onRealSocketError = (error: Error) => {
-    log('real socket "error" event:\n', error)
+    logger.verbose('real socket "error" event %o', error)
 
     if (this.socket.destroyed) {
-      log(
+      logger.verbose(
         'real socket errored but client socket already destroyed, skipping...'
       )
       return
     }
 
-    log('real socket errored, forwarding...', error)
+    logger.verbose('real socket errored, forwarding %o', error)
 
     this.socket.destroy(error)
 
@@ -522,7 +525,7 @@ export class TcpSocketController extends SocketController {
   }
 
   #onMockSocketDrain = () => {
-    log('client socket drained!')
+    logger.verbose('client socket drained!')
     this.#passthroughSocket?.resume()
   }
 
@@ -555,7 +558,7 @@ export class TcpSocketController extends SocketController {
       switch (corkedRead.type) {
         case 'data': {
           if (!this.socket.push(corkedRead.chunk)) {
-            log(
+            logger.verbose(
               'client socket forbade more pushes, pausing the passthrough socket...'
             )
             this.#passthroughSocket?.pause()
@@ -580,11 +583,11 @@ export class TcpSocketController extends SocketController {
     super.claim()
 
     if (!this.socket.connecting) {
-      log('socket already connected, skipping claim...')
+      logger.verbose('socket already connected, skipping claim...')
       return
     }
 
-    log('-> claim!')
+    logger.verbose('-> claim!')
 
     /**
      * Patch the "getsockname" on the handle in case Node.js decides to handle its errors.
@@ -604,7 +607,7 @@ export class TcpSocketController extends SocketController {
      * Attempting to write past this point will result in the "Error: write EBADF".
      */
     this.socket._writeGeneric = (...args) => {
-      log(this.readyState, 'write:', args)
+      logger.verbose('socket write (state: %d) %o', this.readyState, args)
 
       const data = args[1]
       const callback = args[3]
@@ -612,13 +615,17 @@ export class TcpSocketController extends SocketController {
       this.#push(data)
 
       if (typeof callback === 'function') {
-        log(this.readyState, 'invoking callback for write:', data, callback)
+        logger.verbose(
+          'invoking write callback (state: %d) %o',
+          this.readyState,
+          { data, callback }
+        )
         callback()
       }
     }
 
     this.pendingConnection.then(([request, handle]) => {
-      log('connection request resolved, mocking the connection...')
+      logger.verbose('connection request resolved, mocking the connection...')
 
       /**
        * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
@@ -630,7 +637,7 @@ export class TcpSocketController extends SocketController {
   public passthrough(flushPendingData?: FlushPendingDataFunction): net.Socket {
     super.passthrough()
 
-    log('-> passthrough!')
+    logger.verbose('-> passthrough!')
 
     const createRealSocket = () => {
       const realSocket = this.createConnection()
@@ -653,9 +660,9 @@ export class TcpSocketController extends SocketController {
     }
 
     if (this.#bufferedWrites.length === 0) {
-      log(
-        this.readyState,
-        'WARNING: passthrough with empty writes buffer! This likely indicates an issue.'
+      logger.verbose(
+        'passthrough with empty writes buffer (state: %d)',
+        this.readyState
       )
     }
 
@@ -683,7 +690,7 @@ export class TcpSocketController extends SocketController {
     this.socket._pendingEncoding = ''
 
     this.socket._writeGeneric = (...args) => {
-      log(this.readyState, 'write:', args)
+      logger.verbose('socket write (state: %d) %o', this.readyState, args)
 
       this.#push(args[1])
 

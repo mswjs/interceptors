@@ -1,11 +1,17 @@
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { invariant } from 'outvariant'
 import { InterceptorError } from './InterceptorError'
+import { formatResponse, type Logger } from './utils/logger'
 
 export interface RequestControllerSource {
   passthrough(): void | Promise<void>
   respondWith(response: Response): void | Promise<void>
   errorWith(reason?: unknown): void | Promise<void>
+}
+
+interface RequestControllerOptions {
+  logger: Logger
+  requestId: string
 }
 
 export class RequestController {
@@ -24,7 +30,8 @@ export class RequestController {
 
   constructor(
     protected readonly request: Request,
-    protected readonly source: RequestControllerSource
+    protected readonly source: RequestControllerSource,
+    protected readonly options?: RequestControllerOptions
   ) {
     this.readyState = RequestController.PENDING
     this.handled = new DeferredPromise<void>()
@@ -47,6 +54,9 @@ export class RequestController {
     )
 
     this.readyState = RequestController.PASSTHROUGH
+    if (this.options) {
+      this.options.logger.info('[%s] passthrough', this.options.requestId)
+    }
     await this.source.passthrough()
     this.#handled.resolve()
   }
@@ -72,6 +82,13 @@ export class RequestController {
     )
 
     this.readyState = RequestController.RESPONSE
+    if (this.options?.logger.isEnabled('default')) {
+      const { logger, requestId } = this.options
+
+      void formatResponse(response).then((message) => {
+        logger.info('[%s] mocked %s', requestId, message)
+      })
+    }
     this.#handled.resolve()
 
     /**
@@ -103,6 +120,13 @@ export class RequestController {
     )
 
     this.readyState = RequestController.ERROR
+    if (this.options) {
+      this.options.logger.info(
+        '[%s] error %o',
+        this.options.requestId,
+        reason
+      )
+    }
     this.source.errorWith(reason)
     this.#handled.resolve()
   }

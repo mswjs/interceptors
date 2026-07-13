@@ -3,6 +3,7 @@ import {
   type RequestControllerSource,
 } from './RequestController'
 import { InterceptorError } from './InterceptorError'
+import type { Logger } from './utils/logger'
 
 const defaultSource = {
   passthrough() {},
@@ -38,6 +39,40 @@ it('handles a request when calling ".respondWith()" with a mocked response', asy
   expect(response).toBeInstanceOf(Response)
   expect(response.status).toBe(200)
   await expect(response.text()).resolves.toBe('hello world')
+})
+
+it('logs a mocked resolution and response as a single message', async () => {
+  const info = vi.fn<Logger['info']>()
+  const logger = {
+    info,
+    verbose: vi.fn<Logger['verbose']>(),
+    isEnabled() {
+      return true
+    },
+  } satisfies Logger
+  const controller = new RequestController(
+    new Request('http://localhost'),
+    defaultSource,
+    { logger, requestId: 'request-id' }
+  )
+
+  controller.respondWith(
+    new Response(null, {
+      status: 201,
+      statusText: 'Created',
+      headers: {
+        'x-example': 'yes',
+      },
+    })
+  )
+
+  await vi.waitFor(() => {
+    expect(info).toHaveBeenCalledWith(
+      '[%s] mocked %s',
+      'request-id',
+      ['HTTP 201 Created', 'x-example: yes', '', ''].join('\n')
+    )
+  })
 })
 
 it('handles the request when calling ".errorWith()" with an error', async () => {

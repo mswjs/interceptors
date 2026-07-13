@@ -4,7 +4,6 @@ import {
   type TypedEvent,
   type WithReservedEvents,
 } from 'rettime'
-import { Logger } from '@open-draft/logger'
 import { Interceptor } from './interceptor'
 import { type DisposableSubscription } from './disposable'
 
@@ -45,8 +44,6 @@ export type ExtractEventMapType<
       : never
     : never
 
-const logger = new Logger('BatchInterceptor')
-
 /**
  * A batch interceptor that exposes a single interface
  * to apply and operate with multiple interceptors at once.
@@ -55,7 +52,6 @@ export class BatchInterceptor<
   InterceptorList extends ReadonlyArray<Interceptor<DefaultEventMap>>,
   Events extends DefaultEventMap = ExtractEventMapType<InterceptorList>,
 > extends Interceptor<Events> {
-  #logger: Logger
   #interceptors: InterceptorList
   #eventBridges: Map<string, DisposableSubscription>
   #forwardedEvents: Map<string, WeakSet<object>>
@@ -63,7 +59,6 @@ export class BatchInterceptor<
   constructor(options: BatchInterceptorOptions<InterceptorList>) {
     super()
 
-    this.#logger = logger.extend(options.name)
     this.#interceptors = options.interceptors
     this.#eventBridges = new Map()
     this.#forwardedEvents = new Map()
@@ -107,25 +102,28 @@ export class BatchInterceptor<
   }
 
   protected setup(): void {
-    const setupLogger = this.#logger.extend('setup')
     const interceptors = new Set(this.#interceptors)
 
     this.#forwardedEvents = new Map()
 
-    setupLogger.info('applying all %d interceptors...', interceptors.size)
+    this.logger.verbose(
+      'applying batch %s with %d interceptors',
+      this.constructor.name,
+      interceptors.size
+    )
 
     this.subscriptions.push(() => {
       this.#removeAllEventBridges()
     })
 
     for (const interceptor of interceptors) {
-      setupLogger.info(
+      this.logger.verbose(
         'applying "%s" interceptor...',
         interceptor.constructor.name
       )
       interceptor.apply(this)
 
-      setupLogger.info('adding interceptor dispose subscription')
+      this.logger.verbose('adding interceptor dispose subscription')
       this.subscriptions.push(() => {
         interceptor.dispose(this)
       })
@@ -152,9 +150,11 @@ export class BatchInterceptor<
     const batchEmitter = this.emitter as Emitter<DefaultEventMap>
     const forwardEvent: GenericEventListener = async (event) => {
       if (this.#recordForwardedEvent(event)) {
+        this.logger.verbose('skipping duplicate "%s" event', event.type)
         return
       }
 
+      this.logger.verbose('forwarding "%s" event', event.type)
       await batchEmitter.emitAsPromise(event)
     }
 
@@ -174,9 +174,11 @@ export class BatchInterceptor<
     const batchEmitter = this.emitter as Emitter<DefaultEventMap>
     const forwardEvent: GenericEventListener = (event: TypedEvent): void => {
       if (this.#recordForwardedEvent(event)) {
+        this.logger.verbose('skipping duplicate "%s" event', event.type)
         return
       }
 
+      this.logger.verbose('forwarding wildcard "%s" event', event.type)
       void batchEmitter.emitAsPromise(event)
     }
 

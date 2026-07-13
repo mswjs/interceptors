@@ -1,8 +1,8 @@
 import { Agent } from 'node:http'
 import { RequestOptions, Agent as HttpsAgent } from 'node:https'
-import { Logger } from '@open-draft/logger'
+import { createLogger } from './logger'
 
-const logger = new Logger('utils getUrlByRequestOptions')
+const logger = createLogger('get-url-by-request-options')
 
 // Request instance constructed by the "request" library
 // has a "self" property that has a "uri" field. This is
@@ -109,44 +109,44 @@ function getHostname(options: ResolvedRequestOptions): string | undefined {
  * Creates a `URL` instance from a given `RequestOptions` object.
  */
 export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
-  logger.info('request options', options)
+  logger.verbose('request options %o', options)
 
   if (options.uri) {
-    logger.info(
+    logger.verbose(
       'constructing url from explicitly provided "options.uri": %s',
       options.uri
     )
     return new URL(options.uri.href)
   }
 
-  logger.info('figuring out url from request options...')
+  logger.verbose('figuring out URL from request options')
 
   const protocol = getProtocolByRequestOptions(options)
-  logger.info('protocol', protocol)
+  logger.verbose('protocol: %s', protocol)
 
   const port = getPortByRequestOptions(options)
-  logger.info('port', port)
+  logger.verbose('port: %s', port)
 
   const hostname = getHostname(options)
-  logger.info('hostname', hostname)
+  logger.verbose('hostname: %s', hostname)
 
   const path = options.path || DEFAULT_PATH
-  logger.info('path', path)
+  logger.verbose('path: %s', path)
 
   const credentials = getAuthByRequestOptions(options)
-  logger.info('credentials', credentials)
+  logger.verbose('credentials %o', credentials)
 
   const authString = credentials
     ? `${credentials.username}:${credentials.password}@`
     : ''
-  logger.info('auth string:', authString)
+  logger.verbose('auth string: %s', authString)
 
   const portString = typeof port !== 'undefined' ? `:${port}` : ''
   const url = new URL(`${protocol}//${hostname}${portString}${path}`)
   url.username = credentials?.username || ''
   url.password = credentials?.password || ''
 
-  logger.info('created url:', url)
+  logger.verbose('created URL: %s', url.href)
 
   return url
 }

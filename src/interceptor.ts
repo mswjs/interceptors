@@ -1,5 +1,6 @@
 import { Emitter, type DefaultEventMap } from 'rettime'
 import { Disposable } from './disposable'
+import { createLogger, type Logger } from './utils/logger'
 
 export enum InterceptorReadyState {
   INACTIVE = 'INACTIVE',
@@ -20,6 +21,7 @@ export abstract class Interceptor<
   declare ['constructor']: typeof Interceptor
 
   protected emitter: Emitter<Events>
+  protected readonly logger: Logger
 
   public readyState: InterceptorReadyState
 
@@ -48,6 +50,7 @@ export abstract class Interceptor<
     this.#owners = new Set()
     this.readyState = InterceptorReadyState.INACTIVE
     this.emitter = new Emitter()
+    this.logger = createLogger(this.#getLoggerNamespace())
   }
 
   protected abstract predicate(): boolean
@@ -74,6 +77,7 @@ export abstract class Interceptor<
     try {
       this.setup()
       this.readyState = InterceptorReadyState.ACTIVE
+      this.logger.info('apply')
     } catch (error) {
       this.dispose(owner)
       throw error
@@ -92,6 +96,7 @@ export abstract class Interceptor<
     super.dispose()
     this.emitter.removeAllListeners()
     this.readyState = InterceptorReadyState.DISPOSED
+    this.logger.info('disable')
   }
 
   public on: Emitter<Events>['on'] = (type, listener, options) => {
@@ -118,6 +123,17 @@ export abstract class Interceptor<
   }
 
   public removeAllListeners: Emitter<Events>['removeAllListeners'] = (type) => {
+    this.logger.info('removeAllListeners %o', { eventType: type ?? '*' })
     return this.emitter.removeAllListeners(type)
+  }
+
+  #getLoggerNamespace(): string {
+    const symbolDescription = this.constructor.symbol?.description
+
+    if (symbolDescription) {
+      return symbolDescription.replace(/-interceptor$/, '')
+    }
+
+    return this.constructor.name.replace(/Interceptor$/, '')
   }
 }

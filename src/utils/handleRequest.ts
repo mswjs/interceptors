@@ -16,6 +16,7 @@ import {
 import { InterceptorError } from '../InterceptorError'
 import { isNodeLikeError } from './isNodeLikeError'
 import { isObject } from './isObject'
+import { formatRequest, type Logger } from './logger'
 
 export interface HandleRequestOptions {
   initiator: unknown
@@ -23,11 +24,18 @@ export interface HandleRequestOptions {
   request: Request
   emitter: Emitter<HttpRequestEventMap>
   controller: RequestController
+  logger?: Logger
 }
 
 export async function handleRequest(
   options: HandleRequestOptions
 ): Promise<void> {
+  if (options.logger?.isEnabled('default')) {
+    void formatRequest(options.request).then((message) => {
+      options.logger?.info('[%s] %s', options.requestId, message)
+    })
+  }
+
   const handleResponse = async (
     response: Response | Error | Record<string, any>
   ) => {

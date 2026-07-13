@@ -110,6 +110,28 @@ You can respond to the intercepted HTTP request by constructing a Fetch API Resp
 npm install @mswjs/interceptors
 ```
 
+### Debugging
+
+Enable default interceptor logs with `debug` namespaces:
+
+```bash
+DEBUG='interceptors:*' node app.js
+```
+
+Default logs cover interceptor lifecycle, requests, and request
+resolution. Add verbose logs for socket packets, event forwarding, and other
+internals:
+
+```bash
+DEBUG='interceptors:*' DEBUG_LEVEL=verbose node app.js
+```
+
+Scope either level to an interceptor using its lowercase kebab-case name, such
+as `interceptors:fetch`, `interceptors:xhr`, `interceptors:client-request`, or
+`interceptors:websocket`. In browsers, assign the same value to
+`localStorage.debug` and set `localStorage.debugLevel` to `verbose` for verbose
+logs. Each namespace has a stable color.
+
 ## Interceptors
 
 To use this library you need to choose one or multiple interceptors to apply. There are different interceptors exported by this library to spy on respective request-issuing modules:

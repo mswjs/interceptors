@@ -5,6 +5,9 @@ import {
 } from '#/src/events/http'
 import { type Interceptor } from '#/src/interceptor'
 import { type DisposableSubscription } from '#/src/disposable'
+import { createLogger } from '#/src/utils/logger'
+
+const logger = createLogger('http-request')
 
 interface ForwardHttpEventsOptions {
   source: Interceptor<HttpRequestEventMap>
@@ -23,6 +26,9 @@ export function forwardHttpEvents(
     'request',
     async (event) => {
       if (predicate(event.initiator)) {
+        logger.verbose('forwarding "request" event %o', {
+          requestId: event.requestId,
+        })
         await emitter.emitAsPromise(event)
       }
     },
@@ -39,6 +45,10 @@ export function forwardHttpEvents(
       predicate(event.initiator) &&
       (responsePredicate == null || responsePredicate(event))
     ) {
+      logger.verbose('forwarding "response" event %o', {
+        requestId: event.requestId,
+        responseType: event.responseType,
+      })
       await emitter.emitAsPromise(event)
     }
   }
@@ -48,6 +58,9 @@ export function forwardHttpEvents(
     'unhandledException'
   > = async (event) => {
     if (predicate(event.initiator)) {
+      logger.verbose('forwarding "unhandledException" event %o', {
+        requestId: event.requestId,
+      })
       await emitter.emitAsPromise(event)
     }
   }

@@ -1,5 +1,4 @@
 import { until } from '@open-draft/until'
-import { Logger } from '@open-draft/logger'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
 import { RequestController } from '../../RequestController'
@@ -15,8 +14,9 @@ import { isResponseError } from '../../utils/responseUtils'
 import { patchesRegistry } from '../../utils/patchesRegistry'
 import { copyRawHeaders } from '../ClientRequest/utils/record-raw-headers'
 import { Interceptor } from '../../interceptor'
+import { createLogger } from '../../utils/logger'
 
-const logger = new Logger('fetch')
+const logger = createLogger('fetch')
 
 /**
  * Interceptor for `fetch` requests in the browser.
@@ -29,7 +29,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   }
 
   protected async setup() {
-    logger.info('patching global fetch...')
+    logger.verbose('patching global fetch...')
 
     this.subscriptions.push(
       patchesRegistry.applyPatch(globalThis, 'fetch', (realFetch) => {
@@ -44,8 +44,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
            */
           const resolvedInput =
             typeof input === 'string' &&
-            typeof location !== 'undefined' &&
-            !canParseUrl(input)
+              typeof location !== 'undefined' &&
+              !canParseUrl(input)
               ? new URL(input, location.href)
               : input
 
@@ -55,7 +55,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const controller = new RequestController(request, {
             passthrough: async () => {
-              logger.info('request has not been handled, passthrough...')
+              logger.verbose('performing request as-is')
 
               /**
                * @note Clone the request instance right before performing it.
@@ -73,10 +73,13 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 return responsePromise.reject(responseError)
               }
 
-              logger.info('original fetch performed', originalResponse)
+              logger.verbose(
+                'original fetch performed %o',
+                originalResponse
+              )
 
               if (this.emitter.listenerCount('response') > 0) {
-                logger.info('emitting the "response" event...')
+                logger.verbose('emitting the "response" event')
 
                 const responseClone = FetchResponse.clone(originalResponse)
                 await this.emitter.emitAsPromise(
@@ -97,16 +100,12 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             respondWith: async (rawResponse) => {
               // Handle mocked `Response.error()` (i.e. request errors).
               if (isResponseError(rawResponse)) {
-                logger.info('request has errored!', {
+                logger.verbose('request errored %o', {
                   response: rawResponse,
                 })
                 responsePromise.reject(createNetworkError(rawResponse))
                 return
               }
-
-              logger.info('received mocked response!', {
-                rawResponse,
-              })
 
               // Decompress the mocked response body, if applicable.
               const decompressedStream = decompressResponse(rawResponse)
@@ -152,7 +151,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               }
 
               if (this.emitter.listenerCount('response') > 0) {
-                logger.info('emitting the "response" event...')
+                logger.verbose('emitting the "response" event')
 
                 // Await the response listeners to finish before resolving
                 // the response promise. This ensures all your logic finishes
@@ -174,15 +173,17 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               responsePromise.resolve(response)
             },
             errorWith: (reason) => {
-              logger.info('request has been aborted!', { reason })
+              logger.verbose('request aborted %o', { reason })
               responsePromise.reject(reason)
             },
+          }, {
+            logger,
+            requestId,
           })
 
-          logger.info('[%s] %s', request.method, request.url)
-          logger.info('awaiting for the mocked response...')
+          logger.verbose('awaiting request resolution')
 
-          logger.info(
+          logger.verbose(
             'emitting the "request" event for %s listener(s)...',
             this.emitter.listenerCount('request')
           )
@@ -193,6 +194,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             requestId,
             emitter: this.emitter,
             controller,
+            logger,
           })
 
           return responsePromise
@@ -200,6 +202,6 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
       })
     )
 
-    logger.info('global fetch patched!', globalThis.fetch.name)
+    logger.verbose('global fetch patched: %s', globalThis.fetch.name)
   }
 }

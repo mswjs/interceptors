@@ -1,5 +1,4 @@
 import type { ChildProcess } from 'node:child_process'
-import { Logger } from '@open-draft/logger'
 import { type HttpRequestEventMap, HttpResponseEvent } from './events/http'
 import { Interceptor } from './interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
@@ -10,6 +9,7 @@ import { handleRequest } from './utils/handleRequest'
 import { RequestController } from './RequestController'
 import { FetchRequest, FetchResponse } from './utils/fetchUtils'
 import { isResponseError } from './utils/responseUtils'
+import { createLogger } from './utils/logger'
 
 export interface SerializedRequest {
   id: string
@@ -32,7 +32,7 @@ export interface SerializedResponse {
   body: string | null
 }
 
-const logger = new Logger('remote-http-interceptor')
+const logger = createLogger('remote-http')
 
 export class RemoteHttpInterceptor extends BatchInterceptor<
   [ClientRequestInterceptor, XMLHttpRequestInterceptor, FetchInterceptor]
@@ -67,7 +67,10 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
           : await request.text(),
       } satisfies SerializedRequest)
 
-      logger.info('sent serialized request to the child:', serializedRequest)
+      logger.verbose(
+        'sent serialized request to child: %s',
+        serializedRequest
+      )
 
       process.send?.(`request:${serializedRequest}`)
 
@@ -108,7 +111,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
       })
 
       // Listen for the mocked response message from the parent.
-      logger.info(
+      logger.verbose(
         'add "message" listener to the parent process',
         handleParentMessage
       )
@@ -155,10 +158,10 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
   protected setup() {
     const handleChildMessage: NodeJS.MessageListener = async (message) => {
-      logger.info('received message from child!', message)
+      logger.verbose('received message from child %o', message)
 
       if (typeof message !== 'string' || !message.startsWith('request:')) {
-        logger.info('unknown message, ignoring...')
+        logger.verbose('unknown message, ignoring')
         return
       }
 
@@ -172,7 +175,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
         requestReviver
       ) satisfies RevivedRequest
 
-      logger.info('parsed intercepted request', requestJson)
+      logger.verbose('parsed intercepted request %o', requestJson)
 
       const request = new FetchRequest(requestJson.url, {
         method: requestJson.method,
@@ -182,14 +185,14 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
       })
 
       const controller = new RequestController(request, {
-        passthrough: () => {},
+        passthrough: () => {
+          // Intentionally empty.
+        },
         respondWith: async (response) => {
           if (isResponseError(response)) {
-            logger.info('received a network error!', { response })
+            logger.verbose('received a network error %o', { response })
             throw new Error('Not implemented')
           }
-
-          logger.info('received mocked response!', { response })
 
           const responseClone = FetchResponse.clone(response)
           const responseText = await responseClone.text()
@@ -223,15 +226,18 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
             }
           )
 
-          logger.info(
-            'sent serialized mocked response to the parent:',
+          logger.verbose(
+            'sent serialized mocked response to parent: %s',
             serializedResponse
           )
         },
         errorWith: (reason) => {
-          logger.info('request has errored!', { error: reason })
+          logger.verbose('request errored %o', { error: reason })
           throw new Error('Not implemented')
         },
+      }, {
+        logger,
+        requestId: requestJson.id,
       })
 
       await handleRequest({
@@ -240,15 +246,16 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
         requestId: requestJson.id,
         controller,
         emitter: this.emitter,
+        logger,
       })
     }
 
     this.subscriptions.push(() => {
       this.process.removeListener('message', handleChildMessage)
-      logger.info('removed the "message" listener from the child process!')
+      logger.verbose('removed "message" listener from child process')
     })
 
-    logger.info('adding a "message" listener to the child process')
+    logger.verbose('adding "message" listener to child process')
     this.process.addListener('message', handleChildMessage)
 
     this.process.once('error', () => this.dispose())

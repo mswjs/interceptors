@@ -37,7 +37,7 @@ type SocketEventMap = {
   connection: SocketConnectionEvent
 }
 
-const log = createLogger('SocketInterceptor')
+const logger = createLogger('socket')
 
 /**
  * Interceptor for `net.Socket` connections.
@@ -53,12 +53,15 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
     this.subscriptions.push(
       patchesRegistry.applyPatch(net, 'connect', (realNetConnect) => {
         return (...args: [any, any]) => {
-          log('net.connect()', args)
+          logger.verbose('net.connect() %o', args)
 
           const [connectionOptions, connectionCallback] =
             normalizeNetConnectArgs(args)
 
-          log({ connectionOptions, connectionCallback })
+          logger.verbose('connection options %o', {
+            connectionOptions,
+            connectionCallback,
+          })
 
           const socket = new net.Socket()
           const controller = new TcpSocketController(socket, () => {
@@ -75,7 +78,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                 })
               )
             ) {
-              log(
+              logger.verbose(
                 'no "connection" listeners found on the interceptor, passthrough...'
               )
 
@@ -83,10 +86,10 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
               return
             }
 
-            log('emitted "connection" event!')
+            logger.verbose('emitted "connection" event!')
           })
 
-          log('connecting the socket...')
+          logger.verbose('connecting the socket...')
 
           // Patch the lookup option so DNS lookup always succeeds.
           // Passthrough connections are created with the original options and won't be affected.
@@ -103,7 +106,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
       }),
       patchesRegistry.applyPatch(tls, 'connect', (realTlsConnect) => {
         return (...args: [any, any]) => {
-          log('tls.connect()', args)
+          logger.verbose('tls.connect() %o', args)
 
           const [tlsConnectionOptions, secureConnectionCallback] =
             normalizeTlsConnectArgs(args)
@@ -145,7 +148,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                 })
               )
             ) {
-              log(
+              logger.verbose(
                 'no "connection" listeners found on the interceptor, passthrough...'
               )
 
@@ -153,7 +156,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
               return
             }
 
-            log('emitted the "connection" event!')
+            logger.verbose('emitted the "connection" event!')
           })
 
           return tlsSocket

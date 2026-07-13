@@ -30,7 +30,7 @@ import { FetchResponse } from '../../utils/fetchUtils'
 import { requestContext } from '../../request-context'
 import { Interceptor } from '#/src/interceptor'
 
-const log = createLogger('NodeHttpRequestSource')
+const httpLogger = createLogger('http-request')
 
 /**
  * Interceptor for HTTP requests in Node.js.
@@ -93,7 +93,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
           const baseUrl = connectionOptionsToUrl(connectionOptions, socket)
 
-          log('handling http message...', {
+          httpLogger.verbose('handling http message %o', {
             httpMessage,
             httpMethod,
             baseUrl,
@@ -128,15 +128,16 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
               }
 
               const requestId = createRequestId()
+              const requestLogger = requestContextValue?.logger ?? httpLogger
 
-              log('received a parsed HTTP request!', {
+              httpLogger.verbose('received a parsed HTTP request %o', {
                 method: request.method,
                 url: request.url,
               })
 
               const requestController = new RequestController(request, {
                 respondWith: async (rawResponse) => {
-                  log('respondWith() %o', {
+                  httpLogger.verbose('respondWith() %o', {
                     status: rawResponse.status,
                     statusText: rawResponse.statusText,
                     hasBody: rawResponse.body != null,
@@ -200,7 +201,9 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                   )
 
                   if (this.emitter.listenerCount('response') > 0) {
-                    log('found "response" listener, corking socket reads...')
+                    httpLogger.verbose(
+                      'found "response" listener, corking socket reads'
+                    )
 
                     /**
                      * Suspend the delivery of the original response to the client
@@ -213,14 +216,14 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
                     const responseParser = new HttpResponseParser({
                       onResponse: async (response) => {
-                        log(
-                          'http response parser parsed a response!',
+                        httpLogger.verbose(
+                          'HTTP response parser parsed: %d %s',
                           response.status,
                           response.statusText
                         )
 
                         if (isResponseError(response)) {
-                          log(
+                          httpLogger.verbose(
                             'response is an error response, uncorking socket reads...'
                           )
 
@@ -231,7 +234,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                         FetchResponse.setUrl(request.url, response)
 
                         try {
-                          log('emitting "response" event...')
+                          httpLogger.verbose('emitting "response" event')
                           await this.emitter.emitAsPromise(
                             new HttpResponseEvent({
                               initiator,
@@ -242,7 +245,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                             })
                           )
                         } finally {
-                          log('uncorking socket reads...')
+                          httpLogger.verbose('uncorking socket reads')
                           socketController.uncorkReads()
 
                           /**
@@ -251,7 +254,10 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                            * response on the same connection. Keep gating that
                            * final response on the "response" event listeners.
                            */
-                          if (response.status < 200 && response.status !== 101) {
+                          if (
+                            response.status < 200 &&
+                            response.status !== 101
+                          ) {
                             socketController.corkReads()
                           }
                         }
@@ -263,6 +269,9 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                       .on('close', () => responseParser.free())
                   }
                 },
+              }, {
+                logger: requestLogger,
+                requestId,
               })
 
               invariant(
@@ -284,6 +293,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                 request,
                 controller: requestController,
                 emitter: this.emitter,
+                logger: requestLogger,
               }
 
               await handleRequest(context)

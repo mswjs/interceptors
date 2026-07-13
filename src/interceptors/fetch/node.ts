@@ -66,6 +66,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           requestContext.enterWith({
             initiator: request,
+            logger: this.logger,
           })
 
           return realFetch(request)
