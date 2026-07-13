@@ -1,11 +1,12 @@
-import {
-  type Emitter,
-  type DefaultEventMap,
-  TypedListenerOptions,
-  WithReservedEvents,
-} from 'rettime'
+import { type DefaultEventMap } from 'rettime'
 import { Logger } from '@open-draft/logger'
 import { Interceptor } from './interceptor'
+import { type DisposableSubscription } from './disposable'
+
+interface BatchListenerSubscription {
+  listener: object
+  dispose: DisposableSubscription
+}
 
 export interface BatchInterceptorOptions<
   InterceptorList extends ReadonlyArray<Interceptor<any>>,
@@ -35,12 +36,14 @@ export class BatchInterceptor<
 > extends Interceptor<Events> {
   #logger: Logger
   #interceptors: InterceptorList
+  #listenerSubscriptions: Map<string, Array<BatchListenerSubscription>>
 
   constructor(options: BatchInterceptorOptions<InterceptorList>) {
     super()
 
     this.#logger = logger.extend(options.name)
     this.#interceptors = options.interceptors
+    this.#listenerSubscriptions = new Map()
   }
 
   protected predicate(): boolean {
@@ -63,12 +66,18 @@ export class BatchInterceptor<
 
     logger.info('applying all %d interceptors...', this.#interceptors.length)
 
+    this.subscriptions.push(() => {
+      this.#removeAllListeners()
+    })
+
     for (const interceptor of this.#interceptors) {
       logger.info('applying "%s" interceptor...', interceptor.constructor.name)
-      interceptor.apply()
+      interceptor.apply(this)
 
       logger.info('adding interceptor dispose subscription')
-      this.subscriptions.push(() => interceptor.dispose())
+      this.subscriptions.push(() => {
+        interceptor.dispose(this)
+      })
     }
   }
 
@@ -76,6 +85,12 @@ export class BatchInterceptor<
     for (const interceptor of this.#interceptors) {
       interceptor.on(type, listener, options)
     }
+
+    this.#addListenerSubscription(type, listener, () => {
+      for (const interceptor of this.#interceptors) {
+        interceptor.removeListener(type, listener)
+      }
+    })
 
     return this.emitter
   }
@@ -85,6 +100,12 @@ export class BatchInterceptor<
       interceptor.once(type, listener, options)
     }
 
+    this.#addListenerSubscription(type, listener, () => {
+      for (const interceptor of this.#interceptors) {
+        interceptor.removeListener(type, listener)
+      }
+    })
+
     return this.emitter
   }
 
@@ -92,16 +113,81 @@ export class BatchInterceptor<
     type,
     listener
   ) => {
-    for (const interceptor of this.#interceptors) {
-      interceptor.removeListener(type, listener)
-    }
+    this.#removeListener(type, listener)
   }
 
   public removeAllListeners: (typeof this.emitter)['removeAllListeners'] = (
     type
   ) => {
-    for (const interceptor of this.#interceptors) {
-      interceptor.removeAllListeners(type)
+    this.#removeAllListeners(type)
+  }
+
+  #addListenerSubscription(
+    type: string,
+    listener: object,
+    disposeListener: () => void
+  ): void {
+    const listenerSubscriptions = this.#listenerSubscriptions.get(type)
+    const listenerSubscription: BatchListenerSubscription = {
+      listener,
+      dispose: disposeListener,
+    }
+
+    if (listenerSubscriptions) {
+      listenerSubscriptions.push(listenerSubscription)
+      return
+    }
+
+    this.#listenerSubscriptions.set(type, [listenerSubscription])
+  }
+
+  #removeListener(type: string, listener: object): void {
+    const listenerSubscriptions = this.#listenerSubscriptions.get(type)
+
+    if (!listenerSubscriptions) {
+      return
+    }
+
+    for (
+      let index = listenerSubscriptions.length - 1;
+      index >= 0;
+      index--
+    ) {
+      const listenerSubscription = listenerSubscriptions[index]
+
+      if (listenerSubscription.listener !== listener) {
+        continue
+      }
+
+      listenerSubscription.dispose()
+      listenerSubscriptions.splice(index, 1)
+
+      if (listenerSubscriptions.length === 0) {
+        this.#listenerSubscriptions.delete(type)
+      }
+
+      return
+    }
+  }
+
+  #removeAllListeners(type?: string): void {
+    if (type != null) {
+      const listenerSubscriptions = this.#listenerSubscriptions.get(type)
+
+      if (!listenerSubscriptions) {
+        return
+      }
+
+      for (const listenerSubscription of listenerSubscriptions) {
+        listenerSubscription.dispose()
+      }
+
+      this.#listenerSubscriptions.delete(type)
+      return
+    }
+
+    for (const listenerType of this.#listenerSubscriptions.keys()) {
+      this.#removeAllListeners(listenerType)
     }
   }
 

@@ -23,8 +23,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
   protected setup(): void {
     const httpInterceptor = Interceptor.singleton(HttpRequestInterceptor)
-    httpInterceptor.apply()
-    this.subscriptions.push(() => httpInterceptor.dispose())
+    httpInterceptor.apply(this)
+
+    this.subscriptions.push(() => {
+      httpInterceptor.dispose(this)
+    })
 
     const controller = new AbortController()
     this.subscriptions.push(() => controller.abort())

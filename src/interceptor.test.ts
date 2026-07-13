@@ -38,8 +38,10 @@ it('nesting interceptors', async () => {
       protocolSetup()
 
       const socket = Interceptor.singleton(SocketInterceptor)
-      socket.apply()
-      this.subscriptions.push(() => socket.dispose())
+      socket.apply(this)
+      this.subscriptions.push(() => {
+        socket.dispose(this)
+      })
 
       const controller = new AbortController()
       this.subscriptions.push(() => controller.abort())
@@ -65,8 +67,10 @@ it('nesting interceptors', async () => {
 
     protected setup(): void {
       const protocol = Interceptor.singleton(ProtocolInterceptor)
-      protocol.apply()
-      this.subscriptions.push(() => protocol.dispose())
+      protocol.apply(this)
+      this.subscriptions.push(() => {
+        protocol.dispose(this)
+      })
 
       const controller = new AbortController()
       this.subscriptions.push(() => controller.abort())
@@ -94,8 +98,10 @@ it('nesting interceptors', async () => {
 
     protected setup(): void {
       const protocol = Interceptor.singleton(ProtocolInterceptor)
-      protocol.apply()
-      this.subscriptions.push(() => protocol.dispose())
+      protocol.apply(this)
+      this.subscriptions.push(() => {
+        protocol.dispose(this)
+      })
 
       const controller = new AbortController()
       this.subscriptions.push(() => controller.abort())
@@ -127,8 +133,13 @@ it('nesting interceptors', async () => {
 
   await expect.poll(() => numberListener).toHaveBeenCalledTimes(2)
 
+  const protocolInterceptor = Interceptor.singleton(ProtocolInterceptor)
+
   numberInterceptor.dispose()
+  expect(protocolInterceptor.readyState).toBe(InterceptorReadyState.ACTIVE)
+
   stringInterceptor.dispose()
+  expect(protocolInterceptor.readyState).toBe(InterceptorReadyState.DISPOSED)
 
   expect(numberListener).toHaveBeenNthCalledWith(1, 1)
   expect(numberListener).toHaveBeenNthCalledWith(2, 2)
@@ -170,6 +181,60 @@ it('treats an interceptor as a singleton via "Interceptor.singleton()"', () => {
 
   interceptor.dispose()
   expect(dispose).toHaveBeenCalledTimes(2)
+})
+
+it('keeps an interceptor active until all owners dispose', () => {
+  const setup = vi.fn()
+  const teardown = vi.fn()
+
+  class MyInterceptor extends Interceptor<{}> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {
+      setup()
+      this.subscriptions.push(teardown)
+    }
+  }
+
+  const interceptor = new MyInterceptor()
+  const primaryOwner = {}
+  const secondaryOwner = {}
+
+  interceptor.apply(primaryOwner)
+  interceptor.apply(primaryOwner)
+  interceptor.apply(secondaryOwner)
+
+  expect(setup).toHaveBeenCalledOnce()
+
+  interceptor.dispose(primaryOwner)
+
+  expect(interceptor.readyState).toBe(InterceptorReadyState.ACTIVE)
+  expect(teardown).not.toHaveBeenCalled()
+
+  interceptor.dispose(secondaryOwner)
+
+  expect(interceptor.readyState).toBe(InterceptorReadyState.DISPOSED)
+  expect(teardown).toHaveBeenCalledOnce()
+})
+
+it('treats repeated public application as one ownership lease', () => {
+  class MyInterceptor extends Interceptor<{}> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {}
+  }
+
+  const interceptor = new MyInterceptor()
+
+  interceptor.apply()
+  interceptor.apply()
+  interceptor.dispose()
+
+  expect(interceptor.readyState).toBe(InterceptorReadyState.DISPOSED)
 })
 
 it('removes all listeners when the interceptor is disposed', () => {

@@ -45,8 +45,10 @@ export class HttpRequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
   protected setup(): void {
     const socketInterceptor = Interceptor.singleton(SocketInterceptor)
-    socketInterceptor.apply()
-    this.subscriptions.push(() => socketInterceptor.dispose())
+    socketInterceptor.apply(this)
+    this.subscriptions.push(() => {
+      socketInterceptor.dispose(this)
+    })
 
     /**
      * @note Record the raw values provided to Headers set/append

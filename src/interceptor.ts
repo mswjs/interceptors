@@ -25,7 +25,7 @@ export abstract class Interceptor<
 
   static readonly symbol: symbol
 
-  #leaseCount: number
+  #owners: Set<object>
 
   static singleton<T extends Interceptor<any>>(
     InterceptorClass: (new () => T) & { symbol: symbol }
@@ -45,7 +45,7 @@ export abstract class Interceptor<
   constructor() {
     super()
 
-    this.#leaseCount = 0
+    this.#owners = new Set()
     this.readyState = InterceptorReadyState.INACTIVE
     this.emitter = new Emitter()
   }
@@ -53,44 +53,45 @@ export abstract class Interceptor<
   protected abstract predicate(): boolean
   protected abstract setup(): void
 
-  public apply(): void {
+  public apply(owner: object = this): void {
+    if (this.#owners.has(owner)) {
+      return
+    }
+
+    if (
+      this.readyState !== InterceptorReadyState.ACTIVE &&
+      !this.predicate()
+    ) {
+      return
+    }
+
+    this.#owners.add(owner)
+
     if (this.readyState === InterceptorReadyState.ACTIVE) {
       return
     }
 
-    if (!this.predicate()) {
-      return
-    }
-
-    this.#leaseCount++
-
-    if (this.#leaseCount === 1) {
-      try {
-        this.setup()
-        this.readyState = InterceptorReadyState.ACTIVE
-      } catch (error) {
-        this.dispose()
-        throw error
-      }
+    try {
+      this.setup()
+      this.readyState = InterceptorReadyState.ACTIVE
+    } catch (error) {
+      this.dispose(owner)
+      throw error
     }
   }
 
-  public dispose(): void {
-    if (this.readyState === InterceptorReadyState.DISPOSED) {
+  public dispose(owner: object = this): void {
+    if (!this.#owners.delete(owner)) {
       return
     }
 
-    if (this.#leaseCount === 0) {
+    if (this.#owners.size > 0) {
       return
     }
 
-    this.#leaseCount--
-
-    if (this.#leaseCount === 0) {
-      super.dispose()
-      this.emitter.removeAllListeners()
-      this.readyState = InterceptorReadyState.DISPOSED
-    }
+    super.dispose()
+    this.emitter.removeAllListeners()
+    this.readyState = InterceptorReadyState.DISPOSED
   }
 
   public on: Emitter<Events>['on'] = (type, listener, options) => {

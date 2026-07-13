@@ -1,5 +1,5 @@
 import { TypedEvent } from 'rettime'
-import { Interceptor } from './interceptor'
+import { Interceptor, InterceptorReadyState } from './interceptor'
 import { BatchInterceptor } from './BatchInterceptor'
 
 afterEach(() => {
@@ -229,7 +229,10 @@ it('forwards removal of all listeners by name via ".removeAllListeners()"', () =
 
   interceptor.removeAllListeners('foo')
 
-  expect(interceptor['emitter'].listenerCount('foo')).toBe(0)
+  expect(firstInterceptor['emitter'].listenerCount('foo')).toBe(0)
+  expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(1)
+  expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
+  expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(1)
 })
 
 it('forwards removal of all listeners via ".removeAllListeners()"', () => {
@@ -270,4 +273,105 @@ it('forwards removal of all listeners via ".removeAllListeners()"', () => {
   expect(secondInterceptor['emitter'].listenerCount('foo')).toBe(0)
   expect(firstInterceptor['emitter'].listenerCount('bar')).toBe(0)
   expect(secondInterceptor['emitter'].listenerCount('bar')).toBe(0)
+})
+
+it('keeps shared child interceptors active until all batches dispose', () => {
+  type Events = {
+    message: TypedEvent<string>
+  }
+
+  const setup = vi.fn()
+  const teardown = vi.fn()
+
+  class SharedInterceptor extends Interceptor<Events> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {
+      setup()
+      this.subscriptions.push(teardown)
+    }
+  }
+
+  const sharedInterceptor = new SharedInterceptor()
+  const primaryBatch = new BatchInterceptor({
+    name: 'primary-batch',
+    interceptors: [sharedInterceptor],
+  })
+  const secondaryBatch = new BatchInterceptor({
+    name: 'secondary-batch',
+    interceptors: [sharedInterceptor],
+  })
+  const primaryListener = vi.fn()
+  const secondaryListener = vi.fn()
+
+  primaryBatch.apply()
+  secondaryBatch.apply()
+  primaryBatch.on('message', primaryListener)
+  secondaryBatch.on('message', secondaryListener)
+
+  expect(setup).toHaveBeenCalledOnce()
+
+  sharedInterceptor['emitter'].emit(
+    new TypedEvent('message', { data: 'first' })
+  )
+
+  expect(primaryListener).toHaveBeenCalledTimes(1)
+  expect(secondaryListener).toHaveBeenCalledTimes(1)
+
+  primaryBatch.dispose()
+
+  expect(sharedInterceptor.readyState).toBe(InterceptorReadyState.ACTIVE)
+  expect(teardown).not.toHaveBeenCalled()
+
+  sharedInterceptor['emitter'].emit(
+    new TypedEvent('message', { data: 'second' })
+  )
+
+  expect(primaryListener).toHaveBeenCalledTimes(1)
+  expect(secondaryListener).toHaveBeenCalledTimes(2)
+
+  secondaryBatch.dispose()
+
+  expect(sharedInterceptor.readyState).toBe(InterceptorReadyState.DISPOSED)
+  expect(teardown).toHaveBeenCalledOnce()
+})
+
+it('removes only listeners owned by the batch', () => {
+  type Events = {
+    message: TypedEvent<string>
+  }
+
+  class SharedInterceptor extends Interceptor<Events> {
+    protected predicate(): boolean {
+      return true
+    }
+
+    protected setup(): void {}
+  }
+
+  const sharedInterceptor = new SharedInterceptor()
+  const primaryBatch = new BatchInterceptor({
+    name: 'primary-batch',
+    interceptors: [sharedInterceptor],
+  })
+  const secondaryBatch = new BatchInterceptor({
+    name: 'secondary-batch',
+    interceptors: [sharedInterceptor],
+  })
+  const primaryListener = vi.fn()
+  const secondaryListener = vi.fn()
+
+  primaryBatch.on('message', primaryListener)
+  secondaryBatch.on('message', secondaryListener)
+
+  primaryBatch.removeAllListeners()
+
+  sharedInterceptor['emitter'].emit(
+    new TypedEvent('message', { data: 'hello' })
+  )
+
+  expect(primaryListener).not.toHaveBeenCalled()
+  expect(secondaryListener).toHaveBeenCalledOnce()
 })
