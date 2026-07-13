@@ -20,7 +20,7 @@ afterAll(async () => {
   await httpServer.close()
 })
 
-it.only('unpatched socket', async () => {
+it.only('intercepts a request after interceptor.apply(), even if it reuse a socket created beforehand', async () => {
   const requestListener = vi.fn()
 
   interceptor.on('request', async ({ request }) => {
