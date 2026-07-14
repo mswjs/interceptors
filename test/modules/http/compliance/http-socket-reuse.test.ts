@@ -196,6 +196,7 @@ it.only('intercepts a request after interceptor.apply(), even if it reuse a sock
   }
 
   interceptor.apply()
+
   {
     const request = https.get(httpServer.https.url('/resource/one'), {
       rejectUnauthorized: false,
