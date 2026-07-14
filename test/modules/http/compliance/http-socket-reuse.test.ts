@@ -175,3 +175,36 @@ it('allows reusing the same socket for multiple bypassed requests with a body', 
     expect(requestListener).toHaveBeenNthCalledWith(2, 'second')
   }
 })
+
+it('intercepts a request after interceptor.apply(), even if it reuse a socket created beforehand', async () => {
+  const requestListener = vi.fn()
+
+  interceptor.dispose()
+  interceptor.on('request', async ({ request }) => {
+    requestListener(await request.text())
+  })
+
+  {
+    const request = https.get(httpServer.https.url('/resource/one'), {
+      rejectUnauthorized: false,
+    })
+    const [response] = await toWebResponse(request)
+
+    expect.soft(response.status).toBe(200)
+    // Read the response body to free the socket.
+    await response.text()
+    expect(requestListener).not.toHaveBeenCalled()
+  }
+
+  interceptor.apply()
+
+  {
+    const request = https.get(httpServer.https.url('/resource/one'), {
+      rejectUnauthorized: false,
+    })
+    const [response] = await toWebResponse(request)
+
+    expect.soft(response.status).toBe(200)
+    expect(requestListener).toHaveBeenCalledOnce()
+  }
+})

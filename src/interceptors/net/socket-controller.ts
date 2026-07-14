@@ -10,6 +10,7 @@ import { getAddressInfoByConnectionOptions } from './utils/address-info'
 
 const kListenerWrap = Symbol('kListenerWrap')
 export const kRawSocket = Symbol('kRawSocket')
+export const kPatched = Symbol('kPatched')
 
 const logger = createLogger('socket')
 
@@ -19,6 +20,8 @@ type OperationStatus = 0 | 1
 
 declare module 'node:net' {
   interface Socket {
+    [kPatched]?: boolean
+    _httpMessage?: object | null
     _pendingData:
       | string
       | Buffer
@@ -70,6 +73,7 @@ export interface TcpHandle {
   bytesWritten: number
   ref?: () => void
   unref?: () => void
+  hasRef?: () => boolean
   fchmod: (mode: number) => void
   setBlocking: (blocking: boolean) => OperationStatus
   setNoDelay?: (noDelay: boolean) => void
@@ -205,6 +209,10 @@ export abstract class SocketController {
 
   constructor(socket: net.Socket) {
     this[kRawSocket] = socket
+    // Mark this socket as patched so socket-related patches
+    // (e.g. the "destroyed" getter) can tell it apart from
+    // the sockets created before the interception was applied.
+    socket[kPatched] = true
     this.readyState = SocketController.PENDING
   }
 
@@ -340,7 +348,9 @@ export class TcpSocketController extends SocketController {
             this.#bufferedWrites.length === 0 &&
             this.socket.listenerCount('connect') > 0
           ) {
-            logger.verbose('assume connect->write socket, calling "connect" listeners...')
+            logger.verbose(
+              'assume connect->write socket, calling "connect" listeners...'
+            )
             this.emulateConnect()
           }
         })
@@ -390,7 +400,9 @@ export class TcpSocketController extends SocketController {
       // The server socket will NEVER have any "data" listeners attached
       // becuase the "connection" interceptor event emits on the next tick.
       if (this.socket.listenerCount('internal:write') === 0) {
-        logger.verbose('no server data listeners, scheduling to the next tick...')
+        logger.verbose(
+          'no server data listeners, scheduling to the next tick...'
+        )
 
         process.nextTick(() => {
           logger.verbose(
@@ -641,6 +653,11 @@ export class TcpSocketController extends SocketController {
 
     const createRealSocket = () => {
       const realSocket = this.createConnection()
+
+      // Mark the passthrough socket as patched so it's exempt from
+      // the unpatched socket detection (it never enters agent pools,
+      // but this skips the detection cost on its every "destroyed" read).
+      realSocket[kPatched] = true
 
       if (this.socket.timeout != null) {
         realSocket.setTimeout(this.socket.timeout)
