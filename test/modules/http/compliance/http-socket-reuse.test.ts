@@ -176,7 +176,7 @@ it('allows reusing the same socket for multiple bypassed requests with a body', 
   }
 })
 
-it.only('intercepts a request after interceptor.apply(), even if it reuse a socket created beforehand', async () => {
+it('intercepts a request after interceptor.apply(), even if it reuse a socket created beforehand', async () => {
   const requestListener = vi.fn()
 
   interceptor.dispose()
@@ -191,7 +191,8 @@ it.only('intercepts a request after interceptor.apply(), even if it reuse a sock
     const [response] = await toWebResponse(request)
 
     expect.soft(response.status).toBe(200)
-    await response.text() // must read the response body to free the socket
+    // Read the response body to free the socket.
+    await response.text()
     expect(requestListener).not.toHaveBeenCalled()
   }
 
