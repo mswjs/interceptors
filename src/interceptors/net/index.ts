@@ -106,7 +106,11 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
            * socket behaviors (e.g. "allowHalfOpen").
            */
           const socketOptions =
-            typeof args[0] === 'object' && !('href' in args[0]) ? args[0] : {}
+            args[0] !== null &&
+            typeof args[0] === 'object' &&
+            !('href' in args[0])
+              ? args[0]
+              : {}
 
           const socket = new net.Socket(socketOptions)
           const controller = new TcpSocketController(socket, () => {
@@ -114,6 +118,10 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           })
 
           process.nextTick(() => {
+            if (socket.destroyed) {
+              return
+            }
+
             if (
               !this.emitter.emit(
                 new SocketConnectionEvent({
@@ -238,6 +246,10 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           })
 
           process.nextTick(() => {
+            if (tlsSocket.destroyed) {
+              return
+            }
+
             if (
               !this.emitter.emit(
                 new SocketConnectionEvent({

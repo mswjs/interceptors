@@ -110,7 +110,13 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
         return Reflect.get(target, property, receiver)
       }
 
-      if (property === 'on' || property === 'addListener') {
+      if (
+        property === 'on' ||
+        property === 'addListener' ||
+        property === 'once' ||
+        property === 'prependListener' ||
+        property === 'prependOnceListener'
+      ) {
         const realAddListener = getRealValue() as net.Socket['addListener']
 
         return (event: any, listener: (...args: Array<unknown>) => void) => {
@@ -125,7 +131,14 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
               value: listenerWrap,
             })
 
-            socket.on('internal:write', listenerWrap)
+            /**
+             * @note Subscribe using the same method (e.g. "once") so its
+             * listener semantics apply to the internal channel too.
+             */
+            Reflect.apply(realAddListener, target, [
+              'internal:write',
+              listenerWrap,
+            ])
 
             return target
           }
@@ -143,7 +156,13 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
             const listenerWrap = listener[kListenerWrap]
 
             if (listenerWrap) {
-              return realRemoveListener.call(target, event, listenerWrap)
+              // The wrap is subscribed to the internal channel,
+              // not the "data" event (see the listener proxy above).
+              return realRemoveListener.call(
+                target,
+                'internal:write',
+                listenerWrap
+              )
             }
           }
 
@@ -169,12 +188,17 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
 
       // Translate server-side "socket.end()" to client-sode "socket.push(null)".
       if (property === 'end') {
-        const realEnd = getRealValue() as net.Socket['end']
-
-        return ((...args: Parameters<net.Socket['end']>) => {
+        return ((...args: Parameters<net.Socket['end']>): net.Socket => {
           const callback = args[args.length - 1]
+          const chunk = typeof args[0] === 'function' ? undefined : args[0]
+          const encoding = typeof args[1] === 'string' ? args[1] : undefined
 
           const translateEnd = () => {
+            // Deliver the final chunk passed to "end(chunk)", if any.
+            if (chunk != null) {
+              socket.push(toBuffer(chunk, encoding), encoding)
+            }
+
             socket.push(null)
 
             if (typeof callback === 'function') {
@@ -188,7 +212,12 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
             translateEnd()
           }
 
-          return realEnd.apply(target, args)
+          /**
+           * @note Do not end the client socket's writable side.
+           * The server ending the connection only signals EOF to the
+           * client (the client may keep writing on half-open sockets).
+           */
+          return target
         }) as net.Socket['end']
       }
 
@@ -352,6 +381,11 @@ export class TcpSocketController extends SocketController {
     this.readyState = SocketController.PENDING
     this.pendingConnection = new DeferredPromise()
     this.#bufferedWrites = []
+
+    // Release the pending data of the previous exchange, if any,
+    // so kept-alive sockets do not retain every written payload.
+    this.socket._pendingData = null
+    this.socket._pendingEncoding = ''
 
     const wrapHandle = (handle: TcpHandle) => {
       this.pendingConnection.then(() => {
@@ -735,6 +769,11 @@ export class TcpSocketController extends SocketController {
     }
 
     this.#bufferedWrites = []
+
+    // Release the buffered write payloads. They were already delivered
+    // to the server socket, and there is nowhere else to flush them.
+    this.socket._pendingData = null
+    this.socket._pendingEncoding = ''
 
     /**
      * @note Once claimed, there's nowhere to write chunks to.
