@@ -30,3 +30,20 @@ it('supports requests with IPv6 request url', async () => {
   expect.soft(requestUrl).toBe(url)
   await expect.soft(response.text()).resolves.toBe('test')
 })
+
+it('supports requests with family 6', async () => {
+  const url = 'http://example.test/'
+  const listenerUrlPromise = new DeferredPromise<string>()
+
+  interceptor.on('request', ({ request, controller }) => {
+    listenerUrlPromise.resolve(request.url)
+    controller.respondWith(new Response('test'))
+  })
+
+  const request = http.get(url, { family: 6 })
+  const [response] = await toWebResponse(request)
+
+  const requestUrl = await listenerUrlPromise
+  expect.soft(requestUrl).toBe(url)
+  await expect.soft(response.text()).resolves.toBe('test')
+})
