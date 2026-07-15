@@ -579,11 +579,13 @@ export class TcpSocketController extends SocketController {
     /**
      * @note Close the replaced handle. Nothing references it past this
      * point, and left open, it keeps the process alive indefinitely.
-     * Skip TLS handles (they have a parent handle) to keep the TLS
-     * socket machinery intact.
+     * For TLS sockets, the replaced handle is a TLSWrap; close its
+     * underlying transport too (closing the wrap alone does not close
+     * the TCP handle it sits on).
      */
-    if (replacedHandle != null && replacedHandle._parent == null) {
+    if (replacedHandle != null) {
       replacedHandle.close()
+      replacedHandle._parent?.close()
     }
 
     Reflect.set(this.socket, 'connecting', false)
