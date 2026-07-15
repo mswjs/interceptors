@@ -948,11 +948,22 @@ export class TcpSocketController extends SocketController {
 }
 
 export class TlsSocketController extends TcpSocketController {
+  /**
+   * @note The TLS connection options must be provided explicitly.
+   * They cannot be captured from "socket.connect()" like for plain
+   * TCP sockets because "tls.connect()" connects the socket before
+   * this controller is constructed.
+   */
+  #tlsConnectionOptions?: tls.ConnectionOptions
+
   constructor(
     protected readonly socket: tls.TLSSocket,
-    protected readonly createConnection: () => tls.TLSSocket
+    protected readonly createConnection: () => tls.TLSSocket,
+    tlsConnectionOptions?: tls.ConnectionOptions
   ) {
     super(socket, createConnection)
+
+    this.#tlsConnectionOptions = tlsConnectionOptions
 
     socket.prependListener('secureConnect', () => {
       /**
@@ -1014,6 +1025,24 @@ export class TlsSocketController extends TcpSocketController {
         name: 'TLS_AES_256_GCM_SHA384',
         standardName: 'TLS_AES_256_GCM_SHA384',
         version: 'TLSv1.3',
+      }
+    }
+
+    const requestedAlpnProtocols = this.#tlsConnectionOptions?.ALPNProtocols
+
+    if (
+      Array.isArray(requestedAlpnProtocols) &&
+      requestedAlpnProtocols.length > 0
+    ) {
+      const [preferredProtocol] = requestedAlpnProtocols
+
+      /**
+       * @note Reflect the client's preferred ALPN protocol as the
+       * negotiated one. The mocked server accepts whatever the
+       * client prefers.
+       */
+      handle.getALPNNegotiatedProtocol = () => {
+        return typeof preferredProtocol === 'string' ? preferredProtocol : false
       }
     }
 

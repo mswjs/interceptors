@@ -252,9 +252,13 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             return typeof arg !== 'function'
           }) as typeof args
 
-          const controller = new TlsSocketController(tlsSocket, () => {
-            return realTlsConnect(...passthroughArgs)
-          })
+          const controller = new TlsSocketController(
+            tlsSocket,
+            () => {
+              return realTlsConnect(...passthroughArgs)
+            },
+            tlsConnectionOptions
+          )
 
           process.nextTick(() => {
             if (tlsSocket.destroyed) {
