@@ -46,6 +46,35 @@ it('intercepts a connection made via "net.connect()"', async () => {
   )
 })
 
+it('invokes the connection callback exactly once for a deferred claim', async () => {
+  interceptor.on('connection', async ({ socket, controller }) => {
+    // Claim the connection asynchronously, like request
+    // handlers that await their own logic before responding.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 20)
+    })
+
+    controller.claim()
+    socket.end()
+  })
+
+  const connectingStatesAtCallback: Array<boolean> = []
+  const connectionCallback = vi.fn(() => {
+    connectingStatesAtCallback.push(socket.connecting)
+  })
+
+  const socket = net.connect(80, 'any.host.com', connectionCallback)
+  const { listeners } = spyOnSocket(socket)
+
+  socket.resume()
+
+  await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
+
+  expect.soft(connectionCallback).toHaveBeenCalledOnce()
+  // The socket must report itself as connected in the "connect" listener.
+  expect(connectingStatesAtCallback).toEqual([false])
+})
+
 it('mocks a connection made via "net.connect()"', async () => {
   interceptor.on('connection', ({ socket, controller }) => {
     controller.claim()

@@ -297,6 +297,7 @@ export class TcpSocketController extends SocketController {
   #corkedReads: Array<CorkedReadEvent> = []
   #realHandleSwapped = false
   #clientCloseEmitted = false
+  #connectEmulated = false
 
   constructor(
     protected readonly socket: net.Socket,
@@ -381,6 +382,7 @@ export class TcpSocketController extends SocketController {
     this.readyState = SocketController.PENDING
     this.pendingConnection = new DeferredPromise()
     this.#bufferedWrites = []
+    this.#connectEmulated = false
 
     // Release the pending data of the previous exchange, if any,
     // so kept-alive sockets do not retain every written payload.
@@ -516,7 +518,21 @@ export class TcpSocketController extends SocketController {
   }
 
   protected emulateConnect() {
-    for (const listener of this.socket.listeners('connect')) {
+    this.#connectEmulated = true
+
+    /**
+     * @note Reflect the connected state before notifying the listeners,
+     * the same way Node.js does before emitting "connect".
+     */
+    Reflect.set(this.socket, 'connecting', false)
+
+    /**
+     * @note Invoke the raw listeners so the "once" wrappers get
+     * consumed. This prevents listeners like the connection callback
+     * from being invoked again when "connect" is emitted for real
+     * (e.g. once the claimed connection completes).
+     */
+    for (const listener of this.socket.rawListeners('connect')) {
       listener.apply(this.socket)
     }
   }
@@ -753,7 +769,12 @@ export class TcpSocketController extends SocketController {
   public claim(): void {
     super.claim()
 
-    if (!this.socket.connecting) {
+    /**
+     * @note Skip already connected sockets (e.g. kept-alive sockets
+     * reused for the next exchange). Sockets with an emulated "connect"
+     * only appear connected and must still complete the mock connection.
+     */
+    if (!this.socket.connecting && !this.#connectEmulated) {
       logger.verbose('socket already connected, skipping claim...')
       return
     }
@@ -802,6 +823,16 @@ export class TcpSocketController extends SocketController {
 
     this.pendingConnection.then(([request, handle]) => {
       logger.verbose('connection request resolved, mocking the connection...')
+
+      /**
+       * @note "afterConnect" asserts that the socket is connecting.
+       * Restore the flag if the connect was emulated earlier (emulation
+       * flips it so its listeners observe a connected socket).
+       * "afterConnect" itself sets it back to false.
+       */
+      if (this.#connectEmulated) {
+        Reflect.set(this.socket, 'connecting', true)
+      }
 
       /**
        * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
@@ -895,15 +926,14 @@ export class TcpSocketController extends SocketController {
       }
 
       /**
-       * @note While the client socket is still connecting, its original
-       * write implementation buffers the written data and REPLAYS it
-       * through this override once the socket emits the "connect" event
-       * (see `Socket.prototype._writeGeneric` in Node.js). That replay
-       * would push the same data to the server socket twice. Write
+       * @note Until the handle swap, the client socket's own handle
+       * cannot carry any data (it never actually connects). Write
        * directly to the passthrough socket instead, the same way the
-       * buffered writes are flushed in `passthrough()`.
+       * buffered writes are flushed in `passthrough()`. This also
+       * prevents the "connecting" write replay of `Socket.prototype._writeGeneric`
+       * from pushing the same data to the server socket twice.
        */
-      if (this.socket.connecting && this.#passthroughSocket) {
+      if (!this.#realHandleSwapped && this.#passthroughSocket) {
         return this.#passthroughSocket._writeGeneric.apply(
           this.#passthroughSocket,
           args
@@ -984,7 +1014,7 @@ export class TlsSocketController extends TcpSocketController {
 
     // For TLS sockets, also invoke the "secureConnect" callbacks since some consumers,
     // like Undici, listen to those to start writing to the socket.
-    for (const listener of this.socket.listeners('secureConnect')) {
+    for (const listener of this.socket.rawListeners('secureConnect')) {
       listener.apply(this.socket)
     }
   }
