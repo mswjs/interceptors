@@ -125,7 +125,30 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             dnsOptions,
             callback
           ) {
-            callback(null, [{ address: '127.0.0.1', family: 4 }])
+            const family = dnsOptions.family === 6 ? 6 : 4
+            const address = family === 6 ? '::1' : '127.0.0.1'
+
+            /**
+             * @note Call back asynchronously since DNS lookup is always
+             * asynchronous in Node.js. Calling back synchronously emits
+             * the "lookup"/"connectionAttempt" socket events before the
+             * consumer gets a chance to add listeners for them.
+             */
+            process.nextTick(() => {
+              /**
+               * @note Honor the Node.js lookup contract: the callback receives
+               * an array of addresses only when the "all" option is set
+               * (e.g. during the family autoselection). Otherwise, it receives
+               * a single address and its family. Node.js rejects an array in
+               * the latter case with "ERR_INVALID_IP_ADDRESS".
+               */
+              if (dnsOptions.all) {
+                callback(null, [{ address, family }])
+                return
+              }
+
+              callback(null, address, family)
+            })
           }
 
           return socket.connect(connectionOptions, connectionCallback)

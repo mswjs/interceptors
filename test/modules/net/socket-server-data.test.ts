@@ -30,7 +30,11 @@ it('emits "data" on the server socket for writes before connect', async () => {
   socket.write('hello', () => socket.destroy())
 
   await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
-  expect(events).toEqual([['close', false]])
+  expect(events).toEqual([
+    ['lookup', null, '127.0.0.1', 4, 'any.host.com'],
+    ['connectionAttempt', '127.0.0.1', 80, 4],
+    ['close', false],
+  ])
   await expect
     .poll(() => interceptorDataListener)
     .toHaveBeenCalledExactlyOnceWith(Buffer.from('hello'))
@@ -51,7 +55,12 @@ it('emits "data" on the server socket for writes after connect', async () => {
   })
 
   await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
-  expect(events).toEqual([['connect'], ['close', false]])
+  expect(events).toEqual([
+    ['lookup', null, '127.0.0.1', 4, 'any.host.com'],
+    ['connectionAttempt', '127.0.0.1', 80, 4],
+    ['connect'],
+    ['close', false],
+  ])
   await expect
     .poll(() => interceptorDataListener)
     .toHaveBeenCalledExactlyOnceWith(Buffer.from('hello'))
