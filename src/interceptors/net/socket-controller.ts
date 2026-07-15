@@ -315,7 +315,16 @@ export class TcpSocketController extends SocketController {
       .on('close', () => {
         logger.verbose('client socket closed!')
         this.#clientCloseEmitted = true
+
+        /**
+         * @note Destroy the passthrough socket, if any. The client
+         * socket is done, and a passthrough connection left open would
+         * linger until the server closes it (or error unhandled if it
+         * is still connecting).
+         */
+        this.#passthroughSocket?.destroy()
         this.#passthroughSocket = null
+
         this.#bufferedWrites = []
         this.#readsCorked = false
         this.#corkedReads = []
@@ -500,6 +509,18 @@ export class TcpSocketController extends SocketController {
 
   #onRealSocketConnect = () => {
     if (!this.#passthroughSocket) {
+      return
+    }
+
+    /**
+     * @note The consumer may destroy the socket while the passthrough
+     * connection is still being established. The passthrough "connect"
+     * (I/O poll phase) can arrive before the client's "close" callback
+     * (close phase) within the same event loop iteration. A destroyed
+     * socket must not emit "connect"/"ready".
+     */
+    if (this.socket.destroyed) {
+      this.#passthroughSocket.destroy()
       return
     }
 
