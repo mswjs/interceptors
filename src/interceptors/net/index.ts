@@ -90,9 +90,19 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             connectionCallback,
           })
 
+          /**
+           * @note Create passthrough connections without the connection
+           * callback. The callback is already registered as a "connect"
+           * listener on the socket returned to the consumer. Passing it
+           * to the passthrough connection would invoke it twice.
+           */
+          const passthroughArgs = args.filter((arg) => {
+            return typeof arg !== 'function'
+          })
+
           const socket = new net.Socket()
           const controller = new TcpSocketController(socket, () => {
-            return realNetConnect(...args)
+            return realNetConnect(...passthroughArgs)
           })
 
           process.nextTick(() => {
@@ -184,8 +194,18 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             secureConnectionCallback
           )
 
+          /**
+           * @note Create passthrough connections without the secure
+           * connection callback. The callback is already registered on
+           * the TLS socket returned to the consumer. Passing it to the
+           * passthrough connection would invoke it twice.
+           */
+          const passthroughArgs = args.filter((arg) => {
+            return typeof arg !== 'function'
+          })
+
           const controller = new TlsSocketController(tlsSocket, () => {
-            return realTlsConnect(...args)
+            return realTlsConnect(...passthroughArgs)
           })
 
           process.nextTick(() => {

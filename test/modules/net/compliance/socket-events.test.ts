@@ -185,12 +185,7 @@ it('emits "drain" after a write that exceeded the write buffer', async () => {
   socket.destroy()
 })
 
-/**
- * @note Currently, the connection callback is invoked twice:
- * once via the emulated "connect" and once via the real socket
- * "connect" event forwarding.
- */
-it.fails('invokes the connection callback exactly once', async () => {
+it('invokes the connection callback exactly once', async () => {
   await using server = await createTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
