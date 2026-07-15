@@ -275,7 +275,16 @@ export class TcpSocketController extends SocketController {
     super(socket)
 
     // Implement the read method to prevent the "Error: read ENOTCONN" errors on non-existing hosts.
-    this.socket._read = () => {}
+    this.socket._read = () => {
+      /**
+       * @note Resume the passthrough socket when the consumer asks for
+       * more data. Node.js calls "_read()" once the consumer drains the
+       * read buffer (e.g. after "resume()"). The passthrough socket may
+       * have been paused when the consumer's buffer got full, and this
+       * is the only signal to continue reading.
+       */
+      this.#passthroughSocket?.resume()
+    }
 
     // Store the unpatched write method once so we have access to it between socket state resets.
     this.#realWriteGeneric = this.socket._writeGeneric
@@ -493,8 +502,33 @@ export class TcpSocketController extends SocketController {
       return
     }
 
+    const replacedHandle = this.socket._handle
+    const wasUnrefed =
+      replacedHandle != null &&
+      typeof replacedHandle.hasRef === 'function' &&
+      !replacedHandle.hasRef()
+
     this.socket._handle = this.#passthroughSocket._handle
     this.#realHandleSwapped = true
+
+    /**
+     * @note Preserve the ref state across the handle swap. If the
+     * consumer unrefed the socket while it was connecting, the swapped
+     * handle must not hold the process alive either.
+     */
+    if (wasUnrefed) {
+      this.socket._handle.unref?.()
+    }
+
+    /**
+     * @note Close the replaced handle. Nothing references it past this
+     * point, and left open, it keeps the process alive indefinitely.
+     * Skip TLS handles (they have a parent handle) to keep the TLS
+     * socket machinery intact.
+     */
+    if (replacedHandle != null && replacedHandle._parent == null) {
+      replacedHandle.close()
+    }
 
     Reflect.set(this.socket, 'connecting', false)
     this.socket.emit('connect')
