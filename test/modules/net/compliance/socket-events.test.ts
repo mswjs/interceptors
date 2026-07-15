@@ -75,11 +75,7 @@ it('emits the "lookup" event when connecting to a hostname', async () => {
   ])
 })
 
-/**
- * @note Currently, a refused connection does not emit the
- * "connectionAttemptFailed" event and emits "close" three times.
- */
-it.fails('emits correct events for a refused connection', async () => {
+it('emits correct events for a refused connection', async () => {
   // Open a server to obtain a port, then close it
   // so connecting to that port is guaranteed to be refused.
   const closedServer = await createTestServer(() => {

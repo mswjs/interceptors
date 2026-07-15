@@ -264,6 +264,8 @@ export class TcpSocketController extends SocketController {
   #bufferedWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
   #readsCorked = false
   #corkedReads: Array<CorkedReadEvent> = []
+  #realHandleSwapped = false
+  #clientCloseEmitted = false
 
   constructor(
     protected readonly socket: net.Socket,
@@ -301,6 +303,7 @@ export class TcpSocketController extends SocketController {
       })
       .on('close', () => {
         logger.verbose('client socket closed!')
+        this.#clientCloseEmitted = true
         this.#passthroughSocket = null
         this.#bufferedWrites = []
         this.#readsCorked = false
@@ -474,10 +477,28 @@ export class TcpSocketController extends SocketController {
     }
 
     this.socket._handle = this.#passthroughSocket._handle
+    this.#realHandleSwapped = true
 
     Reflect.set(this.socket, 'connecting', false)
     this.socket.emit('connect')
     this.socket.emit('ready')
+  }
+
+  #onRealSocketConnectionAttemptFailed = (
+    address: string,
+    port: number,
+    family: number,
+    error: Error
+  ) => {
+    this.socket.emit('connectionAttemptFailed', address, port, family, error)
+  }
+
+  #onRealSocketConnectionAttemptTimeout = (
+    address: string,
+    port: number,
+    family: number
+  ) => {
+    this.socket.emit('connectionAttemptTimeout', address, port, family)
   }
 
   #onRealSocketData = (data: Buffer) => {
@@ -515,7 +536,11 @@ export class TcpSocketController extends SocketController {
     // breaks Node's internal close machinery—destroy() emits "error" but never
     // emits "close". Consumers like Undici wait for "close" to finalize the
     // request, so we must emit it manually.
-    process.nextTick(() => this.socket.emit('close', true))
+    // Before the swap (e.g. a failed connection attempt), the client socket
+    // emits "close" on its own, and emitting here would duplicate it.
+    if (this.#realHandleSwapped) {
+      process.nextTick(() => this.socket.emit('close', true))
+    }
   }
 
   #onRealSocketEnd = () => {
@@ -530,6 +555,20 @@ export class TcpSocketController extends SocketController {
   #onRealSocketClose = (hadError: boolean) => {
     if (this.#readsCorked) {
       this.#corkedReads.push({ type: 'close', hadError })
+      return
+    }
+
+    // The client socket already emitted "close" (e.g. it was destroyed
+    // with an error before the handle swap). Forwarding the real socket
+    // "close" would emit it twice.
+    if (this.#clientCloseEmitted) {
+      return
+    }
+
+    // A destroyed client socket with an intact handle emits "close"
+    // through its own machinery. Only forward the real socket "close"
+    // when the handle swap suppressed that emission.
+    if (this.socket.destroyed && !this.#realHandleSwapped) {
       return
     }
 
@@ -756,6 +795,14 @@ export class TcpSocketController extends SocketController {
 
     realSocket
       .removeListener('connect', this.#onRealSocketConnect)
+      .removeListener(
+        'connectionAttemptFailed',
+        this.#onRealSocketConnectionAttemptFailed
+      )
+      .removeListener(
+        'connectionAttemptTimeout',
+        this.#onRealSocketConnectionAttemptTimeout
+      )
       .removeListener('data', this.#onRealSocketData)
       .removeListener('error', this.#onRealSocketError)
       .removeListener('end', this.#onRealSocketEnd)
@@ -763,6 +810,14 @@ export class TcpSocketController extends SocketController {
 
     realSocket
       .once('connect', this.#onRealSocketConnect)
+      .on(
+        'connectionAttemptFailed',
+        this.#onRealSocketConnectionAttemptFailed
+      )
+      .on(
+        'connectionAttemptTimeout',
+        this.#onRealSocketConnectionAttemptTimeout
+      )
       .on('data', this.#onRealSocketData)
       .on('error', this.#onRealSocketError)
       .on('end', this.#onRealSocketEnd)
