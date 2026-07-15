@@ -10,7 +10,7 @@ export function connectionOptionsToUrl(
   options: NetworkConnectionOptions,
   socket: net.Socket
 ): URL {
-  const isIPv6 = options.family === 6 || net.isIPv6(options.host || '')
+  const isIPv6 = net.isIPv6(options.host || '')
   const protocol =
     socket instanceof tls.TLSSocket
       ? 'https:'

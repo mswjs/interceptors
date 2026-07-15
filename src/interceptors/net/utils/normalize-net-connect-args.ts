@@ -70,6 +70,7 @@ export function normalizeNetConnectArgs(
           port: +args[0].port,
           host: options.hostname,
           auth: options.auth,
+          family: args[0].family,
         },
         callback,
       ]
