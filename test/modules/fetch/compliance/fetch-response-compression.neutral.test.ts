@@ -207,3 +207,80 @@ it.skipIf(!IS_BROWSER)('throws error if decompression failed', async () => {
   const response = await fetch('http://localhost/resource')
   await expect(response.text()).rejects.toThrow()
 })
+
+it('exposes a compressed bypassed response in the "response" listener', async () => {
+  const responseFromListenerPromise = Promise.withResolvers<Response>()
+  interceptor.on('response', ({ response }) => {
+    responseFromListenerPromise.resolve(response)
+  })
+
+  const response = await fetch(server.http.url('/compressed'), {
+    headers: { 'x-accept-encoding': 'gzip' },
+  })
+
+  const expectedBytes = await new Response(
+    new Blob(['hello world'])
+      .stream()
+      .pipeThrough(new CompressionStream('gzip'))
+  ).bytes()
+
+  const responseFromListener = await responseFromListenerPromise.promise
+  expect(responseFromListener.headers.get('content-encoding')).toBe('gzip')
+
+  if (IS_BROWSER) {
+    await expect(responseFromListener.bytes()).resolves.toEqual(
+      new TextEncoder().encode('hello world')
+    )
+  } else {
+    await expect(responseFromListener.bytes()).resolves.toEqual(
+      await new Response(
+        new Blob(['hello world'])
+          .stream()
+          .pipeThrough(new CompressionStream('gzip'))
+      ).bytes()
+    )
+  }
+
+  await expect(response.text()).resolves.toBe('hello world')
+})
+
+it('exposes a compressed mocked response in the "response" listener', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(
+        new Blob(['hello world'])
+          .stream()
+          .pipeThrough(new CompressionStream('gzip')),
+        {
+          headers: { 'content-encoding': 'gzip' },
+        }
+      )
+    )
+  })
+
+  const responseFromListenerPromise = Promise.withResolvers<Response>()
+  interceptor.on('response', ({ response }) => {
+    responseFromListenerPromise.resolve(response)
+  })
+
+  const response = await fetch('http://localhost/resource')
+
+  const responseFromListener = await responseFromListenerPromise.promise
+  expect(responseFromListener.headers.get('content-encoding')).toBe('gzip')
+
+  if (IS_BROWSER) {
+    await expect(responseFromListener.bytes()).resolves.toEqual(
+      new TextEncoder().encode('hello world')
+    )
+  } else {
+    await expect(responseFromListener.bytes()).resolves.toEqual(
+      await new Response(
+        new Blob(['hello world'])
+          .stream()
+          .pipeThrough(new CompressionStream('gzip'))
+      ).bytes()
+    )
+  }
+
+  await expect(response.text()).resolves.toBe('hello world')
+})
