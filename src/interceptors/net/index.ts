@@ -98,7 +98,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
            */
           const passthroughArgs = args.filter((arg) => {
             return typeof arg !== 'function'
-          })
+          }) as typeof args
 
           /**
            * @note Create the socket with the original options, the same
@@ -190,6 +190,9 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           const [tlsConnectionOptions, secureConnectionCallback] =
             normalizeTlsConnectArgs(args)
 
+          const realCheckServerIdentity =
+            tlsConnectionOptions.checkServerIdentity ?? tls.checkServerIdentity
+
           const tlsSocket = realTlsConnect(
             {
               ...tlsConnectionOptions,
@@ -204,11 +207,18 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                */
               host: '127.0.0.1',
               /**
-               * Suppress unauthorized connection errors to allow mocking connections to non-existing hosts.
-               * This prevents the "Error: Hostname/IP does not match certificate's altnames: Cert does not contain a DNS name" error.
-               * @note Passthrough scenarios will respect the original "rejectUnauthorized" option.
+               * @note Skip the server identity check for mocked connections.
+               * There is no real peer certificate to verify, and failing
+               * the check would destroy the socket. Passthrough connections
+               * delegate to the caller's identity check (or the default one).
                */
-              rejectUnauthorized: false,
+              checkServerIdentity(hostname, certificate) {
+                if (controller.readyState === TlsSocketController.CLAIMED) {
+                  return undefined
+                }
+
+                return realCheckServerIdentity(hostname, certificate)
+              },
             },
             secureConnectionCallback
           )
@@ -221,7 +231,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
            */
           const passthroughArgs = args.filter((arg) => {
             return typeof arg !== 'function'
-          })
+          }) as typeof args
 
           const controller = new TlsSocketController(tlsSocket, () => {
             return realTlsConnect(...passthroughArgs)

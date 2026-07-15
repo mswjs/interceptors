@@ -52,6 +52,7 @@ declare module 'node:tls' {
       onnewsession: (sessionId: unknown, session: Buffer) => void
       getSession: () => Buffer
       getServername: () => string
+      getALPNNegotiatedProtocol: () => string | false
       getCipher: () => { name: string; standardName: string; version: string }
       verifyError: () => void
     }
@@ -201,7 +202,7 @@ export abstract class SocketController {
   static CLAIMED = 1 as const
   static PASSTHROUGH = 2 as const
 
-  protected readyState:
+  public readyState:
     | typeof SocketController.PENDING
     | typeof SocketController.CLAIMED
     | typeof SocketController.PASSTHROUGH
@@ -884,6 +885,17 @@ export class TlsSocketController extends TcpSocketController {
     protected readonly createConnection: () => tls.TLSSocket
   ) {
     super(socket, createConnection)
+
+    socket.prependListener('secureConnect', () => {
+      /**
+       * @note Reflect the negotiated ALPN protocol from the handle that
+       * completed the handshake. The socket sets "alpnProtocol" only in
+       * its own "_finishInit", which never runs for passthrough
+       * connections (the handshake completes on the passthrough socket
+       * whose handle this socket inherits).
+       */
+      socket.alpnProtocol = socket._handle.getALPNNegotiatedProtocol()
+    })
   }
 
   protected emulateConnect(): void {
@@ -897,6 +909,21 @@ export class TlsSocketController extends TcpSocketController {
   }
 
   public claim(): void {
+    /**
+     * @note Reflect that the mocked connection is not authorized.
+     * There is no real peer certificate to verify. The identity check
+     * itself is skipped for claimed connections (see the
+     * "checkServerIdentity" option in the "tls.connect" patch).
+     */
+    this.socket.prependOnceListener('secureConnect', () => {
+      Reflect.set(this.socket, 'authorized', false)
+      Reflect.set(
+        this.socket,
+        'authorizationError',
+        'MOCKED_CONNECTION_NOT_VERIFIED'
+      )
+    })
+
     // Run this logic before the parent's class method so it executes first.
     // TLSWrap methods have to be patched before TCPWrap fires "oncomplete".
     const handle = this.socket._handle
