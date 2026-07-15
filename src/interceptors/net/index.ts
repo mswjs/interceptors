@@ -106,7 +106,11 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
            * socket behaviors (e.g. "allowHalfOpen").
            */
           const socketOptions =
-            typeof args[0] === 'object' && !('href' in args[0]) ? args[0] : {}
+            args[0] !== null &&
+            typeof args[0] === 'object' &&
+            !('href' in args[0])
+              ? args[0]
+              : {}
 
           const socket = new net.Socket(socketOptions)
           const controller = new TcpSocketController(socket, () => {
@@ -114,6 +118,10 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           })
 
           process.nextTick(() => {
+            if (socket.destroyed) {
+              return
+            }
+
             if (
               !this.emitter.emit(
                 new SocketConnectionEvent({
@@ -180,7 +188,18 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             })
           }
 
-          return socket.connect(mockConnectionOptions, connectionCallback)
+          try {
+            return socket.connect(mockConnectionOptions, connectionCallback)
+          } catch (error) {
+            /**
+             * @note "socket.connect()" can throw synchronously on invalid
+             * input (e.g. a bad port). Destroy the socket so the pending
+             * interception tick does not act on it, then let the error
+             * propagate to the consumer like in Node.js.
+             */
+            socket.destroy()
+            throw error
+          }
         }
       }),
       patchesRegistry.applyPatch(tls, 'connect', (realTlsConnect) => {
@@ -233,11 +252,19 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             return typeof arg !== 'function'
           }) as typeof args
 
-          const controller = new TlsSocketController(tlsSocket, () => {
-            return realTlsConnect(...passthroughArgs)
-          })
+          const controller = new TlsSocketController(
+            tlsSocket,
+            () => {
+              return realTlsConnect(...passthroughArgs)
+            },
+            tlsConnectionOptions
+          )
 
           process.nextTick(() => {
+            if (tlsSocket.destroyed) {
+              return
+            }
+
             if (
               !this.emitter.emit(
                 new SocketConnectionEvent({

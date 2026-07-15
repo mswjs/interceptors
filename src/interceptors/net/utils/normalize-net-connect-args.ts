@@ -1,8 +1,11 @@
 import net from 'node:net'
-import url from 'node:url'
 
 export interface NetworkConnectionOptions {
-  port?: number | null
+  /**
+   * @note The port may be a string when a URL is (incorrectly) passed
+   * to `net.connect()`. Node.js reads URLs as plain options objects.
+   */
+  port?: number | string | null
   path: string | null
   host?: string | null
   protocol?: string | null
@@ -60,33 +63,23 @@ export function normalizeNetConnectArgs(
   }
 
   if (typeof args[0] === 'object') {
-    if ('href' in args[0]) {
-      const options = url.urlToHttpOptions(args[0])
-
-      return [
-        {
-          protocol: args[0].protocol,
-          path: options.path || '',
-          port: +args[0].port,
-          host: options.hostname,
-          auth: options.auth,
-          family: args[0].family,
-        },
-        callback,
-      ]
-    }
-
+    /**
+     * @note URL arguments receive no special treatment on purpose.
+     * Node.js does not support them and reads a given URL as a plain
+     * options object (e.g. "url.port" is a string, "url.host" includes
+     * the port). The "port" branch below reproduces that reading.
+     */
     if ('port' in args[0]) {
       return [
         {
           path: '',
-          port: args[0].port,
-          host: args[0].host,
+          port: Reflect.get(args[0], 'port'),
+          host: Reflect.get(args[0], 'host'),
           auth: Reflect.get(args[0], 'auth'),
-          family: args[0].family,
+          family: Reflect.get(args[0], 'family'),
           session: Reflect.get(args[0], 'session'),
-          localAddress: args[0].localAddress,
-          localPort: args[0].localPort,
+          localAddress: Reflect.get(args[0], 'localAddress'),
+          localPort: Reflect.get(args[0], 'localPort'),
         },
         callback,
       ]

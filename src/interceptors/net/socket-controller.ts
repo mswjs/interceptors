@@ -110,7 +110,13 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
         return Reflect.get(target, property, receiver)
       }
 
-      if (property === 'on' || property === 'addListener') {
+      if (
+        property === 'on' ||
+        property === 'addListener' ||
+        property === 'once' ||
+        property === 'prependListener' ||
+        property === 'prependOnceListener'
+      ) {
         const realAddListener = getRealValue() as net.Socket['addListener']
 
         return (event: any, listener: (...args: Array<unknown>) => void) => {
@@ -125,7 +131,14 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
               value: listenerWrap,
             })
 
-            socket.on('internal:write', listenerWrap)
+            /**
+             * @note Subscribe using the same method (e.g. "once") so its
+             * listener semantics apply to the internal channel too.
+             */
+            Reflect.apply(realAddListener, target, [
+              'internal:write',
+              listenerWrap,
+            ])
 
             return target
           }
@@ -143,7 +156,13 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
             const listenerWrap = listener[kListenerWrap]
 
             if (listenerWrap) {
-              return realRemoveListener.call(target, event, listenerWrap)
+              // The wrap is subscribed to the internal channel,
+              // not the "data" event (see the listener proxy above).
+              return realRemoveListener.call(
+                target,
+                'internal:write',
+                listenerWrap
+              )
             }
           }
 
@@ -169,12 +188,17 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
 
       // Translate server-side "socket.end()" to client-sode "socket.push(null)".
       if (property === 'end') {
-        const realEnd = getRealValue() as net.Socket['end']
-
-        return ((...args: Parameters<net.Socket['end']>) => {
+        return ((...args: Parameters<net.Socket['end']>): net.Socket => {
           const callback = args[args.length - 1]
+          const chunk = typeof args[0] === 'function' ? undefined : args[0]
+          const encoding = typeof args[1] === 'string' ? args[1] : undefined
 
           const translateEnd = () => {
+            // Deliver the final chunk passed to "end(chunk)", if any.
+            if (chunk != null) {
+              socket.push(toBuffer(chunk, encoding), encoding)
+            }
+
             socket.push(null)
 
             if (typeof callback === 'function') {
@@ -188,7 +212,12 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
             translateEnd()
           }
 
-          return realEnd.apply(target, args)
+          /**
+           * @note Do not end the client socket's writable side.
+           * The server ending the connection only signals EOF to the
+           * client (the client may keep writing on half-open sockets).
+           */
+          return target
         }) as net.Socket['end']
       }
 
@@ -268,6 +297,7 @@ export class TcpSocketController extends SocketController {
   #corkedReads: Array<CorkedReadEvent> = []
   #realHandleSwapped = false
   #clientCloseEmitted = false
+  #connectEmulated = false
 
   constructor(
     protected readonly socket: net.Socket,
@@ -352,6 +382,12 @@ export class TcpSocketController extends SocketController {
     this.readyState = SocketController.PENDING
     this.pendingConnection = new DeferredPromise()
     this.#bufferedWrites = []
+    this.#connectEmulated = false
+
+    // Release the pending data of the previous exchange, if any,
+    // so kept-alive sockets do not retain every written payload.
+    this.socket._pendingData = null
+    this.socket._pendingEncoding = ''
 
     const wrapHandle = (handle: TcpHandle) => {
       this.pendingConnection.then(() => {
@@ -482,7 +518,21 @@ export class TcpSocketController extends SocketController {
   }
 
   protected emulateConnect() {
-    for (const listener of this.socket.listeners('connect')) {
+    this.#connectEmulated = true
+
+    /**
+     * @note Reflect the connected state before notifying the listeners,
+     * the same way Node.js does before emitting "connect".
+     */
+    Reflect.set(this.socket, 'connecting', false)
+
+    /**
+     * @note Invoke the raw listeners so the "once" wrappers get
+     * consumed. This prevents listeners like the connection callback
+     * from being invoked again when "connect" is emitted for real
+     * (e.g. once the claimed connection completes).
+     */
+    for (const listener of this.socket.rawListeners('connect')) {
       listener.apply(this.socket)
     }
   }
@@ -545,11 +595,13 @@ export class TcpSocketController extends SocketController {
     /**
      * @note Close the replaced handle. Nothing references it past this
      * point, and left open, it keeps the process alive indefinitely.
-     * Skip TLS handles (they have a parent handle) to keep the TLS
-     * socket machinery intact.
+     * For TLS sockets, the replaced handle is a TLSWrap; close its
+     * underlying transport too (closing the wrap alone does not close
+     * the TCP handle it sits on).
      */
-    if (replacedHandle != null && replacedHandle._parent == null) {
+    if (replacedHandle != null) {
       replacedHandle.close()
+      replacedHandle._parent?.close()
     }
 
     Reflect.set(this.socket, 'connecting', false)
@@ -717,7 +769,12 @@ export class TcpSocketController extends SocketController {
   public claim(): void {
     super.claim()
 
-    if (!this.socket.connecting) {
+    /**
+     * @note Skip already connected sockets (e.g. kept-alive sockets
+     * reused for the next exchange). Sockets with an emulated "connect"
+     * only appear connected and must still complete the mock connection.
+     */
+    if (!this.socket.connecting && !this.#connectEmulated) {
       logger.verbose('socket already connected, skipping claim...')
       return
     }
@@ -735,6 +792,11 @@ export class TcpSocketController extends SocketController {
     }
 
     this.#bufferedWrites = []
+
+    // Release the buffered write payloads. They were already delivered
+    // to the server socket, and there is nowhere else to flush them.
+    this.socket._pendingData = null
+    this.socket._pendingEncoding = ''
 
     /**
      * @note Once claimed, there's nowhere to write chunks to.
@@ -761,6 +823,16 @@ export class TcpSocketController extends SocketController {
 
     this.pendingConnection.then(([request, handle]) => {
       logger.verbose('connection request resolved, mocking the connection...')
+
+      /**
+       * @note "afterConnect" asserts that the socket is connecting.
+       * Restore the flag if the connect was emulated earlier (emulation
+       * flips it so its listeners observe a connected socket).
+       * "afterConnect" itself sets it back to false.
+       */
+      if (this.#connectEmulated) {
+        Reflect.set(this.socket, 'connecting', true)
+      }
 
       /**
        * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
@@ -854,15 +926,14 @@ export class TcpSocketController extends SocketController {
       }
 
       /**
-       * @note While the client socket is still connecting, its original
-       * write implementation buffers the written data and REPLAYS it
-       * through this override once the socket emits the "connect" event
-       * (see `Socket.prototype._writeGeneric` in Node.js). That replay
-       * would push the same data to the server socket twice. Write
+       * @note Until the handle swap, the client socket's own handle
+       * cannot carry any data (it never actually connects). Write
        * directly to the passthrough socket instead, the same way the
-       * buffered writes are flushed in `passthrough()`.
+       * buffered writes are flushed in `passthrough()`. This also
+       * prevents the "connecting" write replay of `Socket.prototype._writeGeneric`
+       * from pushing the same data to the server socket twice.
        */
-      if (this.socket.connecting && this.#passthroughSocket) {
+      if (!this.#realHandleSwapped && this.#passthroughSocket) {
         return this.#passthroughSocket._writeGeneric.apply(
           this.#passthroughSocket,
           args
@@ -909,11 +980,22 @@ export class TcpSocketController extends SocketController {
 }
 
 export class TlsSocketController extends TcpSocketController {
+  /**
+   * @note The TLS connection options must be provided explicitly.
+   * They cannot be captured from "socket.connect()" like for plain
+   * TCP sockets because "tls.connect()" connects the socket before
+   * this controller is constructed.
+   */
+  #tlsConnectionOptions?: tls.ConnectionOptions
+
   constructor(
     protected readonly socket: tls.TLSSocket,
-    protected readonly createConnection: () => tls.TLSSocket
+    protected readonly createConnection: () => tls.TLSSocket,
+    tlsConnectionOptions?: tls.ConnectionOptions
   ) {
     super(socket, createConnection)
+
+    this.#tlsConnectionOptions = tlsConnectionOptions
 
     socket.prependListener('secureConnect', () => {
       /**
@@ -932,7 +1014,7 @@ export class TlsSocketController extends TcpSocketController {
 
     // For TLS sockets, also invoke the "secureConnect" callbacks since some consumers,
     // like Undici, listen to those to start writing to the socket.
-    for (const listener of this.socket.listeners('secureConnect')) {
+    for (const listener of this.socket.rawListeners('secureConnect')) {
       listener.apply(this.socket)
     }
   }
@@ -975,6 +1057,24 @@ export class TlsSocketController extends TcpSocketController {
         name: 'TLS_AES_256_GCM_SHA384',
         standardName: 'TLS_AES_256_GCM_SHA384',
         version: 'TLSv1.3',
+      }
+    }
+
+    const requestedAlpnProtocols = this.#tlsConnectionOptions?.ALPNProtocols
+
+    if (
+      Array.isArray(requestedAlpnProtocols) &&
+      requestedAlpnProtocols.length > 0
+    ) {
+      const [preferredProtocol] = requestedAlpnProtocols
+
+      /**
+       * @note Reflect the client's preferred ALPN protocol as the
+       * negotiated one. The mocked server accepts whatever the
+       * client prefers.
+       */
+      handle.getALPNNegotiatedProtocol = () => {
+        return typeof preferredProtocol === 'string' ? preferredProtocol : false
       }
     }
 
