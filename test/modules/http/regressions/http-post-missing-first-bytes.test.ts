@@ -3,7 +3,7 @@
  * @see https://github.com/mswjs/msw/issues/2309
  */
 import http from 'node:http'
-import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { HttpServer } from '@open-draft/test-server/http'
 import superagent from 'superagent'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
@@ -49,7 +49,9 @@ it('does not skip the first request bytes on passthrough POST request', async ()
        * @note The issue is only reproducible when providing a path
        * to the uploaded file. Providing buffer works fine.
        */
-      path.resolve(__dirname, 'http-post-missing-first-bytes-file.png')
+      fileURLToPath(
+        new URL('./http-post-missing-first-bytes-file.png', import.meta.url)
+      )
     )
     .timeout(1000)
     .catch((error) => {

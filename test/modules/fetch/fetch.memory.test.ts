@@ -1,6 +1,6 @@
 // @vitest-environment node
 import * as fs from 'node:fs'
-import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Worker } from 'node:worker_threads'
 import { HttpServer } from '@open-draft/test-server/http'
 import { it, expect, beforeAll, afterAll, afterEach } from 'vitest'
@@ -32,10 +32,12 @@ afterAll(async () => {
 it(
   'does not retain per-request state after passthrough without listeners',
   async () => {
-    const snapshotPath = path.resolve(__dirname, 'fetch-memory.heapsnapshot')
+    const snapshotPath = fileURLToPath(
+      new URL('./fetch-memory.heapsnapshot', import.meta.url)
+    )
 
     const worker = new Worker(
-      path.resolve(__dirname, './fetch-memory-worker.js'),
+      new URL('./fetch-memory-worker.js', import.meta.url),
       {
         workerData: {
           requestCount: 5_000,

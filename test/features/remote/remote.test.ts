@@ -1,8 +1,8 @@
-import * as path from 'path'
+import { fileURLToPath } from 'node:url'
 import { spawn } from 'child_process'
 import { RemoteHttpResolver } from '#/src/RemoteHttpInterceptor'
 
-const CHILD_PATH = path.resolve(__dirname, 'child.js')
+const CHILD_PATH = fileURLToPath(new URL('./child.js', import.meta.url))
 
 const child = spawn('node', [CHILD_PATH], {
   stdio: ['inherit', 'inherit', 'inherit', 'ipc'],

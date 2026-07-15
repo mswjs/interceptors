@@ -19,6 +19,11 @@ export default defineConfig([
     outDir: './lib/node',
     platform: 'node',
     target: 'node22',
+    /**
+     * @note Provide `import.meta.url` in the CommonJS output.
+     * The source relies on it to locate the llhttp WASM binary.
+     */
+    shims: true,
     outExtensions: (context) => ({
       js: context.format === 'cjs' ? '.cjs' : '.mjs',
       dts: context.format === 'cjs' ? '.d.cts' : '.d.mts',

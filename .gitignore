@@ -8,3 +8,4 @@ package-lock.json
 /test-results
 /tmp
 __screenshots__
+*.tsbuildinfo

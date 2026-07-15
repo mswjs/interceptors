@@ -4,12 +4,15 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import http from 'node:http'
 import { promisify } from 'node:util'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const HTTP_SOCKET_PATH = path.join(__dirname, './test-http.sock')
+const HTTP_SOCKET_PATH = fileURLToPath(
+  new URL('./test-http.sock', import.meta.url)
+)
 
 const httpServer = http.createServer((req, res) => {
   res.writeHead(200, req.headers)

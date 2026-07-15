@@ -65,8 +65,16 @@ function readStringFrom(pointer: number, length: number): string {
   return Buffer.from(llhttp_memory.buffer, pointer, length).toString('latin1')
 }
 
+/**
+ * @note Reference the base URL through a variable. Bundlers (e.g. Vite)
+ * statically rewrite the `new URL('...', import.meta.url)` pattern into
+ * an asset URL resolved against the served origin, which breaks reading
+ * the WASM binary from the file system in DOM-like test environments.
+ */
+const wasmBaseUrl = import.meta.url
+
 const llhttpModule = new WebAssembly.Module(
-  fs.readFileSync(__dirname + '/llhttp/llhttp.wasm')
+  fs.readFileSync(new URL('./llhttp/llhttp.wasm', wasmBaseUrl))
 )
 
 const llhttpInstance = new WebAssembly.Instance(llhttpModule, {
