@@ -172,31 +172,30 @@ it('normalizes "(path, callback)"', () => {
   ])
 })
 
-it('normalizes "(url)"', () => {
+/**
+ * @note Node.js does not support URL arguments and reads them
+ * as plain options objects. Reproduce that reading exactly:
+ * "url.port" is a string, "url.host" includes the port.
+ */
+it('treats "(url)" as a plain options object, like Node.js', () => {
   expect(
     normalizeNetConnectArgs([new URL('http://example.com:8080/path?query=1')])
   ).toEqual([
     {
-      protocol: 'http:',
-      path: '/path?query=1',
-      port: 8080,
-      host: 'example.com',
-      auth: undefined,
+      path: '',
+      port: '8080',
+      host: 'example.com:8080',
     },
     null,
   ])
 })
 
-it('normalizes "(url)" with credentials', () => {
-  expect(
-    normalizeNetConnectArgs([new URL('https://user:pass@example.com:8443/')])
-  ).toEqual([
+it('treats a port-less "(url)" as a plain options object, like Node.js', () => {
+  expect(normalizeNetConnectArgs([new URL('http://example.com/')])).toEqual([
     {
-      protocol: 'https:',
-      path: '/',
-      port: 8443,
+      path: '',
+      port: '',
       host: 'example.com',
-      auth: 'user:pass',
     },
     null,
   ])
@@ -209,8 +208,8 @@ it('normalizes "(url, callback)"', () => {
     normalizeNetConnectArgs([new URL('http://example.com:8080/'), callback])
   ).toEqual([
     expect.objectContaining({
-      port: 8080,
-      host: 'example.com',
+      port: '8080',
+      host: 'example.com:8080',
     }),
     callback,
   ])

@@ -230,6 +230,42 @@ it('connects with "connect(options)" and the "path" option', async () => {
   expect(Buffer.concat(receivedChunks).toString()).toBe('hello from server')
 })
 
+it('throws on a URL argument without a port, like Node.js', async () => {
+  /**
+   * @note Node.js does not support URL arguments. It treats them as
+   * a plain options object, reading "url.port" (an empty string when
+   * the URL has no explicit port), and throws synchronously.
+   */
+  expect(() => {
+    return net.connect(new URL('http://example.com/') as unknown as string)
+  }).toThrow('Port should be >= 0 and < 65536')
+})
+
+it('fails to connect with a URL argument, like Node.js', async () => {
+  await using server = await createTestServer(() => {
+    return new net.Server(() => {})
+  })
+
+  /**
+   * @note Node.js reads "url.host" as the host, which includes the
+   * port. Such a hostname never resolves, so the connection fails
+   * even when the URL points at a live server.
+   */
+  const socket = net.connect(
+    new URL(`http://${server.hostname}:${server.port}/`) as unknown as string
+  )
+  const { listeners } = spyOnSocket(socket)
+
+  await expect.poll(() => listeners.error).toHaveBeenCalledOnce()
+
+  const [connectionError] = listeners.error.mock.calls[0]
+  expect.soft(connectionError.code).toBe('ENOTFOUND')
+  expect.soft(connectionError.hostname).toBe(
+    `${server.hostname}:${server.port}`
+  )
+  expect(listeners.connect).not.toHaveBeenCalled()
+})
+
 it('connects with "createConnection()"', async () => {
   await using server = await createTestServer(() => {
     return new net.Server((socket) => {

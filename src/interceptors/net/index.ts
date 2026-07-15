@@ -188,7 +188,18 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             })
           }
 
-          return socket.connect(mockConnectionOptions, connectionCallback)
+          try {
+            return socket.connect(mockConnectionOptions, connectionCallback)
+          } catch (error) {
+            /**
+             * @note "socket.connect()" can throw synchronously on invalid
+             * input (e.g. a bad port). Destroy the socket so the pending
+             * interception tick does not act on it, then let the error
+             * propagate to the consumer like in Node.js.
+             */
+            socket.destroy()
+            throw error
+          }
         }
       }),
       patchesRegistry.applyPatch(tls, 'connect', (realTlsConnect) => {
