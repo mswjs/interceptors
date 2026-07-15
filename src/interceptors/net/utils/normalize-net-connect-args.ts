@@ -20,6 +20,7 @@ export type NetConnectArgs =
   | [options: net.NetConnectOpts, callback?: () => void]
   | [url: URL, callback?: () => void]
   | [port: number, host?: string, callback?: () => void]
+  | [port: number, callback?: () => void]
   | [path: string, callback?: () => void]
 
 export type NormalizedNetConnectArgs = [
@@ -43,8 +44,19 @@ export function normalizeNetConnectArgs(
     return [{ path: args[0] }, callback]
   }
 
-  if (typeof args[0] === 'number' && typeof args[1] === 'string') {
-    return [{ port: args[0], path: '', host: args[1] }, callback]
+  if (typeof args[0] === 'number') {
+    return [
+      {
+        port: args[0],
+        path: '',
+        /**
+         * @note The host is optional in the "(port[, host][, callback])"
+         * signatures and defaults to "localhost" in Node.js.
+         */
+        host: typeof args[1] === 'string' ? args[1] : undefined,
+      },
+      callback,
+    ]
   }
 
   if (typeof args[0] === 'object') {

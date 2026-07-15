@@ -553,6 +553,17 @@ export class TcpSocketController extends SocketController {
     }
 
     Reflect.set(this.socket, 'connecting', false)
+
+    /**
+     * @note Read the remote address info once so it gets cached on the
+     * socket. The passthrough socket controls the swapped handle and may
+     * close it at any point (e.g. once the server ends the connection),
+     * while Node.js keeps serving the cached info for sockets that
+     * have connected. Reading must happen after the socket is no longer
+     * connecting (the info of connecting sockets is never cached).
+     */
+    void this.socket.remoteAddress
+
     this.socket.emit('connect')
     this.socket.emit('ready')
   }
@@ -883,10 +894,7 @@ export class TcpSocketController extends SocketController {
 
     realSocket
       .once('connect', this.#onRealSocketConnect)
-      .on(
-        'connectionAttemptFailed',
-        this.#onRealSocketConnectionAttemptFailed
-      )
+      .on('connectionAttemptFailed', this.#onRealSocketConnectionAttemptFailed)
       .on(
         'connectionAttemptTimeout',
         this.#onRealSocketConnectionAttemptTimeout
