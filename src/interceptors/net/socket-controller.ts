@@ -32,6 +32,7 @@ declare module 'node:net' {
         }>
       | null
     _pendingEncoding: BufferEncoding | ''
+    _bytesDispatched: number
     _writeGeneric(
       writev: boolean,
       data: NonNullable<net.Socket['_pendingData']>,
@@ -399,6 +400,22 @@ export class TcpSocketController extends SocketController {
        * and the request data will never be flushed to the real socket.
        */
       this.#bufferedWrites.push(args)
+
+      /**
+       * @note Reflect the buffered write in "_pendingData" so it counts
+       * toward "bytesWritten", the same way Node.js counts the pending
+       * data of a connecting socket. Flushing the buffered writes resets
+       * "_pendingData" (see `passthrough()`).
+       */
+      const pendingData = Array.isArray(this.socket._pendingData)
+        ? this.socket._pendingData
+        : []
+
+      unwrapPendingData(data, (chunk, chunkEncoding) => {
+        pendingData.push({ chunk, encoding: chunkEncoding })
+      })
+
+      this.socket._pendingData = pendingData
 
       // The server socket will NEVER have any "data" listeners attached
       // becuase the "connection" interceptor event emits on the next tick.

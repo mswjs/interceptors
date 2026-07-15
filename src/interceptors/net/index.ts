@@ -100,7 +100,15 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             return typeof arg !== 'function'
           })
 
-          const socket = new net.Socket()
+          /**
+           * @note Create the socket with the original options, the same
+           * way `net.connect()` does. This preserves the consumer-facing
+           * socket behaviors (e.g. "allowHalfOpen").
+           */
+          const socketOptions =
+            typeof args[0] === 'object' && !('href' in args[0]) ? args[0] : {}
+
+          const socket = new net.Socket(socketOptions)
           const controller = new TcpSocketController(socket, () => {
             return realNetConnect(...passthroughArgs)
           })
@@ -128,9 +136,20 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
           logger.verbose('connecting the socket...')
 
+          const mockConnectionOptions = {
+            ...connectionOptions,
+            /**
+             * @note Do not bind the intercepted socket to the requested
+             * local address/port. The passthrough connection binds them
+             * for real, and binding twice results in a conflict.
+             */
+            localAddress: undefined,
+            localPort: undefined,
+          }
+
           // Patch the lookup option so DNS lookup always succeeds.
           // Passthrough connections are created with the original options and won't be affected.
-          connectionOptions.lookup = function mockLookup(
+          mockConnectionOptions.lookup = function mockLookup(
             hostname,
             dnsOptions,
             callback
@@ -161,7 +180,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             })
           }
 
-          return socket.connect(connectionOptions, connectionCallback)
+          return socket.connect(mockConnectionOptions, connectionCallback)
         }
       }),
       patchesRegistry.applyPatch(tls, 'connect', (realTlsConnect) => {
