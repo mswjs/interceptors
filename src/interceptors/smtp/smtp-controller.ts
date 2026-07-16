@@ -507,7 +507,12 @@ interface SmtpEnvelope {
 export class SmtpController extends Emitter<SmtpControllerEventMap> {
   #socket: net.Socket | tls.TLSSocket
   #socketController: TcpSocketController | TlsSocketController
-  #buffer = ''
+  /**
+   * @note The incoming bytes stay a Buffer until a complete line or
+   * message is extracted. Decoding arbitrary chunks would corrupt
+   * multibyte characters split across packet boundaries.
+   */
+  #buffer = Buffer.alloc(0)
   #envelope: SmtpEnvelope = { sender: '', recipients: [] }
   #pendingAuth?: PendingAuth
   #activeContext?: SmtpCommandContext
@@ -537,7 +542,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
     this.#socketController.claim()
 
     this.#socket.on('data', (chunk) => {
-      this.#buffer += chunk.toString()
+      this.#buffer = Buffer.concat([this.#buffer, chunk])
       void this.#processBuffer()
     })
 
@@ -660,8 +665,8 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
             return
           }
 
-          const rawMessage = this.#buffer.slice(0, terminatorIndex)
-          this.#buffer = this.#buffer.slice(terminatorIndex + 5)
+          const rawMessage = this.#buffer.subarray(0, terminatorIndex)
+          this.#buffer = this.#buffer.subarray(terminatorIndex + 5)
           this.#isReadingData = false
 
           try {
@@ -679,8 +684,10 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
           return
         }
 
-        const line = this.#buffer.slice(0, lineEndIndex)
-        this.#buffer = this.#buffer.slice(lineEndIndex + 2)
+        // Command lines are always complete at this point,
+        // so decoding them cannot split multibyte characters.
+        const line = this.#buffer.subarray(0, lineEndIndex).toString('utf8')
+        this.#buffer = this.#buffer.subarray(lineEndIndex + 2)
 
         try {
           // Lines sent during an authentication exchange are the
@@ -917,13 +924,13 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
     }
   }
 
-  async #handleMessage(rawMessage: string): Promise<void> {
+  async #handleMessage(rawMessage: Buffer): Promise<void> {
     const context = this.#createCommandContext()
     const event = new SmtpMessageEvent(
       {
         sender: this.#envelope.sender,
         recipients: this.#envelope.recipients,
-        message: Buffer.from(undoDotStuffing(rawMessage)),
+        message: undoDotStuffing(rawMessage),
       },
       context
     )
@@ -991,11 +998,34 @@ function parsePlainCredentials(input: string): {
  * terminator.
  * @see https://datatracker.ietf.org/doc/html/rfc5321#section-4.5.2
  */
-function undoDotStuffing(message: string): string {
-  return message
-    .split('\r\n')
-    .map((line) => {
-      return line.startsWith('.') ? line.slice(1) : line
-    })
-    .join('\r\n')
+function undoDotStuffing(message: Buffer): Buffer {
+  const DOT = 0x2e
+  const CRLF = Buffer.from('\r\n')
+  const parts: Array<Buffer> = []
+  let offset = 0
+
+  // Operate on bytes: the message content is arbitrary binary
+  // (8BITMIME) and must not go through a string decoding round-trip.
+  while (offset <= message.length) {
+    const lineEndIndex = message.indexOf(CRLF, offset)
+    const lineEnd = lineEndIndex === -1 ? message.length : lineEndIndex
+    let line = message.subarray(offset, lineEnd)
+
+    if (line[0] === DOT) {
+      line = line.subarray(1)
+    }
+
+    if (parts.length > 0) {
+      parts.push(CRLF)
+    }
+    parts.push(line)
+
+    if (lineEndIndex === -1) {
+      break
+    }
+
+    offset = lineEndIndex + 2
+  }
+
+  return Buffer.concat(parts)
 }

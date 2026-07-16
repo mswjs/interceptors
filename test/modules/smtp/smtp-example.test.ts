@@ -368,6 +368,44 @@ it('never greets the connection so the client times out', async () => {
   })
 })
 
+it('preserves multibyte message content split across packets', async () => {
+  const messages: Array<Buffer> = []
+
+  interceptor.on('session', ({ controller }) => {
+    controller.claim()
+
+    controller.on('message', (event) => {
+      messages.push(event.message)
+      event.accept()
+    })
+  })
+
+  const socket = net.connect(SMTP_PORT, 'localhost')
+  socket.write(
+    'EHLO test\r\nMAIL FROM:<app@example.com>\r\nRCPT TO:<user@example.com>\r\nDATA\r\n'
+  )
+
+  // Split the message content mid-character: the two bytes of "é"
+  // (0xC3 0xA9) arrive in separate packets.
+  const messageContent = Buffer.from('Subject: Test\r\n\r\nhéllo wörld\r\n.\r\n')
+  const splitIndex = messageContent.indexOf(0xc3) + 1
+  socket.write(messageContent.subarray(0, splitIndex))
+
+  await new Promise((resolve) => {
+    setTimeout(resolve, 50)
+  })
+  socket.write(messageContent.subarray(splitIndex))
+  socket.write('QUIT\r\n')
+
+  await expect.poll(() => messages.length).toBe(1)
+
+  const receivedMessage = messages[0].toString()
+  expect.soft(receivedMessage).not.toContain('�')
+  expect(receivedMessage).toContain('héllo wörld')
+
+  socket.destroy()
+})
+
 it('translates a command listener exception into a "451" reply', async () => {
   interceptor.on('session', ({ controller }) => {
     controller.claim()
