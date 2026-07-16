@@ -37,6 +37,29 @@ export type SmtpReplyCode =
   211 | 214 | 220 | 221 | 235 | 250 | 251 | 252 | 334 | 354 | SmtpRejectionCode
 
 /**
+ * The reply codes a server may greet the connection with:
+ * "220" (service ready), "554" (connection rejected; the server
+ * then only accepts "QUIT"), or "421" (service not available).
+ * @see https://datatracker.ietf.org/doc/html/rfc5321#section-3.1
+ */
+export type SmtpGreetingCode = 220 | 421 | 554
+
+export type SmtpGreeting =
+  /**
+   * The text of the default "220" greeting.
+   */
+  | string
+  /**
+   * Do not greet the connection at all
+   * (e.g. to test the client's greeting timeout).
+   */
+  | false
+  /**
+   * The complete greeting reply.
+   */
+  | { code?: SmtpGreetingCode; message?: string }
+
+/**
  * The reply channel given to each command event. Replying through
  * the context marks the command as handled so the controller knows
  * not to apply the default reply, and records the reply code so the
@@ -455,8 +478,7 @@ type SmtpControllerEventMap = {
 }
 
 type PendingAuthentication =
-  | { method: 'PLAIN' }
-  | { method: 'LOGIN'; username?: string }
+  { method: 'PLAIN' } | { method: 'LOGIN'; username?: string }
 
 interface SmtpControllerOptions {
   socket: net.Socket | tls.TLSSocket
@@ -510,7 +532,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
    * The mock server speaks first: SMTP clients send nothing until
    * they receive the server's "220" greeting.
    */
-  public claim(options?: { greeting?: string }): void {
+  public claim(options?: { greeting?: SmtpGreeting }): void {
     this.#socketController.claim()
 
     this.#socket.on('data', (chunk) => {
@@ -518,7 +540,22 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
       void this.#processBuffer()
     })
 
-    this.reply(220, options?.greeting ?? `${SMTP_DOMAIN} ESMTP`)
+    const greeting = options?.greeting
+
+    // Stay silent so the client's greeting timeout can kick in.
+    if (greeting === false) {
+      return
+    }
+
+    if (typeof greeting === 'object') {
+      this.reply(
+        greeting.code ?? 220,
+        greeting.message ?? `${SMTP_DOMAIN} ESMTP`
+      )
+      return
+    }
+
+    this.reply(220, greeting ?? `${SMTP_DOMAIN} ESMTP`)
   }
 
   /**
