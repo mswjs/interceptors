@@ -7,12 +7,29 @@ import type {
 } from '../net/socket-controller'
 
 const SMTP_DOMAIN = 'mock.example.com'
-const DEFAULT_CAPABILITIES = ['8BITMIME', 'SMTPUTF8']
+const DEFAULT_CAPABILITIES = ['AUTH PLAIN LOGIN', '8BITMIME', 'SMTPUTF8']
 
-export type SmtpTransientErrorCode = 421 | 450 | 451 | 452 | 455
+const BASE64_USERNAME_CHALLENGE = 'VXNlcm5hbWU6'
+const BASE64_PASSWORD_CHALLENGE = 'UGFzc3dvcmQ6'
+
+export type SmtpTransientErrorCode = 421 | 432 | 450 | 451 | 452 | 454 | 455
 
 export type SmtpPermanentErrorCode =
-  500 | 501 | 502 | 503 | 504 | 530 | 535 | 550 | 551 | 552 | 553 | 554 | 555
+  | 500
+  | 501
+  | 502
+  | 503
+  | 504
+  | 530
+  | 534
+  | 535
+  | 538
+  | 550
+  | 551
+  | 552
+  | 553
+  | 554
+  | 555
 
 export type SmtpRejectionCode = SmtpTransientErrorCode | SmtpPermanentErrorCode
 
@@ -68,6 +85,78 @@ export class SmtpHeloEvent extends TypedEvent<SmtpHeloEventData, void, 'helo'> {
     this.#context.reply(
       options?.code ?? 550,
       `5.7.1 ${options?.reason ?? 'Access denied'}`
+    )
+  }
+}
+
+interface SmtpAuthenticationEventData {
+  method: 'PLAIN' | 'LOGIN'
+  username: string
+  password: string
+}
+
+/**
+ * The client authenticating itself ("AUTH", RFC 4954).
+ * The controller runs the challenge/response exchange of the chosen
+ * mechanism and emits this event once the credentials are collected.
+ */
+export class SmtpAuthenticationEvent extends TypedEvent<
+  SmtpAuthenticationEventData,
+  void,
+  'authentication'
+> {
+  /**
+   * The authentication mechanism chosen by the client.
+   */
+  public method: 'PLAIN' | 'LOGIN'
+  public username: string
+  public password: string
+  #context: SmtpCommandContext
+
+  constructor(data: SmtpAuthenticationEventData, context: SmtpCommandContext) {
+    super('authentication', { data })
+
+    this.method = data.method
+    this.username = data.username
+    this.password = data.password
+    this.#context = context
+  }
+
+  /**
+   * Accept the credentials. The client observes a successful
+   * authentication and proceeds with the session.
+   */
+  public accept(): void {
+    this.#context.reply(235, '2.7.0 Authentication successful')
+  }
+
+  /**
+   * Reject the credentials permanently. The client observes an
+   * authentication failure it must not retry with the same
+   * credentials (e.g. a wrong password).
+   */
+  public reject(options?: {
+    code?: SmtpPermanentErrorCode
+    reason?: string
+  }): void {
+    this.#context.reply(
+      options?.code ?? 535,
+      `5.7.8 ${options?.reason ?? 'Authentication credentials invalid'}`
+    )
+  }
+
+  /**
+   * Defer the authentication. The client observes a transient
+   * failure it may retry later (e.g. the authentication backend
+   * being temporarily unavailable).
+   */
+  public defer(options?: {
+    code?: SmtpTransientErrorCode
+    reason?: string
+  }): void {
+    this.#context.reply(
+      options?.code ?? 454,
+      `4.7.0 ${options?.reason ?? 'Temporary authentication failure, try again later'}`
     )
   }
 }
@@ -356,6 +445,7 @@ export class SmtpUnknownCommandEvent extends TypedEvent<
 
 type SmtpControllerEventMap = {
   helo: SmtpHeloEvent
+  authentication: SmtpAuthenticationEvent
   sender: SmtpSenderEvent
   recipient: SmtpRecipientEvent
   data: SmtpDataEvent
@@ -363,6 +453,10 @@ type SmtpControllerEventMap = {
   quit: SmtpQuitEvent
   command: SmtpUnknownCommandEvent
 }
+
+type PendingAuthentication =
+  | { method: 'PLAIN' }
+  | { method: 'LOGIN'; username?: string }
 
 interface SmtpControllerOptions {
   socket: net.Socket | tls.TLSSocket
@@ -393,6 +487,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
   #socketController: TcpSocketController | TlsSocketController
   #buffer = ''
   #envelope: SmtpEnvelope = { sender: '', recipients: [] }
+  #pendingAuthentication?: PendingAuthentication
   #isReadingData = false
   #isProcessing = false
 
@@ -524,6 +619,14 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
 
         const line = this.#buffer.slice(0, lineEndIndex)
         this.#buffer = this.#buffer.slice(lineEndIndex + 2)
+
+        // Lines sent during an authentication exchange are the
+        // challenge responses, not commands.
+        if (this.#pendingAuthentication) {
+          await this.#handleAuthenticationResponse(line)
+          continue
+        }
+
         await this.#handleCommand(line)
       }
     } finally {
@@ -549,6 +652,11 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
         event.accept()
       }
 
+      return
+    }
+
+    if (command.startsWith('AUTH')) {
+      await this.#handleAuthentication(line)
       return
     }
 
@@ -657,6 +765,93 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
     }
   }
 
+  /**
+   * Handle the "AUTH" command, starting the challenge/response
+   * exchange of the chosen mechanism.
+   * @see https://datatracker.ietf.org/doc/html/rfc4954
+   */
+  async #handleAuthentication(line: string): Promise<void> {
+    // Split the raw line: the initial response is base64 (case-sensitive).
+    const [, mechanism = '', initialResponse] = line.split(' ')
+    const method = mechanism.toUpperCase()
+
+    if (method === 'PLAIN') {
+      // "AUTH PLAIN <base64>" carries the credentials inline.
+      if (initialResponse) {
+        await this.#emitAuthentication(parsePlainCredentials(initialResponse))
+        return
+      }
+
+      // "AUTH PLAIN" alone awaits the credentials as the response
+      // to an empty server challenge.
+      this.#pendingAuthentication = { method: 'PLAIN' }
+      this.reply(334, '')
+      return
+    }
+
+    if (method === 'LOGIN') {
+      // "AUTH LOGIN <base64>" carries the username inline,
+      // proceed to the password challenge right away.
+      if (initialResponse) {
+        this.#pendingAuthentication = {
+          method: 'LOGIN',
+          username: decodeBase64(initialResponse),
+        }
+        this.reply(334, BASE64_PASSWORD_CHALLENGE)
+        return
+      }
+
+      this.#pendingAuthentication = { method: 'LOGIN' }
+      this.reply(334, BASE64_USERNAME_CHALLENGE)
+      return
+    }
+
+    this.reply(504, '5.5.4 Unrecognized authentication type')
+  }
+
+  async #handleAuthenticationResponse(line: string): Promise<void> {
+    const pendingAuthentication = this.#pendingAuthentication!
+
+    // The client may abort the exchange at any point by sending "*".
+    if (line === '*') {
+      this.#pendingAuthentication = undefined
+      this.reply(501, '5.7.0 Authentication aborted')
+      return
+    }
+
+    if (pendingAuthentication.method === 'PLAIN') {
+      this.#pendingAuthentication = undefined
+      await this.#emitAuthentication(parsePlainCredentials(line))
+      return
+    }
+
+    if (pendingAuthentication.username == null) {
+      pendingAuthentication.username = decodeBase64(line)
+      this.reply(334, BASE64_PASSWORD_CHALLENGE)
+      return
+    }
+
+    const credentials: SmtpAuthenticationEventData = {
+      method: 'LOGIN',
+      username: pendingAuthentication.username,
+      password: decodeBase64(line),
+    }
+    this.#pendingAuthentication = undefined
+    await this.#emitAuthentication(credentials)
+  }
+
+  async #emitAuthentication(
+    credentials: SmtpAuthenticationEventData
+  ): Promise<void> {
+    const context = this.#createCommandContext()
+    const event = new SmtpAuthenticationEvent(credentials, context)
+    await this.emitAsPromise(event)
+
+    if (!context.isReplied) {
+      event.accept()
+    }
+  }
+
   async #handleMessage(rawMessage: string): Promise<void> {
     const context = this.#createCommandContext()
     const event = new SmtpMessageEvent(
@@ -704,6 +899,25 @@ function parseAddressCommand(input: string): {
   }
 
   return { address, parameters }
+}
+
+function decodeBase64(input: string): string {
+  return Buffer.from(input, 'base64').toString('utf8')
+}
+
+/**
+ * Parse the credentials of the "PLAIN" authentication mechanism:
+ * a base64-encoded "[authzid]\0username\0password" string.
+ * @see https://datatracker.ietf.org/doc/html/rfc4616
+ */
+function parsePlainCredentials(input: string): {
+  method: 'PLAIN'
+  username: string
+  password: string
+} {
+  const [, username = '', password = ''] = decodeBase64(input).split('\0')
+
+  return { method: 'PLAIN', username, password }
 }
 
 /**
