@@ -3,7 +3,6 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
 import { RequestController } from '../../RequestController'
 import { handleRequest } from '../../utils/handleRequest'
-import { canParseUrl } from '../../utils/canParseUrl'
 import { createRequestId } from '../../createRequestId'
 import { createNetworkError } from './utils/createNetworkError'
 import { followFetchRedirect } from './utils/followRedirect'
@@ -44,8 +43,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
            */
           const resolvedInput =
             typeof input === 'string' &&
-              typeof location !== 'undefined' &&
-              !canParseUrl(input)
+            typeof location !== 'undefined' &&
+            !URL.canParse(input)
               ? new URL(input, location.href)
               : input
 
@@ -53,133 +52,134 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const responsePromise = new DeferredPromise<Response>()
 
-          const controller = new RequestController(request, {
-            passthrough: async () => {
-              logger.verbose('performing request as-is')
+          const controller = new RequestController(
+            request,
+            {
+              passthrough: async () => {
+                logger.verbose('performing request as-is')
 
-              /**
-               * @note Clone the request instance right before performing it.
-               * This preserves any modifications made to the intercepted request
-               * in the "request" listener. This also allows the user to read the
-               * request body in the "response" listener (otherwise "unusable").
-               */
-              const requestCloneForResponseEvent = request.clone()
+                /**
+                 * @note Clone the request instance right before performing it.
+                 * This preserves any modifications made to the intercepted request
+                 * in the "request" listener. This also allows the user to read the
+                 * request body in the "response" listener (otherwise "unusable").
+                 */
+                const requestCloneForResponseEvent = request.clone()
 
-              // Perform the intercepted request as-is.
-              const { error: responseError, data: originalResponse } =
-                await until(() => realFetch(request))
+                // Perform the intercepted request as-is.
+                const { error: responseError, data: originalResponse } =
+                  await until(() => realFetch(request))
 
-              if (responseError) {
-                return responsePromise.reject(responseError)
-              }
-
-              logger.verbose(
-                'original fetch performed %o',
-                originalResponse
-              )
-
-              if (this.emitter.listenerCount('response') > 0) {
-                logger.verbose('emitting the "response" event')
-
-                const responseClone = FetchResponse.clone(originalResponse)
-                await this.emitter.emitAsPromise(
-                  new HttpResponseEvent({
-                    initiator: requestCloneForResponseEvent,
-                    request: requestCloneForResponseEvent,
-                    requestId,
-                    response: responseClone,
-                    responseType: 'original',
-                  })
-                )
-              }
-
-              // Resolve the response promise with the original response
-              // since the `fetch()` return this internal promise.
-              responsePromise.resolve(originalResponse)
-            },
-            respondWith: async (rawResponse) => {
-              // Handle mocked `Response.error()` (i.e. request errors).
-              if (isResponseError(rawResponse)) {
-                logger.verbose('request errored %o', {
-                  response: rawResponse,
-                })
-                responsePromise.reject(createNetworkError(rawResponse))
-                return
-              }
-
-              // Decompress the mocked response body, if applicable.
-              const decompressedStream = decompressResponse(rawResponse)
-              const response = new FetchResponse(
-                decompressedStream || rawResponse.body,
-                {
-                  url: request.url,
-                  status: rawResponse.status,
-                  statusText: rawResponse.statusText,
-                  headers: rawResponse.headers,
+                if (responseError) {
+                  return responsePromise.reject(responseError)
                 }
-              )
 
-              copyRawHeaders(rawResponse.headers, response.headers)
+                logger.verbose('original fetch performed %o', originalResponse)
 
-              /**
-               * Undici's handling of following redirect responses.
-               * Treat the "manual" redirect mode as a regular mocked response.
-               * This way, the client can manually follow the redirect it receives.
-               * @see https://github.com/nodejs/undici/blob/a6dac3149c505b58d2e6d068b97f4dc993da55f0/lib/web/fetch/index.js#L1173
-               */
-              if (FetchResponse.isRedirectResponse(response.status)) {
-                // Reject the request promise if its `redirect` is set to `error`
-                // and it receives a mocked redirect response.
-                if (request.redirect === 'error') {
-                  responsePromise.reject(
-                    createNetworkError('unexpected redirect')
+                if (this.emitter.listenerCount('response') > 0) {
+                  logger.verbose('emitting the "response" event')
+
+                  const responseClone = FetchResponse.clone(originalResponse)
+                  await this.emitter.emitAsPromise(
+                    new HttpResponseEvent({
+                      initiator: requestCloneForResponseEvent,
+                      request: requestCloneForResponseEvent,
+                      requestId,
+                      response: responseClone,
+                      responseType: 'original',
+                    })
                   )
+                }
+
+                // Resolve the response promise with the original response
+                // since the `fetch()` return this internal promise.
+                responsePromise.resolve(originalResponse)
+              },
+              respondWith: async (rawResponse) => {
+                // Handle mocked `Response.error()` (i.e. request errors).
+                if (isResponseError(rawResponse)) {
+                  logger.verbose('request errored %o', {
+                    response: rawResponse,
+                  })
+                  responsePromise.reject(createNetworkError(rawResponse))
                   return
                 }
 
-                if (request.redirect === 'follow') {
-                  followFetchRedirect(request, response).then(
-                    (response) => {
-                      responsePromise.resolve(response)
-                    },
-                    (reason) => {
-                      responsePromise.reject(reason)
-                    }
-                  )
-                  return
-                }
-              }
-
-              if (this.emitter.listenerCount('response') > 0) {
-                logger.verbose('emitting the "response" event')
-
-                // Await the response listeners to finish before resolving
-                // the response promise. This ensures all your logic finishes
-                // before the interceptor resolves the pending response.
-                await this.emitter.emitAsPromise(
-                  new HttpResponseEvent({
-                    initiator: request,
-                    // Clone the mocked response for the "response" event listener.
-                    // This way, the listener can read the response and not lock its body
-                    // for the actual fetch consumer.
-                    response: FetchResponse.clone(response),
-                    responseType: 'mock',
-                    request,
-                    requestId,
-                  })
+                // Decompress the mocked response body, if applicable.
+                const decompressedStream = decompressResponse(rawResponse)
+                const response = new FetchResponse(
+                  decompressedStream || rawResponse.body,
+                  {
+                    url: request.url,
+                    status: rawResponse.status,
+                    statusText: rawResponse.statusText,
+                    headers: rawResponse.headers,
+                  }
                 )
-              }
 
-              responsePromise.resolve(response)
+                copyRawHeaders(rawResponse.headers, response.headers)
+
+                /**
+                 * Undici's handling of following redirect responses.
+                 * Treat the "manual" redirect mode as a regular mocked response.
+                 * This way, the client can manually follow the redirect it receives.
+                 * @see https://github.com/nodejs/undici/blob/a6dac3149c505b58d2e6d068b97f4dc993da55f0/lib/web/fetch/index.js#L1173
+                 */
+                if (FetchResponse.isRedirectResponse(response.status)) {
+                  // Reject the request promise if its `redirect` is set to `error`
+                  // and it receives a mocked redirect response.
+                  if (request.redirect === 'error') {
+                    responsePromise.reject(
+                      createNetworkError('unexpected redirect')
+                    )
+                    return
+                  }
+
+                  if (request.redirect === 'follow') {
+                    followFetchRedirect(request, response).then(
+                      (response) => {
+                        responsePromise.resolve(response)
+                      },
+                      (reason) => {
+                        responsePromise.reject(reason)
+                      }
+                    )
+                    return
+                  }
+                }
+
+                if (this.emitter.listenerCount('response') > 0) {
+                  logger.verbose('emitting the "response" event')
+
+                  // Await the response listeners to finish before resolving
+                  // the response promise. This ensures all your logic finishes
+                  // before the interceptor resolves the pending response.
+                  await this.emitter.emitAsPromise(
+                    new HttpResponseEvent({
+                      initiator: request,
+                      // Clone the mocked response for the "response" event listener.
+                      // This way, the listener can read the response and not lock its body
+                      // for the actual fetch consumer.
+                      response: FetchResponse.clone(response),
+                      responseType: 'mock',
+                      request,
+                      requestId,
+                    })
+                  )
+                }
+
+                responsePromise.resolve(response)
+              },
+              errorWith: (reason) => {
+                logger.verbose('request aborted %o', { reason })
+                responsePromise.reject(reason)
+              },
             },
-            errorWith: (reason) => {
-              logger.verbose('request aborted %o', { reason })
-              responsePromise.reject(reason)
-            },
-          }, {
-            logger,
-            requestId,
-          })
+            {
+              logger,
+              requestId,
+            }
+          )
 
           logger.verbose('awaiting request resolution')
 

@@ -1,5 +1,4 @@
 import { copyRawHeaders } from '../interceptors/ClientRequest/utils/record-raw-headers'
-import { canParseUrl } from './canParseUrl'
 import { getValueBySymbol } from './getValueBySymbol'
 import { isResponseError } from './responseUtils'
 
@@ -239,7 +238,7 @@ export class FetchResponse extends Response {
   }
 
   static setUrl(url: string | undefined, response: Response): void {
-    if (!url || url === 'about:' || !canParseUrl(url)) {
+    if (!url || url === 'about:' || !URL.canParse(url)) {
       return
     }
 

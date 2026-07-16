@@ -1,5 +1,4 @@
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
-import { canParseUrl } from '#/src/utils/canParseUrl'
 import { requestContext } from '#/src/request-context'
 import { patchesRegistry } from '#/src/utils/patchesRegistry'
 import { forwardHttpEvents } from '#/src/interceptors/http/forward-events'
@@ -58,7 +57,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
           const resolvedInput =
             typeof input === 'string' &&
             typeof location !== 'undefined' &&
-            !canParseUrl(input)
+            !URL.canParse(input)
               ? new URL(input, location.href)
               : input
 
