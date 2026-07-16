@@ -1,6 +1,7 @@
 import tls from 'node:tls'
 import {
   type NetConnectArgs,
+  type NetworkConnectionOptions,
   normalizeNetConnectArgs,
 } from './normalize-net-connect-args'
 
@@ -16,8 +17,11 @@ type TlsConnectArgs =
       callback?: () => void,
     ]
 
+export type TlsConnectionOptions = tls.ConnectionOptions &
+  NetworkConnectionOptions
+
 type NormalizedTlsConnectionArgs = [
-  options: tls.ConnectionOptions,
+  options: TlsConnectionOptions,
   callback?: () => void,
 ]
 
@@ -31,7 +35,7 @@ export function normalizeTlsConnectArgs(
    * @see https://github.com/nodejs/node/blob/bdc8131fa78089b81b74dbff467365afb6536e6a/lib/internal/tls/wrap.js#L1615
    */
   const netConnectArgs = normalizeNetConnectArgs(args as NetConnectArgs)
-  const options = netConnectArgs[0] as tls.ConnectionOptions
+  const options = netConnectArgs[0] as TlsConnectionOptions
   const callback = netConnectArgs[1]
 
   if (args[0] !== null && typeof args[0] === 'object') {

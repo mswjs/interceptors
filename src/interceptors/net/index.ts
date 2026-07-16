@@ -183,7 +183,15 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           mockConnectionOptions.lookup = mockLookup
 
           try {
-            return socket.connect(mockConnectionOptions, connectionCallback)
+            /**
+             * @note The normalized options are looser than the declared
+             * "SocketConnectOpts" (e.g. the port may be a string when a
+             * URL is passed). Node.js validates them at runtime.
+             */
+            return socket.connect(
+              mockConnectionOptions as net.SocketConnectOpts,
+              connectionCallback ?? undefined
+            )
           } catch (error) {
             /**
              * @note "socket.connect()" can throw synchronously on invalid

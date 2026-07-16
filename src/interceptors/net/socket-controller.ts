@@ -6,6 +6,7 @@ import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
 import { unwrapPendingData } from './utils/flush-writes'
 import { NetworkConnectionOptions } from './utils/normalize-net-connect-args'
+import { TlsConnectionOptions } from './utils/normalize-tls-connect-args'
 import {
   getAddressInfoByConnectionOptions,
   getLocalAddressInfoByConnectionOptions,
@@ -429,9 +430,18 @@ export class TcpSocketController extends SocketController {
 
   constructor(
     protected readonly socket: net.Socket,
-    protected readonly createConnection: () => net.Socket
+    protected readonly createConnection: () => net.Socket,
+    connectionOptions?: NetworkConnectionOptions
   ) {
     super(socket)
+
+    /**
+     * @note Plain TCP sockets capture the connection options from the
+     * "socket.connect()" proxy below. TLS sockets connect before this
+     * controller is constructed, so their options must be provided
+     * explicitly (see "TlsSocketController").
+     */
+    this.#connectionOptions = connectionOptions
 
     // Implement the read method to prevent the "Error: read ENOTCONN" errors on non-existing hosts.
     this.socket._read = () => {
@@ -1223,14 +1233,14 @@ export class TlsSocketController extends TcpSocketController {
    * TCP sockets because "tls.connect()" connects the socket before
    * this controller is constructed.
    */
-  #tlsConnectionOptions?: tls.ConnectionOptions
+  #tlsConnectionOptions?: TlsConnectionOptions
 
   constructor(
     protected readonly socket: tls.TLSSocket,
     protected readonly createConnection: () => tls.TLSSocket,
-    tlsConnectionOptions?: tls.ConnectionOptions
+    tlsConnectionOptions?: TlsConnectionOptions
   ) {
-    super(socket, createConnection)
+    super(socket, createConnection, tlsConnectionOptions)
 
     this.#tlsConnectionOptions = tlsConnectionOptions
 
