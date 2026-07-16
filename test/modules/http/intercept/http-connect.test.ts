@@ -82,7 +82,14 @@ it('intercepts a "CONNECT" request using IP as the authority', async () => {
     .toBe(serverHost)
   expect.soft(Array.from(interceptedRequest.headers)).toEqual([
     ['connection', 'keep-alive'],
-    ['host', '127.0.0.1:1337'],
+    [
+      'host',
+      /**
+       * @note Node.js v26 sets the CONNECT authority as the "Host" header
+       * instead of the proxy address (RFC 9110).
+       */
+      process.versions.node.startsWith('26') ? serverHost : '127.0.0.1:1337',
+    ],
   ])
 })
 
@@ -137,7 +144,10 @@ it('intercepts a "CONNECT" request using "localhost" as the authority', async ()
     .toBe(serverHost)
   expect.soft(Array.from(interceptedRequest.headers)).toEqual([
     ['connection', 'keep-alive'],
-    ['host', '127.0.0.1:1337'],
+    [
+      'host',
+      process.versions.node.startsWith('26') ? serverHost : '127.0.0.1:1337',
+    ],
   ])
 })
 
