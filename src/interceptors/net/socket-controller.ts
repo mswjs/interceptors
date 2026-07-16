@@ -57,6 +57,7 @@ declare module 'node:tls' {
       getServername: () => string
       getALPNNegotiatedProtocol: () => string | false
       getCipher: () => { name: string; standardName: string; version: string }
+      getEphemeralKeyInfo: () => tls.EphemeralKeyInfo
       verifyError: () => void
     }
   }
@@ -110,7 +111,102 @@ export interface TcpWrap {
  * the user to interact with `socket` from the server's perspective (e.g. `socket.write()`
  * on the server translates to the `socket.push()` on the client).
  */
+interface PendingServerWrite {
+  chunk: string | Uint8Array
+  encoding?: BufferEncoding
+  callback?: (error?: Error) => void
+}
+
+interface PendingServerEnd {
+  chunk?: string | Uint8Array
+  encoding?: BufferEncoding
+  callback?: () => void
+}
+
 function toServerSocket<T extends net.Socket>(socket: T): T {
+  /**
+   * The server-side write buffer. Pushing data to the client honors
+   * the client's read backpressure: once "socket.push()" reports a
+   * full buffer, subsequent server writes queue here and flush when
+   * the client reads again ("_read"). This mirrors how a real server
+   * cannot write faster than the client consumes.
+   */
+  const pendingWrites: Array<PendingServerWrite> = []
+  let pendingEnd: PendingServerEnd | undefined
+  let isBackpressured = false
+  let isFlushScheduled = false
+
+  const flushPendingWrites = (): boolean => {
+    /**
+     * @note The mocked connection is not established yet. Flush once
+     * it is, the same way a real server cannot write to a client
+     * that has not connected.
+     */
+    if (socket.connecting) {
+      isBackpressured = true
+
+      if (!isFlushScheduled) {
+        isFlushScheduled = true
+        socket.once('ready', () => {
+          isFlushScheduled = false
+          flushPendingWrites()
+        })
+      }
+
+      return false
+    }
+
+    while (pendingWrites.length > 0) {
+      const nextWrite = pendingWrites.shift()!
+      const canPushMore = socket.push(
+        toBuffer(nextWrite.chunk, nextWrite.encoding),
+        nextWrite.encoding
+      )
+      nextWrite.callback?.()
+
+      if (!canPushMore) {
+        isBackpressured = true
+        return false
+      }
+    }
+
+    const wasBackpressured = isBackpressured
+    isBackpressured = false
+
+    if (pendingEnd) {
+      const finalEnd = pendingEnd
+      pendingEnd = undefined
+
+      // Deliver the final chunk passed to "end(chunk)", if any.
+      if (finalEnd.chunk != null) {
+        socket.push(toBuffer(finalEnd.chunk, finalEnd.encoding), finalEnd.encoding)
+      }
+
+      socket.push(null)
+      finalEnd.callback?.()
+    }
+
+    if (wasBackpressured) {
+      socket.emit('internal:drain')
+    }
+
+    return true
+  }
+
+  /**
+   * @note "_read" is the client asking for more data. Flush the
+   * buffered server writes so the delivery resumes as the client
+   * reads, completing the backpressure loop.
+   */
+  const realRead = socket._read.bind(socket)
+  socket._read = (size: number) => {
+    realRead(size)
+
+    if (pendingWrites.length > 0 || pendingEnd != null || isBackpressured) {
+      flushPendingWrites()
+    }
+  }
+
   return new Proxy(socket, {
     get: (target, property, receiver) => {
       const getRealValue = () => {
@@ -150,6 +246,17 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
             return target
           }
 
+          /**
+           * @note The "drain" event on the server socket signals the
+           * flush of the server-side write buffer. It is routed through
+           * an internal channel so it does not clash with the "drain"
+           * event of the underlying client socket.
+           */
+          if (event === 'drain') {
+            Reflect.apply(realAddListener, target, ['internal:drain', listener])
+            return target
+          }
+
           return realAddListener.call(target, event, listener)
         }
       }
@@ -173,6 +280,10 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
             }
           }
 
+          if (event === 'drain') {
+            return realRemoveListener.call(target, 'internal:drain', listener)
+          }
+
           return realRemoveListener.call(target, event, listener)
         }
       }
@@ -180,16 +291,23 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
       // Push data to the client socket when server "socket.write()" is called.
       if (property === 'write') {
         return ((chunk, encoding, callback) => {
-          const translateWrite = () => {
-            socket.push(toBuffer(chunk, encoding), encoding)
-            callback?.()
+          if (typeof encoding === 'function') {
+            callback = encoding
+            encoding = undefined
           }
 
-          if (socket.connecting) {
-            socket.once('ready', () => translateWrite())
-          } else {
-            translateWrite()
+          pendingWrites.push({ chunk, encoding, callback })
+
+          /**
+           * @note Do not push more data to a client that is not
+           * reading. The write stays buffered until the client reads
+           * again, and "drain" signals the flush.
+           */
+          if (isBackpressured) {
+            return false
           }
+
+          return flushPendingWrites()
         }) as net.Socket['write']
       }
 
@@ -200,24 +318,17 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
           const chunk = typeof args[0] === 'function' ? undefined : args[0]
           const encoding = typeof args[1] === 'string' ? args[1] : undefined
 
-          const translateEnd = () => {
-            // Deliver the final chunk passed to "end(chunk)", if any.
-            if (chunk != null) {
-              socket.push(toBuffer(chunk, encoding), encoding)
-            }
-
-            socket.push(null)
-
-            if (typeof callback === 'function') {
-              callback()
-            }
+          /**
+           * @note The end-of-stream is delivered once the buffered
+           * writes flush so the client never observes the EOF before
+           * the data that preceded it.
+           */
+          pendingEnd = {
+            chunk,
+            encoding,
+            callback: typeof callback === 'function' ? callback : undefined,
           }
-
-          if (socket.connecting) {
-            socket.once('ready', () => translateEnd())
-          } else {
-            translateEnd()
-          }
+          flushPendingWrites()
 
           /**
            * @note Do not end the client socket's writable side.
