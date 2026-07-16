@@ -18,6 +18,38 @@ afterAll(() => {
   interceptor.dispose()
 })
 
+it('emits the "lookup" event when connecting to a hostname', async () => {
+  await using server = await createTestServer(() => {
+    return new tls.Server({
+      cert: TLS_CERTIFICATE,
+      key: TLS_PRIVATE_KEY,
+    })
+  })
+
+  const socket = tls.connect({
+    port: server.port,
+    host: 'localhost',
+    family: 4,
+    servername: 'localhost',
+    ca: [TLS_CERTIFICATE],
+  })
+  const lookupListener = vi.fn()
+  socket.on('lookup', lookupListener)
+  const secureConnectListener = vi.fn()
+  socket.on('secureConnect', secureConnectListener)
+
+  await expect.poll(() => secureConnectListener).toHaveBeenCalledOnce()
+
+  expect(lookupListener).toHaveBeenCalledExactlyOnceWith(
+    null,
+    '127.0.0.1',
+    4,
+    'localhost'
+  )
+
+  socket.destroy()
+})
+
 it('emits "secureConnect" exactly once', async () => {
   await using server = await createTestServer(() => {
     return new tls.Server({

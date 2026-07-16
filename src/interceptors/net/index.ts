@@ -58,6 +58,41 @@ type SocketEventMap = {
 const logger = createLogger('socket')
 
 /**
+ * A DNS lookup function for intercepted sockets. It always succeeds,
+ * resolving any hostname to the loopback address. This ensures the
+ * "lookup"/"connectionAttempt" socket events fire even for non-existent
+ * hosts, and no real DNS resolution is performed. Passthrough
+ * connections are created with the original options and use the real
+ * (or the caller's custom) lookup instead.
+ */
+const mockLookup: net.LookupFunction = (hostname, dnsOptions, callback) => {
+  const family = dnsOptions.family === 6 ? 6 : 4
+  const address = family === 6 ? '::1' : '127.0.0.1'
+
+  /**
+   * @note Call back asynchronously since DNS lookup is always
+   * asynchronous in Node.js. Calling back synchronously emits
+   * the "lookup"/"connectionAttempt" socket events before the
+   * consumer gets a chance to add listeners for them.
+   */
+  process.nextTick(() => {
+    /**
+     * @note Honor the Node.js lookup contract: the callback receives
+     * an array of addresses only when the "all" option is set
+     * (e.g. during the family autoselection). Otherwise, it receives
+     * a single address and its family. Node.js rejects an array in
+     * the latter case with "ERR_INVALID_IP_ADDRESS".
+     */
+    if (dnsOptions.all) {
+      callback(null, [{ address, family }])
+      return
+    }
+
+    callback(null, address, family)
+  })
+}
+
+/**
  * Interceptor for `net.Socket` connections.
  */
 export class SocketInterceptor extends Interceptor<SocketEventMap> {
@@ -145,37 +180,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           }
 
           // Patch the lookup option so DNS lookup always succeeds.
-          // Passthrough connections are created with the original options and won't be affected.
-          mockConnectionOptions.lookup = function mockLookup(
-            hostname,
-            dnsOptions,
-            callback
-          ) {
-            const family = dnsOptions.family === 6 ? 6 : 4
-            const address = family === 6 ? '::1' : '127.0.0.1'
-
-            /**
-             * @note Call back asynchronously since DNS lookup is always
-             * asynchronous in Node.js. Calling back synchronously emits
-             * the "lookup"/"connectionAttempt" socket events before the
-             * consumer gets a chance to add listeners for them.
-             */
-            process.nextTick(() => {
-              /**
-               * @note Honor the Node.js lookup contract: the callback receives
-               * an array of addresses only when the "all" option is set
-               * (e.g. during the family autoselection). Otherwise, it receives
-               * a single address and its family. Node.js rejects an array in
-               * the latter case with "ERR_INVALID_IP_ADDRESS".
-               */
-              if (dnsOptions.all) {
-                callback(null, [{ address, family }])
-                return
-              }
-
-              callback(null, address, family)
-            })
-          }
+          mockConnectionOptions.lookup = mockLookup
 
           try {
             return socket.connect(mockConnectionOptions, connectionCallback)
@@ -205,15 +210,12 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             {
               ...tlsConnectionOptions,
               /**
-               * Use a fake IP address to bypass DNS lookup.
-               * This ensures that "connectionAttempt" event fires even for non-existent hosts.
-               * Node.js skips DNS resolution when the host is an IP address, going directly to
-               * "internalConnect()" which emits "connectionAttempt".
-               * @see https://github.com/nodejs/node/blob/5babc8d5c91914ce0fb708e647c144570c671c50/lib/net.js
-               *
-               * @todo This will produce invalid "lookup" event on the socket, failing compliance.
+               * @note Mock the DNS lookup, the same way "net.connect()"
+               * interception does. The socket emits the "lookup" and
+               * "connectionAttempt" events even for non-existent hosts,
+               * and no real DNS resolution is performed.
                */
-              host: '127.0.0.1',
+              lookup: mockLookup,
               /**
                * @note Skip the server identity check for mocked connections.
                * There is no real peer certificate to verify, and failing
