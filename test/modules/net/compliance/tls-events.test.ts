@@ -206,6 +206,54 @@ it('emits the "session" event for a mocked connection', async () => {
   socket.destroy()
 })
 
+it('emits the "keylog" events for a mocked connection', async () => {
+  interceptor.on('connection', ({ controller }) => {
+    controller.claim()
+  })
+
+  const socket = tls.connect(443, 'any.host.com')
+
+  const events: Array<string> = []
+  socket.on('secureConnect', () => {
+    events.push('secureConnect')
+  })
+  const keylogListener = vi.fn<(line: Buffer) => void>(() => {
+    events.push('keylog')
+  })
+  socket.on('keylog', keylogListener)
+
+  await expect.poll(() => events.includes('secureConnect')).toBe(true)
+
+  // A TLS 1.3 handshake derives five secrets, each reported
+  // via a separate "keylog" event before the handshake completes.
+  expect.soft(keylogListener).toHaveBeenCalledTimes(5)
+  expect.soft(events).toEqual([
+    'keylog',
+    'keylog',
+    'keylog',
+    'keylog',
+    'keylog',
+    'secureConnect',
+  ])
+
+  for (const [line] of keylogListener.mock.calls) {
+    expect.soft(line).toBeInstanceOf(Buffer)
+  }
+
+  const keylogLabels = keylogListener.mock.calls.map(([line]) => {
+    return line.toString().split(' ')[0]
+  })
+  expect(keylogLabels).toEqual([
+    'SERVER_HANDSHAKE_TRAFFIC_SECRET',
+    'EXPORTER_SECRET',
+    'SERVER_TRAFFIC_SECRET_0',
+    'CLIENT_HANDSHAKE_TRAFFIC_SECRET',
+    'CLIENT_TRAFFIC_SECRET_0',
+  ])
+
+  socket.destroy()
+})
+
 it('emits the "keylog" event', async () => {
   await using server = await createTestServer(() => {
     return new tls.Server({

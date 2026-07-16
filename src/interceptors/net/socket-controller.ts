@@ -1332,6 +1332,30 @@ export class TlsSocketController extends TcpSocketController {
     }
 
     this.socket.once('connect', () => {
+      /**
+       * @note A TLS 1.3 handshake derives five secrets, each reported
+       * via a separate "keylog" event before the handshake completes.
+       * Reflect them with mocked key material matching the mocked
+       * cipher (SHA-384 secrets; the format is "LABEL <client random>
+       * <secret>", each value hex-encoded).
+       */
+      const mockedClientRandom = '0'.repeat(64)
+      const mockedSecret = '0'.repeat(96)
+      const keylogLabels = [
+        'SERVER_HANDSHAKE_TRAFFIC_SECRET',
+        'EXPORTER_SECRET',
+        'SERVER_TRAFFIC_SECRET_0',
+        'CLIENT_HANDSHAKE_TRAFFIC_SECRET',
+        'CLIENT_TRAFFIC_SECRET_0',
+      ]
+
+      for (const keylogLabel of keylogLabels) {
+        this.socket.emit(
+          'keylog',
+          Buffer.from(`${keylogLabel} ${mockedClientRandom} ${mockedSecret}\n`)
+        )
+      }
+
       handle.onhandshakedone()
 
       /**
