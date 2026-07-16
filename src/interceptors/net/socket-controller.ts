@@ -44,6 +44,7 @@ declare module 'node:net' {
     ): void
     _handle: TcpHandle
     _start: () => void
+    _unrefTimer: () => void
   }
 }
 
@@ -158,6 +159,11 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
 
     while (pendingWrites.length > 0) {
       const nextWrite = pendingWrites.shift()!
+
+      // Receiving mocked data is socket activity: refresh the client's
+      // idle timer the same way its own reads would.
+      socket._unrefTimer()
+
       const canPushMore = socket.push(
         toBuffer(nextWrite.chunk, nextWrite.encoding),
         nextWrite.encoding
@@ -779,6 +785,15 @@ export class TcpSocketController extends SocketController {
   #onRealSocketData = (data: Buffer) => {
     logger.verbose('real socket "data" event %o', data)
 
+    /**
+     * @note Receiving data is socket activity. Refresh the idle timer
+     * of the client socket the same way its own reads would
+     * ("socket.setTimeout()" must not fire during an active transfer).
+     * The data arrives on the real socket, which only refreshes the
+     * real socket's timer.
+     */
+    this.socket._unrefTimer()
+
     if (this.#readsCorked) {
       logger.verbose('reads are corked, buffering the data...')
       this.#corkedReads.push({ type: 'data', chunk: data })
@@ -819,6 +834,9 @@ export class TcpSocketController extends SocketController {
   }
 
   #onRealSocketEnd = () => {
+    // Receiving the end-of-stream is a read, the same as data.
+    this.socket._unrefTimer()
+
     if (this.#readsCorked) {
       this.#corkedReads.push({ type: 'end' })
       return

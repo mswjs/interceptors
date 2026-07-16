@@ -218,6 +218,65 @@ it('emits "close" when destroying a paused connection with unread data', async (
   ])
 })
 
+it('does not emit "timeout" during an active transfer', async () => {
+  await using server = await createTestServer(() => {
+    return new net.Server((socket) => {
+      // Stream chunks with pauses shorter than the client's
+      // idle timeout for a total duration exceeding that timeout.
+      let sentChunkCount = 0
+      const interval = setInterval(() => {
+        socket.write('chunk')
+        sentChunkCount += 1
+
+        if (sentChunkCount === 8) {
+          clearInterval(interval)
+          socket.end()
+        }
+      }, 100)
+      socket.on('close', () => clearInterval(interval))
+    })
+  })
+
+  const socket = net.connect(server.port, server.hostname)
+  socket.setTimeout(500)
+  const { listeners } = spyOnSocket(socket)
+
+  socket.resume()
+
+  await expect
+    .poll(() => listeners.end, { timeout: 4000 })
+    .toHaveBeenCalledOnce()
+
+  // Incoming data refreshes the idle timer, so the timeout
+  // must never fire during an active transfer.
+  expect(listeners.timeout).not.toHaveBeenCalled()
+
+  socket.destroy()
+})
+
+it('emits "timeout" when the socket goes idle after a transfer', async () => {
+  await using server = await createTestServer(() => {
+    return new net.Server((socket) => {
+      // Respond once, then keep the connection open and silent.
+      socket.write('hello')
+    })
+  })
+
+  const socket = net.connect(server.port, server.hostname)
+  const { listeners } = spyOnSocket(socket)
+
+  socket.resume()
+
+  await expect.poll(() => listeners.data).toHaveBeenCalledOnce()
+
+  // Set the timeout only after the transfer has finished.
+  socket.setTimeout(200)
+
+  await expect.poll(() => listeners.timeout).toHaveBeenCalledOnce()
+
+  socket.destroy()
+})
+
 it('emits "timeout" on an idle socket without destroying it', async () => {
   await using server = await createTestServer(() => {
     return new net.Server(() => {})
