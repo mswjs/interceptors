@@ -110,6 +110,17 @@ function isVerboseLoggingEnabled(): boolean {
     return true
   }
 
+  /**
+   * @note Consult the localStorage only in browser-like environments.
+   * In Node.js 26+, reading "globalThis.localStorage" without the
+   * "--localstorage-file" flag set emits an experimental warning
+   * (a try/catch cannot suppress it). Node.js consumers control the
+   * log level via the "DEBUG_LEVEL" environment variable above.
+   */
+  if (typeof document === 'undefined') {
+    return false
+  }
+
   try {
     return globalThis.localStorage?.getItem('debugLevel') === 'verbose'
   } catch {
