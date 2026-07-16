@@ -1,5 +1,6 @@
 import net from 'node:net'
 import tls from 'node:tls'
+import http from 'node:http'
 import { TypedEvent } from 'rettime'
 import {
   type NetworkConnectionOptions,
@@ -9,15 +10,24 @@ import {
   kPatched,
   TcpSocketController,
   TlsSocketController,
-  type TcpHandle,
 } from './socket-controller'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
 import { createLogger } from '../../utils/logger'
-import {
-  patchesRegistry,
-  getDeepPropertyDescriptor,
-} from '../../utils/patchesRegistry'
+import { patchesRegistry } from '../../utils/patchesRegistry'
 import { Interceptor } from '#/src/interceptor'
+
+declare module 'node:http' {
+  interface Agent {
+    /**
+     * @note An undocumented method backing every agent-driven request
+     * (see "#stopReusingUnpatchedSockets").
+     */
+    addRequest?: (
+      request: http.ClientRequest,
+      ...args: Array<unknown>
+    ) => void
+  }
+}
 
 interface SocketConnectionEventData {
   socket: net.Socket | tls.TLSSocket
@@ -46,25 +56,6 @@ type SocketEventMap = {
 }
 
 const logger = createLogger('socket')
-
-/**
- * Returns true if the given socket has been explicitly unrefed.
- * The ref state lives on the socket's handle. Some handles (e.g. `TLSWrap`)
- * don't implement it themselves and defer to their parent handle (`TCP`).
- */
-function isSocketUnrefed(socket: net.Socket): boolean {
-  let handle: TcpHandle | undefined = socket._handle
-
-  while (handle) {
-    if (typeof handle.hasRef === 'function') {
-      return !handle.hasRef()
-    }
-
-    handle = handle._parent
-  }
-
-  return false
-}
 
 /**
  * Interceptor for `net.Socket` connections.
@@ -302,78 +293,51 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
   }
 
   /**
-   * Prevent the `net.Socket` instances created before this interceptor was applied
-   * from getting reused by the `Agent` after the interceptor is applied.
+   * Prevent the `net.Socket` instances created before this interceptor
+   * was applied from getting reused by an `Agent`. Purging them from the
+   * keep-alive pool forces the agent to establish new (intercepted)
+   * connections instead.
    */
   #stopReusingUnpatchedSockets(): () => void {
-    const match = getDeepPropertyDescriptor(net.Socket.prototype, 'destroyed')
-
-    if (
-      match == null ||
-      match.descriptor.get == null ||
-      match.descriptor.set == null
-    ) {
+    /**
+     * @note "Agent.prototype.addRequest" is undocumented but stable:
+     * its signature changed once (the keep-alive Agent rewrite in
+     * Node.js 0.12), and the ecosystem (agent-base, agentkeepalive,
+     * APM wrappers) has relied on it ever since. "https.Agent"
+     * inherits it, so a single patch covers both.
+     */
+    if (typeof http.Agent.prototype.addRequest !== 'function') {
       return () => {}
     }
 
-    const { get: realDestroyedGetter, set: realDestroyedSetter } =
-      match.descriptor
+    return patchesRegistry.applyPatch(
+      http.Agent.prototype,
+      'addRequest',
+      (realAddRequest) => {
+        return function (this: http.Agent, ...args) {
+          /**
+           * @note Destroy the free sockets created before the interceptor
+           * was applied. Destroying flips their "destroyed" state
+           * synchronously, so the original "addRequest" below discards
+           * them and dials a new (intercepted) connection instead.
+           * The "freeSockets" pool only contains idle sockets by
+           * definition, so destroying them aborts nothing in-flight.
+           */
+          for (const sockets of Object.values(this.freeSockets)) {
+            if (sockets == null) {
+              continue
+            }
 
-    Object.defineProperty(net.Socket.prototype, 'destroyed', {
-      configurable: true,
-      get(this: net.Socket) {
-        const realDestroyed = realDestroyedGetter.call(this)
+            for (const socket of sockets) {
+              if (!socket[kPatched]) {
+                socket.destroy()
+              }
+            }
+          }
 
-        if (realDestroyed || this[kPatched]) {
-          return realDestroyed
+          return realAddRequest?.apply(this, args)
         }
-
-        /**
-         * @note Agent pings every free socket via "socket.destroyed" to see
-         * if they can be reused. If such a ping is detected on an unpatched socket,
-         * destroy it. That forces the agent to issue a new socket, which will call
-         * "net.connect" again, falling through the interception.
-         *
-         * A socket idle in an `Agent` keep-alive pool is detected via
-         * documented agent contracts rather than internal listener names:
-         * - Pooled sockets listen to the "agentRemove" event (documented as
-         *   the way to remove a socket from the agent);
-         * - `agent.keepSocketAlive()` unrefs a socket when pooling it, and
-         *   `agent.reuseSocket()` refs it on reuse (both are the documented
-         *   default implementations);
-         * - A socket detached from a request has no `_httpMessage`.
-         */
-        if (
-          !this.connecting &&
-          this.listenerCount('agentRemove') > 0 &&
-          !this._httpMessage &&
-          isSocketUnrefed(this)
-        ) {
-          this.destroy()
-          return true
-        }
-
-        return realDestroyed
-      },
-      // Attach a setter for behavior parity.
-      set(this: net.Socket, value: boolean) {
-        realDestroyedSetter.call(this, value)
-      },
-    })
-
-    return () => {
-      if (match.owner === net.Socket.prototype) {
-        // The real descriptor was an own property, restore it in-place.
-        Object.defineProperty(
-          net.Socket.prototype,
-          'destroyed',
-          match.descriptor
-        )
-      } else {
-        // The real descriptor lives up the prototype chain (stream.Duplex),
-        // deleting the shadow restores the original lookup.
-        Reflect.deleteProperty(net.Socket.prototype, 'destroyed')
       }
-    }
+    )
   }
 }
