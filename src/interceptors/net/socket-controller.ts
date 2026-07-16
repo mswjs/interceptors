@@ -262,6 +262,9 @@ export abstract class SocketController {
     this.readyState = SocketController.CLAIMED
   }
 
+  /**
+   * Establish this socket connection as-is.
+   */
   public passthrough(): void {
     invariant(
       this.readyState === SocketController.PENDING,
@@ -1080,7 +1083,13 @@ export class TlsSocketController extends TcpSocketController {
 
     this.socket.once('connect', () => {
       handle.onhandshakedone()
-      handle.onnewsession(1, Buffer.alloc(0))
+
+      /**
+       * @note A TLS 1.3 server issues two session tickets by default,
+       * each emitting a separate "session" event on the client.
+       */
+      handle.onnewsession(1, Buffer.from('mocked session'))
+      handle.onnewsession(2, Buffer.from('mocked session'))
     })
 
     super.claim()

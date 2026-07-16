@@ -45,7 +45,7 @@ it('emits "secureConnect" exactly once', async () => {
   socket.destroy()
 })
 
-it('emits the "session" event', async () => {
+it('emits the "session" event for a bypassed connection', async () => {
   await using server = await createTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
@@ -59,11 +59,117 @@ it('emits the "session" event', async () => {
     servername: 'localhost',
     ca: [TLS_CERTIFICATE],
   })
-  const sessionListener = vi.fn()
+
+  const events: Array<string> = []
+  const socketStatesOnSession: Array<Record<string, unknown>> = []
+  socket.on('secureConnect', () => {
+    events.push('secureConnect')
+  })
+  const sessionListener = vi.fn<(session: Buffer) => void>(() => {
+    events.push('session')
+    socketStatesOnSession.push({
+      pending: socket.pending,
+      connecting: socket.connecting,
+      authorized: socket.authorized,
+      readyState: socket.readyState,
+      destroyed: socket.destroyed,
+    })
+  })
   socket.on('session', sessionListener)
 
-  await expect.poll(() => sessionListener).toHaveBeenCalled()
-  expect(sessionListener).toHaveBeenCalledWith(expect.any(Buffer))
+  // A Node.js TLS server issues two TLS 1.3 session tickets by default,
+  // each emitting a separate "session" event on the client.
+  await expect.poll(() => sessionListener.mock.calls.length).toBe(2)
+  await new Promise((resolve) => {
+    setTimeout(resolve, 200)
+  })
+  expect.soft(sessionListener).toHaveBeenCalledTimes(2)
+
+  // In TLS 1.3, session tickets arrive only after the handshake is done.
+  expect.soft(events).toEqual(['secureConnect', 'session', 'session'])
+
+  for (const [sessionData] of sessionListener.mock.calls) {
+    expect.soft(sessionData).toBeInstanceOf(Buffer)
+    expect.soft(sessionData.byteLength).toBeGreaterThan(0)
+  }
+
+  expect(socketStatesOnSession).toEqual([
+    {
+      pending: false,
+      connecting: false,
+      authorized: true,
+      readyState: 'open',
+      destroyed: false,
+    },
+    {
+      pending: false,
+      connecting: false,
+      authorized: true,
+      readyState: 'open',
+      destroyed: false,
+    },
+  ])
+
+  socket.destroy()
+})
+
+it('emits the "session" event for a mocked connection', async () => {
+  interceptor.on('connection', ({ controller }) => {
+    controller.claim()
+  })
+
+  const socket = tls.connect(443, 'any.host.com')
+
+  const events: Array<string> = []
+  const socketStatesOnSession: Array<Record<string, unknown>> = []
+  socket.on('secureConnect', () => {
+    events.push('secureConnect')
+  })
+  const sessionListener = vi.fn<(session: Buffer) => void>(() => {
+    events.push('session')
+    socketStatesOnSession.push({
+      pending: socket.pending,
+      connecting: socket.connecting,
+      authorized: socket.authorized,
+      readyState: socket.readyState,
+      destroyed: socket.destroyed,
+    })
+  })
+  socket.on('session', sessionListener)
+
+  // A Node.js TLS server issues two TLS 1.3 session tickets by default,
+  // each emitting a separate "session" event on the client.
+  await expect.poll(() => sessionListener.mock.calls.length).toBe(2)
+  await new Promise((resolve) => {
+    setTimeout(resolve, 200)
+  })
+  expect.soft(sessionListener).toHaveBeenCalledTimes(2)
+
+  // In TLS 1.3, session tickets arrive only after the handshake is done.
+  expect.soft(events).toEqual(['secureConnect', 'session', 'session'])
+
+  for (const [sessionData] of sessionListener.mock.calls) {
+    expect.soft(sessionData).toBeInstanceOf(Buffer)
+    expect.soft(sessionData.byteLength).toBeGreaterThan(0)
+  }
+
+  expect(socketStatesOnSession).toEqual([
+    {
+      pending: false,
+      connecting: false,
+      // Mocked connections are never authorized (no real peer certificate).
+      authorized: false,
+      readyState: 'open',
+      destroyed: false,
+    },
+    {
+      pending: false,
+      connecting: false,
+      authorized: false,
+      readyState: 'open',
+      destroyed: false,
+    },
+  ])
 
   socket.destroy()
 })

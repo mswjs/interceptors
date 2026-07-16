@@ -60,9 +60,13 @@ it('emits correct events for a mocked HTTPS request', async () => {
   expect.soft(socketConnectListener).toHaveBeenCalledOnce()
   expect.soft(socketSecureListener).toHaveBeenCalledOnce()
   expect.soft(socketSecureConnectListener).toHaveBeenCalledOnce()
+  expect.soft(socketSessionListener).toHaveBeenCalledTimes(2)
   expect
     .soft(socketSessionListener)
-    .toHaveBeenCalledExactlyOnceWith(expect.any(Buffer))
+    .toHaveBeenNthCalledWith(1, expect.any(Buffer))
+  expect
+    .soft(socketSessionListener)
+    .toHaveBeenNthCalledWith(2, expect.any(Buffer))
   expect.soft(socketErrorListener).not.toHaveBeenCalled()
 })
 
