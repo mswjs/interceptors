@@ -1,4 +1,3 @@
-// @vitest-environment node-with-websocket
 import {
   WebSocketClientConnection,
   WebSocketInterceptor,

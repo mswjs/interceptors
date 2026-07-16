@@ -50,11 +50,7 @@ export default defineConfig({
           name: 'memory',
           include: ['test/**/*.memory.test.ts'],
           pool: 'forks',
-          poolOptions: {
-            forks: {
-              execArgv: ['--expose-gc'],
-            },
-          },
+          execArgv: ['--expose-gc'],
         },
       },
       {

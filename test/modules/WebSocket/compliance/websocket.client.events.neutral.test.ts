@@ -1,5 +1,4 @@
 /**
- * @vitest-environment node-with-websocket
  * This test suite asserts that the "client" connection object
  * dispatches the right events in different scenarios.
  */

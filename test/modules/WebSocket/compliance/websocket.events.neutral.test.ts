@@ -1,12 +1,14 @@
 /**
- * @vitest-environment node-with-websocket
  * This test suite asserts that the intercepted WebSocket client
  * still dispatches the correct events in mocked/bypassed scenarios.
  */
+import { inject } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 import { setTimeout } from '#/test/setup/helpers-neutral'
 import { getTestServer } from '#/test/setup/vitest'
+
+const nodeMajorVersion = inject('nodeMajorVersion')
 
 const testServer = getTestServer()
 const interceptor = new WebSocketInterceptor()
@@ -35,9 +37,7 @@ it('emits "open" event when mocked connection is opened', async () => {
   const openListener = vi.fn()
   ws.onopen = openListener
 
-  await vi.waitFor(() => {
-    expect(openListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => openListener).toHaveBeenCalledTimes(1)
 
   const [openEvent] = openListener.mock.calls[0]
   expect(openEvent.type).toBe('open')
@@ -50,9 +50,7 @@ it('emits "open" event when original connection is opened', async () => {
   const openListener = vi.fn()
   ws.onopen = openListener
 
-  await vi.waitFor(() => {
-    expect(openListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => openListener).toHaveBeenCalledTimes(1)
 
   const [openEvent] = openListener.mock.calls[0]
   expect(openEvent.type).toBe('open')
@@ -69,9 +67,7 @@ it('emits "message" event on incoming mock server data', async () => {
   const messageListener = vi.fn()
   ws.onmessage = messageListener
 
-  await vi.waitFor(() => {
-    expect(messageListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => messageListener).toHaveBeenCalledTimes(1)
 
   const [messageEvent] = messageListener.mock.calls[0]
   expect(messageEvent.type).toBe('message')
@@ -88,9 +84,7 @@ it('emits "message" event on incoming original server data', async () => {
   const messageListener = vi.fn()
   ws.onmessage = messageListener
 
-  await vi.waitFor(() => {
-    expect(messageListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => messageListener).toHaveBeenCalledTimes(1)
 
   const [messageEvent] = messageListener.mock.calls[0]
   expect(messageEvent.type).toBe('message')
@@ -112,9 +106,7 @@ it('emits "close" event when the mocked client closes the connection', async () 
    */
   ws.onopen = () => ws.close()
 
-  await vi.waitFor(() => {
-    expect(closeListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => closeListener).toHaveBeenCalledTimes(1)
 
   const [closeEvent] = closeListener.mock.calls[0]
   expect(closeEvent.type).toBe('close')
@@ -131,9 +123,7 @@ it('emits "close" event when the original server closes the connection', async (
   const closeListener = vi.fn()
   ws.onclose = closeListener
 
-  await vi.waitFor(() => {
-    expect(closeListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => closeListener).toHaveBeenCalledTimes(1)
 
   const [closeEvent] = closeListener.mock.calls[0]
   expect(closeEvent.type).toBe('close')
@@ -153,9 +143,7 @@ it('emits "close" event when the interceptor gracefully closes the connection', 
   const closeListener = vi.fn()
   ws.onclose = closeListener
 
-  await vi.waitFor(() => {
-    expect(closeListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => closeListener).toHaveBeenCalledTimes(1)
 
   const [closeEvent] = closeListener.mock.calls[0]
   expect(closeEvent.type).toBe('close')
@@ -191,9 +179,7 @@ it('emits "close" event when the original server closes the connection with erro
   const closeListener = vi.fn()
   ws.onclose = closeListener
 
-  await vi.waitFor(() => {
-    expect(closeListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => closeListener).toHaveBeenCalledTimes(1)
 
   const [closeEvent] = closeListener.mock.calls[0]
   expect(closeEvent.type).toBe('close')
@@ -217,17 +203,21 @@ it('emits "error" event on passthrough client connection failure', async () => {
   ws.onerror = errorListener
   ws.onclose = closeListener
 
-  await vi.waitFor(() => {
-    expect(errorListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => errorListener).toHaveBeenCalledTimes(1)
 
-  expect(ws.readyState).toBe(ws.CLOSED)
   expect(openListener).not.toHaveBeenCalled()
+
   /**
-   * @note The update in `ws` makes it dispatch the "close" event
-   * if the handshake receives a network error (or non-101 response).
+   * @note Node.js below v24 bundles Undici 6, which fails the
+   * connection without dispatching the "close" event or transitioning
+   * the socket to the CLOSED state. Node.js v24+ (Undici 7) follows
+   * the specification: failing the connection closes the socket and
+   * dispatches both "error" and "close".
    */
-  expect(closeListener).toHaveBeenCalledOnce()
+  if (nodeMajorVersion >= 24) {
+    expect(ws.readyState).toBe(ws.CLOSED)
+    expect(closeListener).toHaveBeenCalledOnce()
+  }
 })
 
 it('allows erroring the connection in a synchronous listener', async () => {
@@ -319,9 +309,7 @@ it('does not emit "error" event on mocked error code closures', async () => {
   ws.onerror = errorListener
   ws.onclose = closeListener
 
-  await vi.waitFor(() => {
-    expect(closeListener).toHaveBeenCalledTimes(1)
-  })
+  await expect.poll(() => closeListener).toHaveBeenCalledTimes(1)
 
   const [closeEvent] = closeListener.mock.calls[0]
   expect(closeEvent.type).toBe('close')

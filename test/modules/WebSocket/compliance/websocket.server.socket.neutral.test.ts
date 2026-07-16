@@ -1,4 +1,3 @@
-// @vitest-environment node-with-websocket
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
 import { DeferredPromise } from '@open-draft/deferred-promise'

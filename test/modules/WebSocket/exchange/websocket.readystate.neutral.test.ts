@@ -1,4 +1,3 @@
-// @vitest-environment node-with-websocket
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 import { setTimeout } from '#/test/setup/helpers-neutral'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'

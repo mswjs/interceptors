@@ -126,7 +126,7 @@
     "@types/superagent": "^8.1.9",
     "@types/supertest": "^6.0.2",
     "@types/ws": "^8.18.1",
-    "@vitest/browser-playwright": "^4.1.9",
+    "@vitest/browser-playwright": "^4.1.10",
     "axios": "^1.18.1",
     "body-parser": "^1.19.0",
     "commitizen": "^4.3.2",
@@ -151,7 +151,7 @@
     "tsdown": "^0.18.1",
     "typescript": "^5.8.2",
     "undici": "^7.22.0",
-    "vitest": "^4.1.9",
+    "vitest": "^4.1.10",
     "vitest-environment-miniflare": "^2.14.4",
     "web-encoding": "^1.1.5",
     "ws": "^8.21.0"

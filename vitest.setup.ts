@@ -7,6 +7,8 @@ import { WebSocketServer } from 'ws'
 import { Server as SocketIoServer } from 'socket.io'
 import { HttpServer } from '@open-draft/test-server/http'
 import { compressResponse, useCors } from './test/helpers'
+// Import the "ProvidedContext" augmentation so "project.provide()" is typed.
+import type {} from './test/setup/vitest'
 
 type SupportedContentCoding = 'gzip' | 'x-gzip' | 'deflate' | 'br'
 
@@ -204,6 +206,18 @@ export async function setup(project: TestProject) {
   })
 
   const wsAddress = wsServer.address()
+
+  /**
+   * @note Expose the Node.js version only to the Node.js-driven
+   * projects. Browser tests must not observe any Node.js version
+   * (see "nodeMajorVersion" in "test/setup/vitest.ts").
+   */
+  project.provide(
+    'nodeMajorVersion',
+    typeof process !== 'undefined'
+      ? Number(process.versions.node.split('.')[0])
+      : 0
+  )
 
   project.provide('server', {
     http: server.http.address.href,

@@ -8,6 +8,12 @@ declare module 'vitest' {
       ws: string
       io: string
     }
+    /**
+     * The major version of the Node.js process running the tests.
+     * Undefined in the browser, failing any version checks so
+     * version-gated assertions never apply there.
+     */
+    nodeMajorVersion: number
   }
 }
 

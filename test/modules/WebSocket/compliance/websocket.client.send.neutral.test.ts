@@ -1,4 +1,3 @@
-// @vitest-environment node-with-websocket
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()

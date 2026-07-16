@@ -1,5 +1,4 @@
 /**
- * @vitest-environment node-with-websocket
  * @see https://websockets.spec.whatwg.org/#dom-websocket-send
  */
 import { DeferredPromise } from '@open-draft/deferred-promise'

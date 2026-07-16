@@ -1,7 +1,6 @@
 /**
  * @see https://github.com/mswjs/interceptors/issues/682
  */
-// @vitest-environment node-with-websocket
 import { Server } from 'socket.io'
 import { io } from 'socket.io-client'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'

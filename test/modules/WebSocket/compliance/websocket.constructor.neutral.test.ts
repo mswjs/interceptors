@@ -1,5 +1,4 @@
 /**
- * @vitest-environment node-with-websocket
  * @see https://websockets.spec.whatwg.org//#dom-websocket-websocket
  */
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'

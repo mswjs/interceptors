@@ -4,11 +4,14 @@
  */
 import net from 'node:net'
 import http from 'node:http'
+import { inject } from 'vitest'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
+
+const nodeMajorVersion = inject('nodeMajorVersion')
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -85,10 +88,10 @@ it('intercepts a "CONNECT" request using IP as the authority', async () => {
     [
       'host',
       /**
-       * @note Node.js v26 sets the CONNECT authority as the "Host" header
+       * @note Node.js v26+ sets the CONNECT authority as the "Host" header
        * instead of the proxy address (RFC 9110).
        */
-      process.versions.node.startsWith('26') ? serverHost : '127.0.0.1:1337',
+      nodeMajorVersion >= 26 ? serverHost : '127.0.0.1:1337',
     ],
   ])
 })
@@ -144,10 +147,7 @@ it('intercepts a "CONNECT" request using "localhost" as the authority', async ()
     .toBe(serverHost)
   expect.soft(Array.from(interceptedRequest.headers)).toEqual([
     ['connection', 'keep-alive'],
-    [
-      'host',
-      process.versions.node.startsWith('26') ? serverHost : '127.0.0.1:1337',
-    ],
+    ['host', nodeMajorVersion >= 26 ? serverHost : '127.0.0.1:1337'],
   ])
 })
 
