@@ -106,22 +106,32 @@ export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
           socketController,
         })
 
-        if (
-          !this.emitter.emit(
-            new SmtpSessionEvent({
-              url: getSessionUrl(connectionOptions, socket),
-              socket,
-              connectionOptions,
-              controller: smtpController,
-            })
-          )
-        ) {
+        try {
+          if (
+            !this.emitter.emit(
+              new SmtpSessionEvent({
+                url: getSessionUrl(connectionOptions, socket),
+                socket,
+                connectionOptions,
+                controller: smtpController,
+              })
+            )
+          ) {
+            /**
+             * @note Subscribing to the socket interceptor suppresses its
+             * own passthrough-by-default behavior for unhandled connections.
+             * Restore it here for connections no "session" listener handles.
+             */
+            socketController.passthrough()
+          }
+        } catch (error) {
           /**
-           * @note Subscribing to the socket interceptor suppresses its
-           * own passthrough-by-default behavior for unhandled connections.
-           * Restore it here for connections no "session" listener handles.
+           * @note An exception in a "session" listener is translated
+           * onto the connection the same way a server crashing while
+           * accepting it would manifest: the client observes an abrupt
+           * connection error.
            */
-          socketController.passthrough()
+          smtpController.error()
         }
       },
       {

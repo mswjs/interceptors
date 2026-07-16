@@ -510,6 +510,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
   #buffer = ''
   #envelope: SmtpEnvelope = { sender: '', recipients: [] }
   #pendingAuth?: PendingAuth
+  #activeContext?: SmtpCommandContext
   #isReadingData = false
   #isProcessing = false
 
@@ -618,7 +619,25 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
       },
     }
 
+    this.#activeContext = context
     return context
+  }
+
+  /**
+   * Translate an exception thrown from a session listener onto the
+   * session the same way a real server surfaces its internal errors:
+   * reply "451" ("local error in processing", RFC 5321) to the
+   * in-flight command and keep the session going. If the reply for
+   * that command already went out, a crash can only manifest as an
+   * abrupt connection error.
+   */
+  #handleListenerError(): void {
+    if (this.#activeContext?.isReplied) {
+      this.error()
+      return
+    }
+
+    this.reply(451, '4.3.0 Local error in processing')
   }
 
   #resetEnvelope(): void {
@@ -644,7 +663,13 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
           const rawMessage = this.#buffer.slice(0, terminatorIndex)
           this.#buffer = this.#buffer.slice(terminatorIndex + 5)
           this.#isReadingData = false
-          await this.#handleMessage(rawMessage)
+
+          try {
+            await this.#handleMessage(rawMessage)
+          } catch (error) {
+            this.#handleListenerError()
+          }
+
           continue
         }
 
@@ -657,14 +682,17 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
         const line = this.#buffer.slice(0, lineEndIndex)
         this.#buffer = this.#buffer.slice(lineEndIndex + 2)
 
-        // Lines sent during an authentication exchange are the
-        // challenge responses, not commands.
-        if (this.#pendingAuth) {
-          await this.#handleAuthResponse(line)
-          continue
+        try {
+          // Lines sent during an authentication exchange are the
+          // challenge responses, not commands.
+          if (this.#pendingAuth) {
+            await this.#handleAuthResponse(line)
+          } else {
+            await this.#handleCommand(line)
+          }
+        } catch (error) {
+          this.#handleListenerError()
         }
-
-        await this.#handleCommand(line)
       }
     } finally {
       this.#isProcessing = false
