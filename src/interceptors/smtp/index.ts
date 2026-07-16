@@ -3,11 +3,10 @@ import tls from 'node:tls'
 import { TypedEvent } from 'rettime'
 import { Interceptor } from '#/src/interceptor'
 import { SocketInterceptor } from '../net'
-import type {
-  TcpSocketController,
-  TlsSocketController,
-} from '../net/socket-controller'
 import type { NetworkConnectionOptions } from '../net/utils/normalize-net-connect-args'
+import { SmtpController } from './smtp-controller'
+
+export * from './smtp-controller'
 
 type SmtpEventMap = {
   email: SmtpEmailEvent
@@ -16,7 +15,7 @@ type SmtpEventMap = {
 interface SmtpEmailEventData {
   socket: net.Socket | tls.TLSSocket
   connectionOptions: NetworkConnectionOptions
-  controller: TcpSocketController | TlsSocketController
+  controller: SmtpController
 }
 
 export class SmtpEmailEvent<
@@ -24,7 +23,7 @@ export class SmtpEmailEvent<
 > extends TypedEvent<DataType, void, 'email'> {
   public socket: net.Socket | tls.TLSSocket
   public connectionOptions: NetworkConnectionOptions
-  public controller: TcpSocketController | TlsSocketController
+  public controller: SmtpController
 
   constructor(data: DataType) {
     super(...(['email', {}] as any))
@@ -71,20 +70,25 @@ export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
     socketInterceptor.on(
       'connection',
       ({ socket, connectionOptions, controller: socketController }) => {
-        const isHandled = this.emitter.emit(
-          new SmtpEmailEvent({
-            socket,
-            connectionOptions,
-            controller: socketController,
-          })
-        )
+        const smtpController = new SmtpController({
+          socket,
+          socketController,
+        })
 
-        /**
-         * @note Subscribing to the socket interceptor suppresses its
-         * own passthrough-by-default behavior for unhandled connections.
-         * Restore it here for connections no "email" listener handles.
-         */
-        if (!isHandled) {
+        if (
+          !this.emitter.emit(
+            new SmtpEmailEvent({
+              socket,
+              connectionOptions,
+              controller: smtpController,
+            })
+          )
+        ) {
+          /**
+           * @note Subscribing to the socket interceptor suppresses its
+           * own passthrough-by-default behavior for unhandled connections.
+           * Restore it here for connections no "email" listener handles.
+           */
           socketController.passthrough()
         }
       },

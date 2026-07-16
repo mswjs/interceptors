@@ -19,101 +19,27 @@ afterAll(() => {
 const SMTP_PORT = 587
 
 it('mocks sending an email via nodemailer', async () => {
-  const envelope = {
-    from: '',
-    recipients: [] as Array<string>,
-  }
+  let sender = ''
+  let recipients: Array<string> = []
   let messageData = ''
 
-  interceptor.on('email', ({ socket, connectionOptions, controller }) => {
-    // Route by the connection target: mock the SMTP connections,
-    // let everything else pass through.
+  interceptor.on('email', ({ connectionOptions, controller }) => {
     if (connectionOptions.port !== SMTP_PORT) {
       return controller.passthrough()
     }
 
+    // Claiming sends the "220" greeting and runs the mock SMTP session.
+    // Commands without listeners are accepted with sensible defaults.
     controller.claim()
 
-    const reply = (line: string) => {
-      socket.write(`${line}\r\n`)
-    }
-
-    const getAddress = (command: string): string => {
-      return command.match(/<([^>]*)>/)?.[1] ?? ''
-    }
-
-    const handleCommand = (line: string) => {
-      const command = line.toUpperCase()
-
-      if (command.startsWith('EHLO') || command.startsWith('HELO')) {
-        reply('250-mock.example.com')
-        reply('250 8BITMIME')
-        return
-      }
-
-      if (command.startsWith('MAIL FROM:')) {
-        envelope.from = getAddress(line)
-        reply('250 2.1.0 Ok')
-        return
-      }
-
-      if (command.startsWith('RCPT TO:')) {
-        envelope.recipients.push(getAddress(line))
-        reply('250 2.1.5 Ok')
-        return
-      }
-
-      if (command.startsWith('DATA')) {
-        isReadingData = true
-        reply('354 End data with <CR><LF>.<CR><LF>')
-        return
-      }
-
-      if (command.startsWith('QUIT')) {
-        reply('221 2.0.0 Bye')
-        socket.end()
-        return
-      }
-
-      reply('250 Ok')
-    }
-
-    let buffer = ''
-    let isReadingData = false
-
-    socket.on('data', (chunk) => {
-      buffer += chunk.toString()
-
-      while (true) {
-        if (isReadingData) {
-          const terminatorIndex = buffer.indexOf('\r\n.\r\n')
-
-          if (terminatorIndex === -1) {
-            return
-          }
-
-          messageData = buffer.slice(0, terminatorIndex)
-          buffer = buffer.slice(terminatorIndex + 5)
-          isReadingData = false
-          reply('250 2.0.0 Ok: queued as MOCKED')
-          continue
-        }
-
-        const lineEndIndex = buffer.indexOf('\r\n')
-
-        if (lineEndIndex === -1) {
-          return
-        }
-
-        const line = buffer.slice(0, lineEndIndex)
-        buffer = buffer.slice(lineEndIndex + 2)
-        handleCommand(line)
-      }
+    // The "message" event describes the complete email transaction:
+    // the sender, the accepted recipients, and the message itself.
+    controller.on('message', (event) => {
+      sender = event.sender
+      recipients = event.recipients
+      messageData = event.message.toString()
+      event.accept({ queueId: 'MOCKED' })
     })
-
-    // The mock server speaks first, unblocking the client
-    // that awaits the greeting before sending any commands.
-    reply('220 mock.example.com ESMTP')
   })
 
   /**
@@ -140,10 +66,141 @@ it('mocks sending an email via nodemailer', async () => {
   expect.soft(info.response).toBe('250 2.0.0 Ok: queued as MOCKED')
 
   // The mock server observes the correct envelope and message.
-  expect.soft(envelope.from).toBe('app@example.com')
-  expect.soft(envelope.recipients).toEqual(['user@example.com'])
+  expect.soft(sender).toBe('app@example.com')
+  expect.soft(recipients).toEqual(['user@example.com'])
   expect.soft(messageData).toContain('From: app@example.com')
   expect.soft(messageData).toContain('To: user@example.com')
   expect.soft(messageData).toContain('Subject: Hello')
   expect(messageData).toContain('Hello from the mocked SMTP server!')
+})
+
+it('rejects individual recipients', async () => {
+  const messageListener = vi.fn<(recipients: Array<string>) => void>()
+
+  interceptor.on('email', ({ controller }) => {
+    controller.claim()
+
+    // Each recipient receives its own verdict: this is how partial
+    // delivery works (some recipients accepted, others rejected).
+    controller.on('recipient', (event) => {
+      if (event.address === 'gone@example.com') {
+        event.reject({ reason: 'No such user' })
+      } else {
+        event.accept()
+      }
+    })
+
+    controller.on('message', (event) => {
+      messageListener(event.recipients)
+      event.accept()
+    })
+  })
+
+  const transport = nodemailer.createTransport({
+    host: 'localhost',
+    port: SMTP_PORT,
+    secure: false,
+  })
+
+  const info = await transport.sendMail({
+    from: 'app@example.com',
+    to: ['user@example.com', 'gone@example.com'],
+    text: 'Hello',
+  })
+
+  // The client observes the partial delivery.
+  expect.soft(info.accepted).toEqual(['user@example.com'])
+  expect.soft(info.rejected).toEqual(['gone@example.com'])
+
+  // The completed transaction only includes the accepted recipients.
+  expect(messageListener).toHaveBeenCalledExactlyOnceWith(['user@example.com'])
+})
+
+it('defers the message so the client can retry it', async () => {
+  interceptor.on('email', ({ controller }) => {
+    controller.claim()
+
+    // A transient rejection tells the client the message may be
+    // retried later (e.g. greylisting, a busy server).
+    controller.on('message', (event) => {
+      event.defer({ reason: 'Server busy, try again later' })
+    })
+  })
+
+  const transport = nodemailer.createTransport({
+    host: 'localhost',
+    port: SMTP_PORT,
+    secure: false,
+  })
+
+  await expect(
+    transport.sendMail({
+      from: 'app@example.com',
+      to: 'user@example.com',
+      text: 'Hello',
+    })
+  ).rejects.toMatchObject({
+    code: 'EMESSAGE',
+    responseCode: 451,
+    response: '451 4.3.0 Server busy, try again later',
+  })
+})
+
+it('aborts the SMTP session at any point via "controller.abort()"', async () => {
+  interceptor.on('email', ({ controller }) => {
+    controller.claim()
+
+    // Abort the session per the SMTP protocol: the server replies
+    // "421" and closes the transmission channel.
+    controller.on('sender', () => {
+      controller.abort('4.3.2 System shutting down')
+    })
+  })
+
+  const transport = nodemailer.createTransport({
+    host: 'localhost',
+    port: SMTP_PORT,
+    secure: false,
+  })
+
+  await expect(
+    transport.sendMail({
+      from: 'app@example.com',
+      to: 'user@example.com',
+      text: 'Hello',
+    })
+  ).rejects.toMatchObject({
+    code: 'EENVELOPE',
+    responseCode: 421,
+    response: '421 4.3.2 System shutting down',
+  })
+})
+
+it('errors the SMTP connection abruptly via "controller.error()"', async () => {
+  interceptor.on('email', ({ controller }) => {
+    controller.claim()
+
+    // Error the connection without any SMTP reply,
+    // like a server crash or a broken network would.
+    controller.on('recipient', () => {
+      controller.error()
+    })
+  })
+
+  const transport = nodemailer.createTransport({
+    host: 'localhost',
+    port: SMTP_PORT,
+    secure: false,
+  })
+
+  await expect(
+    transport.sendMail({
+      from: 'app@example.com',
+      to: 'user@example.com',
+      text: 'Hello',
+    })
+  ).rejects.toMatchObject({
+    code: 'ESOCKET',
+    message: 'read ECONNRESET',
+  })
 })
