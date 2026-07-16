@@ -6,7 +6,10 @@ import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
 import { unwrapPendingData } from './utils/flush-writes'
 import { NetworkConnectionOptions } from './utils/normalize-net-connect-args'
-import { getAddressInfoByConnectionOptions } from './utils/address-info'
+import {
+  getAddressInfoByConnectionOptions,
+  getLocalAddressInfoByConnectionOptions,
+} from './utils/address-info'
 
 const kListenerWrap = Symbol('kListenerWrap')
 export const kRawSocket = Symbol('kRawSocket')
@@ -65,8 +68,12 @@ export interface TcpHandle {
   connect6: (request: TcpWrap, address: string, port: number) => void
   listen: (backlog: number) => OperationStatus
   onconnection?: () => void
-  getpeername?: () => OperationStatus
-  getsockname?: () => OperationStatus
+  getpeername?: (
+    addressInfo: ReturnType<net.Socket['address']>
+  ) => OperationStatus
+  getsockname?: (
+    addressInfo: ReturnType<net.Socket['address']>
+  ) => OperationStatus
   reading: boolean
   onread: () => void
   readStart: () => void
@@ -329,6 +336,23 @@ export class TcpSocketController extends SocketController {
         logger.verbose('socket.connect() %o', args)
 
         this.#connectionOptions = args[0]
+
+        /**
+         * @note Do not bind the intercepted socket to the requested
+         * local address/port. Binding reserves the port for real, and
+         * the passthrough connection (created with the original options)
+         * would then bind the same port again, resulting in a conflict.
+         * The requested values are still reflected in the address info
+         * of a claimed socket (see "claim()").
+         */
+        if (
+          args[0] != null &&
+          typeof args[0] === 'object' &&
+          (args[0].localAddress != null || args[0].localPort != null)
+        ) {
+          args[0] = { ...args[0], localAddress: undefined, localPort: undefined }
+        }
+
         return Reflect.apply(target, thisArg, args)
       },
     })
@@ -785,13 +809,32 @@ export class TcpSocketController extends SocketController {
     logger.verbose('-> claim!')
 
     /**
-     * Patch the "getsockname" on the handle in case Node.js decides to handle its errors.
-     * Run this if the socket is connecting because "_handle" can be null if socket timed out.
+     * @note Reflect the local end of the claimed socket, the same way
+     * the operating system reports the bound address of an outgoing
+     * connection via "socket.address()"/"localAddress"/"localPort".
+     * Patching the handle also prevents Node.js from handling the
+     * "getsockname" errors of the never-connected raw handle.
      * @see https://github.com/nodejs/node/blob/13eb80f3b718452213e0fc449702aefbbfe4110f/lib/net.js#L971
      */
-    this.socket._handle.getsockname = () => 0
-    this.socket.address = () => {
-      return getAddressInfoByConnectionOptions(this.#connectionOptions)
+    this.socket._handle.getsockname = (addressInfo) => {
+      Object.assign(
+        addressInfo,
+        getLocalAddressInfoByConnectionOptions(this.#connectionOptions)
+      )
+      return 0
+    }
+
+    /**
+     * @note Reflect the connection target as the peer of the claimed
+     * socket, the same way a connected socket reports the server it
+     * connected to via "remoteAddress"/"remotePort"/"remoteFamily".
+     */
+    this.socket._handle.getpeername = (addressInfo) => {
+      Object.assign(
+        addressInfo,
+        getAddressInfoByConnectionOptions(this.#connectionOptions)
+      )
+      return 0
     }
 
     this.#bufferedWrites = []

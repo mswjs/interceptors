@@ -144,15 +144,13 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
 
           logger.verbose('connecting the socket...')
 
+          /**
+           * @note The requested local address/port are stripped from the
+           * actual "socket.connect()" call by the controller to prevent
+           * binding the intercepted socket (see the "connect" proxy).
+           */
           const mockConnectionOptions = {
             ...connectionOptions,
-            /**
-             * @note Do not bind the intercepted socket to the requested
-             * local address/port. The passthrough connection binds them
-             * for real, and binding twice results in a conflict.
-             */
-            localAddress: undefined,
-            localPort: undefined,
           }
 
           // Patch the lookup option so DNS lookup always succeeds.
