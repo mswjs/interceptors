@@ -422,6 +422,7 @@ export class TcpSocketController extends SocketController {
   #bufferedWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
   #readsCorked = false
   #corkedReads: Array<CorkedReadEvent> = []
+  #onPassthroughRead?: (chunk: Buffer) => void
   #realHandleSwapped = false
   #clientCloseEmitted = false
   #clientEndPushed = false
@@ -794,6 +795,18 @@ export class TcpSocketController extends SocketController {
      */
     this.socket._unrefTimer()
 
+    /**
+     * @note Hand the raw server bytes to the passthrough read handler
+     * when one is set, delegating the forwarding to the client entirely.
+     * A protocol-aware consumer (e.g. the SMTP interceptor) uses this to
+     * mediate the reply stream reply-by-reply so a listener can suppress
+     * or rewrite a single reply before it reaches the client.
+     */
+    if (this.#onPassthroughRead) {
+      this.#onPassthroughRead(data)
+      return
+    }
+
     if (this.#readsCorked) {
       logger.verbose('reads are corked, buffering the data...')
       this.#corkedReads.push({ type: 'data', chunk: data })
@@ -945,6 +958,18 @@ export class TcpSocketController extends SocketController {
    */
   public corkReads(): void {
     this.#readsCorked = true
+  }
+
+  /**
+   * Delegate the forwarding of the passthrough server's data to the
+   * client to the given handler. Once set, the raw server bytes are no
+   * longer pushed to the client automatically: the handler owns the
+   * forwarding and may suppress or rewrite the data (e.g. the SMTP
+   * interceptor gating individual replies). Pass `undefined` to restore
+   * the default forwarding.
+   */
+  public onPassthroughRead(handler?: (chunk: Buffer) => void): void {
+    this.#onPassthroughRead = handler
   }
 
   /**

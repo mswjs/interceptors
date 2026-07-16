@@ -7,6 +7,7 @@ import type { NetworkConnectionOptions } from '../net/utils/normalize-net-connec
 import { SmtpController } from './smtp-controller'
 
 export * from './smtp-controller'
+export * from './smtp-server-connection'
 
 type SmtpEventMap = {
   session: SmtpSessionEvent

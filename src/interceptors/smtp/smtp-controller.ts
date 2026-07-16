@@ -5,6 +5,7 @@ import type {
   TcpSocketController,
   TlsSocketController,
 } from '../net/socket-controller'
+import { SmtpServerConnection } from './smtp-server-connection'
 
 const SMTP_DOMAIN = 'mock.example.com'
 const DEFAULT_CAPABILITIES = ['AUTH PLAIN LOGIN', '8BITMIME', 'SMTPUTF8']
@@ -527,10 +528,20 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
   }
 
   /**
-   * Establish this connection as-is, against the actual server.
+   * Establish this connection as-is, against the actual server, and
+   * return the real server connection. Observe the server's replies
+   * through its phase-named events (e.g. "message" for the delivery
+   * outcome), and prevent the default of any event to withhold that
+   * reply from the client and author your own through this controller.
    */
-  public passthrough(): void {
-    this.#socketController.passthrough()
+  public passthrough(): SmtpServerConnection {
+    const realSocket = this.#socketController.passthrough()
+
+    return new SmtpServerConnection({
+      realSocket,
+      socketController: this.#socketController,
+      clientSocket: this.#socket,
+    })
   }
 
   /**
