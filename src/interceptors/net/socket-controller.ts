@@ -1063,6 +1063,22 @@ export class TlsSocketController extends TcpSocketController {
       }
     }
 
+    /**
+     * Mock this to prevent a segfault on Node.js 26+. The native
+     * implementation reads the negotiated group ("SSL_get0_group_name")
+     * of a handshake that never happened. Node.js itself calls this
+     * in "onConnectSecure" to validate the "minDHSize" option.
+     * Reflect the ephemeral key exchange matching the mocked cipher.
+     * @see https://github.com/nodejs/node/blob/3178a762d6a2b1a37b74f02266eea0f3d86603f1/lib/_tls_wrap.js#L1636
+     */
+    handle.getEphemeralKeyInfo = () => {
+      return {
+        type: 'ECDH',
+        name: 'X25519',
+        size: 253,
+      }
+    }
+
     const requestedAlpnProtocols = this.#tlsConnectionOptions?.ALPNProtocols
 
     if (
