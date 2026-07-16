@@ -1,10 +1,12 @@
 import net from 'node:net'
 import tls from 'node:tls'
-import { Emitter, TypedEvent } from 'rettime'
+import { TypedEvent } from 'rettime'
 import type {
   TcpSocketController,
   TlsSocketController,
 } from '../net/socket-controller'
+import { SmtpEventTarget } from './event-target'
+import type { SmtpSession } from './smtp-session'
 
 /**
  * A single reply from the real SMTP server. Every reply carries the
@@ -196,6 +198,7 @@ type SmtpPhase =
   | { phase: 'reply' }
 
 interface SmtpServerConnectionOptions {
+  session: SmtpSession
   realSocket: net.Socket | tls.TLSSocket
   socketController: TcpSocketController | TlsSocketController
   clientSocket: net.Socket | tls.TLSSocket
@@ -217,7 +220,8 @@ const DATA_TERMINATOR = Buffer.from('\r\n.\r\n')
  * ("334"/"354") may desync this correlation, since it changes what the
  * client does next — observe and substitute final verdicts instead.
  */
-export class SmtpServerConnection extends Emitter<SmtpServerConnectionEventMap> {
+export class SmtpServerConnection extends SmtpEventTarget<SmtpServerConnectionEventMap> {
+  #session: SmtpSession
   #realSocket: net.Socket | tls.TLSSocket
   #forwardToClient: (chunk: Buffer) => void
 
@@ -231,6 +235,7 @@ export class SmtpServerConnection extends Emitter<SmtpServerConnectionEventMap> 
   constructor(options: SmtpServerConnectionOptions) {
     super()
 
+    this.#session = options.session
     this.#realSocket = options.realSocket
     this.#forwardToClient = (chunk) => {
       options.clientSocket.write(chunk)
@@ -344,7 +349,7 @@ export class SmtpServerConnection extends Emitter<SmtpServerConnectionEventMap> 
   }): void {
     const event = this.#createReplyEvent(reply)
 
-    this.emit(event)
+    this.emitter.emit(event)
 
     // An intermediate reply drives what the client sends next: "354"
     // begins the message transfer, "334" prompts a single continuation
@@ -487,6 +492,7 @@ export class SmtpServerConnection extends Emitter<SmtpServerConnectionEventMap> 
     const command = line.toUpperCase()
 
     if (command.startsWith('EHLO') || command.startsWith('HELO')) {
+      this.#session.heloHostname = line.slice('EHLO '.length).trim()
       this.#phaseQueue.push({ phase: 'helo' })
       return
     }

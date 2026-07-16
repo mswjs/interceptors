@@ -5,18 +5,18 @@ import { Interceptor } from '#/src/interceptor'
 import { SocketInterceptor } from '../net'
 import type { NetworkConnectionOptions } from '../net/utils/normalize-net-connect-args'
 import { SmtpController } from './smtp-controller'
+import { SmtpSession } from './smtp-session'
 
 export * from './smtp-controller'
 export * from './smtp-server-connection'
+export * from './smtp-session'
 
 type SmtpEventMap = {
   session: SmtpSessionEvent
 }
 
 interface SmtpSessionEventData {
-  url: URL
-  socket: net.Socket | tls.TLSSocket
-  connectionOptions: NetworkConnectionOptions
+  session: SmtpSession
   controller: SmtpController
 }
 
@@ -24,21 +24,21 @@ export class SmtpSessionEvent<
   DataType extends SmtpSessionEventData = SmtpSessionEventData,
 > extends TypedEvent<DataType, void, 'session'> {
   /**
-   * The session target ("smtp://localhost:587"). Use this to decide
-   * which sessions to mock. The protocol is "smtps:" for sessions
-   * established over implicit TLS.
+   * The description of this SMTP session (target URL, TLS, and the
+   * metadata that accumulates as the client advances). Use it to decide
+   * which sessions to handle.
    */
-  public url: URL
-  public socket: net.Socket | tls.TLSSocket
-  public connectionOptions: NetworkConnectionOptions
+  public session: SmtpSession
+  /**
+   * The only way to affect this connection: greet (and mock) it, pass
+   * it through to the real server, reply, or terminate it.
+   */
   public controller: SmtpController
 
   constructor(data: DataType) {
     super(...(['session', {}] as any))
 
-    this.url = data.url
-    this.socket = data.socket
-    this.connectionOptions = data.connectionOptions
+    this.session = data.session
     this.controller = data.controller
   }
 }
@@ -52,9 +52,9 @@ export class SmtpSessionEvent<
  */
 function getSessionUrl(
   connectionOptions: NetworkConnectionOptions,
-  socket: net.Socket | tls.TLSSocket
+  secure: boolean
 ): URL {
-  const protocol = socket instanceof tls.TLSSocket ? 'smtps:' : 'smtp:'
+  const protocol = secure ? 'smtps:' : 'smtp:'
   const rawHostname = (connectionOptions.host ?? 'localhost').toLowerCase()
   const hostname = net.isIPv6(rawHostname) ? `[${rawHostname}]` : rawHostname
   const port = Number(connectionOptions.port)
@@ -68,7 +68,7 @@ function getSessionUrl(
  * @note SMTP is a server-greets-first protocol: the client sends
  * nothing until it receives the server's "220" greeting. The "session"
  * listener must decide between "controller.claim()" (mocking) and
- * "controller.passthrough()" based on the session URL alone
+ * "controller.passthrough()" based on the session description alone
  * (e.g. the SMTP port), never on the incoming data. Once claimed,
  * the mock server speaks first by writing the greeting.
  */
@@ -102,7 +102,15 @@ export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
           return
         }
 
+        const secure = socket instanceof tls.TLSSocket
+        const session = new SmtpSession({
+          url: getSessionUrl(connectionOptions, secure),
+          secure,
+          connectionOptions,
+        })
+
         const smtpController = new SmtpController({
+          session,
           socket,
           socketController,
         })
@@ -110,12 +118,7 @@ export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
         try {
           if (
             !this.emitter.emit(
-              new SmtpSessionEvent({
-                url: getSessionUrl(connectionOptions, socket),
-                socket,
-                connectionOptions,
-                controller: smtpController,
-              })
+              new SmtpSessionEvent({ session, controller: smtpController })
             )
           ) {
             /**

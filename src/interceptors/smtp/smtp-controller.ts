@@ -1,11 +1,13 @@
 import net from 'node:net'
 import tls from 'node:tls'
-import { Emitter, TypedEvent } from 'rettime'
+import { TypedEvent } from 'rettime'
 import type {
   TcpSocketController,
   TlsSocketController,
 } from '../net/socket-controller'
+import { SmtpEventTarget } from './event-target'
 import { SmtpServerConnection } from './smtp-server-connection'
+import type { SmtpSession } from './smtp-session'
 
 const SMTP_DOMAIN = 'mock.example.com'
 const DEFAULT_CAPABILITIES = ['AUTH PLAIN LOGIN', '8BITMIME', 'SMTPUTF8']
@@ -45,20 +47,16 @@ export type SmtpReplyCode =
  */
 export type SmtpGreetingCode = 220 | 421 | 554
 
-export type SmtpGreeting =
+export interface SmtpGreeting {
   /**
-   * The text of the default "220" greeting.
+   * The greeting reply code (default "220").
    */
-  | string
+  code?: SmtpGreetingCode
   /**
-   * Do not greet the connection at all
-   * (e.g. to test the client's greeting timeout).
+   * The greeting reply text.
    */
-  | false
-  /**
-   * The complete greeting reply.
-   */
-  | { code?: SmtpGreetingCode; message?: string }
+  message?: string
+}
 
 /**
  * The reply channel given to each command event. Replying through
@@ -482,6 +480,7 @@ type PendingAuth =
   { method: 'PLAIN' } | { method: 'LOGIN'; username?: string }
 
 interface SmtpControllerOptions {
+  session: SmtpSession
   socket: net.Socket | tls.TLSSocket
   socketController: TcpSocketController | TlsSocketController
 }
@@ -505,7 +504,8 @@ interface SmtpEnvelope {
  * (sender, accepted recipients, message) and is the only event most
  * consumers need.
  */
-export class SmtpController extends Emitter<SmtpControllerEventMap> {
+export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
+  #session: SmtpSession
   #socket: net.Socket | tls.TLSSocket
   #socketController: TcpSocketController | TlsSocketController
   /**
@@ -523,6 +523,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
   constructor(options: SmtpControllerOptions) {
     super()
 
+    this.#session = options.session
     this.#socket = options.socket
     this.#socketController = options.socketController
   }
@@ -538,6 +539,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
     const realSocket = this.#socketController.passthrough()
 
     return new SmtpServerConnection({
+      session: this.#session,
       realSocket,
       socketController: this.#socketController,
       clientSocket: this.#socket,
@@ -545,11 +547,13 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
   }
 
   /**
-   * Claim this connection, mocking the SMTP server.
-   * The mock server speaks first: SMTP clients send nothing until
-   * they receive the server's "220" greeting.
+   * Claim this connection, mocking the SMTP server. The mock server
+   * speaks first: SMTP clients send nothing until they receive the
+   * server's greeting. Pass a custom greeting to change the reply
+   * (e.g. "554" to reject the connection), or "null" to send nothing
+   * and exercise the client's greeting timeout.
    */
-  public claim(options?: { greeting?: SmtpGreeting }): void {
+  public claim(greeting?: SmtpGreeting | null): void {
     this.#socketController.claim()
 
     this.#socket.on('data', (chunk) => {
@@ -557,22 +561,13 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
       void this.#processBuffer()
     })
 
-    const greeting = options?.greeting
-
-    // Stay silent so the client's greeting timeout can kick in.
-    if (greeting === false) {
+    // An explicit "null" greeting sends nothing so the client's
+    // greeting timeout can kick in.
+    if (greeting === null) {
       return
     }
 
-    if (typeof greeting === 'object') {
-      this.reply(
-        greeting.code ?? 220,
-        greeting.message ?? `${SMTP_DOMAIN} ESMTP`
-      )
-      return
-    }
-
-    this.reply(220, greeting ?? `${SMTP_DOMAIN} ESMTP`)
+    this.reply(greeting?.code ?? 220, greeting?.message ?? `${SMTP_DOMAIN} ESMTP`)
   }
 
   /**
@@ -729,7 +724,8 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
         },
         context
       )
-      await this.emitAsPromise(event)
+      this.#session.heloHostname = event.hostname
+      await this.emitter.emitAsPromise(event)
 
       if (!context.isReplied) {
         event.accept()
@@ -749,7 +745,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
         parseAddressCommand(line.slice('MAIL FROM:'.length)),
         context
       )
-      await this.emitAsPromise(event)
+      await this.emitter.emitAsPromise(event)
 
       if (!context.isReplied) {
         event.accept()
@@ -768,7 +764,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
         parseAddressCommand(line.slice('RCPT TO:'.length)),
         context
       )
-      await this.emitAsPromise(event)
+      await this.emitter.emitAsPromise(event)
 
       if (!context.isReplied) {
         event.accept()
@@ -790,7 +786,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
         },
       }
       const event = new SmtpDataEvent(context)
-      await this.emitAsPromise(event)
+      await this.emitter.emitAsPromise(event)
 
       if (!context.isReplied) {
         /**
@@ -811,7 +807,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
     if (command.startsWith('QUIT')) {
       const context = this.#createCommandContext()
       const event = new SmtpQuitEvent(context)
-      await this.emitAsPromise(event)
+      await this.emitter.emitAsPromise(event)
 
       if (!context.isReplied) {
         this.reply(221, '2.0.0 Bye')
@@ -841,7 +837,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
       },
       context
     )
-    await this.emitAsPromise(event)
+    await this.emitter.emitAsPromise(event)
 
     if (!context.isReplied) {
       event.reply(500, '5.5.2 Command not recognized')
@@ -928,10 +924,16 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
   ): Promise<void> {
     const context = this.#createCommandContext()
     const event = new SmtpAuthEvent(credentials, context)
-    await this.emitAsPromise(event)
+    await this.emitter.emitAsPromise(event)
 
     if (!context.isReplied) {
       event.accept()
+    }
+
+    // Record the identity once the credentials are accepted.
+    if (isAcceptedReply(context)) {
+      this.#session.user = credentials.username
+      this.#session.auth = credentials
     }
   }
 
@@ -950,7 +952,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
     // The client may start another one on the same connection.
     this.#resetEnvelope()
 
-    await this.emitAsPromise(event)
+    await this.emitter.emitAsPromise(event)
 
     if (!context.isReplied) {
       event.accept()
