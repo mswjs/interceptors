@@ -9,24 +9,24 @@ import { SmtpController } from './smtp-controller'
 export * from './smtp-controller'
 
 type SmtpEventMap = {
-  email: SmtpEmailEvent
+  session: SmtpSessionEvent
 }
 
-interface SmtpEmailEventData {
+interface SmtpSessionEventData {
   socket: net.Socket | tls.TLSSocket
   connectionOptions: NetworkConnectionOptions
   controller: SmtpController
 }
 
-export class SmtpEmailEvent<
-  DataType extends SmtpEmailEventData = SmtpEmailEventData,
-> extends TypedEvent<DataType, void, 'email'> {
+export class SmtpSessionEvent<
+  DataType extends SmtpSessionEventData = SmtpSessionEventData,
+> extends TypedEvent<DataType, void, 'session'> {
   public socket: net.Socket | tls.TLSSocket
   public connectionOptions: NetworkConnectionOptions
   public controller: SmtpController
 
   constructor(data: DataType) {
-    super(...(['email', {}] as any))
+    super(...(['session', {}] as any))
 
     this.socket = data.socket
     this.connectionOptions = data.connectionOptions
@@ -38,7 +38,7 @@ export class SmtpEmailEvent<
  * Interceptor for SMTP connections in Node.js.
  *
  * @note SMTP is a server-greets-first protocol: the client sends
- * nothing until it receives the server's "220" greeting. The "email"
+ * nothing until it receives the server's "220" greeting. The "session"
  * listener must decide between "controller.claim()" (mocking) and
  * "controller.passthrough()" based on the connection options alone
  * (e.g. the SMTP port), never on the incoming data. Once claimed,
@@ -77,7 +77,7 @@ export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
 
         if (
           !this.emitter.emit(
-            new SmtpEmailEvent({
+            new SmtpSessionEvent({
               socket,
               connectionOptions,
               controller: smtpController,
@@ -87,7 +87,7 @@ export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
           /**
            * @note Subscribing to the socket interceptor suppresses its
            * own passthrough-by-default behavior for unhandled connections.
-           * Restore it here for connections no "email" listener handles.
+           * Restore it here for connections no "session" listener handles.
            */
           socketController.passthrough()
         }

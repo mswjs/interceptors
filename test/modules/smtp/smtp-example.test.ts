@@ -23,7 +23,7 @@ it('mocks sending an email via nodemailer', async () => {
   let recipients: Array<string> = []
   let sentMessage = ''
 
-  interceptor.on('email', ({ connectionOptions, controller }) => {
+  interceptor.on('session', ({ connectionOptions, controller }) => {
     if (connectionOptions.port !== SMTP_PORT) {
       return controller.passthrough()
     }
@@ -77,7 +77,7 @@ it('mocks sending an email via nodemailer', async () => {
 it('rejects individual recipients', async () => {
   const messageListener = vi.fn<(recipients: Array<string>) => void>()
 
-  interceptor.on('email', ({ controller }) => {
+  interceptor.on('session', ({ controller }) => {
     controller.claim()
 
     // Each recipient receives its own verdict: this is how partial
@@ -119,12 +119,12 @@ it('rejects individual recipients', async () => {
 it('authenticates the client', async () => {
   const authenticationListener = vi.fn()
 
-  interceptor.on('email', ({ controller }) => {
+  interceptor.on('session', ({ controller }) => {
     controller.claim()
 
-    // The "authentication" event fires once the challenge/response
+    // The "auth" event fires once the challenge/response
     // exchange of the chosen mechanism collects the credentials.
-    controller.on('authentication', (event) => {
+    controller.on('auth', (event) => {
       authenticationListener({
         method: event.method,
         username: event.username,
@@ -165,10 +165,10 @@ it('authenticates the client', async () => {
 it('authenticates the client with the multi-step "LOGIN" mechanism', async () => {
   const authenticationListener = vi.fn()
 
-  interceptor.on('email', ({ controller }) => {
+  interceptor.on('session', ({ controller }) => {
     controller.claim()
 
-    controller.on('authentication', (event) => {
+    controller.on('auth', (event) => {
       authenticationListener({
         method: event.method,
         username: event.username,
@@ -203,10 +203,10 @@ it('authenticates the client with the multi-step "LOGIN" mechanism', async () =>
 })
 
 it('rejects invalid credentials', async () => {
-  interceptor.on('email', ({ controller }) => {
+  interceptor.on('session', ({ controller }) => {
     controller.claim()
 
-    controller.on('authentication', (event) => {
+    controller.on('auth', (event) => {
       if (event.password === 'valid') {
         event.accept()
       } else {
@@ -239,7 +239,7 @@ it('rejects invalid credentials', async () => {
 })
 
 it('defers the message so the client can retry it', async () => {
-  interceptor.on('email', ({ controller }) => {
+  interceptor.on('session', ({ controller }) => {
     controller.claim()
 
     // A transient rejection tells the client the message may be
@@ -269,7 +269,7 @@ it('defers the message so the client can retry it', async () => {
 })
 
 it('rejects the connection at the greeting', async () => {
-  interceptor.on('email', ({ controller }) => {
+  interceptor.on('session', ({ controller }) => {
     // A server may greet the connection with "554", refusing
     // to serve it before the client sends anything.
     controller.claim({
@@ -297,7 +297,7 @@ it('rejects the connection at the greeting', async () => {
 })
 
 it('never greets the connection so the client times out', async () => {
-  interceptor.on('email', ({ controller }) => {
+  interceptor.on('session', ({ controller }) => {
     // A silent mock server exercises the client's greeting timeout.
     controller.claim({ greeting: false })
   })
@@ -322,7 +322,7 @@ it('never greets the connection so the client times out', async () => {
 })
 
 it('aborts the SMTP session at any point via "controller.abort()"', async () => {
-  interceptor.on('email', ({ controller }) => {
+  interceptor.on('session', ({ controller }) => {
     controller.claim()
 
     // Abort the session per the SMTP protocol: the server replies
@@ -352,7 +352,7 @@ it('aborts the SMTP session at any point via "controller.abort()"', async () => 
 })
 
 it('errors the SMTP connection abruptly via "controller.error()"', async () => {
-  interceptor.on('email', ({ controller }) => {
+  interceptor.on('session', ({ controller }) => {
     controller.claim()
 
     // Error the connection without any SMTP reply,

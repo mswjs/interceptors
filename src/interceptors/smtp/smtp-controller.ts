@@ -112,7 +112,7 @@ export class SmtpHeloEvent extends TypedEvent<SmtpHeloEventData, void, 'helo'> {
   }
 }
 
-interface SmtpAuthenticationEventData {
+interface SmtpAuthEventData {
   method: 'PLAIN' | 'LOGIN'
   username: string
   password: string
@@ -123,10 +123,10 @@ interface SmtpAuthenticationEventData {
  * The controller runs the challenge/response exchange of the chosen
  * mechanism and emits this event once the credentials are collected.
  */
-export class SmtpAuthenticationEvent extends TypedEvent<
-  SmtpAuthenticationEventData,
+export class SmtpAuthEvent extends TypedEvent<
+  SmtpAuthEventData,
   void,
-  'authentication'
+  'auth'
 > {
   /**
    * The authentication mechanism chosen by the client.
@@ -136,8 +136,8 @@ export class SmtpAuthenticationEvent extends TypedEvent<
   public password: string
   #context: SmtpCommandContext
 
-  constructor(data: SmtpAuthenticationEventData, context: SmtpCommandContext) {
-    super('authentication', { data })
+  constructor(data: SmtpAuthEventData, context: SmtpCommandContext) {
+    super('auth', { data })
 
     this.method = data.method
     this.username = data.username
@@ -468,7 +468,7 @@ export class SmtpUnknownCommandEvent extends TypedEvent<
 
 type SmtpControllerEventMap = {
   helo: SmtpHeloEvent
-  authentication: SmtpAuthenticationEvent
+  auth: SmtpAuthEvent
   sender: SmtpSenderEvent
   recipient: SmtpRecipientEvent
   data: SmtpDataEvent
@@ -477,7 +477,7 @@ type SmtpControllerEventMap = {
   command: SmtpUnknownCommandEvent
 }
 
-type PendingAuthentication =
+type PendingAuth =
   { method: 'PLAIN' } | { method: 'LOGIN'; username?: string }
 
 interface SmtpControllerOptions {
@@ -509,7 +509,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
   #socketController: TcpSocketController | TlsSocketController
   #buffer = ''
   #envelope: SmtpEnvelope = { sender: '', recipients: [] }
-  #pendingAuthentication?: PendingAuthentication
+  #pendingAuth?: PendingAuth
   #isReadingData = false
   #isProcessing = false
 
@@ -659,8 +659,8 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
 
         // Lines sent during an authentication exchange are the
         // challenge responses, not commands.
-        if (this.#pendingAuthentication) {
-          await this.#handleAuthenticationResponse(line)
+        if (this.#pendingAuth) {
+          await this.#handleAuthResponse(line)
           continue
         }
 
@@ -693,7 +693,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
     }
 
     if (command.startsWith('AUTH')) {
-      await this.#handleAuthentication(line)
+      await this.#handleAuth(line)
       return
     }
 
@@ -807,7 +807,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
    * exchange of the chosen mechanism.
    * @see https://datatracker.ietf.org/doc/html/rfc4954
    */
-  async #handleAuthentication(line: string): Promise<void> {
+  async #handleAuth(line: string): Promise<void> {
     // Split the raw line: the initial response is base64 (case-sensitive).
     const [, mechanism = '', initialResponse] = line.split(' ')
     const method = mechanism.toUpperCase()
@@ -815,13 +815,13 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
     if (method === 'PLAIN') {
       // "AUTH PLAIN <base64>" carries the credentials inline.
       if (initialResponse) {
-        await this.#emitAuthentication(parsePlainCredentials(initialResponse))
+        await this.#emitAuth(parsePlainCredentials(initialResponse))
         return
       }
 
       // "AUTH PLAIN" alone awaits the credentials as the response
       // to an empty server challenge.
-      this.#pendingAuthentication = { method: 'PLAIN' }
+      this.#pendingAuth = { method: 'PLAIN' }
       this.reply(334, '')
       return
     }
@@ -830,7 +830,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
       // "AUTH LOGIN <base64>" carries the username inline,
       // proceed to the password challenge right away.
       if (initialResponse) {
-        this.#pendingAuthentication = {
+        this.#pendingAuth = {
           method: 'LOGIN',
           username: decodeBase64(initialResponse),
         }
@@ -838,7 +838,7 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
         return
       }
 
-      this.#pendingAuthentication = { method: 'LOGIN' }
+      this.#pendingAuth = { method: 'LOGIN' }
       this.reply(334, BASE64_USERNAME_CHALLENGE)
       return
     }
@@ -846,42 +846,42 @@ export class SmtpController extends Emitter<SmtpControllerEventMap> {
     this.reply(504, '5.5.4 Unrecognized authentication type')
   }
 
-  async #handleAuthenticationResponse(line: string): Promise<void> {
-    const pendingAuthentication = this.#pendingAuthentication!
+  async #handleAuthResponse(line: string): Promise<void> {
+    const pendingAuth = this.#pendingAuth!
 
     // The client may abort the exchange at any point by sending "*".
     if (line === '*') {
-      this.#pendingAuthentication = undefined
+      this.#pendingAuth = undefined
       this.reply(501, '5.7.0 Authentication aborted')
       return
     }
 
-    if (pendingAuthentication.method === 'PLAIN') {
-      this.#pendingAuthentication = undefined
-      await this.#emitAuthentication(parsePlainCredentials(line))
+    if (pendingAuth.method === 'PLAIN') {
+      this.#pendingAuth = undefined
+      await this.#emitAuth(parsePlainCredentials(line))
       return
     }
 
-    if (pendingAuthentication.username == null) {
-      pendingAuthentication.username = decodeBase64(line)
+    if (pendingAuth.username == null) {
+      pendingAuth.username = decodeBase64(line)
       this.reply(334, BASE64_PASSWORD_CHALLENGE)
       return
     }
 
-    const credentials: SmtpAuthenticationEventData = {
+    const credentials: SmtpAuthEventData = {
       method: 'LOGIN',
-      username: pendingAuthentication.username,
+      username: pendingAuth.username,
       password: decodeBase64(line),
     }
-    this.#pendingAuthentication = undefined
-    await this.#emitAuthentication(credentials)
+    this.#pendingAuth = undefined
+    await this.#emitAuth(credentials)
   }
 
-  async #emitAuthentication(
-    credentials: SmtpAuthenticationEventData
+  async #emitAuth(
+    credentials: SmtpAuthEventData
   ): Promise<void> {
     const context = this.#createCommandContext()
-    const event = new SmtpAuthenticationEvent(credentials, context)
+    const event = new SmtpAuthEvent(credentials, context)
     await this.emitAsPromise(event)
 
     if (!context.isReplied) {
