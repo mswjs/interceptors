@@ -86,6 +86,81 @@ it('connects to the address resolved by the custom "lookup" function', async () 
   socket.destroy()
 })
 
+it('resolves a passthrough connection with the custom "lookup" function', async () => {
+  await using server = await createTestServer(() => {
+    return new net.Server((socket) => {
+      socket.end('hello from server')
+    })
+  })
+
+  interceptor.on('connection', ({ controller }) => {
+    controller.passthrough()
+  })
+
+  // Resolve the imaginary hostname to the test server address.
+  const lookupFunction = vi.fn(createLookupFunction())
+  const socket = net.connect({
+    port: server.port,
+    host: 'imaginary.example.com',
+    lookup: lookupFunction,
+  })
+  const { listeners } = spyOnSocket(socket)
+  const receivedChunks: Array<Buffer> = []
+
+  socket.on('data', (chunk) => {
+    receivedChunks.push(chunk)
+  })
+
+  await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
+
+  // The custom lookup function must drive the passthrough connection.
+  expect.soft(lookupFunction).toHaveBeenCalledWith(
+    'imaginary.example.com',
+    expect.objectContaining({ all: true }),
+    expect.any(Function)
+  )
+  expect.soft(Buffer.concat(receivedChunks).toString()).toBe(
+    'hello from server'
+  )
+  expect(listeners.error).not.toHaveBeenCalled()
+})
+
+it('errors a passthrough connection if the custom "lookup" function fails', async () => {
+  await using server = await createTestServer(() => {
+    return new net.Server((socket) => {
+      socket.end()
+    })
+  })
+
+  interceptor.on('connection', ({ controller }) => {
+    controller.passthrough()
+  })
+
+  const lookupFunction = vi.fn<net.LookupFunction>((...args) => {
+    const callback = args[args.length - 1] as (error: Error) => void
+    callback(new Error('Custom lookup failure'))
+  })
+  const socket = net.connect({
+    port: server.port,
+    host: 'imaginary.example.com',
+    lookup: lookupFunction,
+  })
+  const { listeners } = spyOnSocket(socket)
+
+  socket.resume()
+
+  await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
+
+  expect.soft(lookupFunction).toHaveBeenCalledOnce()
+  expect
+    .soft(listeners.error)
+    .toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ message: 'Custom lookup failure' })
+    )
+  expect.soft(listeners.close).toHaveBeenCalledWith(true)
+  expect(listeners.connect).not.toHaveBeenCalled()
+})
+
 it('does not mutate the connection options', async () => {
   await using server = await createTestServer(() => {
     return new net.Server((socket) => {
