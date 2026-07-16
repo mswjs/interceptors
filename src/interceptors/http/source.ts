@@ -65,6 +65,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
       ({ connectionOptions, socket, controller: socketController }) => {
         let isHttpConnection: boolean | undefined
         let requestParser: HttpRequestParser | undefined
+        let tunnelUrl: URL | undefined
 
         /**
          * @note Only inspect the first sent packet to determine the protocol.
@@ -73,6 +74,20 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         socket.on('data', (chunk) => {
           if (isHttpConnection === false) {
             return
+          }
+
+          /**
+           * @note A mocked "CONNECT" request has established a tunnel.
+           * The data that follows belongs to a new exchange addressed to
+           * the tunnel target. The parser stopped at the tunnel boundary
+           * (HTTP upgrade semantics), so tear it down and detect the
+           * tunneled protocol anew, like on a fresh connection.
+           */
+          if (tunnelUrl && requestParser) {
+            requestParser.free()
+            requestParser = undefined
+            isHttpConnection = undefined
+            socketController.reset()
           }
 
           if (requestParser) {
@@ -91,7 +106,8 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
           isHttpConnection = true
 
-          const baseUrl = connectionOptionsToUrl(connectionOptions, socket)
+          const baseUrl =
+            tunnelUrl ?? connectionOptionsToUrl(connectionOptions, socket)
 
           httpLogger.verbose('handling http message %o', {
             httpMessage,
@@ -148,6 +164,16 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                   const response = FetchResponse.from(rawResponse, {
                     url: request.url,
                   })
+
+                  /**
+                   * @note A successful mocked response to a "CONNECT"
+                   * request establishes a tunnel to the requested authority
+                   * (e.g. "127.0.0.1:80"). The exchange that follows on this
+                   * socket is addressed to that authority, not to the proxy.
+                   */
+                  if (request.method === 'CONNECT' && response.ok) {
+                    tunnelUrl = new URL(`http://${request.url}`)
+                  }
 
                   /**
                    * @note Clone the response before "respondWith" because it will

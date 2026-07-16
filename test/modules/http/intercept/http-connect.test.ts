@@ -8,7 +8,7 @@ import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { waitForClientRequest } from '#/test/helpers'
+import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -180,19 +180,18 @@ it('errors the intercepted "CONNECT" request', async () => {
   expect(responseListener).not.toHaveBeenCalled()
 })
 
-it.skip('mocks the entire proxy flow end-to-end', async () => {
+it('responds to the "CONNECT" request with a mocked response', async () => {
+  const allInterceptedRequests: Array<Request> = []
+
   interceptor.on('request', ({ request, controller }) => {
+    allInterceptedRequests.push(request)
+
     if (request.method === 'CONNECT') {
       return controller.respondWith(new Response())
     }
 
     controller.respondWith(new Response('mock'))
   })
-
-  const connectListener = vi.fn()
-  const responseListener = vi.fn()
-  const errorListener = vi.fn()
-  const closeListener = vi.fn()
 
   const agent = new HttpsProxyAgent('http://non-existing.remote/server')
 
@@ -205,11 +204,16 @@ it.skip('mocks the entire proxy flow end-to-end', async () => {
     })
     .end()
 
-  request.on('connect', connectListener)
+  // The tunneled request must receive the mocked response.
+  const [response] = await toWebResponse(request)
+  expect.soft(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('mock')
 
-  await expect.poll(() => connectListener).toHaveBeenCalledOnce()
-
-  /**
-   * @todo @fixme Finish this test.
-   */
+  // The interceptor must observe both the "CONNECT" request sent to
+  // the proxy and the actual request sent over the established tunnel.
+  expect.soft(allInterceptedRequests[0].method).toBe('CONNECT')
+  expect.soft(allInterceptedRequests[0].url).toBe('127.0.0.1:80')
+  expect.soft(allInterceptedRequests[1].method).toBe('GET')
+  expect.soft(allInterceptedRequests[1].url).toBe('http://127.0.0.1/')
+  expect.soft(allInterceptedRequests).toHaveLength(2)
 })
