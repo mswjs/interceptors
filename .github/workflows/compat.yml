@@ -1,10 +1,12 @@
 name: compat
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
+    inputs:
+      branchName:
+        description: 'Nock branch to run the compatibility tests against (defaults to the default branch)'
+        required: false
+        type: string
 
 jobs:
   nock:
@@ -33,4 +35,4 @@ jobs:
         run: npm pack
 
       - name: Nock tests
-        run: ./test/third-party/nock.sh
+        run: ./test/third-party/nock.sh ${{ inputs.branchName }}
