@@ -13,6 +13,7 @@ type SmtpEventMap = {
 }
 
 interface SmtpSessionEventData {
+  url: URL
   socket: net.Socket | tls.TLSSocket
   connectionOptions: NetworkConnectionOptions
   controller: SmtpController
@@ -21,6 +22,12 @@ interface SmtpSessionEventData {
 export class SmtpSessionEvent<
   DataType extends SmtpSessionEventData = SmtpSessionEventData,
 > extends TypedEvent<DataType, void, 'session'> {
+  /**
+   * The session target ("smtp://localhost:587"). Use this to decide
+   * which sessions to mock. The protocol is "smtps:" for sessions
+   * established over implicit TLS.
+   */
+  public url: URL
   public socket: net.Socket | tls.TLSSocket
   public connectionOptions: NetworkConnectionOptions
   public controller: SmtpController
@@ -28,10 +35,30 @@ export class SmtpSessionEvent<
   constructor(data: DataType) {
     super(...(['session', {}] as any))
 
+    this.url = data.url
     this.socket = data.socket
     this.connectionOptions = data.connectionOptions
     this.controller = data.controller
   }
+}
+
+/**
+ * Coerce the connection options into the session URL.
+ *
+ * @note The WHATWG URL treats "smtp:" as a non-special scheme and
+ * skips the hostname case normalization, so lowercase it here
+ * (hostnames are case-insensitive).
+ */
+function getSessionUrl(
+  connectionOptions: NetworkConnectionOptions,
+  socket: net.Socket | tls.TLSSocket
+): URL {
+  const protocol = socket instanceof tls.TLSSocket ? 'smtps:' : 'smtp:'
+  const rawHostname = (connectionOptions.host ?? 'localhost').toLowerCase()
+  const hostname = net.isIPv6(rawHostname) ? `[${rawHostname}]` : rawHostname
+  const port = Number(connectionOptions.port)
+
+  return new URL(`${protocol}//${hostname}:${port}`)
 }
 
 /**
@@ -40,14 +67,9 @@ export class SmtpSessionEvent<
  * @note SMTP is a server-greets-first protocol: the client sends
  * nothing until it receives the server's "220" greeting. The "session"
  * listener must decide between "controller.claim()" (mocking) and
- * "controller.passthrough()" based on the connection options alone
+ * "controller.passthrough()" based on the session URL alone
  * (e.g. the SMTP port), never on the incoming data. Once claimed,
- * the mock server must speak first by writing the greeting.
- *
- * @todo Implement the SMTP session state machine (greeting, EHLO,
- * MAIL/RCPT/DATA, dot-unstuffing) and expose the parsed email
- * (envelope, message) on the event, with "accept()"/"reject()"
- * response controls, instead of the raw socket.
+ * the mock server speaks first by writing the greeting.
  */
 export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
   static symbol = Symbol.for('smtp-interceptor')
@@ -70,6 +92,15 @@ export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
     socketInterceptor.on(
       'connection',
       ({ socket, connectionOptions, controller: socketController }) => {
+        /**
+         * @note IPC (path-based) connections have no network authority
+         * and cannot be SMTP sessions. Let them pass through.
+         */
+        if (connectionOptions.port == null) {
+          socketController.passthrough()
+          return
+        }
+
         const smtpController = new SmtpController({
           socket,
           socketController,
@@ -78,6 +109,7 @@ export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
         if (
           !this.emitter.emit(
             new SmtpSessionEvent({
+              url: getSessionUrl(connectionOptions, socket),
               socket,
               connectionOptions,
               controller: smtpController,
