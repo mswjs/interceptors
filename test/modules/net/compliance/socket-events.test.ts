@@ -145,6 +145,79 @@ it('emits events in the correct order when the client ends the connection', asyn
   ])
 })
 
+it('emits events in the correct order when the server ends a paused connection', async () => {
+  await using server = await createTestServer(() => {
+    return new net.Server((socket) => {
+      socket.write('hello')
+      socket.end()
+    })
+  })
+
+  const socket = net.connect(server.port, server.hostname)
+  const { listeners, events } = spyOnSocket(socket)
+
+  socket.pause()
+
+  await expect.poll(() => listeners.connect).toHaveBeenCalledOnce()
+  await new Promise((resolve) => {
+    setTimeout(resolve, 300)
+  })
+
+  // A paused socket must not receive the sent data or emit
+  // "end"/"close" even after the server closes the connection.
+  // The unread data (and the end-of-stream) stay buffered until read.
+  expect.soft(listeners.data).not.toHaveBeenCalled()
+  expect.soft(listeners.end).not.toHaveBeenCalled()
+  expect.soft(listeners.close).not.toHaveBeenCalled()
+
+  socket.resume()
+
+  await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
+  expect(events).toEqual([
+    ['connectionAttempt', server.hostname, server.port, 4],
+    ['connect'],
+    ['ready'],
+    ['data', Buffer.from('hello')],
+    ['end'],
+    ['close', false],
+  ])
+})
+
+it('emits "close" when destroying a paused connection with unread data', async () => {
+  await using server = await createTestServer(() => {
+    return new net.Server((socket) => {
+      // The client destroys the connection with unread data,
+      // making the kernel send RST to the server.
+      socket.on('error', () => {})
+      socket.write('hello')
+      socket.end()
+    })
+  })
+
+  const socket = net.connect(server.port, server.hostname)
+  const { listeners, events } = spyOnSocket(socket)
+
+  socket.pause()
+
+  await expect.poll(() => listeners.connect).toHaveBeenCalledOnce()
+  await new Promise((resolve) => {
+    setTimeout(resolve, 300)
+  })
+
+  // Destroy the socket with the received data (and the end-of-stream)
+  // still unread. The buffered data is discarded, and the socket must
+  // still complete its teardown with the "close" event.
+  socket.destroy()
+
+  await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
+  expect(events).toEqual([
+    ['connectionAttempt', server.hostname, server.port, 4],
+    ['connect'],
+    ['ready'],
+    ['close', false],
+  ])
+})
+
 it('emits "timeout" on an idle socket without destroying it', async () => {
   await using server = await createTestServer(() => {
     return new net.Server(() => {})

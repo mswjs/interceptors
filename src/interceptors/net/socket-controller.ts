@@ -307,6 +307,7 @@ export class TcpSocketController extends SocketController {
   #corkedReads: Array<CorkedReadEvent> = []
   #realHandleSwapped = false
   #clientCloseEmitted = false
+  #clientEndPushed = false
   #connectEmulated = false
 
   constructor(
@@ -712,10 +713,21 @@ export class TcpSocketController extends SocketController {
       return
     }
 
+    this.#clientEndPushed = true
     this.socket.push(null)
   }
 
   #onRealSocketClose = (hadError: boolean) => {
+    /**
+     * @note The connection is fully closed and the swapped handle
+     * cannot shut down anymore. Report a synchronous shutdown so the
+     * automatic "end()" of a half-closed socket ("allowHalfOpen: false")
+     * finishes without errors once the consumer reads the end-of-stream.
+     */
+    if (this.#realHandleSwapped && this.socket._handle) {
+      this.socket._handle.shutdown = () => 1
+    }
+
     if (this.#readsCorked) {
       this.#corkedReads.push({ type: 'close', hadError })
       return
@@ -732,6 +744,55 @@ export class TcpSocketController extends SocketController {
     // through its own machinery. Only forward the real socket "close"
     // when the handle swap suppressed that emission.
     if (this.socket.destroyed && !this.#realHandleSwapped) {
+      return
+    }
+
+    this.#emitClientClose(hadError)
+  }
+
+  /**
+   * Emit the "close" event on the client socket, honoring the order
+   * of the socket teardown events.
+   * @note The client may be paused with the received data (and the
+   * end-of-stream) still buffered. Node.js never emits "close" before
+   * "end" on a gracefully closed connection: the teardown waits until
+   * the consumer reads the buffered data.
+   */
+  #emitClientClose(hadError: boolean): void {
+    if (
+      this.#clientEndPushed &&
+      !this.socket.readableEnded &&
+      !this.socket.destroyed
+    ) {
+      let closeDelivered = false
+      const deliverClose = (hadErrorOverride?: boolean) => {
+        if (closeDelivered) {
+          return
+        }
+        closeDelivered = true
+
+        process.nextTick(() => {
+          if (!this.#clientCloseEmitted) {
+            this.socket.emit('close', hadErrorOverride ?? hadError)
+          }
+        })
+      }
+
+      this.socket.once('end', () => {
+        deliverClose()
+      })
+
+      /**
+       * @note The consumer may also destroy the socket before reading
+       * the buffered data. Node.js still emits "close" for such
+       * sockets, but the destroy machinery of a socket with a swapped
+       * (already closed) handle never completes. Deliver "close" here.
+       */
+      const realDestroy = this.socket._destroy
+      this.socket._destroy = (error, callback) => {
+        deliverClose(error != null)
+        return realDestroy.call(this.socket, error, callback)
+      }
       return
     }
 
@@ -781,12 +842,13 @@ export class TcpSocketController extends SocketController {
         }
 
         case 'end': {
+          this.#clientEndPushed = true
           this.socket.push(null)
           break
         }
 
         case 'close': {
-          this.socket.emit('close', corkedRead.hadError)
+          this.#emitClientClose(corkedRead.hadError)
           break
         }
       }
