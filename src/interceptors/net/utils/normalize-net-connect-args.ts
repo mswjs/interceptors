@@ -11,11 +11,18 @@ export interface NetworkConnectionOptions {
   protocol?: string | null
   auth?: string | null
   family?: number | null
+  hints?: number | null
   session?: Buffer
   localAddress?: string | null
   localPort?: number | null
   timeout?: number
   lookup?: net.LookupFunction
+  allowHalfOpen?: boolean | null
+  noDelay?: boolean | null
+  keepAlive?: boolean | null
+  keepAliveInitialDelay?: number | null
+  autoSelectFamily?: boolean | null
+  autoSelectFamilyAttemptTimeout?: number | null
 }
 
 export type NetConnectArgs =
@@ -77,9 +84,21 @@ export function normalizeNetConnectArgs(
           host: Reflect.get(args[0], 'host'),
           auth: Reflect.get(args[0], 'auth'),
           family: Reflect.get(args[0], 'family'),
+          hints: Reflect.get(args[0], 'hints'),
           session: Reflect.get(args[0], 'session'),
           localAddress: Reflect.get(args[0], 'localAddress'),
           localPort: Reflect.get(args[0], 'localPort'),
+          timeout: Reflect.get(args[0], 'timeout'),
+          lookup: Reflect.get(args[0], 'lookup'),
+          allowHalfOpen: Reflect.get(args[0], 'allowHalfOpen'),
+          noDelay: Reflect.get(args[0], 'noDelay'),
+          keepAlive: Reflect.get(args[0], 'keepAlive'),
+          keepAliveInitialDelay: Reflect.get(args[0], 'keepAliveInitialDelay'),
+          autoSelectFamily: Reflect.get(args[0], 'autoSelectFamily'),
+          autoSelectFamilyAttemptTimeout: Reflect.get(
+            args[0],
+            'autoSelectFamilyAttemptTimeout'
+          ),
         },
         callback,
       ]
@@ -91,6 +110,8 @@ export function normalizeNetConnectArgs(
         family: Reflect.get(args[0], 'family'),
         session: Reflect.get(args[0], 'session'),
         auth: Reflect.get(args[0], 'auth'),
+        timeout: Reflect.get(args[0], 'timeout'),
+        allowHalfOpen: Reflect.get(args[0], 'allowHalfOpen'),
       },
       callback,
     ]
