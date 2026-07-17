@@ -19,13 +19,11 @@ afterAll(() => {
 const SMTP_PORT = 587
 
 it('translates a command listener exception into a "451" reply', async () => {
-  interceptor.on('session', ({ controller }) => {
-    controller.claim()
-
+  interceptor.on('session', ({ client }) => {
     // An exception in a command listener surfaces the same way
     // an internal error of a real server would: the in-flight
     // command receives a "451" ("local error in processing").
-    controller.on('message', () => {
+    client.on('message', () => {
       throw new Error('Unexpected listener error')
     })
   })

@@ -18,14 +18,12 @@ afterAll(() => {
 
 const SMTP_PORT = 587
 
-it('aborts the SMTP session at any point via "controller.abort()"', async () => {
-  interceptor.on('session', ({ controller }) => {
-    controller.claim()
-
+it('aborts the SMTP session at any point via "client.abort()"', async () => {
+  interceptor.on('session', ({ client }) => {
     // Abort the session per the SMTP protocol: the server replies
     // "421" and closes the transmission channel.
-    controller.on('sender', () => {
-      controller.abort('4.3.2 System shutting down')
+    client.on('sender', () => {
+      client.abort('4.3.2 System shutting down')
     })
   })
 
@@ -48,14 +46,12 @@ it('aborts the SMTP session at any point via "controller.abort()"', async () => 
   })
 })
 
-it('errors the SMTP connection abruptly via "controller.error()"', async () => {
-  interceptor.on('session', ({ controller }) => {
-    controller.claim()
-
+it('errors the SMTP connection abruptly via "client.error()"', async () => {
+  interceptor.on('session', ({ client }) => {
     // Error the connection without any SMTP reply,
     // like a server crash or a broken network would.
-    controller.on('recipient', () => {
-      controller.error()
+    client.on('recipient', () => {
+      client.error()
     })
   })
 

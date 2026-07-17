@@ -92,32 +92,34 @@ it('observes the real server delivery outcome on passthrough', async () => {
   let observedCapabilities: Array<string> = []
   const observedRecipients: Array<{ address: string; code: number }> = []
 
-  interceptor.on('session', ({ controller }) => {
-    const realServer = controller.passthrough()
-
-    realServer.on('greeting', (event) => {
+  interceptor.on('session', async ({ server }) => {
+    server.on('greeting', (event) => {
       observedEvents.push('greeting')
       expect(event.code).toBe(220)
     })
-    realServer.on('helo', (event) => {
+    server.on('helo', (event) => {
       observedEvents.push('helo')
       observedCapabilities = event.capabilities
     })
-    realServer.on('sender', () => {
+    server.on('sender', () => {
       observedEvents.push('sender')
     })
-    realServer.on('recipient', (event) => {
+    server.on('recipient', (event) => {
       observedEvents.push('recipient')
       observedRecipients.push({ address: event.address, code: event.code })
     })
-    realServer.on('data', () => {
+    server.on('data', () => {
       observedEvents.push('data')
     })
-    realServer.on('message', (event) => {
+    server.on('message', (event) => {
       observedEvents.push('message')
       observedMessageCode = event.code
       observedQueueId = event.queueId
     })
+
+    // Connecting before the greeting bypasses the session
+    // to the real server.
+    await server.connect()
   })
 
   const transport = nodemailer.createTransport({
@@ -157,12 +159,12 @@ it('observes the real per-recipient verdicts of a partial delivery', async () =>
 
   const observedRecipients: Array<{ address: string; code: number }> = []
 
-  interceptor.on('session', ({ controller }) => {
-    const realServer = controller.passthrough()
-
-    realServer.on('recipient', (event) => {
+  interceptor.on('session', async ({ server }) => {
+    server.on('recipient', (event) => {
       observedRecipients.push({ address: event.address, code: event.code })
     })
+
+    await server.connect()
   })
 
   const transport = nodemailer.createTransport({
@@ -194,16 +196,16 @@ it('observes the real per-recipient verdicts of a partial delivery', async () =>
 it('withholds a real reply and substitutes it through the controller', async () => {
   await using server = await createTestServer(createSmtpServer)
 
-  interceptor.on('session', ({ controller }) => {
-    const realServer = controller.passthrough()
-
-    realServer.on('message', (event) => {
+  interceptor.on('session', async ({ client, server }) => {
+    server.on('message', (event) => {
       // The real server accepted the message ("250 ... REAL-123"),
       // but withhold that reply and reject the delivery to the client.
       expect(event.code).toBe(250)
       event.preventDefault()
-      controller.reply(550, '5.7.1 Blocked by policy')
+      client.reply(550, '5.7.1 Blocked by policy')
     })
+
+    await server.connect()
   })
 
   const transport = nodemailer.createTransport({
@@ -235,13 +237,13 @@ it('withholds a real reply and substitutes it through the controller', async () 
 it('abruptly terminates the connection via the real server', async () => {
   await using server = await createTestServer(createSmtpServer)
 
-  interceptor.on('session', ({ controller }) => {
-    const realServer = controller.passthrough()
-
+  interceptor.on('session', async ({ server }) => {
     // Kill the upstream connection the moment the real server greets.
-    realServer.on('greeting', () => {
-      realServer.destroy()
+    server.on('greeting', () => {
+      server.destroy()
     })
+
+    await server.connect()
   })
 
   const transport = nodemailer.createTransport({
@@ -271,13 +273,13 @@ it('abruptly terminates the connection via the real server', async () => {
 it('gracefully closes the connection via the real server', async () => {
   await using server = await createTestServer(createSmtpServer)
 
-  interceptor.on('session', ({ controller }) => {
-    const realServer = controller.passthrough()
-
+  interceptor.on('session', async ({ server }) => {
     // Close the upstream connection right after the greeting.
-    realServer.on('greeting', () => {
-      realServer.close()
+    server.on('greeting', () => {
+      server.close()
     })
+
+    await server.connect()
   })
 
   const transport = nodemailer.createTransport({

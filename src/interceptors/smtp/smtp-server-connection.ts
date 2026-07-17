@@ -1,12 +1,21 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import { TypedEvent } from 'rettime'
-import type {
-  TcpSocketController,
-  TlsSocketController,
-} from '../net/socket-controller'
+import { invariant } from 'outvariant'
+import { DeferredPromise } from '@open-draft/deferred-promise'
+import { applyDotStuffing, CRLF, DATA_TERMINATOR } from './dot-stuffing'
 import { SmtpEventTarget } from './event-target'
 import type { SmtpSession } from './smtp-session'
+import {
+  kDeliverReply,
+  kForwardFrame,
+  kGreeted,
+  kSetServer,
+  kUpstreamEnd,
+  kUpstreamError,
+  type SmtpClientConnection,
+  type SmtpMessageEvent,
+} from './smtp-client-connection'
 
 /**
  * A single reply from the real SMTP server. Every reply carries the
@@ -20,9 +29,9 @@ interface SmtpServerReplyData {
 
 /**
  * The base class of every reply the real SMTP server sends during a
- * passthrough session. Prevent the default of the event to stop the
+ * bypassed session. Prevent the default of the event to stop the
  * reply from reaching the client, then author what the client sees
- * through the controller (e.g. `controller.reply()`).
+ * through the client connection (e.g. `client.reply()`).
  */
 abstract class SmtpServerReplyEvent<
   EventType extends string,
@@ -187,7 +196,7 @@ type SmtpServerConnectionEventMap = {
   reply: SmtpServerReplyEventGeneric
 }
 
-type SmtpPhase =
+export type SmtpPhase =
   | { phase: 'helo' }
   | { phase: 'auth' }
   | { phase: 'sender' }
@@ -197,90 +206,334 @@ type SmtpPhase =
   | { phase: 'quit' }
   | { phase: 'reply' }
 
-interface SmtpServerConnectionOptions {
-  session: SmtpSession
-  realSocket: net.Socket | tls.TLSSocket
-  socketController: TcpSocketController | TlsSocketController
-  clientSocket: net.Socket | tls.TLSSocket
+interface SmtpReply {
+  code: number
+  lines: Array<string>
+  raw: Buffer
 }
 
-const CRLF = Buffer.from('\r\n')
-const DATA_TERMINATOR = Buffer.from('\r\n.\r\n')
+/**
+ * A replay or delivery failure of `server.send()`: the real server
+ * rejected one of the replayed session phases before (or instead of)
+ * accepting the message transfer.
+ */
+export class SmtpDeliveryError extends Error {
+  constructor(
+    /**
+     * The session phase the real server rejected.
+     */
+    public readonly phase: 'helo' | 'auth' | 'sender' | 'recipient' | 'data',
+    /**
+     * The rejecting reply of the real server.
+     */
+    public readonly reply: { code: number; lines: Array<string> }
+  ) {
+    super(
+      `Failed to deliver the message: the real server rejected the "${phase}" phase with "${reply.code} ${reply.lines.join(' ')}"`
+    )
+    this.name = 'SmtpDeliveryError'
+  }
+}
+
+interface SmtpServerConnectionOptions {
+  session: SmtpSession
+  client: SmtpClientConnection
+  clientSocket: net.Socket | tls.TLSSocket
+  createConnection: () => net.Socket | tls.TLSSocket
+}
 
 /**
- * The real SMTP server connection of a passthrough session, returned
- * by `controller.passthrough()`. It mediates the server's reply stream:
- * every reply is parsed, correlated to the client command it answers,
- * and emitted as a phase-named event before being forwarded to the
- * client. Prevent the default of any event to withhold that reply, then
- * author the client-facing reply through the controller.
+ * The real SMTP server of a session: a lazy handle that stays inert
+ * until `connect()`.
  *
- * @note SMTP is lockstep (no pipelining), so each server reply maps to
- * the outstanding client command. Rewriting an intermediate reply
- * ("334"/"354") may desync this correlation, since it changes what the
- * client does next — observe and substitute final verdicts instead.
+ * Connecting before the client is greeted bypasses the session: the
+ * real server speaks (its greeting and replies forward to the client),
+ * the client commands nobody replied to forward to it, and every reply
+ * is emitted as a phase-named event before being forwarded — prevent
+ * the default of an event to withhold that reply and author your own
+ * through the client connection.
+ *
+ * Connecting after the mock greeted opens a subordinate connection:
+ * its greeting is swallowed, nothing forwards on its own, and
+ * `send()` performs a real delivery whose outcome only the handler
+ * observes.
  */
 export class SmtpServerConnection extends SmtpEventTarget<SmtpServerConnectionEventMap> {
   #session: SmtpSession
-  #realSocket: net.Socket | tls.TLSSocket
-  #forwardToClient: (chunk: Buffer) => void
+  #client: SmtpClientConnection
+  #createConnection: () => net.Socket | tls.TLSSocket
+  #socket?: net.Socket | tls.TLSSocket
+  #connectPromise?: DeferredPromise<void>
+  #mode?: 'bypass' | 'subordinate'
 
-  #serverBuffer = Buffer.alloc(0)
-  #clientBuffer = Buffer.alloc(0)
+  #buffer = Buffer.alloc(0)
   #phaseQueue: Array<SmtpPhase> = []
-  #greetingSeen = false
-  #expectContinuationLine = false
-  #clientInData = false
+  #pendingReplies: Array<{
+    resolve: (reply: SmtpReply) => void
+    reject: (reason: Error) => void
+  }> = []
+  #preambleSent = false
+  #sendQueue: Promise<unknown> = Promise.resolve()
+  #closedByClient = false
 
   constructor(options: SmtpServerConnectionOptions) {
     super()
 
     this.#session = options.session
-    this.#realSocket = options.realSocket
-    this.#forwardToClient = (chunk) => {
-      options.clientSocket.write(chunk)
-    }
+    this.#client = options.client
+    this.#createConnection = options.createConnection
+    this.#client[kSetServer](this)
 
-    // Take over the forwarding of the server's replies so a listener
-    // can suppress or rewrite a single reply (via "preventDefault()").
-    options.socketController.onPassthroughRead((chunk) => {
-      this.#handleServerData(chunk)
+    options.clientSocket.on('close', () => {
+      this.#closedByClient = true
+      this.#socket?.destroy()
     })
+  }
 
-    // Observe the client's outgoing commands to know which command
-    // each server reply answers ("this.#realSocket" carries the same
-    // bytes but the client socket is where they originate).
-    options.clientSocket.on('data', (chunk: Buffer) => {
-      this.#handleClientData(chunk)
-    })
+  /**
+   * The role of this connection within the session: "bypass" when it
+   * was established before the client was greeted (the real server
+   * owns the session voice), "subordinate" when established after the
+   * mock greeted (the handler owns what the connection is used for),
+   * or undefined until `connect()` settles.
+   */
+  public get mode(): 'bypass' | 'subordinate' | undefined {
+    return this.#mode
   }
 
   /**
    * The underlying socket connected to the real SMTP server.
    */
   public get socket(): net.Socket | tls.TLSSocket {
-    return this.#realSocket
+    invariant(
+      this.#socket,
+      'Cannot access "socket" on the server connection: the connection is not open. Did you forget to call "server.connect()"?'
+    )
+
+    return this.#socket
+  }
+
+  /**
+   * Open the connection to the real SMTP server. Resolves once the
+   * real server greets the connection; rejects if the destination
+   * cannot be reached (e.g. to fall back to mocking a dead host).
+   */
+  public connect(): Promise<void> {
+    if (this.#connectPromise) {
+      return this.#connectPromise
+    }
+
+    const connectPromise = new DeferredPromise<void>()
+    this.#connectPromise = connectPromise
+
+    // The dial failure surfaces through the returned promise alone:
+    // a fire-and-forget "connect()" must not crash the process.
+    connectPromise.catch(() => {})
+
+    try {
+      this.#socket = this.#createConnection()
+    } catch (error) {
+      connectPromise.reject(error instanceof Error ? error : new Error(String(error)))
+      return connectPromise
+    }
+
+    this.#socket
+      .on('data', (chunk: Buffer) => {
+        this.#handleData(chunk)
+      })
+      .on('error', (error: Error) => {
+        connectPromise.reject(error)
+        this.#rejectPendingReplies(error)
+
+        if (this.#mode === 'bypass' && !this.#closedByClient) {
+          this.#client[kUpstreamError](error)
+        }
+      })
+      .on('end', () => {
+        this.#rejectPendingReplies(new Error('Connection closed by the server'))
+
+        if (this.#mode === 'bypass' && !this.#closedByClient) {
+          this.#client[kUpstreamEnd]()
+        }
+      })
+      .on('close', () => {
+        connectPromise.reject(
+          new Error('Connection closed before the server greeting')
+        )
+        this.#rejectPendingReplies(new Error('Connection closed by the server'))
+      })
+
+    return connectPromise
+  }
+
+  /**
+   * Forward a parsed client frame (a command line, a challenge
+   * response, or the message payload) to the real server. Commands
+   * carry their phase so the server's reply can be correlated back.
+   */
+  public [kForwardFrame](frame: Buffer, phase?: SmtpPhase): void {
+    if (phase) {
+      this.#phaseQueue.push(phase)
+    }
+
+    this.#socket?.write(frame)
+  }
+
+  /**
+   * Perform a real delivery of the given message transaction through
+   * this connection. The recorded session preamble (EHLO, AUTH) is
+   * replayed on first use, then the transaction envelope and the
+   * message are transferred. Resolves with the real server's final
+   * verdict; rejects if the destination is unreachable or the real
+   * server rejects a replayed phase. Neither outcome reaches the
+   * client — the handler authors what the client observes.
+   */
+  public send(event: SmtpMessageEvent): Promise<SmtpServerMessageEvent> {
+    const sendPromise = this.#sendQueue.then(() => {
+      return this.#performSend(event)
+    })
+
+    // Deliveries queue one after another (RSET in between); a failed
+    // delivery must not fail the queued ones.
+    this.#sendQueue = sendPromise.catch(() => {})
+
+    return sendPromise
+  }
+
+  async #performSend(event: SmtpMessageEvent): Promise<SmtpServerMessageEvent> {
+    await this.connect()
+
+    invariant(
+      this.#mode !== 'bypass',
+      'Failed to call "server.send()": the session is bypassed to the real server, and the client transactions forward to it on their own'
+    )
+
+    if (this.#preambleSent) {
+      await this.#sendCommand('RSET')
+    } else {
+      await this.#replayPreamble()
+      this.#preambleSent = true
+    }
+
+    await this.#replayCommand('sender', `MAIL FROM:<${event.sender}>`)
+
+    let lastRecipientReply: SmtpReply | undefined
+    let acceptedRecipients = 0
+
+    for (const recipient of event.recipients) {
+      lastRecipientReply = await this.#sendCommand(`RCPT TO:<${recipient}>`)
+
+      if (lastRecipientReply.code < 300) {
+        acceptedRecipients += 1
+      }
+    }
+
+    if (acceptedRecipients === 0) {
+      throw new SmtpDeliveryError(
+        'recipient',
+        lastRecipientReply ?? { code: 554, lines: ['No recipients'] }
+      )
+    }
+
+    const dataReply = await this.#sendCommand('DATA')
+
+    if (dataReply.code !== 354) {
+      throw new SmtpDeliveryError('data', dataReply)
+    }
+
+    const verdict = await this.#sendRaw(
+      Buffer.concat([applyDotStuffing(event.message), DATA_TERMINATOR])
+    )
+
+    return new SmtpServerMessageEvent({
+      code: verdict.code,
+      lines: verdict.lines,
+      queueId: parseQueueId(verdict.lines),
+    })
+  }
+
+  async #replayPreamble(): Promise<void> {
+    await this.#replayCommand(
+      'helo',
+      `EHLO ${this.#session.heloHostname ?? 'localhost'}`
+    )
+
+    const auth = this.#session.auth
+
+    if (auth) {
+      const credentials = Buffer.from(
+        `\0${auth.username}\0${auth.password}`
+      ).toString('base64')
+
+      let authReply = await this.#sendCommand(`AUTH PLAIN ${credentials}`)
+
+      // A server ignoring the inline initial response challenges
+      // for the credentials instead.
+      if (authReply.code === 334) {
+        authReply = await this.#sendCommand(credentials)
+      }
+
+      if (authReply.code !== 235) {
+        throw new SmtpDeliveryError('auth', authReply)
+      }
+    }
+  }
+
+  #sendCommand(line: string): Promise<SmtpReply> {
+    return this.#sendRaw(Buffer.from(`${line}\r\n`))
+  }
+
+  /**
+   * Send a replayed command, expecting the real server to accept it.
+   */
+  async #replayCommand(
+    phase: SmtpDeliveryError['phase'],
+    line: string
+  ): Promise<SmtpReply> {
+    const reply = await this.#sendCommand(line)
+
+    if (reply.code >= 300) {
+      throw new SmtpDeliveryError(phase, reply)
+    }
+
+    return reply
+  }
+
+  #sendRaw(payload: Buffer): Promise<SmtpReply> {
+    return new Promise<SmtpReply>((resolve, reject) => {
+      const socket = this.#socket
+
+      if (socket == null || socket.destroyed) {
+        reject(new Error('Connection to the server is not open'))
+        return
+      }
+
+      this.#pendingReplies.push({ resolve, reject })
+      socket.write(payload)
+    })
+  }
+
+  #rejectPendingReplies(reason: Error): void {
+    for (const pending of this.#pendingReplies.splice(0)) {
+      pending.reject(reason)
+    }
   }
 
   /**
    * Gracefully close the connection to the real server (a TCP FIN).
-   * The client observes the upstream ending the session, the same as
-   * if the real server closed the transmission channel.
-   *
-   * @note This is a transport-level close, not an SMTP "QUIT". The
-   * client is never sent a reply it did not ask for; to author a
-   * client-facing reply, prevent the default of an event and use the
-   * controller instead.
+   * In a bypassed session, the client observes the upstream ending
+   * the session, the same as if the real server closed the
+   * transmission channel.
    */
   public close(): void {
-    this.#realSocket.end()
+    this.#socket?.end()
   }
 
   /**
    * Abruptly terminate the connection to the real server, the way the
-   * real server crashing or the network dropping would. The client
-   * observes a connection error propagated from the upstream. This is
-   * the real-server analog of "controller.error()".
+   * real server crashing or the network dropping would. In a bypassed
+   * session, the client observes a connection error propagated from
+   * the upstream.
    */
   public destroy(reason?: Error): void {
     const error =
@@ -290,11 +543,11 @@ export class SmtpServerConnection extends SmtpEventTarget<SmtpServerConnectionEv
         syscall: 'read',
       })
 
-    this.#realSocket.destroy(error)
+    this.#socket?.destroy(error)
   }
 
-  #handleServerData(chunk: Buffer): void {
-    this.#serverBuffer = Buffer.concat([this.#serverBuffer, chunk])
+  #handleData(chunk: Buffer): void {
+    this.#buffer = Buffer.concat([this.#buffer, chunk])
 
     // Process synchronously so a forwarded reply is written to the
     // client before the real socket's "end" pushes the EOF. A listener
@@ -306,23 +559,23 @@ export class SmtpServerConnection extends SmtpEventTarget<SmtpServerConnectionEv
         return
       }
 
-      this.#handleServerReply(reply)
+      this.#handleReply(reply)
     }
   }
 
-  #extractReply(): { code: number; lines: Array<string>; raw: Buffer } | null {
+  #extractReply(): SmtpReply | null {
     const lines: Array<string> = []
     let offset = 0
 
     while (true) {
-      const lineEndIndex = this.#serverBuffer.indexOf(CRLF, offset)
+      const lineEndIndex = this.#buffer.indexOf(CRLF, offset)
 
       // The reply is incomplete: wait for the rest of it.
       if (lineEndIndex === -1) {
         return null
       }
 
-      const line = this.#serverBuffer.subarray(offset, lineEndIndex).toString('utf8')
+      const line = this.#buffer.subarray(offset, lineEndIndex).toString('utf8')
       const separator = line[3]
       lines.push(line.slice(4))
       offset = lineEndIndex + 2
@@ -330,8 +583,8 @@ export class SmtpServerConnection extends SmtpEventTarget<SmtpServerConnectionEv
       // A space after the code marks the final line of the reply;
       // a hyphen marks a continuation line of a multiline reply.
       if (separator !== '-') {
-        const raw = this.#serverBuffer.subarray(0, offset)
-        this.#serverBuffer = this.#serverBuffer.subarray(offset)
+        const raw = this.#buffer.subarray(0, offset)
+        this.#buffer = this.#buffer.subarray(offset)
 
         return {
           code: Number.parseInt(line.slice(0, 3), 10),
@@ -342,43 +595,49 @@ export class SmtpServerConnection extends SmtpEventTarget<SmtpServerConnectionEv
     }
   }
 
-  #handleServerReply(reply: {
-    code: number
-    lines: Array<string>
-    raw: Buffer
-  }): void {
+  #handleReply(reply: SmtpReply): void {
+    // The first reply is always the greeting: the server speaks first.
+    // Whether the client already has a voice decides the mode: a
+    // greeted client means the mock owns the session and this
+    // connection is subordinate (its greeting is swallowed).
+    if (this.#mode == null) {
+      this.#mode = this.#client[kGreeted] ? 'subordinate' : 'bypass'
+
+      if (this.#mode === 'bypass') {
+        const event = new SmtpServerGreetingEvent(reply)
+        this.emitter.emit(event)
+
+        if (!event.defaultPrevented) {
+          this.#client[kDeliverReply](reply.code, reply.raw)
+        }
+      }
+
+      this.#connectPromise?.resolve()
+      return
+    }
+
+    // A subordinate connection is driven by "send()": each reply
+    // settles the oldest outstanding command.
+    if (this.#mode === 'subordinate') {
+      this.#pendingReplies.shift()?.resolve(reply)
+      return
+    }
+
     const event = this.#createReplyEvent(reply)
 
     this.emitter.emit(event)
 
-    // An intermediate reply drives what the client sends next: "354"
-    // begins the message transfer, "334" prompts a single continuation
-    // line (e.g. the base64 credentials of an "AUTH" exchange).
-    if (reply.code === 354) {
-      this.#clientInData = true
-    } else if (reply.code === 334) {
-      this.#expectContinuationLine = true
-    }
-
     // Forward the original reply to the client unless a listener
-    // withheld it to author its own reply through the controller.
+    // withheld it to author its own reply through the client.
     if (!event.defaultPrevented) {
-      this.#forwardToClient(reply.raw)
+      this.#client[kDeliverReply](reply.code, reply.raw)
     }
   }
 
-  #createReplyEvent(reply: {
-    code: number
-    lines: Array<string>
-  }): SmtpServerConnectionEventMap[keyof SmtpServerConnectionEventMap] {
+  #createReplyEvent(
+    reply: SmtpReply
+  ): SmtpServerConnectionEventMap[keyof SmtpServerConnectionEventMap] {
     const data: SmtpServerReplyData = { code: reply.code, lines: reply.lines }
-
-    // The first reply is always the greeting: the server speaks first.
-    if (!this.#greetingSeen) {
-      this.#greetingSeen = true
-      return new SmtpServerGreetingEvent(data)
-    }
-
     const pending = this.#phaseQueue[0]
 
     if (pending == null) {
@@ -448,90 +707,6 @@ export class SmtpServerConnection extends SmtpEventTarget<SmtpServerConnectionEv
       }
     }
   }
-
-  #handleClientData(chunk: Buffer): void {
-    this.#clientBuffer = Buffer.concat([this.#clientBuffer, chunk])
-
-    while (true) {
-      // Consume the message body without treating it as commands.
-      if (this.#clientInData) {
-        const terminatorIndex = this.#clientBuffer.indexOf(DATA_TERMINATOR)
-
-        if (terminatorIndex === -1) {
-          return
-        }
-
-        this.#clientBuffer = this.#clientBuffer.subarray(
-          terminatorIndex + DATA_TERMINATOR.length
-        )
-        this.#clientInData = false
-        continue
-      }
-
-      const lineEndIndex = this.#clientBuffer.indexOf(CRLF)
-
-      if (lineEndIndex === -1) {
-        return
-      }
-
-      const line = this.#clientBuffer.subarray(0, lineEndIndex).toString('utf8')
-      this.#clientBuffer = this.#clientBuffer.subarray(lineEndIndex + 2)
-
-      // A line sent in response to a "334" challenge is a continuation
-      // (e.g. base64 credentials), not a command.
-      if (this.#expectContinuationLine) {
-        this.#expectContinuationLine = false
-        continue
-      }
-
-      this.#trackCommand(line)
-    }
-  }
-
-  #trackCommand(line: string): void {
-    const command = line.toUpperCase()
-
-    if (command.startsWith('EHLO') || command.startsWith('HELO')) {
-      this.#session.heloHostname = line.slice('EHLO '.length).trim()
-      this.#phaseQueue.push({ phase: 'helo' })
-      return
-    }
-
-    if (command.startsWith('AUTH')) {
-      this.#phaseQueue.push({ phase: 'auth' })
-      return
-    }
-
-    if (command.startsWith('MAIL FROM:')) {
-      this.#phaseQueue.push({ phase: 'sender' })
-      return
-    }
-
-    if (command.startsWith('RCPT TO:')) {
-      this.#phaseQueue.push({
-        phase: 'recipient',
-        address: parseAddress(line.slice('RCPT TO:'.length)),
-      })
-      return
-    }
-
-    if (command.startsWith('DATA')) {
-      this.#phaseQueue.push({ phase: 'data' })
-      return
-    }
-
-    if (command.startsWith('QUIT')) {
-      this.#phaseQueue.push({ phase: 'quit' })
-      return
-    }
-
-    // Any other command (e.g. "RSET", "NOOP") gets a generic reply.
-    this.#phaseQueue.push({ phase: 'reply' })
-  }
-}
-
-function parseAddress(input: string): string {
-  return input.match(/<([^>]*)>/)?.[1] ?? ''
 }
 
 /**

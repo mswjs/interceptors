@@ -19,10 +19,10 @@ afterAll(() => {
 const SMTP_PORT = 587
 
 it('rejects the connection at the greeting', async () => {
-  interceptor.on('session', ({ controller }) => {
+  interceptor.on('session', ({ client }) => {
     // A server may greet the connection with "554", refusing
     // to serve it before the client sends anything.
-    controller.claim({ code: 554, message: 'No SMTP service here' })
+    client.greet({ code: 554, message: 'No SMTP service here' })
   })
 
   const transport = nodemailer.createTransport({
@@ -45,9 +45,9 @@ it('rejects the connection at the greeting', async () => {
 })
 
 it('never greets the connection so the client times out', async () => {
-  interceptor.on('session', ({ controller }) => {
+  interceptor.on('session', ({ client }) => {
     // A silent mock server exercises the client's greeting timeout.
-    controller.claim(null)
+    client.greet(null)
   })
 
   const transport = nodemailer.createTransport({

@@ -21,12 +21,10 @@ const SMTP_PORT = 587
 it('rejects individual recipients', async () => {
   const messageListener = vi.fn<(recipients: Array<string>) => void>()
 
-  interceptor.on('session', ({ controller }) => {
-    controller.claim()
-
+  interceptor.on('session', ({ client }) => {
     // Each recipient receives its own verdict: this is how partial
     // delivery works (some recipients accepted, others rejected).
-    controller.on('recipient', (event) => {
+    client.on('recipient', (event) => {
       if (event.address === 'gone@example.com') {
         event.reject({ reason: 'No such user' })
       } else {
@@ -34,7 +32,7 @@ it('rejects individual recipients', async () => {
       }
     })
 
-    controller.on('message', (event) => {
+    client.on('message', (event) => {
       messageListener(event.recipients)
       event.accept()
     })

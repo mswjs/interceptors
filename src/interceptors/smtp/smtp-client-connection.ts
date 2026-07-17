@@ -1,13 +1,23 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import { TypedEvent } from 'rettime'
-import type {
-  TcpSocketController,
-  TlsSocketController,
-} from '../net/socket-controller'
+import { DATA_TERMINATOR, undoDotStuffing } from './dot-stuffing'
 import { SmtpEventTarget } from './event-target'
-import { SmtpServerConnection } from './smtp-server-connection'
-import type { SmtpSession } from './smtp-session'
+import type { SmtpAuthCredentials, SmtpSession } from './smtp-session'
+import type { SmtpPhase, SmtpServerConnection } from './smtp-server-connection'
+/**
+ * Internal symbols wiring the session actors together. They live here,
+ * on the client connection — the hub every other module already
+ * depends on — so the value imports stay one-directional.
+ */
+export const kGreeted = Symbol('kGreeted')
+export const kActivate = Symbol('kActivate')
+export const kDetach = Symbol('kDetach')
+export const kSetServer = Symbol('kSetServer')
+export const kDeliverReply = Symbol('kDeliverReply')
+export const kUpstreamEnd = Symbol('kUpstreamEnd')
+export const kUpstreamError = Symbol('kUpstreamError')
+export const kForwardFrame = Symbol('kForwardFrame')
 
 const SMTP_DOMAIN = 'mock.example.com'
 const DEFAULT_CAPABILITIES = ['AUTH PLAIN LOGIN', '8BITMIME', 'SMTPUTF8']
@@ -60,14 +70,14 @@ export interface SmtpGreeting {
 
 /**
  * The reply channel given to each command event. Replying through
- * the context marks the command as handled so the controller knows
- * not to apply the default reply, and records the reply code so the
- * controller can track the transaction state (e.g. which recipients
- * were accepted).
+ * the context marks the command as handled so the connection knows
+ * not to apply the default (a mock reply or the forwarding to the
+ * real server), and stops the event's propagation so the first
+ * verdict wins.
  */
 interface SmtpCommandContext {
   isReplied: boolean
-  repliedCode?: SmtpReplyCode
+  event?: { stopImmediatePropagation: () => void }
   reply: (code: SmtpReplyCode, message: string) => void
   replyMultiline: (code: SmtpReplyCode, lines: Array<string>) => void
 }
@@ -88,6 +98,7 @@ export class SmtpHeloEvent extends TypedEvent<SmtpHeloEventData, void, 'helo'> {
     this.verb = data.verb
     this.hostname = data.hostname
     this.#context = context
+    context.event = this
   }
 
   public accept(options?: { capabilities?: Array<string> }): void {
@@ -119,7 +130,7 @@ interface SmtpAuthEventData {
 
 /**
  * The client authenticating itself ("AUTH", RFC 4954).
- * The controller runs the challenge/response exchange of the chosen
+ * The connection runs the challenge/response exchange of the chosen
  * mechanism and emits this event once the credentials are collected.
  */
 export class SmtpAuthEvent extends TypedEvent<
@@ -142,6 +153,7 @@ export class SmtpAuthEvent extends TypedEvent<
     this.username = data.username
     this.password = data.password
     this.#context = context
+    context.event = this
   }
 
   /**
@@ -211,6 +223,7 @@ export class SmtpSenderEvent extends TypedEvent<
     this.address = data.address
     this.parameters = data.parameters
     this.#context = context
+    context.event = this
   }
 
   public accept(): void {
@@ -274,6 +287,7 @@ export class SmtpRecipientEvent extends TypedEvent<
 
     this.address = data.address
     this.#context = context
+    context.event = this
   }
 
   public accept(): void {
@@ -309,21 +323,17 @@ export class SmtpRecipientEvent extends TypedEvent<
   }
 }
 
-interface SmtpDataContext extends SmtpCommandContext {
-  beginMessage: () => void
-}
-
 export class SmtpDataEvent extends TypedEvent<void, void, 'data'> {
-  #context: SmtpDataContext
+  #context: SmtpCommandContext
 
-  constructor(context: SmtpDataContext) {
+  constructor(context: SmtpCommandContext) {
     super('data')
 
     this.#context = context
+    context.event = this
   }
 
   public accept(): void {
-    this.#context.beginMessage()
     this.#context.reply(354, 'End data with <CR><LF>.<CR><LF>')
   }
 
@@ -375,6 +385,7 @@ export class SmtpMessageEvent extends TypedEvent<
     this.recipients = data.recipients
     this.message = data.message
     this.#context = context
+    context.event = this
   }
 
   /**
@@ -428,6 +439,7 @@ export class SmtpQuitEvent extends TypedEvent<void, void, 'quit'> {
     super('quit')
 
     this.#context = context
+    context.event = this
   }
 
   public reply(code: SmtpReplyCode, message: string): void {
@@ -443,7 +455,7 @@ interface SmtpUnknownCommandEventData {
 export class SmtpUnknownCommandEvent extends TypedEvent<
   SmtpUnknownCommandEventData,
   void,
-  'command'
+  'unknown-command'
 > {
   /**
    * The raw command line as sent by the client.
@@ -453,11 +465,12 @@ export class SmtpUnknownCommandEvent extends TypedEvent<
   #context: SmtpCommandContext
 
   constructor(data: SmtpUnknownCommandEventData, context: SmtpCommandContext) {
-    super('command', { data })
+    super('unknown-command', { data })
 
     this.line = data.line
     this.verb = data.verb
     this.#context = context
+    context.event = this
   }
 
   public reply(code: SmtpReplyCode, message: string): void {
@@ -465,7 +478,7 @@ export class SmtpUnknownCommandEvent extends TypedEvent<
   }
 }
 
-type SmtpControllerEventMap = {
+type SmtpClientConnectionEventMap = {
   helo: SmtpHeloEvent
   auth: SmtpAuthEvent
   sender: SmtpSenderEvent
@@ -473,16 +486,22 @@ type SmtpControllerEventMap = {
   data: SmtpDataEvent
   message: SmtpMessageEvent
   quit: SmtpQuitEvent
-  command: SmtpUnknownCommandEvent
+  'unknown-command': SmtpUnknownCommandEvent
 }
 
-type PendingAuth =
-  { method: 'PLAIN' } | { method: 'LOGIN'; username?: string }
+interface PendingAuth {
+  method: 'PLAIN' | 'LOGIN'
+  username?: string
+}
 
-interface SmtpControllerOptions {
+type PendingVerdict =
+  | { type: 'sender'; address: string }
+  | { type: 'recipient'; address: string }
+  | { type: 'auth'; credentials: SmtpAuthCredentials }
+
+interface SmtpClientConnectionOptions {
   session: SmtpSession
   socket: net.Socket | tls.TLSSocket
-  socketController: TcpSocketController | TlsSocketController
 }
 
 interface SmtpEnvelope {
@@ -491,23 +510,24 @@ interface SmtpEnvelope {
 }
 
 /**
- * Controls a single SMTP connection.
+ * The intercepted side of an SMTP session: the client (the
+ * application under test) and the replies it observes.
  *
- * Once claimed, the controller runs a mock SMTP server session:
- * it sends the greeting, parses the client commands, and emits an
- * event per command. Each event exposes methods to handle that
- * particular command (e.g. "accept()"/"reject()"). Commands without
- * listeners (or whose listeners did not reply) are accepted with
- * sensible defaults, so only the commands you care about need handling.
+ * The connection parses the client commands and emits an event per
+ * command in every mode. Each event exposes methods to handle that
+ * particular command (e.g. "accept()"/"reject()"); the first reply
+ * wins and stops the event's propagation. Commands nobody replied to
+ * receive the default: a sensible mock reply, or, when the session is
+ * bypassed to the real server, the forwarding of the command as-is.
  *
  * The "message" event describes the complete email transaction
  * (sender, accepted recipients, message) and is the only event most
  * consumers need.
  */
-export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
+export class SmtpClientConnection extends SmtpEventTarget<SmtpClientConnectionEventMap> {
   #session: SmtpSession
   #socket: net.Socket | tls.TLSSocket
-  #socketController: TcpSocketController | TlsSocketController
+  #server?: SmtpServerConnection
   /**
    * @note The incoming bytes stay a Buffer until a complete line or
    * message is extracted. Decoding arbitrary chunks would corrupt
@@ -516,50 +536,94 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
   #buffer = Buffer.alloc(0)
   #envelope: SmtpEnvelope = { sender: '', recipients: [] }
   #pendingAuth?: PendingAuth
+  #pendingVerdict?: PendingVerdict
   #activeContext?: SmtpCommandContext
+  #greeted = false
+  #active = false
+  #expectContinuation = false
   #isReadingData = false
   #isProcessing = false
 
-  constructor(options: SmtpControllerOptions) {
+  constructor(options: SmtpClientConnectionOptions) {
     super()
 
     this.#session = options.session
     this.#socket = options.socket
-    this.#socketController = options.socketController
+    this.#socket.on('data', this.#handleData)
   }
 
   /**
-   * Establish this connection as-is, against the actual server, and
-   * return the real server connection. Observe the server's replies
-   * through its phase-named events (e.g. "message" for the delivery
-   * outcome), and prevent the default of any event to withhold that
-   * reply from the client and author your own through this controller.
+   * @note The incoming bytes are buffered from the start but parsed
+   * only once the session's fate is decided (see the "activate"
+   * below). A session listener may yet pass the connection through
+   * raw (non-SMTP traffic), and the parser replying to such traffic
+   * would corrupt it.
    */
-  public passthrough(): SmtpServerConnection {
-    const realSocket = this.#socketController.passthrough()
-
-    return new SmtpServerConnection({
-      session: this.#session,
-      realSocket,
-      socketController: this.#socketController,
-      clientSocket: this.#socket,
-    })
+  #handleData = (chunk: Buffer): void => {
+    this.#buffer = Buffer.concat([this.#buffer, chunk])
+    void this.#processBuffer()
   }
 
   /**
-   * Claim this connection, mocking the SMTP server. The mock server
-   * speaks first: SMTP clients send nothing until they receive the
-   * server's greeting. Pass a custom greeting to change the reply
-   * (e.g. "554" to reject the connection), or "null" to send nothing
-   * and exercise the client's greeting timeout.
+   * Start parsing the client commands. Called once the session is
+   * claimed as an SMTP session.
    */
-  public claim(greeting?: SmtpGreeting | null): void {
-    this.#socketController.claim()
+  public [kActivate](): void {
+    this.#active = true
+    void this.#processBuffer()
+  }
 
-    this.#socket.on('data', (chunk) => {
-      this.#buffer = Buffer.concat([this.#buffer, chunk])
-      void this.#processBuffer()
-    })
+  /**
+   * Withdraw from the connection entirely: the session was passed
+   * through raw and none of its bytes are SMTP.
+   */
+  public [kDetach](): void {
+    this.#socket.off('data', this.#handleData)
+    this.#buffer = Buffer.alloc(0)
+  }
+
+  public get [kGreeted](): boolean {
+    return this.#greeted
+  }
+
+  public [kSetServer](server: SmtpServerConnection): void {
+    this.#server = server
+  }
+
+  /**
+   * Deliver a reply authored elsewhere (e.g. a forwarded reply of the
+   * real server) to the client, tracking the session state the reply
+   * implies the same way locally authored replies do.
+   */
+  public [kDeliverReply](code: number, raw: Buffer): void {
+    this.#deliverReply(code, raw)
+  }
+
+  /**
+   * The real server ended the session: signal the end-of-stream
+   * to the client.
+   */
+  public [kUpstreamEnd](): void {
+    this.#socket.end()
+  }
+
+  /**
+   * The real server connection errored: propagate the error onto
+   * the client connection.
+   */
+  public [kUpstreamError](error: Error): void {
+    this.#socket.destroy(error)
+  }
+
+  /**
+   * Greet the client, opening the SMTP session. The server speaks
+   * first: SMTP clients send nothing until they receive the greeting.
+   * Pass a custom greeting to change the reply (e.g. "554" to reject
+   * the connection), or "null" to send nothing and exercise the
+   * client's greeting timeout.
+   */
+  public greet(greeting?: SmtpGreeting | null): void {
+    this.#greeted = true
 
     // An explicit "null" greeting sends nothing so the client's
     // greeting timeout can kick in.
@@ -574,7 +638,7 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
    * Send a reply line to the SMTP client.
    */
   public reply(code: SmtpReplyCode, message: string): void {
-    this.#socket.write(`${code} ${message}\r\n`)
+    this.#deliverReply(code, Buffer.from(`${code} ${message}\r\n`))
   }
 
   /**
@@ -608,25 +672,108 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
     this.#socket.destroy(error)
   }
 
-  #replyMultiline(code: SmtpReplyCode, lines: Array<string>): void {
-    for (let index = 0; index < lines.length; index++) {
-      const separator = index === lines.length - 1 ? ' ' : '-'
-      this.#socket.write(`${code}${separator}${lines[index]}\r\n`)
+  get #isForwarding(): boolean {
+    return this.#server?.mode === 'bypass'
+  }
+
+  /**
+   * Deliver a complete reply to the client and track the session state
+   * it implies: the first delivered reply is the greeting, "334"
+   * prompts a continuation line, "354" begins the message transfer,
+   * and a success code settles the pending envelope/identity verdict.
+   * Every reply — mock-authored or forwarded from the real server —
+   * goes through here, so the state tracking is mode-agnostic.
+   */
+  #deliverReply(code: number, raw: Buffer): void {
+    this.#greeted = true
+    this.#socket.write(raw)
+
+    // A "334" challenge — whoever authored it — makes the client's
+    // next line an authentication response, not a command.
+    if (code === 334) {
+      this.#expectContinuation = true
+    }
+
+    if (code === 354) {
+      this.#isReadingData = true
+    }
+
+    const verdict = this.#pendingVerdict
+
+    if (verdict != null) {
+      this.#pendingVerdict = undefined
+
+      if (code < 300) {
+        switch (verdict.type) {
+          case 'sender': {
+            this.#envelope.sender = verdict.address
+            break
+          }
+
+          case 'recipient': {
+            this.#envelope.recipients.push(verdict.address)
+            break
+          }
+
+          case 'auth': {
+            this.#session.user = verdict.credentials.username
+            this.#session.auth = verdict.credentials
+            break
+          }
+        }
+      }
     }
   }
 
+  #forwardLine(line: string, phase?: SmtpPhase): void {
+    this.#server![kForwardFrame](Buffer.from(`${line}\r\n`), phase)
+  }
+
+  /**
+   * Conclude a command nobody replied to: forward it to the real
+   * server of a bypassed session, or apply the mock default.
+   */
+  #concludeCommand(
+    context: SmtpCommandContext,
+    line: string,
+    phase: SmtpPhase,
+    applyDefault: () => void
+  ): void {
+    if (context.isReplied) {
+      return
+    }
+
+    if (this.#isForwarding) {
+      this.#forwardLine(line, phase)
+      return
+    }
+
+    applyDefault()
+  }
+
   #createCommandContext(): SmtpCommandContext {
+    const markReplied = () => {
+      context.isReplied = true
+      context.event?.stopImmediatePropagation()
+    }
+
     const context: SmtpCommandContext = {
       isReplied: false,
       reply: (code, message) => {
-        context.isReplied = true
-        context.repliedCode = code
+        markReplied()
         this.reply(code, message)
       },
       replyMultiline: (code, lines) => {
-        context.isReplied = true
-        context.repliedCode = code
-        this.#replyMultiline(code, lines)
+        markReplied()
+
+        const raw = lines
+          .map((currentLine, index) => {
+            const separator = index === lines.length - 1 ? ' ' : '-'
+            return `${code}${separator}${currentLine}\r\n`
+          })
+          .join('')
+
+        this.#deliverReply(code, Buffer.from(raw))
       },
     }
 
@@ -635,7 +782,7 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
   }
 
   /**
-   * Translate an exception thrown from a session listener onto the
+   * Translate an exception thrown from a command listener onto the
    * session the same way a real server surfaces its internal errors:
    * reply "451" ("local error in processing", RFC 5321) to the
    * in-flight command and keep the session going. If the reply for
@@ -656,7 +803,7 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
   }
 
   async #processBuffer(): Promise<void> {
-    if (this.#isProcessing) {
+    if (!this.#active || this.#isProcessing) {
       return
     }
 
@@ -665,19 +812,21 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
     try {
       while (true) {
         if (this.#isReadingData) {
-          const terminatorIndex = this.#buffer.indexOf('\r\n.\r\n')
+          const terminatorIndex = this.#buffer.indexOf(DATA_TERMINATOR)
 
           if (terminatorIndex === -1) {
             return
           }
 
           const rawMessage = this.#buffer.subarray(0, terminatorIndex)
-          this.#buffer = this.#buffer.subarray(terminatorIndex + 5)
+          this.#buffer = this.#buffer.subarray(
+            terminatorIndex + DATA_TERMINATOR.length
+          )
           this.#isReadingData = false
 
           try {
             await this.#handleMessage(rawMessage)
-          } catch (error) {
+          } catch {
             this.#handleListenerError()
           }
 
@@ -696,14 +845,13 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
         this.#buffer = this.#buffer.subarray(lineEndIndex + 2)
 
         try {
-          // Lines sent during an authentication exchange are the
-          // challenge responses, not commands.
-          if (this.#pendingAuth) {
+          if (this.#expectContinuation) {
+            this.#expectContinuation = false
             await this.#handleAuthResponse(line)
           } else {
             await this.#handleCommand(line)
           }
-        } catch (error) {
+        } catch {
           this.#handleListenerError()
         }
       }
@@ -727,9 +875,9 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
       this.#session.heloHostname = event.hostname
       await this.emitter.emitAsPromise(event)
 
-      if (!context.isReplied) {
+      this.#concludeCommand(context, line, { phase: 'helo' }, () => {
         event.accept()
-      }
+      })
 
       return
     }
@@ -745,15 +893,12 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
         parseAddressCommand(line.slice('MAIL FROM:'.length)),
         context
       )
+      this.#pendingVerdict = { type: 'sender', address: event.address }
       await this.emitter.emitAsPromise(event)
 
-      if (!context.isReplied) {
+      this.#concludeCommand(context, line, { phase: 'sender' }, () => {
         event.accept()
-      }
-
-      if (isAcceptedReply(context)) {
-        this.#envelope.sender = event.address
-      }
+      })
 
       return
     }
@@ -764,31 +909,27 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
         parseAddressCommand(line.slice('RCPT TO:'.length)),
         context
       )
+      this.#pendingVerdict = { type: 'recipient', address: event.address }
       await this.emitter.emitAsPromise(event)
 
-      if (!context.isReplied) {
-        event.accept()
-      }
-
-      // Only the accepted recipients become a part of the envelope.
-      if (isAcceptedReply(context)) {
-        this.#envelope.recipients.push(event.address)
-      }
+      this.#concludeCommand(
+        context,
+        line,
+        { phase: 'recipient', address: event.address },
+        () => {
+          event.accept()
+        }
+      )
 
       return
     }
 
     if (command.startsWith('DATA')) {
-      const context: SmtpDataContext = {
-        ...this.#createCommandContext(),
-        beginMessage: () => {
-          this.#isReadingData = true
-        },
-      }
+      const context = this.#createCommandContext()
       const event = new SmtpDataEvent(context)
       await this.emitter.emitAsPromise(event)
 
-      if (!context.isReplied) {
+      this.#concludeCommand(context, line, { phase: 'data' }, () => {
         /**
          * @note A message transfer without any accepted recipients
          * must be refused (there is nobody to deliver the message to).
@@ -799,7 +940,7 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
         } else {
           event.accept()
         }
-      }
+      })
 
       return
     }
@@ -809,6 +950,13 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
       const event = new SmtpQuitEvent(context)
       await this.emitter.emitAsPromise(event)
 
+      // A forwarded "QUIT" is answered and closed by the real server,
+      // and that closure propagates to the client on its own.
+      if (!context.isReplied && this.#isForwarding) {
+        this.#forwardLine(line, { phase: 'quit' })
+        return
+      }
+
       if (!context.isReplied) {
         this.reply(221, '2.0.0 Bye')
       }
@@ -817,15 +965,13 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
       return
     }
 
-    if (command.startsWith('RSET')) {
+    if (command.startsWith('RSET') || command.startsWith('NOOP')) {
       // Resetting aborts the ongoing transaction, if any.
-      this.#resetEnvelope()
-      this.reply(250, '2.0.0 Ok')
-      return
-    }
+      if (command.startsWith('RSET')) {
+        this.#resetEnvelope()
+      }
 
-    if (command.startsWith('NOOP')) {
-      this.reply(250, '2.0.0 Ok')
+      this.#replyOrForward(line, { phase: 'reply' }, 250, '2.0.0 Ok')
       return
     }
 
@@ -839,14 +985,49 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
     )
     await this.emitter.emitAsPromise(event)
 
-    if (!context.isReplied) {
+    this.#concludeCommand(context, line, { phase: 'reply' }, () => {
       event.reply(500, '5.5.2 Command not recognized')
+    })
+  }
+
+  /**
+   * Reply to the client (a mocked session) or forward the line to the
+   * real server (a bypassed session), which then replies in its stead.
+   */
+  #replyOrForward(
+    line: string,
+    phase: SmtpPhase | undefined,
+    code: SmtpReplyCode,
+    message: string
+  ): void {
+    if (this.#isForwarding) {
+      this.#forwardLine(line, phase)
+    } else {
+      this.reply(code, message)
     }
   }
 
   /**
-   * Handle the "AUTH" command, starting the challenge/response
-   * exchange of the chosen mechanism.
+   * The default conclusion of an "auth" event nobody replied to:
+   * accept the credentials (a mocked session) or forward the line that
+   * completed the exchange (a bypassed session).
+   */
+  #authDefault(line: string, phase?: SmtpPhase): (event: SmtpAuthEvent) => void {
+    return (event) => {
+      if (this.#isForwarding) {
+        this.#forwardLine(line, phase)
+      } else {
+        event.accept()
+      }
+    }
+  }
+
+  /**
+   * Handle the "AUTH" command, collecting the credentials of the
+   * challenge/response exchange of the chosen mechanism. A mocked
+   * session authors the challenges itself; a bypassed session forwards
+   * the exchange and lets the real server drive it, while still
+   * parsing the responses to reconstruct the credentials.
    * @see https://datatracker.ietf.org/doc/html/rfc4954
    */
   async #handleAuth(line: string): Promise<void> {
@@ -854,86 +1035,103 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
     const [, mechanism = '', initialResponse] = line.split(' ')
     const method = mechanism.toUpperCase()
 
+    // "AUTH PLAIN <base64>" carries the credentials inline.
+    if (method === 'PLAIN' && initialResponse) {
+      await this.#emitAuth(
+        parsePlainCredentials(initialResponse),
+        this.#authDefault(line, { phase: 'auth' })
+      )
+      return
+    }
+
+    // "AUTH PLAIN" alone awaits the credentials as the response
+    // to an empty server challenge.
     if (method === 'PLAIN') {
-      // "AUTH PLAIN <base64>" carries the credentials inline.
-      if (initialResponse) {
-        await this.#emitAuth(parsePlainCredentials(initialResponse))
-        return
-      }
-
-      // "AUTH PLAIN" alone awaits the credentials as the response
-      // to an empty server challenge.
-      this.#pendingAuth = { method: 'PLAIN' }
-      this.reply(334, '')
+      this.#pendingAuth = { method }
+      this.#replyOrForward(line, { phase: 'auth' }, 334, '')
       return
     }
 
+    // "AUTH LOGIN <base64>" carries the username inline,
+    // proceed to the password challenge right away.
     if (method === 'LOGIN') {
-      // "AUTH LOGIN <base64>" carries the username inline,
-      // proceed to the password challenge right away.
-      if (initialResponse) {
-        this.#pendingAuth = {
-          method: 'LOGIN',
-          username: decodeBase64(initialResponse),
-        }
-        this.reply(334, BASE64_PASSWORD_CHALLENGE)
-        return
-      }
+      this.#pendingAuth = initialResponse
+        ? { method, username: decodeBase64(initialResponse) }
+        : { method }
 
-      this.#pendingAuth = { method: 'LOGIN' }
-      this.reply(334, BASE64_USERNAME_CHALLENGE)
+      this.#replyOrForward(
+        line,
+        { phase: 'auth' },
+        334,
+        this.#pendingAuth.username == null
+          ? BASE64_USERNAME_CHALLENGE
+          : BASE64_PASSWORD_CHALLENGE
+      )
       return
     }
 
-    this.reply(504, '5.5.4 Unrecognized authentication type')
+    this.#replyOrForward(
+      line,
+      { phase: 'auth' },
+      504,
+      '5.5.4 Unrecognized authentication type'
+    )
   }
 
+  /**
+   * Handle the response to a "334" challenge (an authentication
+   * exchange line, not a command).
+   */
   async #handleAuthResponse(line: string): Promise<void> {
-    const pendingAuth = this.#pendingAuth!
+    const pendingAuth = this.#pendingAuth
 
     // The client may abort the exchange at any point by sending "*".
-    if (line === '*') {
+    // A response to an unrecognized exchange (e.g. a mechanism only
+    // the real server supports) has no credentials to collect.
+    if (pendingAuth == null || line === '*') {
       this.#pendingAuth = undefined
-      this.reply(501, '5.7.0 Authentication aborted')
+      this.#replyOrForward(line, undefined, 501, '5.7.0 Authentication aborted')
       return
     }
 
     if (pendingAuth.method === 'PLAIN') {
       this.#pendingAuth = undefined
-      await this.#emitAuth(parsePlainCredentials(line))
+      await this.#emitAuth(parsePlainCredentials(line), this.#authDefault(line))
       return
     }
 
     if (pendingAuth.username == null) {
       pendingAuth.username = decodeBase64(line)
-      this.reply(334, BASE64_PASSWORD_CHALLENGE)
+      this.#replyOrForward(line, undefined, 334, BASE64_PASSWORD_CHALLENGE)
       return
     }
 
-    const credentials: SmtpAuthEventData = {
-      method: 'LOGIN',
-      username: pendingAuth.username,
-      password: decodeBase64(line),
-    }
     this.#pendingAuth = undefined
-    await this.#emitAuth(credentials)
+    await this.#emitAuth(
+      {
+        method: 'LOGIN',
+        username: pendingAuth.username,
+        password: decodeBase64(line),
+      },
+      this.#authDefault(line)
+    )
   }
 
   async #emitAuth(
-    credentials: SmtpAuthEventData
+    credentials: SmtpAuthEventData,
+    applyDefault: (event: SmtpAuthEvent) => void
   ): Promise<void> {
     const context = this.#createCommandContext()
     const event = new SmtpAuthEvent(credentials, context)
+
+    // Record the identity once the credentials are accepted,
+    // whether by a local verdict or by the real server.
+    this.#pendingVerdict = { type: 'auth', credentials }
+
     await this.emitter.emitAsPromise(event)
 
     if (!context.isReplied) {
-      event.accept()
-    }
-
-    // Record the identity once the credentials are accepted.
-    if (isAcceptedReply(context)) {
-      this.#session.user = credentials.username
-      this.#session.auth = credentials
+      applyDefault(event)
     }
   }
 
@@ -954,20 +1152,19 @@ export class SmtpController extends SmtpEventTarget<SmtpControllerEventMap> {
 
     await this.emitter.emitAsPromise(event)
 
-    if (!context.isReplied) {
-      event.accept()
+    if (context.isReplied) {
+      return
     }
+
+    if (this.#isForwarding) {
+      this.#server![kForwardFrame](Buffer.concat([rawMessage, DATA_TERMINATOR]))
+      return
+    }
+
+    event.accept()
   }
 }
 
-function isAcceptedReply(context: SmtpCommandContext): boolean {
-  return context.repliedCode != null && context.repliedCode < 300
-}
-
-/**
- * Parse the argument of an SMTP address command
- * (e.g. `<user@example.com> SIZE=1024` for "MAIL FROM").
- */
 function parseAddressCommand(input: string): {
   address: string
   parameters: Record<string, string | true>
@@ -1005,40 +1202,3 @@ function parsePlainCredentials(input: string): {
   return { method: 'PLAIN', username, password }
 }
 
-/**
- * Undo the SMTP dot-stuffing: the client doubles every line-leading
- * dot in the message so it cannot be confused with the end-of-data
- * terminator.
- * @see https://datatracker.ietf.org/doc/html/rfc5321#section-4.5.2
- */
-function undoDotStuffing(message: Buffer): Buffer {
-  const DOT = 0x2e
-  const CRLF = Buffer.from('\r\n')
-  const parts: Array<Buffer> = []
-  let offset = 0
-
-  // Operate on bytes: the message content is arbitrary binary
-  // (8BITMIME) and must not go through a string decoding round-trip.
-  while (offset <= message.length) {
-    const lineEndIndex = message.indexOf(CRLF, offset)
-    const lineEnd = lineEndIndex === -1 ? message.length : lineEndIndex
-    let line = message.subarray(offset, lineEnd)
-
-    if (line[0] === DOT) {
-      line = line.subarray(1)
-    }
-
-    if (parts.length > 0) {
-      parts.push(CRLF)
-    }
-    parts.push(line)
-
-    if (lineEndIndex === -1) {
-      break
-    }
-
-    offset = lineEndIndex + 2
-  }
-
-  return Buffer.concat(parts)
-}

@@ -957,6 +957,20 @@ export class TcpSocketController extends SocketController {
   }
 
   /**
+   * Create a new, independent connection to the same destination,
+   * bypassing the interception. Unlike `passthrough()`, this does not
+   * consume the intercepted socket: the client socket stays as-is
+   * (e.g. claimed) while the returned socket dials the original
+   * destination with the original options. The caller owns the
+   * returned socket entirely (its lifecycle, errors, and teardown).
+   */
+  public createRealConnection(): net.Socket {
+    const realSocket = this.createConnection()
+    realSocket[kPatched] = true
+    return realSocket
+  }
+
+  /**
    * Suspend forwarding of the passthrough socket events ("data", "end", "close")
    * to the client socket. The events are buffered in order until `uncorkReads()`
    * is called. This allows the consumer to delay the delivery of the original

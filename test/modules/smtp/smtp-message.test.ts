@@ -24,14 +24,14 @@ it('mocks sending an email via nodemailer', async () => {
   let recipients: Array<string> = []
   let sentMessage = ''
 
-  interceptor.on('session', ({ controller }) => {
-    // Claiming sends the "220" greeting and runs the mock SMTP session.
-    // Commands without listeners are accepted with sensible defaults.
-    controller.claim()
+  interceptor.on('session', ({ client }) => {
+    // A handled session is mocked by default: the "220" greeting is
+    // sent once the listener settles, and commands without listeners
+    // are accepted with sensible defaults.
 
     // The "message" event describes the complete email transaction:
     // the sender, the accepted recipients, and the message itself.
-    controller.on('message', (event) => {
+    client.on('message', (event) => {
       sender = event.sender
       recipients = event.recipients
       sentMessage = event.message.toString()
@@ -72,12 +72,10 @@ it('mocks sending an email via nodemailer', async () => {
 })
 
 it('defers the message so the client can retry it', async () => {
-  interceptor.on('session', ({ controller }) => {
-    controller.claim()
-
+  interceptor.on('session', ({ client }) => {
     // A transient rejection tells the client the message may be
     // retried later (e.g. greylisting, a busy server).
-    controller.on('message', (event) => {
+    client.on('message', (event) => {
       event.defer({ reason: 'Server busy, try again later' })
     })
   })
@@ -104,10 +102,8 @@ it('defers the message so the client can retry it', async () => {
 it('preserves multibyte message content split across packets', async () => {
   const messages: Array<Buffer> = []
 
-  interceptor.on('session', ({ controller }) => {
-    controller.claim()
-
-    controller.on('message', (event) => {
+  interceptor.on('session', ({ client }) => {
+    client.on('message', (event) => {
       messages.push(event.message)
       event.accept()
     })

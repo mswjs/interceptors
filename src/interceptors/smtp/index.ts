@@ -4,10 +4,16 @@ import { TypedEvent } from 'rettime'
 import { Interceptor } from '#/src/interceptor'
 import { SocketInterceptor } from '../net'
 import type { NetworkConnectionOptions } from '../net/utils/normalize-net-connect-args'
-import { SmtpController } from './smtp-controller'
+import {
+  kActivate,
+  kDetach,
+  kGreeted,
+  SmtpClientConnection,
+} from './smtp-client-connection'
+import { SmtpServerConnection } from './smtp-server-connection'
 import { SmtpSession } from './smtp-session'
 
-export * from './smtp-controller'
+export * from './smtp-client-connection'
 export * from './smtp-server-connection'
 export * from './smtp-session'
 
@@ -17,7 +23,8 @@ type SmtpEventMap = {
 
 interface SmtpSessionEventData {
   session: SmtpSession
-  controller: SmtpController
+  client: SmtpClientConnection
+  server: SmtpServerConnection
 }
 
 export class SmtpSessionEvent<
@@ -30,16 +37,32 @@ export class SmtpSessionEvent<
    */
   public session: SmtpSession
   /**
-   * The only way to affect this connection: greet (and mock) it, pass
-   * it through to the real server, reply, or terminate it.
+   * The intercepted side of the session: the client commands and the
+   * replies it observes ("greet()"/"reply()"/"abort()"/"error()").
    */
-  public controller: SmtpController
+  public client: SmtpClientConnection
+  /**
+   * The real server of the session: inert until "connect()".
+   * Connecting before the greeting bypasses the session to the real
+   * server; connecting later opens a subordinate connection for
+   * "send()" (a real delivery the handler controls).
+   */
+  public server: SmtpServerConnection
+  /**
+   * Establish this connection as-is, without any SMTP handling.
+   * This is the escape hatch for connections that are not SMTP
+   * sessions to handle (e.g. the same process talking to a REST API):
+   * no events fire and no bytes are touched.
+   */
+  public passthrough: () => void
 
-  constructor(data: DataType) {
+  constructor(data: DataType, init: { passthrough: () => void }) {
     super(...(['session', {}] as any))
 
     this.session = data.session
-    this.controller = data.controller
+    this.client = data.client
+    this.server = data.server
+    this.passthrough = init.passthrough
   }
 }
 
@@ -65,12 +88,16 @@ function getSessionUrl(
 /**
  * Interceptor for SMTP connections in Node.js.
  *
+ * Every handled connection is claimed: the "session" listener receives
+ * the client and server connections and decides the session's fate by
+ * how it uses them. Doing nothing mocks the session (the mock greets
+ * "220" once the listener settles); "server.connect()" before the
+ * greeting bypasses the session to the real server.
+ *
  * @note SMTP is a server-greets-first protocol: the client sends
- * nothing until it receives the server's "220" greeting. The "session"
- * listener must decide between "controller.claim()" (mocking) and
- * "controller.passthrough()" based on the session description alone
- * (e.g. the SMTP port), never on the incoming data. Once claimed,
- * the mock server speaks first by writing the greeting.
+ * nothing until it receives the server's greeting, so the fate of a
+ * session must be decided before the greeting is authored — based on
+ * the session description alone, never on the incoming data.
  */
 export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
   static symbol = Symbol.for('smtp-interceptor')
@@ -102,6 +129,16 @@ export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
           return
         }
 
+        /**
+         * @note Subscribing to the socket interceptor suppresses its
+         * own passthrough-by-default behavior for unhandled connections.
+         * Restore it here for connections no "session" listener handles.
+         */
+        if (this.emitter.listenerCount('session') === 0) {
+          socketController.passthrough()
+          return
+        }
+
         const secure = socket instanceof tls.TLSSocket
         const session = new SmtpSession({
           url: getSessionUrl(connectionOptions, secure),
@@ -109,34 +146,62 @@ export class SmtpInterceptor extends Interceptor<SmtpEventMap> {
           connectionOptions,
         })
 
-        const smtpController = new SmtpController({
+        const client = new SmtpClientConnection({ session, socket })
+        const server = new SmtpServerConnection({
           session,
-          socket,
-          socketController,
+          client,
+          clientSocket: socket,
+          createConnection: () => {
+            return socketController.createRealConnection()
+          },
         })
+        let isPassthrough = false
 
-        try {
-          if (
-            !this.emitter.emit(
-              new SmtpSessionEvent({ session, controller: smtpController })
+        this.emitter
+          .emitAsPromise(
+            new SmtpSessionEvent(
+              { session, client, server },
+              {
+                passthrough: () => {
+                  isPassthrough = true
+                  client[kDetach]()
+                  socketController.passthrough()
+                },
+              }
             )
-          ) {
+          )
+          .then(() => {
+            // The listener passed the connection through raw:
+            // none of its bytes are SMTP.
+            if (isPassthrough) {
+              return
+            }
+
             /**
-             * @note Subscribing to the socket interceptor suppresses its
-             * own passthrough-by-default behavior for unhandled connections.
-             * Restore it here for connections no "session" listener handles.
+             * @note The session's fate settles once the listeners do:
+             * claim the socket, start parsing the client commands, and
+             * author the greeting — a bypassed session has already
+             * relayed the real greeting, anything else is a mocked
+             * session the mock greets.
              */
-            socketController.passthrough()
-          }
-        } catch (error) {
-          /**
-           * @note An exception in a "session" listener is translated
-           * onto the connection the same way a server crashing while
-           * accepting it would manifest: the client observes an abrupt
-           * connection error.
-           */
-          smtpController.error()
-        }
+            socketController.claim()
+            client[kActivate]()
+
+            if (!client[kGreeted]) {
+              client.greet()
+            }
+          })
+          .catch(() => {
+            /**
+             * @note An exception in a "session" listener is translated
+             * onto the connection the same way a server crashing while
+             * accepting it would manifest: the client observes an abrupt
+             * connection error.
+             */
+            if (!isPassthrough) {
+              client.error()
+            }
+          })
       },
       {
         signal: controller.signal,

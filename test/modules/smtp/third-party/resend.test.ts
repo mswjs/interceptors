@@ -169,9 +169,9 @@ it('passes through emails sent via the Resend REST API', async () => {
 
   const sessionListener = vi.fn()
 
-  interceptor.on('session', ({ session, controller }) => {
+  interceptor.on('session', ({ session, passthrough }) => {
     sessionListener(session.url.href)
-    controller.passthrough()
+    passthrough()
   })
 
   const resend = new Resend(RESEND_API_KEY, {
@@ -208,11 +208,10 @@ it('mocks an email sent through the Resend SMTP relay', async () => {
   let observedCredentials: { username: string; password: string } | undefined
   let observedMessage = ''
 
-  interceptor.on('session', ({ session, controller }) => {
+  interceptor.on('session', ({ session, client }) => {
     observedSessionUrls.push(session.url.href)
-    controller.claim()
 
-    controller.on('auth', (event) => {
+    client.on('auth', (event) => {
       observedCredentials = {
         username: event.username,
         password: event.password,
@@ -220,7 +219,7 @@ it('mocks an email sent through the Resend SMTP relay', async () => {
       event.accept()
     })
 
-    controller.on('message', (event) => {
+    client.on('message', (event) => {
       observedMessage = event.message.toString()
       event.accept({ queueId: 'MOCKED' })
     })
@@ -268,32 +267,32 @@ it('observes the delivery through the Resend SMTP relay on passthrough', async (
   const observedEvents: Array<string> = []
   let observedQueueId: string | undefined
 
-  interceptor.on('session', ({ controller }) => {
-    const realServer = controller.passthrough()
-
-    realServer.on('greeting', () => {
+  interceptor.on('session', async ({ server }) => {
+    server.on('greeting', () => {
       observedEvents.push('greeting')
     })
-    realServer.on('helo', () => {
+    server.on('helo', () => {
       observedEvents.push('helo')
     })
-    realServer.on('auth', (event) => {
+    server.on('auth', (event) => {
       observedEvents.push('auth')
       expect(event.code).toBe(235)
     })
-    realServer.on('sender', () => {
+    server.on('sender', () => {
       observedEvents.push('sender')
     })
-    realServer.on('recipient', () => {
+    server.on('recipient', () => {
       observedEvents.push('recipient')
     })
-    realServer.on('data', () => {
+    server.on('data', () => {
       observedEvents.push('data')
     })
-    realServer.on('message', (event) => {
+    server.on('message', (event) => {
       observedEvents.push('message')
       observedQueueId = event.queueId
     })
+
+    await server.connect()
   })
 
   const transport = createResendTransport(server.port)
@@ -337,16 +336,16 @@ it('surgically overrides the relay reply on passthrough', async () => {
     return createResendSmtpServer(deliveredMessages)
   })
 
-  interceptor.on('session', ({ controller }) => {
-    const realServer = controller.passthrough()
-
-    realServer.on('message', (event) => {
+  interceptor.on('session', async ({ client, server }) => {
+    server.on('message', (event) => {
       // The relay accepted the delivery ("250 ... RESEND-REAL"), but
       // withhold that reply and reject the delivery to the client.
       expect(event.code).toBe(250)
       event.preventDefault()
-      controller.reply(550, '5.7.1 Suppressed by test policy')
+      client.reply(550, '5.7.1 Suppressed by test policy')
     })
+
+    await server.connect()
   })
 
   const transport = createResendTransport(server.port)

@@ -21,12 +21,10 @@ const SMTP_PORT = 587
 it('authenticates the client', async () => {
   const authenticationListener = vi.fn()
 
-  interceptor.on('session', ({ controller }) => {
-    controller.claim()
-
+  interceptor.on('session', ({ client }) => {
     // The "auth" event fires once the challenge/response
     // exchange of the chosen mechanism collects the credentials.
-    controller.on('auth', (event) => {
+    client.on('auth', (event) => {
       authenticationListener({
         method: event.method,
         username: event.username,
@@ -35,7 +33,7 @@ it('authenticates the client', async () => {
       event.accept()
     })
 
-    controller.on('message', (event) => {
+    client.on('message', (event) => {
       event.accept()
     })
   })
@@ -67,10 +65,8 @@ it('authenticates the client', async () => {
 it('authenticates the client with the multi-step "LOGIN" mechanism', async () => {
   const authenticationListener = vi.fn()
 
-  interceptor.on('session', ({ controller }) => {
-    controller.claim()
-
-    controller.on('auth', (event) => {
+  interceptor.on('session', ({ client }) => {
+    client.on('auth', (event) => {
       authenticationListener({
         method: event.method,
         username: event.username,
@@ -105,10 +101,8 @@ it('authenticates the client with the multi-step "LOGIN" mechanism', async () =>
 })
 
 it('rejects invalid credentials', async () => {
-  interceptor.on('session', ({ controller }) => {
-    controller.claim()
-
-    controller.on('auth', (event) => {
+  interceptor.on('session', ({ client }) => {
+    client.on('auth', (event) => {
       if (event.password === 'valid') {
         event.accept()
       } else {

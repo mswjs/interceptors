@@ -23,9 +23,8 @@ const SMTP_PORT = 587
 it('exposes the session URL for filtering', async () => {
   const sessionUrls: Array<URL> = []
 
-  interceptor.on('session', ({ session, controller }) => {
+  interceptor.on('session', ({ session }) => {
     sessionUrls.push(session.url)
-    controller.claim()
   })
 
   /**
@@ -50,9 +49,8 @@ it('exposes the session URL for filtering', async () => {
 it('exposes the "smtps:" session URL for implicit TLS connections', async () => {
   const sessionUrls: Array<URL> = []
 
-  interceptor.on('session', ({ session, controller }) => {
+  interceptor.on('session', ({ session }) => {
     sessionUrls.push(session.url)
-    controller.claim()
   })
 
   const socket = tls.connect(465, 'smtp.example.com')
@@ -72,7 +70,7 @@ it('populates session metadata as the client advances', async () => {
   let heloAtMessage: string | undefined
   let userAtMessage: string | undefined
 
-  interceptor.on('session', ({ session, controller }) => {
+  interceptor.on('session', ({ session, client }) => {
     // The same live session object is read at different times.
     capturedSession = session
 
@@ -81,9 +79,8 @@ it('populates session metadata as the client advances', async () => {
     // Dynamic metadata has not arrived yet.
     heloAtStart = session.heloHostname
 
-    controller.claim()
-    controller.on('auth', (event) => event.accept())
-    controller.on('message', (event) => {
+    client.on('auth', (event) => event.accept())
+    client.on('message', (event) => {
       // By message time the live session has accumulated the metadata.
       heloAtMessage = session.heloHostname
       userAtMessage = session.user
