@@ -1068,6 +1068,26 @@ export class TcpSocketController extends SocketController {
 
       this.#push(data)
 
+      /**
+       * @note Pushing the data may start a new exchange: a subsequent
+       * request written to a kept-alive, claimed socket resets this
+       * controller at the HTTP message boundary, synchronously, while
+       * this write is still being handled (clients like Undici reuse
+       * sockets without emitting the "free" event that resets them).
+       * Buffer such writes for the new exchange so they can be
+       * flushed to the real socket if that exchange passes through.
+       */
+      if (this.readyState !== SocketController.CLAIMED) {
+        this.#bufferedWrites.push(args)
+
+        if (typeof callback === 'function') {
+          callback()
+          args[3] = function mockNoop() {}
+        }
+
+        return
+      }
+
       if (typeof callback === 'function') {
         logger.verbose(
           'invoking write callback (state: %d) %o',
