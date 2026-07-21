@@ -455,9 +455,14 @@ export class TcpSocketController extends SocketController {
       this.#passthroughSocket?.resume()
     }
 
-    // Store the unpatched write method once so we have access to it between socket state resets.
+    // Store the unpatched write method so passthrough writes can
+    // delegate to it once the socket receives the real handle.
     this.#realWriteGeneric = this.socket._writeGeneric
     this.#bufferedWrites = []
+
+    this.socket._writeGeneric = (...args) => {
+      this.#handleWrite(args)
+    }
 
     this.socket.connect = new Proxy(this.socket.connect, {
       apply: (target, thisArg, args) => {
@@ -489,13 +494,13 @@ export class TcpSocketController extends SocketController {
      * @note A single socket can be reused for connections to the same host.
      * When one connection ends, the Agent frees the socket, then uses it
      * to write the next request's HTTP message immediately. Use the "free"
-     * event to transition the controller into the pending state so "_writeGeneric"
-     * would behave correctly.
+     * event to transition the controller into the pending state so the
+     * next exchange is handled anew.
      */
     socket
       .on('free', () => {
         logger.verbose('client socket freed!')
-        this.#reset()
+        this.reset()
       })
       .on('close', () => {
         logger.verbose('client socket closed!')
@@ -528,6 +533,16 @@ export class TcpSocketController extends SocketController {
    * don't emit the "free" event on the socket (e.g. Undici).
    */
   public reset(): void {
+    /**
+     * @note Only settled (claimed or passed-through) sockets need a reset.
+     * Resetting a pending socket again would discard the writes already
+     * buffered for the next exchange (e.g. the Agent "free" event firing
+     * after the parser has reset this controller at a message boundary).
+     */
+    if (this.readyState === SocketController.PENDING) {
+      return
+    }
+
     this.#reset()
   }
 
@@ -595,22 +610,28 @@ export class TcpSocketController extends SocketController {
         wrapHandle(this.socket._handle)
       })
     }
+  }
 
-    this.socket._writeGeneric = (...args) => {
-      const data = args[1]
-      const callback = args[3]
+  /**
+   * Handle a write performed on the client socket. Installed once as
+   * "_writeGeneric", this is the single write path for every controller
+   * state, dispatching on "readyState".
+   */
+  #handleWrite(args: Parameters<net.Socket['_writeGeneric']>): void {
+    const data = args[1]
 
-      logger.verbose('socket write (state: %d) %o', this.readyState, args)
+    logger.verbose('socket write (state: %d) %o', this.readyState, args)
 
-      /**
-       * @note Buffer the write BEFORE pushing data to the server socket.
-       * `#push` triggers the 'data' event on the server socket synchronously,
-       * which may lead to `passthrough()` being called within the same call stack.
-       * If we buffer after `#push`, passthrough will read an empty `#bufferedWrites`
-       * and the request data will never be flushed to the real socket.
-       */
-      this.#bufferedWrites.push(args)
+    /**
+     * @note Buffer the write BEFORE pushing the data to the server socket.
+     * Handling the pushed data may transition this controller within the
+     * same call stack, and each transition settles the buffered entry:
+     * "passthrough()" flushes it to the real socket, "claim()" drops it,
+     * and a reset at an HTTP message boundary keeps it for the next exchange.
+     */
+    this.#bufferedWrites.push(args)
 
+    if (this.readyState === SocketController.PENDING) {
       /**
        * @note Reflect the buffered write in "_pendingData" so it counts
        * toward "bytesWritten", the same way Node.js counts the pending
@@ -628,48 +649,104 @@ export class TcpSocketController extends SocketController {
       this.socket._pendingData = pendingData
 
       // The server socket will NEVER have any "data" listeners attached
-      // becuase the "connection" interceptor event emits on the next tick.
+      // on the first write because the "connection" interceptor event
+      // emits on the next tick.
       if (this.socket.listenerCount('internal:write') === 0) {
         logger.verbose(
           'no server data listeners, scheduling to the next tick...'
         )
 
         process.nextTick(() => {
-          logger.verbose(
-            'forwarding scheduled write to server socket (state: %d) %o',
-            this.readyState,
-            data
-          )
           this.#push(data)
         })
       } else {
-        logger.verbose(
-          'pushing to server data listeners (state: %d)',
-          this.readyState
-        )
         this.#push(data)
       }
+    } else {
+      this.#push(data)
+    }
 
-      /**
-       * @note Only skip the callback if the socket transitioned to PASSTHROUGH.
-       * In the passthrough case, `#push` triggered `passthrough()` synchronously
-       * and the buffered write was already flushed to the real socket with the
-       * original callback. Calling it again would result in "Callback called
-       * multiple times" error.
-       *
-       * For CLAIMED state, `#push` may have triggered `claim()` synchronously
-       * (e.g. the handler responded with a mocked response). In that case,
-       * the callback was NOT flushed anywhere and must still be called here
-       * so the socket's writable state completes properly (enabling "finish").
-       */
-      if (
-        typeof callback === 'function' &&
-        this.readyState !== SocketController.PASSTHROUGH
-      ) {
-        callback()
-        args[3] = function mockNoop() {}
+    /**
+     * Dispatch on the state observed AFTER the push since handling the
+     * pushed data may have transitioned this controller synchronously.
+     */
+    switch (this.readyState) {
+      case SocketController.PENDING: {
+        /**
+         * @note The write either awaits the verdict on this exchange or,
+         * if the push reset this controller at a message boundary, opens
+         * the next exchange (the reset cleared the buffer; re-buffer it).
+         */
+        if (!this.#bufferedWrites.includes(args)) {
+          this.#bufferedWrites.push(args)
+        }
+
+        this.#acknowledgeWrite(args)
+        return
+      }
+
+      case SocketController.CLAIMED: {
+        /**
+         * @note Once claimed, there's nowhere else to write chunks to.
+         * The data was delivered to the server socket; complete the write
+         * so the socket's writable state settles (enabling "finish").
+         */
+        this.#removeBufferedWrite(args)
+        this.#acknowledgeWrite(args)
+        return
+      }
+
+      case SocketController.PASSTHROUGH: {
+        /**
+         * @note A synchronous "passthrough()" has already flushed this
+         * write (with its callback) to the real socket.
+         */
+        if (!this.#removeBufferedWrite(args)) {
+          return
+        }
+
+        /**
+         * @note Until the handle swap, the client socket's own handle
+         * cannot carry any data (it never actually connects). Write
+         * directly to the passthrough socket instead. This also prevents
+         * the "connecting" write replay of `Socket.prototype._writeGeneric`
+         * from pushing the same data to the server socket twice.
+         */
+        if (!this.#realHandleSwapped && this.#passthroughSocket) {
+          writePendingData(this.#passthroughSocket, data, args[2], args[3])
+          return
+        }
+
+        this.#realWriteGeneric.apply(this.socket, args)
       }
     }
+  }
+
+  /**
+   * Complete the given write by invoking its callback. The callback is
+   * then removed from the write entry so flushing that entry later
+   * (e.g. on passthrough) does not invoke it twice.
+   */
+  #acknowledgeWrite(args: Parameters<net.Socket['_writeGeneric']>): void {
+    const callback = args[3]
+
+    if (typeof callback === 'function') {
+      callback()
+      args[3] = undefined
+    }
+  }
+
+  #removeBufferedWrite(
+    args: Parameters<net.Socket['_writeGeneric']>
+  ): boolean {
+    const index = this.#bufferedWrites.indexOf(args)
+
+    if (index === -1) {
+      return false
+    }
+
+    this.#bufferedWrites.splice(index, 1)
+    return true
   }
 
   protected emulateConnect() {
@@ -1055,49 +1132,6 @@ export class TcpSocketController extends SocketController {
     this.socket._pendingData = null
     this.socket._pendingEncoding = ''
 
-    /**
-     * @note Once claimed, there's nowhere to write chunks to.
-     * Just forward the writes to the server socket and invoke callbacks.
-     * Attempting to write past this point will result in the "Error: write EBADF".
-     */
-    this.socket._writeGeneric = (...args) => {
-      logger.verbose('socket write (state: %d) %o', this.readyState, args)
-
-      const data = args[1]
-      const callback = args[3]
-
-      this.#push(data)
-
-      /**
-       * @note Pushing the data may start a new exchange: a subsequent
-       * request written to a kept-alive, claimed socket resets this
-       * controller at the HTTP message boundary, synchronously, while
-       * this write is still being handled (clients like Undici reuse
-       * sockets without emitting the "free" event that resets them).
-       * Buffer such writes for the new exchange so they can be
-       * flushed to the real socket if that exchange passes through.
-       */
-      if (this.readyState !== SocketController.CLAIMED) {
-        this.#bufferedWrites.push(args)
-
-        if (typeof callback === 'function') {
-          callback()
-          args[3] = function mockNoop() {}
-        }
-
-        return
-      }
-
-      if (typeof callback === 'function') {
-        logger.verbose(
-          'invoking write callback (state: %d) %o',
-          this.readyState,
-          { data, callback }
-        )
-        callback()
-      }
-    }
-
     this.pendingConnection.then(([request, handle]) => {
       logger.verbose('connection request resolved, mocking the connection...')
 
@@ -1178,47 +1212,6 @@ export class TcpSocketController extends SocketController {
     this.#bufferedWrites = []
     this.socket._pendingData = null
     this.socket._pendingEncoding = ''
-
-    this.socket._writeGeneric = (...args) => {
-      logger.verbose('socket write (state: %d) %o', this.readyState, args)
-
-      this.#push(args[1])
-
-      /**
-       * @note The controller may be reset synchronously while the pushed
-       * data is being parsed (e.g. a new request written to a kept-alive,
-       * passed-through socket). In that case, buffer this write instead of
-       * forwarding it so it's flushed once the new exchange is handled.
-       */
-      if (this.readyState !== SocketController.PASSTHROUGH) {
-        this.#bufferedWrites.push(args)
-
-        const callback = args[3]
-
-        if (typeof callback === 'function') {
-          callback()
-          args[3] = function mockNoop() {}
-        }
-
-        return
-      }
-
-      /**
-       * @note Until the handle swap, the client socket's own handle
-       * cannot carry any data (it never actually connects). Write
-       * directly to the passthrough socket instead, the same way the
-       * buffered writes are flushed in `passthrough()`. This also
-       * prevents the "connecting" write replay of `Socket.prototype._writeGeneric`
-       * from pushing the same data to the server socket twice.
-       */
-      if (!this.#realHandleSwapped && this.#passthroughSocket) {
-        const [, data, encoding, callback] = args
-        writePendingData(this.#passthroughSocket, data, encoding, callback)
-        return
-      }
-
-      return this.#realWriteGeneric.apply(this.socket, args)
-    }
 
     this.socket.address = realSocket.address.bind(realSocket)
 
