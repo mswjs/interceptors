@@ -4,7 +4,7 @@ import { invariant } from 'outvariant'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
-import { unwrapPendingData } from './utils/flush-writes'
+import { unwrapPendingData, writePendingData } from './utils/flush-writes'
 import { NetworkConnectionOptions } from './utils/normalize-net-connect-args'
 import { TlsConnectionOptions } from './utils/normalize-tls-connect-args'
 import {
@@ -1151,7 +1151,8 @@ export class TcpSocketController extends SocketController {
         })
       }
 
-      realSocket._writeGeneric.apply(realSocket, pendingWrite)
+      const [, data, encoding, callback] = pendingWrite
+      writePendingData(realSocket, data, encoding, callback)
     }
 
     this.#bufferedWrites = []
@@ -1191,10 +1192,9 @@ export class TcpSocketController extends SocketController {
        * from pushing the same data to the server socket twice.
        */
       if (!this.#realHandleSwapped && this.#passthroughSocket) {
-        return this.#passthroughSocket._writeGeneric.apply(
-          this.#passthroughSocket,
-          args
-        )
+        const [, data, encoding, callback] = args
+        writePendingData(this.#passthroughSocket, data, encoding, callback)
+        return
       }
 
       return this.#realWriteGeneric.apply(this.socket, args)
