@@ -69,6 +69,16 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let abortPendingRequest: (() => void) | undefined
 
         /**
+         * @note Capture the request context of the connection itself.
+         * The socket is created synchronously within the request async
+         * context (e.g. inside the patched `http.request()`), but the
+         * first data may reach the socket from a foreign context (e.g.
+         * a form-data stream piped into the request), where sampling
+         * the request context yields nothing.
+         */
+        const connectionRequestContext = requestContext.getStore()
+
+        /**
          * @note The client destroys the socket synchronously (e.g. Undici
          * on request abort) but the socket teardown events ("error",
          * "close") are emitted asynchronously, after the consumer has
@@ -131,9 +141,11 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
             baseUrl,
           })
 
-          // Get the request initiator from the async context, if any.
-          // Use the underlying socket as a fallback.
-          const requestContextValue = requestContext.getStore()
+          // Get the request initiator from the async context, falling
+          // back to the context captured at the connection time, then
+          // to the underlying socket.
+          const requestContextValue =
+            requestContext.getStore() ?? connectionRequestContext
           const initiator = requestContextValue?.initiator || socket
 
           requestParser = new HttpRequestParser({
