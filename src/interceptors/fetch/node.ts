@@ -63,12 +63,19 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const request = new Request(resolvedInput, init)
 
-          requestContext.enterWith({
-            initiator: request,
-            logger: this.logger,
-          })
-
-          return realFetch(request)
+          /**
+           * @note Scope the request context to the `fetch` call itself.
+           * Using `enterWith` here would rebind the store for the caller's
+           * entire asynchronous scope, attributing unrelated requests
+           * performed after this `fetch` to it.
+           */
+          return requestContext.run(
+            {
+              initiator: request,
+              logger: this.logger,
+            },
+            () => realFetch(request)
+          )
         }
       })
     )
