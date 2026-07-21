@@ -148,13 +148,14 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
               /**
                * @note A subsequent request arriving on a kept-alive socket
-               * that has passed through. Clients like Undici reuse sockets
-               * without emitting the "free" event, so reset the controller
-               * here, at the HTTP message boundary, to handle the new
-               * request from the pending state again.
+               * that has already been handled (passed through or mocked).
+               * Clients like Undici reuse sockets without emitting the
+               * "free" event, so reset the controller here, at the HTTP
+               * message boundary, to handle the new request from the
+               * pending state again.
                */
               if (
-                socketController['readyState'] === SocketController.PASSTHROUGH
+                socketController['readyState'] !== SocketController.PENDING
               ) {
                 socketController.reset()
               }
@@ -409,7 +410,19 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
      * Use native server response handling in Node.js.
      * @see https://github.com/nodejs/node/blob/13eb80f3b718452213e0fc449702aefbbfe4110f/lib/_http_server.js#L202
      */
-    const serverResponse = new ServerResponse(new IncomingMessage(socket))
+    const incomingMessage = new IncomingMessage(socket)
+
+    /**
+     * @note Describe the request method so the response body is
+     * handled appropriately (e.g. "HEAD" responses must not write
+     * a body). The HTTP version is deliberately left unset: with it,
+     * `ServerResponse` frames bodies of unknown length as chunked,
+     * polluting the mocked response headers with "Transfer-Encoding"
+     * the mock never specified.
+     */
+    incomingMessage.method = request.method
+
+    const serverResponse = new ServerResponse(incomingMessage)
 
     const responseSocket = new net.Socket()
 
@@ -525,7 +538,20 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
       serverResponse.end()
     }
 
-    if (request.method !== 'CONNECT') {
+    /**
+     * @note Self-delimiting responses (chunked, explicit "Content-Length",
+     * or bodiless by definition) must NOT signal the end-of-stream.
+     * The client parser completes them from their framing alone, and
+     * ending the socket would kill the kept-alive connection that
+     * agents pool and reuse for subsequent requests.
+     */
+    const isSelfDelimitingResponse =
+      request.method === 'HEAD' ||
+      response.headers.has('content-length') ||
+      response.headers.has('transfer-encoding') ||
+      !FetchResponse.isResponseWithBody(response.status)
+
+    if (request.method !== 'CONNECT' && !isSelfDelimitingResponse) {
       /**
        * @note Defer the end-of-stream signal so the HTTP parser has a chance
        * to process already-pushed response data and fire the 'response' event
