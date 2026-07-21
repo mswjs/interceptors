@@ -18,7 +18,7 @@ import { toBuffer } from '../../utils/bufferUtils'
 import { createRequestId } from '../../createRequestId'
 import { HttpRequestParser, HttpResponseParser } from './http-parser'
 import { handleRequest, HandleRequestOptions } from '../../utils/handleRequest'
-import { isResponseError } from '../../utils/responseUtils'
+import { isResponseError, kErrorResponse } from '../../utils/responseUtils'
 import { createLogger } from '../../utils/logger'
 import {
   kRawSocket,
@@ -407,7 +407,19 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     }
 
     if (isResponseError(response)) {
-      socket.destroy(new TypeError('Network error'))
+      /**
+       * @note Reference the error response on the socket error so the
+       * client-side interceptors (e.g. fetch) can surface it to the
+       * consumer as the reason behind the failed request. Keep the
+       * reference non-enumerable so the error remains observably
+       * identical for the clients that expose it as-is.
+       */
+      socket.destroy(
+        Object.defineProperty(new TypeError('Network error'), kErrorResponse, {
+          value: response,
+          enumerable: false,
+        })
+      )
       return
     }
 

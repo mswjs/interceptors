@@ -1,4 +1,5 @@
 import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
+import { getErrorResponse } from '#/src/utils/responseUtils'
 import { requestContext } from '#/src/request-context'
 import { patchesRegistry } from '#/src/utils/patchesRegistry'
 import { forwardHttpEvents } from '#/src/interceptors/http/forward-events'
@@ -74,7 +75,26 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
               initiator: request,
               logger: this.logger,
             },
-            () => realFetch(request)
+            () => {
+              return realFetch(request).catch((error: unknown) => {
+                /**
+                 * @note A mocked `Response.error()` destroys the socket with
+                 * an internal error, which Undici reports as the cause of its
+                 * "fetch failed" rejection. Surface the error response as the
+                 * rejection cause instead, so the consumer can tell a mocked
+                 * network error apart from an actual connectivity issue.
+                 */
+                if (error instanceof TypeError) {
+                  const errorResponse = getErrorResponse(error.cause)
+
+                  if (errorResponse) {
+                    error.cause = errorResponse
+                  }
+                }
+
+                throw error
+              })
+            }
           )
         }
       })

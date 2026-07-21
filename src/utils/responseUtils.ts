@@ -28,6 +28,29 @@ export function createServerErrorResponse(body: unknown): Response {
 export type ResponseError = Response & { type: 'error' }
 
 /**
+ * A key on the error a mocked `Response.error()` destroys the socket
+ * with, referencing that error response. Allows the client-side
+ * interceptors (e.g. fetch) to surface the error response to the
+ * consumer instead of the internal socket error.
+ */
+export const kErrorResponse = Symbol('kErrorResponse')
+
+/**
+ * Get the mocked error response that caused the given error, if any.
+ */
+export function getErrorResponse(error: unknown): ResponseError | undefined {
+  if (
+    error instanceof Error &&
+    kErrorResponse in error &&
+    isResponseError(error[kErrorResponse])
+  ) {
+    return error[kErrorResponse]
+  }
+
+  return undefined
+}
+
+/**
  * Check if the given response is a `Response.error()`.
  *
  * @note Some environments, like Miniflare (Cloudflare) do not
