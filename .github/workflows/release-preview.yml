@@ -28,11 +28,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Unit tests
+        run: pnpm test:unit
+
       - name: Build
         run: pnpm build
 
-      - name: Test
-        run: pnpm test
+      - name: Node.js tests
+        run: pnpm test:node
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps --only-shell
+
+      - name: Browser tests
+        run: pnpm test:browser
 
       - name: Publish canary to pkg.pr.new
         run: pnpm dlx pkg-pr-new publish
