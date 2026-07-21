@@ -66,6 +66,22 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let isHttpConnection: boolean | undefined
         let requestParser: HttpRequestParser | undefined
         let tunnelUrl: URL | undefined
+        let abortPendingRequest: (() => void) | undefined
+
+        /**
+         * @note The client destroys the socket synchronously (e.g. Undici
+         * on request abort) but the socket teardown events ("error",
+         * "close") are emitted asynchronously, after the consumer has
+         * already observed the rejected request promise. Hook into the
+         * destroy itself so the pending request is aborted before any
+         * of its listeners can resume.
+         */
+        const rawSocket = socketController[kRawSocket]
+        const realSocketDestroy = rawSocket._destroy.bind(rawSocket)
+        rawSocket._destroy = (error, callback) => {
+          abortPendingRequest?.()
+          realSocketDestroy(error, callback)
+        }
 
         /**
          * @note Only inspect the first sent packet to determine the protocol.
@@ -125,7 +141,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
               method: httpMethod,
               url: baseUrl,
             },
-            onRequest: async (parsedRequest) => {
+            onRequest: async (parsedRequest, requestAbortController) => {
               const request =
                 requestContextValue?.prepareRequest?.(parsedRequest) ??
                 parsedRequest
@@ -158,6 +174,15 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                     statusText: rawResponse.statusText,
                     hasBody: rawResponse.body != null,
                   })
+
+                  /**
+                   * @note The client may destroy the socket (e.g. on request
+                   * abort) moments before a response arrives. A destroyed
+                   * socket cannot be claimed and has no one reading it.
+                   */
+                  if (socket.destroyed) {
+                    return
+                  }
 
                   socketController.claim()
 
@@ -322,7 +347,26 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                 logger: requestLogger,
               }
 
-              await handleRequest(context)
+              /**
+               * @note The client destroying the socket while the request
+               * is still pending means the request was aborted (e.g. via
+               * `AbortController`). Abort the parsed request so its
+               * handling settles and late interactions with the request
+               * controller become controlled errors.
+               */
+              abortPendingRequest = () => {
+                if (
+                  requestController.readyState === RequestController.PENDING
+                ) {
+                  requestAbortController.abort()
+                }
+              }
+
+              try {
+                await handleRequest(context)
+              } finally {
+                abortPendingRequest = undefined
+              }
             },
           })
 

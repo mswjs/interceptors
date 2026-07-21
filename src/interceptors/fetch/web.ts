@@ -188,6 +188,16 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             this.emitter.listenerCount('request')
           )
 
+          /**
+           * @note Give the consumer a chance to abort the request before
+           * it is dispatched. Fetch queues the request processing as a
+           * task, so a signal aborted synchronously after `fetch()` must
+           * prevent the request from ever reaching the "request" listeners.
+           * Without this, the first listener is invoked synchronously
+           * within the `fetch()` call itself.
+           */
+          await Promise.resolve()
+
           await handleRequest({
             initiator: request,
             request,

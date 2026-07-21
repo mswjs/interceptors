@@ -89,6 +89,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
       headers: request.headers,
       credentials: expectedCredentials,
       body: request.body,
+      signal: request.signal,
     })
   }
 }
