@@ -1,49 +1,49 @@
-name: ci
+name: release-preview
 
 on:
-  push:
-    branches: [main]
   pull_request:
-  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 24, 26]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.5.2
+          version: 9.15.0
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Unit tests
-        run: pnpm test --project=unit
+        run: pnpm test:unit
 
       - name: Build
         run: pnpm build
 
       - name: Node.js tests
-        run: pnpm test --project=node
-
-      - name: Memory tests
-        run: pnpm test --project=memory
+        run: pnpm test:node
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps --only-shell
 
       - name: Browser tests
-        run: pnpm test --project=browser
+        run: pnpm test:browser
+
+      - name: Publish canary to pkg.pr.new
+        run: pnpm dlx pkg-pr-new publish
