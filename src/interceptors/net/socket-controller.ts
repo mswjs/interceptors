@@ -998,6 +998,16 @@ export class TcpSocketController extends SocketController {
     super.claim()
 
     /**
+     * @note The client may destroy the socket before the connection
+     * is claimed (e.g. abort a request in-flight). There is no
+     * connection to mock then, and the destroyed socket has no handle.
+     */
+    if (this.socket.destroyed) {
+      logger.verbose('socket already destroyed, skipping claim...')
+      return
+    }
+
+    /**
      * @note Skip already connected sockets (e.g. kept-alive sockets
      * reused for the next exchange). Sockets with an emulated "connect"
      * only appear connected and must still complete the mock connection.
@@ -1267,6 +1277,16 @@ export class TlsSocketController extends TcpSocketController {
   }
 
   public claim(): void {
+    /**
+     * @note The client may destroy the socket before the connection
+     * is claimed. Defer to the parent class, which transitions the
+     * ready state and skips the mock connection of destroyed sockets.
+     */
+    if (this.socket.destroyed) {
+      super.claim()
+      return
+    }
+
     /**
      * @note Reflect that the mocked connection is not authorized.
      * There is no real peer certificate to verify. The identity check

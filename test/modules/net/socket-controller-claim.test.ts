@@ -1,5 +1,6 @@
 // @vitest-environment node
 import net from 'node:net'
+import { DeferredPromise } from '@open-draft/deferred-promise'
 import { SocketInterceptor } from '#/src/interceptors/net'
 import { createTestServer, spyOnSocket } from '#/test/helpers'
 
@@ -33,6 +34,59 @@ it('resolves the connection attempt when the socket is claimed', async () => {
     ['connect'],
     ['ready'],
     ['close', false],
+  ])
+})
+
+it('has no effect claiming a connection destroyed by the client', async () => {
+  const connectionEventReceived = new DeferredPromise<void>()
+  const clientDestroyed = new DeferredPromise<void>()
+  const claimResult = new DeferredPromise<Error | undefined>()
+
+  interceptor.on('connection', async ({ controller }) => {
+    connectionEventReceived.resolve()
+
+    // Suspend the connection handling until the client
+    // has destroyed the socket (e.g. aborted the request).
+    await clientDestroyed
+
+    try {
+      controller.claim()
+      claimResult.resolve(undefined)
+    } catch (error) {
+      if (error instanceof Error) {
+        claimResult.resolve(error)
+      } else {
+        claimResult.reject(error)
+      }
+    }
+  })
+
+  const socket = net.connect(80, '127.0.0.1')
+  const { events } = spyOnSocket(socket)
+
+  /**
+   * @note Write only once the socket is connected (e.g. like Undici).
+   * This makes the interceptor emulate the "connect" event, taking
+   * the claim past the connected-socket check even after the client
+   * destroys the socket.
+   */
+  const socketConnected = new DeferredPromise<void>()
+  socket.on('connect', () => {
+    socket.write('hello')
+    socketConnected.resolve()
+  })
+
+  await connectionEventReceived
+  await socketConnected
+
+  socket.destroy()
+  clientDestroyed.resolve()
+
+  await expect(claimResult).resolves.toBeUndefined()
+  expect(socket.destroyed).toBe(true)
+  expect(events).toEqual([
+    ['connectionAttempt', '127.0.0.1', 80, 4],
+    ['connect'],
   ])
 })
 
