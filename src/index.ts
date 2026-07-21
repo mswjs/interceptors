@@ -5,8 +5,15 @@ export {
   RequestController,
   type RequestControllerSource,
 } from './RequestController'
-export type { HttpRequestEventMap } from './events/http'
-export type { WebSocketEventMap } from './events/websocket'
+export type {
+  HttpRequestEventMap,
+  HttpRequestEvent,
+  HttpResponseEvent,
+} from './events/http'
+export type {
+  WebSocketEventMap,
+  WebSocketConnectionEvent,
+} from './events/websocket'
 
 /* Utils */
 export { createRequestId } from './createRequestId'
