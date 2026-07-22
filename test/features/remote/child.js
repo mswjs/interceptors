@@ -1,4 +1,4 @@
-const { RemoteHttpInterceptor } = require('../../../RemoteHttpInterceptor')
+import { RemoteHttpInterceptor } from '@mswjs/interceptors/RemoteHttpInterceptor'
 
 const interceptor = new RemoteHttpInterceptor()
 interceptor.apply()

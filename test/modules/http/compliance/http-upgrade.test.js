@@ -1,0 +1,31 @@
+/**
+ * @see https://github.com/mswjs/interceptors/issues/682
+ */
+import { Server } from 'socket.io';
+import { io } from 'socket.io-client';
+import { HttpRequestInterceptor } from '#/src/interceptors/http';
+const interceptor = new HttpRequestInterceptor();
+const server = new Server(51678);
+beforeAll(() => {
+    interceptor.apply();
+});
+afterEach(() => {
+    interceptor.removeAllListeners();
+});
+afterAll(async () => {
+    interceptor.dispose();
+    await new Promise((resolve, reject) => {
+        server.disconnectSockets();
+        server.close((error) => {
+            if (error)
+                reject(error);
+            resolve();
+        });
+    });
+});
+it('bypasses a WebSocket upgrade request', async () => {
+    const client = io(`http://localhost:51678`, {
+        transports: ['websocket'],
+    });
+    await expect.poll(() => client.connected).toBe(true);
+});

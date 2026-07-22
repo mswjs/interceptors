@@ -1,0 +1,50 @@
+import { fileURLToPath } from 'node:url';
+import { HttpServer } from '@open-draft/test-server/http';
+import superagent from 'superagent';
+import { HttpRequestInterceptor } from '#/src/interceptors/http';
+const interceptor = new HttpRequestInterceptor();
+const httpServer = new HttpServer((app) => {
+    app.post('/upload', (req, res) => {
+        res.status(200).json({
+            contentType: req.header('content-type'),
+            contentLength: req.header('content-length'),
+        });
+    });
+});
+beforeAll(async () => {
+    interceptor.apply();
+    await httpServer.listen();
+});
+afterEach(() => {
+    interceptor.removeAllListeners();
+});
+afterAll(async () => {
+    interceptor.dispose();
+    await httpServer.close();
+});
+it('does not skip the first request bytes on passthrough POST request', async () => {
+    const socketDataCallback = vi.fn();
+    const underlyingServer = httpServer['_http'];
+    underlyingServer.on('connection', (socket) => {
+        socket.on('data', (chunk) => socketDataCallback(chunk.toString('utf8')));
+    });
+    const response = await superagent
+        .post(httpServer.http.url('/upload'))
+        .attach('file', 
+    /**
+     * @note The issue is only reproducible when providing a path
+     * to the uploaded file. Providing buffer works fine.
+     */
+    fileURLToPath(new URL('./http-post-missing-first-bytes-file.png', import.meta.url)))
+        .timeout(1000)
+        .catch((error) => {
+        console.error(error);
+        expect.fail('Request must not error');
+    });
+    expect.soft(response.status).toBe(200);
+    expect.soft(response.body).toEqual({
+        contentType: expect.stringMatching('multipart/form-data; boundary='),
+        contentLength: '3723',
+    });
+    expect(socketDataCallback).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('POST /upload HTTP/1.1\r\n'));
+});

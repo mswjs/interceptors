@@ -1,0 +1,204 @@
+// @vitest-environment node
+import http from 'node:http';
+import express from 'express';
+import { HttpServer } from '@open-draft/test-server/http';
+import { DeferredPromise } from '@open-draft/deferred-promise';
+import { HttpRequestInterceptor } from '#/src/interceptors/http';
+import { toWebResponse } from '#/test/helpers';
+const interceptor = new HttpRequestInterceptor();
+const httpServer = new HttpServer((app) => {
+    app.use(express.json());
+    app.post('/user', (req, res) => {
+        res.set({ 'x-custom-header': 'yes' }).send(`hello, ${req.body.name}`);
+    });
+});
+beforeAll(async () => {
+    interceptor.apply();
+    await httpServer.listen();
+});
+afterEach(() => {
+    interceptor.removeAllListeners();
+});
+afterAll(async () => {
+    interceptor.dispose();
+    await httpServer.close();
+});
+it('bypasses a request to the existing host', async () => {
+    const requestListener = vi.fn();
+    interceptor.on('request', ({ request }) => requestListener(request));
+    const request = http.request(httpServer.http.url('/user'), {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json',
+        },
+    });
+    request.write(JSON.stringify({ name: 'john' }));
+    request.end();
+    const [response] = await toWebResponse(request);
+    // Must expose the request reference to the listener.
+    const [requestFromListener] = requestListener.mock.calls[0];
+    expect(requestFromListener.url).toBe(httpServer.http.url('/user'));
+    expect(requestFromListener.method).toBe('POST');
+    expect(requestFromListener.headers.get('content-type')).toBe('application/json');
+    await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' });
+    // Must receive the correct response.
+    expect(response.headers.get('x-custom-header')).toBe('yes');
+    await expect(response.text()).resolves.toBe('hello, john');
+    expect(requestListener).toHaveBeenCalledTimes(1);
+});
+it('errors on a request to a non-existing host', async () => {
+    const responseListener = vi.fn();
+    const errorPromise = new DeferredPromise();
+    const request = http.request('http://abc123-non-existing.lol', {
+        method: 'POST',
+    });
+    request.on('response', responseListener);
+    request.on('error', (error) => errorPromise.resolve(error));
+    request.end();
+    await expect(() => toWebResponse(request)).rejects.toThrow('getaddrinfo ENOTFOUND abc123-non-existing.lol');
+    // Must emit the "error" event on the request.
+    await expect(errorPromise).resolves.toEqual(expect.objectContaining({
+        message: 'getaddrinfo ENOTFOUND abc123-non-existing.lol',
+        code: 'ENOTFOUND',
+        hostname: 'abc123-non-existing.lol',
+    }));
+    // Must not call the "response" event.
+    expect(responseListener).not.toHaveBeenCalled();
+});
+it('mocked request to an existing host', async () => {
+    const requestListener = vi.fn();
+    interceptor.on('request', async ({ request, controller }) => {
+        requestListener(request.clone());
+        const data = await request.json();
+        controller.respondWith(new Response(`howdy, ${data.name}`, {
+            headers: {
+                'x-custom-header': 'mocked',
+            },
+        }));
+    });
+    const request = http.request(httpServer.http.url('/user'), {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json',
+        },
+    });
+    request.write(JSON.stringify({ name: 'john' }));
+    request.end();
+    const [response] = await toWebResponse(request);
+    // Must expose the request reference to the listener.
+    const [requestFromListener] = requestListener.mock.calls[0];
+    expect(requestFromListener.url).toBe(httpServer.http.url('/user'));
+    expect(requestFromListener.method).toBe('POST');
+    expect(requestFromListener.headers.get('content-type')).toBe('application/json');
+    await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' });
+    // Must receive the correct response.
+    expect(response.headers.get('x-custom-header')).toBe('mocked');
+    await expect(response.text()).resolves.toBe('howdy, john');
+    expect(requestListener).toHaveBeenCalledTimes(1);
+});
+it('mocks response to a non-existing host', async () => {
+    const requestListener = vi.fn();
+    interceptor.on('request', async ({ request, controller }) => {
+        requestListener(request.clone());
+        const data = await request.json();
+        controller.respondWith(new Response(`howdy, ${data.name}`, {
+            headers: {
+                'x-custom-header': 'mocked',
+            },
+        }));
+    });
+    const request = http.request('http://foo.example.com', {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json',
+        },
+    });
+    request.write(JSON.stringify({ name: 'john' }));
+    request.end();
+    const [response] = await toWebResponse(request);
+    // Must expose the request reference to the listener.
+    const [requestFromListener] = requestListener.mock.calls[0];
+    expect(requestFromListener.url).toBe('http://foo.example.com/');
+    expect(requestFromListener.method).toBe('POST');
+    expect(requestFromListener.headers.get('content-type')).toBe('application/json');
+    await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' });
+    // Must receive the correct response.
+    expect(response.headers.get('x-custom-header')).toBe('mocked');
+    await expect(response.text()).resolves.toBe('howdy, john');
+    expect(requestListener).toHaveBeenCalledTimes(1);
+});
+/**
+ * @note The tests below verify that the request URL/options are
+ * correctly translated into the connection. The remote address of
+ * the socket reflects what connection the HTTP layer requested.
+ * Socket address behaviors themselves are covered by the socket
+ * compliance tests (see "test/modules/net/compliance/socket-address.test.ts").
+ */
+it('resolves the IPv6 hostname from request options into the connection', async () => {
+    interceptor.on('request', async ({ controller }) => {
+        controller.respondWith(new Response());
+    });
+    const remoteInfoPromise = new DeferredPromise();
+    const request = http.get({
+        hostname: '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
+        port: 80,
+        path: '/',
+    });
+    request.on('socket', (socket) => {
+        socket.on('connect', () => {
+            remoteInfoPromise.resolve({
+                remoteAddress: socket.remoteAddress,
+                remotePort: socket.remotePort,
+                remoteFamily: socket.remoteFamily,
+            });
+        });
+    });
+    await expect(remoteInfoPromise).resolves.toEqual({
+        // Mocked connections resolve any hostname to the loopback address.
+        remoteAddress: '::1',
+        remotePort: 80,
+        remoteFamily: 'IPv6',
+    });
+});
+it('resolves the bracketed IPv6 hostname from the request URL into the connection', async () => {
+    interceptor.on('request', async ({ controller }) => {
+        controller.respondWith(new Response());
+    });
+    const remoteInfoPromise = new DeferredPromise();
+    const request = http.get('http://[::1]');
+    request.on('socket', (socket) => {
+        socket.on('connect', () => {
+            remoteInfoPromise.resolve({
+                remoteAddress: socket.remoteAddress,
+                remotePort: socket.remotePort,
+                remoteFamily: socket.remoteFamily,
+            });
+        });
+    });
+    await expect(remoteInfoPromise).resolves.toEqual({
+        remoteAddress: '::1',
+        remotePort: 80,
+        remoteFamily: 'IPv6',
+    });
+});
+it('respects the "family" request option when connecting', async () => {
+    interceptor.on('request', async ({ controller }) => {
+        controller.respondWith(new Response());
+    });
+    const remoteInfoPromise = new DeferredPromise();
+    const request = http.get('http://example.test', { family: 6 });
+    request.on('socket', (socket) => {
+        socket.on('connect', () => {
+            remoteInfoPromise.resolve({
+                remoteAddress: socket.remoteAddress,
+                remotePort: socket.remotePort,
+                remoteFamily: socket.remoteFamily,
+            });
+        });
+    });
+    await expect(remoteInfoPromise).resolves.toEqual({
+        remoteAddress: '::1',
+        remotePort: 80,
+        remoteFamily: 'IPv6',
+    });
+});

@@ -1,0 +1,111 @@
+// @vitest-environment node
+import http from 'node:http';
+import { HttpRequestInterceptor } from '#/src/interceptors/http';
+import { toWebResponse } from '#/test/helpers';
+const interceptor = new HttpRequestInterceptor();
+beforeAll(() => {
+    interceptor.apply();
+});
+afterEach(() => {
+    interceptor.removeAllListeners();
+});
+afterAll(() => {
+    interceptor.dispose();
+});
+it('handles a thrown Response as a mocked response', async () => {
+    interceptor.on('request', () => {
+        throw new Response('hello world');
+    });
+    const request = http.get('http://localhost/resource');
+    const [response] = await toWebResponse(request);
+    expect(response.status).toBe(200);
+    expect(response.statusText).toBe('OK');
+    await expect(response.text()).resolves.toBe('hello world');
+});
+it('treats unhandled interceptor errors as 500 responses', async () => {
+    interceptor.on('request', () => {
+        throw new Error('Custom error');
+    });
+    const request = http.get('http://localhost/resource');
+    const [response] = await toWebResponse(request);
+    expect(response.status).toBe(500);
+    expect(response.statusText).toBe('Unhandled Exception');
+    await expect(response.json()).resolves.toEqual({
+        name: 'Error',
+        message: 'Custom error',
+        stack: expect.any(String),
+    });
+});
+it('handles exceptions by default if "unhandledException" listener is provided but does nothing', async () => {
+    const unhandledExceptionListener = vi.fn();
+    interceptor.on('request', () => {
+        throw new Error('Custom error');
+    });
+    interceptor.on('unhandledException', unhandledExceptionListener);
+    const request = http.get('http://localhost/resource');
+    const requestErrorListener = vi.fn();
+    request.on('error', requestErrorListener);
+    const [response] = await toWebResponse(request);
+    // Must emit the "unhandledException" interceptor event.
+    expect(unhandledExceptionListener).toHaveBeenCalledWith(expect.objectContaining({
+        error: new Error('Custom error'),
+    }));
+    expect(unhandledExceptionListener).toHaveBeenCalledOnce();
+    // Since the "unhandledException" listener didn't handle the
+    // exception, it will be translated to the 500 error response
+    // (the default behavior).
+    expect(response.status).toBe(500);
+    expect(response.statusText).toBe('Unhandled Exception');
+    await expect(response.json()).resolves.toEqual({
+        name: 'Error',
+        message: 'Custom error',
+        stack: expect.any(String),
+    });
+});
+it('handles exceptions as instructed in "unhandledException" listener (mock response)', async () => {
+    const unhandledExceptionListener = vi.fn();
+    interceptor.on('request', () => {
+        throw new Error('Custom error');
+    });
+    interceptor.on('unhandledException', (args) => {
+        const { controller } = args;
+        unhandledExceptionListener(args);
+        // Handle exceptions as a fallback 200 OK response.
+        controller.respondWith(new Response('fallback response'));
+    });
+    const request = http.get('http://localhost/resource');
+    const requestErrorListener = vi.fn();
+    request.on('error', requestErrorListener);
+    const [response] = await toWebResponse(request);
+    expect(response.status).toBe(200);
+    expect(response.statusText).toBe('OK');
+    await expect(response.text()).resolves.toBe('fallback response');
+    expect(unhandledExceptionListener).toHaveBeenCalledWith(expect.objectContaining({
+        error: new Error('Custom error'),
+    }));
+    expect(unhandledExceptionListener).toHaveBeenCalledOnce();
+    expect(requestErrorListener).not.toHaveBeenCalled();
+});
+it('handles exceptions as instructed in "unhandledException" listener (request error)', async () => {
+    const unhandledExceptionListener = vi.fn();
+    interceptor.on('request', () => {
+        throw new Error('Custom error');
+    });
+    interceptor.on('unhandledException', (args) => {
+        const { controller } = args;
+        unhandledExceptionListener(args);
+        // Handle exceptions as request errors.
+        controller.errorWith(new Error('Fallback error'));
+    });
+    const request = http.get('http://localhost/resource');
+    const requestErrorListener = vi.fn();
+    request.on('error', requestErrorListener);
+    await vi.waitFor(() => {
+        expect(requestErrorListener).toHaveBeenNthCalledWith(1, new Error('Fallback error'));
+    });
+    expect(request.destroyed).toBe(true);
+    expect(unhandledExceptionListener).toHaveBeenCalledWith(expect.objectContaining({
+        error: new Error('Custom error'),
+    }));
+    expect(unhandledExceptionListener).toHaveBeenCalledOnce();
+});
