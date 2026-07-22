@@ -65,7 +65,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
                   {
                     initiator: xmlHttpRequest,
                     logger: requestLogger,
-                    prepareRequest: (request) => {
+                    transformRequest: (request) => {
                       return prepareRequest(request, xmlHttpRequest)
                     },
                   },

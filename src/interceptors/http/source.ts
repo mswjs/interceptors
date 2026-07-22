@@ -155,7 +155,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
             },
             onRequest: async (parsedRequest, requestAbortController) => {
               const request =
-                requestContextValue?.prepareRequest?.(parsedRequest) ??
+                requestContextValue?.transformRequest?.(parsedRequest) ??
                 parsedRequest
 
               /**
@@ -166,9 +166,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                * message boundary, to handle the new request from the
                * pending state again.
                */
-              if (
-                socketController['readyState'] !== SocketController.PENDING
-              ) {
+              if (socketController['readyState'] !== SocketController.PENDING) {
                 socketController.reset()
               }
 
@@ -180,163 +178,167 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                 url: request.url,
               })
 
-              const requestController = new RequestController(request, {
-                respondWith: async (rawResponse) => {
-                  httpLogger.verbose('respondWith() %o', {
-                    status: rawResponse.status,
-                    statusText: rawResponse.statusText,
-                    hasBody: rawResponse.body != null,
-                  })
-
-                  /**
-                   * @note The client may destroy the socket (e.g. on request
-                   * abort) moments before a response arrives. A destroyed
-                   * socket cannot be claimed and has no one reading it.
-                   */
-                  if (socket.destroyed) {
-                    return
-                  }
-
-                  socketController.claim()
-
-                  const response = FetchResponse.from(rawResponse, {
-                    url: request.url,
-                  })
-
-                  /**
-                   * @note A successful mocked response to a "CONNECT"
-                   * request establishes a tunnel to the requested authority
-                   * (e.g. "127.0.0.1:80"). The exchange that follows on this
-                   * socket is addressed to that authority, not to the proxy.
-                   */
-                  if (request.method === 'CONNECT' && response.ok) {
-                    tunnelUrl = new URL(`http://${request.url}`)
-                  }
-
-                  /**
-                   * @note Clone the response before "respondWith" because it will
-                   * consume its body. This way, we can have a readable response copy
-                   * for the "response" event below.
-                   */
-                  const responseClone = isResponseError(response)
-                    ? null
-                    : response.clone()
-
-                  const respond = () => {
-                    return this.respondWith({
-                      socket: socketController[kRawSocket],
-                      request: context.request,
-                      response,
+              const requestController = new RequestController(
+                request,
+                {
+                  respondWith: async (rawResponse) => {
+                    httpLogger.verbose('respondWith() %o', {
+                      status: rawResponse.status,
+                      statusText: rawResponse.statusText,
+                      hasBody: rawResponse.body != null,
                     })
-                  }
 
-                  if (responseClone) {
-                    await this.emitter.emitAsPromise(
-                      new HttpResponseEvent({
-                        initiator,
-                        requestId,
+                    /**
+                     * @note The client may destroy the socket (e.g. on request
+                     * abort) moments before a response arrives. A destroyed
+                     * socket cannot be claimed and has no one reading it.
+                     */
+                    if (socket.destroyed) {
+                      return
+                    }
+
+                    socketController.claim()
+
+                    const response = FetchResponse.from(rawResponse, {
+                      url: request.url,
+                    })
+
+                    /**
+                     * @note A successful mocked response to a "CONNECT"
+                     * request establishes a tunnel to the requested authority
+                     * (e.g. "127.0.0.1:80"). The exchange that follows on this
+                     * socket is addressed to that authority, not to the proxy.
+                     */
+                    if (request.method === 'CONNECT' && response.ok) {
+                      tunnelUrl = new URL(`http://${request.url}`)
+                    }
+
+                    /**
+                     * @note Clone the response before "respondWith" because it will
+                     * consume its body. This way, we can have a readable response copy
+                     * for the "response" event below.
+                     */
+                    const responseClone = isResponseError(response)
+                      ? null
+                      : response.clone()
+
+                    const respond = () => {
+                      return this.respondWith({
+                        socket: socketController[kRawSocket],
                         request: context.request,
-                        response: responseClone,
-                        responseType: 'mock',
+                        response,
                       })
+                    }
+
+                    if (responseClone) {
+                      await this.emitter.emitAsPromise(
+                        new HttpResponseEvent({
+                          initiator,
+                          requestId,
+                          request: context.request,
+                          response: responseClone,
+                          responseType: 'mock',
+                        })
+                      )
+                    }
+
+                    if (socket.connecting) {
+                      // Send a mocked response once the socket connects, just like the real server would.
+                      // This preserves the correct order of events (e.g. connect, then data).
+                      socket.once('connect', respond)
+                    } else {
+                      /**
+                       * @note Reused sockets stay connected between requests and will not
+                       * emit "connect" anymore. If that's the case, respond immediately.
+                       */
+                      await respond()
+                    }
+                  },
+                  errorWith: (reason) => {
+                    if (reason instanceof Error) {
+                      socket.destroy(reason)
+                    }
+                  },
+                  passthrough: () => {
+                    const realSocket = socketController.passthrough(
+                      this.#modifyHttpHeaders(context.request)
                     )
-                  }
 
-                  if (socket.connecting) {
-                    // Send a mocked response once the socket connects, just like the real server would.
-                    // This preserves the correct order of events (e.g. connect, then data).
-                    socket.once('connect', respond)
-                  } else {
-                    /**
-                     * @note Reused sockets stay connected between requests and will not
-                     * emit "connect" anymore. If that's the case, respond immediately.
-                     */
-                    await respond()
-                  }
-                },
-                errorWith: (reason) => {
-                  if (reason instanceof Error) {
-                    socket.destroy(reason)
-                  }
-                },
-                passthrough: () => {
-                  const realSocket = socketController.passthrough(
-                    this.#modifyHttpHeaders(context.request)
-                  )
+                    if (this.emitter.listenerCount('response') > 0) {
+                      httpLogger.verbose(
+                        'found "response" listener, corking socket reads'
+                      )
 
-                  if (this.emitter.listenerCount('response') > 0) {
-                    httpLogger.verbose(
-                      'found "response" listener, corking socket reads'
-                    )
+                      /**
+                       * Suspend the delivery of the original response to the client
+                       * until the "response" event listeners settle. This guarantees
+                       * that the request promise (e.g. `await fetch()`) does not
+                       * resolve before the listeners are done. The real socket keeps
+                       * emitting data for the response parser meanwhile.
+                       */
+                      socketController.corkReads()
 
-                    /**
-                     * Suspend the delivery of the original response to the client
-                     * until the "response" event listeners settle. This guarantees
-                     * that the request promise (e.g. `await fetch()`) does not
-                     * resolve before the listeners are done. The real socket keeps
-                     * emitting data for the response parser meanwhile.
-                     */
-                    socketController.corkReads()
-
-                    const responseParser = new HttpResponseParser({
-                      onResponse: async (response) => {
-                        httpLogger.verbose(
-                          'HTTP response parser parsed: %d %s',
-                          response.status,
-                          response.statusText
-                        )
-
-                        if (isResponseError(response)) {
+                      const responseParser = new HttpResponseParser({
+                        onResponse: async (response) => {
                           httpLogger.verbose(
-                            'response is an error response, uncorking socket reads...'
+                            'HTTP response parser parsed: %d %s',
+                            response.status,
+                            response.statusText
                           )
 
-                          socketController.uncorkReads()
-                          return
-                        }
+                          if (isResponseError(response)) {
+                            httpLogger.verbose(
+                              'response is an error response, uncorking socket reads...'
+                            )
 
-                        FetchResponse.setUrl(request.url, response)
-
-                        try {
-                          httpLogger.verbose('emitting "response" event')
-                          await this.emitter.emitAsPromise(
-                            new HttpResponseEvent({
-                              initiator,
-                              requestId,
-                              request: context.request,
-                              response,
-                              responseType: 'original',
-                            })
-                          )
-                        } finally {
-                          httpLogger.verbose('uncorking socket reads')
-                          socketController.uncorkReads()
-
-                          /**
-                           * @note Informational responses other than
-                           * "101 Switching Protocols" are followed by a final
-                           * response on the same connection. Keep gating that
-                           * final response on the "response" event listeners.
-                           */
-                          if (
-                            response.status < 200 &&
-                            response.status !== 101
-                          ) {
-                            socketController.corkReads()
+                            socketController.uncorkReads()
+                            return
                           }
-                        }
-                      },
-                    })
 
-                    realSocket
-                      .on('data', (chunk) => responseParser.execute(chunk))
-                      .on('close', () => responseParser.free())
-                  }
+                          FetchResponse.setUrl(request.url, response)
+
+                          try {
+                            httpLogger.verbose('emitting "response" event')
+                            await this.emitter.emitAsPromise(
+                              new HttpResponseEvent({
+                                initiator,
+                                requestId,
+                                request: context.request,
+                                response,
+                                responseType: 'original',
+                              })
+                            )
+                          } finally {
+                            httpLogger.verbose('uncorking socket reads')
+                            socketController.uncorkReads()
+
+                            /**
+                             * @note Informational responses other than
+                             * "101 Switching Protocols" are followed by a final
+                             * response on the same connection. Keep gating that
+                             * final response on the "response" event listeners.
+                             */
+                            if (
+                              response.status < 200 &&
+                              response.status !== 101
+                            ) {
+                              socketController.corkReads()
+                            }
+                          }
+                        },
+                      })
+
+                      realSocket
+                        .on('data', (chunk) => responseParser.execute(chunk))
+                        .on('close', () => responseParser.free())
+                    }
+                  },
                 },
-              }, {
-                logger: requestLogger,
-                requestId,
-              })
+                {
+                  logger: requestLogger,
+                  requestId,
+                }
+              )
 
               invariant(
                 socketController['readyState'] === SocketController.PENDING,
