@@ -12,6 +12,7 @@ import {
   TlsSocketController,
 } from './socket-controller'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
+import { getTlsConnectOptions } from './utils/get-tls-connect-options'
 import { createLogger } from '../../utils/logger'
 import { patchesRegistry } from '../../utils/patchesRegistry'
 import { Interceptor } from '#/src/interceptor'
@@ -105,6 +106,14 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
   protected setup(): void {
     const interceptor = this
 
+    /**
+     * @note A synchronous re-entrancy latch for creating passthrough
+     * TLS connections. The original "tls.connect()" constructs a TLS
+     * socket and calls "socket.connect()" on it synchronously, and that
+     * call must reach Node.js as-is instead of being intercepted again.
+     */
+    let isCreatingPassthroughConnection = false
+
     this.subscriptions.push(
       /**
        * @note Intercept connections at the "net.Socket.prototype.connect"
@@ -124,77 +133,114 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             const socket = this
 
             /**
-             * @note Skip the sockets this interceptor already controls:
-             * the mock connect call below, re-connects of an intercepted
-             * socket, and passthrough sockets. Their connects must reach
-             * Node.js as-is.
+             * @note Skip the sockets this interceptor already controls
+             * (the mock connect call below, re-connects of an intercepted
+             * socket, passthrough sockets) and the sockets created while
+             * dialing a passthrough TLS connection. Their connects must
+             * reach Node.js as-is.
              */
-            if (socket[kPatched]) {
-              return realSocketConnect.apply(socket, args)
-            }
-
-            /**
-             * @note Skip TLS sockets. TLS connections are intercepted in
-             * the "tls.connect" patch below: the TLS handshake options
-             * (e.g. "checkServerIdentity") can only be provided when the
-             * TLS socket is constructed, long before this method is called
-             * for its underlying transport.
-             */
-            if (socket instanceof tls.TLSSocket) {
+            if (socket[kPatched] || isCreatingPassthroughConnection) {
               return realSocketConnect.apply(socket, args)
             }
 
             logger.verbose('socket.connect() %o', args)
 
             /**
-             * @note The original "net.connect()" normalizes the arguments
-             * itself and calls this method with the normalized array
-             * instead of the individual arguments.
+             * @note The original "net.connect()"/"tls.connect()" normalize
+             * the arguments themselves and call this method with the
+             * normalized array instead of the individual arguments.
              */
             const connectArgs = (
               Array.isArray(args[0]) ? args[0] : args
             ) as typeof args
 
-            const [connectionOptions, connectionCallback] =
+            const [transportConnectionOptions, connectionCallback] =
               normalizeNetConnectArgs(connectArgs)
 
             logger.verbose('connection options %o', {
-              connectionOptions,
+              transportConnectionOptions,
               connectionCallback,
             })
 
-            /**
-             * @note Create passthrough connections without the connection
-             * callback. The callback is already registered as a "connect"
-             * listener on the consumer's socket. Passing it to the
-             * passthrough connection would invoke it twice.
-             */
-            const passthroughArgs = connectArgs.filter((arg) => {
-              return typeof arg !== 'function'
-            }) as typeof args
+            let controller: TcpSocketController
+            let connectionOptions: NetworkConnectionOptions
 
-            /**
-             * @note Create the passthrough socket with the original
-             * options, the same way "net.connect()" does. Connect it via
-             * the unpatched method so the passthrough connection is not
-             * intercepted again.
-             */
-            const socketOptions =
-              connectArgs[0] !== null &&
-              typeof connectArgs[0] === 'object' &&
-              !('href' in connectArgs[0])
-                ? connectArgs[0]
-                : {}
+            if (socket instanceof tls.TLSSocket) {
+              /**
+               * @note TLS sockets arrive here from the original
+               * "tls.connect()", which connects the transport of the TLS
+               * socket it constructs ("connectionCallback" is its internal
+               * "_start" handshake trigger). The original TLS connection
+               * options are recovered from the socket instance since the
+               * construction has already happened.
+               */
+              const realTlsConnectionOptions = getTlsConnectOptions(socket)
+              const [tlsConnectionOptions] = normalizeTlsConnectArgs([
+                {
+                  ...transportConnectionOptions,
+                  ...realTlsConnectionOptions,
+                } as tls.ConnectionOptions,
+              ])
 
-            const controller = new TcpSocketController(socket, () => {
-              const passthroughSocket = new net.Socket(socketOptions)
-              Reflect.apply(
-                realSocketConnect,
-                passthroughSocket,
-                passthroughArgs
+              connectionOptions = tlsConnectionOptions
+              controller = new TlsSocketController(
+                socket,
+                () => {
+                  /**
+                   * @note Create the passthrough connection via the original
+                   * "tls.connect()" with the original connection options
+                   * (the real DNS lookup and the caller's certificate
+                   * validation included). The latch exempts the transport
+                   * connect of that connection from interception.
+                   */
+                  isCreatingPassthroughConnection = true
+
+                  try {
+                    return tls.connect(
+                      (realTlsConnectionOptions ??
+                        tlsConnectionOptions) as tls.ConnectionOptions
+                    )
+                  } finally {
+                    isCreatingPassthroughConnection = false
+                  }
+                },
+                tlsConnectionOptions
               )
-              return passthroughSocket
-            })
+            } else {
+              /**
+               * @note Create passthrough connections without the connection
+               * callback. The callback is already registered as a "connect"
+               * listener on the consumer's socket. Passing it to the
+               * passthrough connection would invoke it twice.
+               */
+              const passthroughArgs = connectArgs.filter((arg) => {
+                return typeof arg !== 'function'
+              }) as typeof args
+
+              /**
+               * @note Create the passthrough socket with the original
+               * options, the same way "net.connect()" does. Connect it via
+               * the unpatched method so the passthrough connection is not
+               * intercepted again.
+               */
+              const socketOptions =
+                connectArgs[0] !== null &&
+                typeof connectArgs[0] === 'object' &&
+                !('href' in connectArgs[0])
+                  ? connectArgs[0]
+                  : {}
+
+              connectionOptions = transportConnectionOptions
+              controller = new TcpSocketController(socket, () => {
+                const passthroughSocket = new net.Socket(socketOptions)
+                Reflect.apply(
+                  realSocketConnect,
+                  passthroughSocket,
+                  passthroughArgs
+                )
+                return passthroughSocket
+              })
+            }
 
             process.nextTick(() => {
               if (socket.destroyed) {
@@ -229,7 +275,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
              * binding the intercepted socket (see the "connect" proxy).
              */
             const mockConnectionOptions = {
-              ...connectionOptions,
+              ...transportConnectionOptions,
             }
 
             // Patch the lookup option so DNS lookup always succeeds.
@@ -261,89 +307,6 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
           }
         }
       ),
-      patchesRegistry.applyPatch(tls, 'connect', (realTlsConnect) => {
-        return (...args: [any, any]) => {
-          logger.verbose('tls.connect() %o', args)
-
-          const [tlsConnectionOptions, secureConnectionCallback] =
-            normalizeTlsConnectArgs(args)
-
-          const realCheckServerIdentity =
-            tlsConnectionOptions.checkServerIdentity ?? tls.checkServerIdentity
-
-          const tlsSocket = realTlsConnect(
-            {
-              ...tlsConnectionOptions,
-              /**
-               * @note Mock the DNS lookup, the same way "net.connect()"
-               * interception does. The socket emits the "lookup" and
-               * "connectionAttempt" events even for non-existent hosts,
-               * and no real DNS resolution is performed.
-               */
-              lookup: mockLookup,
-              /**
-               * @note Skip the server identity check for mocked connections.
-               * There is no real peer certificate to verify, and failing
-               * the check would destroy the socket. Passthrough connections
-               * delegate to the caller's identity check (or the default one).
-               */
-              checkServerIdentity(hostname, certificate) {
-                if (controller.readyState === TlsSocketController.CLAIMED) {
-                  return undefined
-                }
-
-                return realCheckServerIdentity(hostname, certificate)
-              },
-            },
-            secureConnectionCallback
-          )
-
-          /**
-           * @note Create passthrough connections without the secure
-           * connection callback. The callback is already registered on
-           * the TLS socket returned to the consumer. Passing it to the
-           * passthrough connection would invoke it twice.
-           */
-          const passthroughArgs = args.filter((arg) => {
-            return typeof arg !== 'function'
-          }) as typeof args
-
-          const controller = new TlsSocketController(
-            tlsSocket,
-            () => {
-              return realTlsConnect(...passthroughArgs)
-            },
-            tlsConnectionOptions
-          )
-
-          process.nextTick(() => {
-            if (tlsSocket.destroyed) {
-              return
-            }
-
-            if (
-              !this.emitter.emit(
-                new SocketConnectionEvent({
-                  socket: controller.serverSocket,
-                  controller,
-                  connectionOptions: tlsConnectionOptions,
-                })
-              )
-            ) {
-              logger.verbose(
-                'no "connection" listeners found on the interceptor, passthrough...'
-              )
-
-              controller.passthrough()
-              return
-            }
-
-            logger.verbose('emitted the "connection" event!')
-          })
-
-          return tlsSocket
-        }
-      }),
       this.#stopReusingUnpatchedSockets()
     )
 

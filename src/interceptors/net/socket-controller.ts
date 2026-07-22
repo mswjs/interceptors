@@ -6,6 +6,7 @@ import { createLogger } from '../../utils/logger'
 import { unwrapPendingData, writePendingData } from './utils/flush-writes'
 import { NetworkConnectionOptions } from './utils/normalize-net-connect-args'
 import { TlsConnectionOptions } from './utils/normalize-tls-connect-args'
+import { getTlsConnectOptions } from './utils/get-tls-connect-options'
 import {
   getAddressInfoByConnectionOptions,
   getLocalAddressInfoByConnectionOptions,
@@ -55,6 +56,7 @@ declare module 'node:tls' {
       onhandshakedone: () => void
       onnewsession: (sessionId: unknown, session: Buffer) => void
       getSession: () => Buffer
+      isSessionReused: () => boolean
       getServername: () => string
       getALPNNegotiatedProtocol: () => string | false
       getCipher: () => { name: string; standardName: string; version: string }
@@ -436,9 +438,9 @@ export class TcpSocketController extends SocketController {
 
     /**
      * @note Plain TCP sockets capture the connection options from the
-     * "socket.connect()" proxy below. TLS sockets connect before this
-     * controller is constructed, so their options must be provided
-     * explicitly (see "TlsSocketController").
+     * "socket.connect()" proxy below. TLS sockets carry additional
+     * TLS-level options that never pass through "socket.connect()",
+     * so those are provided explicitly (see "TlsSocketController").
      */
     this.#connectionOptions = connectionOptions
 
@@ -1252,8 +1254,8 @@ export class TlsSocketController extends TcpSocketController {
   /**
    * @note The TLS connection options must be provided explicitly.
    * They cannot be captured from "socket.connect()" like for plain
-   * TCP sockets because "tls.connect()" connects the socket before
-   * this controller is constructed.
+   * TCP sockets because "tls.connect()" fixes them at the TLS socket
+   * construction, before its transport ever connects.
    */
   #tlsConnectionOptions?: TlsConnectionOptions
 
@@ -1303,7 +1305,7 @@ export class TlsSocketController extends TcpSocketController {
      * @note Reflect that the mocked connection is not authorized.
      * There is no real peer certificate to verify. The identity check
      * itself is skipped for claimed connections (see the
-     * "checkServerIdentity" option in the "tls.connect" patch).
+     * "isSessionReused" mock below).
      */
     this.socket.prependOnceListener('secureConnect', () => {
       Reflect.set(this.socket, 'authorized', false)
@@ -1329,6 +1331,24 @@ export class TlsSocketController extends TcpSocketController {
 
     handle.getSession = () => {
       return Buffer.from('mocked session')
+    }
+
+    /**
+     * @note Skip the server identity check for this mocked connection.
+     * Node.js runs "options.checkServerIdentity" in "onConnectSecure"
+     * against the peer certificate, and a mocked connection has no
+     * real peer certificate — the caller's (or the default) validation
+     * would fail and destroy the socket. The check is overridden on the
+     * socket's internal connect options since the emulated handshake
+     * still completes through the regular "onConnectSecure" path.
+     * @see https://github.com/nodejs/node/blob/3178a762d6a2b1a37b74f02266eea0f3d86603f1/lib/_tls_wrap.js#L1621
+     */
+    const realTlsConnectOptions = getTlsConnectOptions(this.socket)
+
+    if (realTlsConnectOptions) {
+      realTlsConnectOptions.checkServerIdentity = () => {
+        return undefined
+      }
     }
 
     handle.getCipher = () => {
