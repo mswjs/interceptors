@@ -1,3 +1,5 @@
 allowBuilds:
   esbuild: true
   simple-git-hooks: true
+overrides:
+  '@types/express': ^5.0.6

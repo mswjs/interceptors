@@ -66,8 +66,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 const requestCloneForResponseEvent = request.clone()
 
                 // Perform the intercepted request as-is.
-                const { error: responseError, data: originalResponse } =
-                  await until(() => realFetch(request))
+                const [responseError, originalResponse] = await until(() =>
+                  realFetch(request)
+                )
 
                 if (responseError) {
                   return responsePromise.reject(responseError)

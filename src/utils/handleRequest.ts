@@ -72,7 +72,7 @@ export async function handleRequest(
     // Forward the special interceptor error instances
     // to the developer. These must not be handled in any way.
     if (error instanceof InterceptorError) {
-      throw result.error
+      throw resultError
     }
 
     // Support mocking Node.js-like errors.
@@ -110,7 +110,7 @@ export async function handleRequest(
     options.request.signal.addEventListener('abort', onAbort, { once: true })
   }
 
-  const result = await until(async () => {
+  const [resultError] = await until(async () => {
     // Emit the "request" event and wait until all the listeners
     // for that event are finished (e.g. async listeners awaited).
     // By the end of this promise, the developer cannot affect the
@@ -150,10 +150,10 @@ export async function handleRequest(
     return
   }
 
-  if (result.error) {
+  if (resultError) {
     // Handle the error during the request listener execution.
     // These can be thrown responses or request errors.
-    if (await handleResponseError(result.error)) {
+    if (await handleResponseError(resultError)) {
       return
     }
 
@@ -192,7 +192,7 @@ export async function handleRequest(
       await options.emitter.emitAsPromise(
         new UnhandledHttpException({
           initiator: options.initiator,
-          error: result.error,
+          error: resultError,
           request: options.request,
           requestId: options.requestId,
           controller: unhandledExceptionController,
@@ -210,7 +210,7 @@ export async function handleRequest(
 
     // Otherwise, coerce unhandled exceptions to a 500 Internal Server Error response.
     await options.controller.respondWith(
-      createServerErrorResponse(result.error)
+      createServerErrorResponse(resultError)
     )
     return
   }

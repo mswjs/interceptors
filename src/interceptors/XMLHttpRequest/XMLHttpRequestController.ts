@@ -514,7 +514,7 @@ export class XMLHttpRequestController {
 
     // Redirects are followed as a part of the fetch controller. Since we don't have one,
     // retrieve the final response and then continue with processing it instead of the mocked one.
-    const { error: redirectError, data: finalResponse } = await until(() => {
+    const [redirectError, finalResponse] = await until(() => {
       return this.followRedirects(response)
     })
 
