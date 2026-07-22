@@ -1,329 +1,410 @@
-// @vitest-environment jsdom
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+// @vitest-environment happy-dom
 import https from 'node:https'
-import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpRequestEventMap } from '../../../src'
-import { XMLHttpRequestInterceptor } from '../../../src/interceptors/XMLHttpRequest'
-import { BatchInterceptor } from '../../../src/BatchInterceptor'
-import { ClientRequestInterceptor } from '../../../src/interceptors/ClientRequest'
-import { FetchInterceptor } from '../../../src/interceptors/fetch'
-import {
-  useCors,
-  createXMLHttpRequest,
-  waitForClientRequest,
-} from '../../helpers'
+import { BatchInterceptor, HttpRequestEventMap } from '@mswjs/interceptors'
+import nodeInterceptors from '@mswjs/interceptors/presets/node'
+import { toWebResponse } from '#/test/helpers'
+import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
+import { getTestServer } from '#/test/setup/vitest'
 
-declare namespace window {
-  export const _resourceLoader: {
-    _strictSSL: boolean
-  }
-}
-
-const httpServer = new HttpServer((app) => {
-  app.use(useCors)
-
-  app.get('/user', (_req, res) => {
-    res.status(509).send('must-use-mocks')
-  })
-
-  app.post('/account', (_req, res) => {
-    return res
-      .status(200)
-      .set('access-control-expose-headers', 'x-response-type')
-      .set('x-response-type', 'original')
-      .send('original-response-text')
-  })
-})
-
+const server = getTestServer()
 const interceptor = new BatchInterceptor({
   name: 'batch-interceptor',
-  interceptors: [
-    new ClientRequestInterceptor(),
-    new XMLHttpRequestInterceptor(),
-    new FetchInterceptor(),
-  ],
+  interceptors: nodeInterceptors,
 })
 
-interceptor.on('request', ({ request, controller }) => {
-  const url = new URL(request.url)
+beforeAll(() => {
+  interceptor.apply()
+})
 
-  if (url.pathname === '/user') {
+afterEach(() => {
+  vi.clearAllMocks()
+  interceptor.removeAllListeners()
+})
+
+afterAll(() => {
+  interceptor.dispose()
+  vi.restoreAllMocks()
+})
+
+it('ClientRequest: emits the "response" event for a mocked response', async () => {
+  interceptor.on('request', ({ request, controller }) => {
     controller.respondWith(
       new Response('mocked-response-text', {
-        status: 200,
+        statusText: 'OK',
+        headers: { 'x-response-type': 'mocked' },
+      })
+    )
+  })
+
+  const responseListener =
+    vi.fn<(event: HttpRequestEventMap['response']) => void>()
+  interceptor.once('response', responseListener)
+
+  const req = https.request(server.https.url('/user'), {
+    method: 'GET',
+    headers: {
+      'x-request-custom': 'yes',
+    },
+    rejectUnauthorized: false,
+  })
+  req.end()
+
+  const [response] = await toWebResponse(req)
+
+  // Must receive a mocked response.
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.statusText).toBe('OK')
+
+  await expect.poll(() => responseListener).toHaveBeenCalledOnce()
+
+  {
+    const [{ response, request, responseType }] = responseListener.mock.calls[0]
+
+    expect(request.method).toBe('GET')
+    expect(request.url).toBe(server.https.url('/user').href)
+    expect(request.headers.get('x-request-custom')).toBe('yes')
+    expect(request.credentials).toBe('same-origin')
+    expect(request.body).toBe(null)
+
+    expect(response.status).toBe(200)
+    expect(response.statusText).toBe('OK')
+    expect(response.url).toBe(request.url)
+    expect(response.headers.get('x-response-type')).toBe('mocked')
+    await expect(response.text()).resolves.toBe('mocked-response-text')
+
+    expect(responseType).toBe('mock')
+  }
+})
+
+it('ClientRequest: emits the "response" event upon the original response', async () => {
+  const responseListener =
+    vi.fn<(event: HttpRequestEventMap['response']) => void>()
+  interceptor.on('response', responseListener)
+
+  const req = https.request(server.https.url('/account'), {
+    method: 'POST',
+    headers: {
+      'x-request-custom': 'yes',
+    },
+    rejectUnauthorized: false,
+  })
+  req.write('original-body')
+  req.end()
+  await toWebResponse(req)
+
+  expect(responseListener).toHaveBeenCalledOnce()
+
+  const [{ response, request, responseType }] = responseListener.mock.calls[0]
+
+  expect(request.method).toBe('POST')
+  expect(request.url).toBe(server.https.url('/account').href)
+  expect(request.headers.get('x-request-custom')).toBe('yes')
+  expect(request.credentials).toBe('same-origin')
+  await expect(request.text()).resolves.toBe('original-body')
+
+  expect(response.status).toBe(200)
+  expect(response.statusText).toBe('OK')
+  expect(response.url).toBe(request.url)
+  expect(response.headers.get('x-request-custom')).toBe('yes')
+  await expect(response.text()).resolves.toBe('original-body')
+
+  expect(responseType).toBe('original')
+})
+
+it('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.method === 'OPTIONS') {
+      return controller.respondWith(
+        new Response(null, {
+          headers: {
+            'access-control-allow-origin': '*',
+            'access-control-allow-headers': 'x-request-custom',
+          },
+        })
+      )
+    }
+
+    controller.respondWith(
+      new Response('mocked-response-text', {
+        statusText: 'OK',
+        headers: {
+          'access-control-allow-origin': '*',
+          'x-response-type': 'mocked',
+        },
+      })
+    )
+  })
+
+  const responseListener =
+    vi.fn<(event: HttpRequestEventMap['response']) => void>()
+  interceptor.on('response', responseListener)
+
+  const url = 'http://any.host.here/resource'
+  const request = new XMLHttpRequest()
+  request.open('GET', url)
+  request.setRequestHeader('x-request-custom', 'yes')
+  request.send()
+
+  await waitForXMLHttpRequest(request)
+
+  expect(responseListener).toHaveBeenCalledTimes(2)
+  expect(request.responseText).toBe('mocked-response-text')
+
+  {
+    const [{ response, request, responseType }] = responseListener.mock.calls[0]
+
+    expect.soft(request.method).toBe('OPTIONS')
+    expect.soft(request.url).toBe(url)
+    expect.soft(request.credentials).toBe('same-origin')
+    await expect(request.text()).resolves.toBe('')
+
+    expect.soft(response.status).toBe(200)
+    expect.soft(response.statusText).toBe('')
+    expect.soft(response.url).toBe(request.url)
+    await expect(response.text()).resolves.toBe('')
+    expect(responseType).toBe('mock')
+  }
+
+  {
+    const [{ response, request, responseType }] = responseListener.mock.calls[1]
+
+    expect.soft(request.method).toBe('GET')
+    expect.soft(request.url).toBe(url)
+    expect.soft(request.headers.get('x-request-custom')).toBe('yes')
+    expect.soft(request.credentials).toBe('same-origin')
+    expect(request.body).toBe(null)
+
+    expect.soft(response.status).toBe(200)
+    expect.soft(response.statusText).toBe('OK')
+    expect.soft(response.url).toBe(request.url)
+    await expect(response.text()).resolves.toBe('mocked-response-text')
+    expect(responseType).toBe('mock')
+  }
+})
+
+it('XMLHttpRequest: emits the "response" event upon the original response', async () => {
+  const responseListener =
+    vi.fn<(event: HttpRequestEventMap['response']) => void>()
+  interceptor.on('response', responseListener)
+
+  const url = server.http.url('/account')
+  const request = new XMLHttpRequest()
+  request.open('POST', url)
+  request.setRequestHeader('x-request-custom', 'yes')
+  request.send('original-body')
+
+  await waitForXMLHttpRequest(request)
+
+  expect(responseListener).toHaveBeenCalledTimes(2)
+  expect(request.responseText).toBe('original-body')
+
+  {
+    const [{ response, request, responseType }] = responseListener.mock.calls[0]
+
+    expect(request).toBeDefined()
+    expect(response).toBeDefined()
+
+    expect(request.method).toBe('OPTIONS')
+    expect(request.url).toBe(url.href)
+    expect(request.credentials).toBe('same-origin')
+    await expect(request.text()).resolves.toBe('')
+
+    expect(response.status).toBe(200)
+    expect(response.statusText).toBe('OK')
+    expect(response.url).toBe(request.url)
+    await expect(response.text()).resolves.toBe('')
+
+    expect(responseType).toBe('original')
+  }
+
+  {
+    const [{ response, request, responseType }] = responseListener.mock.calls[1]
+
+    expect(request).toBeDefined()
+    expect(response).toBeDefined()
+
+    expect(request.method).toBe('POST')
+    expect(request.url).toBe(url.href)
+    expect(request.headers.get('x-request-custom')).toBe('yes')
+    expect(request.credentials).toBe('same-origin')
+    await expect(request.text()).resolves.toBe('original-body')
+
+    expect(response.status).toBe(200)
+    expect(response.statusText).toBe('OK')
+    expect(response.url).toBe(request.url)
+    expect(response.headers.get('x-request-custom')).toBe('yes')
+    await expect(response.text()).resolves.toBe('original-body')
+
+    expect(responseType).toBe('original')
+  }
+})
+
+it('fetch: emits the "response" event upon a mocked response', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.method === 'OPTIONS') {
+      return controller.respondWith(
+        new Response(null, {
+          headers: {
+            'access-control-allow-origin': '*',
+            'access-control-allow-headers': 'x-request-custom',
+          },
+        })
+      )
+    }
+
+    controller.respondWith(
+      new Response('mocked-response-text', {
         statusText: 'OK',
         headers: {
           'x-response-type': 'mocked',
         },
       })
     )
+  })
+
+  const responseListener = vi.fn()
+  interceptor.on('response', responseListener)
+
+  await fetch(server.https.url('/user'), {
+    headers: {
+      'x-request-custom': 'yes',
+    },
+  })
+
+  await expect.poll(() => responseListener).toHaveBeenCalledTimes(2)
+
+  {
+    const [{ response, request, responseType }] = responseListener.mock.calls[0]
+
+    expect(request.method).toBe('OPTIONS')
+    expect(request.url).toBe(server.https.url('/user').href)
+    expect(request.credentials).toBe('same-origin')
+    await expect(request.text()).resolves.toBe('')
+
+    expect(response.status).toBe(200)
+    expect(response.url).toBe(request.url)
+    await expect(response.text()).resolves.toBe('')
+
+    expect(responseType).toBe('mock')
+  }
+
+  {
+    const [{ response, request, responseType }] = responseListener.mock.calls[1]
+
+    expect(request.method).toBe('GET')
+    expect(request.url).toBe(server.https.url('/user').href)
+    expect(request.headers.get('x-request-custom')).toBe('yes')
+    expect(request.credentials).toBe('same-origin')
+    expect(request.body).toBe(null)
+
+    expect(response.status).toBe(200)
+    expect(response.statusText).toBe('OK')
+    expect(response.url).toBe(request.url)
+    expect(response.headers.get('x-response-type')).toBe('mocked')
+    await expect(response.text()).resolves.toBe('mocked-response-text')
+
+    expect(responseType).toBe('mock')
   }
 })
 
-beforeAll(async () => {
-  // Allow XHR requests to the local HTTPS server with a self-signed certificate.
-  window._resourceLoader._strictSSL = false
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+it(
+  'fetch: emits the "response" event upon the original response',
+  { timeout: 1500 },
+  async () => {
+    const responseListener = vi.fn()
+    interceptor.on('response', responseListener)
 
-  await httpServer.listen()
-  interceptor.apply()
-})
-
-afterEach(() => {
-  interceptor.removeAllListeners('response')
-  vi.resetAllMocks()
-})
-
-afterAll(async () => {
-  interceptor.dispose()
-  await httpServer.close()
-})
-
-it('ClientRequest: emits the "response" event for a mocked response', async () => {
-  const responseListener =
-    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
-  interceptor.once('response', responseListener)
-
-  const req = https.request(httpServer.https.url('/user'), {
-    method: 'GET',
-    headers: {
-      'x-request-custom': 'yes',
-    },
-  })
-  req.end()
-
-  const { res } = await waitForClientRequest(req)
-
-  // Must receive a mocked response.
-  expect(res.statusCode).toBe(200)
-  expect(res.statusMessage).toBe('OK')
-
-  expect(responseListener).toHaveBeenCalledOnce()
-
-  const [{ response, request, isMockedResponse }] =
-    responseListener.mock.calls[0]
-
-  expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.https.url('/user'))
-  expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
-
-  expect(response.status).toBe(200)
-  expect(response.statusText).toBe('OK')
-  expect(response.url).toBe(request.url)
-  expect(response.headers.get('x-response-type')).toBe('mocked')
-  await expect(response.text()).resolves.toBe('mocked-response-text')
-
-  expect(isMockedResponse).toBe(true)
-})
-
-it('ClientRequest: emits the "response" event upon the original response', async () => {
-  const responseListener =
-    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
-  interceptor.on('response', responseListener)
-
-  const req = https.request(httpServer.https.url('/account'), {
-    method: 'POST',
-    headers: {
-      'x-request-custom': 'yes',
-    },
-  })
-  req.write('request-body')
-  req.end()
-  await waitForClientRequest(req)
-
-  expect(responseListener).toHaveBeenCalledOnce()
-
-  const [{ response, request, isMockedResponse }] =
-    responseListener.mock.calls[0]
-
-  expect(request.method).toBe('POST')
-  expect(request.url).toBe(httpServer.https.url('/account'))
-  expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request.credentials).toBe('same-origin')
-  await expect(request.text()).resolves.toBe('request-body')
-
-  expect(response.status).toBe(200)
-  expect(response.statusText).toBe('OK')
-  expect(response.url).toBe(request.url)
-  expect(response.headers.get('x-response-type')).toBe('original')
-  await expect(response.text()).resolves.toBe('original-response-text')
-
-  expect(isMockedResponse).toBe(false)
-})
-
-it('XMLHttpRequest: emits the "response" event upon a mocked response', async () => {
-  const responseListener =
-    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
-  interceptor.on('response', responseListener)
-
-  const originalRequest = await createXMLHttpRequest((req) => {
-    req.open('GET', httpServer.https.url('/user'))
-    req.setRequestHeader('x-request-custom', 'yes')
-    req.send()
-  })
-
-  expect(responseListener).toHaveBeenCalledOnce()
-
-  const [{ response, request, isMockedResponse }] =
-    responseListener.mock.calls.find(([{ request }]) => {
-      // The first response event will be from the "OPTIONS" preflight request.
-      return request.method === 'GET'
-    })!
-
-  expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.https.url('/user'))
-  expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
-
-  expect(response.status).toBe(200)
-  expect(response.statusText).toBe('OK')
-  expect(response.url).toBe(request.url)
-  expect(response.headers.get('x-response-type')).toBe('mocked')
-  await expect(response.text()).resolves.toBe('mocked-response-text')
-  expect(isMockedResponse).toBe(true)
-
-  // Original response.
-  expect(originalRequest.responseText).toEqual('mocked-response-text')
-})
-
-it('XMLHttpRequest: emits the "response" event upon the original response', async () => {
-  const responseListener =
-    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
-  interceptor.on('response', responseListener)
-
-  const originalRequest = await createXMLHttpRequest((req) => {
-    req.open('POST', httpServer.https.url('/account'))
-    req.setRequestHeader('x-request-custom', 'yes')
-    req.send('request-body')
-  })
-
-  /**
-   * @note The "response" event will be emitted twice because XMLHttpRequest
-   * is polyfilled by "http.ClientRequest" in Node.js. When this request will be
-   * passthrough to the ClientRequest, it will perform an "OPTIONS" request first,
-   * thus two request/response events emitted.
-   */
-  expect(responseListener).toHaveBeenCalledTimes(2)
-
-  // Lookup the correct response listener call.
-  const [{ response, request, isMockedResponse }] =
-    responseListener.mock.calls.find(([{ request }]) => {
-      return request.method === 'POST'
-    })!
-
-  expect(request).toBeDefined()
-  expect(response).toBeDefined()
-
-  expect(request.method).toBe('POST')
-  expect(request.url).toBe(httpServer.https.url('/account'))
-  expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request.credentials).toBe('same-origin')
-  await expect(request.text()).resolves.toBe('request-body')
-
-  expect(response.status).toBe(200)
-  expect(response.statusText).toBe('OK')
-  expect(response.url).toBe(request.url)
-  expect(response.headers.get('x-response-type')).toBe('original')
-  await expect(response.text()).resolves.toBe('original-response-text')
-
-  expect(isMockedResponse).toBe(false)
-
-  // Original response.
-  expect(originalRequest.responseText).toEqual('original-response-text')
-})
-
-it('fetch: emits the "response" event upon a mocked response', async () => {
-  const responseListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['response'][0]
-  >()
-  interceptor.on('response', (args) => {
-    responseListenerArgs.resolve({
-      ...args,
-      request: args.request.clone(),
+    await fetch(server.http.url('/account'), {
+      method: 'POST',
+      headers: {
+        'x-request-custom': 'yes',
+      },
+      body: 'original-body',
     })
-  })
 
-  await fetch(httpServer.https.url('/user'), {
-    headers: {
-      'x-request-custom': 'yes',
-    },
-  })
+    await expect.poll(() => responseListener).toHaveBeenCalledTimes(2)
 
-  const { response, request, isMockedResponse } = await responseListenerArgs
+    {
+      const [{ response, request, responseType }] =
+        responseListener.mock.calls[0]
 
-  expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.https.url('/user'))
-  expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request.credentials).toBe('same-origin')
-  expect(request.body).toBe(null)
+      expect(request.method).toBe('OPTIONS')
+      expect(request.url).toBe(server.http.url('/account').href)
+      expect(request.credentials).toBe('same-origin')
+      await expect(request.text()).resolves.toBe('')
 
-  expect(response.status).toBe(200)
-  expect(response.statusText).toBe('OK')
-  expect(response.url).toBe(request.url)
-  expect(response.headers.get('x-response-type')).toBe('mocked')
-  await expect(response.text()).resolves.toBe('mocked-response-text')
+      expect(response.status).toBe(200)
+      expect(response.statusText).toBe('OK')
+      expect(response.url).toBe(request.url)
+      await expect(response.text()).resolves.toBe('')
 
-  expect(isMockedResponse).toBe(true)
-})
+      expect(responseType).toBe('original')
+    }
 
-it('fetch: emits the "response" event upon the original response', async () => {
-  const responseListenerArgs = new DeferredPromise<
-    HttpRequestEventMap['response'][0]
-  >()
-  interceptor.on('response', (args) => {
-    responseListenerArgs.resolve({
-      ...args,
-      request: args.request.clone(),
-    })
-  })
+    {
+      const [{ response, request, responseType }] =
+        responseListener.mock.calls[1]
 
-  await fetch(httpServer.https.url('/account'), {
-    method: 'POST',
-    headers: {
-      'x-request-custom': 'yes',
-    },
-    body: 'request-body',
-  })
+      expect(request.method).toBe('POST')
+      expect(request.url).toBe(server.http.url('/account').href)
+      expect(request.headers.get('x-request-custom')).toBe('yes')
+      expect(request.credentials).toBe('same-origin')
+      await expect(request.text()).resolves.toBe('original-body')
 
-  const { response, request, isMockedResponse } = await responseListenerArgs
+      expect(response.status).toBe(200)
+      expect(response.statusText).toBe('OK')
+      expect(response.url).toBe(request.url)
+      expect(response.headers.get('x-request-custom')).toBe('yes')
+      await expect(response.text()).resolves.toBe('original-body')
 
-  expect(request.method).toBe('POST')
-  expect(request.url).toBe(httpServer.https.url('/account'))
-  expect(request.headers.get('x-request-custom')).toBe('yes')
-  expect(request.credentials).toBe('same-origin')
-  await expect(request.text()).resolves.toBe('request-body')
-
-  expect(response.status).toBe(200)
-  expect(response.statusText).toBe('OK')
-  expect(response.url).toBe(request.url)
-  expect(response.headers.get('x-response-type')).toBe('original')
-  await expect(response.text()).resolves.toBe('original-response-text')
-
-  expect(isMockedResponse).toBe(false)
-})
+      expect(responseType).toBe('original')
+    }
+  }
+)
 
 it('supports reading the request and response bodies in the "response" listener', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.method === 'OPTIONS') {
+      return controller.respondWith(
+        new Response(null, {
+          headers: {
+            'access-control-allow-origin': '*',
+            'access-control-allow-headers': 'x-request-custom',
+          },
+        })
+      )
+    }
+
+    controller.respondWith(
+      new Response('mocked-response-text', {
+        statusText: 'OK',
+        headers: {
+          'x-response-type': 'mocked',
+        },
+      })
+    )
+  })
+
   const requestCallback = vi.fn()
   const responseCallback = vi.fn()
-  const responseListener = vi.fn<
-    (...args: HttpRequestEventMap['response']) => void
-  >(async ({ request, response }) => {
+
+  interceptor.on('response', async ({ request, response }) => {
     requestCallback(await request.clone().text())
     responseCallback(await response.clone().text())
   })
-  interceptor.on('response', responseListener)
 
-  await fetch(httpServer.https.url('/user'), {
+  await fetch(server.https.url('/user'), {
     method: 'POST',
     body: 'request-body',
   })
 
-  await expect.poll(() => responseListener).toHaveBeenCalledOnce()
+  await expect.poll(() => requestCallback).toHaveReturnedTimes(2)
 
-  expect(requestCallback).toHaveBeenCalledWith('request-body')
-  expect(responseCallback).toHaveBeenCalledWith('mocked-response-text')
+  expect(requestCallback).toHaveBeenNthCalledWith(1, '')
+  expect(requestCallback).toHaveBeenNthCalledWith(2, 'request-body')
+
+  await expect.poll(() => responseCallback).toHaveReturnedTimes(2)
+
+  expect(responseCallback).toHaveBeenNthCalledWith(1, '')
+  expect(responseCallback).toHaveBeenNthCalledWith(2, 'mocked-response-text')
 })

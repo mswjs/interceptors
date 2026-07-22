@@ -1,19 +1,23 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { HttpServer } from '@open-draft/test-server/lib/http'
-import { waitForClientRequest } from '../../../helpers'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => res.sendStatus(200))
-})
+let httpServer: TestHttpServer
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  /**
+   * @note No custom routes: the test server responds to "GET /"
+   * on its own, and these tests only assert the response destroy behavior.
+   */
+  httpServer = await createTestHttpServer()
 })
 
 afterEach(() => {
@@ -29,7 +33,7 @@ it('emits the "error" event when a bypassed response is destroyed', async () => 
   const socketErrorListener = vi.fn()
 
   const request = http
-    .get(httpServer.http.url('/'))
+    .get(httpServer.http.url('/').href)
     .on('socket', (socket) => {
       socket.on('error', socketErrorListener)
     })
@@ -37,11 +41,12 @@ it('emits the "error" event when a bypassed response is destroyed', async () => 
       response.destroy(new Error('reason'))
     })
 
-  const { res } = await waitForClientRequest(request)
+  const [, rawResponse] = await toWebResponse(request)
 
-  expect(res.destroyed).toBe(true)
-  expect(socketErrorListener).toHaveBeenCalledOnce()
-  expect(socketErrorListener).toHaveBeenCalledWith(new Error('reason'))
+  expect.soft(rawResponse.destroyed).toBe(true)
+  expect
+    .soft(socketErrorListener)
+    .toHaveBeenCalledExactlyOnceWith(new Error('reason'))
 })
 
 it('emits the "error" event when a mocked response is destroyed', async () => {
@@ -52,7 +57,7 @@ it('emits the "error" event when a mocked response is destroyed', async () => {
   const socketErrorListener = vi.fn()
 
   const request = http
-    .get(httpServer.http.url('/'))
+    .get(httpServer.http.url('/').href)
     .on('socket', (socket) => {
       socket.on('error', socketErrorListener)
     })
@@ -60,9 +65,10 @@ it('emits the "error" event when a mocked response is destroyed', async () => {
       response.destroy(new Error('reason'))
     })
 
-  const { res } = await waitForClientRequest(request)
+  const [, rawResponse] = await toWebResponse(request)
 
-  expect(res.destroyed).toBe(true)
-  expect(socketErrorListener).toHaveBeenCalledOnce()
-  expect(socketErrorListener).toHaveBeenCalledWith(new Error('reason'))
+  expect.soft(rawResponse.destroyed).toBe(true)
+  expect
+    .soft(socketErrorListener)
+    .toHaveBeenCalledExactlyOnceWith(new Error('reason'))
 })

@@ -7,3 +7,5 @@ package-lock.json
 .idea
 /test-results
 /tmp
+__screenshots__
+*.tsbuildinfo

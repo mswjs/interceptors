@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    /**
+     * @note The source is authored as ESM and bundled by tsdown (Rolldown)
+     * into both CJS and ESM. Bundler module semantics permit `import.meta`,
+     * which "NodeNext" forbids in files it classifies as CommonJS.
+     */
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "composite": true,
+    "sourceMap": true,
+    "outDir": "lib",
+    "declaration": true,
+    "removeComments": false,
+    "paths": {
+      "#/src/*": ["./src/*"],
+      "#/test/*": ["./test/*"],
+      "internal:brotli-decompress": [
+        "./src/interceptors/fetch/utils/brotli-decompress.ts",
+      ],
+    },
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.*"],
+}

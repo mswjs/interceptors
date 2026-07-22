@@ -1,11 +1,9 @@
 // @vitest-environment node
 import http from 'node:http'
-import { afterAll, afterEach, beforeAll, it, expect } from 'vitest'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
-import { DeferredPromise } from '@open-draft/deferred-promise'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -20,7 +18,7 @@ afterAll(() => {
 })
 
 it('supports requests with more than default maximum header fields count', async () => {
-  const requestHeadersPromise = new DeferredPromise<Headers>()
+  const requestHeadersPromise = Promise.withResolvers<Headers>()
 
   interceptor.on('request', ({ request, controller }) => {
     requestHeadersPromise.resolve(request.headers)
@@ -42,11 +40,11 @@ it('supports requests with more than default maximum header fields count', async
   request.setHeaders(new Headers(headersPairs))
   request.end()
 
-  await waitForClientRequest(request)
-  const requestHeaders = await requestHeadersPromise
+  await toWebResponse(request)
+  const requestHeaders = await requestHeadersPromise.promise
 
   expect(Array.from(requestHeaders)).toEqual([
-    ['connection', 'close'],
+    ['connection', 'keep-alive'],
     ['host', 'localhost'],
     ...headersPairs,
   ])
@@ -55,7 +53,7 @@ it('supports requests with more than default maximum header fields count', async
 it('supports multiple parallel "slow" requests', async () => {
   // Perform multiple slow requests to ensure their buffered headers don't overlap.
   for (let requestIndex = 0; requestIndex < 5; requestIndex++) {
-    const requestHeadersPromise = new DeferredPromise<Headers>()
+    const requestHeadersPromise = Promise.withResolvers<Headers>()
 
     interceptor.on('request', ({ request, controller }) => {
       if (request.url === `http://localhost/${requestIndex}`) {
@@ -77,11 +75,11 @@ it('supports multiple parallel "slow" requests', async () => {
     request.setHeaders(new Headers(headersPairs))
     request.end()
 
-    await waitForClientRequest(request)
-    const requestHeaders = await requestHeadersPromise
+    await toWebResponse(request)
+    const requestHeaders = await requestHeadersPromise.promise
 
     expect(Array.from(requestHeaders)).toEqual([
-      ['connection', 'close'],
+      ['connection', 'keep-alive'],
       ['host', 'localhost'],
       ...headersPairs,
     ])
@@ -89,7 +87,7 @@ it('supports multiple parallel "slow" requests', async () => {
 })
 
 it('supports responses with more than default maximum header fields count', async () => {
-  const responseHeadersPromise = new DeferredPromise<Headers>()
+  const responseHeadersPromise = Promise.withResolvers<Headers>()
 
   const responseHeadersPairs = Array.from({ length: 60 })
     .map<[string, string]>((_, index) => {
@@ -100,9 +98,9 @@ it('supports responses with more than default maximum header fields count', asyn
   interceptor.on('request', ({ controller }) => {
     const response = new Response(null, {
       status: 200,
-      headers: new Headers(responseHeadersPairs)
+      headers: new Headers(responseHeadersPairs),
     })
-    
+
     controller.respondWith(response)
   })
 
@@ -113,8 +111,8 @@ it('supports responses with more than default maximum header fields count', asyn
   const request = http.get('http://localhost/irrelevant')
   request.end()
 
-  await waitForClientRequest(request)
-  const responseHeaders = await responseHeadersPromise
+  await toWebResponse(request)
+  const responseHeaders = await responseHeadersPromise.promise
 
   expect(Array.from(responseHeaders)).toEqual(responseHeadersPairs)
 })

@@ -1,25 +1,23 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "strict": true,
-    "target": "es2018",
-    "module": "NodeNext",
-    "sourceMap": true,
-    "outDir": "lib",
-    "declaration": true,
-    "moduleResolution": "NodeNext",
-    "removeComments": false,
-    "esModuleInterop": true,
-    "downlevelIteration": true,
-    "lib": ["dom", "dom.iterable", "ES2018.AsyncGenerator", "es2021"],
-    "types": ["@types/node"],
-    "baseUrl": ".",
-    "paths": {
-      "_http_common": ["./_http_common.d.ts"],
-      "internal:brotli-decompress": [
-        "./src/interceptors/fetch/utils/brotli-decompress.ts",
-      ],
-    },
+    /**
+     * @note This is the editor/type-checking project: it covers the
+     * source, the tests, and the tooling configs, and never emits.
+     * The build compiles through `tsconfig.src.json`/`tsconfig.browser.json`
+     * via tsdown.
+     */
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "types": ["node", "vitest/globals"],
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "**/*.test.*"],
+  "include": [
+    "./src/**/*.ts",
+    "./test/**/*.ts",
+    "./vitest.config.ts",
+    "./vitest.setup.ts",
+    "./tsdown.config.ts",
+  ],
+  "exclude": ["node_modules", "lib", "tmp"],
 }

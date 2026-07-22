@@ -1,24 +1,28 @@
 // @vitest-environment node
-import { vi, beforeAll, afterEach, afterAll, it, expect } from 'vitest'
 import http from 'node:http'
-import express from 'express'
-import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.use(express.json())
-  app.post('/user', (req, res) => {
-    res.set({ 'x-custom-header': 'yes' }).send(`hello, ${req.body.name}`)
-  })
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.post('/user', async (ctx) => {
+        const body = await ctx.req.json()
+        return new Response(`hello, ${body.name}`, {
+          headers: { 'x-custom-header': 'yes' },
+        })
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -34,7 +38,7 @@ it('bypasses a request to the existing host', async () => {
   const requestListener = vi.fn()
   interceptor.on('request', ({ request }) => requestListener(request))
 
-  const request = http.request(httpServer.http.url('/user'), {
+  const request = http.request(httpServer.http.url('/user').href, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -42,12 +46,12 @@ it('bypasses a request to the existing host', async () => {
   })
   request.write(JSON.stringify({ name: 'john' }))
   request.end()
-  const { text, res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
 
-  expect(requestFromListener.url).toBe(httpServer.http.url('/user'))
+  expect(requestFromListener.url).toBe(httpServer.http.url('/user').href)
   expect(requestFromListener.method).toBe('POST')
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
@@ -55,14 +59,14 @@ it('bypasses a request to the existing host', async () => {
   await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' })
 
   // Must receive the correct response.
-  expect(res.headers).toHaveProperty('x-custom-header', 'yes')
-  await expect(text()).resolves.toBe('hello, john')
+  expect(response.headers.get('x-custom-header')).toBe('yes')
+  await expect(response.text()).resolves.toBe('hello, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
 it('errors on a request to a non-existing host', async () => {
   const responseListener = vi.fn()
-  const errorPromise = new DeferredPromise<Error>()
+  const errorPromise = Promise.withResolvers<Error>()
   const request = http.request('http://abc123-non-existing.lol', {
     method: 'POST',
   })
@@ -70,12 +74,12 @@ it('errors on a request to a non-existing host', async () => {
   request.on('error', (error) => errorPromise.resolve(error))
   request.end()
 
-  await expect(() => waitForClientRequest(request)).rejects.toThrow(
+  await expect(() => toWebResponse(request)).rejects.toThrow(
     'getaddrinfo ENOTFOUND abc123-non-existing.lol'
   )
 
   // Must emit the "error" event on the request.
-  await expect(errorPromise).resolves.toEqual(
+  await expect(errorPromise.promise).resolves.toEqual(
     expect.objectContaining({
       message: 'getaddrinfo ENOTFOUND abc123-non-existing.lol',
       code: 'ENOTFOUND',
@@ -101,7 +105,7 @@ it('mocked request to an existing host', async () => {
     )
   })
 
-  const request = http.request(httpServer.http.url('/user'), {
+  const request = http.request(httpServer.http.url('/user').href, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -109,11 +113,11 @@ it('mocked request to an existing host', async () => {
   })
   request.write(JSON.stringify({ name: 'john' }))
   request.end()
-  const { text, res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
-  expect(requestFromListener.url).toBe(httpServer.http.url('/user'))
+  expect(requestFromListener.url).toBe(httpServer.http.url('/user').href)
   expect(requestFromListener.method).toBe('POST')
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
@@ -121,8 +125,8 @@ it('mocked request to an existing host', async () => {
   await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' })
 
   // Must receive the correct response.
-  expect(res.headers).toHaveProperty('x-custom-header', 'mocked')
-  await expect(text()).resolves.toBe('howdy, john')
+  expect(response.headers.get('x-custom-header')).toBe('mocked')
+  await expect(response.text()).resolves.toBe('howdy, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
@@ -149,7 +153,7 @@ it('mocks response to a non-existing host', async () => {
   })
   request.write(JSON.stringify({ name: 'john' }))
   request.end()
-  const { text, res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
@@ -161,89 +165,91 @@ it('mocks response to a non-existing host', async () => {
   await expect(requestFromListener.json()).resolves.toEqual({ name: 'john' })
 
   // Must receive the correct response.
-  expect(res.headers).toHaveProperty('x-custom-header', 'mocked')
-  await expect(text()).resolves.toBe('howdy, john')
+  expect(response.headers.get('x-custom-header')).toBe('mocked')
+  await expect(response.text()).resolves.toBe('howdy, john')
   expect(requestListener).toHaveBeenCalledTimes(1)
 })
 
-it('returns socket address for a mocked request', async () => {
+/**
+ * @note The tests below verify that the request URL/options are
+ * correctly translated into the connection. The remote address of
+ * the socket reflects what connection the HTTP layer requested.
+ * Socket address behaviors themselves are covered by the socket
+ * compliance tests (see "test/modules/net/compliance/socket-address.test.ts").
+ */
+it('resolves the IPv6 hostname from request options into the connection', async () => {
   interceptor.on('request', async ({ controller }) => {
     controller.respondWith(new Response())
   })
 
-  const addressPromise = new DeferredPromise<object>()
-  const request = http.get('http://example.com')
-  request.once('socket', (socket) => {
-    socket.once('connect', () => {
-      addressPromise.resolve(socket.address())
+  const remoteInfoPromise = Promise.withResolvers<object>()
+  const request = http.get({
+    hostname: '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
+    port: 80,
+    path: '/',
+  })
+  request.on('socket', (socket) => {
+    socket.on('connect', () => {
+      remoteInfoPromise.resolve({
+        remoteAddress: socket.remoteAddress,
+        remotePort: socket.remotePort,
+        remoteFamily: socket.remoteFamily,
+      })
     })
   })
 
-  await expect(addressPromise).resolves.toEqual({
-    address: '127.0.0.1',
-    family: 'IPv4',
-    port: 80,
+  await expect(remoteInfoPromise.promise).resolves.toEqual({
+    // Mocked connections resolve any hostname to the loopback address.
+    remoteAddress: '::1',
+    remotePort: 80,
+    remoteFamily: 'IPv6',
   })
 })
 
-it('returns socket address for a mocked request with family: 6', async () => {
+it('resolves the bracketed IPv6 hostname from the request URL into the connection', async () => {
   interceptor.on('request', async ({ controller }) => {
     controller.respondWith(new Response())
   })
 
-  const addressPromise = new DeferredPromise<object>()
-  const request = http.get('http://example.com', { family: 6 })
-  request.once('socket', (socket) => {
-    socket.once('connect', () => {
-      addressPromise.resolve(socket.address())
-    })
-  })
-
-  await expect(addressPromise).resolves.toEqual({
-    address: '::1',
-    family: 'IPv6',
-    port: 80,
-  })
-})
-
-it('returns socket address for a mocked request with IPv6 hostname', async () => {
-  interceptor.on('request', async ({ controller }) => {
-    controller.respondWith(new Response())
-  })
-
-  const addressPromise = new DeferredPromise<object>()
+  const remoteInfoPromise = Promise.withResolvers<object>()
   const request = http.get('http://[::1]')
-  request.once('socket', (socket) => {
-    socket.once('connect', () => {
-      addressPromise.resolve(socket.address())
+  request.on('socket', (socket) => {
+    socket.on('connect', () => {
+      remoteInfoPromise.resolve({
+        remoteAddress: socket.remoteAddress,
+        remotePort: socket.remotePort,
+        remoteFamily: socket.remoteFamily,
+      })
     })
   })
 
-  await expect(addressPromise).resolves.toEqual({
-    address: '::1',
-    family: 'IPv6',
-    port: 80,
+  await expect(remoteInfoPromise.promise).resolves.toEqual({
+    remoteAddress: '::1',
+    remotePort: 80,
+    remoteFamily: 'IPv6',
   })
 })
 
-it('returns socket address for a bypassed request', async () => {
-  const addressPromise = new DeferredPromise<object>()
-  const request = http.get(httpServer.http.url('/user'))
-  request.once('socket', (socket) => {
-    socket.once('connect', () => {
-      addressPromise.resolve(socket.address())
+it('respects the "family" request option when connecting', async () => {
+  interceptor.on('request', async ({ controller }) => {
+    controller.respondWith(new Response())
+  })
+
+  const remoteInfoPromise = Promise.withResolvers<object>()
+  const request = http.get('http://example.test', { family: 6 })
+  request.on('socket', (socket) => {
+    socket.on('connect', () => {
+      remoteInfoPromise.resolve({
+        remoteAddress: socket.remoteAddress,
+        remotePort: socket.remotePort,
+        remoteFamily: socket.remoteFamily,
+      })
     })
   })
 
-  await waitForClientRequest(request)
-
-  await expect(addressPromise).resolves.toEqual({
-    address: httpServer.http.address.host,
-    family: 'IPv4',
-    /**
-     * @fixme Looks like every "http" request has an agent set.
-     * That agent, for some reason, wants to connect to a different port.
-     */
-    port: expect.any(Number),
+  await expect(remoteInfoPromise.promise).resolves.toEqual({
+    remoteAddress: '::1',
+    remotePort: 80,
+    remoteFamily: 'IPv6',
   })
 })

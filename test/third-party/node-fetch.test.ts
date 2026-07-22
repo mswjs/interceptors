@@ -1,24 +1,28 @@
 // @vitest-environment node
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import fetch from 'node-fetch'
-import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => {
-    res.status(500).json({ error: 'must use mock' })
-  })
-  app.get('/get', (req, res) => {
-    res.status(200).json({ route: '/get' }).end()
-  })
-})
+let httpServer: TestHttpServer
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 interceptor.on('request', function testListener({ request, controller }) {
-  if ([httpServer.http.url(), httpServer.https.url()].includes(request.url)) {
+  /**
+   * @note The test server always defines a root ("/") route,
+   * so this test uses the "/resource" path instead.
+   */
+  if (
+    [
+      httpServer.http.url('/resource').href,
+      httpServer.https.url('/resource').href,
+    ].includes(request.url)
+  ) {
     controller.respondWith(
       new Response(JSON.stringify({ mocked: true }), {
         status: 201,
@@ -32,7 +36,17 @@ interceptor.on('request', function testListener({ request, controller }) {
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return Response.json({ error: 'must use mock' }, { status: 500 })
+      })
+      router.get('/get', () => {
+        return Response.json({ route: '/get' })
+      })
+    },
+  })
 })
 
 afterAll(async () => {
@@ -41,7 +55,7 @@ afterAll(async () => {
 })
 
 it('responds to an HTTP request that is handled in the middleware', async () => {
-  const response = await fetch(httpServer.http.url('/'))
+  const response = await fetch(httpServer.http.url('/resource').href)
   const body = await response.json()
 
   expect(response.status).toEqual(201)
@@ -50,7 +64,7 @@ it('responds to an HTTP request that is handled in the middleware', async () => 
 })
 
 it('bypasses an HTTP request not handled in the middleware', async () => {
-  const response = await fetch(httpServer.http.url('/get'))
+  const response = await fetch(httpServer.http.url('/get').href)
   const body = await response.json()
 
   expect(response.status).toEqual(200)
@@ -58,7 +72,7 @@ it('bypasses an HTTP request not handled in the middleware', async () => {
 })
 
 it('responds to an HTTPS request that is handled in the middleware', async () => {
-  const response = await fetch(httpServer.https.url('/'))
+  const response = await fetch(httpServer.https.url('/resource').href)
   const body = await response.json()
 
   expect(response.status).toEqual(201)
@@ -67,7 +81,7 @@ it('responds to an HTTPS request that is handled in the middleware', async () =>
 })
 
 it('bypasses an HTTPS request not handled in the middleware', async () => {
-  const response = await fetch(httpServer.https.url('/get'))
+  const response = await fetch(httpServer.https.url('/get').href)
   const body = await response.json()
 
   expect(response.status).toEqual(200)
@@ -77,22 +91,22 @@ it('bypasses an HTTPS request not handled in the middleware', async () => {
 it('bypasses any request when the interceptor is restored', async () => {
   interceptor.dispose()
 
-  const httpRes = await fetch(httpServer.http.url('/'))
+  const httpRes = await fetch(httpServer.http.url('/resource').href)
   const httpBody = await httpRes.json()
   expect(httpRes.status).toEqual(500)
   expect(httpBody).toEqual({ error: 'must use mock' })
 
-  const httpsRes = await fetch(httpServer.https.url('/'))
+  const httpsRes = await fetch(httpServer.https.url('/resource').href)
   const httpsBody = await httpsRes.json()
   expect(httpsRes.status).toEqual(500)
   expect(httpsBody).toEqual({ error: 'must use mock' })
 })
 
 it('does not throw an error if there are multiple interceptors', async () => {
-  const secondInterceptor = new ClientRequestInterceptor()
+  const secondInterceptor = new HttpRequestInterceptor()
   secondInterceptor.apply()
 
-  const response = await fetch(httpServer.http.url('/get'))
+  const response = await fetch(httpServer.http.url('/get').href)
   const body = await response.json()
 
   expect(response.status).toEqual(200)

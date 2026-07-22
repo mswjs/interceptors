@@ -4,26 +4,32 @@
  * event does not lock that stream for any further reading.
  * @see https://github.com/mswjs/interceptors/issues/161
  */
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http, { IncomingMessage } from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
-import { HttpRequestEventMap } from '../../../../src'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { HttpRequestEventMap } from '#/src/index'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/user', (req, res) => {
-    res.status(200).send('user-body')
-  })
-})
+let httpServer: TestHttpServer
 
-const resolver = vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+const resolver = vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/user', () => {
+        return new Response('user-body', {
+          headers: { 'x-powered-by': 'Express' },
+        })
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -61,7 +67,7 @@ it('allows reading the response body after it has been read internally', async (
 
   const makeRequest = (): Promise<RequestTransformer> => {
     return new Promise((resolve, reject) => {
-      const request = http.get(httpServer.http.url('/user'))
+      const request = http.get(httpServer.http.url('/user').href)
       request.on('response', (response) => {
         resolve(new RequestTransformer(response))
       })

@@ -1,8 +1,15 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "target": "es6"
+    "target": "es6",
+    /**
+     * @note Tests are never built. Vitest executes them as ESM,
+     * so use bundler module semantics (they permit `import.meta`,
+     * which "NodeNext" forbids in files it classifies as CommonJS).
+     */
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "types": ["node", "vitest/globals"],
   },
-  "include": ["**/*.test.ts"],
-  "exclude": ["node_modules"]
+  "include": ["setup/vitest.ts", "**/*.test.ts"],
 }

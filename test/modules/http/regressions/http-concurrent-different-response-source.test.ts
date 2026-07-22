@@ -1,24 +1,29 @@
-/**
- * @vitest-environment node
- */
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { httpGet } from '../../../helpers'
-import { sleep } from '../../../../test/helpers'
+// @vitest-environment node
+import http from 'node:http'
+import { setTimeout } from 'node:timers/promises'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', async (req, res) => {
-    await sleep(300)
-    res.status(200).send('original-response')
-  })
-})
+let httpServer: TestHttpServer
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      // The test server registers its own "GET /" route,
+      // so define the delayed route on a different path.
+      router.get('/resource', async () => {
+        await setTimeout(300)
+        return new Response('original-response')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -36,23 +41,25 @@ it('handles concurrent requests with different response sources', async () => {
       return
     }
 
-    await sleep(250)
+    await setTimeout(250)
 
     controller.respondWith(new Response('mocked-response', { status: 201 }))
   })
 
   const requests = await Promise.all([
-    httpGet(httpServer.http.url('/')),
-    httpGet(httpServer.http.url('/'), {
-      headers: {
-        'x-ignore-request': 'yes',
-      },
-    }),
+    toWebResponse(http.get(httpServer.http.url('/resource').href)),
+    toWebResponse(
+      http.get(httpServer.http.url('/resource').href, {
+        headers: {
+          'x-ignore-request': 'yes',
+        },
+      })
+    ),
   ])
 
-  expect(requests[0].res.statusCode).toEqual(201)
-  expect(requests[0].resBody).toEqual('mocked-response')
+  expect(requests[0][0].status).toEqual(201)
+  await expect(requests[0][0].text()).resolves.toBe('mocked-response')
 
-  expect(requests[1].res.statusCode).toEqual(200)
-  expect(requests[1].resBody).toEqual('original-response')
+  expect(requests[1][0].status).toEqual(200)
+  await expect(requests[1][0].text()).resolves.toBe('original-response')
 })

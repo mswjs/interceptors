@@ -1,20 +1,25 @@
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+// @vitest-environment node
+import { setTimeout } from 'node:timers/promises'
 import got from 'got'
-import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../src/interceptors/ClientRequest'
-import { sleep } from '../helpers'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/user', (req, res) => {
-    return res.status(200).json({ id: 1 })
-  })
-})
+let httpServer: TestHttpServer
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/user', () => {
+        return Response.json({ id: 1 })
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -31,14 +36,14 @@ it('mocks response to a request made with "got"', async () => {
     controller.respondWith(new Response('mocked-body'))
   })
 
-  const response = await got(httpServer.http.url('/test'))
+  const response = await got(httpServer.http.url('/test').href)
 
   expect.soft(response.statusCode).toBe(200)
   expect.soft(response.body).toBe('mocked-body')
 })
 
 it('bypasses an unhandled request made with "got"', async () => {
-  const response = await got(httpServer.http.url('/user'))
+  const response = await got(httpServer.http.url('/user').href)
 
   expect.soft(response.statusCode).toBe(200)
   expect.soft(response.body).toBe(`{"id":1}`)
@@ -46,7 +51,7 @@ it('bypasses an unhandled request made with "got"', async () => {
 
 it('supports timeout before resolving request as-is', async () => {
   interceptor.on('request', async ({ controller }) => {
-    await sleep(750)
+    await setTimeout(750)
     controller.respondWith(new Response('mocked response'))
   })
 

@@ -1,24 +1,27 @@
 // @vitest-environment node
-import { vi, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { sleep, waitForClientRequest } from '../../../helpers'
 import { setTimeout } from 'node:timers/promises'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', async (req, res) => {
-    await sleep(200)
-    res.status(500).end()
-  })
-})
+let httpServer: TestHttpServer
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', async () => {
+        await setTimeout(200)
+        return new Response(null, { status: 500 })
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -37,7 +40,7 @@ it('respects the "signal" for a handled request', async () => {
 
   const abortController = new AbortController()
   const request = http.get(
-    httpServer.http.url('/resource'),
+    httpServer.http.url('/resource').href,
     {
       signal: abortController.signal,
     },
@@ -47,9 +50,9 @@ it('respects the "signal" for a handled request', async () => {
   )
 
   // Must listen to the "close" event instead of "abort".
-  const requestClosePromise = new DeferredPromise<void>()
+  const requestClosePromise = Promise.withResolvers<void>()
   request.on('close', () => requestClosePromise.resolve())
-  await requestClosePromise
+  await requestClosePromise.promise
 
   // ClientRequest doesn't expose the destroy reason.
   // It's kept in the kError symbol but we won't be going there.
@@ -59,7 +62,7 @@ it('respects the "signal" for a handled request', async () => {
 it('respects the "signal" for a bypassed request', async () => {
   const abortController = new AbortController()
   const request = http.get(
-    httpServer.http.url('/resource'),
+    httpServer.http.url('/resource').href,
     {
       signal: abortController.signal,
     },
@@ -69,9 +72,9 @@ it('respects the "signal" for a bypassed request', async () => {
   )
 
   // Must listen to the "close" event instead of "abort".
-  const requestClosePromise = new DeferredPromise<void>()
+  const requestClosePromise = Promise.withResolvers<void>()
   request.on('close', () => requestClosePromise.resolve())
-  await requestClosePromise
+  await requestClosePromise.promise
 
   // ClientRequest doesn't expose the destroy reason.
   // It's kept in the kError symbol but we won't be going there.
@@ -89,7 +92,7 @@ it('handles a request within a timeout', async () => {
   })
   request.on('timeout', timeoutListener)
 
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(request.destroyed).toBe(false)
   expect(timeoutListener).not.toHaveBeenCalled()
@@ -108,7 +111,7 @@ it('respects "AbortSignal.timeout()" for a handled request', async () => {
   })
   request.on('timeout', timeoutListener)
 
-  const abortError = await waitForClientRequest(request).then(
+  const abortError = await toWebResponse(request).then(
     () => expect.fail('must not return any response'),
     (error) => error
   )
@@ -128,15 +131,15 @@ it('respects "AbortSignal.timeout()" for a handled request', async () => {
 
 it('respects "AbortSignal.timeout()" for a bypassed request', async () => {
   const timeoutListener = vi.fn()
-  const request = http.get(httpServer.http.url('/resource'), {
+  const request = http.get(httpServer.http.url('/resource').href, {
     signal: AbortSignal.timeout(10),
   })
   request.on('timeout', timeoutListener)
 
   // Must listen to the "close" event instead of "abort".
-  const requestClosePromise = new DeferredPromise<void>()
+  const requestClosePromise = Promise.withResolvers<void>()
   request.on('close', () => requestClosePromise.resolve())
-  await requestClosePromise
+  await requestClosePromise.promise
 
   expect(request.destroyed).toBe(true)
   expect(timeoutListener).not.toHaveBeenCalled()

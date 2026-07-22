@@ -2,24 +2,27 @@
  * @vitest-environment node
  * @see https://github.com/mswjs/interceptors/issues/131
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
-import { IncomingMessage } from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpServer } from '@open-draft/test-server/http'
-import { getIncomingMessageBody } from '../../../../src/interceptors/ClientRequest/utils/getIncomingMessageBody'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => {
-    res.status(200).send('hello')
-  })
-})
-const interceptor = new ClientRequestInterceptor()
+let httpServer: TestHttpServer
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('hello')
+      })
+    },
+  })
   interceptor.apply()
 })
 
@@ -29,23 +32,15 @@ afterAll(async () => {
 })
 
 it('performs the original HTTPS request', async () => {
-  const responseReceived = new DeferredPromise<IncomingMessage>()
-  https
-    .request(
-      new URL(httpServer.https.url('/resource')),
-      {
-        method: 'GET',
-        rejectUnauthorized: false,
-      },
-      async (response) => {
-        responseReceived.resolve(response)
-      }
-    )
+  const request = https
+    .request(new URL(httpServer.https.url('/resource').href), {
+      method: 'GET',
+      rejectUnauthorized: false,
+    })
     .end()
 
-  const response = await responseReceived
-  expect(response.statusCode).toBe(200)
+  const [response] = await toWebResponse(request)
 
-  const responseText = await getIncomingMessageBody(response)
-  expect(responseText).toEqual('hello')
+  expect.soft(response.status).toBe(200)
+  await expect(response.text()).resolves.toEqual('hello')
 })

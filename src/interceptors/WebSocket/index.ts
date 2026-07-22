@@ -1,29 +1,33 @@
-import { Interceptor } from '../../Interceptor'
+import { Interceptor } from '../../interceptor'
+import {
+  WebSocketConnectionEvent,
+  type WebSocketEventMap,
+} from '../../events/websocket'
 import {
   WebSocketClientConnectionProtocol,
   WebSocketClientConnection,
   type WebSocketClientEventMap,
-} from './WebSocketClientConnection'
+} from './web-socket-client-connection'
 import {
   WebSocketServerConnectionProtocol,
   WebSocketServerConnection,
   type WebSocketServerEventMap,
-} from './WebSocketServerConnection'
-import { WebSocketClassTransport } from './WebSocketClassTransport'
+} from './web-socket-server-connection'
+import { WebSocketClassTransport } from './web-socket-class-transport'
 import {
   kClose,
   kPassthroughPromise,
   WebSocketOverride,
-} from './WebSocketOverride'
-import { bindEvent } from './utils/bindEvent'
-import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { emitAsync } from '../../utils/emitAsync'
-import { patchesRegistry } from '../../utils/patchesRegistry'
+} from './web-socket-override'
+import { bindEvent } from './utils/bind-event'
+import { hasConfigurableGlobal } from '../../utils/has-configurable-global'
+import { patchesRegistry } from '../../utils/patches-registry'
+import { createLogger } from '../../utils/logger'
 
 export {
   type WebSocketData,
   type WebSocketTransport,
-} from './WebSocketTransport'
+} from './web-socket-transport'
 export {
   WebSocketClientEventMap,
   WebSocketClientConnectionProtocol,
@@ -39,31 +43,7 @@ export {
   CancelableMessageEvent,
 } from './utils/events'
 
-export type WebSocketEventMap = {
-  connection: [args: WebSocketConnectionData]
-}
-
-export type WebSocketConnectionData = {
-  /**
-   * The incoming WebSocket client connection.
-   */
-  client: WebSocketClientConnection
-
-  /**
-   * The original WebSocket server connection.
-   */
-  server: WebSocketServerConnection
-
-  /**
-   * The connection information.
-   */
-  info: {
-    /**
-     * The protocols supported by the WebSocket client.
-     */
-    protocols: string | Array<string> | undefined
-  }
-}
+const logger = createLogger('websocket')
 
 /**
  * Intercept the outgoing WebSocket connections created using
@@ -72,16 +52,12 @@ export type WebSocketConnectionData = {
 export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
   static symbol = Symbol.for('websocket-interceptor')
 
-  constructor() {
-    super(WebSocketInterceptor.symbol)
-  }
-
-  protected checkEnvironment(): boolean {
+  protected predicate(): boolean {
     return hasConfigurableGlobal('WebSocket')
   }
 
   protected setup(): void {
-    const logger = this.logger.extend('setup')
+    logger.verbose('setup')
 
     const WebSocketProxy = new Proxy(globalThis.WebSocket, {
       construct: (
@@ -90,6 +66,11 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
         newTarget
       ) => {
         const [url, protocols] = args
+
+        logger.info('connection intercepted %o', {
+          url: url.toString(),
+          protocols,
+        })
 
         const createConnection = (): WebSocket => {
           return Reflect.construct(target, args, newTarget)
@@ -118,13 +99,15 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
             // The "globalThis.WebSocket" class stands for
             // the client-side connection. Assume it's established
             // as soon as the WebSocket instance is constructed.
-            await emitAsync(this.emitter, 'connection', {
-              client: new WebSocketClientConnection(socket, transport),
-              server,
-              info: {
-                protocols,
-              },
-            })
+            await this.emitter.emitAsPromise(
+              new WebSocketConnectionEvent({
+                client: new WebSocketClientConnection(socket, transport),
+                server,
+                info: {
+                  protocols,
+                },
+              })
+            )
 
             if (hasConnectionListeners) {
               socket[kPassthroughPromise].resolve(false)
@@ -173,12 +156,12 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
       },
     })
 
-    logger.info('patching global WebSocket...')
+    logger.verbose('patching global WebSocket...')
 
     this.subscriptions.push(
       patchesRegistry.applyPatch(globalThis, 'WebSocket', () => WebSocketProxy)
     )
 
-    logger.info('global WebSocket patched!', globalThis.WebSocket.name)
+    logger.verbose('global WebSocket patched: %s', globalThis.WebSocket.name)
   }
 }

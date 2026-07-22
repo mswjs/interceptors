@@ -1,22 +1,30 @@
 // @vitest-environment node
 import * as fs from 'node:fs'
-import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Worker } from 'node:worker_threads'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { it, expect, beforeAll, afterAll, afterEach } from 'vitest'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
-const server = new HttpServer((app) => {
-  app.get('/', (_req, res) => {
-    res.status(200).end()
-  })
-})
+let server: TestHttpServer
 
 const interceptor = new FetchInterceptor()
 
 beforeAll(async () => {
-  await server.listen()
+  server = await createTestHttpServer({
+    defineRoutes(router) {
+      /**
+       * @note The test server always defines a root ("/") route,
+       * so this test uses the "/resource" path instead.
+       */
+      router.get('/resource', () => {
+        return new Response(null, { status: 200 })
+      })
+    },
+  })
   interceptor.apply()
 })
 
@@ -32,14 +40,16 @@ afterAll(async () => {
 it(
   'does not retain per-request state after passthrough without listeners',
   async () => {
-    const snapshotPath = path.resolve(__dirname, 'fetch-memory.heapsnapshot')
+    const snapshotPath = fileURLToPath(
+      new URL('./fetch-memory.heapsnapshot', import.meta.url)
+    )
 
     const worker = new Worker(
-      path.resolve(__dirname, './fetch-memory-worker.js'),
+      new URL('./fetch-memory-worker.js', import.meta.url),
       {
         workerData: {
           requestCount: 5_000,
-          serverUrl: server.http.url('/'),
+          serverUrl: server.http.url('/resource').href,
           snapshotPath,
         },
         stderr: true,
@@ -47,7 +57,7 @@ it(
       }
     )
 
-    const completePromise = new DeferredPromise<{ heldRequests: number }>()
+    const completePromise = Promise.withResolvers<{ heldRequests: number }>()
     worker.once('message', (message) => {
       completePromise.resolve(message)
     })
@@ -55,7 +65,7 @@ it(
       completePromise.reject(error)
     })
 
-    const { heldRequests } = await completePromise
+    const { heldRequests } = await completePromise.promise
 
     // Sanity check: the worker really did externally root every Request the
     // interceptor created. Otherwise the leak assertion below is meaningless.
@@ -87,15 +97,15 @@ it(
 
     fs.rmSync(snapshotPath, { force: true })
 
-    // `RequestController` and `DeferredPromise` are pinned by the abort
-    // listener's closure (via `options.controller` / `requestAbortPromise`).
-    // If the listener is properly detached after the response, both counts
-    // should be near zero even though all 5,000 requests are still held.
+    // `RequestController` is pinned by the abort listener's closure
+    // (via `options.controller`). If the listener is properly detached
+    // after the response, the count should be near zero even though all
+    // 5,000 requests are still held. The `requestAbortPromise` resolvers
+    // pinned by the same closure cannot be counted here: they are plain
+    // `Object`/`Promise` heap nodes with no distinctive class name.
     const requestControllerCount = counts.get('RequestController') ?? 0
-    const deferredPromiseCount = counts.get('DeferredPromise') ?? 0
 
     expect(requestControllerCount).toBeLessThan(100)
-    expect(deferredPromiseCount).toBeLessThan(100)
   },
   30_000
 )

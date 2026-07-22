@@ -1,241 +1,144 @@
-[![Latest version](https://img.shields.io/npm/v/@mswjs/interceptors.svg)](https://www.npmjs.com/package/@mswjs/interceptors)
-
 # `@mswjs/interceptors`
 
-Low-level network interception library.
+Low-level network interception library for Node.js.
 
-This library supports intercepting the following protocols:
+Use this library if you wish to intercept any of the below:
 
-- HTTP (via the `http` module, `XMLHttpRequest`, or `globalThis.fetch`);
-- [WebSocket](#websocket-interception) (the `WebSocket` class in Undici and in the browser).
+- Raw TCP and TLS socket connections (`net.connect()`, `tls.connect()`);
+- HTTP requests regardless of the request client (e.g. `http.request()`, `axios()`, etc);
+- Fetch requests (both global `fetch()` and custom fetch implementations like `undici()`);
+- WebSocket connections (global `WebSocket` constructor).
 
 ## Motivation
 
-While there are a lot of network mocking libraries, they tend to use request interception as an implementation detail, giving you a high-level API that includes request matching, timeouts, recording, and so forth.
+There has been a few attempts at the network interception in Node.js throughout its existence. Around 2018, those efforts have settled on patching `http.request()` and `http.ClientRequest`, if not resorting to far worse practices like patching request clients directly. These algorithms turned network requests into black boxes that, effectively, short-circuited the network code at the interception point.
 
-This library is a barebones implementation that provides as little abstraction as possible to execute arbitrary logic upon any request. It's primarily designed as an underlying component for high-level API mocking solutions such as [Mock Service Worker](https://github.com/mswjs/msw).
+Consider how Node.js orchestrates an average HTTP request:
 
-### How is this library different?
-
-A traditional API mocking implementation in Node.js looks roughly like this:
-
-```js
-import http from 'node:http'
-
-// Store the original request function.
-const originalHttpRequest = http.request
-
-// Override the request function entirely.
-http.request = function (...args) {
-  // Decide if the outgoing request matches a predicate.
-  if (predicate(args)) {
-    // If it does, never create a request, respond to it
-    // using the mocked response from this blackbox.
-    return coerceToResponse.bind(this, mock)
-  }
-
-  // Otherwise, construct the original request
-  // and perform it as-is.
-  return originalHttpRequest(...args)
-}
+```
+1. Third-party request client (axios/got/etc);
+---- node:http / node:https ----
+2. http.request() (node:http/node:https);
+3. new http.ClientRequest();
+---- node:net / node:tls ----
+4. net.connect() / tls.connect();
+5. new net.Socket();
+6. socket.connect();
+---- native bindings ----
+7. TCPWrap / TLSWrap;
+---- C++ network code ---
+8. [TOO_COMPLEX_TO_FATHOM];
 ```
 
-The core philosophy of Interceptors is to _run as much of the underlying network code as possible_. Strange for a network mocking library, isn't it? Turns out, respecting the system's integrity and executing more of the network code leads to more resilient tests and also helps to uncover bugs in the code that would otherwise go unnoticed.
+You can see how intercepting requests at the `http.request()` level (2) is rather limiting as, typically, nothing executes past the interception point. As a result, whenever such interception is introduced, it significantly deviates your system from how it normally behaves otherwise.
 
-Interceptors heavily rely on _class extension_ instead of function and module overrides. By extending the native network code, it can surgically insert the interception and mocking pieces only where necessary, leaving the rest of the system intact.
+So I decided to build a network interception algorithm that would have no such limitations, would execute as much of the Node.js network code as possible, and actually establish network connections (yes, even when mocking requests to non-existing hosts). On top of that, I want that algorithm to be fully available for anybody who wishes to build their own API mocking library.
 
-```js
-class XMLHttpRequestProxy extends XMLHttpRequest {
-  async send() {
-    // Call the request listeners and see if any of them
-    // returns a mocked response for this request.
-    const mockedResponse = await waitForRequestListeners({ request })
+### What makes Interceptors different?
 
-    // If there is a mocked response, use it. This actually
-    // transitions the XMLHttpRequest instance into the correct
-    // response state (below is a simplified illustration).
-    if (mockedResponse) {
-      // Handle the response headers.
-      this.request.status = mockedResponse.status
-      this.request.statusText = mockedResponse.statusText
-      this.request.responseUrl = mockedResponse.url
-      this.readyState = 2
-      this.trigger('readystatechange')
+Interceptors (the library you're reading about) implements the network interception on the TCP/TLS handle level (point 7 on the graph above). In the simplest of terms, it's the lowest possible level to spy on outgoing traffic without having to recompile Node.js on your machine.
 
-      // Start streaming the response body.
-      this.trigger('loadstart')
-      this.readyState = 3
-      this.trigger('readystatechange')
-      await streamResponseBody(mockedResponse)
+In more technical terms, the algorithm combines multiple entry points along the network graph, each playing its role in the interception:
 
-      // Finish the response.
-      this.trigger('load')
-      this.trigger('loadend')
-      this.readyState = 4
-      return
-    }
+- Spies on the network on the socket level by intercepting `Socket.prototype.connect`, `net.connect()`, and `tls.connect()`;
+- Stubs `TCPWrap`/`TLSWrap` until the connection is either claimed or passed through;
+- Wraps socket-level interception in higher-level interceptors, like `HttpRequestInterceptor`, which pipe outgoing and incoming socket packets through respective parsers;
+- Wraps higher-level interceptors in request client interceptors that leverage `AsyncLocalStorage` to annotate request initiators without intercepting any traffic themselves (a socket connection are unaware of any protocols, let alone request clients that triggered the connection);
 
-    // Otherwise, perform the original "XMLHttpRequest.prototype.send" call.
-    return super.send(...args)
-  }
-}
-```
+Intercepting the network this low on the network graph means executing as much of Node.js network code as physically possible even when mocking requests. This minimizes the deviations introduced by the said interception and yields a more compliant mocking experience.
 
-> The request interception algorithms differ dramatically based on the request API. Interceptors accommodate for them all, bringing the intercepted requests to a common ground—the Fetch API `Request` instance. The same applies for responses, where a Fetch API `Response` instance is translated to the appropriate response format.
+## When to use Interceptors?
 
-This library aims to provide _full specification compliance_ with the APIs and protocols it extends.
+Interceptors is **not** an API mocking library. It's a low-level network interception library. Mocking the network is just a subset of what you can do with it.
 
-## What this library does
-
-This library extends the following native modules:
-
-- `http.get`/`http.request`
-- `https.get`/`https.request`
-- `XMLHttpRequest`
-- `fetch`
-- `WebSocket`
-
-Once extended, it intercepts and normalizes all requests to the Fetch API `Request` instances. This way, no matter the request source (`http.ClientRequest`, `XMLHttpRequest`, `window.Request`, etc), you always get a specification-compliant request instance to work with.
-
-You can respond to the intercepted HTTP request by constructing a Fetch API Response instance. Instead of designing custom abstractions, this library respects the Fetch API specification and takes the responsibility to coerce a single response declaration to the appropriate response formats based on the request-issuing modules (like `http.OutgoingMessage` to respond to `http.ClientRequest`, or updating `XMLHttpRequest` response-related properties).
-
-## What this library doesn't do
-
-- Does **not** provide any request matching logic;
-- Does **not** handle requests by default.
-
-## Limitations
-
-- Interceptors will hang indefinitely if you call `req.end()` in the `connect` event listener of the respective `socket`:
-
-```ts
-req.on('socket', (socket) => {
-  socket.on('connect', () => {
-    // ❌ While this is allowed in Node.js, this cannot be handled in Interceptors.
-    req.end()
-  })
-})
-```
-
-> This limitation is intrinsic to the interception algorithm used by the library. In order for it to emit the `connect` event on the socket, the library must know if you've handled the request in any way (e.g. responded with a mocked response or errored it). For that, it emits the `request` event on the interceptor where you can handle the request. Since you can consume the request stream in the `request` event, it waits until the request body stream is complete (i.e. until `req.end()` is called). This creates a catch 22 that causes this limitation.
+As a rule of thumb, if you're uncertain whether you need Interceptors, you likely don't. Interceptors exist primarily to help other developers implement their own higher-level API mocking libraries, like [Nock](https://github.com/nock/nock) or [Mock Service Worker](https://mswjs.io), with the goal of unifying the network interception algorithm for richer features and better runtime compliance.
 
 ## Getting started
 
 ```bash
-npm install @mswjs/interceptors
+npm i @mswjs/interceptors
 ```
+
+### Debugging
+
+Enable default interceptor logs with `debug` namespaces:
+
+```bash
+DEBUG='interceptors:*' node app.js
+```
+
+Default logs cover interceptor lifecycle, requests, and request
+resolution. Add verbose logs for socket packets, event forwarding, and other
+internals:
+
+```bash
+DEBUG='interceptors:*' DEBUG_LEVEL=verbose node app.js
+```
+
+Scope either level to an interceptor using its lowercase kebab-case name, such
+as `interceptors:fetch`, `interceptors:xhr`, `interceptors:client-request`, or
+`interceptors:websocket`. In browsers, assign the same value to
+`localStorage.debug` and set `localStorage.debugLevel` to `verbose` for verbose
+logs. Each namespace has a stable color.
 
 ## Interceptors
 
 To use this library you need to choose one or multiple interceptors to apply. There are different interceptors exported by this library to spy on respective request-issuing modules:
 
-- `ClientRequestInterceptor` to spy on `http.ClientRequest` (`http.get`/`http.request`);
-- `XMLHttpRequestInterceptor` to spy on `XMLHttpRequest`;
-- `FetchInterceptor` to spy on `fetch`.
+- [`SocketInterceptor`](#socketinterceptor) to spy on any socket connections in Node.js;
+- [`HttpRequestInterceptor`](#httprequestinterceptor) to spy on any HTTP requests in Node.js;
+- [`ClientRequestInterceptor`](#clientrequestinterceptor) to spy on `http.ClientRequest` (`http.get`/`http.request`);
+- [`XMLHttpRequestInterceptor`](#xmlhttprequestinterceptor) to spy on `XMLHttpRequest`;
+- [`FetchInterceptor`](#fetchinterceptor) to spy on the global `fetch`;
+- [`WebSocketInterceptor`](#websocketinterceptor) to spy on WebSocket connections.
 
-Use an interceptor by constructing it and attaching request/response listeners:
+You can combine multiple interceptors using [`BatchInterceptor`](#batchinterceptor).
+
+### `SocketInterceptor`
+
+The lowest-level interceptor in this library. It intercepts _every outgoing TCP and TLS connection_ in Node.js at the `net.Socket` level, no matter which module or third-party package creates it. It is the foundation the HTTP interceptors below are built upon.
 
 ```js
-import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
+import { SocketInterceptor } from '@mswjs/interceptors/net'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new SocketInterceptor()
 
-// Enable the interception of requests.
-interceptor.apply()
+interceptor.on('connection', ({ socket, connectionOptions, controller }) => {
+  if (connectionOptions.host === 'example.com') {
+    controller.claim()
 
-// Listen to any "http.ClientRequest" being dispatched,
-// and log its method and full URL.
-interceptor.on('request', ({ request, requestId }) => {
-  console.log(request.method, request.url)
-})
-
-// Listen to any responses sent to "http.ClientRequest".
-// Note that this listener is read-only and cannot affect responses.
-interceptor.on(
-  'response',
-  ({ response, isMockedResponse, request, requestId }) => {
-    console.log('response to %s %s was:', request.method, request.url, response)
+    socket.on('data', (chunk) => {
+      socket.write(anotherChunk)
+    })
   }
-)
-```
-
-All HTTP request interceptors implement the same events:
-
-- `request`, emitted whenever a request has been dispatched;
-- `response`, emitted whenever any request receives a response.
-
-### Using multiple interceptors
-
-You can combine multiple interceptors to capture requests from different request-issuing modules at once.
-
-```js
-import { BatchInterceptor } from '@mswjs/interceptors'
-import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
-import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
-
-const interceptor = new BatchInterceptor({
-  name: 'my-interceptor',
-  interceptors: [
-    new ClientRequestInterceptor(),
-    new XMLHttpRequestInterceptor(),
-  ],
 })
 
 interceptor.apply()
-
-// This "request" listener will be called on both
-// "http.ClientRequest" and "XMLHttpRequest" being dispatched.
-interceptor.on('request', listener)
 ```
 
-> Note that you can use [pre-defined presets](#presets) that cover all the request sources for a given environment type.
+> The exposed `socket` instance is _mirrored_ so you can think of the connection listener as a server-side handler. It emits `data` when the client _writes_ to it and writing to it will emit `data` events on the intercepted socket.
 
-## Presets
+The `connection` event is emitted whenever a socket connection is open in this process. Use its listener to inspect and it decide whether you want to claim it for manual management (`controller.claim()`) or let it pass through (`controller.passthrough()`). Until you decide either, the connection will remain in the pending state.
 
-When using [`BatchInterceptor`](#batchinterceptor), you can provide a pre-defined preset to its "interceptors" option to capture all request for that environment.
+### `HttpRequestInterceptor`
 
-### Node.js preset
-
-This preset combines `ClientRequestInterceptor`, `XMLHttpRequestInterceptor` and is meant to be used in Node.js.
+Intercepts **all HTTP requests in Node.js, regardless of the client** that issued them. Because the interception happens at the socket level, this includes `http`/`https` modules, the global `fetch`, direct Undici usage (`fetch`, `request`, pools, agents), and any third-party HTTP client built on top of them (Axios, Got, node-fetch, superagent, etc).
 
 ```js
-import { BatchInterceptor } from '@mswjs/interceptors'
-import nodeInterceptors from '@mswjs/interceptors/presets/node'
+import { HttpRequestInterceptor } from '@mswjs/interceptors/http'
 
-const interceptor = new BatchInterceptor({
-  name: 'my-interceptor',
-  interceptors: nodeInterceptors,
-})
-
+const interceptor = new HttpRequestInterceptor()
 interceptor.apply()
-
-interceptor.on('request', listener)
 ```
 
-### Browser preset
+#### Observing requests
 
-This preset combines `XMLHttpRequestInterceptor` and `FetchInterceptor` and is meant to be used in a browser.
-
-```js
-import { BatchInterceptor } from '@mswjs/interceptors'
-import browserInterceptors from '@mswjs/interceptors/presets/browser'
-
-const interceptor = new BatchInterceptor({
-  name: 'my-interceptor',
-  interceptors: browserInterceptors,
-})
-
-interceptor.on('request', listener)
-```
-
-## Introspecting requests
-
-All HTTP request interceptors emit a "request" event. In the listener to this event, they expose a `request` reference, which is a [Fetch API Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) instance.
+Add a listener to the `request` event to observe outgoing HTTP requests. The listener exposes the intercepted request as a [Fetch API `Request`](https://developer.mozilla.org/en-US/docs/Web/API/Request) instance.
 
 > There are many ways to describe a request in Node.js but this library coerces different request definitions to a single specification-compliant `Request` instance to make the handling consistent.
 
 ```js
-interceptor.on('request', ({ request, requestId, controller }) => {
+interceptor.on('request', ({ request, requestId }) => {
   console.log(request.method, request.url)
 })
 ```
@@ -248,23 +151,51 @@ interceptor.on('request', async ({ request, requestId }) => {
 })
 ```
 
-> **Do not forget to clone the request before reading its body!**
+> Make sure to clone the request before reading its body.
 
-## Modifying requests
+##### Request initiator
 
-Request representations are readonly. You can, however, mutate the intercepted request's headers in the "request" listener:
+The `request` event exposes an `initiator` property that references the object that issued the intercepted request:
+
+- an `http.ClientRequest` instance for requests made via the `http`/`https` modules;
+- a Fetch API `Request` instance for requests made via the global `fetch`;
+- an `XMLHttpRequest` instance for requests made via `XMLHttpRequest`;
+- a `net.Socket` instance for requests that cannot be attributed to a known client (e.g. raw socket connections or direct Undici usage).
+
+> Attributing a request to its client requires the corresponding client-level interceptor ([`ClientRequestInterceptor`](#clientrequestinterceptor), [`FetchInterceptor`](#fetchinterceptor), or [`XMLHttpRequestInterceptor`](#xmlhttprequestinterceptor)) to be applied alongside `HttpRequestInterceptor`. With `HttpRequestInterceptor` alone, the initiator is the underlying `net.Socket`.
+
+The initiator is typed as `unknown`. Narrow it down with `instanceof` to access the client-specific state, e.g. to tell the requests from different clients apart:
+
+```js
+import http from 'node:http'
+
+interceptor.on('request', ({ request, initiator }) => {
+  if (initiator instanceof http.ClientRequest) {
+    // This request was made via "http.request()"/"http.get()".
+    console.log(initiator.getHeaders())
+  }
+
+  if (initiator instanceof Request) {
+    // This request was made via the global "fetch".
+  }
+})
+```
+
+#### Modifying outgoing requests
+
+Request representations are readonly. You can, however, mutate the intercepted request's headers in the `request` listener. The modified headers are sent to the actual server if the request is performed as-is:
 
 ```js
 interceptor.on('request', ({ request }) => {
-  request.headers.set('X-My-Header', 'true')
+  request.headers.set('x-my-header', 'true')
 })
 ```
 
 > This restriction is done so that the library wouldn't have to unnecessarily synchronize the actual request instance and its Fetch API request representation. As of now, this library is not meant to be used as a full-scale proxy.
 
-## Mocking responses
+#### Mocking responses
 
-Although this library can be used purely for request introspection purposes, you can also affect request resolution by responding to any intercepted request within the "request" event.
+Although this library can be used purely for observing the network, you can also affect request resolution by responding to any intercepted request within the `request` event.
 
 Access the `controller` object from the request event listener arguments and call its `controller.respondWith()` method, providing it with a mocked `Response` instance:
 
@@ -290,22 +221,22 @@ interceptor.on('request', ({ request, controller }) => {
 
 > We use Fetch API `Response` class as the middle-ground for mocked response definition. This library then coerces the response instance to the appropriate response format (e.g. to `http.OutgoingMessage` in the case of `http.ClientRequest`).
 
-**The `Response` class is built-in in since Node.js 18. Use a Fetch API-compatible polyfill, like `node-fetch`, for older versions of Node.js.`**
-
 Note that a single request _can only be handled once_. You may want to introduce conditional logic, like routing, in your request listener but it's generally advised to use a higher-level library like [Mock Service Worker](https://github.com/mswjs/msw) that does request matching for you.
 
 Requests must be responded to within the same tick as the request listener. This means you cannot respond to a request using `setTimeout`, as this will delegate the callback to the next tick. If you wish to introduce asynchronous side-effects in the listener, consider making it an `async` function, awaiting any side-effects you need.
 
 ```js
+import { setTimeout } from 'node:timers/promises'
+
 // Respond to all requests with a 500 response
 // delayed by 500ms.
 interceptor.on('request', async ({ controller }) => {
-  await sleep(500)
+  await setTimeout(500)
   controller.respondWith(new Response(null, { status: 500 }))
 })
 ```
 
-### Mocking response errors
+##### Mocking response errors
 
 You can provide an instance of `Response.error()` to error the pending request.
 
@@ -319,7 +250,7 @@ This will automatically translate to the appropriate request error based on the 
 
 > Note that the standard `Response.error()` API does not accept an error message.
 
-## Mocking errors
+##### Mocking errors
 
 Use the `controller.errorWith()` method to error the request.
 
@@ -333,22 +264,7 @@ Unlike responding with `Response.error()`, you can provide an exact error reason
 
 > Note that it is up to the request client to respect your custom error. Some clients, like `ClientRequest` will use the provided error message, while others, like `fetch`, will produce a generic `TypeError: failed to fetch` responses. Interceptors will try to preserve the original error in the `cause` property of such generic errors.
 
-## Observing responses
-
-You can use the "response" event to transparently observe any incoming responses in your Node.js process.
-
-```js
-interceptor.on(
-  'response',
-  ({ response, isMockedResponse, request, requestId }) => {
-    // react to the incoming response...
-  }
-)
-```
-
-> Note that the `isMockedResponse` property will only be set to `true` if you resolved this request in the "request" event listener using the `controller.respondWith()` method and providing a mocked `Response` instance.
-
-## Error handling
+##### Handling exceptions
 
 By default, all unhandled exceptions thrown within the `request` listener are coerced to 500 error responses, emulating those exceptions occurring on the actual server. You can listen to the exceptions by adding the `unhandledException` listener to the interceptor:
 
@@ -376,34 +292,120 @@ interceptor.on('unhandledException', ({ error }) => {
 })
 ```
 
-## WebSocket interception
+#### Observing responses
 
-You can intercept a WebSocket communication using the `WebSocketInterceptor` class.
+You can use the `response` event to transparently observe any incoming responses in your Node.js process.
+
+```js
+interceptor.on(
+  'response',
+  ({ response, responseType, request, requestId }) => {
+    // react to the incoming response...
+  }
+)
+```
+
+> Note that the `responseType` property equals `"mock"` if you resolved this request in the `request` event listener using the `controller.respondWith()` method, and `"original"` for the responses received from the actual server.
+
+### `ClientRequestInterceptor`
+
+Intercepts HTTP requests made via `http.ClientRequest`—that is, `http.get()`/`http.request()` and their `https` counterparts (this also covers third-party clients built on top of them, like Axios or Got).
+
+```js
+import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
+
+const interceptor = new ClientRequestInterceptor()
+interceptor.apply()
+
+interceptor.on('request', ({ request, controller }) => {
+  console.log(request.method, request.url)
+  controller.respondWith(new Response('Hello world'))
+})
+```
+
+This interceptor implements the same events as [`HttpRequestInterceptor`](#httprequestinterceptor)—`request`, `response`, and `unhandledException`—and you subscribe to them in the same way. See the sections above for observing, modifying, and mocking requests.
+
+### `XMLHttpRequestInterceptor`
+
+Intercepts HTTP requests made via `XMLHttpRequest`, both in the browser and in Node.js (e.g. in test environments polyfilling `XMLHttpRequest`, like JSDOM).
+
+```js
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
+
+const interceptor = new XMLHttpRequestInterceptor()
+interceptor.apply()
+
+interceptor.on('request', ({ request, controller }) => {
+  console.log(request.method, request.url)
+  controller.respondWith(new Response('Hello world'))
+})
+```
+
+This interceptor implements the same events as [`HttpRequestInterceptor`](#httprequestinterceptor)—`request`, `response`, and `unhandledException`—and you subscribe to them in the same way.
+
+This interceptor has two versions: `/node` and `/web`. The `@mswjs/interceptors/XMLHttpRequest` import automatically loads the correct one based on your environment. If you wish, you can import the exact version manually:
+
+```js
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest/node'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest/web'
+```
+
+### `FetchInterceptor`
+
+Intercepts HTTP requests made via the global `fetch` function. In Node.js, the global `fetch` is powered by Undici; in the browser, it is the native `window.fetch`.
+
+> To intercept the requests made via _direct_ Undici imports (e.g. `fetch` or `request` from the `undici` package), use the [`HttpRequestInterceptor`](#httprequestinterceptor) instead—those requests do not go through the global `fetch` but are still intercepted at the socket level.
+
+```js
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
+
+const interceptor = new FetchInterceptor()
+interceptor.apply()
+
+interceptor.on('request', ({ request, controller }) => {
+  console.log(request.method, request.url)
+  controller.respondWith(new Response('Hello world'))
+})
+```
+
+This interceptor implements the same events as [`HttpRequestInterceptor`](#httprequestinterceptor)—`request`, `response`, and `unhandledException`—and you subscribe to them in the same way.
+
+This interceptor has two versions: `/node` and `/web`. The `@mswjs/interceptors/fetch` import automatically loads the correct one based on your environment. If you wish, you can import the exact version manually:
+
+```js
+import { FetchInterceptor } from '@mswjs/interceptors/fetch/node'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch/web'
+```
+
+### `WebSocketInterceptor`
+
+Intercepts WebSocket connections created using the global WHATWG `WebSocket` class.
 
 > [!IMPORTANT]
-> This library only supports intercepting WebSocket connections created using the global WHATWG `WebSocket` class. Third-party transports, such as HTTP/XHR polling, are not supported by design due to their contrived nature.
+> The `WebSocketInterceptor` provides its connection-level API only for the global WHATWG `WebSocket` class. In Node.js, WebSocket handshakes issued by other clients (e.g. the `ws` package or direct Undici usage) are additionally interceptable at the HTTP layer as `Upgrade` requests via the [`HttpRequestInterceptor`](#httprequestinterceptor). Polling transports (HTTP/XHR long-polling) surface as regular HTTP requests, not as WebSocket connections.
 
 ```js
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
+interceptor.apply()
 ```
 
-Unlike the HTTP-based interceptors that share the same `request`/`response` events, the WebSocket interceptor only emits the `connection` event and let's you handle the incoming/outgoing events in its listener.
+Unlike the HTTP-based interceptors that share the same `request`/`response` events, the WebSocket interceptor only emits the `connection` event and lets you handle the incoming/outgoing events in its listener.
 
-### Important defaults
+#### Important defaults
 
 1. Intercepted WebSocket connections are _not opened_. To open the actual WebSocket connection, call [`server.connect()`](#connect) in the interceptor.
 1. Once connected to the actual server, the outgoing client events are _forwarded to that server by default_. If you wish to prevent a client message from reaching the server, call `event.preventDefault()` for that client message event.
 1. Once connected to the actual server, the incoming server events are _forwarded to the client by default_. If you wish to prevent a server message from reaching the client, call `event.preventDefault()` for the server message event.
 1. Once connected to the actual server, the `close` event received from that server is _forwarded to the client by default_. If you wish to prevent that, call `event.preventDefault()` for that close event of the server.
 
-### WebSocket connection
+#### Observing connections
 
 Whenever a WebSocket instance is constructed, the `connection` event is emitted on the WebSocket interceptor.
 
 ```js
-intereceptor.on('connection', ({ client }) => {
+interceptor.on('connection', ({ client }) => {
   console.log(client.url)
 })
 ```
@@ -416,9 +418,9 @@ The `connection` event exposes the following arguments:
 | `server` | [`WebSocketServerConnection`](#websocketserverconnection) | An object representing the original WebSocket server connection.                    |
 | `info`   | `object`                                                  | Additional WebSocket connection information (like the original client `protocols`). |
 
-### `WebSocketClientConnection`
+#### `WebSocketClientConnection`
 
-#### `.addEventListener(type, listener)`
+##### `.addEventListener(type, listener)`
 
 - `type`, `string`
 - `listener`, `EventListener`
@@ -441,14 +443,14 @@ client.addEventListener('message', (event) => {
 })
 ```
 
-#### `.removeEventListener(type, listener)`
+##### `.removeEventListener(type, listener)`
 
 - `type`, `string`
 - `listener`, `EventListener`
 
 Removes the listener for the given event type.
 
-#### `.send(data)`
+##### `.send(data)`
 
 - `data`, `string | Blob | ArrayBuffer`
 
@@ -460,7 +462,7 @@ client.send(new Blob(['blob']))
 client.send(new TextEncoder().encode('array buffer'))
 ```
 
-#### `.close(code, reason)`
+##### `.close(code, reason)`
 
 - `code`, close [status code](https://www.rfc-editor.org/rfc/rfc6455#section-7.4.1).
 - `reason`, [close reason](https://www.rfc-editor.org/rfc/rfc6455#section-7.1.6).
@@ -479,13 +481,13 @@ client.close()
 client.close(1003)
 ```
 
-### `WebSocketServerConnection`
+#### `WebSocketServerConnection`
 
-#### `.connect()`
+##### `.connect()`
 
 Establishes the connection to the original WebSocket server. Connection cannot be awaited. Any data sent via `server.send()` while connecting is buffered and flushed once the connection is open.
 
-#### `.addEventListener(type, listener)`
+##### `.addEventListener(type, listener)`
 
 - `type`, `string`
 - `listener`, `EventListener`
@@ -511,14 +513,14 @@ server.addEventListener('message', (event) => {
 })
 ```
 
-#### `.removeEventListener(type, listener)`
+##### `.removeEventListener(type, listener)`
 
 - `type`, `string`
 - `listener`, `EventListener`
 
 Removes the listener for the given event type.
 
-#### `.send(data)`
+##### `.send(data)`
 
 - `data`, `string | Blob | ArrayBuffer`
 
@@ -530,7 +532,7 @@ client.addEventListener('message', (event) => {
 })
 ```
 
-#### `.close()`
+##### `.close()`
 
 Closes the connection with the original WebSocket server. Unlike `client.close()`, closing the server connection does not accept any arguments and always assumes a graceful closure. Sending data via `server.send()` after the connection has been closed will have no effect.
 
@@ -560,7 +562,36 @@ class Interceptor {
 
 ### `BatchInterceptor`
 
-Applies multiple request interceptors at the same time.
+Applies multiple request interceptors at the same time. Use it to combine interceptors to capture requests from different request-issuing modules at once.
+
+```js
+import { BatchInterceptor } from '@mswjs/interceptors'
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
+import { FetchInterceptor } from '@mswjs/interceptors/fetch'
+
+const interceptor = new BatchInterceptor({
+  name: 'my-interceptor',
+  interceptors: [
+    new XMLHttpRequestInterceptor(),
+    new FetchInterceptor(),
+  ],
+})
+
+interceptor.apply()
+
+// Spy on both XMLHttpRequest and fetch requests in this process.
+interceptor.on('request', listener)
+```
+
+Instead of listing the interceptors manually, you can provide one of the pre-defined presets to the `interceptors` option to capture all requests for that environment:
+
+#### Node.js preset
+
+This preset combines the following interceptors:
+
+- `ClientRequestInterceptor`
+- `XMLHttpRequestInterceptor`
+- `FetchInterceptor`
 
 ```js
 import { BatchInterceptor } from '@mswjs/interceptors'
@@ -571,15 +602,31 @@ const interceptor = new BatchInterceptor({
   interceptors: nodeInterceptors,
 })
 
-interceptor.apply()
+interceptor.on('request', listener)
 
-interceptor.on('request', ({ request, requestId }) => {
-  // Inspect the intercepted "request".
-  // Optionally, return a mocked response.
-})
+interceptor.apply()
 ```
 
-> Using the `/presets/node` interceptors preset is the recommended way to ensure all requests get intercepted, regardless of their origin.
+#### Browser preset
+
+This preset combines the following interceptors:
+
+- `XMLHttpRequestInterceptor`
+- `FetchInterceptor`
+
+```js
+import { BatchInterceptor } from '@mswjs/interceptors'
+import browserInterceptors from '@mswjs/interceptors/presets/browser'
+
+const interceptor = new BatchInterceptor({
+  name: 'my-interceptor',
+  interceptors: browserInterceptors,
+})
+
+interceptor.on('request', listener)
+
+interceptor.apply()
+```
 
 ### `RemoteHttpInterceptor`
 
@@ -591,7 +638,6 @@ import { RemoteHttpInterceptor } from '@mswjs/interceptors/RemoteHttpInterceptor
 import { ClientRequestInterceptor } from '@mswjs/interceptors/ClientRequest'
 
 const interceptor = new RemoteHttpInterceptor({
-  // Alternatively, you can use presets.
   interceptors: [new ClientRequestInterceptor()],
 })
 

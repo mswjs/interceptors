@@ -1,10 +1,9 @@
 // @vitest-environment node
-import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import http from 'node:http'
-import { waitForClientRequest } from '../../../helpers'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
+import { toWebResponse } from '#/test/helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(() => {
   interceptor.apply()
@@ -21,17 +20,20 @@ afterAll(() => {
 it('responds with a mocked "transfer-encoding: chunked" response', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(
-      new Response('mock', {
-        headers: { 'Transfer-Encoding': 'chunked' },
+      new Response('hello world', {
+        headers: {
+          'Content-Type': 'text/plain',
+          'Transfer-Encoding': 'chunked',
+        },
       })
     )
   })
 
   const request = http.get('http://localhost')
-  const { res, text } = await waitForClientRequest(request)
+  const [response, rawResponse] = await toWebResponse(request)
 
-  expect(res.statusCode).toBe(200)
-  expect(res.headers).toHaveProperty('transfer-encoding', 'chunked')
-  expect(res.rawHeaders).toContain('Transfer-Encoding')
-  expect(await text()).toBe('mock')
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.headers.get('transfer-encoding')).toBe('chunked')
+  expect.soft(rawResponse.rawHeaders).toContain('Transfer-Encoding')
+  await expect(response.text()).resolves.toBe('hello world')
 })

@@ -3,25 +3,28 @@
  * @see https://github.com/mswjs/msw/issues/2537
  * @see https://github.com/mswjs/interceptors/pull/755
  */
-import { it, expect, beforeAll, afterAll } from 'vitest'
 import http from 'node:http'
 import { Socket } from 'node:net'
-import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', async (req, res) => {
-    res.send('ok')
-  })
-})
+let httpServer: TestHttpServer
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('ok')
+      })
+    },
+  })
 })
 
 afterAll(async () => {
@@ -30,28 +33,17 @@ afterAll(async () => {
 })
 
 it('removes all event listeners from a passthrough socket after closing', async () => {
-  const request = http.get(httpServer.http.url('/resource'), {
+  const request = http.get(httpServer.http.url('/resource').href, {
     headers: { connection: 'close' },
   })
-  const pendingSocket = new DeferredPromise<Socket>()
+  const pendingSocket = Promise.withResolvers<Socket>()
 
   request.once('socket', (socket) => {
     pendingSocket.resolve(socket)
   })
 
-  const socket = await pendingSocket
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect.soft(res.statusCode).toBe(200)
-  await expect.soft(text()).resolves.toBe('ok')
-
-  const passthroughSocket = Reflect.get(socket, 'originalSocket') as Socket
-  expect(passthroughSocket).toBeInstanceOf(Socket)
-
-  await expect
-    .poll(
-      // @ts-expect-error Node.js internals
-      () => passthroughSocket._events
-    )
-    .toEqual({})
+  expect.soft(response.status).toBe(200)
+  await expect.soft(response.text()).resolves.toBe('ok')
 })

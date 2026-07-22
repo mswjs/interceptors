@@ -2,15 +2,17 @@
 /**
  * @see https://github.com/mswjs/interceptors/pull/722
  */
-import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from 'vitest'
+import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import http from 'node:http'
 import { promisify } from 'node:util'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest'
-import { waitForClientRequest } from '../../../helpers'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { toWebResponse } from '#/test/helpers'
 
-// const HTTP_SOCKET_PATH = mockFs.resolve('./test.sock')
-const HTTP_SOCKET_PATH = path.join(__dirname, './test-http.sock')
+const HTTP_SOCKET_PATH = fileURLToPath(
+  new URL('./test-http.sock', import.meta.url)
+)
 
 const httpServer = http.createServer((req, res) => {
   res.writeHead(200, req.headers)
@@ -22,9 +24,13 @@ const httpServer = http.createServer((req, res) => {
   }
 })
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
+  if (fs.existsSync(HTTP_SOCKET_PATH)) {
+    await fs.promises.rm(HTTP_SOCKET_PATH)
+  }
+
   await new Promise<void>((resolve) => {
     httpServer.listen(HTTP_SOCKET_PATH, resolve)
   })
@@ -39,6 +45,10 @@ afterEach(() => {
 afterAll(async () => {
   interceptor.dispose()
   await promisify(httpServer.close.bind(httpServer))()
+
+  if (fs.existsSync(HTTP_SOCKET_PATH)) {
+    await fs.promises.rm(HTTP_SOCKET_PATH)
+  }
 })
 
 it('supports passthrough HTTP GET requests over a unix socket', async () => {
@@ -49,10 +59,10 @@ it('supports passthrough HTTP GET requests over a unix socket', async () => {
       'X-Custom-Header': 'custom-value',
     },
   })
-  const { res } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect.soft(res.statusCode).toBe(200)
-  expect.soft(res.headers['x-custom-header']).toBe('custom-value')
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.headers.get('x-custom-header')).toBe('custom-value')
 })
 
 it('supports passthrough HTTP POST requests over a unix socket', async () => {
@@ -67,14 +77,14 @@ it('supports passthrough HTTP POST requests over a unix socket', async () => {
   })
   request.end('hello world')
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect.soft(res.statusCode).toBe(200)
-  expect.soft(res.headers).toMatchObject({
+  expect.soft(response.status).toBe(200)
+  expect.soft(Object.fromEntries(response.headers)).toMatchObject({
     'content-type': 'application/json',
     'content-length': '11',
   })
-  await expect.soft(text()).resolves.toBe('hello world')
+  await expect.soft(response.text()).resolves.toBe('hello world')
 })
 
 it('supports passthrough HTTP GET requests to a non-existing unix socket', async () => {
@@ -83,7 +93,7 @@ it('supports passthrough HTTP GET requests to a non-existing unix socket', async
     path: '/irrelevant',
   })
 
-  await expect(waitForClientRequest(request)).rejects.toThrow(
+  await expect(toWebResponse(request)).rejects.toThrow(
     expect.objectContaining({
       code: 'ENOENT',
       message: 'connect ENOENT non-existing.sock',
@@ -103,11 +113,11 @@ it('mocks a response to HTTP GET requests over a unix socket', async () => {
       'X-Custom-Header': 'custom-value',
     },
   })
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect.soft(res.statusCode).toBe(200)
-  expect.soft(res.headers['x-custom-header']).toBe('custom-value')
-  await expect.soft(text()).resolves.toBe('hello world')
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.headers.get('x-custom-header')).toBe('custom-value')
+  await expect.soft(response.text()).resolves.toBe('hello world')
 })
 
 it('mocks a response to HTTP POST requests over a unix socket', async () => {
@@ -129,9 +139,9 @@ it('mocks a response to HTTP POST requests over a unix socket', async () => {
   })
   request.end('request-payload')
 
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
-  expect.soft(res.statusCode).toBe(200)
-  expect.soft(res.headers['x-custom-header']).toBe('custom-value')
-  await expect.soft(text()).resolves.toBe('request-payload')
+  expect.soft(response.status).toBe(200)
+  expect.soft(response.headers.get('x-custom-header')).toBe('custom-value')
+  await expect.soft(response.text()).resolves.toBe('request-payload')
 })

@@ -1,24 +1,43 @@
-/**
- * @vitest-environment node
- */
-import { vi, it, expect, beforeAll, afterAll } from 'vitest'
+// @vitest-environment node
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
-import { ClientRequestInterceptor } from '../../../../src/interceptors/ClientRequest/index'
-import { HttpRequestEventMap } from '../../../../src/glossary'
-import { REQUEST_ID_REGEXP, waitForClientRequest } from '../../../helpers'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { HttpRequestEventMap } from '#/src/events/http'
+import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => {
-    res.send('original-response')
-  })
-})
+let httpServer: TestHttpServer
 
-const interceptor = new ClientRequestInterceptor()
+const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+
+  const RequestBeforeServer = globalThis.Request
+  const ResponseBeforeServer = globalThis.Response
+
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      /**
+       * @note Serve a dedicated path: the test server registers its own
+       * "GET /" route before these routes, and route registration order
+       * wins in Hono, so the root path cannot be overridden.
+       */
+      router.all('/resource', () => {
+        return new Response('original-response')
+      })
+    },
+  })
+
+  /**
+   * @note "@hono/node-server" overrides the global "Request" and "Response"
+   * classes with its own lightweight implementations when the server starts.
+   * Restore the original classes since these tests assert "instanceof".
+   */
+  globalThis.Request = RequestBeforeServer
+  globalThis.Response = ResponseBeforeServer
 })
 
 afterAll(async () => {
@@ -28,11 +47,11 @@ afterAll(async () => {
 
 it('emits the "request" event for an outgoing request without body', async () => {
   const requestListener =
-    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+    vi.fn<(event: HttpRequestEventMap['request']) => void>()
   interceptor.once('request', requestListener)
 
-  await waitForClientRequest(
-    http.get(httpServer.http.url('/'), {
+  await toWebResponse(
+    http.get(httpServer.http.url('/resource').href, {
       headers: {
         'x-custom-header': 'yes',
       },
@@ -44,7 +63,7 @@ it('emits the "request" event for an outgoing request without body', async () =>
   const { request } = requestListener.mock.calls[0][0]
   expect(request).toBeInstanceOf(Request)
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.http.url('/'))
+  expect(request.url).toBe(httpServer.http.url('/resource').href)
   expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
@@ -53,10 +72,10 @@ it('emits the "request" event for an outgoing request without body', async () =>
 
 it('emits the "request" event for an outgoing request with a body', async () => {
   const requestListener =
-    vi.fn<(...args: HttpRequestEventMap['request']) => void>()
+    vi.fn<(event: HttpRequestEventMap['request']) => void>()
   interceptor.once('request', requestListener)
 
-  const request = http.request(httpServer.http.url('/'), {
+  const request = http.request(httpServer.http.url('/resource').href, {
     method: 'POST',
     headers: {
       'content-type': 'text/plain',
@@ -65,14 +84,14 @@ it('emits the "request" event for an outgoing request with a body', async () => 
   })
   request.write('post-payload')
   request.end()
-  await waitForClientRequest(request)
+  await toWebResponse(request)
 
   expect(requestListener).toHaveBeenCalledTimes(1)
 
   const { request: requestFromListener } = requestListener.mock.calls[0][0]
   expect(requestFromListener).toBeInstanceOf(Request)
   expect(requestFromListener.method).toBe('POST')
-  expect(requestFromListener.url).toBe(httpServer.http.url('/'))
+  expect(requestFromListener.url).toBe(httpServer.http.url('/resource').href)
   expect(
     Object.fromEntries(requestFromListener.headers.entries())
   ).toMatchObject({
@@ -84,7 +103,7 @@ it('emits the "request" event for an outgoing request with a body', async () => 
 
 it('emits the "response" event for a mocked response', async () => {
   const responseListener =
-    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
+    vi.fn<(event: HttpRequestEventMap['response']) => void>()
   interceptor.once('request', ({ controller }) => {
     controller.respondWith(new Response('hello world'))
   })
@@ -95,74 +114,78 @@ it('emits the "response" event for a mocked response', async () => {
       'x-custom-header': 'yes',
     },
   })
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must emit the "response" interceptor event.
   expect(responseListener).toHaveBeenCalledTimes(1)
-  const {
-    response,
-    requestId,
-    request: requestFromListener,
-    isMockedResponse,
-  } = responseListener.mock.calls[0][0]
-  expect(response).toBeInstanceOf(Response)
-  expect(response.status).toBe(200)
-  expect(await response.text()).toBe('hello world')
-  expect(isMockedResponse).toBe(true)
+  {
+    const {
+      response,
+      requestId,
+      request: requestFromListener,
+      responseType,
+    } = responseListener.mock.calls[0][0]
+    expect(response).toBeInstanceOf(Response)
+    expect(response.status).toBe(200)
+    await expect(response.text()).resolves.toBe('hello world')
+    expect(responseType).toBe('mock')
 
-  expect(requestId).toMatch(REQUEST_ID_REGEXP)
-  expect(requestFromListener).toBeInstanceOf(Request)
-  expect(requestFromListener.method).toBe('GET')
-  expect(requestFromListener.url).toBe('http://localhost/')
-  expect(
-    Object.fromEntries(requestFromListener.headers.entries())
-  ).toMatchObject({
-    'x-custom-header': 'yes',
-  })
-  expect(requestFromListener.body).toBe(null)
+    expect(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect(requestFromListener).toBeInstanceOf(Request)
+    expect(requestFromListener.method).toBe('GET')
+    expect(requestFromListener.url).toBe('http://localhost/')
+    expect(
+      Object.fromEntries(requestFromListener.headers.entries())
+    ).toMatchObject({
+      'x-custom-header': 'yes',
+    })
+    expect(requestFromListener.body).toBe(null)
+  }
 
   // Must respond with the mocked response.
-  expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('hello world')
+  expect.soft(response.status).toBe(200)
+  await expect.soft(response.text()).resolves.toBe('hello world')
 })
 
 it('emits the "response" event for a bypassed response', async () => {
   const responseListener =
-    vi.fn<(...args: HttpRequestEventMap['response']) => void>()
+    vi.fn<(event: HttpRequestEventMap['response']) => void>()
   interceptor.once('response', responseListener)
 
-  const request = http.get(httpServer.http.url('/'), {
+  const request = http.get(httpServer.http.url('/resource').href, {
     headers: {
       'x-custom-header': 'yes',
     },
   })
-  const { res, text } = await waitForClientRequest(request)
+  const [response] = await toWebResponse(request)
 
   // Must emit the "response" interceptor event.
   expect(responseListener).toHaveBeenCalledTimes(1)
-  const {
-    response,
-    requestId,
-    request: requestFromListener,
-    isMockedResponse,
-  } = responseListener.mock.calls[0][0]
-  expect(response).toBeInstanceOf(Response)
-  expect(response.status).toBe(200)
-  expect(await response.text()).toBe('original-response')
-  expect(isMockedResponse).toBe(false)
+  {
+    const {
+      response,
+      requestId,
+      request: requestFromListener,
+      responseType,
+    } = responseListener.mock.calls[0][0]
+    expect(response).toBeInstanceOf(Response)
+    expect(response.status).toBe(200)
+    await expect(response.text()).resolves.toBe('original-response')
+    expect(responseType).toBe('original')
 
-  expect(requestId).toMatch(REQUEST_ID_REGEXP)
-  expect(requestFromListener).toBeInstanceOf(Request)
-  expect(requestFromListener.method).toBe('GET')
-  expect(requestFromListener.url).toBe(httpServer.http.url('/'))
-  expect(
-    Object.fromEntries(requestFromListener.headers.entries())
-  ).toMatchObject({
-    'x-custom-header': 'yes',
-  })
-  expect(requestFromListener.body).toBe(null)
+    expect(requestId).toMatch(REQUEST_ID_REGEXP)
+    expect(requestFromListener).toBeInstanceOf(Request)
+    expect(requestFromListener.method).toBe('GET')
+    expect(requestFromListener.url).toBe(httpServer.http.url('/resource').href)
+    expect(
+      Object.fromEntries(requestFromListener.headers.entries())
+    ).toMatchObject({
+      'x-custom-header': 'yes',
+    })
+    expect(requestFromListener.body).toBe(null)
+  }
 
   // Must respond with the mocked response.
-  expect(res.statusCode).toBe(200)
-  expect(await text()).toBe('original-response')
+  expect.soft(response.status).toBe(200)
+  await expect.soft(response.text()).resolves.toBe('original-response')
 })
