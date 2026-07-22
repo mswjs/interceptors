@@ -14,7 +14,7 @@ import {
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
 import { getTlsConnectOptions } from './utils/get-tls-connect-options'
 import { createLogger } from '../../utils/logger'
-import { patchesRegistry } from '../../utils/patchesRegistry'
+import { patchesRegistry } from '../../utils/patches-registry'
 import { Interceptor } from '#/src/interceptor'
 
 declare module 'node:http' {

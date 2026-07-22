@@ -7,27 +7,27 @@ import {
   WebSocketClientConnectionProtocol,
   WebSocketClientConnection,
   type WebSocketClientEventMap,
-} from './WebSocketClientConnection'
+} from './web-socket-client-connection'
 import {
   WebSocketServerConnectionProtocol,
   WebSocketServerConnection,
   type WebSocketServerEventMap,
-} from './WebSocketServerConnection'
-import { WebSocketClassTransport } from './WebSocketClassTransport'
+} from './web-socket-server-connection'
+import { WebSocketClassTransport } from './web-socket-class-transport'
 import {
   kClose,
   kPassthroughPromise,
   WebSocketOverride,
-} from './WebSocketOverride'
-import { bindEvent } from './utils/bindEvent'
-import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { patchesRegistry } from '../../utils/patchesRegistry'
+} from './web-socket-override'
+import { bindEvent } from './utils/bind-event'
+import { hasConfigurableGlobal } from '../../utils/has-configurable-global'
+import { patchesRegistry } from '../../utils/patches-registry'
 import { createLogger } from '../../utils/logger'
 
 export {
   type WebSocketData,
   type WebSocketTransport,
-} from './WebSocketTransport'
+} from './web-socket-transport'
 export {
   WebSocketClientEventMap,
   WebSocketClientConnectionProtocol,

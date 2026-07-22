@@ -2,7 +2,7 @@
 import http from 'node:http'
 import net from 'node:net'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { FetchResponse } from '#/src/utils/fetchUtils'
+import { FetchResponse } from '#/src/utils/fetch-utils'
 import { toWebResponse } from '#/test/helpers'
 import { getTestServer } from '#/test/setup/vitest'
 

@@ -1,4 +1,4 @@
-import { FetchRequest, FetchResponse } from '../../../utils/fetchUtils'
+import { FetchRequest, FetchResponse } from '../../../utils/fetch-utils'
 
 type HeaderTuple = [string, string]
 type RawHeaders = Array<HeaderTuple>

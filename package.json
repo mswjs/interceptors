@@ -31,7 +31,7 @@
     "./WebSocket": "./lib/browser/interceptors/WebSocket/index.js",
     "./RemoteHttpInterceptor": {
       "browser": null,
-      "default": "./lib/node/RemoteHttpInterceptor.js"
+      "default": "./lib/node/remote-http-interceptor.js"
     },
     "./presets/node": {
       "browser": null,

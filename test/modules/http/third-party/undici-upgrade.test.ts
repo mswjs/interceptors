@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { request, upgrade } from 'undici'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { FetchResponse } from '#/src/utils/fetchUtils'
+import { FetchResponse } from '#/src/utils/fetch-utils'
 import { getTestServer } from '#/test/setup/vitest'
 
 const server = getTestServer()

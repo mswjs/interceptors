@@ -10,7 +10,7 @@ import {
 import type { HttpBindings } from '@hono/node-server'
 import { RESPONSE_ALREADY_SENT } from '@hono/node-server/utils/response'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { FetchResponse } from '#/src/utils/fetchUtils'
+import { FetchResponse } from '#/src/utils/fetch-utils'
 import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()

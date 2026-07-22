@@ -7,18 +7,18 @@ import {
 } from 'node:http'
 import { invariant } from 'outvariant'
 import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
-import { RequestController } from '../../RequestController'
+import { RequestController } from '../../request-controller'
 import {
   getRawFetchHeaders,
   recordRawFetchHeaders,
 } from '../ClientRequest/utils/record-raw-headers'
 import { SocketInterceptor } from '../net'
 import { connectionOptionsToUrl } from '../net/utils/connection-options-to-url'
-import { toBuffer } from '../../utils/bufferUtils'
-import { createRequestId } from '../../createRequestId'
+import { toBuffer } from '../../utils/buffer-utils'
+import { createRequestId } from '../../create-request-id'
 import { HttpRequestParser, HttpResponseParser } from './http-parser'
-import { handleRequest, HandleRequestOptions } from '../../utils/handleRequest'
-import { isResponseError, kErrorResponse } from '../../utils/responseUtils'
+import { handleRequest, HandleRequestOptions } from '../../utils/handle-request'
+import { isResponseError, kErrorResponse } from '../../utils/response-utils'
 import { createLogger } from '../../utils/logger'
 import {
   kRawSocket,
@@ -26,7 +26,7 @@ import {
   type FlushPendingDataFunction,
 } from '../net/socket-controller'
 import { unwrapPendingData } from '../net/utils/flush-writes'
-import { FetchResponse } from '../../utils/fetchUtils'
+import { FetchResponse } from '../../utils/fetch-utils'
 import { requestContext } from '../../request-context'
 import { Interceptor } from '#/src/interceptor'
 

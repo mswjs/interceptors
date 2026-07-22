@@ -6,7 +6,7 @@ export default defineConfig([
     entry: [
       './src/index.ts',
       './src/presets/node.ts',
-      './src/RemoteHttpInterceptor.ts',
+      './src/remote-http-interceptor.ts',
       './src/interceptors/http/index.ts',
       './src/interceptors/ClientRequest/index.ts',
       './src/interceptors/XMLHttpRequest/node.ts',

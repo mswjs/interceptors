@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
-import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
+import { FetchRequest, FetchResponse } from '../../utils/fetch-utils'
 import { HttpParser } from './http-parser/index'
 
 interface HttpRequestParserOptions {

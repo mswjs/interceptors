@@ -1,5 +1,5 @@
 import { TypedEvent } from 'rettime'
-import type { RequestController } from '../RequestController'
+import type { RequestController } from '../request-controller'
 
 export interface HttpRequestEventData {
   request: Request

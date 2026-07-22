@@ -1,8 +1,8 @@
 import { HttpRequestEventMap } from '../../events/http'
 import { Interceptor } from '../../interceptor'
-import { createXMLHttpRequestProxy } from './XMLHttpRequestProxy'
-import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { patchesRegistry } from '../../utils/patchesRegistry'
+import { createXMLHttpRequestProxy } from './xml-http-request-proxy'
+import { hasConfigurableGlobal } from '../../utils/has-configurable-global'
+import { patchesRegistry } from '../../utils/patches-registry'
 import { createLogger } from '../../utils/logger'
 
 const logger = createLogger('xhr')

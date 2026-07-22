@@ -1,10 +1,10 @@
 import { requestContext } from '#/src/request-context'
-import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
+import { hasConfigurableGlobal } from '#/src/utils/has-configurable-global'
 import { Interceptor } from '#/src/interceptor'
 import { forwardHttpEvents } from '#/src/interceptors/http/forward-events'
 import { NodeHttpRequestSource } from '#/src/interceptors/http/source'
-import { patchesRegistry } from '#/src/utils/patchesRegistry'
-import { FetchRequest } from '#/src/utils/fetchUtils'
+import { patchesRegistry } from '#/src/utils/patches-registry'
+import { FetchRequest } from '#/src/utils/fetch-utils'
 import { HttpRequestEventMap } from '#/src/events/http'
 import { createLogger } from '#/src/utils/logger'
 

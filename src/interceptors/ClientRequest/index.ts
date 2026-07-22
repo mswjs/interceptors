@@ -1,7 +1,7 @@
 import http from 'node:http'
 import https from 'node:https'
 import { runInRequestContext } from '#/src/request-context'
-import { patchesRegistry } from '#/src/utils/patchesRegistry'
+import { patchesRegistry } from '#/src/utils/patches-registry'
 import { forwardHttpEvents } from '#/src/interceptors/http/forward-events'
 import { NodeHttpRequestSource } from '#/src/interceptors/http/source'
 import { Interceptor } from '../../interceptor'

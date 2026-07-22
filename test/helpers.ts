@@ -4,7 +4,7 @@ import zlib from 'node:zlib'
 import { Readable } from 'node:stream'
 import http from 'node:http'
 import type { MockedFunction } from 'vitest'
-import { FetchResponse } from '#/src/utils/fetchUtils'
+import { FetchResponse } from '#/src/utils/fetch-utils'
 
 export const REQUEST_ID_REGEXP = /^\w{9,}$/
 

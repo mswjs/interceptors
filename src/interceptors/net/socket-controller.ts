@@ -1,7 +1,7 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import { invariant } from 'outvariant'
-import { toBuffer } from '../../utils/bufferUtils'
+import { toBuffer } from '../../utils/buffer-utils'
 import { createLogger } from '../../utils/logger'
 import { unwrapPendingData, writePendingData } from './utils/flush-writes'
 import { NetworkConnectionOptions } from './utils/normalize-net-connect-args'

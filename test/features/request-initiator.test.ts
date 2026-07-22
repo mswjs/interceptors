@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import http from 'node:http'
-import { BatchInterceptor } from '#/src/BatchInterceptor'
+import { BatchInterceptor } from '#/src/batch-interceptor'
 import { ClientRequestInterceptor } from '#/src/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
 import { FetchInterceptor } from '#/src/interceptors/fetch/node'
