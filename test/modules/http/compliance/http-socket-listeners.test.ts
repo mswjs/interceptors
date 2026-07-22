@@ -6,7 +6,6 @@
 import http from 'node:http'
 import { Socket } from 'node:net'
 import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
@@ -32,7 +31,7 @@ it('removes all event listeners from a passthrough socket after closing', async 
   const request = http.get(httpServer.http.url('/resource'), {
     headers: { connection: 'close' },
   })
-  const pendingSocket = new DeferredPromise<Socket>()
+  const pendingSocket = Promise.withResolvers<Socket>()
 
   request.once('socket', (socket) => {
     pendingSocket.resolve(socket)

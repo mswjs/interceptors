@@ -1,5 +1,4 @@
 import { until } from '@open-draft/until'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
 import { RequestController } from '../../RequestController'
 import { handleRequest } from '../../utils/handleRequest'
@@ -50,7 +49,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const request = new Request(resolvedInput, init)
 
-          const responsePromise = new DeferredPromise<Response>()
+          const responsePromise = Promise.withResolvers<Response>()
 
           const controller = new RequestController(
             request,
@@ -207,7 +206,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             logger,
           })
 
-          return responsePromise
+          return responsePromise.promise
         }
       })
     )

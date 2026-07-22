@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
@@ -12,7 +11,7 @@ afterAll(() => {
 })
 
 it('receives incoming mock text data from the server', async () => {
-  const messageReceivedPromise = new DeferredPromise<MessageEvent>()
+  const messageReceivedPromise = Promise.withResolvers<MessageEvent>()
   interceptor.once('connection', ({ client }) => {
     client.send('hello from server')
   })
@@ -22,7 +21,7 @@ it('receives incoming mock text data from the server', async () => {
     messageReceivedPromise.resolve(event)
   })
 
-  const messageEvent = await messageReceivedPromise
+  const messageEvent = await messageReceivedPromise.promise
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toBe('hello from server')
   expect(messageEvent.origin).toBe(ws.url)
@@ -30,7 +29,7 @@ it('receives incoming mock text data from the server', async () => {
 })
 
 it('receives incoming mock Blob data from the server', async () => {
-  const messageReceivedPromise = new DeferredPromise<MessageEvent>()
+  const messageReceivedPromise = Promise.withResolvers<MessageEvent>()
   interceptor.once('connection', ({ client }) => {
     client.send(new Blob(['blob from server']))
   })
@@ -40,7 +39,7 @@ it('receives incoming mock Blob data from the server', async () => {
     messageReceivedPromise.resolve(event)
   })
 
-  const messageEvent = await messageReceivedPromise
+  const messageEvent = await messageReceivedPromise.promise
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toEqual(new Blob(['blob from server']))
   expect(messageEvent.origin).toBe(ws.url)
@@ -48,7 +47,7 @@ it('receives incoming mock Blob data from the server', async () => {
 })
 
 it('receives incoming mock ArrayBuffer data from the server', async () => {
-  const messageReceivedPromise = new DeferredPromise<MessageEvent>()
+  const messageReceivedPromise = Promise.withResolvers<MessageEvent>()
   const buffer = new TextEncoder().encode('hello')
 
   interceptor.once('connection', ({ client }) => {
@@ -60,7 +59,7 @@ it('receives incoming mock ArrayBuffer data from the server', async () => {
     messageReceivedPromise.resolve(event)
   })
 
-  const messageEvent = await messageReceivedPromise
+  const messageEvent = await messageReceivedPromise.promise
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toEqual(buffer)
   expect(messageEvent.origin).toBe(ws.url)
@@ -77,7 +76,7 @@ it('receives mock data in response to sent event', async () => {
   })
 
   const ws = new WebSocket('wss://example.com')
-  const messageReceivedPromise = new DeferredPromise<MessageEvent>()
+  const messageReceivedPromise = Promise.withResolvers<MessageEvent>()
   ws.addEventListener('message', (event) => {
     messageReceivedPromise.resolve(event)
   })
@@ -86,7 +85,7 @@ it('receives mock data in response to sent event', async () => {
     ws.send('John')
   })
 
-  const messageEvent = await messageReceivedPromise
+  const messageEvent = await messageReceivedPromise.promise
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toBe('Hello, John!')
   expect(messageEvent.origin).toBe(ws.url)

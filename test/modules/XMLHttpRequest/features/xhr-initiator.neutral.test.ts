@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral.js'
 
 const interceptor = new XMLHttpRequestInterceptor()
@@ -18,7 +17,7 @@ afterAll(() => {
 })
 
 it('exposes the initiator for a mocked XMLHttpRequest', async () => {
-  const pendingInitiator = new DeferredPromise<XMLHttpRequest>()
+  const pendingInitiator = Promise.withResolvers<XMLHttpRequest>()
 
   interceptor.on('request', ({ initiator, controller }) => {
     pendingInitiator.resolve(initiator as XMLHttpRequest)
@@ -37,6 +36,6 @@ it('exposes the initiator for a mocked XMLHttpRequest', async () => {
 
   await waitForXMLHttpRequest(request)
 
-  await expect.soft(pendingInitiator).resolves.toEqual(request)
+  await expect.soft(pendingInitiator.promise).resolves.toEqual(request)
   expect.soft(request.responseText).toBe('hello world')
 })

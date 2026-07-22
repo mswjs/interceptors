@@ -4,7 +4,6 @@
  */
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { FetchResponse } from '#/src/utils/fetchUtils'
 import { toWebResponse } from '#/test/helpers'
@@ -33,7 +32,7 @@ afterAll(async () => {
 })
 
 it('handles non-configurable responses from the actual server', async () => {
-  const responsePromise = new DeferredPromise<Response>()
+  const responsePromise = Promise.withResolvers<Response>()
   interceptor.on('response', ({ response }) => {
     responsePromise.resolve(response)
   })
@@ -47,7 +46,7 @@ it('handles non-configurable responses from the actual server', async () => {
   expect(response.statusText).toBe('Switching Protocols')
 
   // Must expose the exact response in the listener.
-  await expect(responsePromise).resolves.toHaveProperty('status', 101)
+  await expect(responsePromise.promise).resolves.toHaveProperty('status', 101)
 })
 
 it('supports mocking non-configurable responses', async () => {
@@ -59,7 +58,7 @@ it('supports mocking non-configurable responses', async () => {
     controller.respondWith(new FetchResponse(null, { status: 101 }))
   })
 
-  const responsePromise = new DeferredPromise<Response>()
+  const responsePromise = Promise.withResolvers<Response>()
   interceptor.on('response', ({ response }) => {
     responsePromise.resolve(response)
   })
@@ -70,5 +69,5 @@ it('supports mocking non-configurable responses', async () => {
   expect(response.status).toBe(101)
 
   // Must expose the exact response in the listener.
-  await expect(responsePromise).resolves.toHaveProperty('status', 101)
+  await expect(responsePromise.promise).resolves.toHaveProperty('status', 101)
 })

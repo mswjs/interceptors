@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 import { getTestServer } from '#/test/setup/vitest'
 
@@ -24,12 +23,12 @@ it('forwards incoming server data from the original server', async () => {
 
   const url = server.ws.url('/?greet')
   const ws = new WebSocket(url)
-  const messageReceivedPromise = new DeferredPromise<MessageEvent>()
+  const messageReceivedPromise = Promise.withResolvers<MessageEvent>()
   ws.addEventListener('message', (event) => {
     messageReceivedPromise.resolve(event)
   })
 
-  const messageEvent = await messageReceivedPromise
+  const messageEvent = await messageReceivedPromise.promise
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toBe('hello world')
   expect(messageEvent.origin).toBe(url.origin)
@@ -46,7 +45,7 @@ it('forwards outgoing client data to the original server', async () => {
 
   const url = server.ws.url('/?echo')
   const ws = new WebSocket(url)
-  const messageReceivedPromise = new DeferredPromise<MessageEvent>()
+  const messageReceivedPromise = Promise.withResolvers<MessageEvent>()
   ws.addEventListener('open', () => {
     ws.send('John')
   })
@@ -54,7 +53,7 @@ it('forwards outgoing client data to the original server', async () => {
     messageReceivedPromise.resolve(event)
   })
 
-  const messageEvent = await messageReceivedPromise
+  const messageEvent = await messageReceivedPromise.promise
   expect(messageEvent.type).toBe('message')
   expect(messageEvent.data).toBe('John')
   expect(messageEvent.origin).toBe(url.origin)
@@ -64,8 +63,8 @@ it('forwards outgoing client data to the original server', async () => {
 })
 
 it('closes the actual server connection when the client closes', async () => {
-  const clientClosePromise = new DeferredPromise<CloseEvent>()
-  const serverSocketPromise = new DeferredPromise<WebSocket>()
+  const clientClosePromise = Promise.withResolvers<CloseEvent>()
+  const serverSocketPromise = Promise.withResolvers<WebSocket>()
 
   interceptor.once('connection', ({ client, server }) => {
     server.connect()
@@ -85,8 +84,8 @@ it('closes the actual server connection when the client closes', async () => {
   })
   ws.addEventListener('close', (event) => clientClosePromise.resolve(event))
 
-  await clientClosePromise
-  const serverSocket = await serverSocketPromise
+  await clientClosePromise.promise
+  const serverSocket = await serverSocketPromise.promise
 
   expect(ws.readyState).toBe(WebSocket.CLOSED)
   expect(serverSocket.readyState).toBe(WebSocket.CLOSING)

@@ -1,6 +1,5 @@
 // @see https://github.com/nock/nock/issues/2826
 import http from 'node:http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { toWebResponse } from '#/test/helpers'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
@@ -18,11 +17,11 @@ const httpServer = new http.Server((req, res) => {
 
 beforeAll(async () => {
   interceptor.apply()
-  const serverListenPromise = new DeferredPromise<void>()
+  const serverListenPromise = Promise.withResolvers<void>()
   httpServer.listen(52203, '127.0.0.1', () => {
     serverListenPromise.resolve()
   })
-  await serverListenPromise
+  await serverListenPromise.promise
 })
 
 afterAll(() => {
@@ -31,18 +30,18 @@ afterAll(() => {
 
 afterAll(async () => {
   interceptor.dispose()
-  const serverClosePromise = new DeferredPromise<void>()
+  const serverClosePromise = Promise.withResolvers<void>()
   httpServer.close((error) => {
     if (error) {
       serverClosePromise.reject(error)
     }
     serverClosePromise.resolve()
   })
-  await serverClosePromise
+  await serverClosePromise.promise
 })
 
 it('allows an HTTP GET request with a body', async () => {
-  const interceptedRequestPromise = new DeferredPromise<Request>()
+  const interceptedRequestPromise = Promise.withResolvers<Request>()
 
   interceptor.on('request', ({ request }) => {
     interceptedRequestPromise.resolve(request)
@@ -67,7 +66,7 @@ it('allows an HTTP GET request with a body', async () => {
   const [response] = await toWebResponse(request)
   await expect(response.text()).resolves.toBe('hello world')
 
-  const interceptedRequest = await interceptedRequestPromise
+  const interceptedRequest = await interceptedRequestPromise.promise
   // The Fetch API representation of this request must NOT have any body.
   expect(interceptedRequest.body).toBeNull()
 })

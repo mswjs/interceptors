@@ -1,7 +1,6 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import { invariant } from 'outvariant'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { toBuffer } from '../../utils/bufferUtils'
 import { createLogger } from '../../utils/logger'
 import { unwrapPendingData, writePendingData } from './utils/flush-writes'
@@ -415,7 +414,7 @@ type CorkedReadEvent =
 export class TcpSocketController extends SocketController {
   public serverSocket: net.Socket
 
-  protected pendingConnection: DeferredPromise<[TcpWrap, TcpHandle]>
+  protected pendingConnection: PromiseWithResolvers<[TcpWrap, TcpHandle]>
 
   #connectionOptions?: NetworkConnectionOptions
   #realWriteGeneric: net.Socket['_writeGeneric']
@@ -522,7 +521,7 @@ export class TcpSocketController extends SocketController {
 
     this.serverSocket = toServerSocket(this.socket)
 
-    this.pendingConnection = new DeferredPromise()
+    this.pendingConnection = Promise.withResolvers()
     this.#reset()
   }
 
@@ -550,7 +549,7 @@ export class TcpSocketController extends SocketController {
     logger.verbose('resetting the socket...')
 
     this.readyState = SocketController.PENDING
-    this.pendingConnection = new DeferredPromise()
+    this.pendingConnection = Promise.withResolvers()
     this.#bufferedWrites = []
     this.#connectEmulated = false
 
@@ -560,7 +559,7 @@ export class TcpSocketController extends SocketController {
     this.socket._pendingEncoding = ''
 
     const wrapHandle = (handle: TcpHandle) => {
-      this.pendingConnection.then(() => {
+      this.pendingConnection.promise.then(() => {
         logger.verbose('connection request resolved!', this.readyState)
 
         process.nextTick(() => {
@@ -1132,7 +1131,7 @@ export class TcpSocketController extends SocketController {
     this.socket._pendingData = null
     this.socket._pendingEncoding = ''
 
-    this.pendingConnection.then(([request, handle]) => {
+    this.pendingConnection.promise.then(([request, handle]) => {
       logger.verbose('connection request resolved, mocking the connection...')
 
       /**

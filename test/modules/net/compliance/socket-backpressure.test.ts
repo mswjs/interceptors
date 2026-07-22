@@ -1,7 +1,6 @@
 // @vitest-environment node
 import net from 'node:net'
 import crypto from 'node:crypto'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { SocketInterceptor } from '#/src/interceptors/net'
 import { createTestServer, spyOnSocket } from '#/test/helpers'
 
@@ -42,7 +41,7 @@ it('returns false from "write()" once the buffer exceeds the high water mark', a
 })
 
 it('returns false from the mock server "write()" once the buffer exceeds the high water mark', async () => {
-  const serverSocketPromise = new DeferredPromise<net.Socket>()
+  const serverSocketPromise = Promise.withResolvers<net.Socket>()
 
   interceptor.on('connection', ({ socket, controller }) => {
     controller.claim()
@@ -57,7 +56,7 @@ it('returns false from the mock server "write()" once the buffer exceeds the hig
 
   await expect.poll(() => listeners.ready).toHaveBeenCalledOnce()
 
-  const serverSocket = await serverSocketPromise
+  const serverSocket = await serverSocketPromise.promise
   const drainListener = vi.fn()
   serverSocket.on('drain', drainListener)
 

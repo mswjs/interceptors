@@ -3,7 +3,6 @@
  * still dispatches the correct events in mocked/bypassed scenarios.
  */
 import { inject } from 'vitest'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 import { setTimeout } from '#/test/setup/helpers-neutral'
 import { getTestServer } from '#/test/setup/vitest'
@@ -159,12 +158,12 @@ it('emits "close" event when the interceptor closes the connection with error co
     client.close(3000, 'Oops!')
   })
 
-  const closeEventPromise = new DeferredPromise<CloseEvent>()
+  const closeEventPromise = Promise.withResolvers<CloseEvent>()
 
   const ws = new WebSocket('wss://localhost')
   ws.onclose = closeEventPromise.resolve
 
-  const closeEvent = await closeEventPromise
+  const closeEvent = await closeEventPromise.promise
   expect(closeEvent.type).toBe('close')
   expect(closeEvent.code).toBe(3000)
   expect(closeEvent.reason).toBe('Oops!')

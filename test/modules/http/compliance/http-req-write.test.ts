@@ -3,7 +3,6 @@ import { Readable } from 'node:stream'
 import http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
 import express from 'express'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
@@ -31,7 +30,7 @@ afterAll(async () => {
 })
 
 it('writes string request body', async () => {
-  const requestBodyPromise = new DeferredPromise<string>()
+  const requestBodyPromise = Promise.withResolvers<string>()
 
   interceptor.on('request', async ({ request }) => {
     requestBodyPromise.resolve(await request.clone().text())
@@ -50,12 +49,12 @@ it('writes string request body', async () => {
 
   const [response] = await toWebResponse(req)
 
-  await expect(requestBodyPromise).resolves.toBe('onetwothree')
+  await expect(requestBodyPromise.promise).resolves.toBe('onetwothree')
   await expect(response.text()).resolves.toEqual('onetwothree')
 })
 
 it('writes JSON request body', async () => {
-  const requestBodyPromise = new DeferredPromise<string>()
+  const requestBodyPromise = Promise.withResolvers<string>()
 
   interceptor.on('request', async ({ request }) => {
     requestBodyPromise.resolve(await request.clone().text())
@@ -74,12 +73,12 @@ it('writes JSON request body', async () => {
 
   const [response] = await toWebResponse(req)
 
-  await expect(requestBodyPromise).resolves.toBe(`{"key":"value"}`)
+  await expect(requestBodyPromise.promise).resolves.toBe(`{"key":"value"}`)
   await expect(response.text()).resolves.toEqual(`{"key":"value"}`)
 })
 
 it('writes Buffer request body', async () => {
-  const requestBodyPromise = new DeferredPromise<string>()
+  const requestBodyPromise = Promise.withResolvers<string>()
 
   interceptor.on('request', async ({ request }) => {
     requestBodyPromise.resolve(await request.clone().text())
@@ -98,12 +97,12 @@ it('writes Buffer request body', async () => {
 
   const [response] = await toWebResponse(req)
 
-  await expect(requestBodyPromise).resolves.toBe(`{"key":"value"}`)
+  await expect(requestBodyPromise.promise).resolves.toBe(`{"key":"value"}`)
   await expect(response.text()).resolves.toEqual(`{"key":"value"}`)
 })
 
 it('supports Readable as the request body', async () => {
-  const requestBodyPromise = new DeferredPromise<string>()
+  const requestBodyPromise = Promise.withResolvers<string>()
 
   interceptor.on('request', async ({ request }) => {
     requestBodyPromise.resolve(await request.clone().text())
@@ -127,7 +126,7 @@ it('supports Readable as the request body', async () => {
   readable.pipe(request)
 
   await toWebResponse(request)
-  await expect(requestBodyPromise).resolves.toBe('hello world')
+  await expect(requestBodyPromise.promise).resolves.toBe('hello world')
 })
 
 it('calls the write callback when writing an empty string', async () => {
@@ -200,7 +199,7 @@ it('emits "finish" for a mocked request', async () => {
 })
 
 it('supports ending a mocked request in a write callback', async () => {
-  const requestBodyPromise = new DeferredPromise<string>()
+  const requestBodyPromise = Promise.withResolvers<string>()
 
   interceptor.on('request', async ({ request, controller }) => {
     requestBodyPromise.resolve(await request.text())
@@ -234,7 +233,7 @@ it('supports ending a mocked request in a write callback', async () => {
   expect(secondWriteCallback).toHaveBeenCalledBefore(requestEndCallback)
   expect(requestEndCallback).toHaveBeenCalledOnce()
 
-  await expect(requestBodyPromise).resolves.toBe('onetwo')
+  await expect(requestBodyPromise.promise).resolves.toBe('onetwo')
   await expect(response.text()).resolves.toBe('hello world')
 })
 

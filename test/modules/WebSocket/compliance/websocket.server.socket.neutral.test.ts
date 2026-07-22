@@ -1,6 +1,5 @@
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 import { waitForWebSocketEvent } from '../utils/waitForWebSocketEvent'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const interceptor = new WebSocketInterceptor()
 
@@ -17,7 +16,7 @@ afterAll(() => {
 })
 
 it('throws an error when accessing "server.socket" before calling "server.connect()"', async () => {
-  const socketPromise = new DeferredPromise<WebSocket>()
+  const socketPromise = Promise.withResolvers<WebSocket>()
   interceptor.on('connection', ({ server }) => {
     try {
       // Accessing "server.socket" before calling "server.connect()" is a no-op.
@@ -31,7 +30,7 @@ it('throws an error when accessing "server.socket" before calling "server.connec
   const clientSocket = new WebSocket('wss://localhost')
   await waitForWebSocketEvent('open', clientSocket)
 
-  await expect(socketPromise).rejects.toThrow(
+  await expect(socketPromise.promise).rejects.toThrow(
     'Cannot access "socket" on the original WebSocket server object: the connection is not open. Did you forget to call `server.connect()`?'
   )
 
@@ -40,7 +39,7 @@ it('throws an error when accessing "server.socket" before calling "server.connec
 })
 
 it('returns the WebSocket instance after calling "server.connect()"', async () => {
-  const socketPromise = new DeferredPromise<WebSocket>()
+  const socketPromise = Promise.withResolvers<WebSocket>()
   interceptor.on('connection', ({ server }) => {
     server.connect()
     try {
@@ -53,7 +52,7 @@ it('returns the WebSocket instance after calling "server.connect()"', async () =
 
   await waitForWebSocketEvent('open', new WebSocket('wss://localhost'))
 
-  const serverSocket = await socketPromise
+  const serverSocket = await socketPromise.promise
   expect(serverSocket).toBeInstanceOf(WebSocket)
   expect(serverSocket.url).toBe('wss://localhost/')
   expect(serverSocket.readyState).toBe(WebSocket.CONNECTING)

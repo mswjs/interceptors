@@ -1,6 +1,5 @@
 // @vitest-environment node
 import net from 'node:net'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { SocketInterceptor } from '#/src/interceptors/net'
 import { createTestServer, spyOnSocket } from '#/test/helpers'
 
@@ -38,16 +37,16 @@ it('resolves the connection attempt when the socket is claimed', async () => {
 })
 
 it('has no effect claiming a connection destroyed by the client', async () => {
-  const connectionEventReceived = new DeferredPromise<void>()
-  const clientDestroyed = new DeferredPromise<void>()
-  const claimResult = new DeferredPromise<Error | undefined>()
+  const connectionEventReceived = Promise.withResolvers<void>()
+  const clientDestroyed = Promise.withResolvers<void>()
+  const claimResult = Promise.withResolvers<Error | undefined>()
 
   interceptor.on('connection', async ({ controller }) => {
     connectionEventReceived.resolve()
 
     // Suspend the connection handling until the client
     // has destroyed the socket (e.g. aborted the request).
-    await clientDestroyed
+    await clientDestroyed.promise
 
     try {
       controller.claim()
@@ -70,19 +69,19 @@ it('has no effect claiming a connection destroyed by the client', async () => {
    * the claim past the connected-socket check even after the client
    * destroys the socket.
    */
-  const socketConnected = new DeferredPromise<void>()
+  const socketConnected = Promise.withResolvers<void>()
   socket.on('connect', () => {
     socket.write('hello')
     socketConnected.resolve()
   })
 
-  await connectionEventReceived
-  await socketConnected
+  await connectionEventReceived.promise
+  await socketConnected.promise
 
   socket.destroy()
   clientDestroyed.resolve()
 
-  await expect(claimResult).resolves.toBeUndefined()
+  await expect(claimResult.promise).resolves.toBeUndefined()
   expect(socket.destroyed).toBe(true)
   expect(events).toEqual([
     ['connectionAttempt', '127.0.0.1', 80, 4],

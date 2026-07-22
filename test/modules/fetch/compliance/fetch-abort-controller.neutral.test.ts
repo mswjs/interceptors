@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { InterceptorError } from '@mswjs/interceptors'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 import { getTestServer } from '#/test/setup/vitest'
@@ -46,16 +45,19 @@ it('aborts unsent request when the original request is aborted', async ({
 it('aborts a pending request when the original request is aborted', async ({
   task,
 }) => {
-  const requestListenerCalled = new DeferredPromise<void>()
-  const fetchRejected = new DeferredPromise<void>()
-  const lateRespondWithResult = new DeferredPromise<Error | undefined>()
+  const requestListenerCalled = Promise.withResolvers<void>()
+  const fetchRejected = Promise.withResolvers<void>()
+  const lateRespondWithResult = Promise.withResolvers<Error | undefined>()
 
   interceptor.on('request', async ({ controller }) => {
     requestListenerCalled.resolve()
 
     // Suspend the listener until the fetch promise has rejected
     // so responding here is guaranteed to happen after the abort.
-    await fetchRejected
+    await fetchRejected.promise
+    // Wait for the interceptor to acknowledge the abort so responding
+    // below is guaranteed to happen after the request has been handled.
+    await controller.handled
 
     try {
       controller.respondWith(new Response())
@@ -77,7 +79,7 @@ it('aborts a pending request when the original request is aborted', async ({
     (error) => error
   )
 
-  await requestListenerCalled
+  await requestListenerCalled.promise
   controller.abort()
   const abortError = await abortErrorPromise
 
@@ -93,7 +95,7 @@ it('aborts a pending request when the original request is aborted', async ({
   // Responding to an aborted request must throw a controlled error,
   // not crash outside of the request listener.
   fetchRejected.resolve()
-  const lateRespondWithError = await lateRespondWithResult
+  const lateRespondWithError = await lateRespondWithResult.promise
 
   expect(lateRespondWithError).toBeInstanceOf(InterceptorError)
   expect(lateRespondWithError?.message).toBe(
@@ -112,12 +114,12 @@ it('forwards custom abort reason to the request if aborted before it starts', as
     signal: controller.signal,
   })
 
-  const requestAborted = new DeferredPromise<NodeJS.ErrnoException>()
+  const requestAborted = Promise.withResolvers<NodeJS.ErrnoException>()
   request.catch(requestAborted.resolve)
 
   controller.abort(new Error('Custom abort reason'))
 
-  const abortError = await requestAborted
+  const abortError = await requestAborted.promise
 
   expect(abortError.name).toBe('Error')
   expect(abortError.code).toBeUndefined()
@@ -132,17 +134,20 @@ it('forwards custom abort reason to the request if aborted before it starts', as
 })
 
 it('forwards custom abort reason to the request if pending', async () => {
-  const requestListenerCalled = new DeferredPromise<void>()
-  const requestAborted = new DeferredPromise<Error>()
-  const fetchRejected = new DeferredPromise<void>()
-  const lateRespondWithResult = new DeferredPromise<Error | undefined>()
+  const requestListenerCalled = Promise.withResolvers<void>()
+  const requestAborted = Promise.withResolvers<Error>()
+  const fetchRejected = Promise.withResolvers<void>()
+  const lateRespondWithResult = Promise.withResolvers<Error | undefined>()
 
   interceptor.on('request', async ({ controller }) => {
     requestListenerCalled.resolve()
 
     // Suspend the listener until the fetch promise has rejected
     // so responding here is guaranteed to happen after the abort.
-    await fetchRejected
+    await fetchRejected.promise
+    // Wait for the interceptor to acknowledge the abort so responding
+    // below is guaranteed to happen after the request has been handled.
+    await controller.handled
 
     try {
       controller.respondWith(new Response())
@@ -164,18 +169,18 @@ it('forwards custom abort reason to the request if pending', async () => {
   })
 
   request.catch(requestAborted.resolve)
-  await requestListenerCalled
+  await requestListenerCalled.promise
 
   controller.abort(new Error('Custom abort reason'))
 
-  const abortError = await requestAborted
+  const abortError = await requestAborted.promise
   expect(abortError.name).toBe('Error')
   expect(abortError.message).toBe('Custom abort reason')
 
   // Responding to an aborted request must throw a controlled error,
   // not crash outside of the request listener.
   fetchRejected.resolve()
-  const lateRespondWithError = await lateRespondWithResult
+  const lateRespondWithError = await lateRespondWithResult.promise
 
   expect(lateRespondWithError).toBeInstanceOf(InterceptorError)
   expect(lateRespondWithError?.message).toBe(
@@ -216,13 +221,13 @@ it('respects requests aborted before they are dispatched', async ({
 it('aborts the pending request via "AbortSignal.timeout"', async ({
   task,
 }) => {
-  const fetchRejected = new DeferredPromise<void>()
-  const requestListenerDone = new DeferredPromise<void>()
+  const fetchRejected = Promise.withResolvers<void>()
+  const requestListenerDone = Promise.withResolvers<void>()
 
   interceptor.on('request', async () => {
     // Keep the request pending until the timeout fires so the abort
     // is guaranteed to happen while the listener is still running.
-    await fetchRejected
+    await fetchRejected.promise
     requestListenerDone.resolve()
   })
 
@@ -245,5 +250,5 @@ it('aborts the pending request via "AbortSignal.timeout"', async ({
   // Let the listener finish within this test so it does not
   // leak into the tests that run after it.
   fetchRejected.resolve()
-  await requestListenerDone
+  await requestListenerDone.promise
 })

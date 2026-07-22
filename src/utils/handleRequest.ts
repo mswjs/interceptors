@@ -1,5 +1,4 @@
 import type { Emitter } from 'rettime'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { until } from '@open-draft/until'
 import {
   HttpRequestEvent,
@@ -90,9 +89,13 @@ export async function handleRequest(
     return false
   }
 
-  const requestAbortPromise = new DeferredPromise<void, unknown>()
+  const requestAbortPromise = Promise.withResolvers<void>()
+  let requestAbortReason: unknown
+  let isRequestAborted = false
   const onAbort = () => {
-    requestAbortPromise.reject(options.request.signal?.reason)
+    isRequestAborted = true
+    requestAbortReason = options.request.signal?.reason
+    requestAbortPromise.reject(requestAbortReason)
   }
 
   /**
@@ -123,7 +126,7 @@ export async function handleRequest(
 
     await Promise.race([
       // Short-circuit the request handling promise if the request gets aborted.
-      requestAbortPromise,
+      requestAbortPromise.promise,
       requestListenersPromise,
       options.controller.handled,
     ])
@@ -142,8 +145,8 @@ export async function handleRequest(
   options.request.signal?.removeEventListener('abort', onAbort)
 
   // Handle the request being aborted while waiting for the request listeners.
-  if (requestAbortPromise.state === 'rejected') {
-    await options.controller.errorWith(requestAbortPromise.rejectionReason)
+  if (isRequestAborted) {
+    await options.controller.errorWith(requestAbortReason)
     return
   }
 

@@ -1,7 +1,6 @@
 // @vitest-environment node
 import net from 'node:net'
 import https from 'node:https'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
@@ -34,10 +33,10 @@ it('exposes socket address information for a mocked HTTPS request', async () => 
   })
 
   const request = https.get('https://example.com')
-  const addressOnConnectPromise = new DeferredPromise<
+  const addressOnConnectPromise = Promise.withResolvers<
     ReturnType<net.Socket['address']>
   >()
-  const addressOnSecureConnectPromise = new DeferredPromise<
+  const addressOnSecureConnectPromise = Promise.withResolvers<
     ReturnType<net.Socket['address']>
   >()
 
@@ -52,12 +51,12 @@ it('exposes socket address information for a mocked HTTPS request', async () => 
 
   await toWebResponse(request)
 
-  await expect(addressOnConnectPromise).resolves.toEqual({
+  await expect(addressOnConnectPromise.promise).resolves.toEqual({
     address: '127.0.0.1',
     family: 'IPv4',
     port: expect.any(Number),
   })
-  await expect(addressOnSecureConnectPromise).resolves.toEqual({
+  await expect(addressOnSecureConnectPromise.promise).resolves.toEqual({
     address: '127.0.0.1',
     family: 'IPv4',
     port: expect.any(Number),
@@ -75,7 +74,7 @@ it('exposes socket address information for a bypassed HTTPS request', async () =
   const request = https.get(httpServer.https.url('/'), {
     rejectUnauthorized: false,
   })
-  const addressOnSecureConnectPromise = new DeferredPromise<
+  const addressOnSecureConnectPromise = Promise.withResolvers<
     ReturnType<net.Socket['address']>
   >()
 
@@ -87,7 +86,7 @@ it('exposes socket address information for a bypassed HTTPS request', async () =
 
   await toWebResponse(request)
 
-  await expect(addressOnSecureConnectPromise).resolves.toEqual({
+  await expect(addressOnSecureConnectPromise.promise).resolves.toEqual({
     address: '127.0.0.1',
     family: 'IPv4',
     port: expect.any(Number),

@@ -1,7 +1,6 @@
 // @vitest-environment node
 import http, { IncomingMessage } from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const httpServer = new HttpServer((app) => {
@@ -69,14 +68,14 @@ describe('given the original response', () => {
     it(`reads the response body encoded with ${encoding}`, async () => {
       const request = http.get(httpServer.http.url('/resource'))
 
-      const responseTextReceived = new DeferredPromise<IncomingMessage>()
+      const responseTextReceived = Promise.withResolvers<IncomingMessage>()
       request.on('response', async (response) => {
         response.setEncoding(encoding)
         const text = await readIncomingMessage(response)
         responseTextReceived.resolve(text)
       })
 
-      const responseText = await responseTextReceived
+      const responseText = await responseTextReceived.promise
       expect(responseText).toEqual(encode('hello world', encoding))
     })
   })
@@ -87,14 +86,14 @@ describe('given the mocked response', () => {
     it(`reads the response body encoded with ${encoding}`, async () => {
       const request = http.get(httpServer.http.url('/resource?mock=true'))
 
-      const responseTextReceived = new DeferredPromise<IncomingMessage>()
+      const responseTextReceived = Promise.withResolvers<IncomingMessage>()
       request.on('response', async (response) => {
         response.setEncoding(encoding)
         const text = await readIncomingMessage(response)
         responseTextReceived.resolve(text)
       })
 
-      const responseText = await responseTextReceived
+      const responseText = await responseTextReceived.promise
       expect(responseText).toEqual(encode('hello world', encoding))
     })
   })

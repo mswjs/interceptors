@@ -4,7 +4,6 @@ import zlib from 'node:zlib'
 import { Readable } from 'node:stream'
 import http from 'node:http'
 import { RequestHandler } from 'express'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { MockedFunction } from 'node_modules/vitest/dist'
 import { FetchResponse } from '#/src/utils/fetchUtils'
 
@@ -13,7 +12,7 @@ export const REQUEST_ID_REGEXP = /^\w{9,}$/
 export async function readBlob(
   blob: Blob
 ): Promise<string | ArrayBuffer | null> {
-  const pendingResult = new DeferredPromise<string | ArrayBuffer | null>()
+  const pendingResult = Promise.withResolvers<string | ArrayBuffer | null>()
 
   const reader = new FileReader()
   reader.addEventListener('loadend', () => {
@@ -23,13 +22,13 @@ export async function readBlob(
   reader.addEventListener('error', () => pendingResult.reject())
   reader.readAsText(blob)
 
-  return pendingResult
+  return pendingResult.promise
 }
 
 export async function toWebResponse(
   request: http.ClientRequest
 ): Promise<[Response, http.IncomingMessage]> {
-  const pendingResponse = new DeferredPromise<
+  const pendingResponse = Promise.withResolvers<
     [Response, http.IncomingMessage]
   >()
 
@@ -50,7 +49,7 @@ export async function toWebResponse(
     .on('error', (error) => pendingResponse.reject(error))
     .on('abort', () => pendingResponse.reject(new Error('Request aborted')))
 
-  return pendingResponse
+  return pendingResponse.promise
 }
 
 export const useCors: RequestHandler = (_req, res, next) => {
@@ -103,13 +102,13 @@ export async function createTestServer<T extends net.Server>(
 > {
   const server = createServer()
 
-  const pendingListen = new DeferredPromise<void>()
+  const pendingListen = Promise.withResolvers<void>()
 
   server
     .listen(0, '127.0.0.1', () => pendingListen.resolve())
     .once('error', (error) => pendingListen.reject(error))
 
-  await pendingListen
+  await pendingListen.promise
 
   const rawAddress = server.address()
 
@@ -133,7 +132,7 @@ export async function createTestServer<T extends net.Server>(
 
   return {
     async [Symbol.asyncDispose]() {
-      const pendingClose = new DeferredPromise<void>()
+      const pendingClose = Promise.withResolvers<void>()
       server.close((error) => {
         if (error) {
           return pendingClose.reject(error)

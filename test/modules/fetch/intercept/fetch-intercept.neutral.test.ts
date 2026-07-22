@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { RequestController, encodeBuffer } from '@mswjs/interceptors'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 import { getTestServer } from '#/test/setup/vitest'
@@ -34,7 +33,7 @@ afterAll(() => {
 
 describe.each(['http', 'https'] as const)('%s', (protocol) => {
   it('intercepts a HEAD request', async () => {
-    const requestEventPromise = new DeferredPromise<RequestEventPayload>()
+    const requestEventPromise = Promise.withResolvers<RequestEventPayload>()
     interceptor.on('request', ({ request, requestId, controller }) => {
       requestEventPromise.resolve({ request, requestId, controller })
     })
@@ -46,7 +45,7 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
       },
     })
 
-    const { request, requestId, controller } = await requestEventPromise
+    const { request, requestId, controller } = await requestEventPromise.promise
 
     expect(request.method).toBe('HEAD')
     expect(request.url).toBe(server[protocol].url('/user?id=123').href)
@@ -60,7 +59,7 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
   })
 
   it('intercepts a GET request', async () => {
-    const requestEventPromise = new DeferredPromise<RequestEventPayload>()
+    const requestEventPromise = Promise.withResolvers<RequestEventPayload>()
     interceptor.on('request', ({ request, requestId, controller }) => {
       requestEventPromise.resolve({ request, requestId, controller })
     })
@@ -71,7 +70,7 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
       },
     })
 
-    const { request, requestId, controller } = await requestEventPromise
+    const { request, requestId, controller } = await requestEventPromise.promise
 
     expect(request.method).toBe('GET')
     expect(request.url).toBe(server[protocol].url('/user?id=123').href)
@@ -86,8 +85,8 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
   })
 
   it('intercepts a POST request', async () => {
-    const requestBodyPromise = new DeferredPromise<string>()
-    const requestEventPromise = new DeferredPromise<RequestEventPayload>()
+    const requestBodyPromise = Promise.withResolvers<string>()
+    const requestEventPromise = Promise.withResolvers<RequestEventPayload>()
     interceptor.on('request', ({ request, requestId, controller }) => {
       // Read the request body via a clone because the bypassed
       // request consumes the original body.
@@ -103,13 +102,13 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
       body: JSON.stringify({ body: true }),
     })
 
-    const { request, requestId, controller } = await requestEventPromise
+    const { request, requestId, controller } = await requestEventPromise.promise
 
     expect(request.method).toBe('POST')
     expect(request.url).toBe(server[protocol].url('/user?id=123').href)
     expect(request.headers.get('x-custom-header')).toBe('yes')
     expect(request.credentials).toBe('same-origin')
-    await expect(requestBodyPromise).resolves.toBe(
+    await expect(requestBodyPromise.promise).resolves.toBe(
       JSON.stringify({ body: true })
     )
     expect(controller).toBeInstanceOf(RequestController)
@@ -120,8 +119,8 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
   })
 
   it('intercepts a PUT request', async () => {
-    const requestBodyPromise = new DeferredPromise<string>()
-    const requestEventPromise = new DeferredPromise<RequestEventPayload>()
+    const requestBodyPromise = Promise.withResolvers<string>()
+    const requestEventPromise = Promise.withResolvers<RequestEventPayload>()
     interceptor.on('request', ({ request, requestId, controller }) => {
       requestBodyPromise.resolve(request.clone().text())
       requestEventPromise.resolve({ request, requestId, controller })
@@ -135,13 +134,13 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
       body: encodeBuffer('request-payload'),
     })
 
-    const { request, requestId, controller } = await requestEventPromise
+    const { request, requestId, controller } = await requestEventPromise.promise
 
     expect(request.method).toBe('PUT')
     expect(request.url).toBe(server[protocol].url('/user?id=123').href)
     expect(request.headers.get('x-custom-header')).toBe('yes')
     expect(request.credentials).toBe('same-origin')
-    await expect(requestBodyPromise).resolves.toBe('request-payload')
+    await expect(requestBodyPromise.promise).resolves.toBe('request-payload')
     expect(controller).toBeInstanceOf(RequestController)
     expect(requestId).toMatch(/^\w{9,}$/)
 
@@ -150,8 +149,8 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
   })
 
   it('intercepts a PATCH request', async () => {
-    const requestBodyPromise = new DeferredPromise<string>()
-    const requestEventPromise = new DeferredPromise<RequestEventPayload>()
+    const requestBodyPromise = Promise.withResolvers<string>()
+    const requestEventPromise = Promise.withResolvers<RequestEventPayload>()
     interceptor.on('request', ({ request, requestId, controller }) => {
       requestBodyPromise.resolve(request.clone().text())
       requestEventPromise.resolve({ request, requestId, controller })
@@ -165,13 +164,13 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
       body: encodeBuffer('request-payload'),
     })
 
-    const { request, requestId, controller } = await requestEventPromise
+    const { request, requestId, controller } = await requestEventPromise.promise
 
     expect(request.method).toBe('PATCH')
     expect(request.url).toBe(server[protocol].url('/user?id=123').href)
     expect(request.headers.get('x-custom-header')).toBe('yes')
     expect(request.credentials).toBe('same-origin')
-    await expect(requestBodyPromise).resolves.toBe('request-payload')
+    await expect(requestBodyPromise.promise).resolves.toBe('request-payload')
     expect(controller).toBeInstanceOf(RequestController)
     expect(requestId).toMatch(/^\w{9,}$/)
 
@@ -180,7 +179,7 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
   })
 
   it('intercepts a DELETE request', async () => {
-    const requestEventPromise = new DeferredPromise<RequestEventPayload>()
+    const requestEventPromise = Promise.withResolvers<RequestEventPayload>()
     interceptor.on('request', ({ request, requestId, controller }) => {
       requestEventPromise.resolve({ request, requestId, controller })
     })
@@ -192,7 +191,7 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
       },
     })
 
-    const { request, requestId, controller } = await requestEventPromise
+    const { request, requestId, controller } = await requestEventPromise.promise
 
     expect(request.method).toBe('DELETE')
     expect(request.url).toBe(server[protocol].url('/user?id=123').href)
@@ -208,7 +207,7 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
 it('sets "credentials" to "include" on the intercepted request', async ({
   task,
 }) => {
-  const requestCredentialsPromise = new DeferredPromise<string>()
+  const requestCredentialsPromise = Promise.withResolvers<string>()
   interceptor.on('request', ({ request, controller }) => {
     requestCredentialsPromise.resolve(request.credentials)
     controller.respondWith(new Response())
@@ -219,21 +218,21 @@ it('sets "credentials" to "include" on the intercepted request', async ({
   })
 
   if (task.file.projectName === 'browser') {
-    await expect(requestCredentialsPromise).resolves.toBe('include')
+    await expect(requestCredentialsPromise.promise).resolves.toBe('include')
   } else {
     /**
      * @note The HTTP message has no notion of credentials.
      * In Node.js, the intercepted request is parsed from the wire
      * so it always has the default credentials.
      */
-    await expect(requestCredentialsPromise).resolves.toBe('same-origin')
+    await expect(requestCredentialsPromise.promise).resolves.toBe('same-origin')
   }
 })
 
 it('sets "credentials" to "omit" on the intercepted request', async ({
   task,
 }) => {
-  const requestCredentialsPromise = new DeferredPromise<string>()
+  const requestCredentialsPromise = Promise.withResolvers<string>()
   interceptor.on('request', ({ request, controller }) => {
     requestCredentialsPromise.resolve(request.credentials)
     controller.respondWith(new Response())
@@ -244,8 +243,8 @@ it('sets "credentials" to "omit" on the intercepted request', async ({
   })
 
   if (task.file.projectName === 'browser') {
-    await expect(requestCredentialsPromise).resolves.toBe('omit')
+    await expect(requestCredentialsPromise.promise).resolves.toBe('omit')
   } else {
-    await expect(requestCredentialsPromise).resolves.toBe('same-origin')
+    await expect(requestCredentialsPromise.promise).resolves.toBe('same-origin')
   }
 })

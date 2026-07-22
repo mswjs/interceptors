@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import http from 'node:http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '#/src/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
 import { FetchInterceptor } from '#/src/interceptors/fetch/node'
@@ -45,7 +44,7 @@ it('does not attribute a ClientRequest to a preceding fetch request', async () =
     }
   })
 
-  const clientRequestInitiator = new DeferredPromise<unknown>()
+  const clientRequestInitiator = Promise.withResolvers<unknown>()
   clientRequestInterceptor.on('request', ({ initiator }) => {
     clientRequestInitiator.resolve(initiator)
   })
@@ -65,7 +64,7 @@ it('does not attribute a ClientRequest to a preceding fetch request', async () =
   expect(fetchRequestListener).toHaveBeenCalledTimes(1)
   expect(fetchRequestListener).toHaveBeenCalledWith('http://localhost/mocked')
 
-  await expect(clientRequestInitiator).resolves.toEqual(request)
+  await expect(clientRequestInitiator.promise).resolves.toEqual(request)
   await expect(response.text()).resolves.toBe('original')
 })
 
@@ -91,7 +90,7 @@ it('does not attribute a ClientRequest to a preceding XMLHttpRequest', async () 
     }
   })
 
-  const clientRequestInitiator = new DeferredPromise<unknown>()
+  const clientRequestInitiator = Promise.withResolvers<unknown>()
   clientRequestInterceptor.on('request', ({ initiator }) => {
     clientRequestInitiator.resolve(initiator)
   })
@@ -113,6 +112,6 @@ it('does not attribute a ClientRequest to a preceding XMLHttpRequest', async () 
   expect(xhrRequestListener).toHaveBeenCalledTimes(1)
   expect(xhrRequestListener).toHaveBeenCalledWith('http://localhost/mocked')
 
-  await expect(clientRequestInitiator).resolves.toEqual(request)
+  await expect(clientRequestInitiator.promise).resolves.toEqual(request)
   await expect(response.text()).resolves.toBe('original')
 })

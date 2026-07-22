@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 import { getTestServer } from '#/test/setup/vitest'
 
@@ -18,7 +17,7 @@ afterAll(() => {
 })
 
 it('request body is unused in the listener when using Request argument', async () => {
-  const requestInListenerPromise = new DeferredPromise<Request>()
+  const requestInListenerPromise = Promise.withResolvers<Request>()
   interceptor.on('request', ({ request }) => {
     requestInListenerPromise.resolve(request)
   })
@@ -32,7 +31,7 @@ it('request body is unused in the listener when using Request argument', async (
   const responsePromise = fetch(request)
   const bodyUsedAfterFetch = request.bodyUsed
 
-  const requestInListener = await requestInListenerPromise
+  const requestInListener = await requestInListenerPromise.promise
   const bodyUsedInListener = requestInListener.bodyUsed
 
   const response = await responsePromise
@@ -49,7 +48,7 @@ it('request body is unused in the listener when using Request argument', async (
 })
 
 it('request body is unused in the listener when using input and init arguments', async () => {
-  const requestInListenerPromise = new DeferredPromise<Request>()
+  const requestInListenerPromise = Promise.withResolvers<Request>()
   interceptor.on('request', ({ request }) => {
     requestInListenerPromise.resolve(request)
   })
@@ -59,7 +58,7 @@ it('request body is unused in the listener when using input and init arguments',
     body: 'Hello server',
   })
 
-  const requestInListener = await requestInListenerPromise
+  const requestInListener = await requestInListenerPromise.promise
   const bodyUsedInListener = requestInListener.bodyUsed
 
   const response = await responsePromise

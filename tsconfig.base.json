@@ -2,6 +2,7 @@
   "exclude": ["node_modules"],
   "compilerOptions": {
     "strict": true,
+    "skipLibCheck": true,
     "target": "es2018",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",

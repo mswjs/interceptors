@@ -2,7 +2,6 @@
 import http from 'node:http'
 import express from 'express'
 import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
@@ -61,7 +60,7 @@ it('bypasses a request to the existing host', async () => {
 
 it('errors on a request to a non-existing host', async () => {
   const responseListener = vi.fn()
-  const errorPromise = new DeferredPromise<Error>()
+  const errorPromise = Promise.withResolvers<Error>()
   const request = http.request('http://abc123-non-existing.lol', {
     method: 'POST',
   })
@@ -74,7 +73,7 @@ it('errors on a request to a non-existing host', async () => {
   )
 
   // Must emit the "error" event on the request.
-  await expect(errorPromise).resolves.toEqual(
+  await expect(errorPromise.promise).resolves.toEqual(
     expect.objectContaining({
       message: 'getaddrinfo ENOTFOUND abc123-non-existing.lol',
       code: 'ENOTFOUND',
@@ -177,7 +176,7 @@ it('resolves the IPv6 hostname from request options into the connection', async 
     controller.respondWith(new Response())
   })
 
-  const remoteInfoPromise = new DeferredPromise<object>()
+  const remoteInfoPromise = Promise.withResolvers<object>()
   const request = http.get({
     hostname: '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
     port: 80,
@@ -193,7 +192,7 @@ it('resolves the IPv6 hostname from request options into the connection', async 
     })
   })
 
-  await expect(remoteInfoPromise).resolves.toEqual({
+  await expect(remoteInfoPromise.promise).resolves.toEqual({
     // Mocked connections resolve any hostname to the loopback address.
     remoteAddress: '::1',
     remotePort: 80,
@@ -206,7 +205,7 @@ it('resolves the bracketed IPv6 hostname from the request URL into the connectio
     controller.respondWith(new Response())
   })
 
-  const remoteInfoPromise = new DeferredPromise<object>()
+  const remoteInfoPromise = Promise.withResolvers<object>()
   const request = http.get('http://[::1]')
   request.on('socket', (socket) => {
     socket.on('connect', () => {
@@ -218,7 +217,7 @@ it('resolves the bracketed IPv6 hostname from the request URL into the connectio
     })
   })
 
-  await expect(remoteInfoPromise).resolves.toEqual({
+  await expect(remoteInfoPromise.promise).resolves.toEqual({
     remoteAddress: '::1',
     remotePort: 80,
     remoteFamily: 'IPv6',
@@ -230,7 +229,7 @@ it('respects the "family" request option when connecting', async () => {
     controller.respondWith(new Response())
   })
 
-  const remoteInfoPromise = new DeferredPromise<object>()
+  const remoteInfoPromise = Promise.withResolvers<object>()
   const request = http.get('http://example.test', { family: 6 })
   request.on('socket', (socket) => {
     socket.on('connect', () => {
@@ -242,7 +241,7 @@ it('respects the "family" request option when connecting', async () => {
     })
   })
 
-  await expect(remoteInfoPromise).resolves.toEqual({
+  await expect(remoteInfoPromise.promise).resolves.toEqual({
     remoteAddress: '::1',
     remotePort: 80,
     remoteFamily: 'IPv6',

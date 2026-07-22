@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import {
   WebSocketInterceptor,
   WebSocketServerConnection,
@@ -23,13 +22,13 @@ afterAll(() => {
 })
 
 it('throws if closing the unconnected server', async () => {
-  const serverPromise = new DeferredPromise<WebSocketServerConnection>()
+  const serverPromise = Promise.withResolvers<WebSocketServerConnection>()
   interceptor.once('connection', ({ server }) => {
     serverPromise.resolve(server)
   })
 
   new WebSocket('wss://example.com')
-  const server = await serverPromise
+  const server = await serverPromise.promise
 
   expect(() => server.close()).toThrow(
     `Failed to close server connection for "wss://example.com/": the connection is not open. Did you forget to call "server.connect()"?`

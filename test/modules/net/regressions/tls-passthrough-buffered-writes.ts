@@ -16,7 +16,6 @@
 import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import net from 'node:net'
 import tls from 'node:tls'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { SocketInterceptor } from '#/src/interceptors/net'
 import { createTestServer } from '#/test/helpers'
 import { TLS_CERTIFICATE, TLS_PRIVATE_KEY } from '../compliance/fixtures/tls'
@@ -58,7 +57,7 @@ function createDelayedLookup(delayMs: number): net.LookupFunction {
 }
 
 it('flushes multiple buffered writes to a connecting passthrough tls socket', async () => {
-  const serverReceivedData = new DeferredPromise<string>()
+  const serverReceivedData = Promise.withResolvers<string>()
 
   await using server = await createTestServer(() => {
     return new tls.Server(
@@ -104,7 +103,7 @@ it('flushes multiple buffered writes to a connecting passthrough tls socket', as
     }, 10)
   })
 
-  await expect(serverReceivedData).resolves.toBe('chunk-onechunk-two')
+  await expect(serverReceivedData.promise).resolves.toBe('chunk-onechunk-two')
 
   socket.destroy()
 })

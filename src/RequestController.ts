@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { invariant } from 'outvariant'
 import { InterceptorError } from './InterceptorError'
 import { formatResponse, type Logger } from './utils/logger'
@@ -28,17 +27,16 @@ export class RequestController {
    */
   public handled: Promise<void>
 
+  readonly #handled: PromiseWithResolvers<void>
+
   constructor(
     protected readonly request: Request,
     protected readonly source: RequestControllerSource,
     protected readonly options?: RequestControllerOptions
   ) {
     this.readyState = RequestController.PENDING
-    this.handled = new DeferredPromise<void>()
-  }
-
-  get #handled() {
-    return this.handled as DeferredPromise<void>
+    this.#handled = Promise.withResolvers<void>()
+    this.handled = this.#handled.promise
   }
 
   /**

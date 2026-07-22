@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
@@ -12,7 +11,7 @@ afterAll(() => {
 })
 
 it('closes the client connection with 1000 code when called "client.close()"', async () => {
-  const socketClosePromise = new DeferredPromise<CloseEvent>()
+  const socketClosePromise = Promise.withResolvers<CloseEvent>()
 
   interceptor.once('connection', ({ client }) => {
     client.close()
@@ -23,14 +22,14 @@ it('closes the client connection with 1000 code when called "client.close()"', a
     socketClosePromise.resolve(event)
   })
 
-  const closeEvent = await socketClosePromise
+  const closeEvent = await socketClosePromise.promise
   expect(closeEvent.code).toBe(1000)
   expect(closeEvent.reason).toBe('')
   expect(closeEvent.wasClean).toBe(true)
 })
 
 it('closes the client connection with a custom error', async () => {
-  const socketClosePromise = new DeferredPromise<CloseEvent>()
+  const socketClosePromise = Promise.withResolvers<CloseEvent>()
 
   interceptor.once('connection', ({ client }) => {
     client.close(3000, 'Oops!')
@@ -41,7 +40,7 @@ it('closes the client connection with a custom error', async () => {
     socketClosePromise.resolve(event)
   })
 
-  const closeEvent = await socketClosePromise
+  const closeEvent = await socketClosePromise.promise
   expect(closeEvent.code).toBe(3000)
   expect(closeEvent.reason).toBe('Oops!')
   /**

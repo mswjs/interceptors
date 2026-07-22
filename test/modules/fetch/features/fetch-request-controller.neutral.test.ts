@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { InterceptorError } from '@mswjs/interceptors'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
@@ -27,7 +26,7 @@ it('responds to a request via "respondWith"', async () => {
 })
 
 it('throws if "respondWith" is called multiple times within the same listener', async () => {
-  const errorPromise = new DeferredPromise<unknown>()
+  const errorPromise = Promise.withResolvers<unknown>()
 
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('mock'))
@@ -48,7 +47,7 @@ it('throws if "respondWith" is called multiple times within the same listener', 
   expect(unhandledExceptionListener).not.toHaveBeenCalled()
 
   // Must throw an error for the developer.
-  const error = await errorPromise
+  const error = await errorPromise.promise
   expect(error).toBeInstanceOf(InterceptorError)
   expect(error).toBeInstanceOf(Error)
   expect(error).toHaveProperty('name', 'InterceptorError')
@@ -63,7 +62,7 @@ it('throws if "respondWith" is called multiple times within the same listener', 
 })
 
 it('throws if "respondWith" is called multiple times across different listeners', async () => {
-  const errorPromise = new DeferredPromise<unknown>()
+  const errorPromise = Promise.withResolvers<unknown>()
 
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('mock'))
@@ -85,7 +84,7 @@ it('throws if "respondWith" is called multiple times across different listeners'
   expect(unhandledExceptionListener).not.toHaveBeenCalled()
 
   // Must throw an error for the developer.
-  const error = await errorPromise
+  const error = await errorPromise.promise
   expect(error).toBeInstanceOf(InterceptorError)
   expect(error).toBeInstanceOf(Error)
   expect(error).toHaveProperty('name', 'InterceptorError')
@@ -138,7 +137,7 @@ it('errors the request via "errorWith"', async ({ task }) => {
 it('throws if "errorWith" is called multiple times within the same listener', async ({
   task,
 }) => {
-  const errorPromise = new DeferredPromise<unknown>()
+  const errorPromise = Promise.withResolvers<unknown>()
 
   interceptor.on('request', ({ controller }) => {
     controller.errorWith(new Error('one'))
@@ -165,7 +164,7 @@ it('throws if "errorWith" is called multiple times within the same listener', as
   expect(unhandledExceptionListener).not.toHaveBeenCalled()
 
   // Must throw an error for the developer.
-  const error = await errorPromise
+  const error = await errorPromise.promise
   expect(error).toBeInstanceOf(InterceptorError)
   expect(error).toBeInstanceOf(Error)
   expect(error).toHaveProperty('name', 'InterceptorError')
@@ -190,7 +189,7 @@ it('throws if "errorWith" is called multiple times within the same listener', as
 it('throws if "errorWith" is called multiple times across different listeners', async ({
   task,
 }) => {
-  const errorPromise = new DeferredPromise<unknown>()
+  const errorPromise = Promise.withResolvers<unknown>()
 
   interceptor.on('request', ({ controller }) => {
     controller.errorWith(new Error('one'))
@@ -218,7 +217,7 @@ it('throws if "errorWith" is called multiple times across different listeners', 
   expect(unhandledExceptionListener).not.toHaveBeenCalled()
 
   // Must throw an error for the developer.
-  const error = await errorPromise
+  const error = await errorPromise.promise
   expect(error).toBeInstanceOf(InterceptorError)
   expect(error).toBeInstanceOf(Error)
   expect(error).toHaveProperty('name', 'InterceptorError')
@@ -243,7 +242,7 @@ it('throws if "errorWith" is called multiple times across different listeners', 
 it('throws if "respondWith" is called after "errorWith" was called', async ({
   task,
 }) => {
-  const errorPromise = new DeferredPromise<unknown>()
+  const errorPromise = Promise.withResolvers<unknown>()
 
   interceptor.on('request', ({ controller }) => {
     controller.errorWith(new Error('one'))
@@ -269,7 +268,7 @@ it('throws if "respondWith" is called after "errorWith" was called', async ({
   expect(unhandledExceptionListener).not.toHaveBeenCalled()
 
   // Must throw an error for the developer.
-  const error = await errorPromise
+  const error = await errorPromise.promise
   expect(error).toBeInstanceOf(InterceptorError)
   expect(error).toBeInstanceOf(Error)
   expect(error).toHaveProperty('name', 'InterceptorError')
@@ -292,7 +291,7 @@ it('throws if "respondWith" is called after "errorWith" was called', async ({
 })
 
 it('throws if "errorWith" is called after "respondWith" was called', async () => {
-  const errorPromise = new DeferredPromise<unknown>()
+  const errorPromise = Promise.withResolvers<unknown>()
 
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('mock'))
@@ -312,7 +311,7 @@ it('throws if "errorWith" is called after "respondWith" was called', async () =>
   expect(unhandledExceptionListener).not.toHaveBeenCalled()
 
   // Must throw an error for the developer.
-  const error = await errorPromise
+  const error = await errorPromise.promise
   expect(error).toBeInstanceOf(InterceptorError)
   expect(error).toBeInstanceOf(Error)
   expect(error).toHaveProperty('name', 'InterceptorError')

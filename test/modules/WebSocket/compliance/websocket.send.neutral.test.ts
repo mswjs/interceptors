@@ -1,7 +1,6 @@
 /**
  * @see https://websockets.spec.whatwg.org/#dom-websocket-send
  */
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 import { getTestServer } from '#/test/setup/vitest'
 
@@ -26,7 +25,7 @@ it('throws "InvalidStateError" when sending while the connection is not open yet
 })
 
 it('sends data to the original server immediately after connecting', async () => {
-  const messagePromise = new DeferredPromise<string>()
+  const messagePromise = Promise.withResolvers<string>()
 
   interceptor.once('connection', ({ server }) => {
     server.connect()
@@ -37,12 +36,12 @@ it('sends data to the original server immediately after connecting', async () =>
   const ws = new WebSocket(server.ws.url('/?echo'))
   ws.onmessage = (event) => messagePromise.resolve(event.data)
 
-  await expect(messagePromise).resolves.toBe('hello from interceptor')
+  await expect(messagePromise.promise).resolves.toBe('hello from interceptor')
   ws.close()
 })
 
 it('sends text data to the original server', async () => {
-  const messagePromise = new DeferredPromise<string>()
+  const messagePromise = Promise.withResolvers<string>()
 
   interceptor.once('connection', ({ server }) => {
     server.connect()
@@ -57,13 +56,13 @@ it('sends text data to the original server', async () => {
     expect(ws.bufferedAmount).toBe(5)
   })
 
-  await expect(messagePromise).resolves.toBe('hello')
+  await expect(messagePromise.promise).resolves.toBe('hello')
   expect(ws.bufferedAmount).toBe(0)
   ws.close()
 })
 
 it('sends Blob data to the original server', async () => {
-  const messagePromise = new DeferredPromise<ArrayBuffer>()
+  const messagePromise = Promise.withResolvers<ArrayBuffer>()
 
   interceptor.once('connection', ({ server }) => {
     server.connect()
@@ -79,14 +78,14 @@ it('sends Blob data to the original server', async () => {
     expect(ws.bufferedAmount).toBe(5)
   })
 
-  const echoedData = await messagePromise
+  const echoedData = await messagePromise.promise
   expect(new TextDecoder().decode(echoedData)).toBe('hello')
   expect(ws.bufferedAmount).toBe(0)
   ws.close()
 })
 
 it('sends ArrayBuffer data to the original server', async () => {
-  const messagePromise = new DeferredPromise<ArrayBuffer>()
+  const messagePromise = Promise.withResolvers<ArrayBuffer>()
 
   interceptor.once('connection', ({ server }) => {
     server.connect()
@@ -102,7 +101,7 @@ it('sends ArrayBuffer data to the original server', async () => {
     expect(ws.bufferedAmount).toBe(5)
   })
 
-  const echoedData = await messagePromise
+  const echoedData = await messagePromise.promise
   expect(new TextDecoder().decode(echoedData)).toBe('hello')
   expect(ws.bufferedAmount).toBe(0)
   ws.close()

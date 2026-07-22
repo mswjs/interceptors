@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import axios from 'axios'
 import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { useCors } from '#/test/helpers'
 
@@ -112,7 +111,7 @@ it('bypass the interceptor and return the original response', async () => {
  * @see https://github.com/mswjs/interceptors/issues/564
  */
 it('preserves the "auth" options', async () => {
-  const getRequestPromise = new DeferredPromise<Request>()
+  const getRequestPromise = Promise.withResolvers<Request>()
 
   interceptor.on('request', ({ request }) => {
     // Axios/XHR also dispatches an "OPTIONS" preflight request.
@@ -133,7 +132,7 @@ it('preserves the "auth" options', async () => {
     },
   })
 
-  const request = await getRequestPromise
+  const request = await getRequestPromise.promise
   expect(request.headers.get('Authorization')).toBe(
     `Basic ${btoa('foo@bar.com:secret123')}`
   )

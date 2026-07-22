@@ -1,7 +1,6 @@
 // @vitest-environment node
 import https from 'node:https'
 import { TLSSocket } from 'node:tls'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
@@ -31,10 +30,10 @@ it('emits a correct TLS Socket instance for a handled HTTPS request', async () =
   })
 
   const request = https.get('https://example.com')
-  const socketPromise = new DeferredPromise<TLSSocket>()
+  const socketPromise = Promise.withResolvers<TLSSocket>()
   request.on('socket', socketPromise.resolve)
 
-  const socket = await socketPromise
+  const socket = await socketPromise.promise
 
   expect(socket).toBeInstanceOf(TLSSocket)
   expect(socket.encrypted).toBe(true)
@@ -56,7 +55,7 @@ it('emits a correct TLS Socket instance for a bypassed HTTPS request', async () 
   const request = https.get(httpServer.https.url('/'), {
     rejectUnauthorized: false,
   })
-  const socketPromise = new DeferredPromise<TLSSocket>()
+  const socketPromise = Promise.withResolvers<TLSSocket>()
   const secureConnectListener = vi.fn()
 
   request.on('socket', (socket) => {
@@ -64,7 +63,7 @@ it('emits a correct TLS Socket instance for a bypassed HTTPS request', async () 
     socket.on('secureConnect', secureConnectListener)
   })
 
-  const socket = await socketPromise
+  const socket = await socketPromise.promise
   await expect.poll(() => secureConnectListener).toHaveBeenCalledOnce()
 
   expect(socket).toBeInstanceOf(TLSSocket)

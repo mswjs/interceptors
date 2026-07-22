@@ -1,5 +1,4 @@
 import { invariant } from 'outvariant'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import type { WebSocketData } from './WebSocketTransport'
 import { bindEvent } from './utils/bindEvent'
 import { CloseEvent } from './utils/events'
@@ -40,7 +39,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
   private _onerror: WebSocketEventListener | null = null
   private _onclose: WebSocketEventListener<CloseEvent> | null = null
 
-  private [kPassthroughPromise]: DeferredPromise<boolean>
+  private [kPassthroughPromise]: PromiseWithResolvers<boolean>
   private [kOnSend]?: (data: WebSocketData) => void
 
   constructor(url: string | URL, protocols?: string | Array<string>) {
@@ -52,10 +51,10 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
     this.readyState = this.CONNECTING
     this.bufferedAmount = 0
 
-    this[kPassthroughPromise] = new DeferredPromise<boolean>()
+    this[kPassthroughPromise] = Promise.withResolvers<boolean>()
 
     queueMicrotask(async () => {
-      if (await this[kPassthroughPromise]) {
+      if (await this[kPassthroughPromise].promise) {
         return
       }
 

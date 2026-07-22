@@ -1,5 +1,4 @@
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { Encoder, Decoder, PacketType } from 'socket.io-parser'
 import { encodePacket, decodePacket, type RawData } from 'engine.io-parser'
 import { getTestServer } from '#/test/setup/vitest'
@@ -79,7 +78,7 @@ it('intercepts and modifies data sent to a socket.io server', async () => {
    */
   const { io } = await import('socket.io-client')
 
-  const echoedMessagePromise = new DeferredPromise<string>()
+  const echoedMessagePromise = Promise.withResolvers<string>()
   const ws = io(server.io.href, {
     transports: ['websocket'],
   })
@@ -92,7 +91,7 @@ it('intercepts and modifies data sent to a socket.io server', async () => {
     ws.send('hello')
   })
 
-  await expect(echoedMessagePromise).resolves.toBe('mocked hello!')
+  await expect(echoedMessagePromise.promise).resolves.toBe('mocked hello!')
 
   ws.close()
 })

@@ -1,7 +1,6 @@
-import http from 'node:http'
+import * as http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { ClientRequestInterceptor } from '.'
 import { toWebResponse } from '../../../test/helpers'
 
@@ -43,12 +42,12 @@ it('abort the request if the abort signal is emitted', async () => {
 
   abortController.abort()
 
-  const abortErrorPromise = new DeferredPromise<Error>()
+  const abortErrorPromise = Promise.withResolvers<Error>()
   request.on('error', function (error) {
     abortErrorPromise.resolve(error)
   })
 
-  const abortError = await abortErrorPromise
+  const abortError = await abortErrorPromise.promise
   expect(abortError.name).toBe('AbortError')
 
   expect(request.destroyed).toBe(true)

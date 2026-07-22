@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { WebSocketInterceptor } from '@mswjs/interceptors/WebSocket'
 
 const interceptor = new WebSocketInterceptor()
@@ -22,7 +21,7 @@ it('errors when sending data before open', async () => {
 })
 
 it('intercepts text sent over websocket', async () => {
-  const messageReceivedPromise = new DeferredPromise<string>()
+  const messageReceivedPromise = Promise.withResolvers<string>()
 
   interceptor.once('connection', ({ client }) => {
     client.addEventListener('message', (event) => {
@@ -37,11 +36,11 @@ it('intercepts text sent over websocket', async () => {
   const ws = new WebSocket('ws://example.com')
   ws.addEventListener('open', () => ws.send('hello'))
 
-  expect(await messageReceivedPromise).toBe('hello')
+  expect(await messageReceivedPromise.promise).toBe('hello')
 })
 
 it('intercepts Blob sent over websocket', async () => {
-  const messageReceivedPromise = new DeferredPromise<Blob>()
+  const messageReceivedPromise = Promise.withResolvers<Blob>()
 
   interceptor.once('connection', ({ client }) => {
     client.addEventListener('message', (event) => {
@@ -57,11 +56,11 @@ it('intercepts Blob sent over websocket', async () => {
   const ws = new WebSocket('ws://example.com')
   ws.addEventListener('open', () => ws.send(blob))
 
-  expect(await messageReceivedPromise).toBe(blob)
+  expect(await messageReceivedPromise.promise).toBe(blob)
 })
 
 it('intercepts ArrayBuffer sent over websocket', async () => {
-  const messageReceivedPromise = new DeferredPromise<Uint8Array>()
+  const messageReceivedPromise = Promise.withResolvers<Uint8Array>()
 
   interceptor.once('connection', ({ client }) => {
     client.addEventListener('message', (event) => {
@@ -77,13 +76,13 @@ it('intercepts ArrayBuffer sent over websocket', async () => {
   const ws = new WebSocket('ws://example.com')
   ws.addEventListener('open', () => ws.send(buffer))
 
-  expect(await messageReceivedPromise).toEqual(buffer)
+  expect(await messageReceivedPromise.promise).toEqual(buffer)
 })
 
 it('increases "bufferedAmount" before data is sent', async () => {
   interceptor.once('connection', () => {})
 
-  const bufferedAmountPromise = new DeferredPromise<{
+  const bufferedAmountPromise = Promise.withResolvers<{
     beforeSend: number
     afterSend: number
   }>()
@@ -100,7 +99,7 @@ it('increases "bufferedAmount" before data is sent', async () => {
     })
   })
 
-  await expect(bufferedAmountPromise).resolves.toEqual({
+  await expect(bufferedAmountPromise.promise).resolves.toEqual({
     beforeSend: 5,
     afterSend: 0,
   })

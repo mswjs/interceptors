@@ -2,7 +2,6 @@
 import http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
 import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
@@ -46,9 +45,9 @@ it('respects the "signal" for a handled request', async () => {
   )
 
   // Must listen to the "close" event instead of "abort".
-  const requestClosePromise = new DeferredPromise<void>()
+  const requestClosePromise = Promise.withResolvers<void>()
   request.on('close', () => requestClosePromise.resolve())
-  await requestClosePromise
+  await requestClosePromise.promise
 
   // ClientRequest doesn't expose the destroy reason.
   // It's kept in the kError symbol but we won't be going there.
@@ -68,9 +67,9 @@ it('respects the "signal" for a bypassed request', async () => {
   )
 
   // Must listen to the "close" event instead of "abort".
-  const requestClosePromise = new DeferredPromise<void>()
+  const requestClosePromise = Promise.withResolvers<void>()
   request.on('close', () => requestClosePromise.resolve())
-  await requestClosePromise
+  await requestClosePromise.promise
 
   // ClientRequest doesn't expose the destroy reason.
   // It's kept in the kError symbol but we won't be going there.
@@ -133,9 +132,9 @@ it('respects "AbortSignal.timeout()" for a bypassed request', async () => {
   request.on('timeout', timeoutListener)
 
   // Must listen to the "close" event instead of "abort".
-  const requestClosePromise = new DeferredPromise<void>()
+  const requestClosePromise = Promise.withResolvers<void>()
   request.on('close', () => requestClosePromise.resolve())
-  await requestClosePromise
+  await requestClosePromise.promise
 
   expect(request.destroyed).toBe(true)
   expect(timeoutListener).not.toHaveBeenCalled()

@@ -1,7 +1,6 @@
 // @vitest-environment node
 import http from 'node:http'
 import net from 'node:net'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { FetchResponse } from '#/src/utils/fetchUtils'
 import { toWebResponse } from '#/test/helpers'
@@ -30,7 +29,7 @@ interface UpgradeEvent {
 }
 
 function waitForUpgrade(request: http.ClientRequest): Promise<UpgradeEvent> {
-  const upgradePromise = new DeferredPromise<UpgradeEvent>()
+  const upgradePromise = Promise.withResolvers<UpgradeEvent>()
 
   request.on('upgrade', (response, socket, head) => {
     upgradePromise.resolve({ response, socket, head })
@@ -39,7 +38,7 @@ function waitForUpgrade(request: http.ClientRequest): Promise<UpgradeEvent> {
     upgradePromise.reject(error)
   })
 
-  return upgradePromise
+  return upgradePromise.promise
 }
 
 it('mocks an upgrade response and handles the next connection', async () => {

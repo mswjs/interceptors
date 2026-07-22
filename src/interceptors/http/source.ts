@@ -506,7 +506,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
          * Emit the error event as a microtask instead of relying on the default
          * `process.nextTick(emitErrorNT)` from `callback(error)`. This is necessary
          * because `respondWith` runs inside a microtask (from `await reader.read()`).
-         * A resolved DeferredPromise continuation (from toWebResponse) is queued as
+         * A resolved promise continuation (from toWebResponse) is queued as
          * another microtask during the same phase. Since microtasks are drained before
          * nextTick, the test's `await` would resolve before the error event fires.
          * Using `queueMicrotask` ensures the error event is emitted within the current

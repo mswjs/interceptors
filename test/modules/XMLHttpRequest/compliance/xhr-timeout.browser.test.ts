@@ -2,7 +2,6 @@
 /**
  * @see https://github.com/mswjs/interceptors/issues/7
  */
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest'
 import {
   setTimeout,
