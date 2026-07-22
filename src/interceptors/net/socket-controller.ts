@@ -428,6 +428,7 @@ export class TcpSocketController extends SocketController {
   #clientCloseEmitted = false
   #clientEndPushed = false
   #connectEmulated = false
+  #onPassthroughRead?: (chunk: Buffer) => void
 
   constructor(
     protected readonly socket: net.Socket,
@@ -882,6 +883,18 @@ export class TcpSocketController extends SocketController {
      */
     this.socket._unrefTimer()
 
+    /**
+     * @note Hand the raw server bytes to the passthrough read handler
+     * when one is set, delegating the forwarding to the client entirely.
+     * A protocol-aware consumer (e.g. the SMTP interceptor) uses this to
+     * mediate the reply stream reply-by-reply so a listener can suppress
+     * or rewrite a single reply before it reaches the client.
+     */
+    if (this.#onPassthroughRead) {
+      this.#onPassthroughRead(data)
+      return
+    }
+
     if (this.#readsCorked) {
       logger.verbose('reads are corked, buffering the data...')
       this.#corkedReads.push({ type: 'data', chunk: data })
@@ -1022,6 +1035,16 @@ export class TcpSocketController extends SocketController {
   }
 
   /**
+   * Create a real connection with the original connection options.
+   * The returned socket is exempt from interception.
+   */
+  public createRealConnection(): net.Socket {
+    const realSocket = this.createConnection()
+    realSocket[kPatched] = true
+    return realSocket
+  }
+
+  /**
    * Suspend forwarding of the passthrough socket events ("data", "end", "close")
    * to the client socket. The events are buffered in order until `uncorkReads()`
    * is called. This allows the consumer to delay the delivery of the original
@@ -1033,6 +1056,18 @@ export class TcpSocketController extends SocketController {
    */
   public corkReads(): void {
     this.#readsCorked = true
+  }
+
+  /**
+   * Delegate the forwarding of the passthrough server's data to the
+   * client to the given handler. Once set, the raw server bytes are no
+   * longer pushed to the client automatically: the handler owns the
+   * forwarding and may suppress or rewrite the data (e.g. the SMTP
+   * interceptor gating individual replies). Pass `undefined` to restore
+   * the default forwarding.
+   */
+  public onPassthroughRead(handler?: (chunk: Buffer) => void): void {
+    this.#onPassthroughRead = handler
   }
 
   /**
