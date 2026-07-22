@@ -103,107 +103,164 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
   }
 
   protected setup(): void {
+    const interceptor = this
+
     this.subscriptions.push(
-      patchesRegistry.applyPatch(net, 'connect', (realNetConnect) => {
-        return (...args: [any, any]) => {
-          logger.verbose('net.connect() %o', args)
+      /**
+       * @note Intercept connections at the "net.Socket.prototype.connect"
+       * level instead of patching the "net.connect()" module function.
+       * ESM consumers snapshot the module bindings at import time
+       * ("import * as net from 'node:net'"), so reassigning "net.connect"
+       * is invisible to them. Every client connection ends up calling
+       * "Socket.prototype.connect" (including the one made by the original
+       * "net.connect()"), and prototype mutations are visible regardless
+       * of how the module was imported.
+       */
+      patchesRegistry.applyPatch(
+        net.Socket.prototype,
+        'connect',
+        (realSocketConnect) => {
+          return function connect(this: net.Socket, ...args: [any, any]) {
+            const socket = this
 
-          const [connectionOptions, connectionCallback] =
-            normalizeNetConnectArgs(args)
-
-          logger.verbose('connection options %o', {
-            connectionOptions,
-            connectionCallback,
-          })
-
-          /**
-           * @note Create passthrough connections without the connection
-           * callback. The callback is already registered as a "connect"
-           * listener on the socket returned to the consumer. Passing it
-           * to the passthrough connection would invoke it twice.
-           */
-          const passthroughArgs = args.filter((arg) => {
-            return typeof arg !== 'function'
-          }) as typeof args
-
-          /**
-           * @note Create the socket with the original options, the same
-           * way `net.connect()` does. This preserves the consumer-facing
-           * socket behaviors (e.g. "allowHalfOpen").
-           */
-          const socketOptions =
-            args[0] !== null &&
-            typeof args[0] === 'object' &&
-            !('href' in args[0])
-              ? args[0]
-              : {}
-
-          const socket = new net.Socket(socketOptions)
-          const controller = new TcpSocketController(socket, () => {
-            return realNetConnect(...passthroughArgs)
-          })
-
-          process.nextTick(() => {
-            if (socket.destroyed) {
-              return
+            /**
+             * @note Skip the sockets this interceptor already controls:
+             * the mock connect call below, re-connects of an intercepted
+             * socket, and passthrough sockets. Their connects must reach
+             * Node.js as-is.
+             */
+            if (socket[kPatched]) {
+              return realSocketConnect.apply(socket, args)
             }
 
-            if (
-              !this.emitter.emit(
-                new SocketConnectionEvent({
-                  socket: controller.serverSocket,
-                  controller,
-                  connectionOptions,
-                })
-              )
-            ) {
-              logger.verbose(
-                'no "connection" listeners found on the interceptor, passthrough...'
-              )
-
-              controller.passthrough()
-              return
+            /**
+             * @note Skip TLS sockets. TLS connections are intercepted in
+             * the "tls.connect" patch below: the TLS handshake options
+             * (e.g. "checkServerIdentity") can only be provided when the
+             * TLS socket is constructed, long before this method is called
+             * for its underlying transport.
+             */
+            if (socket instanceof tls.TLSSocket) {
+              return realSocketConnect.apply(socket, args)
             }
 
-            logger.verbose('emitted "connection" event!')
-          })
+            logger.verbose('socket.connect() %o', args)
 
-          logger.verbose('connecting the socket...')
-
-          /**
-           * @note The requested local address/port are stripped from the
-           * actual "socket.connect()" call by the controller to prevent
-           * binding the intercepted socket (see the "connect" proxy).
-           */
-          const mockConnectionOptions = {
-            ...connectionOptions,
-          }
-
-          // Patch the lookup option so DNS lookup always succeeds.
-          mockConnectionOptions.lookup = mockLookup
-
-          try {
             /**
-             * @note The normalized options are looser than the declared
-             * "SocketConnectOpts" (e.g. the port may be a string when a
-             * URL is passed). Node.js validates them at runtime.
+             * @note The original "net.connect()" normalizes the arguments
+             * itself and calls this method with the normalized array
+             * instead of the individual arguments.
              */
-            return socket.connect(
-              mockConnectionOptions as net.SocketConnectOpts,
-              connectionCallback ?? undefined
-            )
-          } catch (error) {
+            const connectArgs = (
+              Array.isArray(args[0]) ? args[0] : args
+            ) as typeof args
+
+            const [connectionOptions, connectionCallback] =
+              normalizeNetConnectArgs(connectArgs)
+
+            logger.verbose('connection options %o', {
+              connectionOptions,
+              connectionCallback,
+            })
+
             /**
-             * @note "socket.connect()" can throw synchronously on invalid
-             * input (e.g. a bad port). Destroy the socket so the pending
-             * interception tick does not act on it, then let the error
-             * propagate to the consumer like in Node.js.
+             * @note Create passthrough connections without the connection
+             * callback. The callback is already registered as a "connect"
+             * listener on the consumer's socket. Passing it to the
+             * passthrough connection would invoke it twice.
              */
-            socket.destroy()
-            throw error
+            const passthroughArgs = connectArgs.filter((arg) => {
+              return typeof arg !== 'function'
+            }) as typeof args
+
+            /**
+             * @note Create the passthrough socket with the original
+             * options, the same way "net.connect()" does. Connect it via
+             * the unpatched method so the passthrough connection is not
+             * intercepted again.
+             */
+            const socketOptions =
+              connectArgs[0] !== null &&
+              typeof connectArgs[0] === 'object' &&
+              !('href' in connectArgs[0])
+                ? connectArgs[0]
+                : {}
+
+            const controller = new TcpSocketController(socket, () => {
+              const passthroughSocket = new net.Socket(socketOptions)
+              Reflect.apply(
+                realSocketConnect,
+                passthroughSocket,
+                passthroughArgs
+              )
+              return passthroughSocket
+            })
+
+            process.nextTick(() => {
+              if (socket.destroyed) {
+                return
+              }
+
+              if (
+                !interceptor.emitter.emit(
+                  new SocketConnectionEvent({
+                    socket: controller.serverSocket,
+                    controller,
+                    connectionOptions,
+                  })
+                )
+              ) {
+                logger.verbose(
+                  'no "connection" listeners found on the interceptor, passthrough...'
+                )
+
+                controller.passthrough()
+                return
+              }
+
+              logger.verbose('emitted "connection" event!')
+            })
+
+            logger.verbose('connecting the socket...')
+
+            /**
+             * @note The requested local address/port are stripped from the
+             * actual "socket.connect()" call by the controller to prevent
+             * binding the intercepted socket (see the "connect" proxy).
+             */
+            const mockConnectionOptions = {
+              ...connectionOptions,
+            }
+
+            // Patch the lookup option so DNS lookup always succeeds.
+            mockConnectionOptions.lookup = mockLookup
+
+            try {
+              /**
+               * @note The normalized options are looser than the declared
+               * "SocketConnectOpts" (e.g. the port may be a string when a
+               * URL is passed). Node.js validates them at runtime.
+               * This call goes through the controller's "connect" proxy
+               * and lands back in this patch, where the "kPatched" check
+               * above delegates it to the unpatched method.
+               */
+              return socket.connect(
+                mockConnectionOptions as net.SocketConnectOpts,
+                connectionCallback ?? undefined
+              )
+            } catch (error) {
+              /**
+               * @note "socket.connect()" can throw synchronously on invalid
+               * input (e.g. a bad port). Destroy the socket so the pending
+               * interception tick does not act on it, then let the error
+               * propagate to the consumer like in Node.js.
+               */
+              socket.destroy()
+              throw error
+            }
           }
         }
-      }),
+      ),
       patchesRegistry.applyPatch(tls, 'connect', (realTlsConnect) => {
         return (...args: [any, any]) => {
           logger.verbose('tls.connect() %o', args)
@@ -291,15 +348,10 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
     )
 
     /**
-     * @note `net.createConnection()` is an alias for `net.connect()`.
-     * But we still have to reassign it to point to the patched `net.connect()`.
+     * @note "net.connect()"/"net.createConnection()" need no patching of
+     * their own: both construct a "net.Socket" and call the patched
+     * "Socket.prototype.connect" on it.
      */
-    const { createConnection: realNetCreateConnection } = net
-    net.createConnection = net.connect
-
-    this.subscriptions.push(() => {
-      net.createConnection = realNetCreateConnection
-    })
   }
 
   /**
