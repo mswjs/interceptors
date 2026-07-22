@@ -28,9 +28,8 @@ export async function readBlob(
 export async function toWebResponse(
   request: http.ClientRequest
 ): Promise<[Response, http.IncomingMessage]> {
-  const pendingResponse = Promise.withResolvers<
-    [Response, http.IncomingMessage]
-  >()
+  const pendingResponse =
+    Promise.withResolvers<[Response, http.IncomingMessage]>()
 
   request
     .on('response', (response) => {
@@ -102,6 +101,21 @@ export async function createTestServer<T extends net.Server>(
 > {
   const server = createServer()
 
+  /**
+   * Track open connections so disposal can destroy the survivors.
+   * `net.Server.close()` only calls back once every connection has
+   * closed, and tests legitimately leave half-open or unread sockets
+   * behind (the `net.Server` equivalent of `closeAllConnections()`).
+   */
+  const openConnections = new Set<net.Socket>()
+
+  server.on('connection', (socket) => {
+    openConnections.add(socket)
+    socket.once('close', () => {
+      openConnections.delete(socket)
+    })
+  })
+
   const pendingListen = Promise.withResolvers<void>()
 
   server
@@ -133,13 +147,20 @@ export async function createTestServer<T extends net.Server>(
   return {
     async [Symbol.asyncDispose]() {
       const pendingClose = Promise.withResolvers<void>()
+
       server.close((error) => {
         if (error) {
-          return pendingClose.reject(error)
+          pendingClose.reject(error)
+        } else {
+          pendingClose.resolve()
         }
-
-        pendingClose.resolve()
       })
+
+      for (const socket of openConnections) {
+        socket.destroy()
+      }
+
+      await pendingClose.promise
     },
     instance: server,
     port: rawAddress.port,
