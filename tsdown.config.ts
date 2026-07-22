@@ -36,11 +36,13 @@ export default defineConfig([
       './src/interceptors/WebSocket/index.ts',
     ],
     outDir: './lib/browser',
-    /**
-     * @note Inline the "debug" package into the browser bundle.
-     * It only ships CommonJS, which browsers cannot load directly.
-     */
-    noExternal: ['debug'],
+    deps: {
+      /**
+       * @note Inline the "debug" package into the browser bundle.
+       * It only ships CommonJS, which browsers cannot load directly.
+       */
+      alwaysBundle: ['debug'],
+    },
     platform: 'browser',
     target: 'chrome120',
     format: ['esm'],
