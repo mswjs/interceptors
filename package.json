@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@mswjs/interceptors",
-  "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
+  "description": "Low-level network interception library for Node.js.",
   "version": "0.41.9",
   "main": "./lib/node/index.js",
   "types": "./lib/node/index.d.ts",
@@ -9,6 +9,10 @@
     ".": {
       "browser": "./lib/browser/index.js",
       "default": "./lib/node/index.js"
+    },
+    "./net": {
+      "browser": null,
+      "default": "./lib/node/interceptors/net/index.js"
     },
     "./http": {
       "browser": null,
@@ -28,6 +32,8 @@
       "browser": "./lib/browser/interceptors/fetch/web.js",
       "default": "./lib/node/interceptors/fetch/node.js"
     },
+    "./fetch/node": "./lib/node/interceptors/fetch/node.js",
+    "./fetch/web": "./lib/browser/interceptors/fetch/web.js",
     "./WebSocket": "./lib/browser/interceptors/WebSocket/index.js",
     "./RemoteHttpInterceptor": {
       "browser": null,
