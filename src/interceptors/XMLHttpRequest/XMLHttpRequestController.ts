@@ -53,7 +53,7 @@ export class XMLHttpRequestController {
   private method: string = 'GET'
   private url: URL = null as any
   private requestHeaders: Headers
-  private responseBuffer: Uint8Array
+  private responseBuffer: Uint8Array<ArrayBuffer>
   private redirectCount: number
   private events: Map<keyof XMLHttpRequestEventTargetEventMap, Array<Function>>
   private uploadEvents: Map<

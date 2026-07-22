@@ -1,7 +1,7 @@
 // @vitest-environment node
 import http from 'node:http'
 import { HttpServer } from '@open-draft/test-server/http'
-import { PromisifiedResponse, toWebResponse, useCors } from '#/test/helpers'
+import { toWebResponse, useCors } from '#/test/helpers'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 function arrayWith<V>(length: number, mapFn: (index: number) => V): V[] {

@@ -1,5 +1,5 @@
-import { BatchInterceptor } from '@mswjs/interceptors'
-import browserInterceptors from '@mswjs/interceptors/presets/browser'
+import { BatchInterceptor } from '#/src/index'
+import browserInterceptors from '#/src/presets/browser'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new BatchInterceptor({

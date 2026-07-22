@@ -1,4 +1,5 @@
 // @vitest-environment node
+import net from 'node:net'
 import tls from 'node:tls'
 import { SocketInterceptor } from '#/src/interceptors/net'
 import { createTestServer } from '#/test/helpers'
@@ -81,11 +82,12 @@ it('exposes address information for a mocked IPv6 connection', async () => {
     controller.claim()
   })
 
-  const socket = tls.connect({
+  const connectionOptions: tls.ConnectionOptions & net.TcpNetConnectOpts = {
     port: 443,
     host: 'example.com',
     family: 6,
-  })
+  }
+  const socket = tls.connect(connectionOptions)
   const secureConnectListener = vi.fn()
   socket.on('secureConnect', secureConnectListener)
 

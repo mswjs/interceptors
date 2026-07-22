@@ -35,13 +35,25 @@ export interface BatchInterceptorOptions<
   interceptors: InterceptorList
 }
 
+type UnionToIntersection<Union> = (
+  Union extends unknown ? (argument: Union) => void : never
+) extends (argument: infer Intersection) => void
+  ? Intersection
+  : never
+
+/**
+ * @note Merge the event maps of all the given interceptors into
+ * an intersection. A naive conditional type distributes over the
+ * interceptor union, producing a union of event maps whose `keyof`
+ * is `never` (no common keys), which would make `.on()` unusable.
+ */
 export type ExtractEventMapType<
   InterceptorList extends ReadonlyArray<Interceptor<DefaultEventMap>>,
 > =
   InterceptorList extends ReadonlyArray<infer InterceptorType>
-    ? InterceptorType extends Interceptor<infer EventMap>
-      ? EventMap
-      : never
+    ? UnionToIntersection<
+        InterceptorType extends Interceptor<infer EventMap> ? EventMap : never
+      >
     : never
 
 /**

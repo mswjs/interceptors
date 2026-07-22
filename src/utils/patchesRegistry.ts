@@ -114,7 +114,7 @@ interface DeepDescriptorMatch {
  */
 export function getDeepPropertyDescriptor<Owner extends object>(
   owner: Owner,
-  key: keyof Owner
+  key: PropertyKey
 ): DeepDescriptorMatch | undefined {
   let currentOwner: Owner | null = owner
   let descriptor: PropertyDescriptor | undefined

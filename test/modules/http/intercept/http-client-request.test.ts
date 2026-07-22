@@ -4,7 +4,7 @@ import { httpsAgent, HttpServer } from '@open-draft/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
 import { RequestController } from '#/src/RequestController'
-import { HttpRequestEventMap } from '#/src/glossary'
+import { type HttpRequestEventMap } from '#/src/events/http'
 
 const httpServer = new HttpServer((app) => {
   app.get('/user', (_req, res) => {

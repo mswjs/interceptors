@@ -103,6 +103,6 @@ export function toArrayBuffer(
   return value
 }
 
-export function arrayBufferFrom(input: string): ArrayBufferLike {
+export function arrayBufferFrom(input: string): ArrayBuffer {
   return new TextEncoder().encode(input).buffer
 }

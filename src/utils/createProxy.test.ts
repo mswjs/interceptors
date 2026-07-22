@@ -58,7 +58,7 @@ it('does not interfere with existing descriptors', () => {
 
 it('infer prototype descriptors', () => {
   class Child {
-    ok: boolean
+    ok!: boolean
 
     set status(nextStatus: number) {
       this.ok = nextStatus >= 200 && nextStatus < 300

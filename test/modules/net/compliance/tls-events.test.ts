@@ -1,4 +1,5 @@
 // @vitest-environment node
+import net from 'node:net'
 import tls from 'node:tls'
 import { SocketInterceptor } from '#/src/interceptors/net'
 import { createTestServer } from '#/test/helpers'
@@ -26,13 +27,14 @@ it('emits the "lookup" event when connecting to a hostname', async () => {
     })
   })
 
-  const socket = tls.connect({
+  const connectionOptions: tls.ConnectionOptions & net.TcpNetConnectOpts = {
     port: server.port,
     host: 'localhost',
     family: 4,
     servername: 'localhost',
     ca: [TLS_CERTIFICATE],
-  })
+  }
+  const socket = tls.connect(connectionOptions)
   const lookupListener = vi.fn()
   socket.on('lookup', lookupListener)
   const secureConnectListener = vi.fn()
@@ -289,13 +291,16 @@ it('emits the "OCSPResponse" event', async () => {
     return tlsServer
   })
 
-  const socket = tls.connect({
+  const connectionOptions: tls.ConnectionOptions &
+    tls.TLSSocketOptions &
+    net.TcpNetConnectOpts = {
     port: server.port,
     host: server.hostname,
     servername: 'localhost',
     ca: [TLS_CERTIFICATE],
     requestOCSP: true,
-  })
+  }
+  const socket = tls.connect(connectionOptions)
   const ocspResponseListener = vi.fn()
   socket.on('OCSPResponse', ocspResponseListener)
 

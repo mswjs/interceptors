@@ -99,7 +99,7 @@ it('receives the response as a string after "setEncoding()"', async () => {
 
   socket.setEncoding('utf8')
   socket.on('data', (chunk) => {
-    receivedChunks.push(chunk)
+    receivedChunks.push(chunk.toString())
   })
 
   await expect.poll(() => listeners.end).toHaveBeenCalledOnce()
@@ -123,7 +123,7 @@ it('receives the response in the encoding set by "setEncoding()"', async () => {
 
   socket.setEncoding('hex')
   socket.on('data', (chunk) => {
-    receivedChunks.push(chunk)
+    receivedChunks.push(chunk.toString())
   })
 
   await expect.poll(() => listeners.end).toHaveBeenCalledOnce()

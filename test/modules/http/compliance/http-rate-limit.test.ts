@@ -6,7 +6,6 @@ import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const httpServer = new HttpServer((app) => {
   app.use(
-    // @ts-expect-error Old express type definitions.
     rateLimit({
       limit: 5,
       windowMs: 100,

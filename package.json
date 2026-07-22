@@ -51,6 +51,7 @@
   "scripts": {
     "start": "tsdown --watch",
     "test": "vitest",
+    "typecheck": "tsc --noEmit",
     "test:nock": "./test/third-party/nock.sh",
     "lint": "publint",
     "build": "tsdown",

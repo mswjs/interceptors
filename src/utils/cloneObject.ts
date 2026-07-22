@@ -31,6 +31,6 @@ export function cloneObject<ObjectType extends Record<string, any>>(
   )
 
   return isPlainObject(obj)
-    ? enumerableProperties
+    ? (enumerableProperties as ObjectType)
     : Object.assign(Object.getPrototypeOf(obj), enumerableProperties)
 }

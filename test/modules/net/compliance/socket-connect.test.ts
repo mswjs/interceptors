@@ -80,7 +80,7 @@ it('connects with "connect(port, callback)"', async () => {
   })
 
   const connectionCallback = vi.fn()
-  const socket = net.connect(server.port, connectionCallback)
+  const socket = net.connect({ port: server.port }, connectionCallback)
   const { listeners } = spyOnSocket(socket)
 
   socket.resume()

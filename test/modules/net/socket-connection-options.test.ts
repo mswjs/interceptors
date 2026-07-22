@@ -153,7 +153,7 @@ it('exposes the known options for "tls.connect(options)"', async () => {
     controller.claim()
   })
 
-  const socket = tls.connect({
+  const connectionOptions: tls.ConnectionOptions & net.TcpNetConnectOpts = {
     port: 1337,
     host: '127.0.0.1',
     servername: 'example.com',
@@ -161,7 +161,8 @@ it('exposes the known options for "tls.connect(options)"', async () => {
     rejectUnauthorized: false,
     allowHalfOpen: true,
     noDelay: true,
-  })
+  }
+  const socket = tls.connect(connectionOptions)
 
   await expect.poll(() => connectionListener).toHaveBeenCalledOnce()
   expect(connectionListener).toHaveBeenCalledWith(

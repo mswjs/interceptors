@@ -1,6 +1,6 @@
 import { CloseEvent } from './utils/events'
 
-export type WebSocketData = string | ArrayBufferLike | Blob | ArrayBufferView
+export type WebSocketData = string | ArrayBuffer | Blob | ArrayBufferView<ArrayBuffer>
 
 export type WebSocketTransportEventMap = {
   incoming: MessageEvent<WebSocketData>

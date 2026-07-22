@@ -1,10 +1,10 @@
 const encoder = new TextEncoder()
 
-export function encodeBuffer(text: string): Uint8Array {
+export function encodeBuffer(text: string) {
   return encoder.encode(text)
 }
 
-export function decodeBuffer(buffer: ArrayBuffer, encoding?: string): string {
+export function decodeBuffer(buffer: AllowSharedBufferSource, encoding?: string): string {
   const decoder = new TextDecoder(encoding)
   return decoder.decode(buffer)
 }
@@ -14,7 +14,7 @@ export function decodeBuffer(buffer: ArrayBuffer, encoding?: string): string {
  * Takes the byte offset into account to produce the right buffer
  * in the case when the buffer is bigger than the data view.
  */
-export function toArrayBuffer(array: Uint8Array): ArrayBuffer {
+export function toArrayBuffer(array: Uint8Array<ArrayBuffer>): ArrayBuffer {
   return array.buffer.slice(
     array.byteOffset,
     array.byteOffset + array.byteLength

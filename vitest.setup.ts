@@ -1,4 +1,5 @@
 import http from 'node:http'
+import { invariant } from 'outvariant'
 import { Readable } from 'node:stream'
 import { setTimeout } from 'node:timers/promises'
 import { TestProject } from 'vitest/node'
@@ -206,6 +207,11 @@ export async function setup(project: TestProject) {
   })
 
   const wsAddress = wsServer.address()
+
+  invariant(
+    wsAddress != null,
+    'Failed to set up tests: WebSocket server address is null'
+  )
 
   /**
    * @note Expose the Node.js version only to the Node.js-driven

@@ -182,7 +182,7 @@ it('bridges events to listeners added via "on()"', () => {
 
 it('forwards listeners removal via "removeListener()"', () => {
   type Events = {
-    foo: []
+    foo: TypedEvent
   }
 
   class FirstInterceptor extends Interceptor<Events> {
@@ -363,9 +363,7 @@ it('applies "once" across all child interceptors', () => {
   const listener = vi.fn()
 
   interceptor.once('request', listener)
-  firstInterceptor['emitter'].emit(
-    new TypedEvent('request', { data: 'first' })
-  )
+  firstInterceptor['emitter'].emit(new TypedEvent('request', { data: 'first' }))
   secondInterceptor['emitter'].emit(
     new TypedEvent('request', { data: 'second' })
   )
