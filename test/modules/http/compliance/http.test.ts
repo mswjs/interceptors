@@ -1,23 +1,28 @@
 // @vitest-environment node
 import http from 'node:http'
-import express from 'express'
-import { HttpServer } from '@open-draft/test-server/http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.use(express.json())
-  app.post('/user', (req, res) => {
-    res.set({ 'x-custom-header': 'yes' }).send(`hello, ${req.body.name}`)
-  })
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.post('/user', async (ctx) => {
+        const body = await ctx.req.json()
+        return new Response(`hello, ${body.name}`, {
+          headers: { 'x-custom-header': 'yes' },
+        })
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -33,7 +38,7 @@ it('bypasses a request to the existing host', async () => {
   const requestListener = vi.fn()
   interceptor.on('request', ({ request }) => requestListener(request))
 
-  const request = http.request(httpServer.http.url('/user'), {
+  const request = http.request(httpServer.http.url('/user').href, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -46,7 +51,7 @@ it('bypasses a request to the existing host', async () => {
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
 
-  expect(requestFromListener.url).toBe(httpServer.http.url('/user'))
+  expect(requestFromListener.url).toBe(httpServer.http.url('/user').href)
   expect(requestFromListener.method).toBe('POST')
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
@@ -61,7 +66,7 @@ it('bypasses a request to the existing host', async () => {
 
 it('errors on a request to a non-existing host', async () => {
   const responseListener = vi.fn()
-  const errorPromise = new DeferredPromise<Error>()
+  const errorPromise = Promise.withResolvers<Error>()
   const request = http.request('http://abc123-non-existing.lol', {
     method: 'POST',
   })
@@ -74,7 +79,7 @@ it('errors on a request to a non-existing host', async () => {
   )
 
   // Must emit the "error" event on the request.
-  await expect(errorPromise).resolves.toEqual(
+  await expect(errorPromise.promise).resolves.toEqual(
     expect.objectContaining({
       message: 'getaddrinfo ENOTFOUND abc123-non-existing.lol',
       code: 'ENOTFOUND',
@@ -100,7 +105,7 @@ it('mocked request to an existing host', async () => {
     )
   })
 
-  const request = http.request(httpServer.http.url('/user'), {
+  const request = http.request(httpServer.http.url('/user').href, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -112,7 +117,7 @@ it('mocked request to an existing host', async () => {
 
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
-  expect(requestFromListener.url).toBe(httpServer.http.url('/user'))
+  expect(requestFromListener.url).toBe(httpServer.http.url('/user').href)
   expect(requestFromListener.method).toBe('POST')
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
@@ -177,7 +182,7 @@ it('resolves the IPv6 hostname from request options into the connection', async 
     controller.respondWith(new Response())
   })
 
-  const remoteInfoPromise = new DeferredPromise<object>()
+  const remoteInfoPromise = Promise.withResolvers<object>()
   const request = http.get({
     hostname: '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
     port: 80,
@@ -193,7 +198,7 @@ it('resolves the IPv6 hostname from request options into the connection', async 
     })
   })
 
-  await expect(remoteInfoPromise).resolves.toEqual({
+  await expect(remoteInfoPromise.promise).resolves.toEqual({
     // Mocked connections resolve any hostname to the loopback address.
     remoteAddress: '::1',
     remotePort: 80,
@@ -206,7 +211,7 @@ it('resolves the bracketed IPv6 hostname from the request URL into the connectio
     controller.respondWith(new Response())
   })
 
-  const remoteInfoPromise = new DeferredPromise<object>()
+  const remoteInfoPromise = Promise.withResolvers<object>()
   const request = http.get('http://[::1]')
   request.on('socket', (socket) => {
     socket.on('connect', () => {
@@ -218,7 +223,7 @@ it('resolves the bracketed IPv6 hostname from the request URL into the connectio
     })
   })
 
-  await expect(remoteInfoPromise).resolves.toEqual({
+  await expect(remoteInfoPromise.promise).resolves.toEqual({
     remoteAddress: '::1',
     remotePort: 80,
     remoteFamily: 'IPv6',
@@ -230,7 +235,7 @@ it('respects the "family" request option when connecting', async () => {
     controller.respondWith(new Response())
   })
 
-  const remoteInfoPromise = new DeferredPromise<object>()
+  const remoteInfoPromise = Promise.withResolvers<object>()
   const request = http.get('http://example.test', { family: 6 })
   request.on('socket', (socket) => {
     socket.on('connect', () => {
@@ -242,7 +247,7 @@ it('respects the "family" request option when connecting', async () => {
     })
   })
 
-  await expect(remoteInfoPromise).resolves.toEqual({
+  await expect(remoteInfoPromise.promise).resolves.toEqual({
     remoteAddress: '::1',
     remotePort: 80,
     remoteFamily: 'IPv6',

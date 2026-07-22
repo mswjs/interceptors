@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import http from 'node:http'
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { BatchInterceptor } from '#/src/BatchInterceptor'
+import { BatchInterceptor } from '#/src/batch-interceptor'
 import { ClientRequestInterceptor } from '#/src/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
 import { FetchInterceptor } from '#/src/interceptors/fetch/node'
@@ -30,7 +29,7 @@ afterAll(() => {
 })
 
 it('exposes the initiator of a mocked ClientRequest request', async () => {
-  const initiatorPromise = new DeferredPromise<XMLHttpRequest>()
+  const initiatorPromise = Promise.withResolvers<XMLHttpRequest>()
   interceptor.on('request', ({ initiator, controller }) => {
     initiatorPromise.resolve(initiator as XMLHttpRequest)
     controller.respondWith(new Response('mocked'))
@@ -39,12 +38,12 @@ it('exposes the initiator of a mocked ClientRequest request', async () => {
   const request = http.get('http://localhost:3001/api')
   const [response] = await toWebResponse(request)
 
-  await expect(initiatorPromise).resolves.toEqual(request)
+  await expect(initiatorPromise.promise).resolves.toEqual(request)
   await expect(response.text()).resolves.toBe('mocked')
 })
 
 it('exposes the initiator of a mocked XMLHttpRequest request', async () => {
-  const initiatorPromise = new DeferredPromise<XMLHttpRequest>()
+  const initiatorPromise = Promise.withResolvers<XMLHttpRequest>()
   interceptor.on('request', ({ initiator, controller }) => {
     initiatorPromise.resolve(initiator as XMLHttpRequest)
 
@@ -63,12 +62,12 @@ it('exposes the initiator of a mocked XMLHttpRequest request', async () => {
 
   await waitForXMLHttpRequest(request)
 
-  await expect(initiatorPromise).resolves.toEqual(request)
+  await expect(initiatorPromise.promise).resolves.toEqual(request)
   expect(request.responseText).toBe('mocked')
 })
 
 it('exposes the initiator of a mocked fetch request', async () => {
-  const initiatorPromise = new DeferredPromise<XMLHttpRequest>()
+  const initiatorPromise = Promise.withResolvers<XMLHttpRequest>()
   interceptor.on('request', ({ initiator, controller }) => {
     initiatorPromise.resolve(initiator as XMLHttpRequest)
 
@@ -88,6 +87,6 @@ it('exposes the initiator of a mocked fetch request', async () => {
    * @note Use "toMatchObject" instead of "toEqual" to ignore the difference
    * in internal symbols on the request, which Undici modifies after "fetch".
    */
-  await expect(initiatorPromise).resolves.toMatchObject(request)
+  await expect(initiatorPromise.promise).resolves.toMatchObject(request)
   await expect(response.text()).resolves.toBe('mocked')
 })

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 import { setTimeout } from 'node:timers/promises'
 
 const interceptor = new SocketInterceptor()
@@ -20,7 +20,7 @@ afterAll(() => {
 
 it('intercepts buffered writes for passthrough socket', async () => {
   const serverDataListener = vi.fn()
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.on('data', serverDataListener)
     })
@@ -58,7 +58,7 @@ it('intercepts buffered writes for passthrough socket', async () => {
 
 it('intercepts separate writes for passthrough socket', async () => {
   const serverDataListener = vi.fn()
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.on('data', serverDataListener)
     })
@@ -105,7 +105,7 @@ it('intercepts separate writes for passthrough socket', async () => {
 
 it('does not duplicate writes while the socket is pending', async () => {
   const serverDataListener = vi.fn()
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.on('data', serverDataListener)
     })
@@ -154,7 +154,7 @@ it('does not duplicate writes while the socket is pending', async () => {
 })
 
 it('invokes the write callbacks for a passthrough socket', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.on('data', (data) => {
         if (data.toString() === 'two') {
@@ -189,7 +189,7 @@ it('invokes the write callbacks for a passthrough socket', async () => {
 })
 
 it('invokes callbacks for nested writes for a passthrough socket', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.on('data', (data) => {
         if (data.toString() === 'two') {

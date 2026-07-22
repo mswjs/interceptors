@@ -1,7 +1,6 @@
 // @vitest-environment node
 import http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
@@ -48,7 +47,7 @@ it('suppresses ECONNREFUSED error given a mocked response', async () => {
 })
 
 it('forwards ECONNREFUSED error given a bypassed request', async () => {
-  const errorPromise = new DeferredPromise<ConnectionError>()
+  const errorPromise = Promise.withResolvers<ConnectionError>()
   const responseListener = vi.fn()
 
   // Connecting to a non-existing host will
@@ -62,7 +61,7 @@ it('forwards ECONNREFUSED error given a bypassed request', async () => {
     })
     .on('response', responseListener)
 
-  const requestError = await errorPromise
+  const requestError = await errorPromise.promise
 
   /**
    * @note Don't assert exact error address/port
@@ -92,14 +91,14 @@ it('suppresses ENOTFOUND error given a mocked response', async () => {
 
 it('forwards ENOTFOUND error for a bypassed request', async () => {
   const request = http.get('http://non-existing-url.com')
-  const errorPromise = new DeferredPromise<NotFoundError>()
+  const errorPromise = Promise.withResolvers<NotFoundError>()
   request.on('error', (error: NotFoundError) => {
     errorPromise.resolve(error)
   })
   const responseListener = vi.fn()
   request.on('response', responseListener)
 
-  const requestError = await errorPromise
+  const requestError = await errorPromise.promise
 
   expect(requestError.code).toBe('ENOTFOUND')
   expect(requestError.hostname).toBe('non-existing-url.com')
@@ -128,12 +127,12 @@ it('forwards EHOSTUNREACH error for a bypassed request', async () => {
   // Connecting to an IPv6 address that's out of the network's
   // reach will result in the "EHOSTUNREACH" error in Node.js.
   const request = http.get('http://[2607:f0d0:1002:51::4]')
-  const errorPromise = new DeferredPromise<ConnectionError>()
+  const errorPromise = Promise.withResolvers<ConnectionError>()
   request.on('error', (error: ConnectionError) => {
     errorPromise.resolve(error)
   })
 
-  const requestError = await errorPromise
+  const requestError = await errorPromise.promise
 
   /**
    * @note On Ubuntu, requesting an unreachable host
@@ -171,12 +170,12 @@ it('allows throwing connection errors in the request listener', async () => {
   })
 
   const request = http.get('http://localhost')
-  const errorPromise = new DeferredPromise<ConnectionError>()
+  const errorPromise = Promise.withResolvers<ConnectionError>()
   request.on('error', (error: ConnectionError) => {
     errorPromise.resolve(error)
   })
 
-  const requestError = await errorPromise
+  const requestError = await errorPromise.promise
 
   expect(requestError).toMatchObject({
     code: 'ECONNREFUSED',

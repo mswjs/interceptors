@@ -5,8 +5,10 @@
 import net from 'node:net'
 import http from 'node:http'
 import { inject } from 'vitest'
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
@@ -15,15 +17,17 @@ const nodeMajorVersion = inject('nodeMajorVersion')
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => {
-    res.send('original')
-  })
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('original')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -36,7 +40,7 @@ afterAll(async () => {
 })
 
 it('intercepts a "CONNECT" request using IP as the authority', async () => {
-  const requestPromise = new DeferredPromise<Request>()
+  const requestPromise = Promise.withResolvers<Request>()
 
   interceptor.on('request', ({ request, controller }) => {
     requestPromise.resolve(request)
@@ -46,7 +50,7 @@ it('intercepts a "CONNECT" request using IP as the authority', async () => {
   const connectListener = vi.fn()
   const responseListener = vi.fn()
 
-  const serverHost = `${httpServer.http.address.host}:${httpServer.http.address.port}`
+  const serverHost = httpServer.http.url().host
 
   const request = http
     .request({
@@ -77,7 +81,7 @@ it('intercepts a "CONNECT" request using IP as the authority', async () => {
   // CONNECT requests do NOT produce an actual response.
   expect(responseListener).not.toHaveBeenCalled()
 
-  const interceptedRequest = await requestPromise
+  const interceptedRequest = await requestPromise.promise
 
   expect.soft(interceptedRequest.method).toBe('CONNECT')
   expect
@@ -102,7 +106,7 @@ it('intercepts a "CONNECT" request using IP as the authority', async () => {
  * as a protocol.
  */
 it('intercepts a "CONNECT" request using "localhost" as the authority', async () => {
-  const requestPromise = new DeferredPromise<Request>()
+  const requestPromise = Promise.withResolvers<Request>()
 
   interceptor.on('request', ({ request, controller }) => {
     requestPromise.resolve(request)
@@ -112,7 +116,7 @@ it('intercepts a "CONNECT" request using "localhost" as the authority', async ()
   const connectListener = vi.fn()
   const responseListener = vi.fn()
 
-  const serverHost = `localhost:${httpServer.http.address.port}`
+  const serverHost = `localhost:${httpServer.http.url().port}`
 
   const request = http
     .request({
@@ -139,7 +143,7 @@ it('intercepts a "CONNECT" request using "localhost" as the authority', async ()
   // CONNECT requests do NOT produce an actual response.
   expect(responseListener).not.toHaveBeenCalled()
 
-  const interceptedRequest = await requestPromise
+  const interceptedRequest = await requestPromise.promise
 
   expect.soft(interceptedRequest.method).toBe('CONNECT')
   expect
@@ -152,7 +156,7 @@ it('intercepts a "CONNECT" request using "localhost" as the authority', async ()
 })
 
 it('errors the intercepted "CONNECT" request', async () => {
-  const requestPromise = new DeferredPromise<Request>()
+  const requestPromise = Promise.withResolvers<Request>()
 
   interceptor.on('request', ({ request, controller }) => {
     requestPromise.resolve(request)
@@ -164,7 +168,7 @@ it('errors the intercepted "CONNECT" request', async () => {
   const errorListener = vi.fn()
   const closeListener = vi.fn()
 
-  const serverHost = `localhost:${httpServer.http.address.port}`
+  const serverHost = `localhost:${httpServer.http.url().port}`
 
   const request = http
     .request({

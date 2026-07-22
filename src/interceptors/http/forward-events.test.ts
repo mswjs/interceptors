@@ -13,7 +13,7 @@ class HttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
   protected setup(): void {}
 
-  public emitResponse(event: HttpResponseEvent): Promise<Array<void>> {
+  public emitResponse(event: HttpResponseEvent) {
     return this.emitter.emitAsPromise(event)
   }
 }

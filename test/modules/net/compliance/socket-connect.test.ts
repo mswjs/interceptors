@@ -4,7 +4,7 @@ import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -53,7 +53,7 @@ async function createUnixSocketServer(): Promise<
 }
 
 it('connects with "connect(port)"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
@@ -73,14 +73,14 @@ it('connects with "connect(port)"', async () => {
 })
 
 it('connects with "connect(port, callback)"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
   })
 
   const connectionCallback = vi.fn()
-  const socket = net.connect(server.port, connectionCallback)
+  const socket = net.connect({ port: server.port }, connectionCallback)
   const { listeners } = spyOnSocket(socket)
 
   socket.resume()
@@ -92,7 +92,7 @@ it('connects with "connect(port, callback)"', async () => {
 })
 
 it('connects with "connect(port, host)"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
@@ -111,7 +111,7 @@ it('connects with "connect(port, host)"', async () => {
 })
 
 it('connects with "connect(port, host, callback)"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
@@ -130,7 +130,7 @@ it('connects with "connect(port, host, callback)"', async () => {
 })
 
 it('connects with "connect(options)"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
@@ -152,7 +152,7 @@ it('connects with "connect(options)"', async () => {
 })
 
 it('connects with "connect(options, callback)"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
@@ -242,7 +242,7 @@ it('throws on a URL argument without a port, like Node.js', async () => {
 })
 
 it('fails to connect with a URL argument, like Node.js', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
@@ -267,7 +267,7 @@ it('fails to connect with a URL argument, like Node.js', async () => {
 })
 
 it('connects with "createConnection()"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })

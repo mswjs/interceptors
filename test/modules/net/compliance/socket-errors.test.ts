@@ -2,7 +2,7 @@
 import net from 'node:net'
 import os from 'node:os'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -21,7 +21,7 @@ afterAll(() => {
 it('emits the "ECONNREFUSED" error identical to Node.js', async () => {
   // Open a server to obtain a port, then close it
   // so connecting to that port is guaranteed to be refused.
-  const closedServer = await createTestServer(() => {
+  const closedServer = await createRawTestServer(() => {
     return new net.Server()
   })
   const refusedPort = closedServer.port

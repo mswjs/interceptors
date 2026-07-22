@@ -1,7 +1,8 @@
 // @vitest-environment node
+import net from 'node:net'
 import tls from 'node:tls'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer } from '#/test/helpers'
+import { createRawTestServer } from '#/test/helpers'
 import { TLS_CERTIFICATE, TLS_PRIVATE_KEY } from './fixtures/tls'
 
 const interceptor = new SocketInterceptor()
@@ -19,20 +20,21 @@ afterAll(() => {
 })
 
 it('emits the "lookup" event when connecting to a hostname', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
     })
   })
 
-  const socket = tls.connect({
+  const connectionOptions: tls.ConnectionOptions & net.TcpNetConnectOpts = {
     port: server.port,
     host: 'localhost',
     family: 4,
     servername: 'localhost',
     ca: [TLS_CERTIFICATE],
-  })
+  }
+  const socket = tls.connect(connectionOptions)
   const lookupListener = vi.fn()
   socket.on('lookup', lookupListener)
   const secureConnectListener = vi.fn()
@@ -51,7 +53,7 @@ it('emits the "lookup" event when connecting to a hostname', async () => {
 })
 
 it('emits "secureConnect" exactly once', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -78,7 +80,7 @@ it('emits "secureConnect" exactly once', async () => {
 })
 
 it('emits the "session" event for a bypassed connection', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -255,7 +257,7 @@ it('emits the "keylog" events for a mocked connection', async () => {
 })
 
 it('emits the "keylog" event', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -278,7 +280,7 @@ it('emits the "keylog" event', async () => {
 })
 
 it('emits the "OCSPResponse" event', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     const tlsServer = new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -289,13 +291,16 @@ it('emits the "OCSPResponse" event', async () => {
     return tlsServer
   })
 
-  const socket = tls.connect({
+  const connectionOptions: tls.ConnectionOptions &
+    tls.TLSSocketOptions &
+    net.TcpNetConnectOpts = {
     port: server.port,
     host: server.hostname,
     servername: 'localhost',
     ca: [TLS_CERTIFICATE],
     requestOCSP: true,
-  })
+  }
+  const socket = tls.connect(connectionOptions)
   const ocspResponseListener = vi.fn()
   socket.on('OCSPResponse', ocspResponseListener)
 

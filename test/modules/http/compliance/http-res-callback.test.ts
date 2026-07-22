@@ -1,20 +1,26 @@
 // @vitest-environment node
 import https from 'node:https'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/get', (req, res) => {
-    res.status(200).send('original')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+    defineRoutes(router) {
+      router.get('/get', () => {
+        return new Response('original')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -31,7 +37,7 @@ it('calls a custom callback once when the request is bypassed', async () => {
   const responseCallback = vi.fn()
 
   const request = https.get(
-    httpServer.https.url('/get'),
+    httpServer.https.url('/get').href,
     {
       rejectUnauthorized: false,
     },
@@ -57,7 +63,7 @@ it('calls a custom callback once when the response is mocked', async () => {
   const responseCallback = vi.fn()
 
   const request = https.get(
-    httpServer.https.url('/arbitrary'),
+    httpServer.https.url('/arbitrary').href,
     {
       rejectUnauthorized: false,
     },

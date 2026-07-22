@@ -1,6 +1,7 @@
-import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
+import { hasConfigurableGlobal } from '#/src/utils/has-configurable-global'
+import { getErrorResponse } from '#/src/utils/response-utils'
 import { requestContext } from '#/src/request-context'
-import { patchesRegistry } from '#/src/utils/patchesRegistry'
+import { patchesRegistry } from '#/src/utils/patches-registry'
 import { forwardHttpEvents } from '#/src/interceptors/http/forward-events'
 import { NodeHttpRequestSource } from '#/src/interceptors/http/source'
 import { HttpRequestEventMap } from '#/src/events/http'
@@ -63,12 +64,38 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const request = new Request(resolvedInput, init)
 
-          requestContext.enterWith({
-            initiator: request,
-            logger: this.logger,
-          })
+          /**
+           * @note Scope the request context to the `fetch` call itself.
+           * Using `enterWith` here would rebind the store for the caller's
+           * entire asynchronous scope, attributing unrelated requests
+           * performed after this `fetch` to it.
+           */
+          return requestContext.run(
+            {
+              initiator: request,
+              logger: this.logger,
+            },
+            () => {
+              return realFetch(request).catch((error: unknown) => {
+                /**
+                 * @note A mocked `Response.error()` destroys the socket with
+                 * an internal error, which Undici reports as the cause of its
+                 * "fetch failed" rejection. Surface the error response as the
+                 * rejection cause instead, so the consumer can tell a mocked
+                 * network error apart from an actual connectivity issue.
+                 */
+                if (error instanceof TypeError) {
+                  const errorResponse = getErrorResponse(error.cause)
 
-          return realFetch(request)
+                  if (errorResponse) {
+                    error.cause = errorResponse
+                  }
+                }
+
+                throw error
+              })
+            }
+          )
         }
       })
     )

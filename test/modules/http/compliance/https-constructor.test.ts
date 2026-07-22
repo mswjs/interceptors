@@ -4,19 +4,25 @@
  */
 import https from 'node:https'
 import { URL } from 'node:url'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => {
-    res.status(200).send('hello')
-  })
-})
+let httpServer: TestHttpServer
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('hello')
+      })
+    },
+  })
   interceptor.apply()
 })
 
@@ -27,7 +33,7 @@ afterAll(async () => {
 
 it('performs the original HTTPS request', async () => {
   const request = https
-    .request(new URL(httpServer.https.url('/resource')), {
+    .request(new URL(httpServer.https.url('/resource').href), {
       method: 'GET',
       rejectUnauthorized: false,
     })

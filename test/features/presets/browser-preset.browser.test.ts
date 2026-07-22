@@ -1,6 +1,5 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { BatchInterceptor } from '@mswjs/interceptors'
-import browserInterceptors from '@mswjs/interceptors/presets/browser'
+import { BatchInterceptor } from '#/src/index'
+import browserInterceptors from '#/src/presets/browser'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const interceptor = new BatchInterceptor({
@@ -21,7 +20,7 @@ afterAll(() => {
 })
 
 it('intercepts and mocks a fetch request', async () => {
-  const requestPromise = new DeferredPromise<Request>()
+  const requestPromise = Promise.withResolvers<Request>()
 
   interceptor.on('request', ({ request, controller }) => {
     requestPromise.resolve(request)
@@ -33,7 +32,7 @@ it('intercepts and mocks a fetch request', async () => {
   expect(response.status).toBe(200)
   await expect(response.text()).resolves.toBe('mocked')
 
-  const request = await requestPromise
+  const request = await requestPromise.promise
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe('http://localhost:3001/resource')
@@ -41,7 +40,7 @@ it('intercepts and mocks a fetch request', async () => {
 })
 
 it('intercepts and mocks an XMLHttpRequest', async () => {
-  const requestPromise = new DeferredPromise<Request>()
+  const requestPromise = Promise.withResolvers<Request>()
 
   interceptor.on('request', ({ request, controller }) => {
     requestPromise.resolve(request)
@@ -57,7 +56,7 @@ it('intercepts and mocks an XMLHttpRequest', async () => {
   expect(xhr.status).toBe(200)
   expect(xhr.response).toBe('mocked')
 
-  const request = await requestPromise
+  const request = await requestPromise.promise
 
   expect(request.method).toBe('GET')
   expect(request.url).toBe('http://localhost:3001/resource')

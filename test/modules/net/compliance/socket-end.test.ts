@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -21,7 +21,7 @@ it('sends the final chunk passed to "end()"', async () => {
   const serverReceivedChunks: Array<Buffer> = []
   const serverEndListener = vi.fn()
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.on('data', (chunk) => {
         serverReceivedChunks.push(chunk)
@@ -47,7 +47,7 @@ it('sends the final chunk passed to "end()"', async () => {
 it('sends FIN to the server on "end()"', async () => {
   const serverEndListener = vi.fn()
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
       socket.on('end', serverEndListener)
@@ -67,7 +67,7 @@ it('sends FIN to the server on "end()"', async () => {
 })
 
 it('invokes the "end()" callback once the socket finishes', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
     })
@@ -90,7 +90,7 @@ it('invokes the "end()" callback once the socket finishes', async () => {
 })
 
 it('emits an error when writing after "end()"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
     })

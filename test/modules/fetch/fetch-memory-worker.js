@@ -1,6 +1,6 @@
-const { parentPort, workerData } = require('node:worker_threads')
-const { setTimeout: delay } = require('node:timers/promises')
-const { writeHeapSnapshot } = require('node:v8')
+import { parentPort, workerData } from 'node:worker_threads'
+import { setTimeout as delay } from 'node:timers/promises'
+import { writeHeapSnapshot } from 'node:v8'
 
 const { requestCount, serverUrl, snapshotPath } = workerData
 const CONCURRENCY = 20
@@ -24,9 +24,9 @@ class HeldRequest extends OriginalRequest {
 }
 globalThis.Request = HeldRequest
 
-// IMPORTANT: require the interceptor only AFTER patching `globalThis.Request` so
+// IMPORTANT: import the interceptor only AFTER patching `globalThis.Request` so
 // that `class FetchRequest extends Request` resolves to `HeldRequest`.
-const { FetchInterceptor } = require('@mswjs/interceptors/fetch')
+const { FetchInterceptor } = await import('@mswjs/interceptors/fetch')
 
 const interceptor = new FetchInterceptor()
 interceptor.apply()

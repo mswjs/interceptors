@@ -1,20 +1,25 @@
 // @vitest-environment node
 import https from 'node:https'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => {
-    res.send('original')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  /**
+   * @note No custom routes: the test server responds to "GET /"
+   * on its own, and these tests only assert the socket events.
+   */
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+  })
 })
 
 afterEach(() => {
@@ -71,7 +76,7 @@ it('emits correct events for a mocked HTTPS request', async () => {
 })
 
 it('emits correct events for a passthrough HTTPS request', async () => {
-  const request = https.get(httpServer.https.url('/'), {
+  const request = https.get(httpServer.https.url('/').href, {
     rejectUnauthorized: false,
   })
 

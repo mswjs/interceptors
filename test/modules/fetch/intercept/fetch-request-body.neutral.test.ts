@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
 const interceptor = new FetchInterceptor()
@@ -16,7 +15,7 @@ afterAll(() => {
 })
 
 it('intercepts a request without a body', async () => {
-  const pendingRequestBody = new DeferredPromise<string>()
+  const pendingRequestBody = Promise.withResolvers<string>()
   interceptor.on('request', async ({ request, controller }) => {
     pendingRequestBody.resolve(await request.clone().text())
     controller.respondWith(new Response())
@@ -24,11 +23,11 @@ it('intercepts a request without a body', async () => {
 
   await fetch('http://localhost/empty')
 
-  await expect(pendingRequestBody).resolves.toBe('')
+  await expect(pendingRequestBody.promise).resolves.toBe('')
 })
 
 it('intercepts a request with a Blob body', async () => {
-  const pendingRequestBody = new DeferredPromise<string>()
+  const pendingRequestBody = Promise.withResolvers<string>()
   interceptor.on('request', async ({ request, controller }) => {
     pendingRequestBody.resolve(await request.clone().text())
     controller.respondWith(new Response())
@@ -39,11 +38,11 @@ it('intercepts a request with a Blob body', async () => {
     body: new Blob(['blob', 'string']),
   })
 
-  await expect(pendingRequestBody).resolves.toBe('blobstring')
+  await expect(pendingRequestBody.promise).resolves.toBe('blobstring')
 })
 
 it('intercepts a request with a FormData body', async () => {
-  const pendingRequestBody = new DeferredPromise<string>()
+  const pendingRequestBody = Promise.withResolvers<string>()
   interceptor.on('request', async ({ request, controller }) => {
     pendingRequestBody.resolve(await request.clone().text())
     controller.respondWith(new Response())
@@ -63,7 +62,7 @@ it('intercepts a request with a FormData body', async () => {
    * (e.g. "WebKitFormBoundary" in the browser vs "formdata-undici" in Node.js)
    * so only assert on the fields.
    */
-  const requestBody = await pendingRequestBody
+  const requestBody = await pendingRequestBody.promise
   expect(requestBody).toMatch(
     /content-disposition: form-data; name="username"\r\n\r\njohn\r\n/i
   )
@@ -73,7 +72,7 @@ it('intercepts a request with a FormData body', async () => {
 })
 
 it('intercepts a request with an ArrayBuffer body', async () => {
-  const pendingRequestBody = new DeferredPromise<string>()
+  const pendingRequestBody = Promise.withResolvers<string>()
   interceptor.on('request', async ({ request, controller }) => {
     pendingRequestBody.resolve(await request.clone().text())
     controller.respondWith(new Response())
@@ -84,11 +83,11 @@ it('intercepts a request with an ArrayBuffer body', async () => {
     body: new TextEncoder().encode('buffer string'),
   })
 
-  await expect(pendingRequestBody).resolves.toBe('buffer string')
+  await expect(pendingRequestBody.promise).resolves.toBe('buffer string')
 })
 
 it('intercepts a request with a URLSearchParams body', async () => {
-  const pendingRequestBody = new DeferredPromise<string>()
+  const pendingRequestBody = Promise.withResolvers<string>()
   interceptor.on('request', async ({ request, controller }) => {
     pendingRequestBody.resolve(await request.clone().text())
     controller.respondWith(new Response())
@@ -102,7 +101,7 @@ it('intercepts a request with a URLSearchParams body', async () => {
     }),
   })
 
-  await expect(pendingRequestBody).resolves.toBe(
+  await expect(pendingRequestBody.promise).resolves.toBe(
     'username=john&password=secret-123'
   )
 })

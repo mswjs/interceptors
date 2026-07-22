@@ -1,10 +1,10 @@
 import { requestContext } from '#/src/request-context'
-import { hasConfigurableGlobal } from '#/src/utils/hasConfigurableGlobal'
+import { hasConfigurableGlobal } from '#/src/utils/has-configurable-global'
 import { Interceptor } from '#/src/interceptor'
 import { forwardHttpEvents } from '#/src/interceptors/http/forward-events'
 import { NodeHttpRequestSource } from '#/src/interceptors/http/source'
-import { patchesRegistry } from '#/src/utils/patchesRegistry'
-import { FetchRequest } from '#/src/utils/fetchUtils'
+import { patchesRegistry } from '#/src/utils/patches-registry'
+import { FetchRequest } from '#/src/utils/fetch-utils'
 import { HttpRequestEventMap } from '#/src/events/http'
 import { createLogger } from '#/src/utils/logger'
 
@@ -49,20 +49,29 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
               const xmlHttpRequest = Reflect.construct(target, args, newTarget)
 
               /**
-               * @note Use `.enterWith()` here because XHR in JSDOM is implemented
-               * via `http`/`https`. This makes the initiator cascading work properly.
+               * @note Scope the request context to the `send()` call.
+               * XHR in JSDOM is implemented via `http`/`https`, and the
+               * underlying `http.ClientRequest` is created within `send()`,
+               * so the initiator cascading keeps working. Binding the
+               * context to the caller's scope instead (e.g. `enterWith`)
+               * would attribute unrelated requests performed after this
+               * XMLHttpRequest to it.
                */
-              requestContext.enterWith({
-                initiator: xmlHttpRequest,
-                logger: requestLogger,
-                prepareRequest: (request) => {
-                  return prepareRequest(request, xmlHttpRequest)
-                },
-              })
-
-              /**
-               * @todo Do we need to exit the async context at some point?
-               */
+              const realSend = xmlHttpRequest.send
+              xmlHttpRequest.send = (
+                ...sendArgs: Parameters<XMLHttpRequest['send']>
+              ) => {
+                return requestContext.run(
+                  {
+                    initiator: xmlHttpRequest,
+                    logger: requestLogger,
+                    transformRequest: (request) => {
+                      return prepareRequest(request, xmlHttpRequest)
+                    },
+                  },
+                  () => realSend.apply(xmlHttpRequest, sendArgs)
+                )
+              }
 
               return xmlHttpRequest
             },
@@ -89,6 +98,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
       headers: request.headers,
       credentials: expectedCredentials,
       body: request.body,
+      signal: request.signal,
     })
   }
 }

@@ -6,7 +6,6 @@
 import net from 'node:net'
 import http from 'node:http'
 import https from 'node:https'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
@@ -24,23 +23,23 @@ afterAll(() => {
 })
 
 it('does not patch the agent for the HTTP request', async () => {
-  const socketPromise = new DeferredPromise<net.Socket>()
+  const socketPromise = Promise.withResolvers<net.Socket>()
   const request = http
     .get('http://localhost/does-not-matter')
     .on('socket', (socket) => socketPromise.resolve(socket as net.Socket))
     .on('error', () => {})
 
   expect(Reflect.get(request, 'agent')).toBeInstanceOf(http.Agent)
-  await expect(socketPromise).resolves.toBeInstanceOf(net.Socket)
+  await expect(socketPromise.promise).resolves.toBeInstanceOf(net.Socket)
 })
 
 it('does not patch the agent for the HTTPS request', async () => {
-  const socketPromise = new DeferredPromise<net.Socket>()
+  const socketPromise = Promise.withResolvers<net.Socket>()
   const request = https
     .get('https://localhost/does-not-matter')
     .on('socket', (socket) => socketPromise.resolve(socket as net.Socket))
     .on('error', () => {})
 
   expect(Reflect.get(request, 'agent')).toBeInstanceOf(https.Agent)
-  await expect(socketPromise).resolves.toBeInstanceOf(net.Socket)
+  await expect(socketPromise.promise).resolves.toBeInstanceOf(net.Socket)
 })

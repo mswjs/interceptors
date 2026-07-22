@@ -129,13 +129,6 @@ it('bypasses an unhandled request issued by "https.request"', async () => {
   await expect(response.text()).resolves.toBe('original-response')
 })
 
-it('throws a request error when the middleware throws an exception', async () => {
-  const req = http.get('http://error.me')
-  await toWebResponse(req).catch((error) => {
-    expect(error.message).toEqual('Custom exception message')
-  })
-})
-
 it('bypasses any request after the interceptor was restored', async () => {
   interceptor.dispose()
 

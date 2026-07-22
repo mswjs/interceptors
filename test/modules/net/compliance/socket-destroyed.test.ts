@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -18,7 +18,7 @@ afterAll(() => {
 })
 
 it('destroys the socket after "destroy()" on an open connection', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
@@ -42,7 +42,7 @@ it('destroys the socket after "destroy()" on an open connection', async () => {
 })
 
 it('destroys the socket after "destroy()" while connecting', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
@@ -65,7 +65,7 @@ it('destroys the socket after "destroy()" while connecting', async () => {
 it('destroys the socket after a connection error', async () => {
   // Open a server to obtain a port, then close it
   // so connecting to that port is guaranteed to be refused.
-  const closedServer = await createTestServer(() => {
+  const closedServer = await createRawTestServer(() => {
     return new net.Server()
   })
   const refusedPort = closedServer.port
@@ -83,7 +83,7 @@ it('destroys the socket after a connection error', async () => {
 })
 
 it('destroys the socket after the connection closes normally', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -33,6 +33,59 @@ it('resolves the connection attempt when the socket is claimed', async () => {
     ['connect'],
     ['ready'],
     ['close', false],
+  ])
+})
+
+it('has no effect claiming a connection destroyed by the client', async () => {
+  const connectionEventReceived = Promise.withResolvers<void>()
+  const clientDestroyed = Promise.withResolvers<void>()
+  const claimResult = Promise.withResolvers<Error | undefined>()
+
+  interceptor.on('connection', async ({ controller }) => {
+    connectionEventReceived.resolve()
+
+    // Suspend the connection handling until the client
+    // has destroyed the socket (e.g. aborted the request).
+    await clientDestroyed.promise
+
+    try {
+      controller.claim()
+      claimResult.resolve(undefined)
+    } catch (error) {
+      if (error instanceof Error) {
+        claimResult.resolve(error)
+      } else {
+        claimResult.reject(error)
+      }
+    }
+  })
+
+  const socket = net.connect(80, '127.0.0.1')
+  const { events } = spyOnSocket(socket)
+
+  /**
+   * @note Write only once the socket is connected (e.g. like Undici).
+   * This makes the interceptor emulate the "connect" event, taking
+   * the claim past the connected-socket check even after the client
+   * destroys the socket.
+   */
+  const socketConnected = Promise.withResolvers<void>()
+  socket.on('connect', () => {
+    socket.write('hello')
+    socketConnected.resolve()
+  })
+
+  await connectionEventReceived.promise
+  await socketConnected.promise
+
+  socket.destroy()
+  clientDestroyed.resolve()
+
+  await expect(claimResult.promise).resolves.toBeUndefined()
+  expect(socket.destroyed).toBe(true)
+  expect(events).toEqual([
+    ['connectionAttempt', '127.0.0.1', 80, 4],
+    ['connect'],
   ])
 })
 
@@ -73,7 +126,7 @@ it('throws an error claiming an already passthrough connection', async () => {
     )
   })
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => socket.end())
   })
 

@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream'
 import { invariant } from 'outvariant'
-import { FetchRequest, FetchResponse } from '../../utils/fetchUtils'
+import { FetchRequest, FetchResponse } from '../../utils/fetch-utils'
 import { HttpParser } from './http-parser/index'
 
 interface HttpRequestParserOptions {
@@ -8,7 +8,7 @@ interface HttpRequestParserOptions {
     method?: string
     url: URL
   }
-  onRequest: (request: Request) => void
+  onRequest: (request: Request, abortController: AbortController) => void
 }
 
 export class HttpRequestParser extends HttpParser<1> {
@@ -53,13 +53,21 @@ export class HttpRequestParser extends HttpParser<1> {
           read: () => {},
         })
 
+        /**
+         * @note Expose an abort controller for the parsed request so the
+         * consumer can abort it (e.g. when the client destroys the
+         * connection before the request is handled).
+         */
+        const abortController = new AbortController()
+
         const request = new FetchRequest(url, {
           method: finalMethod,
           headers,
           credentials: 'same-origin',
           body: Readable.toWeb(this.#requestBodyStream) as any,
+          signal: abortController.signal,
         })
-        options.onRequest(request)
+        options.onRequest(request, abortController)
       },
       onBody: (chunk) => {
         invariant(

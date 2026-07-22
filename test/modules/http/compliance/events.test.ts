@@ -1,21 +1,43 @@
 // @vitest-environment node
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { HttpRequestEventMap } from '#/src/events/http'
 import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => {
-    res.send('original-response')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+
+  const RequestBeforeServer = globalThis.Request
+  const ResponseBeforeServer = globalThis.Response
+
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      /**
+       * @note Serve a dedicated path: the test server registers its own
+       * "GET /" route before these routes, and route registration order
+       * wins in Hono, so the root path cannot be overridden.
+       */
+      router.all('/resource', () => {
+        return new Response('original-response')
+      })
+    },
+  })
+
+  /**
+   * @note "@hono/node-server" overrides the global "Request" and "Response"
+   * classes with its own lightweight implementations when the server starts.
+   * Restore the original classes since these tests assert "instanceof".
+   */
+  globalThis.Request = RequestBeforeServer
+  globalThis.Response = ResponseBeforeServer
 })
 
 afterAll(async () => {
@@ -29,7 +51,7 @@ it('emits the "request" event for an outgoing request without body', async () =>
   interceptor.once('request', requestListener)
 
   await toWebResponse(
-    http.get(httpServer.http.url('/'), {
+    http.get(httpServer.http.url('/resource').href, {
       headers: {
         'x-custom-header': 'yes',
       },
@@ -41,7 +63,7 @@ it('emits the "request" event for an outgoing request without body', async () =>
   const { request } = requestListener.mock.calls[0][0]
   expect(request).toBeInstanceOf(Request)
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.http.url('/'))
+  expect(request.url).toBe(httpServer.http.url('/resource').href)
   expect(Object.fromEntries(request.headers.entries())).toMatchObject({
     'x-custom-header': 'yes',
   })
@@ -53,7 +75,7 @@ it('emits the "request" event for an outgoing request with a body', async () => 
     vi.fn<(event: HttpRequestEventMap['request']) => void>()
   interceptor.once('request', requestListener)
 
-  const request = http.request(httpServer.http.url('/'), {
+  const request = http.request(httpServer.http.url('/resource').href, {
     method: 'POST',
     headers: {
       'content-type': 'text/plain',
@@ -69,7 +91,7 @@ it('emits the "request" event for an outgoing request with a body', async () => 
   const { request: requestFromListener } = requestListener.mock.calls[0][0]
   expect(requestFromListener).toBeInstanceOf(Request)
   expect(requestFromListener.method).toBe('POST')
-  expect(requestFromListener.url).toBe(httpServer.http.url('/'))
+  expect(requestFromListener.url).toBe(httpServer.http.url('/resource').href)
   expect(
     Object.fromEntries(requestFromListener.headers.entries())
   ).toMatchObject({
@@ -130,7 +152,7 @@ it('emits the "response" event for a bypassed response', async () => {
     vi.fn<(event: HttpRequestEventMap['response']) => void>()
   interceptor.once('response', responseListener)
 
-  const request = http.get(httpServer.http.url('/'), {
+  const request = http.get(httpServer.http.url('/resource').href, {
     headers: {
       'x-custom-header': 'yes',
     },
@@ -154,7 +176,7 @@ it('emits the "response" event for a bypassed response', async () => {
     expect(requestId).toMatch(REQUEST_ID_REGEXP)
     expect(requestFromListener).toBeInstanceOf(Request)
     expect(requestFromListener.method).toBe('GET')
-    expect(requestFromListener.url).toBe(httpServer.http.url('/'))
+    expect(requestFromListener.url).toBe(httpServer.http.url('/resource').href)
     expect(
       Object.fromEntries(requestFromListener.headers.entries())
     ).toMatchObject({

@@ -1,20 +1,25 @@
 // @vitest-environment node
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => {
-    res.send('original response')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('original response')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -62,7 +67,7 @@ it('awaits asynchronous response event listener for the original response', asyn
   })
 
   tag('before-request')
-  const request = http.get(httpServer.http.url('/resource'))
+  const request = http.get(httpServer.http.url('/resource').href)
   const [response] = await toWebResponse(request)
   tag('after-request')
 

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -18,7 +18,7 @@ afterAll(() => {
 })
 
 it('reports a writable socket before connecting', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
@@ -32,7 +32,7 @@ it('reports a writable socket before connecting', async () => {
 })
 
 it('marks the socket as non-writable after "end()"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server({ allowHalfOpen: true }, (socket) => {
       socket.resume()
     })
@@ -60,7 +60,7 @@ it('marks the socket as non-writable after "end()"', async () => {
 })
 
 it('keeps the socket writable after the server ends a half-open connection', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
@@ -84,7 +84,7 @@ it('keeps the socket writable after the server ends a half-open connection', asy
 })
 
 it('counts "bytesWritten" for writes issued while connecting', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
     })
@@ -100,7 +100,7 @@ it('counts "bytesWritten" for writes issued while connecting', async () => {
 })
 
 it('counts "bytesWritten" across multiple writes and encodings', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
     })
@@ -131,7 +131,7 @@ it('counts "bytesWritten" across multiple writes and encodings', async () => {
 })
 
 it('preserves "bytesWritten" after the connection closes', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
     })

@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { RequestController } from '@mswjs/interceptors'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 import { getTestServer } from '#/test/setup/vitest'
@@ -19,8 +18,8 @@ afterAll(() => {
 })
 
 it('intercepts a request constructed via a "Request" instance', async () => {
-  const requestBodyPromise = new DeferredPromise<string>()
-  const requestEventPromise = new DeferredPromise<{
+  const requestBodyPromise = Promise.withResolvers<string>()
+  const requestEventPromise = Promise.withResolvers<{
     request: Request
     requestId: string
     controller: RequestController
@@ -53,14 +52,14 @@ it('intercepts a request constructed via a "Request" instance', async () => {
     request: interceptedRequest,
     requestId,
     controller,
-  } = await requestEventPromise
+  } = await requestEventPromise.promise
 
   expect(interceptedRequest.method).toBe('POST')
   expect(interceptedRequest.url).toBe(server.http.url('/user').href)
   expect(interceptedRequest.headers.get('content-type')).toBe('text/plain')
   expect(interceptedRequest.headers.get('x-origin')).toBe('interceptors')
   expect(interceptedRequest.credentials).toBe('same-origin')
-  await expect(requestBodyPromise).resolves.toBe('hello world')
+  await expect(requestBodyPromise.promise).resolves.toBe('hello world')
   expect(controller).toBeInstanceOf(RequestController)
   expect(requestId).toMatch(/^\w{9,}$/)
 })

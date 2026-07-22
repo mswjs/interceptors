@@ -1,19 +1,25 @@
 // @vitest-environment node
 import https from 'node:https'
 import { TLSSocket } from 'node:tls'
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => res.status(200).end())
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  /**
+   * @note No custom routes: the test server responds to "GET /"
+   * on its own, and this test only asserts the TLS socket behavior.
+   */
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+  })
 })
 
 afterEach(() => {
@@ -31,10 +37,10 @@ it('emits a correct TLS Socket instance for a handled HTTPS request', async () =
   })
 
   const request = https.get('https://example.com')
-  const socketPromise = new DeferredPromise<TLSSocket>()
+  const socketPromise = Promise.withResolvers<TLSSocket>()
   request.on('socket', socketPromise.resolve)
 
-  const socket = await socketPromise
+  const socket = await socketPromise.promise
 
   expect(socket).toBeInstanceOf(TLSSocket)
   expect(socket.encrypted).toBe(true)
@@ -53,10 +59,10 @@ it('emits a correct TLS Socket instance for a handled HTTPS request', async () =
 })
 
 it('emits a correct TLS Socket instance for a bypassed HTTPS request', async () => {
-  const request = https.get(httpServer.https.url('/'), {
+  const request = https.get(httpServer.https.url('/').href, {
     rejectUnauthorized: false,
   })
-  const socketPromise = new DeferredPromise<TLSSocket>()
+  const socketPromise = Promise.withResolvers<TLSSocket>()
   const secureConnectListener = vi.fn()
 
   request.on('socket', (socket) => {
@@ -64,7 +70,7 @@ it('emits a correct TLS Socket instance for a bypassed HTTPS request', async () 
     socket.on('secureConnect', secureConnectListener)
   })
 
-  const socket = await socketPromise
+  const socket = await socketPromise.promise
   await expect.poll(() => secureConnectListener).toHaveBeenCalledOnce()
 
   expect(socket).toBeInstanceOf(TLSSocket)

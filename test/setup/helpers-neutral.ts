@@ -1,5 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
-
 /**
  * Environment-agnostic, Promise-based "setTimeout".
  * The one from `node:timers/promises` is awesome but it won't run in the browser.
@@ -14,7 +12,7 @@ export function waitForXMLHttpRequest(
   request: XMLHttpRequest,
   async = true
 ): Promise<void> {
-  const pendingResponse = new DeferredPromise<void>()
+  const pendingResponse = Promise.withResolvers<void>()
 
   if (async) {
     request.addEventListener('abort', () => {
@@ -35,7 +33,7 @@ export function waitForXMLHttpRequest(
     }
   }
 
-  return pendingResponse
+  return pendingResponse.promise
 }
 
 export function spyOnXMLHttpRequest(request: XMLHttpRequest) {
@@ -105,6 +103,6 @@ export function toArrayBuffer(
   return value
 }
 
-export function arrayBufferFrom(input: string): ArrayBufferLike {
+export function arrayBufferFrom(input: string): ArrayBuffer {
   return new TextEncoder().encode(input).buffer
 }

@@ -58,11 +58,11 @@ it('treats a Response.error() as a network error', async ({ task }) => {
 
   if (task.file.projectName === 'browser') {
     expect(requestError.message).toBe('Failed to fetch')
-    expect(requestError.cause).toBeInstanceOf(Response)
   } else {
     expect(requestError.message).toBe('fetch failed')
-    expect(requestError.cause).toEqual(new TypeError('Network error'))
   }
+
+  expect(requestError.cause).toBeInstanceOf(Response)
 })
 
 it('treats a thrown Response.error() as a network error', async ({ task }) => {
@@ -80,11 +80,12 @@ it('treats a thrown Response.error() as a network error', async ({ task }) => {
 
   if (task.file.projectName === 'browser') {
     expect(requestError.message).toBe('Failed to fetch')
-    expect(requestError.cause).toBeInstanceOf(Response)
   } else {
     expect(requestError.message).toBe('fetch failed')
-    expect(requestError.cause).toEqual(new TypeError('Network error'))
   }
+
+  expect(requestError.cause).toBeInstanceOf(Response)
+  expect(requestError.cause).toHaveProperty('status', 0)
 })
 
 it('handles exceptions by default if "unhandledException" is provided but does nothing', async () => {

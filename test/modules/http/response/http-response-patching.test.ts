@@ -1,15 +1,14 @@
 // @vitest-environment node
 import http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const server = new HttpServer((app) => {
-  app.get('/original', async (req, res) => {
-    res.header('X-Custom-Header', 'yes').send('hello')
-  })
-})
+let server: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -23,7 +22,7 @@ async function getResponse(request: Request): Promise<Response | undefined> {
         // Request handlers in MSW resolve on the next tick.
         await setTimeout(0)
 
-        const originalRequest = http.get(server.http.url('/original'))
+        const originalRequest = http.get(server.http.url('/original').href)
         const [response, rawResponse] = await toWebResponse(originalRequest)
 
         const getHeader = (name: string): string | undefined => {
@@ -57,7 +56,17 @@ interceptor.on('request', async ({ request, controller }) => {
 
 beforeAll(async () => {
   interceptor.apply()
-  await server.listen()
+  server = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/original', () => {
+        return new Response('hello', {
+          headers: {
+            'X-Custom-Header': 'yes',
+          },
+        })
+      })
+    },
+  })
 })
 
 afterAll(async () => {

@@ -2,7 +2,7 @@
 import net from 'node:net'
 import nodemailer from 'nodemailer'
 import { SmtpInterceptor } from '#/src/interceptors/smtp'
-import { createTestServer } from '#/test/helpers'
+import { createRawTestServer } from '#/test/helpers'
 
 const interceptor = new SmtpInterceptor()
 
@@ -88,7 +88,7 @@ function createSmtpServer(observed: SmtpServerLog): net.Server {
 
 it('emits client command events while the session is bypassed', async () => {
   const observed: SmtpServerLog = { commands: [], messages: [] }
-  await using server = await createTestServer(() => createSmtpServer(observed))
+  await using server = await createRawTestServer(() => createSmtpServer(observed))
 
   let observedCredentials: { username: string; password: string } | undefined
   let observedSender = ''
@@ -146,7 +146,7 @@ it('emits client command events while the session is bypassed', async () => {
 
 it('authors a local verdict for a single command of a bypassed session', async () => {
   const observed: SmtpServerLog = { commands: [], messages: [] }
-  await using server = await createTestServer(() => createSmtpServer(observed))
+  await using server = await createRawTestServer(() => createSmtpServer(observed))
 
   interceptor.on('session', async ({ client, server: realServer }) => {
     // A local verdict withholds the command from the real server
@@ -190,7 +190,7 @@ it('authors a local verdict for a single command of a bypassed session', async (
 
 it('passes sessions nobody listens to through raw', async () => {
   const observed: SmtpServerLog = { commands: [], messages: [] }
-  await using server = await createTestServer(() => createSmtpServer(observed))
+  await using server = await createRawTestServer(() => createSmtpServer(observed))
 
   // No "session" listeners at all: the connection is not intercepted.
   const transport = nodemailer.createTransport({
@@ -213,7 +213,7 @@ it('passes sessions nobody listens to through raw', async () => {
 
 it('falls back to mocking when the real server is unreachable', async () => {
   // Reserve a port with no server behind it.
-  const deadServer = await createTestServer(() => net.createServer())
+  const deadServer = await createRawTestServer(() => net.createServer())
   const deadPort = deadServer.port
   await deadServer[Symbol.asyncDispose]()
 

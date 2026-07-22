@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import * as constants from './llhttp/constants.js'
+import * as constants from './llhttp/constants.cjs'
 
 export { constants }
 

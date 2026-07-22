@@ -1,4 +1,3 @@
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { FetchResponse } from '@mswjs/interceptors'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 import { getTestServer } from '#/test/setup/vitest'
@@ -59,7 +58,7 @@ it.skipIf(!IS_BROWSER)('supports mocking non-configurable responses', async () =
     )
   })
 
-  const responsePromise = new DeferredPromise<Response>()
+  const responsePromise = Promise.withResolvers<Response>()
   interceptor.on('response', ({ response }) => {
     responsePromise.resolve(response)
   })
@@ -70,5 +69,5 @@ it.skipIf(!IS_BROWSER)('supports mocking non-configurable responses', async () =
   expect.soft(response.statusText).toBe('Switching Protocols')
 
   // Must expose the exact response in the listener.
-  await expect(responsePromise).resolves.toHaveProperty('status', 101)
+  await expect(responsePromise.promise).resolves.toHaveProperty('status', 101)
 })

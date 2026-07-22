@@ -3,17 +3,15 @@ import net from 'node:net'
 import zlib from 'node:zlib'
 import { Readable } from 'node:stream'
 import http from 'node:http'
-import { RequestHandler } from 'express'
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { MockedFunction } from 'node_modules/vitest/dist'
-import { FetchResponse } from '#/src/utils/fetchUtils'
+import type { MockedFunction } from 'vitest'
+import { FetchResponse } from '#/src/utils/fetch-utils'
 
 export const REQUEST_ID_REGEXP = /^\w{9,}$/
 
 export async function readBlob(
   blob: Blob
 ): Promise<string | ArrayBuffer | null> {
-  const pendingResult = new DeferredPromise<string | ArrayBuffer | null>()
+  const pendingResult = Promise.withResolvers<string | ArrayBuffer | null>()
 
   const reader = new FileReader()
   reader.addEventListener('loadend', () => {
@@ -23,15 +21,14 @@ export async function readBlob(
   reader.addEventListener('error', () => pendingResult.reject())
   reader.readAsText(blob)
 
-  return pendingResult
+  return pendingResult.promise
 }
 
 export async function toWebResponse(
   request: http.ClientRequest
 ): Promise<[Response, http.IncomingMessage]> {
-  const pendingResponse = new DeferredPromise<
-    [Response, http.IncomingMessage]
-  >()
+  const pendingResponse =
+    Promise.withResolvers<[Response, http.IncomingMessage]>()
 
   request
     .on('response', (response) => {
@@ -50,17 +47,7 @@ export async function toWebResponse(
     .on('error', (error) => pendingResponse.reject(error))
     .on('abort', () => pendingResponse.reject(new Error('Request aborted')))
 
-  return pendingResponse
-}
-
-export const useCors: RequestHandler = (_req, res, next) => {
-  res.set({
-    'access-control-allow-origin': '*',
-    'access-control-allow-headers': '*',
-    'access-control-allow-methods': '*',
-    'access-control-expose-headers': '*',
-  })
-  return next()
+  return pendingResponse.promise
 }
 
 /**
@@ -86,7 +73,13 @@ export function compressResponse(
   return output
 }
 
-export async function createTestServer<T extends net.Server>(
+/**
+ * Create a disposable raw `net.Server`/`tls.Server` for socket-level tests.
+ * HTTP(S) test servers live in `@epic-web/test-server` — this helper exists
+ * only for the servers that cannot be expressed as HTTP routes (half-open
+ * TCP sockets, non-TLS handshake targets, raw byte exchanges).
+ */
+export async function createRawTestServer<T extends net.Server>(
   createServer: () => T
 ): Promise<
   AsyncDisposable & {
@@ -103,13 +96,28 @@ export async function createTestServer<T extends net.Server>(
 > {
   const server = createServer()
 
-  const pendingListen = new DeferredPromise<void>()
+  /**
+   * Track open connections so disposal can destroy the survivors.
+   * `net.Server.close()` only calls back once every connection has
+   * closed, and tests legitimately leave half-open or unread sockets
+   * behind (the `net.Server` equivalent of `closeAllConnections()`).
+   */
+  const openConnections = new Set<net.Socket>()
+
+  server.on('connection', (socket) => {
+    openConnections.add(socket)
+    socket.once('close', () => {
+      openConnections.delete(socket)
+    })
+  })
+
+  const pendingListen = Promise.withResolvers<void>()
 
   server
     .listen(0, '127.0.0.1', () => pendingListen.resolve())
     .once('error', (error) => pendingListen.reject(error))
 
-  await pendingListen
+  await pendingListen.promise
 
   const rawAddress = server.address()
 
@@ -133,14 +141,21 @@ export async function createTestServer<T extends net.Server>(
 
   return {
     async [Symbol.asyncDispose]() {
-      const pendingClose = new DeferredPromise<void>()
+      const pendingClose = Promise.withResolvers<void>()
+
       server.close((error) => {
         if (error) {
-          return pendingClose.reject(error)
+          pendingClose.reject(error)
+        } else {
+          pendingClose.resolve()
         }
-
-        pendingClose.resolve()
       })
+
+      for (const socket of openConnections) {
+        socket.destroy()
+      }
+
+      await pendingClose.promise
     },
     instance: server,
     port: rawAddress.port,

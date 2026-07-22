@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -19,7 +19,7 @@ afterAll(() => {
 
 it('emits correct events for a passthrough connection', async () => {
   const serverConnectionListener = vi.fn()
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       serverConnectionListener(socket)
       socket.end()
@@ -49,7 +49,7 @@ it('emits correct events for a passthrough connection', async () => {
 })
 
 it('emits the "lookup" event when connecting to a hostname', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
@@ -78,7 +78,7 @@ it('emits the "lookup" event when connecting to a hostname', async () => {
 it('emits correct events for a refused connection', async () => {
   // Open a server to obtain a port, then close it
   // so connecting to that port is guaranteed to be refused.
-  const closedServer = await createTestServer(() => {
+  const closedServer = await createRawTestServer(() => {
     return new net.Server()
   })
   const refusedPort = closedServer.port
@@ -110,7 +110,7 @@ it('emits correct events for a refused connection', async () => {
 })
 
 it('emits events in the correct order when the client ends the connection', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
       socket.on('end', () => {
@@ -146,7 +146,7 @@ it('emits events in the correct order when the client ends the connection', asyn
 })
 
 it('emits events in the correct order when the server ends a paused connection', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.write('hello')
       socket.end()
@@ -184,7 +184,7 @@ it('emits events in the correct order when the server ends a paused connection',
 })
 
 it('emits "close" when destroying a paused connection with unread data', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       // The client destroys the connection with unread data,
       // making the kernel send RST to the server.
@@ -219,7 +219,7 @@ it('emits "close" when destroying a paused connection with unread data', async (
 })
 
 it('does not emit "timeout" during an active transfer', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       // Stream chunks with pauses shorter than the client's
       // idle timeout for a total duration exceeding that timeout.
@@ -255,7 +255,7 @@ it('does not emit "timeout" during an active transfer', async () => {
 })
 
 it('emits "timeout" when the socket goes idle after a transfer', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       // Respond once, then keep the connection open and silent.
       socket.write('hello')
@@ -278,7 +278,7 @@ it('emits "timeout" when the socket goes idle after a transfer', async () => {
 })
 
 it('emits "timeout" on an idle socket without destroying it', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
@@ -298,7 +298,7 @@ it('emits "timeout" on an idle socket without destroying it', async () => {
 })
 
 it('emits "drain" after a write that exceeded the write buffer', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
     })
@@ -318,7 +318,7 @@ it('emits "drain" after a write that exceeded the write buffer', async () => {
 })
 
 it('invokes the connection callback exactly once', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })

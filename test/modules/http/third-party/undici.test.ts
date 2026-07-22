@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { fetch, Pool, request } from 'undici'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { Interceptor } from '#/src/interceptor'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { SocketInterceptor } from '#/src/interceptors/net'
@@ -8,15 +11,17 @@ import { SocketController } from '#/src/interceptors/net/socket-controller'
 
 const interceptor = new HttpRequestInterceptor()
 const socketInterceptor = Interceptor.singleton(SocketInterceptor)
-const httpServer = new HttpServer((app) => {
-  app.get('/resource/*', (request, response) => {
-    response.status(200).send('original')
-  })
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource/*', () => {
+        return new Response('original')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -107,7 +112,7 @@ it('mocks an HTTPS request made with "request"', async () => {
 it('starts a subsequent request on a pooled connection as pending', async () => {
   const requestListener = vi.fn()
   const requestSocketStates: Array<number> = []
-  const pool = new Pool(httpServer.http.url(), {
+  const pool = new Pool(httpServer.http.url().href, {
     connections: 1,
   })
 

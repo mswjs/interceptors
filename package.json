@@ -1,83 +1,51 @@
 {
-  "type": "commonjs",
+  "type": "module",
   "name": "@mswjs/interceptors",
-  "description": "Low-level HTTP/HTTPS/XHR/fetch request interception library.",
-  "version": "0.41.9",
-  "main": "./lib/node/index.cjs",
-  "module": "./lib/node/index.mjs",
-  "types": "./lib/node/index.d.cts",
+  "description": "Low-level network interception library for Node.js.",
+  "version": "0.42.0",
+  "main": "./lib/node/index.js",
+  "types": "./lib/node/index.d.ts",
   "exports": {
     ".": {
-      "browser": "./lib/browser/index.mjs",
-      "node": {
-        "require": "./lib/node/index.cjs",
-        "import": "./lib/node/index.mjs"
-      },
-      "require": "./lib/node/index.cjs",
-      "import": "./lib/node/index.mjs",
-      "default": "./lib/node/index.cjs"
+      "browser": "./lib/browser/index.js",
+      "default": "./lib/node/index.js"
+    },
+    "./net": {
+      "browser": null,
+      "default": "./lib/node/interceptors/net/index.js"
     },
     "./http": {
-      "node": {
-        "require": "./lib/node/interceptors/http/index.cjs",
-        "import": "./lib/node/interceptors/http/index.mjs"
-      },
       "browser": null,
-      "require": "./lib/node/interceptors/http/index.cjs",
-      "import": "./lib/node/interceptors/http/index.mjs",
-      "default": "./lib/node/interceptors/http/index.cjs"
+      "default": "./lib/node/interceptors/http/index.js"
     },
     "./ClientRequest": {
-      "node": {
-        "require": "./lib/node/interceptors/ClientRequest/index.cjs",
-        "import": "./lib/node/interceptors/ClientRequest/index.mjs"
-      },
       "browser": null,
-      "require": "./lib/node/interceptors/ClientRequest/index.cjs",
-      "import": "./lib/node/interceptors/ClientRequest/index.mjs",
-      "default": "./lib/node/interceptors/ClientRequest/index.cjs"
+      "default": "./lib/node/interceptors/ClientRequest/index.js"
     },
     "./XMLHttpRequest": {
-      "browser": "./lib/browser/interceptors/XMLHttpRequest/web.mjs",
-      "require": "./lib/node/interceptors/XMLHttpRequest/node.cjs",
-      "import": "./lib/node/interceptors/XMLHttpRequest/node.mjs",
-      "default": "./lib/node/interceptors/XMLHttpRequest/node.cjs"
+      "browser": "./lib/browser/interceptors/XMLHttpRequest/web.js",
+      "default": "./lib/node/interceptors/XMLHttpRequest/node.js"
     },
-    "./XMLHttpRequest/node": {
-      "import": "./lib/node/interceptors/XMLHttpRequest/node.mjs",
-      "default": "./lib/node/interceptors/XMLHttpRequest/node.cjs"
-    },
-    "./XMLHttpRequest/web": "./lib/browser/interceptors/XMLHttpRequest/web.mjs",
+    "./XMLHttpRequest/node": "./lib/node/interceptors/XMLHttpRequest/node.js",
+    "./XMLHttpRequest/web": "./lib/browser/interceptors/XMLHttpRequest/web.js",
     "./fetch": {
-      "browser": "./lib/browser/interceptors/fetch/web.mjs",
-      "require": "./lib/node/interceptors/fetch/node.cjs",
-      "import": "./lib/node/interceptors/fetch/node.mjs",
-      "default": "./lib/node/interceptors/fetch/node.cjs"
+      "browser": "./lib/browser/interceptors/fetch/web.js",
+      "default": "./lib/node/interceptors/fetch/node.js"
     },
-    "./WebSocket": "./lib/browser/interceptors/WebSocket/index.mjs",
+    "./fetch/node": "./lib/node/interceptors/fetch/node.js",
+    "./fetch/web": "./lib/browser/interceptors/fetch/web.js",
+    "./WebSocket": "./lib/browser/interceptors/WebSocket/index.js",
     "./RemoteHttpInterceptor": {
-      "node": {
-        "require": "./lib/node/RemoteHttpInterceptor.cjs",
-        "import": "./lib/node/RemoteHttpInterceptor.mjs"
-      },
       "browser": null,
-      "require": "./lib/node/RemoteHttpInterceptor.cjs",
-      "import": "./lib/node/RemoteHttpInterceptor.mjs",
-      "default": "./lib/node/RemoteHttpInterceptor.cjs"
+      "default": "./lib/node/remote-http-interceptor.js"
     },
     "./presets/node": {
-      "node": {
-        "require": "./lib/node/presets/node.cjs",
-        "import": "./lib/node/presets/node.mjs"
-      },
       "browser": null,
-      "require": "./lib/node/presets/node.cjs",
-      "import": "./lib/node/presets/node.mjs",
-      "default": "./lib/node/presets/node.cjs"
+      "default": "./lib/node/presets/node.js"
     },
     "./presets/browser": {
-      "browser": "./lib/browser/presets/browser.mjs",
-      "node": null
+      "node": null,
+      "browser": "./lib/browser/presets/browser.js"
     }
   },
   "imports": {
@@ -86,13 +54,10 @@
   },
   "author": "Artem Zakharchenko",
   "license": "MIT",
-  "engines": {
-    "node": ">=22"
-  },
-  "packageManager": "pnpm@11.5.2",
   "scripts": {
     "start": "tsdown --watch",
     "test": "vitest",
+    "typecheck": "tsc --noEmit",
     "test:nock": "./test/third-party/nock.sh",
     "lint": "publint",
     "build": "tsdown",
@@ -101,45 +66,49 @@
   },
   "files": [
     "lib",
-    "README.md",
-    "src",
-    "ClientRequest",
-    "fetch",
-    "RemoteHttpInterceptor",
-    "XMLHttpRequest",
-    "WebSocket",
-    "presets"
+    "src"
   ],
   "repository": {
     "url": "https://github.com/mswjs/interceptors"
   },
+  "packageManager": "pnpm@11.5.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@open-draft/until": "^3.0.1",
+    "@types/debug": "^4.1.13",
+    "debug": "^4.4.3",
+    "is-node-process": "^1.2.0",
+    "outvariant": "^1.4.3",
+    "rettime": "^0.11.11"
+  },
   "devDependencies": {
-    "@commitlint/cli": "^19.7.1",
-    "@commitlint/config-conventional": "^19.7.1",
-    "@open-draft/test-server": "^0.5.1",
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
+    "@epic-web/test-server": "^0.1.6",
+    "@hono/node-server": "^1.19.14",
     "@ossjs/release": "^0.11.0",
-    "@types/cors": "^2.8.12",
-    "@types/express": "^5.0.0",
+    "@types/express": "^5.0.6",
     "@types/follow-redirects": "^1.14.1",
     "@types/node": "^22.13.9",
-    "@types/node-fetch": "2.6.12",
+    "@types/node-fetch": "2.6.13",
     "@types/nodemailer": "^8.0.1",
     "@types/superagent": "^8.1.9",
-    "@types/supertest": "^6.0.2",
+    "@types/supertest": "^7.2.1",
     "@types/ws": "^8.18.1",
     "@vitest/browser-playwright": "^4.1.10",
     "axios": "^1.18.1",
-    "body-parser": "^1.19.0",
     "commitizen": "^4.3.2",
-    "cors": "^2.8.6",
     "cz-conventional-changelog": "3.3.0",
     "engine.io-parser": "^5.2.1",
-    "express": "^4.21.2",
-    "express-rate-limit": "^7.5.0",
+    "express": "^5.2.1",
     "follow-redirects": "^1.15.1",
-    "got": "^14.4.6",
+    "got": "^15.1.0",
     "happy-dom": "^20.8.3",
-    "https-proxy-agent": "^7.0.6",
+    "hono": "^4.12.31",
+    "https-proxy-agent": "^9.1.0",
+    "jsdom": "^29.1.1",
     "node-fetch": "3.3.2",
     "nodemailer": "^9.0.3",
     "playwright": "^1.61.1",
@@ -151,23 +120,13 @@
     "socket.io-parser": "^4.2.6",
     "superagent": "^10.3.0",
     "supertest": "^7.2.2",
-    "tsdown": "^0.18.1",
-    "typescript": "^5.8.2",
-    "undici": "^7.22.0",
+    "tsdown": "^0.22.12",
+    "typescript": "^7.0.2",
+    "undici": "^8.8.0",
     "vitest": "^4.1.10",
     "vitest-environment-miniflare": "^2.14.4",
     "web-encoding": "^1.1.5",
     "ws": "^8.21.0"
-  },
-  "dependencies": {
-    "@open-draft/deferred-promise": "^2.2.0",
-    "@open-draft/until": "^2.0.0",
-    "@types/debug": "^4.1.13",
-    "debug": "^4.4.3",
-    "es-toolkit": "^1.49.0",
-    "is-node-process": "^1.2.0",
-    "outvariant": "^1.4.3",
-    "rettime": "^0.11.11"
   },
   "resolutions": {
     "memfs": "^3.4.13"

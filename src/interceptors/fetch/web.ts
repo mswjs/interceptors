@@ -1,16 +1,15 @@
 import { until } from '@open-draft/until'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { HttpResponseEvent, type HttpRequestEventMap } from '../../events/http'
-import { RequestController } from '../../RequestController'
-import { handleRequest } from '../../utils/handleRequest'
-import { createRequestId } from '../../createRequestId'
-import { createNetworkError } from './utils/createNetworkError'
-import { followFetchRedirect } from './utils/followRedirect'
+import { RequestController } from '../../request-controller'
+import { handleRequest } from '../../utils/handle-request'
+import { createRequestId } from '../../create-request-id'
+import { createNetworkError } from './utils/create-network-error'
+import { followFetchRedirect } from './utils/follow-redirect'
 import { decompressResponse } from './utils/decompression'
-import { hasConfigurableGlobal } from '../../utils/hasConfigurableGlobal'
-import { FetchResponse } from '../../utils/fetchUtils'
-import { isResponseError } from '../../utils/responseUtils'
-import { patchesRegistry } from '../../utils/patchesRegistry'
+import { hasConfigurableGlobal } from '../../utils/has-configurable-global'
+import { FetchResponse } from '../../utils/fetch-utils'
+import { isResponseError } from '../../utils/response-utils'
+import { patchesRegistry } from '../../utils/patches-registry'
 import { copyRawHeaders } from '../ClientRequest/utils/record-raw-headers'
 import { Interceptor } from '../../interceptor'
 import { createLogger } from '../../utils/logger'
@@ -50,7 +49,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const request = new Request(resolvedInput, init)
 
-          const responsePromise = new DeferredPromise<Response>()
+          const responsePromise = Promise.withResolvers<Response>()
 
           const controller = new RequestController(
             request,
@@ -67,8 +66,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 const requestCloneForResponseEvent = request.clone()
 
                 // Perform the intercepted request as-is.
-                const { error: responseError, data: originalResponse } =
-                  await until(() => realFetch(request))
+                const [responseError, originalResponse] = await until(() =>
+                  realFetch(request)
+                )
 
                 if (responseError) {
                   return responsePromise.reject(responseError)
@@ -188,6 +188,16 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             this.emitter.listenerCount('request')
           )
 
+          /**
+           * @note Give the consumer a chance to abort the request before
+           * it is dispatched. Fetch queues the request processing as a
+           * task, so a signal aborted synchronously after `fetch()` must
+           * prevent the request from ever reaching the "request" listeners.
+           * Without this, the first listener is invoked synchronously
+           * within the `fetch()` call itself.
+           */
+          await Promise.resolve()
+
           await handleRequest({
             initiator: request,
             request,
@@ -197,7 +207,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
             logger,
           })
 
-          return responsePromise
+          return responsePromise.promise
         }
       })
     )

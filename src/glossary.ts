@@ -1,4 +1,4 @@
-import type { RequestController } from './RequestController'
+import type { RequestController } from './request-controller'
 
 /**
  * @note Export `RequestController` as a type only.

@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'child_process'
-import { RemoteHttpResolver } from '#/src/RemoteHttpInterceptor'
+import { RemoteHttpResolver } from '#/src/remote-http-interceptor'
 
 const CHILD_PATH = fileURLToPath(new URL('./child.js', import.meta.url))
 

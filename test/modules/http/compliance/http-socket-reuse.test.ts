@@ -1,24 +1,30 @@
 // @vitest-environment node
 import https from 'node:https'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource/*', (req, res) => {
-    res.status(200).send('original')
-  })
-  app.post('/resource/*', (req, res) => {
-    res.status(200)
-    req.pipe(res)
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+    defineRoutes(router) {
+      router.get('/resource/*', () => {
+        return new Response('original')
+      })
+      router.post('/resource/*', async (ctx) => {
+        const requestBody = await ctx.req.text()
+        return new Response(requestBody)
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -43,7 +49,7 @@ it('allows reusing the same socket for mixed mocked/bypassed requests', async ()
   })
 
   {
-    const request = https.get(httpServer.https.url('/resource/one'), {
+    const request = https.get(httpServer.https.url('/resource/one').href, {
       rejectUnauthorized: false,
     })
     const [response] = await toWebResponse(request)
@@ -57,7 +63,7 @@ it('allows reusing the same socket for mixed mocked/bypassed requests', async ()
      * @note Performing a request to the same host with the same options
      * will trigger https.Agent to reuse the socket created for the first request.
      */
-    const request = https.get(httpServer.https.url('/mock'), {
+    const request = https.get(httpServer.https.url('/mock').href, {
       rejectUnauthorized: false,
     })
     const [response] = await toWebResponse(request)
@@ -73,7 +79,7 @@ it('allows reusing the same socket for multiple mocked requests', async () => {
   })
 
   {
-    const request = https.get(httpServer.https.url('/mock'), {
+    const request = https.get(httpServer.https.url('/mock').href, {
       rejectUnauthorized: false,
     })
     const [response] = await toWebResponse(request)
@@ -83,7 +89,7 @@ it('allows reusing the same socket for multiple mocked requests', async () => {
   }
 
   {
-    const request = https.get(httpServer.https.url('/mock'), {
+    const request = https.get(httpServer.https.url('/mock').href, {
       rejectUnauthorized: false,
     })
     const [response] = await toWebResponse(request)
@@ -101,7 +107,7 @@ it('allows reusing the same socket for multiple bypassed requests', async () => 
   })
 
   {
-    const request = https.get(httpServer.https.url('/resource/one'), {
+    const request = https.get(httpServer.https.url('/resource/one').href, {
       rejectUnauthorized: false,
     })
     const [response] = await toWebResponse(request)
@@ -111,13 +117,13 @@ it('allows reusing the same socket for multiple bypassed requests', async () => 
     expect(requestListener).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         method: 'GET',
-        url: httpServer.https.url('/resource/one'),
+        url: httpServer.https.url('/resource/one').href,
       })
     )
   }
 
   {
-    const request = https.request(httpServer.https.url('/resource/two'), {
+    const request = https.request(httpServer.https.url('/resource/two').href, {
       rejectUnauthorized: false,
       headers: { 'content-length': '6' },
     })
@@ -132,7 +138,7 @@ it('allows reusing the same socket for multiple bypassed requests', async () => 
       2,
       expect.objectContaining({
         method: 'GET',
-        url: httpServer.https.url('/resource/two'),
+        url: httpServer.https.url('/resource/two').href,
       })
     )
   }
@@ -146,7 +152,7 @@ it('allows reusing the same socket for multiple bypassed requests with a body', 
   })
 
   {
-    const request = https.request(httpServer.https.url('/resource/one'), {
+    const request = https.request(httpServer.https.url('/resource/one').href, {
       method: 'POST',
       headers: { 'content-type': 'text/plain' },
       rejectUnauthorized: false,
@@ -161,7 +167,7 @@ it('allows reusing the same socket for multiple bypassed requests with a body', 
   }
 
   {
-    const request = https.request(httpServer.https.url('/resource/two'), {
+    const request = https.request(httpServer.https.url('/resource/two').href, {
       method: 'POST',
       rejectUnauthorized: false,
     })
@@ -185,7 +191,7 @@ it('intercepts a request after interceptor.apply(), even if it reuse a socket cr
   })
 
   {
-    const request = https.get(httpServer.https.url('/resource/one'), {
+    const request = https.get(httpServer.https.url('/resource/one').href, {
       rejectUnauthorized: false,
     })
     const [response] = await toWebResponse(request)
@@ -199,7 +205,7 @@ it('intercepts a request after interceptor.apply(), even if it reuse a socket cr
   interceptor.apply()
 
   {
-    const request = https.get(httpServer.https.url('/resource/one'), {
+    const request = https.get(httpServer.https.url('/resource/one').href, {
       rejectUnauthorized: false,
     })
     const [response] = await toWebResponse(request)

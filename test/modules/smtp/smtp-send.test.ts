@@ -2,7 +2,7 @@
 import net from 'node:net'
 import nodemailer from 'nodemailer'
 import { SmtpInterceptor } from '#/src/interceptors/smtp'
-import { createTestServer } from '#/test/helpers'
+import { createRawTestServer } from '#/test/helpers'
 
 const interceptor = new SmtpInterceptor()
 
@@ -93,7 +93,7 @@ function createSmtpServer(observed: SmtpServerLog): net.Server {
 
 it('performs a real delivery from a mocked session via "server.send()"', async () => {
   const observed: SmtpServerLog = { commands: [], messages: [], connections: 0 }
-  await using server = await createTestServer(() => createSmtpServer(observed))
+  await using server = await createRawTestServer(() => createSmtpServer(observed))
 
   interceptor.on('session', ({ client, server: realServer }) => {
     // The session stays mocked: the mock greets, authenticates, and
@@ -139,7 +139,7 @@ it('performs a real delivery from a mocked session via "server.send()"', async (
 
 it('reuses the real connection across the transactions of a session', async () => {
   const observed: SmtpServerLog = { commands: [], messages: [], connections: 0 }
-  await using server = await createTestServer(() => createSmtpServer(observed))
+  await using server = await createRawTestServer(() => createSmtpServer(observed))
 
   interceptor.on('session', ({ client, server: realServer }) => {
     client.on('message', async (event) => {
@@ -182,7 +182,7 @@ it('reuses the real connection across the transactions of a session', async () =
 
 it('rejects "server.send()" when the real server is unreachable', async () => {
   // Reserve a port with no server behind it.
-  const deadServer = await createTestServer(() => net.createServer())
+  const deadServer = await createRawTestServer(() => net.createServer())
   const deadPort = deadServer.port
   await deadServer[Symbol.asyncDispose]()
 

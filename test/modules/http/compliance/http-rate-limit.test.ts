@@ -1,30 +1,12 @@
 // @vitest-environment node
 import http from 'node:http'
-import rateLimit from 'express-rate-limit'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const httpServer = new HttpServer((app) => {
-  app.use(
-    // @ts-expect-error Old express type definitions.
-    rateLimit({
-      limit: 5,
-      windowMs: 100,
-      handler(request, response, next, options) {
-        // @ts-expect-error
-        if (request.rateLimit.used === request.rateLimit.limit + 1) {
-          console.warn('RATE LIMIT REACHED!')
-          return handleLimitReached()
-        }
-        response.status(options.statusCode).send(options.message)
-      },
-    })
-  )
-
-  app.get('/', (req, res) => {
-    res.send('ok')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', ({ request, controller }) => {
@@ -43,7 +25,45 @@ const handleLimitReached = vi.fn()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      // A hand-rolled rate limiter: allow 5 requests per 100ms window,
+      // then respond with 429 (mirrors the previous "express-rate-limit" setup).
+      const rateLimitWindowMs = 100
+      const rateLimitMax = 5
+      let requestsInWindow = 0
+      let windowStartedAt = Date.now()
+
+      /**
+       * @note Serve a dedicated path: the test server registers its own
+       * "GET /" route before these routes, and route registration order
+       * wins in Hono, so the root path cannot be overridden.
+       */
+      router.get('/resource', () => {
+        const now = Date.now()
+
+        if (now - windowStartedAt > rateLimitWindowMs) {
+          windowStartedAt = now
+          requestsInWindow = 0
+        }
+
+        requestsInWindow += 1
+
+        if (requestsInWindow > rateLimitMax) {
+          if (requestsInWindow === rateLimitMax + 1) {
+            console.warn('RATE LIMIT REACHED!')
+            handleLimitReached()
+          }
+
+          return new Response('Too many requests, please try again later.', {
+            status: 429,
+          })
+        }
+
+        return new Response('ok')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -62,7 +82,7 @@ it('does not reach the rate preforming more mocked requests than allowed', async
   for (let i = 0; i < 100; i++) {
     requests.push(
       new Promise((resolve, reject) => {
-        const req = http.get(httpServer.http.url('/?mock=true'))
+        const req = http.get(httpServer.http.url('/resource?mock=true').href)
         req.on('abort', reject)
         req.on('error', reject)
         req.on('response', resolve)
@@ -84,7 +104,7 @@ it('does not reach the rate limiting performing allowed number of bypassed reque
   for (let i = 0; i < 5; i++) {
     requests.push(
       new Promise((resolve, reject) => {
-        const req = http.get(httpServer.http.url('/'))
+        const req = http.get(httpServer.http.url('/resource').href)
         req.on('abort', reject)
         req.on('error', reject)
         req.on('response', resolve)

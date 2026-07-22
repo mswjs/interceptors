@@ -1,18 +1,25 @@
 // @vitest-environment node
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => res.send('original'))
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('original')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -25,7 +32,7 @@ afterAll(async () => {
 })
 
 it('intercepts an HTTP request that ends after the socket has connected', async () => {
-  const request = http.request(httpServer.http.url('/resource'))
+  const request = http.request(httpServer.http.url('/resource').href)
   request.on('socket', (socket) => {
     socket.on('connect', () => request.end())
   })
@@ -41,7 +48,7 @@ it('mocks an HTTP request that ends after the socket has connected', async () =>
     controller.respondWith(new Response('hello world'))
   })
 
-  const request = http.request(httpServer.http.url('/mocked'), {
+  const request = http.request(httpServer.http.url('/mocked').href, {
     /**
      * Force no Agent so the opened socket from the previous test doesn't
      * get reused for this one. When Node.js reuses a socket, it never emits

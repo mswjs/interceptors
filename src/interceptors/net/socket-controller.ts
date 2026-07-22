@@ -1,12 +1,12 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import { invariant } from 'outvariant'
-import { DeferredPromise } from '@open-draft/deferred-promise'
-import { toBuffer } from '../../utils/bufferUtils'
+import { toBuffer } from '../../utils/buffer-utils'
 import { createLogger } from '../../utils/logger'
-import { unwrapPendingData } from './utils/flush-writes'
+import { unwrapPendingData, writePendingData } from './utils/flush-writes'
 import { NetworkConnectionOptions } from './utils/normalize-net-connect-args'
 import { TlsConnectionOptions } from './utils/normalize-tls-connect-args'
+import { getTlsConnectOptions } from './utils/get-tls-connect-options'
 import {
   getAddressInfoByConnectionOptions,
   getLocalAddressInfoByConnectionOptions,
@@ -56,6 +56,7 @@ declare module 'node:tls' {
       onhandshakedone: () => void
       onnewsession: (sessionId: unknown, session: Buffer) => void
       getSession: () => Buffer
+      isSessionReused: () => boolean
       getServername: () => string
       getALPNNegotiatedProtocol: () => string | false
       getCipher: () => { name: string; standardName: string; version: string }
@@ -415,7 +416,7 @@ type CorkedReadEvent =
 export class TcpSocketController extends SocketController {
   public serverSocket: net.Socket
 
-  protected pendingConnection: DeferredPromise<[TcpWrap, TcpHandle]>
+  protected pendingConnection: PromiseWithResolvers<[TcpWrap, TcpHandle]>
 
   #connectionOptions?: NetworkConnectionOptions
   #realWriteGeneric: net.Socket['_writeGeneric']
@@ -423,11 +424,11 @@ export class TcpSocketController extends SocketController {
   #bufferedWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
   #readsCorked = false
   #corkedReads: Array<CorkedReadEvent> = []
-  #onPassthroughRead?: (chunk: Buffer) => void
   #realHandleSwapped = false
   #clientCloseEmitted = false
   #clientEndPushed = false
   #connectEmulated = false
+  #onPassthroughRead?: (chunk: Buffer) => void
 
   constructor(
     protected readonly socket: net.Socket,
@@ -438,9 +439,9 @@ export class TcpSocketController extends SocketController {
 
     /**
      * @note Plain TCP sockets capture the connection options from the
-     * "socket.connect()" proxy below. TLS sockets connect before this
-     * controller is constructed, so their options must be provided
-     * explicitly (see "TlsSocketController").
+     * "socket.connect()" proxy below. TLS sockets carry additional
+     * TLS-level options that never pass through "socket.connect()",
+     * so those are provided explicitly (see "TlsSocketController").
      */
     this.#connectionOptions = connectionOptions
 
@@ -456,9 +457,14 @@ export class TcpSocketController extends SocketController {
       this.#passthroughSocket?.resume()
     }
 
-    // Store the unpatched write method once so we have access to it between socket state resets.
+    // Store the unpatched write method so passthrough writes can
+    // delegate to it once the socket receives the real handle.
     this.#realWriteGeneric = this.socket._writeGeneric
     this.#bufferedWrites = []
+
+    this.socket._writeGeneric = (...args) => {
+      this.#handleWrite(args)
+    }
 
     this.socket.connect = new Proxy(this.socket.connect, {
       apply: (target, thisArg, args) => {
@@ -490,13 +496,13 @@ export class TcpSocketController extends SocketController {
      * @note A single socket can be reused for connections to the same host.
      * When one connection ends, the Agent frees the socket, then uses it
      * to write the next request's HTTP message immediately. Use the "free"
-     * event to transition the controller into the pending state so "_writeGeneric"
-     * would behave correctly.
+     * event to transition the controller into the pending state so the
+     * next exchange is handled anew.
      */
     socket
       .on('free', () => {
         logger.verbose('client socket freed!')
-        this.#reset()
+        this.reset()
       })
       .on('close', () => {
         logger.verbose('client socket closed!')
@@ -518,7 +524,7 @@ export class TcpSocketController extends SocketController {
 
     this.serverSocket = toServerSocket(this.socket)
 
-    this.pendingConnection = new DeferredPromise()
+    this.pendingConnection = Promise.withResolvers()
     this.#reset()
   }
 
@@ -529,6 +535,16 @@ export class TcpSocketController extends SocketController {
    * don't emit the "free" event on the socket (e.g. Undici).
    */
   public reset(): void {
+    /**
+     * @note Only settled (claimed or passed-through) sockets need a reset.
+     * Resetting a pending socket again would discard the writes already
+     * buffered for the next exchange (e.g. the Agent "free" event firing
+     * after the parser has reset this controller at a message boundary).
+     */
+    if (this.readyState === SocketController.PENDING) {
+      return
+    }
+
     this.#reset()
   }
 
@@ -536,7 +552,7 @@ export class TcpSocketController extends SocketController {
     logger.verbose('resetting the socket...')
 
     this.readyState = SocketController.PENDING
-    this.pendingConnection = new DeferredPromise()
+    this.pendingConnection = Promise.withResolvers()
     this.#bufferedWrites = []
     this.#connectEmulated = false
 
@@ -546,7 +562,7 @@ export class TcpSocketController extends SocketController {
     this.socket._pendingEncoding = ''
 
     const wrapHandle = (handle: TcpHandle) => {
-      this.pendingConnection.then(() => {
+      this.pendingConnection.promise.then(() => {
         logger.verbose('connection request resolved!', this.readyState)
 
         process.nextTick(() => {
@@ -596,22 +612,28 @@ export class TcpSocketController extends SocketController {
         wrapHandle(this.socket._handle)
       })
     }
+  }
 
-    this.socket._writeGeneric = (...args) => {
-      const data = args[1]
-      const callback = args[3]
+  /**
+   * Handle a write performed on the client socket. Installed once as
+   * "_writeGeneric", this is the single write path for every controller
+   * state, dispatching on "readyState".
+   */
+  #handleWrite(args: Parameters<net.Socket['_writeGeneric']>): void {
+    const data = args[1]
 
-      logger.verbose('socket write (state: %d) %o', this.readyState, args)
+    logger.verbose('socket write (state: %d) %o', this.readyState, args)
 
-      /**
-       * @note Buffer the write BEFORE pushing data to the server socket.
-       * `#push` triggers the 'data' event on the server socket synchronously,
-       * which may lead to `passthrough()` being called within the same call stack.
-       * If we buffer after `#push`, passthrough will read an empty `#bufferedWrites`
-       * and the request data will never be flushed to the real socket.
-       */
-      this.#bufferedWrites.push(args)
+    /**
+     * @note Buffer the write BEFORE pushing the data to the server socket.
+     * Handling the pushed data may transition this controller within the
+     * same call stack, and each transition settles the buffered entry:
+     * "passthrough()" flushes it to the real socket, "claim()" drops it,
+     * and a reset at an HTTP message boundary keeps it for the next exchange.
+     */
+    this.#bufferedWrites.push(args)
 
+    if (this.readyState === SocketController.PENDING) {
       /**
        * @note Reflect the buffered write in "_pendingData" so it counts
        * toward "bytesWritten", the same way Node.js counts the pending
@@ -629,48 +651,104 @@ export class TcpSocketController extends SocketController {
       this.socket._pendingData = pendingData
 
       // The server socket will NEVER have any "data" listeners attached
-      // becuase the "connection" interceptor event emits on the next tick.
+      // on the first write because the "connection" interceptor event
+      // emits on the next tick.
       if (this.socket.listenerCount('internal:write') === 0) {
         logger.verbose(
           'no server data listeners, scheduling to the next tick...'
         )
 
         process.nextTick(() => {
-          logger.verbose(
-            'forwarding scheduled write to server socket (state: %d) %o',
-            this.readyState,
-            data
-          )
           this.#push(data)
         })
       } else {
-        logger.verbose(
-          'pushing to server data listeners (state: %d)',
-          this.readyState
-        )
         this.#push(data)
       }
+    } else {
+      this.#push(data)
+    }
 
-      /**
-       * @note Only skip the callback if the socket transitioned to PASSTHROUGH.
-       * In the passthrough case, `#push` triggered `passthrough()` synchronously
-       * and the buffered write was already flushed to the real socket with the
-       * original callback. Calling it again would result in "Callback called
-       * multiple times" error.
-       *
-       * For CLAIMED state, `#push` may have triggered `claim()` synchronously
-       * (e.g. the handler responded with a mocked response). In that case,
-       * the callback was NOT flushed anywhere and must still be called here
-       * so the socket's writable state completes properly (enabling "finish").
-       */
-      if (
-        typeof callback === 'function' &&
-        this.readyState !== SocketController.PASSTHROUGH
-      ) {
-        callback()
-        args[3] = function mockNoop() {}
+    /**
+     * Dispatch on the state observed AFTER the push since handling the
+     * pushed data may have transitioned this controller synchronously.
+     */
+    switch (this.readyState) {
+      case SocketController.PENDING: {
+        /**
+         * @note The write either awaits the verdict on this exchange or,
+         * if the push reset this controller at a message boundary, opens
+         * the next exchange (the reset cleared the buffer; re-buffer it).
+         */
+        if (!this.#bufferedWrites.includes(args)) {
+          this.#bufferedWrites.push(args)
+        }
+
+        this.#acknowledgeWrite(args)
+        return
+      }
+
+      case SocketController.CLAIMED: {
+        /**
+         * @note Once claimed, there's nowhere else to write chunks to.
+         * The data was delivered to the server socket; complete the write
+         * so the socket's writable state settles (enabling "finish").
+         */
+        this.#removeBufferedWrite(args)
+        this.#acknowledgeWrite(args)
+        return
+      }
+
+      case SocketController.PASSTHROUGH: {
+        /**
+         * @note A synchronous "passthrough()" has already flushed this
+         * write (with its callback) to the real socket.
+         */
+        if (!this.#removeBufferedWrite(args)) {
+          return
+        }
+
+        /**
+         * @note Until the handle swap, the client socket's own handle
+         * cannot carry any data (it never actually connects). Write
+         * directly to the passthrough socket instead. This also prevents
+         * the "connecting" write replay of `Socket.prototype._writeGeneric`
+         * from pushing the same data to the server socket twice.
+         */
+        if (!this.#realHandleSwapped && this.#passthroughSocket) {
+          writePendingData(this.#passthroughSocket, data, args[2], args[3])
+          return
+        }
+
+        this.#realWriteGeneric.apply(this.socket, args)
       }
     }
+  }
+
+  /**
+   * Complete the given write by invoking its callback. The callback is
+   * then removed from the write entry so flushing that entry later
+   * (e.g. on passthrough) does not invoke it twice.
+   */
+  #acknowledgeWrite(args: Parameters<net.Socket['_writeGeneric']>): void {
+    const callback = args[3]
+
+    if (typeof callback === 'function') {
+      callback()
+      args[3] = undefined
+    }
+  }
+
+  #removeBufferedWrite(
+    args: Parameters<net.Socket['_writeGeneric']>
+  ): boolean {
+    const index = this.#bufferedWrites.indexOf(args)
+
+    if (index === -1) {
+      return false
+    }
+
+    this.#bufferedWrites.splice(index, 1)
+    return true
   }
 
   protected emulateConnect() {
@@ -957,12 +1035,8 @@ export class TcpSocketController extends SocketController {
   }
 
   /**
-   * Create a new, independent connection to the same destination,
-   * bypassing the interception. Unlike `passthrough()`, this does not
-   * consume the intercepted socket: the client socket stays as-is
-   * (e.g. claimed) while the returned socket dials the original
-   * destination with the original options. The caller owns the
-   * returned socket entirely (its lifecycle, errors, and teardown).
+   * Create a real connection with the original connection options.
+   * The returned socket is exempt from interception.
    */
   public createRealConnection(): net.Socket {
     const realSocket = this.createConnection()
@@ -1037,6 +1111,16 @@ export class TcpSocketController extends SocketController {
     super.claim()
 
     /**
+     * @note The client may destroy the socket before the connection
+     * is claimed (e.g. abort a request in-flight). There is no
+     * connection to mock then, and the destroyed socket has no handle.
+     */
+    if (this.socket.destroyed) {
+      logger.verbose('socket already destroyed, skipping claim...')
+      return
+    }
+
+    /**
      * @note Skip already connected sockets (e.g. kept-alive sockets
      * reused for the next exchange). Sockets with an emulated "connect"
      * only appear connected and must still complete the mock connection.
@@ -1084,30 +1168,7 @@ export class TcpSocketController extends SocketController {
     this.socket._pendingData = null
     this.socket._pendingEncoding = ''
 
-    /**
-     * @note Once claimed, there's nowhere to write chunks to.
-     * Just forward the writes to the server socket and invoke callbacks.
-     * Attempting to write past this point will result in the "Error: write EBADF".
-     */
-    this.socket._writeGeneric = (...args) => {
-      logger.verbose('socket write (state: %d) %o', this.readyState, args)
-
-      const data = args[1]
-      const callback = args[3]
-
-      this.#push(data)
-
-      if (typeof callback === 'function') {
-        logger.verbose(
-          'invoking write callback (state: %d) %o',
-          this.readyState,
-          { data, callback }
-        )
-        callback()
-      }
-    }
-
-    this.pendingConnection.then(([request, handle]) => {
+    this.pendingConnection.promise.then(([request, handle]) => {
       logger.verbose('connection request resolved, mocking the connection...')
 
       /**
@@ -1180,54 +1241,13 @@ export class TcpSocketController extends SocketController {
         })
       }
 
-      realSocket._writeGeneric.apply(realSocket, pendingWrite)
+      const [, data, encoding, callback] = pendingWrite
+      writePendingData(realSocket, data, encoding, callback)
     }
 
     this.#bufferedWrites = []
     this.socket._pendingData = null
     this.socket._pendingEncoding = ''
-
-    this.socket._writeGeneric = (...args) => {
-      logger.verbose('socket write (state: %d) %o', this.readyState, args)
-
-      this.#push(args[1])
-
-      /**
-       * @note The controller may be reset synchronously while the pushed
-       * data is being parsed (e.g. a new request written to a kept-alive,
-       * passed-through socket). In that case, buffer this write instead of
-       * forwarding it so it's flushed once the new exchange is handled.
-       */
-      if (this.readyState !== SocketController.PASSTHROUGH) {
-        this.#bufferedWrites.push(args)
-
-        const callback = args[3]
-
-        if (typeof callback === 'function') {
-          callback()
-          args[3] = function mockNoop() {}
-        }
-
-        return
-      }
-
-      /**
-       * @note Until the handle swap, the client socket's own handle
-       * cannot carry any data (it never actually connects). Write
-       * directly to the passthrough socket instead, the same way the
-       * buffered writes are flushed in `passthrough()`. This also
-       * prevents the "connecting" write replay of `Socket.prototype._writeGeneric`
-       * from pushing the same data to the server socket twice.
-       */
-      if (!this.#realHandleSwapped && this.#passthroughSocket) {
-        return this.#passthroughSocket._writeGeneric.apply(
-          this.#passthroughSocket,
-          args
-        )
-      }
-
-      return this.#realWriteGeneric.apply(this.socket, args)
-    }
 
     this.socket.address = realSocket.address.bind(realSocket)
 
@@ -1269,8 +1289,8 @@ export class TlsSocketController extends TcpSocketController {
   /**
    * @note The TLS connection options must be provided explicitly.
    * They cannot be captured from "socket.connect()" like for plain
-   * TCP sockets because "tls.connect()" connects the socket before
-   * this controller is constructed.
+   * TCP sockets because "tls.connect()" fixes them at the TLS socket
+   * construction, before its transport ever connects.
    */
   #tlsConnectionOptions?: TlsConnectionOptions
 
@@ -1307,10 +1327,20 @@ export class TlsSocketController extends TcpSocketController {
 
   public claim(): void {
     /**
+     * @note The client may destroy the socket before the connection
+     * is claimed. Defer to the parent class, which transitions the
+     * ready state and skips the mock connection of destroyed sockets.
+     */
+    if (this.socket.destroyed) {
+      super.claim()
+      return
+    }
+
+    /**
      * @note Reflect that the mocked connection is not authorized.
      * There is no real peer certificate to verify. The identity check
      * itself is skipped for claimed connections (see the
-     * "checkServerIdentity" option in the "tls.connect" patch).
+     * "isSessionReused" mock below).
      */
     this.socket.prependOnceListener('secureConnect', () => {
       Reflect.set(this.socket, 'authorized', false)
@@ -1336,6 +1366,24 @@ export class TlsSocketController extends TcpSocketController {
 
     handle.getSession = () => {
       return Buffer.from('mocked session')
+    }
+
+    /**
+     * @note Skip the server identity check for this mocked connection.
+     * Node.js runs "options.checkServerIdentity" in "onConnectSecure"
+     * against the peer certificate, and a mocked connection has no
+     * real peer certificate — the caller's (or the default) validation
+     * would fail and destroy the socket. The check is overridden on the
+     * socket's internal connect options since the emulated handshake
+     * still completes through the regular "onConnectSecure" path.
+     * @see https://github.com/nodejs/node/blob/3178a762d6a2b1a37b74f02266eea0f3d86603f1/lib/_tls_wrap.js#L1621
+     */
+    const realTlsConnectOptions = getTlsConnectOptions(this.socket)
+
+    if (realTlsConnectOptions) {
+      realTlsConnectOptions.checkServerIdentity = () => {
+        return undefined
+      }
     }
 
     handle.getCipher = () => {

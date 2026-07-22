@@ -5,7 +5,7 @@ import { createRequire } from 'node:module'
 import nodemailer from 'nodemailer'
 import { Resend } from 'resend'
 import { SmtpInterceptor } from '#/src/interceptors/smtp'
-import { createTestServer } from '#/test/helpers'
+import { createRawTestServer } from '#/test/helpers'
 
 /**
  * Resend offers two transports for sending emails:
@@ -157,7 +157,7 @@ function createResendSmtpServer(deliveredMessages: Array<string>): net.Server {
 }
 
 it('passes through emails sent via the Resend REST API', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return http.createServer((request, response) => {
       response.writeHead(200, {
         'content-type': 'application/json',
@@ -260,7 +260,7 @@ it('mocks an email sent through the Resend SMTP relay', async () => {
 it('observes the delivery through the Resend SMTP relay on passthrough', async () => {
   const deliveredMessages: Array<string> = []
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return createResendSmtpServer(deliveredMessages)
   })
 
@@ -332,7 +332,7 @@ it('observes the delivery through the Resend SMTP relay on passthrough', async (
 it('surgically overrides the relay reply on passthrough', async () => {
   const deliveredMessages: Array<string> = []
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return createResendSmtpServer(deliveredMessages)
   })
 

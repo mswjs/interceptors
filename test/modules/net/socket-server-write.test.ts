@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -60,7 +60,7 @@ it('writes and immediately ends a claimed socket', async () => {
 })
 
 it('writes to a passthrough socket from the interceptor', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.write('hello from server')
       socket.end()
@@ -88,7 +88,7 @@ it('writes to a passthrough socket from the interceptor', async () => {
 })
 
 it('writes and immediately ends a passthrough socket', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.write('hello from server')
       socket.end()

@@ -18,7 +18,7 @@ export default defineConfig({
           name: 'unit',
           include: ['src/**/*.test.ts'],
         },
-        esbuild: {
+        oxc: {
           target: 'es2022',
         },
       },

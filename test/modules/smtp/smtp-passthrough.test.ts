@@ -2,7 +2,7 @@
 import net from 'node:net'
 import nodemailer from 'nodemailer'
 import { SmtpInterceptor } from '#/src/interceptors/smtp'
-import { createTestServer } from '#/test/helpers'
+import { createRawTestServer } from '#/test/helpers'
 
 const interceptor = new SmtpInterceptor()
 
@@ -84,7 +84,7 @@ function createSmtpServer(): net.Server {
 }
 
 it('observes the real server delivery outcome on passthrough', async () => {
-  await using server = await createTestServer(createSmtpServer)
+  await using server = await createRawTestServer(createSmtpServer)
 
   const observedEvents: Array<string> = []
   let observedMessageCode = 0
@@ -155,7 +155,7 @@ it('observes the real server delivery outcome on passthrough', async () => {
 })
 
 it('observes the real per-recipient verdicts of a partial delivery', async () => {
-  await using server = await createTestServer(createSmtpServer)
+  await using server = await createRawTestServer(createSmtpServer)
 
   const observedRecipients: Array<{ address: string; code: number }> = []
 
@@ -194,7 +194,7 @@ it('observes the real per-recipient verdicts of a partial delivery', async () =>
 })
 
 it('withholds a real reply and substitutes it through the controller', async () => {
-  await using server = await createTestServer(createSmtpServer)
+  await using server = await createRawTestServer(createSmtpServer)
 
   interceptor.on('session', async ({ client, server }) => {
     server.on('message', (event) => {
@@ -235,7 +235,7 @@ it('withholds a real reply and substitutes it through the controller', async () 
 })
 
 it('abruptly terminates the connection via the real server', async () => {
-  await using server = await createTestServer(createSmtpServer)
+  await using server = await createRawTestServer(createSmtpServer)
 
   interceptor.on('session', async ({ server }) => {
     // Kill the upstream connection the moment the real server greets.
@@ -271,7 +271,7 @@ it('abruptly terminates the connection via the real server', async () => {
 })
 
 it('gracefully closes the connection via the real server', async () => {
-  await using server = await createTestServer(createSmtpServer)
+  await using server = await createRawTestServer(createSmtpServer)
 
   interceptor.on('session', async ({ server }) => {
     // Close the upstream connection right after the greeting.

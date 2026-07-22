@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -37,7 +37,7 @@ function createUnrefedServer(): net.Server {
 }
 
 it('returns the socket from "ref()" and "unref()"', async () => {
-  await using server = await createTestServer(createUnrefedServer)
+  await using server = await createRawTestServer(createUnrefedServer)
 
   const socket = net.connect(server.port, server.hostname)
 
@@ -48,7 +48,7 @@ it('returns the socket from "ref()" and "unref()"', async () => {
 })
 
 it('does not hold the process once "unref()" is called', async () => {
-  await using server = await createTestServer(createUnrefedServer)
+  await using server = await createRawTestServer(createUnrefedServer)
 
   // Wait for the sockets from the previous tests to fully close.
   await expect.poll(() => countActiveTcpSockets()).toBe(0)
@@ -66,7 +66,7 @@ it('does not hold the process once "unref()" is called', async () => {
 })
 
 it('holds the process again after "ref()"', async () => {
-  await using server = await createTestServer(createUnrefedServer)
+  await using server = await createRawTestServer(createUnrefedServer)
 
   // Wait for the sockets from the previous tests to fully close.
   await expect.poll(() => countActiveTcpSockets()).toBe(0)
@@ -88,7 +88,7 @@ it('holds the process again after "ref()"', async () => {
 })
 
 it('stays unrefed when "unref()" is called while connecting', async () => {
-  await using server = await createTestServer(createUnrefedServer)
+  await using server = await createRawTestServer(createUnrefedServer)
 
   // Wait for the sockets from the previous tests to fully close.
   await expect.poll(() => countActiveTcpSockets()).toBe(0)

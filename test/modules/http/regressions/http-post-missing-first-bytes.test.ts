@@ -4,24 +4,30 @@
  */
 import http from 'node:http'
 import { fileURLToPath } from 'node:url'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  kServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import superagent from 'superagent'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.post('/upload', (req, res) => {
-    res.status(200).json({
-      contentType: req.header('content-type'),
-      contentLength: req.header('content-length'),
-    })
-  })
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.post('/upload', (ctx) => {
+        return Response.json({
+          contentType: ctx.req.header('content-type'),
+          contentLength: ctx.req.header('content-length'),
+        })
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -36,13 +42,13 @@ afterAll(async () => {
 it('does not skip the first request bytes on passthrough POST request', async () => {
   const socketDataCallback = vi.fn()
 
-  const underlyingServer = httpServer['_http'] as http.Server
+  const underlyingServer = Reflect.get(httpServer.http, kServer) as http.Server
   underlyingServer.on('connection', (socket) => {
     socket.on('data', (chunk) => socketDataCallback(chunk.toString('utf8')))
   })
 
   const response = await superagent
-    .post(httpServer.http.url('/upload'))
+    .post(httpServer.http.url('/upload').href)
     .attach(
       'file',
       /**

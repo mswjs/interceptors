@@ -3,25 +3,38 @@
  * @see https://github.com/mswjs/interceptors/pull/706
  */
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (_req, res) => {
-    // Triggers 2 reads in the MockHttpSocket
-    res.write('hello')
-    res.flushHeaders()
-    res.write(' world')
-    res.end()
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      // The test server registers its own "GET /" route,
+      // so define the streaming route on a different path.
+      router.get('/resource', () => {
+        const encoder = new TextEncoder()
+        // Triggers 2 reads in the MockHttpSocket
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode('hello'))
+            controller.enqueue(encoder.encode(' world'))
+            controller.close()
+          },
+        })
+
+        return new Response(stream)
+      })
+    },
+  })
 })
 
 afterAll(async () => {
@@ -30,7 +43,7 @@ afterAll(async () => {
 })
 
 it('does not buffer socket pushes for a passthrough request', async () => {
-  const request = http.get(httpServer.http.url('/'))
+  const request = http.get(httpServer.http.url('/resource').href)
   const [response] = await toWebResponse(request)
 
   await expect(response.text()).resolves.toBe('hello world')

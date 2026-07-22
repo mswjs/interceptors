@@ -1,5 +1,4 @@
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 
 const interceptor = new FetchInterceptor()
 
@@ -16,7 +15,7 @@ afterAll(() => {
 })
 
 it('exposes the initiator for a mocked fetch request', async () => {
-  const pendingInitiator = new DeferredPromise<unknown>()
+  const pendingInitiator = Promise.withResolvers<unknown>()
 
   interceptor.on('request', ({ initiator, controller }) => {
     pendingInitiator.resolve(initiator)
@@ -25,7 +24,7 @@ it('exposes the initiator for a mocked fetch request', async () => {
 
   const response = await fetch('http://any.host.here/resource')
 
-  const initiator = await pendingInitiator
+  const initiator = await pendingInitiator.promise
   expect.soft(initiator).toBeInstanceOf(Request)
   expect.soft(initiator).toMatchObject({
     method: 'GET',

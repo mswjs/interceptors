@@ -2,7 +2,6 @@ import net from 'node:net'
 import tls from 'node:tls'
 import { TypedEvent } from 'rettime'
 import { invariant } from 'outvariant'
-import { DeferredPromise } from '@open-draft/deferred-promise'
 import { applyDotStuffing, CRLF, DATA_TERMINATOR } from './dot-stuffing'
 import { SmtpEventTarget } from './event-target'
 import type { SmtpSession } from './smtp-session'
@@ -263,7 +262,7 @@ export class SmtpServerConnection extends SmtpEventTarget<SmtpServerConnectionEv
   #client: SmtpClientConnection
   #createConnection: () => net.Socket | tls.TLSSocket
   #socket?: net.Socket | tls.TLSSocket
-  #connectPromise?: DeferredPromise<void>
+  #connectPromise?: PromiseWithResolvers<void>
   #mode?: 'bypass' | 'subordinate'
 
   #buffer = Buffer.alloc(0)
@@ -320,21 +319,21 @@ export class SmtpServerConnection extends SmtpEventTarget<SmtpServerConnectionEv
    */
   public connect(): Promise<void> {
     if (this.#connectPromise) {
-      return this.#connectPromise
+      return this.#connectPromise.promise
     }
 
-    const connectPromise = new DeferredPromise<void>()
+    const connectPromise = Promise.withResolvers<void>()
     this.#connectPromise = connectPromise
 
     // The dial failure surfaces through the returned promise alone:
     // a fire-and-forget "connect()" must not crash the process.
-    connectPromise.catch(() => {})
+    connectPromise.promise.catch(() => {})
 
     try {
       this.#socket = this.#createConnection()
     } catch (error) {
       connectPromise.reject(error instanceof Error ? error : new Error(String(error)))
-      return connectPromise
+      return connectPromise.promise
     }
 
     this.#socket
@@ -363,7 +362,7 @@ export class SmtpServerConnection extends SmtpEventTarget<SmtpServerConnectionEv
         this.#rejectPendingReplies(new Error('Connection closed by the server'))
       })
 
-    return connectPromise
+    return connectPromise.promise
   }
 
   /**
