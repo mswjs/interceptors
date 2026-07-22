@@ -1,18 +1,25 @@
 // @vitest-environment node
 import https from 'node:https'
 import { TLSSocket } from 'node:tls'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => res.status(200).end())
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  /**
+   * @note No custom routes: the test server responds to "GET /"
+   * on its own, and this test only asserts the TLS socket behavior.
+   */
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+  })
 })
 
 afterEach(() => {
@@ -52,7 +59,7 @@ it('emits a correct TLS Socket instance for a handled HTTPS request', async () =
 })
 
 it('emits a correct TLS Socket instance for a bypassed HTTPS request', async () => {
-  const request = https.get(httpServer.https.url('/'), {
+  const request = https.get(httpServer.https.url('/').href, {
     rejectUnauthorized: false,
   })
   const socketPromise = Promise.withResolvers<TLSSocket>()

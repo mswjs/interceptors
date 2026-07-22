@@ -3,64 +3,83 @@ import http from 'node:http'
 import { Readable } from 'node:stream'
 import { performance } from 'node:perf_hooks'
 import { setTimeout } from 'node:timers/promises'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import type { Context } from 'hono'
+import type { HttpBindings } from '@hono/node-server'
+import { RESPONSE_ALREADY_SENT } from '@hono/node-server/utils/response'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
 type ResponseChunks = Array<{ buffer: Buffer; timestamp: number }>
 
-const httpServer = new HttpServer((app) => {
-  app.get('/stream/immediate-error', (req, res) => {
-    const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode('first-chunk'))
-        controller.error(new Error('Response stream error'))
-      },
-    })
+let httpServer: TestHttpServer
 
-    res.writeHead(200)
-    Readable.fromWeb(stream as any)
-      .on('error', (error) => res.destroy(error))
-      .pipe(res)
-  })
+/**
+ * @note Serve the stream via the raw Node.js response. These routes
+ * exercise mid-stream socket destroys at precise flush timings, which
+ * the Fetch API `Response` cannot express: Hono catches stream errors
+ * and answers cleanly instead of resetting the connection.
+ */
+function serveRawStream(
+  ctx: Context,
+  createStream: () => ReadableStream<Uint8Array>
+): typeof RESPONSE_ALREADY_SENT {
+  const { outgoing } = ctx.env as HttpBindings
 
-  app.get('/stream/delayed-error', (req, res) => {
-    const stream = new ReadableStream({
-      async start(controller) {
-        controller.enqueue(encoder.encode('first-chunk'))
-        await setTimeout(100)
-        controller.error(new Error('Response stream error'))
-      },
-    })
+  outgoing.writeHead(200)
+  Readable.fromWeb(createStream() as any)
+    .on('error', (error) => outgoing.destroy(error))
+    .pipe(outgoing)
 
-    res.writeHead(200)
-    Readable.fromWeb(stream as any)
-      .on('error', (error) => res.destroy(error))
-      .pipe(res)
-  })
-
-  app.get('/stream/exception', (req, res) => {
-    const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode('first-chunk'))
-        // Intentionally invalid input.
-        controller.enqueue({})
-      },
-    })
-
-    res.writeHead(200)
-    Readable.fromWeb(stream as any)
-      .on('error', (error) => res.destroy(error))
-      .pipe(res)
-  })
-})
+  return RESPONSE_ALREADY_SENT
+}
 
 const encoder = new TextEncoder()
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/stream/immediate-error', (ctx) => {
+        return serveRawStream(ctx, () => {
+          return new ReadableStream({
+            start(controller) {
+              controller.enqueue(encoder.encode('first-chunk'))
+              controller.error(new Error('Response stream error'))
+            },
+          })
+        })
+      })
+
+      router.get('/stream/delayed-error', (ctx) => {
+        return serveRawStream(ctx, () => {
+          return new ReadableStream({
+            async start(controller) {
+              controller.enqueue(encoder.encode('first-chunk'))
+              await setTimeout(100)
+              controller.error(new Error('Response stream error'))
+            },
+          })
+        })
+      })
+
+      router.get('/stream/exception', (ctx) => {
+        return serveRawStream(ctx, () => {
+          return new ReadableStream({
+            start(controller) {
+              controller.enqueue(encoder.encode('first-chunk'))
+              // Intentionally invalid input.
+              controller.enqueue({} as Uint8Array)
+            },
+          })
+        })
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -215,7 +234,7 @@ it('handles immediate mock response stream errors as response errors', async () 
 })
 
 it('handles immediate bypassed response stream errors as request errors', async () => {
-  const request = http.get(httpServer.http.url('/stream/immediate-error'))
+  const request = http.get(httpServer.http.url('/stream/immediate-error').href)
 
   const socketErrorListener = vi.fn()
   const socketCloseListener = vi.fn()
@@ -321,7 +340,7 @@ it('handles delayed mock response stream errors as response errors', async () =>
 })
 
 it('handles delayed bypassed response stream errors as response errors', async () => {
-  const request = http.get(httpServer.http.url('/stream/delayed-error'))
+  const request = http.get(httpServer.http.url('/stream/delayed-error').href)
 
   const socketErrorListener = vi.fn()
   const socketCloseListener = vi.fn()
@@ -367,7 +386,7 @@ it('handles delayed bypassed response stream errors as response errors', async (
 })
 
 it('treats unhandled exceptions during bypass response stream as response errors', async () => {
-  const request = http.get(httpServer.http.url('/stream/exception'))
+  const request = http.get(httpServer.http.url('/stream/exception').href)
 
   const requestErrorListener = vi.fn()
   const requestCloseListener = vi.fn()

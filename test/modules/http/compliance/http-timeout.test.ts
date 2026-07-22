@@ -1,21 +1,26 @@
 // @vitest-environment node
 import http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', async (req, res) => {
-    await setTimeout(200)
-    res.status(500).end()
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', async () => {
+        await setTimeout(200)
+        return new Response(null, { status: 500 })
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -65,7 +70,7 @@ it('respects the "timeout" option for a handled request', async () => {
 })
 
 it('respects the "timeout" option for a bypassed request', async () => {
-  const request = http.get(httpServer.http.url('/resource'), {
+  const request = http.get(httpServer.http.url('/resource').href, {
     timeout: 10,
   })
 
@@ -157,7 +162,7 @@ it('respects a "setTimeout()" on a handled request', async () => {
 })
 
 it('respects a "setTimeout()" on a bypassed request', async () => {
-  const request = http.get(httpServer.http.url('/resource'))
+  const request = http.get(httpServer.http.url('/resource').href)
   request.setTimeout(10)
 
   const responseListener = vi.fn()
@@ -199,7 +204,7 @@ it('respects the "socket.setTimeout()" for a handled request', async () => {
     controller.respondWith(new Response(stream))
   })
 
-  const request = http.get(httpServer.http.url('/resource'))
+  const request = http.get(httpServer.http.url('/resource').href)
 
   const responseListener = vi.fn()
   const setTimeoutCallback = vi.fn()
@@ -234,7 +239,7 @@ it('respects the "socket.setTimeout()" for a handled request', async () => {
 
 it('respects the "socket.setTimeout()" for a bypassed request', async () => {
   const setTimeoutCallback = vi.fn()
-  const request = http.get(httpServer.http.url('/resource'))
+  const request = http.get(httpServer.http.url('/resource').href)
 
   request.on('socket', (socket) => {
     /**

@@ -1,22 +1,28 @@
 // @vitest-environment node
 import http from 'node:http'
-import express from 'express'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.use(express.json())
-  app.post('/user', (req, res) => {
-    res.set({ 'x-custom-header': 'yes' }).send(`hello, ${req.body.name}`)
-  })
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.post('/user', async (ctx) => {
+        const body = await ctx.req.json()
+        return new Response(`hello, ${body.name}`, {
+          headers: { 'x-custom-header': 'yes' },
+        })
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -32,7 +38,7 @@ it('bypasses a request to the existing host', async () => {
   const requestListener = vi.fn()
   interceptor.on('request', ({ request }) => requestListener(request))
 
-  const request = http.request(httpServer.http.url('/user'), {
+  const request = http.request(httpServer.http.url('/user').href, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -45,7 +51,7 @@ it('bypasses a request to the existing host', async () => {
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
 
-  expect(requestFromListener.url).toBe(httpServer.http.url('/user'))
+  expect(requestFromListener.url).toBe(httpServer.http.url('/user').href)
   expect(requestFromListener.method).toBe('POST')
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'
@@ -99,7 +105,7 @@ it('mocked request to an existing host', async () => {
     )
   })
 
-  const request = http.request(httpServer.http.url('/user'), {
+  const request = http.request(httpServer.http.url('/user').href, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -111,7 +117,7 @@ it('mocked request to an existing host', async () => {
 
   // Must expose the request reference to the listener.
   const [requestFromListener] = requestListener.mock.calls[0]
-  expect(requestFromListener.url).toBe(httpServer.http.url('/user'))
+  expect(requestFromListener.url).toBe(httpServer.http.url('/user').href)
   expect(requestFromListener.method).toBe('POST')
   expect(requestFromListener.headers.get('content-type')).toBe(
     'application/json'

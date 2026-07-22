@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -18,7 +18,7 @@ afterAll(() => {
 })
 
 it('reports a readable socket before connecting', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
@@ -30,7 +30,7 @@ it('reports a readable socket before connecting', async () => {
 })
 
 it('marks the socket as non-readable after the server ends the connection', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
@@ -54,7 +54,7 @@ it('marks the socket as non-readable after the server ends the connection', asyn
 })
 
 it('keeps the socket readable after the client ends the connection', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server({ allowHalfOpen: true }, (socket) => {
       socket.resume()
     })
@@ -80,7 +80,7 @@ it('keeps the socket readable after the client ends the connection', async () =>
 })
 
 it('counts "bytesRead" after reading the server response', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.write('hello world')
     })
@@ -99,7 +99,7 @@ it('counts "bytesRead" after reading the server response', async () => {
 })
 
 it('preserves "bytesRead" after the connection closes', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end('hello world')
     })

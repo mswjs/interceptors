@@ -2,7 +2,7 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -19,7 +19,7 @@ afterAll(() => {
 })
 
 it('fails the handshake against a non-TLS server', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.write('hello world\n')
     })

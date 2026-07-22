@@ -1,13 +1,12 @@
 // @vitest-environment node
 import http, { IncomingMessage } from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (request, res) => {
-    res.status(200).send('hello world')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', ({ request, controller }) => {
@@ -42,7 +41,13 @@ function readIncomingMessage(res: http.IncomingMessage): any {
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('hello world')
+      })
+    },
+  })
 })
 
 afterAll(async () => {
@@ -66,7 +71,7 @@ const encodings: BufferEncoding[] = [
 describe('given the original response', () => {
   encodings.forEach((encoding) => {
     it(`reads the response body encoded with ${encoding}`, async () => {
-      const request = http.get(httpServer.http.url('/resource'))
+      const request = http.get(httpServer.http.url('/resource').href)
 
       const responseTextReceived = Promise.withResolvers<IncomingMessage>()
       request.on('response', async (response) => {
@@ -84,7 +89,7 @@ describe('given the original response', () => {
 describe('given the mocked response', () => {
   encodings.forEach((encoding) => {
     it(`reads the response body encoded with ${encoding}`, async () => {
-      const request = http.get(httpServer.http.url('/resource?mock=true'))
+      const request = http.get(httpServer.http.url('/resource?mock=true').href)
 
       const responseTextReceived = Promise.withResolvers<IncomingMessage>()
       request.on('response', async (response) => {

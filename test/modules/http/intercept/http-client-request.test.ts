@@ -1,22 +1,34 @@
 // @vitest-environment node
 import http from 'node:http'
-import { httpsAgent, HttpServer } from '@open-draft/test-server/http'
+import https from 'node:https'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
 import { RequestController } from '#/src/RequestController'
 import { type HttpRequestEventMap } from '#/src/events/http'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/user', (_req, res) => {
-    res.status(200).send('original-body')
-  })
+let httpServer: TestHttpServer
+
+const httpsAgent = new https.Agent({
+  // Trust the test server's self-signed certificate.
+  rejectUnauthorized: false,
 })
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+    defineRoutes(router) {
+      router.get('/user', () => {
+        return new Response('original-body')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -30,7 +42,7 @@ afterAll(async () => {
 })
 
 it('intercepts an HTTP ClientRequest request with request options', async () => {
-  const url = new URL(httpServer.http.url('/user?id=123'))
+  const url = httpServer.http.url('/user?id=123')
   const requestListener =
     vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
@@ -69,7 +81,7 @@ it('intercepts an HTTP ClientRequest request with request options', async () => 
 })
 
 it('intercepts an HTTP ClientRequest request with URL string', async () => {
-  const url = httpServer.http.url('/user?id=123')
+  const url = httpServer.http.url('/user?id=123').href
   const requestListener =
     vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
@@ -99,7 +111,7 @@ it('intercepts an HTTP ClientRequest request with URL string', async () => {
 })
 
 it('intercepts an HTTP ClientRequest request with URL instance', async () => {
-  const url = new URL(httpServer.http.url('/user?id=123'))
+  const url = httpServer.http.url('/user?id=123')
   const requestListener =
     vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
@@ -129,7 +141,7 @@ it('intercepts an HTTP ClientRequest request with URL instance', async () => {
 })
 
 it('intercepts an HTTPS ClientRequest request with URL string', async () => {
-  const url = httpServer.https.url('/user?id=123')
+  const url = httpServer.https.url('/user?id=123').href
   const requestListener =
     vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
@@ -162,7 +174,7 @@ it('intercepts an HTTPS ClientRequest request with URL string', async () => {
 })
 
 it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
-  const url = new URL(httpServer.https.url('/user?id=123'))
+  const url = httpServer.https.url('/user?id=123')
   const requestListener =
     vi.fn<(event: HttpRequestEventMap['request']) => void>()
 
@@ -195,7 +207,7 @@ it('intercepts an HTTPS ClientRequest request with URL instance', async () => {
 })
 
 it('intercepts an HTTPS ClientRequest request with request options', async () => {
-  const url = new URL(httpServer.https.url('/user?id=123'))
+  const url = httpServer.https.url('/user?id=123')
   const requestListener =
     vi.fn<(event: HttpRequestEventMap['request']) => void>()
 

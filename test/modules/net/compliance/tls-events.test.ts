@@ -2,7 +2,7 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer } from '#/test/helpers'
+import { createRawTestServer } from '#/test/helpers'
 import { TLS_CERTIFICATE, TLS_PRIVATE_KEY } from './fixtures/tls'
 
 const interceptor = new SocketInterceptor()
@@ -20,7 +20,7 @@ afterAll(() => {
 })
 
 it('emits the "lookup" event when connecting to a hostname', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -53,7 +53,7 @@ it('emits the "lookup" event when connecting to a hostname', async () => {
 })
 
 it('emits "secureConnect" exactly once', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -80,7 +80,7 @@ it('emits "secureConnect" exactly once', async () => {
 })
 
 it('emits the "session" event for a bypassed connection', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -257,7 +257,7 @@ it('emits the "keylog" events for a mocked connection', async () => {
 })
 
 it('emits the "keylog" event', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -280,7 +280,7 @@ it('emits the "keylog" event', async () => {
 })
 
 it('emits the "OCSPResponse" event', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     const tlsServer = new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,

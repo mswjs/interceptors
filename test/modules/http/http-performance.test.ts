@@ -1,7 +1,10 @@
 // @vitest-environment node
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
-import { toWebResponse, useCors } from '#/test/helpers'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import { toWebResponse } from '#/test/helpers'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 function arrayWith<V>(length: number, mapFn: (index: number) => V): V[] {
@@ -20,12 +23,7 @@ function parallelRequests(makeRequest: (index: number) => Promise<Response>) {
   }
 }
 
-const httpServer = new HttpServer((app) => {
-  app.use(useCors)
-  app.get<{ index: number }>('/number/:index', (req, res) => {
-    return res.send(`real ${req.params.index}`)
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -40,7 +38,13 @@ interceptor.on('request', ({ request, controller }) => {
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/number/:index', (ctx) => {
+        return new Response(`real ${ctx.req.param('index')}`)
+      })
+    },
+  })
 })
 
 afterAll(async () => {
@@ -54,7 +58,7 @@ it.skip('returns responses for 500 matching parallel requests', async () => {
       500,
       parallelRequests(async (i) => {
         const [response] = await toWebResponse(
-          http.get(httpServer.http.url(`/user?id=${i + 1}`))
+          http.get(httpServer.http.url(`/user?id=${i + 1}`).href)
         )
         return response
       })
@@ -72,7 +76,7 @@ it.skip('returns responses for 500 bypassed parallel requests', async () => {
       500,
       parallelRequests(async (i) => {
         const [response] = await toWebResponse(
-          http.get(httpServer.http.url(`/number/${i + 1}`))
+          http.get(httpServer.http.url(`/number/${i + 1}`).href)
         )
         return response
       })

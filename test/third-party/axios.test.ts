@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 import axios from 'axios'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
-import { useCors } from '#/test/helpers'
 
 function createMockResponse() {
   return new Response(
@@ -19,26 +21,34 @@ function createMockResponse() {
   )
 }
 
-const httpServer = new HttpServer((app) => {
-  app.use(useCors)
-  app.get('/books', (req, res) => {
-    res.status(200).json([
-      {
-        title: 'The Lord of the Rings',
-        author: 'J. R. R. Tolkien',
-      },
-      {
-        title: 'The Hobbit',
-        author: 'J. R. R. Tolkien',
-      },
-    ])
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/books', () => {
+        return Response.json(
+          [
+            {
+              title: 'The Lord of the Rings',
+              author: 'J. R. R. Tolkien',
+            },
+            {
+              title: 'The Hobbit',
+              author: 'J. R. R. Tolkien',
+            },
+          ],
+          {
+            headers: {
+              'access-control-allow-origin': '*',
+            },
+          }
+        )
+      })
+    },
+  })
   interceptor.apply()
 })
 
@@ -92,7 +102,7 @@ it('bypass the interceptor and return the original response', async () => {
     // Intentionally do nothing.
   })
 
-  const res = await axios.get(httpServer.http.url('/books'))
+  const res = await axios.get(httpServer.http.url('/books').href)
 
   expect(res.status).toEqual(200)
   expect(res.data).toEqual([
@@ -122,7 +132,7 @@ it('preserves the "auth" options', async () => {
   })
 
   // Construct an Axios request with "auth".
-  await axios.get(httpServer.http.url('/books'), {
+  await axios.get(httpServer.http.url('/books').href, {
     adapter: 'http',
     auth: {
       // Use an email address as the username.

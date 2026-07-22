@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -20,7 +20,7 @@ afterAll(() => {
 it('drops the connection on "destroy()" mid-transfer', async () => {
   const serverCloseListener = vi.fn()
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
       socket.on('error', () => {})
@@ -49,7 +49,7 @@ it('drops the connection on "destroy()" mid-transfer', async () => {
 })
 
 it('emits no events after "destroy()"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
       socket.on('error', () => {})

@@ -5,21 +5,26 @@
  */
 import http from 'node:http'
 import { Socket } from 'node:net'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', async (req, res) => {
-    res.send('ok')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('ok')
+      })
+    },
+  })
 })
 
 afterAll(async () => {
@@ -28,7 +33,7 @@ afterAll(async () => {
 })
 
 it('removes all event listeners from a passthrough socket after closing', async () => {
-  const request = http.get(httpServer.http.url('/resource'), {
+  const request = http.get(httpServer.http.url('/resource').href, {
     headers: { connection: 'close' },
   })
   const pendingSocket = Promise.withResolvers<Socket>()

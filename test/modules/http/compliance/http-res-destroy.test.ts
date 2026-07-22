@@ -1,18 +1,23 @@
 // @vitest-environment node
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/lib/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => res.sendStatus(200))
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  /**
+   * @note No custom routes: the test server responds to "GET /"
+   * on its own, and these tests only assert the response destroy behavior.
+   */
+  httpServer = await createTestHttpServer()
 })
 
 afterEach(() => {
@@ -28,7 +33,7 @@ it('emits the "error" event when a bypassed response is destroyed', async () => 
   const socketErrorListener = vi.fn()
 
   const request = http
-    .get(httpServer.http.url('/'))
+    .get(httpServer.http.url('/').href)
     .on('socket', (socket) => {
       socket.on('error', socketErrorListener)
     })
@@ -52,7 +57,7 @@ it('emits the "error" event when a mocked response is destroyed', async () => {
   const socketErrorListener = vi.fn()
 
   const request = http
-    .get(httpServer.http.url('/'))
+    .get(httpServer.http.url('/').href)
     .on('socket', (socket) => {
       socket.on('error', socketErrorListener)
     })

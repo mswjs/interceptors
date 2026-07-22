@@ -5,7 +5,10 @@
 import net from 'node:net'
 import http from 'node:http'
 import { inject } from 'vitest'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
@@ -14,15 +17,17 @@ const nodeMajorVersion = inject('nodeMajorVersion')
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => {
-    res.send('original')
-  })
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('original')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -45,7 +50,7 @@ it('intercepts a "CONNECT" request using IP as the authority', async () => {
   const connectListener = vi.fn()
   const responseListener = vi.fn()
 
-  const serverHost = `${httpServer.http.address.host}:${httpServer.http.address.port}`
+  const serverHost = httpServer.http.url().host
 
   const request = http
     .request({
@@ -111,7 +116,7 @@ it('intercepts a "CONNECT" request using "localhost" as the authority', async ()
   const connectListener = vi.fn()
   const responseListener = vi.fn()
 
-  const serverHost = `localhost:${httpServer.http.address.port}`
+  const serverHost = `localhost:${httpServer.http.url().port}`
 
   const request = http
     .request({
@@ -163,7 +168,7 @@ it('errors the intercepted "CONNECT" request', async () => {
   const errorListener = vi.fn()
   const closeListener = vi.fn()
 
-  const serverHost = `localhost:${httpServer.http.address.port}`
+  const serverHost = `localhost:${httpServer.http.url().port}`
 
   const request = http
     .request({

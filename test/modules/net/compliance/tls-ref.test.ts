@@ -1,7 +1,7 @@
 // @vitest-environment node
 import tls from 'node:tls'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer } from '#/test/helpers'
+import { createRawTestServer } from '#/test/helpers'
 import { TLS_CERTIFICATE, TLS_PRIVATE_KEY } from './fixtures/tls'
 
 const interceptor = new SocketInterceptor()
@@ -30,7 +30,7 @@ function countActiveTcpSockets(): number {
 }
 
 it('releases all connection handles once a TLS socket is destroyed', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     const tlsServer = new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,

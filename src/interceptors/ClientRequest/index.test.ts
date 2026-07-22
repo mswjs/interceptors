@@ -1,23 +1,26 @@
 import * as http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { ClientRequestInterceptor } from '.'
 import { toWebResponse } from '../../../test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (_req, res) => {
-    res.status(200).send('/')
-  })
-  app.get('/get', (_req, res) => {
-    res.status(200).send('/get')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new ClientRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      // The test server always defines a root ("/") route.
+      router.get('/get', () => {
+        return new Response('/get')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -30,7 +33,7 @@ afterAll(async () => {
 })
 
 it('abort the request if the abort signal is emitted', async () => {
-  const requestUrl = httpServer.http.url('/')
+  const requestUrl = httpServer.http.url('/').href
 
   interceptor.on('request', async function delayedResponse({ controller }) {
     await setTimeout(1000)

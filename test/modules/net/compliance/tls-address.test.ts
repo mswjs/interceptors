@@ -2,7 +2,7 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer } from '#/test/helpers'
+import { createRawTestServer } from '#/test/helpers'
 import { TLS_CERTIFICATE, TLS_PRIVATE_KEY } from './fixtures/tls'
 
 const interceptor = new SocketInterceptor()
@@ -20,7 +20,7 @@ afterAll(() => {
 })
 
 it('exposes address information after connecting', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,

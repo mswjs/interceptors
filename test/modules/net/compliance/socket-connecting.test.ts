@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -18,7 +18,7 @@ afterAll(() => {
 })
 
 it('reports an opening socket while connecting', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
@@ -32,7 +32,7 @@ it('reports an opening socket while connecting', async () => {
 })
 
 it('reports an open socket after connecting', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
@@ -49,7 +49,7 @@ it('reports an open socket after connecting', async () => {
 })
 
 it('reports a write-only socket after the server ends a half-open connection', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
@@ -74,7 +74,7 @@ it('reports a write-only socket after the server ends a half-open connection', a
 })
 
 it('reports a read-only socket after the client ends the connection', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server({ allowHalfOpen: true }, (socket) => {
       socket.resume()
     })
@@ -101,7 +101,7 @@ it('reports a read-only socket after the client ends the connection', async () =
 })
 
 it('reports a closed socket after the connection closes', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end()
     })
@@ -122,7 +122,7 @@ it('reports a closed socket after the connection closes', async () => {
 it('reports a closed socket for a refused connection', async () => {
   // Open a server to obtain a port, then close it
   // so connecting to that port is guaranteed to be refused.
-  const closedServer = await createTestServer(() => {
+  const closedServer = await createRawTestServer(() => {
     return new net.Server()
   })
   const refusedPort = closedServer.port

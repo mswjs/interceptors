@@ -1,21 +1,26 @@
 // @vitest-environment node
 import http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { toWebResponse } from '#/test/helpers'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => {
-    res.send('original response')
-  })
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('original response')
+      })
+    },
+  })
 })
 
 afterAll(async () => {
@@ -47,7 +52,7 @@ it('supports custom delay before receiving the original response', async () => {
   })
 
   const requestStart = Date.now()
-  const request = http.get(httpServer.http.url('/resource'))
+  const request = http.get(httpServer.http.url('/resource').href)
   const [response] = await toWebResponse(request)
   const requestEnd = Date.now()
 

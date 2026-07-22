@@ -2,7 +2,7 @@
 import net from 'node:net'
 import { invariant } from 'outvariant'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -19,7 +19,7 @@ afterAll(() => {
 })
 
 it('exposes empty address information before connecting', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
@@ -36,7 +36,7 @@ it('exposes empty address information before connecting', async () => {
 })
 
 it('exposes address information after connecting', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
@@ -236,13 +236,13 @@ it('exposes address information after connecting over IPv6', async () => {
 })
 
 it('respects the "localPort" connection option', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 
   // Open a server to obtain a free port, then close it
   // so that port can be used as the local port below.
-  const portServer = await createTestServer(() => {
+  const portServer = await createRawTestServer(() => {
     return new net.Server()
   })
   const freeLocalPort = portServer.port
@@ -264,7 +264,7 @@ it('respects the "localPort" connection option', async () => {
 })
 
 it('keeps the remote address information after the connection is destroyed', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server(() => {})
   })
 

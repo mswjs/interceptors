@@ -2,22 +2,27 @@
 import { Readable } from 'node:stream'
 import http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
-import express from 'express'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.post('/resource/*', express.text({ type: '*/*' }), (req, res) => {
-    res.send(req.body)
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.post('/resource/*', async (ctx) => {
+        const requestBody = await ctx.req.text()
+        return new Response(requestBody)
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -36,7 +41,7 @@ it('writes string request body', async () => {
     requestBodyPromise.resolve(await request.clone().text())
   })
 
-  const req = http.request(httpServer.http.url('/resource/write-string'), {
+  const req = http.request(httpServer.http.url('/resource/write-string').href, {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain',
@@ -60,7 +65,7 @@ it('writes JSON request body', async () => {
     requestBodyPromise.resolve(await request.clone().text())
   })
 
-  const req = http.request(httpServer.http.url('/resource/write-json'), {
+  const req = http.request(httpServer.http.url('/resource/write-json').href, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -84,7 +89,7 @@ it('writes Buffer request body', async () => {
     requestBodyPromise.resolve(await request.clone().text())
   })
 
-  const req = http.request(httpServer.http.url('/resource/write-buffer'), {
+  const req = http.request(httpServer.http.url('/resource/write-buffer').href, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -108,7 +113,7 @@ it('supports Readable as the request body', async () => {
     requestBodyPromise.resolve(await request.clone().text())
   })
 
-  const request = http.request(httpServer.http.url('/resource/readable'), {
+  const request = http.request(httpServer.http.url('/resource/readable').href, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -131,7 +136,7 @@ it('supports Readable as the request body', async () => {
 
 it('calls the write callback when writing an empty string', async () => {
   const request = http.request(
-    httpServer.http.url('/resource/write-empty-cb'),
+    httpServer.http.url('/resource/write-empty-cb').href,
     {
       method: 'POST',
     }
@@ -147,7 +152,7 @@ it('calls the write callback when writing an empty string', async () => {
 
 it('calls the write callback when writing an empty Buffer', async () => {
   const request = http.request(
-    httpServer.http.url('/resource/write-callback'),
+    httpServer.http.url('/resource/write-callback').href,
     {
       method: 'POST',
     }
@@ -166,7 +171,7 @@ it('emits "finish" for a passthrough request', async () => {
   const prefinishListener = vi.fn()
   const finishListener = vi.fn()
 
-  const request = http.request(httpServer.http.url('/resource/real-finish'))
+  const request = http.request(httpServer.http.url('/resource/real-finish').href)
 
   request.on('prefinish', prefinishListener)
   request.on('finish', finishListener)
@@ -186,7 +191,7 @@ it('emits "finish" for a mocked request', async () => {
   const prefinishListener = vi.fn()
   const finishListener = vi.fn()
 
-  const request = http.request(httpServer.http.url('/resource/mocked-finish'))
+  const request = http.request(httpServer.http.url('/resource/mocked-finish').href)
 
   request.on('prefinish', prefinishListener)
   request.on('finish', finishListener)
@@ -207,7 +212,7 @@ it('supports ending a mocked request in a write callback', async () => {
   })
 
   const request = http.request(
-    httpServer.http.url('/resource/mocked-end-after-write'),
+    httpServer.http.url('/resource/mocked-end-after-write').href,
     {
       method: 'POST',
     }
@@ -242,7 +247,7 @@ it('supports ending a mocked request in a write callback', async () => {
  */
 it('supports ending a bypassed request in a write callback', async () => {
   const request = http.request(
-    httpServer.http.url('/resource/real-end-after-write'),
+    httpServer.http.url('/resource/real-end-after-write').href,
     {
       method: 'POST',
       headers: { 'content-type': 'text/plain' },
@@ -281,7 +286,7 @@ it('calls the write callbacks when reading request body in the interceptor', asy
   })
 
   const request = http.request(
-    httpServer.http.url('/resource/write-callback'),
+    httpServer.http.url('/resource/write-callback').href,
     {
       method: 'POST',
       headers: {

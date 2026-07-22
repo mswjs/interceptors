@@ -1,19 +1,27 @@
 // @vitest-environment node
 import http from 'node:http'
 import https from 'node:https'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (req, res) => res.send('hello world'))
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('hello world')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -35,7 +43,7 @@ it('preserves the context of the "createConnection" function in a custom http ag
   }
   const agent = new CustomHttpAgent()
 
-  const request = http.get(httpServer.http.url('/resource'), { agent })
+  const request = http.get(httpServer.http.url('/resource').href, { agent })
   await toWebResponse(request)
 
   const [context] = createConnectionContextSpy.mock.calls[0] || []
@@ -52,7 +60,7 @@ it('preserves the context of the "createConnection" function in a custom https a
   }
   const agent = new CustomHttpsAgent()
 
-  const request = https.get(httpServer.https.url('/resource'), {
+  const request = https.get(httpServer.https.url('/resource').href, {
     agent,
     rejectUnauthorized: false,
   })

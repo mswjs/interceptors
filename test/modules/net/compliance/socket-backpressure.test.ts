@@ -2,7 +2,7 @@
 import net from 'node:net'
 import crypto from 'node:crypto'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -19,7 +19,7 @@ afterAll(() => {
 })
 
 it('returns false from "write()" once the buffer exceeds the high water mark', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
     })
@@ -114,7 +114,7 @@ it('delivers a large mocked response intact across "pause()" and "resume()"', as
 it('delivers a large response intact across "pause()" and "resume()"', async () => {
   const expectedResponse = crypto.randomBytes(4 * 1024 * 1024)
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end(expectedResponse)
     })

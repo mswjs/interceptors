@@ -7,14 +7,13 @@
  */
 import { it, expect, beforeAll, afterAll } from 'vitest'
 import * as http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (_req, res) => {
-    res.status(500).send('must-not-reach-server')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', ({ controller }) => {
@@ -23,7 +22,13 @@ interceptor.on('request', ({ controller }) => {
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('must-not-reach-server', { status: 500 })
+      })
+    },
+  })
 })
 
 afterAll(async () => {
@@ -33,10 +38,13 @@ afterAll(async () => {
 
 it('supports custom socket timeout on the HTTP request', async () => {
   const responseReceived = Promise.withResolvers<http.IncomingMessage>()
-  const request = http.request(httpServer.http.url('/resource'), (response) => {
-    response.on('data', () => null)
-    response.on('end', () => responseReceived.resolve(response))
-  })
+  const request = http.request(
+    httpServer.http.url('/resource').href,
+    (response) => {
+      response.on('data', () => null)
+      response.on('end', () => responseReceived.resolve(response))
+    }
+  )
 
   // Intentionally large request timeout.
   request.setTimeout(10_000)

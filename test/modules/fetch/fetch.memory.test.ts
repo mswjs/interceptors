@@ -2,20 +2,29 @@
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Worker } from 'node:worker_threads'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { FetchInterceptor } from '@mswjs/interceptors/fetch'
 
-const server = new HttpServer((app) => {
-  app.get('/', (_req, res) => {
-    res.status(200).end()
-  })
-})
+let server: TestHttpServer
 
 const interceptor = new FetchInterceptor()
 
 beforeAll(async () => {
-  await server.listen()
+  server = await createTestHttpServer({
+    defineRoutes(router) {
+      /**
+       * @note The test server always defines a root ("/") route,
+       * so this test uses the "/resource" path instead.
+       */
+      router.get('/resource', () => {
+        return new Response(null, { status: 200 })
+      })
+    },
+  })
   interceptor.apply()
 })
 
@@ -40,7 +49,7 @@ it(
       {
         workerData: {
           requestCount: 5_000,
-          serverUrl: server.http.url('/'),
+          serverUrl: server.http.url('/resource').href,
           snapshotPath,
         },
         stderr: true,

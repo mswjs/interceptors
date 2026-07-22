@@ -3,23 +3,36 @@
  * @see https://github.com/mswjs/msw/issues/2307
  */
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
+import type { HttpBindings } from '@hono/node-server'
+import { RESPONSE_ALREADY_SENT } from '@hono/node-server/utils/response'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { FetchResponse } from '#/src/utils/fetchUtils'
 import { toWebResponse } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (_req, res) => {
-    res.writeHead(101, 'Switching Protocols')
-    res.end()
-  })
-})
+let httpServer: TestHttpServer
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', (ctx) => {
+        /**
+         * @note Respond via the raw Node.js response: the Fetch API
+         * `Response` cannot describe a 101 informational response.
+         */
+        const { outgoing } = ctx.env as HttpBindings
+        outgoing.writeHead(101, 'Switching Protocols')
+        outgoing.end()
+        return RESPONSE_ALREADY_SENT
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -37,7 +50,7 @@ it('handles non-configurable responses from the actual server', async () => {
     responsePromise.resolve(response)
   })
 
-  const request = http.get(httpServer.http.url('/resource'))
+  const request = http.get(httpServer.http.url('/resource').href)
   const [response] = await toWebResponse(request)
 
   // Must passthrough non-configurable responses

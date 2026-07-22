@@ -3,7 +3,6 @@ import net from 'node:net'
 import zlib from 'node:zlib'
 import { Readable } from 'node:stream'
 import http from 'node:http'
-import { RequestHandler } from 'express'
 import type { MockedFunction } from 'vitest'
 import { FetchResponse } from '#/src/utils/fetchUtils'
 
@@ -51,16 +50,6 @@ export async function toWebResponse(
   return pendingResponse.promise
 }
 
-export const useCors: RequestHandler = (_req, res, next) => {
-  res.set({
-    'access-control-allow-origin': '*',
-    'access-control-allow-headers': '*',
-    'access-control-allow-methods': '*',
-    'access-control-expose-headers': '*',
-  })
-  return next()
-}
-
 /**
  * Compress the given data using the specified `Content-Encoding` codings
  * left-to-right.
@@ -84,7 +73,13 @@ export function compressResponse(
   return output
 }
 
-export async function createTestServer<T extends net.Server>(
+/**
+ * Create a disposable raw `net.Server`/`tls.Server` for socket-level tests.
+ * HTTP(S) test servers live in `@epic-web/test-server` — this helper exists
+ * only for the servers that cannot be expressed as HTTP routes (half-open
+ * TCP sockets, non-TLS handshake targets, raw byte exchanges).
+ */
+export async function createRawTestServer<T extends net.Server>(
   createServer: () => T
 ): Promise<
   AsyncDisposable & {

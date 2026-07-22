@@ -3,7 +3,7 @@ import http from 'node:http'
 import { ClientRequestInterceptor } from '#/src/interceptors/ClientRequest'
 import { XMLHttpRequestInterceptor } from '#/src/interceptors/XMLHttpRequest/node'
 import { FetchInterceptor } from '#/src/interceptors/fetch/node'
-import { createTestServer, toWebResponse } from '#/test/helpers'
+import { createRawTestServer, toWebResponse } from '#/test/helpers'
 import { waitForXMLHttpRequest } from '#/test/setup/helpers-neutral'
 
 const fetchInterceptor = new FetchInterceptor()
@@ -29,7 +29,7 @@ afterAll(() => {
 })
 
 it('does not attribute a ClientRequest to a preceding fetch request', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return http.createServer((_request, response) => {
       response.end('original')
     })
@@ -69,7 +69,7 @@ it('does not attribute a ClientRequest to a preceding fetch request', async () =
 })
 
 it('does not attribute a ClientRequest to a preceding XMLHttpRequest', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return http.createServer((_request, response) => {
       response.end('original')
     })

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -21,7 +21,7 @@ it('delivers writes issued after the server ends a half-open connection', async 
   const serverReceivedChunks: Array<Buffer> = []
   const serverEndListener = vi.fn()
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server({ allowHalfOpen: true }, (socket) => {
       socket.on('data', (chunk) => {
         serverReceivedChunks.push(chunk)
@@ -56,7 +56,7 @@ it('delivers writes issued after the server ends a half-open connection', async 
 })
 
 it('closes the connection once the half-open client ends', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server({ allowHalfOpen: true }, (socket) => {
       socket.resume()
       socket.on('end', () => {
@@ -87,7 +87,7 @@ it('closes the connection once the half-open client ends', async () => {
 it('ends the socket automatically without "allowHalfOpen"', async () => {
   const serverEndListener = vi.fn()
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.resume()
       socket.on('end', serverEndListener)

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
 const interceptor = new SocketInterceptor()
 
@@ -28,7 +28,7 @@ for (const { encoding, input } of encodedWrites) {
     const serverReceivedChunks: Array<Buffer> = []
     const serverEndListener = vi.fn()
 
-    await using server = await createTestServer(() => {
+    await using server = await createRawTestServer(() => {
       return new net.Server((socket) => {
         socket.on('data', (chunk) => {
           serverReceivedChunks.push(chunk)
@@ -57,7 +57,7 @@ for (const { encoding, input } of encodedWrites) {
 it('flushes corked writes as a single chunk', async () => {
   const serverReceivedChunks: Array<Buffer> = []
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.on('data', (chunk) => {
         serverReceivedChunks.push(chunk)
@@ -87,7 +87,7 @@ it('flushes corked writes as a single chunk', async () => {
 })
 
 it('receives the response as a string after "setEncoding()"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end('hello world')
     })
@@ -111,7 +111,7 @@ it('receives the response as a string after "setEncoding()"', async () => {
 })
 
 it('receives the response in the encoding set by "setEncoding()"', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
       socket.end('hello world')
     })

@@ -1,22 +1,29 @@
 // @vitest-environment node
 import http from 'node:http'
 import { setTimeout } from 'node:timers/promises'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', async (req, res) => {
-    await setTimeout(300)
-    res.status(200).send('original-response')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      // The test server registers its own "GET /" route,
+      // so define the delayed route on a different path.
+      router.get('/resource', async () => {
+        await setTimeout(300)
+        return new Response('original-response')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -40,9 +47,9 @@ it('handles concurrent requests with different response sources', async () => {
   })
 
   const requests = await Promise.all([
-    toWebResponse(http.get(httpServer.http.url('/'))),
+    toWebResponse(http.get(httpServer.http.url('/resource').href)),
     toWebResponse(
-      http.get(httpServer.http.url('/'), {
+      http.get(httpServer.http.url('/resource').href, {
         headers: {
           'x-ignore-request': 'yes',
         },

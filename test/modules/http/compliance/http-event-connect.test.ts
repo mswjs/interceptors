@@ -1,21 +1,26 @@
 // @vitest-environment node
 import http from 'node:http'
 import https from 'node:https'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/', (req, res) => {
-    res.send('original')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  /**
+   * @note No custom routes: the test server responds to "GET /"
+   * on its own, and these tests only assert the socket events.
+   */
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+  })
 })
 
 afterEach(() => {
@@ -33,7 +38,7 @@ it('emits the "connect" event for a mocked HTTP request', async () => {
   })
 
   const connectListener = vi.fn()
-  const request = http.get(httpServer.http.url('/'))
+  const request = http.get(httpServer.http.url('/').href)
   request.on('socket', (socket) => {
     socket.on('connect', connectListener)
   })
@@ -44,7 +49,7 @@ it('emits the "connect" event for a mocked HTTP request', async () => {
 })
 
 it('emits the "connect" event for a bypassed HTTP request', async () => {
-  const request = http.get(httpServer.http.url('/'))
+  const request = http.get(httpServer.http.url('/').href)
 
   const socketConnectListener = vi.fn()
   request.on('socket', (socket) => {
@@ -61,7 +66,7 @@ it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
   })
 
   const connectListener = vi.fn<(input: string) => void>()
-  const request = https.get(httpServer.https.url('/'))
+  const request = https.get(httpServer.https.url('/').href)
   request.on('socket', (socket) => {
     socket
       .on('connect', () => connectListener('connect'))
@@ -77,7 +82,7 @@ it('emits the "secureConnect" event for a mocked HTTPS request', async () => {
 
 it('emits the "secureConnect" event for a bypassed HTTPS request', async () => {
   const connectListener = vi.fn<(input: string) => void>()
-  const request = https.get(httpServer.https.url('/'), {
+  const request = https.get(httpServer.https.url('/').href, {
     rejectUnauthorized: false,
   })
   request.on('socket', (socket) => {

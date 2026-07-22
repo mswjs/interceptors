@@ -1,7 +1,7 @@
 // @vitest-environment node
 import tls from 'node:tls'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer } from '#/test/helpers'
+import { createRawTestServer } from '#/test/helpers'
 import { TLS_CERTIFICATE, TLS_PRIVATE_KEY } from './fixtures/tls'
 
 const interceptor = new SocketInterceptor()
@@ -19,7 +19,7 @@ afterAll(() => {
 })
 
 it('negotiates the TLS protocol and cipher', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -48,7 +48,7 @@ it('negotiates the TLS protocol and cipher', async () => {
 })
 
 it('negotiates the ALPN protocol', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -74,7 +74,7 @@ it('negotiates the ALPN protocol', async () => {
 })
 
 it('reports no ALPN protocol if none was requested', async () => {
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,
@@ -100,7 +100,7 @@ it('reports no ALPN protocol if none was requested', async () => {
 it('sends the SNI servername to the server', async () => {
   const serverSecureConnectionListener = vi.fn()
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     const tlsServer = new tls.Server({
       cert: TLS_CERTIFICATE,
       key: TLS_PRIVATE_KEY,

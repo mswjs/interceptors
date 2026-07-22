@@ -17,7 +17,7 @@ import { it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import net from 'node:net'
 import tls from 'node:tls'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer } from '#/test/helpers'
+import { createRawTestServer } from '#/test/helpers'
 import { TLS_CERTIFICATE, TLS_PRIVATE_KEY } from '../compliance/fixtures/tls'
 
 const interceptor = new SocketInterceptor()
@@ -59,7 +59,7 @@ function createDelayedLookup(delayMs: number): net.LookupFunction {
 it('flushes multiple buffered writes to a connecting passthrough tls socket', async () => {
   const serverReceivedData = Promise.withResolvers<string>()
 
-  await using server = await createTestServer(() => {
+  await using server = await createRawTestServer(() => {
     return new tls.Server(
       { cert: TLS_CERTIFICATE, key: TLS_PRIVATE_KEY },
       (socket) => {

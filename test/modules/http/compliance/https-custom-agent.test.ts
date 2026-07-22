@@ -1,21 +1,27 @@
 // @vitest-environment node
 import http from 'node:http'
 import https from 'node:https'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
 
-const httpServer = new HttpServer((app) => {
-  app.get('/resource', (_req, res) => {
-    res.send('original response')
-  })
-})
+let httpServer: TestHttpServer
 
 const interceptor = new HttpRequestInterceptor()
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+    defineRoutes(router) {
+      router.get('/resource', () => {
+        return new Response('original response')
+      })
+    },
+  })
 })
 
 afterEach(() => {
@@ -41,7 +47,7 @@ it('supports https.Agent instance as a custom agent for a mocked request', async
 })
 
 it('supports https.Agent instance as a custom agent for a passthrough request', async () => {
-  const request = https.get(httpServer.https.url('/resource'), {
+  const request = https.get(httpServer.https.url('/resource').href, {
     agent: new https.Agent({
       rejectUnauthorized: false,
     }),
@@ -71,7 +77,7 @@ it('supports http.Agent instance as a custom agent for a passthrough request', a
     }
   }
 
-  const request = https.get(httpServer.https.url('/resource'), {
+  const request = https.get(httpServer.https.url('/resource').href, {
     agent: new MyHttpAgent(),
     rejectUnauthorized: false,
   })

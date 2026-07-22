@@ -1,7 +1,7 @@
 // @vitest-environment node
 import tls from 'node:tls'
 import { SocketInterceptor } from '#/src/interceptors/net'
-import { createTestServer, spyOnSocket } from '#/test/helpers'
+import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 import { TLS_CERTIFICATE, TLS_PRIVATE_KEY } from './fixtures/tls'
 
 const interceptor = new SocketInterceptor()
@@ -26,7 +26,7 @@ function createTlsServer(): tls.Server {
 }
 
 it('rejects a self-signed server by default', async () => {
-  await using server = await createTestServer(createTlsServer)
+  await using server = await createRawTestServer(createTlsServer)
 
   const socket = tls.connect({
     port: server.port,
@@ -51,7 +51,7 @@ it('rejects a self-signed server by default', async () => {
 })
 
 it('exposes the authorization state for an untrusted server', async () => {
-  await using server = await createTestServer(createTlsServer)
+  await using server = await createRawTestServer(createTlsServer)
 
   const socket = tls.connect({
     port: server.port,
@@ -73,7 +73,7 @@ it('exposes the authorization state for an untrusted server', async () => {
 })
 
 it('exposes the authorization state for a trusted server', async () => {
-  await using server = await createTestServer(createTlsServer)
+  await using server = await createRawTestServer(createTlsServer)
 
   const socket = tls.connect({
     port: server.port,
@@ -93,7 +93,7 @@ it('exposes the authorization state for a trusted server', async () => {
 })
 
 it('returns the real server certificate from "getPeerCertificate()"', async () => {
-  await using server = await createTestServer(createTlsServer)
+  await using server = await createRawTestServer(createTlsServer)
 
   const socket = tls.connect({
     port: server.port,

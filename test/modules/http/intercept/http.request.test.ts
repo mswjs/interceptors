@@ -1,22 +1,15 @@
 // @vitest-environment node
 import http from 'node:http'
-import { HttpServer } from '@open-draft/test-server/http'
-import type { RequestHandler } from 'express'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
 import { HttpRequestEventMap } from '#/src/events/http'
 import { RequestController } from '#/src/RequestController'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const httpServer = new HttpServer((app) => {
-  const handleUserRequest: RequestHandler = (_req, res) => {
-    res.status(200).send('user-body').end()
-  }
-  app.get('/user', handleUserRequest)
-  app.post('/user', handleUserRequest)
-  app.put('/user', handleUserRequest)
-  app.patch('/user', handleUserRequest)
-  app.head('/user', handleUserRequest)
-})
+let httpServer: TestHttpServer
 
 const resolver = vi.fn<(event: HttpRequestEventMap['request']) => void>()
 const interceptor = new HttpRequestInterceptor()
@@ -24,7 +17,18 @@ interceptor.on('request', resolver)
 
 beforeAll(async () => {
   interceptor.apply()
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      const handleUserRequest = () => {
+        return new Response('user-body')
+      }
+      router.get('/user', handleUserRequest)
+      router.post('/user', handleUserRequest)
+      router.put('/user', handleUserRequest)
+      router.patch('/user', handleUserRequest)
+      // Hono routes "HEAD" via "GET" handlers automatically.
+    },
+  })
 })
 
 afterEach(() => {
@@ -38,7 +42,7 @@ afterAll(async () => {
 })
 
 it('intercepts a HEAD request', async () => {
-  const url = httpServer.http.url('/user?id=123')
+  const url = httpServer.http.url('/user?id=123').href
   const req = http.request(url, {
     method: 'HEAD',
     headers: {
@@ -66,7 +70,7 @@ it('intercepts a HEAD request', async () => {
 })
 
 it('intercepts a GET request', async () => {
-  const url = httpServer.http.url('/user?id=123')
+  const url = httpServer.http.url('/user?id=123').href
   const req = http.request(url, {
     method: 'GET',
     headers: {
@@ -94,7 +98,7 @@ it('intercepts a GET request', async () => {
 })
 
 it('intercepts a POST request', async () => {
-  const url = httpServer.http.url('/user?id=123')
+  const url = httpServer.http.url('/user?id=123').href
   const req = http.request(url, {
     method: 'POST',
     headers: {
@@ -125,7 +129,7 @@ it('intercepts a POST request', async () => {
 })
 
 it('intercepts a PUT request', async () => {
-  const url = httpServer.http.url('/user?id=123')
+  const url = httpServer.http.url('/user?id=123').href
   const req = http.request(url, {
     method: 'PUT',
     headers: {
@@ -155,7 +159,7 @@ it('intercepts a PUT request', async () => {
 })
 
 it('intercepts a PATCH request', async () => {
-  const url = httpServer.http.url('/user?id=123')
+  const url = httpServer.http.url('/user?id=123').href
   const req = http.request(url, {
     method: 'PATCH',
     headers: {
@@ -185,7 +189,7 @@ it('intercepts a PATCH request', async () => {
 })
 
 it('intercepts a DELETE request', async () => {
-  const url = httpServer.http.url('/user?id=1234')
+  const url = httpServer.http.url('/user?id=1234').href
   const req = http.request(url, {
     method: 'DELETE',
     headers: {
@@ -217,8 +221,8 @@ it('intercepts an http.request given RequestOptions without a protocol', async (
   // Create a request with `RequestOptions` without an explicit "protocol".
   // Since request is done via `http.get`, the "http:" protocol must be inferred.
   const req = http.request({
-    host: httpServer.http.address.host,
-    port: httpServer.http.address.port,
+    host: httpServer.http.url().hostname,
+    port: httpServer.http.url().port,
     path: '/user?id=123',
   })
   req.end()
@@ -229,7 +233,7 @@ it('intercepts an http.request given RequestOptions without a protocol', async (
   const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.http.url('/user?id=123'))
+  expect(request.url).toBe(httpServer.http.url('/user?id=123').href)
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(controller).toBeInstanceOf(RequestController)
@@ -240,7 +244,7 @@ it('intercepts an http.request given RequestOptions without a protocol', async (
 it('intercepts an http.request path in url and options', async () => {
   const callback = vi.fn()
   const req = http.request(
-    new URL(httpServer.http.url('/one')),
+    new URL(httpServer.http.url('/one').href),
     { path: '/two' },
     callback
   )
@@ -252,7 +256,7 @@ it('intercepts an http.request path in url and options', async () => {
   const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.http.url('/two'))
+  expect(request.url).toBe(httpServer.http.url('/two').href)
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(controller).toBeInstanceOf(RequestController)
@@ -264,8 +268,8 @@ it('intercepts an http.request path in url and options', async () => {
 it('intercepts an http.request with custom "auth" option', async () => {
   const auth = 'john:secret123'
   const req = http.request({
-    host: httpServer.http.address.host,
-    port: httpServer.http.address.port,
+    host: httpServer.http.url().hostname,
+    port: httpServer.http.url().port,
     auth,
   })
   req.end()
@@ -276,7 +280,7 @@ it('intercepts an http.request with custom "auth" option', async () => {
   const [{ request }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.http.url('/'))
+  expect(request.url).toBe(httpServer.http.url('/').href)
   expect(request.headers.get('authorization')).toBe(`Basic ${btoa(auth)}`)
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
@@ -288,7 +292,7 @@ it('intercepts an http.request with a URL with "username" and "password"', async
   const req = http.request(
     // The request URL can include the basic auth directly.
     new URL(
-      `http://${username}:${password}@${httpServer.http.address.host}:${httpServer.http.address.port}/`
+      `http://${username}:${password}@${httpServer.http.url().host}/`
     )
   )
   req.end()
@@ -299,7 +303,7 @@ it('intercepts an http.request with a URL with "username" and "password"', async
   const [{ request }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.http.url('/'))
+  expect(request.url).toBe(httpServer.http.url('/').href)
   expect(request.headers.get('authorization')).toBe(
     `Basic ${btoa(`${username}:${password}`)}`
   )

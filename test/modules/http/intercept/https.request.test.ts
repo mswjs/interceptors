@@ -1,31 +1,36 @@
 // @vitest-environment node
 import https from 'node:https'
-import { RequestHandler } from 'express'
-import { HttpServer } from '@open-draft/test-server/http'
+import {
+  createTestHttpServer,
+  type TestHttpServer,
+} from '@epic-web/test-server/http'
 import { REQUEST_ID_REGEXP, toWebResponse } from '#/test/helpers'
 import { HttpRequestEventMap } from '#/src/index'
 import { RequestController } from '#/src/RequestController'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
-const httpServer = new HttpServer((app) => {
-  const handleUserRequest: RequestHandler = (req, res) => {
-    res.status(200).send('user-body').end()
-  }
-
-  app.get('/user', handleUserRequest)
-  app.post('/user', handleUserRequest)
-  app.put('/user', handleUserRequest)
-  app.delete('/user', handleUserRequest)
-  app.patch('/user', handleUserRequest)
-  app.head('/user', handleUserRequest)
-})
+let httpServer: TestHttpServer
 
 const resolver = vi.fn<(event: HttpRequestEventMap['request']) => void>()
 const interceptor = new HttpRequestInterceptor()
 interceptor.on('request', resolver)
 
 beforeAll(async () => {
-  await httpServer.listen()
+  httpServer = await createTestHttpServer({
+    protocols: ['http', 'https'],
+    defineRoutes(router) {
+      const handleUserRequest = () => {
+        return new Response('user-body')
+      }
+
+      router.get('/user', handleUserRequest)
+      router.post('/user', handleUserRequest)
+      router.put('/user', handleUserRequest)
+      router.delete('/user', handleUserRequest)
+      router.patch('/user', handleUserRequest)
+      // Hono routes "HEAD" via "GET" handlers automatically.
+    },
+  })
   interceptor.apply()
 })
 
@@ -39,7 +44,7 @@ afterAll(async () => {
 })
 
 it('intercepts a HEAD request', async () => {
-  const url = httpServer.https.url('/user?id=123')
+  const url = httpServer.https.url('/user?id=123').href
   const req = https.request(url, {
     rejectUnauthorized: false,
     method: 'HEAD',
@@ -55,7 +60,7 @@ it('intercepts a HEAD request', async () => {
   const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('HEAD')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.url).toBe(httpServer.https.url('/user?id=123').href)
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(controller).toBeInstanceOf(RequestController)
@@ -64,7 +69,7 @@ it('intercepts a HEAD request', async () => {
 })
 
 it('intercepts a GET request', async () => {
-  const url = httpServer.https.url('/user?id=123')
+  const url = httpServer.https.url('/user?id=123').href
   const req = https.request(url, {
     rejectUnauthorized: false,
     method: 'GET',
@@ -80,7 +85,7 @@ it('intercepts a GET request', async () => {
   const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.url).toBe(httpServer.https.url('/user?id=123').href)
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(controller).toBeInstanceOf(RequestController)
@@ -89,7 +94,7 @@ it('intercepts a GET request', async () => {
 })
 
 it('intercepts a POST request', async () => {
-  const url = httpServer.https.url('/user?id=123')
+  const url = httpServer.https.url('/user?id=123').href
   const req = https.request(url, {
     rejectUnauthorized: false,
     method: 'POST',
@@ -106,7 +111,7 @@ it('intercepts a POST request', async () => {
   const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('POST')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.url).toBe(httpServer.https.url('/user?id=123').href)
   expect(request.credentials).toBe('same-origin')
   await expect(request.text()).resolves.toBe('post-payload')
   expect(controller).toBeInstanceOf(RequestController)
@@ -115,7 +120,7 @@ it('intercepts a POST request', async () => {
 })
 
 it('intercepts a PUT request', async () => {
-  const url = httpServer.https.url('/user?id=123')
+  const url = httpServer.https.url('/user?id=123').href
   const req = https.request(url, {
     rejectUnauthorized: false,
     method: 'PUT',
@@ -132,7 +137,7 @@ it('intercepts a PUT request', async () => {
   const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('PUT')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.url).toBe(httpServer.https.url('/user?id=123').href)
   expect(request.credentials).toBe('same-origin')
   await expect(request.text()).resolves.toBe('put-payload')
   expect(controller).toBeInstanceOf(RequestController)
@@ -141,7 +146,7 @@ it('intercepts a PUT request', async () => {
 })
 
 it('intercepts a PATCH request', async () => {
-  const url = httpServer.https.url('/user?id=123')
+  const url = httpServer.https.url('/user?id=123').href
   const req = https.request(url, {
     rejectUnauthorized: false,
     method: 'PATCH',
@@ -158,7 +163,7 @@ it('intercepts a PATCH request', async () => {
   const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('PATCH')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.url).toBe(httpServer.https.url('/user?id=123').href)
   expect(request.credentials).toBe('same-origin')
   await expect(request.text()).resolves.toBe('patch-payload')
   expect(controller).toBeInstanceOf(RequestController)
@@ -167,7 +172,7 @@ it('intercepts a PATCH request', async () => {
 })
 
 it('intercepts a DELETE request', async () => {
-  const url = httpServer.https.url('/user?id=123')
+  const url = httpServer.https.url('/user?id=123').href
   const req = https.request(url, {
     rejectUnauthorized: false,
     method: 'DELETE',
@@ -183,7 +188,7 @@ it('intercepts a DELETE request', async () => {
   const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('DELETE')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.url).toBe(httpServer.https.url('/user?id=123').href)
   expect(request.credentials).toBe('same-origin')
   await expect(request.text()).resolves.toBe('')
   expect(controller).toBeInstanceOf(RequestController)
@@ -194,8 +199,8 @@ it('intercepts a DELETE request', async () => {
 it('intercepts an http.request request given RequestOptions without a protocol', async () => {
   const req = https.request({
     rejectUnauthorized: false,
-    host: httpServer.https.address.host,
-    port: httpServer.https.address.port,
+    host: httpServer.https.url().hostname,
+    port: httpServer.https.url().port,
     path: '/user?id=123',
   })
   req.end()
@@ -206,7 +211,7 @@ it('intercepts an http.request request given RequestOptions without a protocol',
   const [{ request, requestId, controller }] = resolver.mock.calls[0]
 
   expect(request.method).toBe('GET')
-  expect(request.url).toBe(httpServer.https.url('/user?id=123'))
+  expect(request.url).toBe(httpServer.https.url('/user?id=123').href)
   expect(request.credentials).toBe('same-origin')
   expect(request.body).toBe(null)
   expect(controller).toBeInstanceOf(RequestController)
