@@ -21,6 +21,7 @@ import { handleRequest, HandleRequestOptions } from '../../utils/handle-request'
 import { isResponseError, kErrorResponse } from '../../utils/response-utils'
 import { createLogger } from '../../utils/logger'
 import {
+  kPatched,
   kRawSocket,
   SocketController,
   type FlushPendingDataFunction,
@@ -124,10 +125,43 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           const httpMessage = chunk.toString()
           const httpMethod = httpMessage.split(' ')[0] || ''
 
-          // Decline non-HTTP connections so the socket controller can
-          // pass them through once every subscriber has declined.
           if (!METHODS.includes(httpMethod.toUpperCase())) {
             isHttpConnection = false
+
+            /**
+             * @note Non-HTTP traffic over a mocked "CONNECT" tunnel
+             * (e.g. TLS). This exchange is outside the connection's
+             * verdict cycle: the last-resort passthrough dials the
+             * original connection target — the proxy — which never
+             * actually established this tunnel. Emulate a real proxy
+             * instead: claim the connection and relay the tunneled
+             * bytes to the tunnel target as-is.
+             */
+            if (tunnelUrl) {
+              socketController.claim()
+
+              const targetSocket = new net.Socket()
+              // Exempt the relay connection from the interception.
+              targetSocket[kPatched] = true
+              targetSocket.connect(
+                Number(tunnelUrl.port) || 80,
+                tunnelUrl.hostname
+              )
+
+              targetSocket
+                .on('data', (data) => socket.write(data))
+                .on('end', () => socket.end())
+                .on('error', (error) => rawSocket.destroy(error))
+
+              socket.on('data', (data) => targetSocket.write(data))
+              socket.on('close', () => targetSocket.destroy())
+
+              targetSocket.write(toBuffer(chunk))
+              return
+            }
+
+            // Decline non-HTTP connections so the socket controller can
+            // pass them through once every subscriber has declined.
             socketController.decline()
             return
           }

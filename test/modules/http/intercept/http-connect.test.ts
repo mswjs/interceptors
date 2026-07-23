@@ -305,3 +305,51 @@ it('closes the connection for a mocked non-2xx response to "CONNECT" like a real
   const mockedEvents = requestTunnel(1234)
   await expect.poll(() => mockedEvents).toEqual(realEvents)
 })
+
+it('relays non-HTTP data over a mocked "CONNECT" tunnel to the tunnel target', async () => {
+  // A raw TCP server acting as the tunnel target.
+  const tunnelTargetServer = new net.Server((connection) => {
+    connection.on('data', () => connection.write('PONG'))
+  })
+  await new Promise<void>((resolve) => {
+    tunnelTargetServer.listen(0, '127.0.0.1', resolve)
+  })
+  const targetAddress = tunnelTargetServer.address()
+  invariant(targetAddress != null && typeof targetAddress === 'object')
+
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.method === 'CONNECT') {
+      controller.respondWith(new Response(null, { status: 200 }))
+    }
+  })
+
+  const request = http
+    .request({
+      method: 'CONNECT',
+      host: '127.0.0.1',
+      // The proxy itself is mocked and never dialed.
+      port: 1234,
+      path: `127.0.0.1:${targetAddress.port}`,
+    })
+    .end()
+
+  const socket = await new Promise<net.Socket>((resolve, reject) => {
+    request.on('connect', (_response, socket) => resolve(socket))
+    request.on('error', reject)
+  })
+
+  // Send non-HTTP data through the tunnel.
+  socket.write('PING')
+
+  const response = await new Promise<string>((resolve, reject) => {
+    socket.on('data', (chunk) => {
+      resolve(chunk.toString())
+      socket.destroy()
+    })
+    socket.on('error', reject)
+  })
+
+  expect(response).toBe('PONG')
+
+  await new Promise((resolve) => tunnelTargetServer.close(resolve))
+})
