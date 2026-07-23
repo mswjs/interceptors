@@ -306,6 +306,32 @@ it('closes the connection for a mocked non-2xx response to "CONNECT" like a real
   await expect.poll(() => mockedEvents).toEqual(realEvents)
 })
 
+it('passes an unhandled HTTP request over a mocked "CONNECT" tunnel through to the tunnel target', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    // Establish the tunnel but leave the tunneled request unhandled.
+    if (request.method === 'CONNECT') {
+      controller.respondWith(new Response(null, { status: 200 }))
+    }
+  })
+
+  // The proxy itself is mocked and never dialed.
+  const agent = new HttpsProxyAgent('http://non-existing.proxy/')
+  const url = httpServer.http.url('/resource')
+
+  const request = http
+    .request({
+      hostname: url.hostname,
+      port: url.port,
+      path: url.pathname,
+      agent,
+    })
+    .end()
+
+  const [response] = await toWebResponse(request)
+  expect.soft(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('original')
+})
+
 it('forwards the client half-close over a mocked "CONNECT" tunnel to the tunnel target', async () => {
   // A target that replies only once the client half-closes
   // (e.g. whois/finger-style protocols where FIN ends the query).
@@ -320,7 +346,10 @@ it('forwards the client half-close over a mocked "CONNECT" tunnel to the tunnel 
     tunnelTargetServer.listen(0, '127.0.0.1', resolve)
   })
   const targetAddress = tunnelTargetServer.address()
-  invariant(targetAddress != null && typeof targetAddress === 'object')
+  invariant(
+    targetAddress != null && typeof targetAddress === 'object',
+    'Expected the tunnel target server to have an address'
+  )
 
   interceptor.on('request', ({ request, controller }) => {
     if (request.method === 'CONNECT') {
@@ -366,7 +395,10 @@ it('relays non-HTTP data over a mocked "CONNECT" tunnel to the tunnel target', a
     tunnelTargetServer.listen(0, '127.0.0.1', resolve)
   })
   const targetAddress = tunnelTargetServer.address()
-  invariant(targetAddress != null && typeof targetAddress === 'object')
+  invariant(
+    targetAddress != null && typeof targetAddress === 'object',
+    'Expected the tunnel target server to have an address'
+  )
 
   interceptor.on('request', ({ request, controller }) => {
     if (request.method === 'CONNECT') {

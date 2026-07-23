@@ -21,7 +21,6 @@ import { handleRequest, HandleRequestOptions } from '../../utils/handle-request'
 import { isResponseError, kErrorResponse } from '../../utils/response-utils'
 import { createLogger } from '../../utils/logger'
 import {
-  kPatched,
   kRawSocket,
   SocketController,
   type FlushPendingDataFunction,
@@ -114,7 +113,20 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
             requestParser.free()
             requestParser = undefined
             isHttpConnection = undefined
-            socketController.reset()
+
+            /**
+             * @note Retarget the connection to the tunnel authority.
+             * The exchanges that follow belong to the tunnel target,
+             * so an unclaimed exchange (HTTP or not) must pass through
+             * to that target — not to the proxy, which never actually
+             * established this tunnel — like a real established tunnel
+             * relays its traffic.
+             */
+            socketController.reset({
+              host: tunnelUrl.hostname,
+              port: Number(tunnelUrl.port) || 80,
+              path: null,
+            })
           }
 
           if (requestParser) {
@@ -125,60 +137,10 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           const httpMessage = chunk.toString()
           const httpMethod = httpMessage.split(' ')[0] || ''
 
+          // Decline non-HTTP connections so the socket controller can
+          // pass them through once every subscriber has declined.
           if (!METHODS.includes(httpMethod.toUpperCase())) {
             isHttpConnection = false
-
-            /**
-             * @note Non-HTTP traffic over a mocked "CONNECT" tunnel
-             * (e.g. TLS). This exchange is outside the connection's
-             * verdict cycle: the last-resort passthrough dials the
-             * original connection target — the proxy — which never
-             * actually established this tunnel. Emulate a real proxy
-             * instead: claim the connection and relay the tunneled
-             * bytes to the tunnel target as-is.
-             */
-            if (tunnelUrl) {
-              socketController.claim()
-
-              const targetSocket = new net.Socket()
-              // Exempt the relay connection from the interception.
-              targetSocket[kPatched] = true
-              targetSocket.connect(
-                Number(tunnelUrl.port) || 80,
-                tunnelUrl.hostname
-              )
-
-              targetSocket
-                .on('data', (data) => {
-                  /**
-                   * @note Honor the client's read backpressure: stall
-                   * the relay while the client's buffer is full and
-                   * resume it once the client reads again.
-                   */
-                  if (!socket.write(data)) {
-                    targetSocket.pause()
-                  }
-                })
-                .on('end', () => socket.end())
-                .on('error', (error) => rawSocket.destroy(error))
-
-              socket.on('drain', () => targetSocket.resume())
-              socket.on('data', (data) => targetSocket.write(data))
-              /**
-               * @note "finish" on the client socket is the client
-               * half-closing the tunnel. Forward it to the target as
-               * the FIN it stands for ("end" cannot signal it: that is
-               * the readable-side EOF, echoing the target's own end).
-               */
-              socket.on('finish', () => targetSocket.end())
-              socket.on('close', () => targetSocket.destroy())
-
-              targetSocket.write(toBuffer(chunk))
-              return
-            }
-
-            // Decline non-HTTP connections so the socket controller can
-            // pass them through once every subscriber has declined.
             socketController.decline()
             return
           }

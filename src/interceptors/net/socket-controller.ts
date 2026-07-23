@@ -433,7 +433,22 @@ export abstract class SocketController {
     this.#awaitedVerdicts -= 1
 
     if (this.#awaitedVerdicts <= 0) {
-      this.passthrough()
+      /**
+       * @note Defer the passthrough so it never transitions this
+       * controller in the middle of a client write. Declines are
+       * issued while the written data is being pushed to the server
+       * socket, and a synchronous transition would race the write's
+       * own bookkeeping (e.g. re-buffering the write after a reset
+       * at an exchange boundary).
+       */
+      process.nextTick(() => {
+        if (
+          this.readyState === SocketController.PENDING &&
+          !this[kRawSocket].destroyed
+        ) {
+          this.passthrough()
+        }
+      })
     }
   }
 }
@@ -455,6 +470,8 @@ export class TcpSocketController extends SocketController {
   protected pendingConnection: PromiseWithResolvers<[TcpWrap, TcpHandle]>
 
   #connectionOptions?: NetworkConnectionOptions
+  #retargetedConnectionOptions?: NetworkConnectionOptions &
+    net.SocketConnectOpts
   #realWriteGeneric: net.Socket['_writeGeneric']
   #passthroughSocket: net.Socket | null = null
   #bufferedWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
@@ -568,8 +585,29 @@ export class TcpSocketController extends SocketController {
    * on this socket can be handled anew. This is meant for kept-alive
    * sockets that are reused for multiple exchanges by clients that
    * don't emit the "free" event on the socket (e.g. Undici).
+   *
+   * Providing connection options retargets this connection: the
+   * exchanges that follow belong to the given target (e.g. the
+   * authority of an established "CONNECT" tunnel). An unclaimed
+   * exchange then passes through to that target instead of the
+   * originally dialed one, and a claimed exchange reports it as the
+   * peer. The verdict count is deliberately not re-armed: subscribers
+   * that declined this connection's protocol stay declined across
+   * the exchanges, retargeted or not.
    */
-  public reset(): void {
+  public reset(
+    connectionOptions?: NetworkConnectionOptions & net.SocketConnectOpts
+  ): void {
+    if (connectionOptions != null) {
+      this.#retargetedConnectionOptions = connectionOptions
+      this.#connectionOptions = connectionOptions
+
+      // The passthrough connection to the original target, if any,
+      // cannot serve the retargeted exchanges.
+      this.#passthroughSocket?.destroy()
+      this.#passthroughSocket = null
+    }
+
     /**
      * @note Only settled (claimed or passed-through) sockets need a reset.
      * Resetting a pending socket again would discard the writes already
@@ -1195,7 +1233,9 @@ export class TcpSocketController extends SocketController {
     logger.verbose('-> passthrough!')
 
     const createRealSocket = () => {
-      const realSocket = this.createConnection()
+      const realSocket = this.#retargetedConnectionOptions
+        ? this.#createRetargetedConnection(this.#retargetedConnectionOptions)
+        : this.createConnection()
 
       // Mark the passthrough socket as patched so it's exempt from
       // the unpatched socket detection (it never enters agent pools,
@@ -1282,7 +1322,47 @@ export class TcpSocketController extends SocketController {
       .on('end', this.#onRealSocketEnd)
       .on('close', this.#onRealSocketClose)
 
+    /**
+     * @note Forward the client's half-close to the passthrough socket.
+     * The client's writable side may finish before the real handle is
+     * swapped in ("_final" of a connected client runs against the mock
+     * handle), leaving the FIN unsent. Once the handle is swapped, the
+     * client's own shutdown reaches the real connection natively.
+     */
+    const forwardClientFinish = () => {
+      if (!this.#realHandleSwapped) {
+        realSocket.end()
+      }
+    }
+
+    if (this.socket.writableFinished) {
+      forwardClientFinish()
+    } else {
+      this.socket.once('finish', forwardClientFinish)
+    }
+
     return realSocket
+  }
+
+  /**
+   * Create the passthrough connection to the target this controller
+   * was retargeted to (see `reset()`). The original `createConnection`
+   * dials the originally requested target and cannot serve retargeted
+   * exchanges.
+   */
+  #createRetargetedConnection(
+    connectionOptions: net.SocketConnectOpts
+  ): net.Socket {
+    const realSocket = new net.Socket()
+
+    /**
+     * @note Mark the socket as patched before connecting: the patched
+     * "Socket.prototype.connect" exempts such sockets, establishing
+     * the connection for real.
+     */
+    realSocket[kPatched] = true
+
+    return realSocket.connect(connectionOptions)
   }
 }
 
