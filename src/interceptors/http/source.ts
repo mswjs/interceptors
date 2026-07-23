@@ -164,6 +164,13 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
               socket.on('drain', () => targetSocket.resume())
               socket.on('data', (data) => targetSocket.write(data))
+              /**
+               * @note "finish" on the client socket is the client
+               * half-closing the tunnel. Forward it to the target as
+               * the FIN it stands for ("end" cannot signal it: that is
+               * the readable-side EOF, echoing the target's own end).
+               */
+              socket.on('finish', () => targetSocket.end())
               socket.on('close', () => targetSocket.destroy())
 
               targetSocket.write(toBuffer(chunk))

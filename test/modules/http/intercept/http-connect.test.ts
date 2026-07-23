@@ -306,6 +306,57 @@ it('closes the connection for a mocked non-2xx response to "CONNECT" like a real
   await expect.poll(() => mockedEvents).toEqual(realEvents)
 })
 
+it('forwards the client half-close over a mocked "CONNECT" tunnel to the tunnel target', async () => {
+  // A target that replies only once the client half-closes
+  // (e.g. whois/finger-style protocols where FIN ends the query).
+  const tunnelTargetServer = new net.Server(
+    { allowHalfOpen: true },
+    (connection) => {
+      connection.resume()
+      connection.on('end', () => connection.end('REPLY'))
+    }
+  )
+  await new Promise<void>((resolve) => {
+    tunnelTargetServer.listen(0, '127.0.0.1', resolve)
+  })
+  const targetAddress = tunnelTargetServer.address()
+  invariant(targetAddress != null && typeof targetAddress === 'object')
+
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.method === 'CONNECT') {
+      controller.respondWith(new Response(null, { status: 200 }))
+    }
+  })
+
+  const request = http
+    .request({
+      method: 'CONNECT',
+      host: '127.0.0.1',
+      // The proxy itself is mocked and never dialed.
+      port: 1234,
+      path: `127.0.0.1:${targetAddress.port}`,
+    })
+    .end()
+
+  const socket = await new Promise<net.Socket>((resolve, reject) => {
+    request.on('connect', (_response, socket) => resolve(socket))
+    request.on('error', reject)
+  })
+
+  // Send the "query" and half-close: the FIN delimits the query.
+  socket.write('PING')
+  socket.end()
+
+  const reply = await new Promise<string>((resolve, reject) => {
+    socket.on('data', (chunk) => resolve(chunk.toString()))
+    socket.on('error', reject)
+  })
+
+  expect(reply).toBe('REPLY')
+
+  await new Promise((resolve) => tunnelTargetServer.close(resolve))
+})
+
 it('relays non-HTTP data over a mocked "CONNECT" tunnel to the tunnel target', async () => {
   // A raw TCP server acting as the tunnel target.
   const tunnelTargetServer = new net.Server((connection) => {
