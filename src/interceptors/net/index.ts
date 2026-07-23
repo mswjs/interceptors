@@ -247,22 +247,23 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                 return
               }
 
-              if (
-                !interceptor.emitter.emit(
-                  new SocketConnectionEvent({
-                    socket: controller.serverSocket,
-                    controller,
-                    connectionOptions,
-                  })
-                )
-              ) {
-                logger.verbose(
-                  'no "connection" listeners found on the interceptor, passthrough...'
-                )
+              /**
+               * @note Expect a verdict on this connection from every
+               * "connection" listener before emitting the event. With no
+               * listeners to claim the connection (or once every listener
+               * declines it), the controller passes it through as-is.
+               */
+              controller.awaitVerdicts(
+                interceptor.listenerCount('connection')
+              )
 
-                controller.passthrough()
-                return
-              }
+              interceptor.emitter.emit(
+                new SocketConnectionEvent({
+                  socket: controller.serverSocket,
+                  controller,
+                  connectionOptions,
+                })
+              )
 
               logger.verbose('emitted "connection" event!')
             })

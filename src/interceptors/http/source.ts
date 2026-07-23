@@ -124,9 +124,11 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           const httpMessage = chunk.toString()
           const httpMethod = httpMessage.split(' ')[0] || ''
 
-          // Ignore non-HTTP packets sent via this socket.
+          // Decline non-HTTP connections so the socket controller can
+          // pass them through once every subscriber has declined.
           if (!METHODS.includes(httpMethod.toUpperCase())) {
             isHttpConnection = false
+            socketController.decline()
             return
           }
 
