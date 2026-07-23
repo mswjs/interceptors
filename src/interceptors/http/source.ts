@@ -577,7 +577,15 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
       response.headers.has('transfer-encoding') ||
       !FetchResponse.isResponseWithBody(response.status)
 
-    if (request.method !== 'CONNECT' && !isSelfDelimitingResponse) {
+    if (
+      /**
+       * @note A non-2xx response to a "CONNECT" request means the proxy
+       * refused the tunnel. Real proxies terminate the connection after
+       * sending such a response, regardless of its framing.
+       */
+      (request.method === 'CONNECT' && !response.ok) ||
+      (request.method !== 'CONNECT' && !isSelfDelimitingResponse)
+    ) {
       /**
        * @note Defer the end-of-stream signal so the HTTP parser has a chance
        * to process already-pushed response data and fire the 'response' event
