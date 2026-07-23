@@ -602,10 +602,40 @@ export class TcpSocketController extends SocketController {
       this.#retargetedConnectionOptions = connectionOptions
       this.#connectionOptions = connectionOptions
 
-      // The passthrough connection to the original target, if any,
-      // cannot serve the retargeted exchanges.
-      this.#passthroughSocket?.destroy()
-      this.#passthroughSocket = null
+      /**
+       * @note The passthrough connection to the original target, if
+       * any, cannot serve the retargeted exchanges. Detach its
+       * forwarding listeners before destroying it so its teardown is
+       * not mistaken for the client connection's own (e.g. its "close"
+       * must not close the client socket).
+       */
+      if (this.#passthroughSocket) {
+        this.#passthroughSocket
+          .removeListener('connect', this.#onRealSocketConnect)
+          .removeListener(
+            'connectionAttemptFailed',
+            this.#onRealSocketConnectionAttemptFailed
+          )
+          .removeListener(
+            'connectionAttemptTimeout',
+            this.#onRealSocketConnectionAttemptTimeout
+          )
+          .removeListener('data', this.#onRealSocketData)
+          .removeListener('error', this.#onRealSocketError)
+          .removeListener('end', this.#onRealSocketEnd)
+          .removeListener('close', this.#onRealSocketClose)
+          .destroy()
+
+        this.#passthroughSocket = null
+
+        /**
+         * @note The handle swapped in from the destroyed connection,
+         * if any, no longer carries this socket's traffic. Treat the
+         * socket as not swapped so the retargeted passthrough writes
+         * directly to the new connection until its own handle swap.
+         */
+        this.#realHandleSwapped = false
+      }
     }
 
     /**
@@ -1096,6 +1126,19 @@ export class TcpSocketController extends SocketController {
   }
 
   /**
+   * Forward the client's half-close to the passthrough socket.
+   * The client's writable side may finish before the real handle is
+   * swapped in ("_final" of a connected client runs against the mock
+   * handle), leaving the FIN unsent. Once the handle is swapped, the
+   * client's own shutdown reaches the real connection natively.
+   */
+  #forwardClientFinish = () => {
+    if (!this.#realHandleSwapped) {
+      this.#passthroughSocket?.end()
+    }
+  }
+
+  /**
    * Suspend forwarding of the passthrough socket events ("data", "end", "close")
    * to the client socket. The events are buffered in order until `uncorkReads()`
    * is called. This allows the consumer to delay the delivery of the original
@@ -1323,22 +1366,17 @@ export class TcpSocketController extends SocketController {
       .on('close', this.#onRealSocketClose)
 
     /**
-     * @note Forward the client's half-close to the passthrough socket.
-     * The client's writable side may finish before the real handle is
-     * swapped in ("_final" of a connected client runs against the mock
-     * handle), leaving the FIN unsent. Once the handle is swapped, the
-     * client's own shutdown reaches the real connection natively.
+     * @note Forward the client's half-close, unless the real handle
+     * is already swapped in — the client's own shutdown then reaches
+     * the real connection natively (see "#forwardClientFinish").
      */
-    const forwardClientFinish = () => {
-      if (!this.#realHandleSwapped) {
-        realSocket.end()
+    if (!this.#realHandleSwapped) {
+      if (this.socket.writableFinished) {
+        this.#forwardClientFinish()
+      } else {
+        this.socket.removeListener('finish', this.#forwardClientFinish)
+        this.socket.once('finish', this.#forwardClientFinish)
       }
-    }
-
-    if (this.socket.writableFinished) {
-      forwardClientFinish()
-    } else {
-      this.socket.once('finish', forwardClientFinish)
     }
 
     return realSocket
