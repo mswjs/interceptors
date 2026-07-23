@@ -149,10 +149,20 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
               )
 
               targetSocket
-                .on('data', (data) => socket.write(data))
+                .on('data', (data) => {
+                  /**
+                   * @note Honor the client's read backpressure: stall
+                   * the relay while the client's buffer is full and
+                   * resume it once the client reads again.
+                   */
+                  if (!socket.write(data)) {
+                    targetSocket.pause()
+                  }
+                })
                 .on('end', () => socket.end())
                 .on('error', (error) => rawSocket.destroy(error))
 
+              socket.on('drain', () => targetSocket.resume())
               socket.on('data', (data) => targetSocket.write(data))
               socket.on('close', () => targetSocket.destroy())
 
