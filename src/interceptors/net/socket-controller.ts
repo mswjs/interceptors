@@ -362,6 +362,8 @@ export abstract class SocketController {
     | typeof SocketController.CLAIMED
     | typeof SocketController.PASSTHROUGH
 
+  #awaitedVerdicts = 0
+
   private [kRawSocket]: net.Socket
 
   constructor(socket: net.Socket) {
@@ -400,6 +402,55 @@ export abstract class SocketController {
 
     this.readyState = SocketController.PASSTHROUGH
   }
+
+  /**
+   * Await a verdict on this connection from the given number of
+   * subscribers. A connection nobody awaits to inspect (or one that
+   * every awaited subscriber has declined) is passed through as-is.
+   * This makes "unclaimed after everyone declined" a state owned by
+   * the controller instead of the individual subscribers.
+   */
+  public awaitVerdicts(count: number): void {
+    this.#awaitedVerdicts = count
+
+    if (this.#awaitedVerdicts === 0) {
+      this.passthrough()
+    }
+  }
+
+  /**
+   * Decline this socket connection. Declining means the subscriber
+   * has inspected the connection and will not handle it (e.g. the
+   * traffic is not of the protocol that subscriber implements).
+   * Once every awaited subscriber declines, the connection is
+   * passed through as-is.
+   */
+  public decline(): void {
+    if (this.readyState !== SocketController.PENDING) {
+      return
+    }
+
+    this.#awaitedVerdicts -= 1
+
+    if (this.#awaitedVerdicts <= 0) {
+      /**
+       * @note Defer the passthrough so it never transitions this
+       * controller in the middle of a client write. Declines are
+       * issued while the written data is being pushed to the server
+       * socket, and a synchronous transition would race the write's
+       * own bookkeeping (e.g. re-buffering the write after a reset
+       * at an exchange boundary).
+       */
+      process.nextTick(() => {
+        if (
+          this.readyState === SocketController.PENDING &&
+          !this[kRawSocket].destroyed
+        ) {
+          this.passthrough()
+        }
+      })
+    }
+  }
 }
 
 export type FlushPendingDataFunction = (
@@ -419,6 +470,8 @@ export class TcpSocketController extends SocketController {
   protected pendingConnection: PromiseWithResolvers<[TcpWrap, TcpHandle]>
 
   #connectionOptions?: NetworkConnectionOptions
+  #retargetedConnectionOptions?: NetworkConnectionOptions &
+    net.SocketConnectOpts
   #realWriteGeneric: net.Socket['_writeGeneric']
   #passthroughSocket: net.Socket | null = null
   #bufferedWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
@@ -532,8 +585,59 @@ export class TcpSocketController extends SocketController {
    * on this socket can be handled anew. This is meant for kept-alive
    * sockets that are reused for multiple exchanges by clients that
    * don't emit the "free" event on the socket (e.g. Undici).
+   *
+   * Providing connection options retargets this connection: the
+   * exchanges that follow belong to the given target (e.g. the
+   * authority of an established "CONNECT" tunnel). An unclaimed
+   * exchange then passes through to that target instead of the
+   * originally dialed one, and a claimed exchange reports it as the
+   * peer. The verdict count is deliberately not re-armed: subscribers
+   * that declined this connection's protocol stay declined across
+   * the exchanges, retargeted or not.
    */
-  public reset(): void {
+  public reset(
+    connectionOptions?: NetworkConnectionOptions & net.SocketConnectOpts
+  ): void {
+    if (connectionOptions != null) {
+      this.#retargetedConnectionOptions = connectionOptions
+      this.#connectionOptions = connectionOptions
+
+      /**
+       * @note The passthrough connection to the original target, if
+       * any, cannot serve the retargeted exchanges. Detach its
+       * forwarding listeners before destroying it so its teardown is
+       * not mistaken for the client connection's own (e.g. its "close"
+       * must not close the client socket).
+       */
+      if (this.#passthroughSocket) {
+        this.#passthroughSocket
+          .removeListener('connect', this.#onRealSocketConnect)
+          .removeListener(
+            'connectionAttemptFailed',
+            this.#onRealSocketConnectionAttemptFailed
+          )
+          .removeListener(
+            'connectionAttemptTimeout',
+            this.#onRealSocketConnectionAttemptTimeout
+          )
+          .removeListener('data', this.#onRealSocketData)
+          .removeListener('error', this.#onRealSocketError)
+          .removeListener('end', this.#onRealSocketEnd)
+          .removeListener('close', this.#onRealSocketClose)
+          .destroy()
+
+        this.#passthroughSocket = null
+
+        /**
+         * @note The handle swapped in from the destroyed connection,
+         * if any, no longer carries this socket's traffic. Treat the
+         * socket as not swapped so the retargeted passthrough writes
+         * directly to the new connection until its own handle swap.
+         */
+        this.#realHandleSwapped = false
+      }
+    }
+
     /**
      * @note Only settled (claimed or passed-through) sockets need a reset.
      * Resetting a pending socket again would discard the writes already
@@ -1022,6 +1126,19 @@ export class TcpSocketController extends SocketController {
   }
 
   /**
+   * Forward the client's half-close to the passthrough socket.
+   * The client's writable side may finish before the real handle is
+   * swapped in ("_final" of a connected client runs against the mock
+   * handle), leaving the FIN unsent. Once the handle is swapped, the
+   * client's own shutdown reaches the real connection natively.
+   */
+  #forwardClientFinish = () => {
+    if (!this.#realHandleSwapped) {
+      this.#passthroughSocket?.end()
+    }
+  }
+
+  /**
    * Suspend forwarding of the passthrough socket events ("data", "end", "close")
    * to the client socket. The events are buffered in order until `uncorkReads()`
    * is called. This allows the consumer to delay the delivery of the original
@@ -1159,7 +1276,9 @@ export class TcpSocketController extends SocketController {
     logger.verbose('-> passthrough!')
 
     const createRealSocket = () => {
-      const realSocket = this.createConnection()
+      const realSocket = this.#retargetedConnectionOptions
+        ? this.#createRetargetedConnection(this.#retargetedConnectionOptions)
+        : this.createConnection()
 
       // Mark the passthrough socket as patched so it's exempt from
       // the unpatched socket detection (it never enters agent pools,
@@ -1246,7 +1365,42 @@ export class TcpSocketController extends SocketController {
       .on('end', this.#onRealSocketEnd)
       .on('close', this.#onRealSocketClose)
 
+    /**
+     * @note Forward the client's half-close, unless the real handle
+     * is already swapped in — the client's own shutdown then reaches
+     * the real connection natively (see "#forwardClientFinish").
+     */
+    if (!this.#realHandleSwapped) {
+      if (this.socket.writableFinished) {
+        this.#forwardClientFinish()
+      } else {
+        this.socket.removeListener('finish', this.#forwardClientFinish)
+        this.socket.once('finish', this.#forwardClientFinish)
+      }
+    }
+
     return realSocket
+  }
+
+  /**
+   * Create the passthrough connection to the target this controller
+   * was retargeted to (see `reset()`). The original `createConnection`
+   * dials the originally requested target and cannot serve retargeted
+   * exchanges.
+   */
+  #createRetargetedConnection(
+    connectionOptions: net.SocketConnectOpts
+  ): net.Socket {
+    const realSocket = new net.Socket()
+
+    /**
+     * @note Mark the socket as patched before connecting: the patched
+     * "Socket.prototype.connect" exempts such sockets, establishing
+     * the connection for real.
+     */
+    realSocket[kPatched] = true
+
+    return realSocket.connect(connectionOptions)
   }
 }
 

@@ -113,7 +113,20 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
             requestParser.free()
             requestParser = undefined
             isHttpConnection = undefined
-            socketController.reset()
+
+            /**
+             * @note Retarget the connection to the tunnel authority.
+             * The exchanges that follow belong to the tunnel target,
+             * so an unclaimed exchange (HTTP or not) must pass through
+             * to that target — not to the proxy, which never actually
+             * established this tunnel — like a real established tunnel
+             * relays its traffic.
+             */
+            socketController.reset({
+              host: tunnelUrl.hostname,
+              port: Number(tunnelUrl.port) || 80,
+              path: null,
+            })
           }
 
           if (requestParser) {
@@ -124,9 +137,11 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           const httpMessage = chunk.toString()
           const httpMethod = httpMessage.split(' ')[0] || ''
 
-          // Ignore non-HTTP packets sent via this socket.
+          // Decline non-HTTP connections so the socket controller can
+          // pass them through once every subscriber has declined.
           if (!METHODS.includes(httpMethod.toUpperCase())) {
             isHttpConnection = false
+            socketController.decline()
             return
           }
 
