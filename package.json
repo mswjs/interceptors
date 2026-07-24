@@ -2,7 +2,7 @@
   "type": "module",
   "name": "@mswjs/interceptors",
   "description": "Low-level network interception library for Node.js.",
-  "version": "0.42.2",
+  "version": "0.42.3",
   "main": "./lib/node/index.js",
   "types": "./lib/node/index.d.ts",
   "exports": {
