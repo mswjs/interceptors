@@ -478,6 +478,7 @@ export class TcpSocketController extends SocketController {
   #readsCorked = false
   #corkedReads: Array<CorkedReadEvent> = []
   #realHandleSwapped = false
+  #resetScheduled = false
   #clientCloseEmitted = false
   #clientEndPushed = false
   #connectEmulated = false
@@ -651,9 +652,25 @@ export class TcpSocketController extends SocketController {
     this.#reset()
   }
 
+  /**
+   * Schedule a reset of this controller to happen right before the
+   * next client write. The consumer signals the boundary of the
+   * current exchange (e.g. an HTTP message boundary) the moment it is
+   * parsed — mid-delivery of the exchange's final chunk — when an
+   * immediate reset would discard that chunk. Deferring the reset to
+   * the next write lets the current exchange settle as-is while the
+   * next exchange's first write already buffers for a new verdict
+   * (instead of following the previous one, e.g. leaking to the
+   * passthrough connection).
+   */
+  public scheduleReset(): void {
+    this.#resetScheduled = true
+  }
+
   #reset(): void {
     logger.verbose('resetting the socket...')
 
+    this.#resetScheduled = false
     this.readyState = SocketController.PENDING
     this.pendingConnection = Promise.withResolvers()
     this.#bufferedWrites = []
@@ -726,6 +743,16 @@ export class TcpSocketController extends SocketController {
     const data = args[1]
 
     logger.verbose('socket write (state: %d) %o', this.readyState, args)
+
+    /**
+     * @note A scheduled reset marks the boundary of the previous
+     * exchange (see "scheduleReset"). This write is the first one past
+     * the boundary; reset before dispatching so it opens the next
+     * exchange instead of following the previous exchange's verdict.
+     */
+    if (this.#resetScheduled) {
+      this.reset()
+    }
 
     /**
      * @note Buffer the write BEFORE pushing the data to the server socket.

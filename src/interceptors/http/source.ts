@@ -168,6 +168,17 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
               method: httpMethod,
               url: baseUrl,
             },
+            /**
+             * @note The message boundary ends the current exchange.
+             * Schedule the controller reset so the next write on this
+             * (kept-alive) socket opens a new exchange and buffers for
+             * its own verdict instead of following the settled one
+             * (e.g. leaking a mocked request to the server of a
+             * previously passed-through exchange).
+             */
+            onMessageComplete: () => {
+              socketController.scheduleReset()
+            },
             onRequest: async (parsedRequest, requestAbortController) => {
               const request =
                 requestContextValue?.transformRequest?.(parsedRequest) ??

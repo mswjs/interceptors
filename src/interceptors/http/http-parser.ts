@@ -9,14 +9,17 @@ interface HttpRequestParserOptions {
     url: URL
   }
   onRequest: (request: Request, abortController: AbortController) => void
+  onMessageComplete?: () => void
 }
 
 export class HttpRequestParser extends HttpParser<1> {
   #requestBodyStream?: Readable
+  #upgrade = false
 
   constructor(options: HttpRequestParserOptions) {
     super(1, {
-      onHeadersComplete: ({ rawHeaders, method, url: path }) => {
+      onHeadersComplete: ({ rawHeaders, method, url: path, upgrade }) => {
+        this.#upgrade = upgrade
         /**
          * @note When the socket is reused, "connectionOptions" will point
          * to the "net.connect()" call options that established the connection,
@@ -79,6 +82,15 @@ export class HttpRequestParser extends HttpParser<1> {
       },
       onMessageComplete: () => {
         this.#requestBodyStream?.push(null)
+
+        /**
+         * @note An upgraded exchange (e.g. "CONNECT", WebSocket) has
+         * no message boundary: it takes the connection over, and the
+         * bytes that follow belong to it, not to a next exchange.
+         */
+        if (!this.#upgrade) {
+          options.onMessageComplete?.()
+        }
       },
     })
   }
