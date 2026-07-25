@@ -40,3 +40,23 @@ it('passes a non-http socket through to the actual server', async () => {
 
   expect(response).toBe('PONG')
 })
+
+it.only('server write first', async () => {
+  await using server = await createRawTestServer(() => {
+    return new net.Server((connection) => {
+      connection.write('PING')
+    })
+  })
+
+  const response = await new Promise<string>((resolve, reject) => {
+    const socket = net.connect(server.port, server.hostname)
+    socket.on('data', (chunk) => {
+      resolve(chunk.toString())
+      socket.destroy()
+    })
+    socket.on('error', reject)
+  })
+
+  expect(response).toBe('PING')
+})
+
