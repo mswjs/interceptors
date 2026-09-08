@@ -69,10 +69,10 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let abortPendingRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
 
-        // Protocol errors end observation. The client and server still
-        // exchange the original bytes and handle their own protocol errors.
-        const stopObservingConnection = (error: Error) => {
-          httpLogger.verbose('stopping HTTP observation: %o', error)
+        // A malformed request loses the boundary for subsequent requests.
+        // Preserve the original bytes for the client and server to handle.
+        const stopParsingRequests = (error: Error) => {
+          httpLogger.verbose('stopping HTTP request parsing: %o', error)
           isHttpConnection = false
 
           if (
@@ -183,7 +183,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           const initiator = requestContextValue?.initiator || socket
 
           requestParser = new HttpRequestParser({
-            onError: stopObservingConnection,
+            onError: stopParsingRequests,
             connectionOptions: {
               method: httpMethod,
               url: baseUrl,
@@ -330,11 +330,12 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                        */
                       socketController.corkReads()
 
+                      let responseParserFailed = false
                       const responseParser = new HttpResponseParser({
                         onError: (error) => {
+                          responseParserFailed = true
                           realSocket.removeListener('data', onResponseData)
                           responseParser.free(error)
-                          stopObservingConnection(error)
                           socketController.uncorkReads()
                         },
                         onResponse: async (response) => {
@@ -377,7 +378,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                              * final response on the "response" event listeners.
                              */
                             if (
-                              isHttpConnection !== false &&
+                              !responseParserFailed &&
                               response.status < 200 &&
                               response.status !== 101
                             ) {

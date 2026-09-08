@@ -152,3 +152,51 @@ it('passes through invalid chunk framing while a listener reads the request body
   await expect(receivedRequest.promise).resolves.toBe(request)
   expect(requestListener).toHaveBeenCalledOnce()
 })
+
+it('observes the next request and response on the same socket after a response parser error', async () => {
+  const firstResponse =
+    'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nokstray bytes'
+  const secondResponse =
+    'HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nnext'
+  const connectionListener = vi.fn()
+  await using server = await createRawTestServer(() => {
+    return new net.Server((socket) => {
+      connectionListener()
+      socket.once('data', () => {
+        socket.write(firstResponse)
+        socket.once('data', () => {
+          socket.end(secondResponse)
+        })
+      })
+    })
+  })
+  const requestListener = vi.fn()
+  const responseListener = vi.fn()
+  interceptor.on('request', ({ request }) => {
+    requestListener(new URL(request.url).pathname)
+  })
+  interceptor.on('response', async ({ request, response }) => {
+    responseListener(new URL(request.url).pathname, await response.text())
+  })
+
+  await using socket = net.connect(server.port, server.hostname)
+  const receivedFirstResponse = new Promise<string>((resolve, reject) => {
+    socket.once('data', (chunk) => {
+      resolve(chunk.toString())
+    })
+    socket.once('error', reject)
+  })
+  socket.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n')
+  await expect(receivedFirstResponse).resolves.toBe(firstResponse)
+
+  const receivedSecondResponse = text(socket)
+  socket.write('GET /second HTTP/1.1\r\nHost: localhost\r\n\r\n')
+  await expect(receivedSecondResponse).resolves.toBe(secondResponse)
+
+  expect(connectionListener).toHaveBeenCalledOnce()
+  expect(requestListener.mock.calls).toEqual([['/first'], ['/second']])
+  await expect.poll(() => responseListener.mock.calls).toEqual([
+    ['/first', 'ok'],
+    ['/second', 'next'],
+  ])
+})
