@@ -1,6 +1,7 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import http from 'node:http'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { TypedEvent } from 'rettime'
 import {
   type NetworkConnectionOptions,
@@ -16,6 +17,33 @@ import { getTlsConnectOptions } from './utils/get-tls-connect-options'
 import { createLogger } from '../../utils/logger'
 import { patchesRegistry } from '../../utils/patches-registry'
 import { Interceptor } from '#/src/interceptor'
+import '../../utils/internal-connection'
+
+/**
+ * @note Initialize once across entry points and package copies. The runner
+ * is inert without the socket patch, so it needs no disposal lifecycle.
+ */
+globalThis.__MSW_INTERNAL_CONNECTION_CONTEXT ??= (() => {
+  const context = new AsyncLocalStorage<{ consumed: boolean }>()
+
+  return {
+    run<T>(callback: () => T): T {
+      return context.run({ consumed: false }, callback)
+    },
+    consume(): boolean {
+      const connection = context.getStore()
+
+      if (!connection || connection.consumed) {
+        return false
+      }
+
+      // Socket events inherit this context. Consume it before connecting
+      // so requests from user event listeners remain intercepted.
+      connection.consumed = true
+      return true
+    },
+  }
+})()
 
 declare module 'node:http' {
   interface Agent {
@@ -140,6 +168,13 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
              * reach Node.js as-is.
              */
             if (socket[kPatched] || isCreatingPassthroughConnection) {
+              return realSocketConnect.apply(socket, args)
+            }
+
+            if (globalThis.__MSW_INTERNAL_CONNECTION_CONTEXT?.consume()) {
+              // Internal connections must bypass every socket consumer,
+              // including HTTP upgrade interception. Mark reconnects too.
+              socket[kPatched] = true
               return realSocketConnect.apply(socket, args)
             }
 
