@@ -97,6 +97,32 @@ it('reports no ALPN protocol if none was requested', async () => {
   socket.destroy()
 })
 
+it('negotiates HTTP/2 on a passthrough connection', async () => {
+  await using server = await createRawTestServer(() => {
+    return new tls.Server({
+      cert: TLS_CERTIFICATE,
+      key: TLS_PRIVATE_KEY,
+      ALPNProtocols: ['h2', 'http/1.1'],
+    })
+  })
+
+  const socket = tls.connect({
+    port: server.port,
+    host: server.hostname,
+    servername: 'localhost',
+    ca: [TLS_CERTIFICATE],
+    ALPNProtocols: ['http/1.1', 'h2'],
+  })
+  const secureConnectListener = vi.fn()
+  socket.on('secureConnect', secureConnectListener)
+
+  await expect.poll(() => secureConnectListener).toHaveBeenCalledOnce()
+
+  expect(socket.alpnProtocol).toBe('h2')
+
+  socket.destroy()
+})
+
 it('sends the SNI servername to the server', async () => {
   const serverSecureConnectionListener = vi.fn()
 

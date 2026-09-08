@@ -187,7 +187,10 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
 
       // Deliver the final chunk passed to "end(chunk)", if any.
       if (finalEnd.chunk != null) {
-        socket.push(toBuffer(finalEnd.chunk, finalEnd.encoding), finalEnd.encoding)
+        socket.push(
+          toBuffer(finalEnd.chunk, finalEnd.encoding),
+          finalEnd.encoding
+        )
       }
 
       socket.push(null)
@@ -538,7 +541,11 @@ export class TcpSocketController extends SocketController {
           typeof args[0] === 'object' &&
           (args[0].localAddress != null || args[0].localPort != null)
         ) {
-          args[0] = { ...args[0], localAddress: undefined, localPort: undefined }
+          args[0] = {
+            ...args[0],
+            localAddress: undefined,
+            localPort: undefined,
+          }
         }
 
         return Reflect.apply(target, thisArg, args)
@@ -868,9 +875,7 @@ export class TcpSocketController extends SocketController {
     }
   }
 
-  #removeBufferedWrite(
-    args: Parameters<net.Socket['_writeGeneric']>
-  ): boolean {
+  #removeBufferedWrite(args: Parameters<net.Socket['_writeGeneric']>): boolean {
     const index = this.#bufferedWrites.indexOf(args)
 
     if (index === -1) {
@@ -1462,6 +1467,18 @@ export class TlsSocketController extends TcpSocketController {
   }
 
   protected emulateConnect(): void {
+    /**
+     * @note The client chooses its wire protocol when we emulate the
+     * handshake. A later passthrough handshake must preserve that choice
+     * instead of negotiating a different protocol for buffered writes.
+     */
+    if (this.#tlsConnectionOptions) {
+      const alpnProtocol = this.socket._handle.getALPNNegotiatedProtocol()
+      this.#tlsConnectionOptions.ALPNProtocols = alpnProtocol
+        ? [alpnProtocol]
+        : []
+    }
+
     super.emulateConnect()
 
     // For TLS sockets, also invoke the "secureConnect" callbacks since some consumers,
