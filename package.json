@@ -34,7 +34,10 @@
     },
     "./fetch/node": "./lib/node/interceptors/fetch/node.js",
     "./fetch/web": "./lib/browser/interceptors/fetch/web.js",
-    "./WebSocket": "./lib/browser/interceptors/WebSocket/index.js",
+    "./WebSocket": {
+      "browser": "./lib/browser/interceptors/WebSocket/index.js",
+      "default": "./lib/node/interceptors/WebSocket/index.js"
+    },
     "./RemoteHttpInterceptor": {
       "browser": null,
       "default": "./lib/node/remote-http-interceptor.js"

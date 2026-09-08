@@ -12,6 +12,7 @@ export default defineConfig([
       './src/interceptors/ClientRequest/index.ts',
       './src/interceptors/XMLHttpRequest/node.ts',
       './src/interceptors/fetch/node.ts',
+      './src/interceptors/WebSocket/index.ts',
     ],
     copy: {
       from: './src/interceptors/http/http-parser/llhttp/**',
