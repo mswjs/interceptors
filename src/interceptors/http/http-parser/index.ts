@@ -29,6 +29,7 @@ const KIND_RESPONSE = constants.TYPE.RESPONSE
 type ParserKind = typeof KIND_REQUEST | typeof KIND_RESPONSE
 
 export interface ParserCallbacks<K extends ParserKind> {
+  onError?: (error: Error) => void
   onMessageBegin?: () => number | void
   onHeadersComplete?: (
     info: K extends typeof KIND_REQUEST
@@ -305,6 +306,13 @@ export class HttpParser<K extends ParserKind> {
     const buffer = new Uint8Array(llhttp_memory.buffer)
     const length = buffer.indexOf(0, errorPointer) - errorPointer
 
-    throw new Error(readStringFrom(errorPointer, length))
+    const error = new Error(readStringFrom(errorPointer, length))
+
+    if (this[kCallbacks].onError) {
+      this[kCallbacks].onError(error)
+      return
+    }
+
+    throw error
   }
 }
