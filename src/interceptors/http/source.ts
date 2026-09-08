@@ -330,15 +330,20 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                        */
                       socketController.corkReads()
 
-                      let responseParserFailed = false
+                      let responseParserDisposed = false
+                      let responseComplete = false
+                      let hasFinalResponse = false
                       const responseParser = new HttpResponseParser({
                         onError: (error) => {
-                          responseParserFailed = true
-                          realSocket.removeListener('data', onResponseData)
-                          responseParser.free(error)
+                          disposeResponseParser(error)
                           socketController.uncorkReads()
                         },
+                        onMessageComplete: (status) => {
+                          responseComplete = status >= 200 || status === 101
+                        },
                         onResponse: async (response) => {
+                          hasFinalResponse =
+                            response.status >= 200 || response.status === 101
                           httpLogger.verbose(
                             'HTTP response parser parsed: %d %s',
                             response.status,
@@ -378,7 +383,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                              * final response on the "response" event listeners.
                              */
                             if (
-                              !responseParserFailed &&
+                              !responseParserDisposed &&
                               response.status < 200 &&
                               response.status !== 101
                             ) {
@@ -390,11 +395,33 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
                       const onResponseData = (chunk: Buffer) => {
                         responseParser.execute(chunk)
+
+                        // Free only after llhttp returns from its callbacks.
+                        if (responseComplete) {
+                          disposeResponseParser()
+                        }
+                      }
+
+                      const onResponseClose = () => {
+                        disposeResponseParser()
+
+                        // Without a response, no response listener will release
+                        // the buffered EOF/close that rejects the client request.
+                        if (!hasFinalResponse) {
+                          socketController.uncorkReads()
+                        }
+                      }
+
+                      const disposeResponseParser = (error?: Error) => {
+                        responseParserDisposed = true
+                        realSocket.removeListener('data', onResponseData)
+                        realSocket.removeListener('close', onResponseClose)
+                        responseParser.free(error)
                       }
 
                       realSocket
                         .on('data', onResponseData)
-                        .on('close', () => responseParser.free())
+                        .once('close', onResponseClose)
                     }
                   },
                 },
