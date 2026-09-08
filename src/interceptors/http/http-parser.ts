@@ -107,10 +107,12 @@ export class HttpRequestParser extends HttpParser<1> {
 
 export class HttpResponseParser extends HttpParser<2> {
   #responseBodyStream?: Readable | null
+  #status = 0
 
   constructor(options: {
     onResponse: (response: Response) => void
     onError: (error: Error) => void
+    onMessageComplete?: (status: number) => void
   }) {
     super(2, {
       onError: options.onError,
@@ -119,6 +121,7 @@ export class HttpResponseParser extends HttpParser<2> {
         statusCode: status,
         statusMessage: statusText,
       }) => {
+        this.#status = status
         const headers = FetchResponse.parseRawHeaders([...rawHeaders])
 
         const response = new FetchResponse(
@@ -147,6 +150,7 @@ export class HttpResponseParser extends HttpParser<2> {
       onMessageComplete: () => {
         this.#responseBodyStream?.push(null)
         this.#responseBodyStream = null
+        options.onMessageComplete?.(this.#status)
       },
     })
   }

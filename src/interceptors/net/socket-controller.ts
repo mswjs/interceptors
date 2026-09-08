@@ -1112,6 +1112,10 @@ export class TcpSocketController extends SocketController {
    * the consumer reads the buffered data.
    */
   #emitClientClose(hadError: boolean): void {
+    if (this.#clientCloseEmitted) {
+      return
+    }
+
     if (
       this.#clientEndPushed &&
       !this.socket.readableEnded &&
@@ -1125,9 +1129,7 @@ export class TcpSocketController extends SocketController {
         closeDelivered = true
 
         process.nextTick(() => {
-          if (!this.#clientCloseEmitted) {
-            this.socket.emit('close', hadErrorOverride ?? hadError)
-          }
+          this.#emitClientClose(hadErrorOverride ?? hadError)
         })
       }
 
@@ -1149,7 +1151,13 @@ export class TcpSocketController extends SocketController {
       return
     }
 
-    this.socket.emit('close', hadError)
+    // Agent pools inspect the socket state inside their close listeners.
+    // Match Node.js: a closed socket must already be destroyed and unwritable.
+    this.socket.destroy()
+
+    if (this.#realHandleSwapped) {
+      this.socket.emit('close', hadError)
+    }
   }
 
   #onMockSocketDrain = () => {
