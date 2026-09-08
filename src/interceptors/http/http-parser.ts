@@ -4,6 +4,7 @@ import { FetchRequest, FetchResponse } from '../../utils/fetch-utils'
 import { HttpParser } from './http-parser/index'
 
 interface HttpRequestParserOptions {
+  onError: (error: Error) => void
   connectionOptions: {
     method?: string
     url: URL
@@ -18,6 +19,7 @@ export class HttpRequestParser extends HttpParser<1> {
 
   constructor(options: HttpRequestParserOptions) {
     super(1, {
+      onError: options.onError,
       onHeadersComplete: ({ rawHeaders, method, url: path, upgrade }) => {
         this.#upgrade = upgrade
         /**
@@ -82,6 +84,7 @@ export class HttpRequestParser extends HttpParser<1> {
       },
       onMessageComplete: () => {
         this.#requestBodyStream?.push(null)
+        this.#requestBodyStream = undefined
 
         /**
          * @note An upgraded exchange (e.g. "CONNECT", WebSocket) has
@@ -95,9 +98,9 @@ export class HttpRequestParser extends HttpParser<1> {
     })
   }
 
-  public free(): void {
+  public free(error?: Error): void {
     this.destroy()
-    this.#requestBodyStream?.destroy()
+    this.#requestBodyStream?.destroy(error)
     this.#requestBodyStream = undefined
   }
 }
@@ -105,8 +108,12 @@ export class HttpRequestParser extends HttpParser<1> {
 export class HttpResponseParser extends HttpParser<2> {
   #responseBodyStream?: Readable | null
 
-  constructor(options: { onResponse: (response: Response) => void }) {
+  constructor(options: {
+    onResponse: (response: Response) => void
+    onError: (error: Error) => void
+  }) {
     super(2, {
+      onError: options.onError,
       onHeadersComplete: ({
         rawHeaders,
         statusCode: status,
@@ -139,12 +146,18 @@ export class HttpResponseParser extends HttpParser<2> {
       },
       onMessageComplete: () => {
         this.#responseBodyStream?.push(null)
+        this.#responseBodyStream = null
       },
     })
   }
 
-  public free(): void {
+  public free(error?: Error): void {
     this.destroy()
+
+    if (error) {
+      this.#responseBodyStream?.destroy(error)
+    }
+
     this.#responseBodyStream = null
   }
 }

@@ -67,6 +67,24 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let requestParser: HttpRequestParser | undefined
         let tunnelUrl: URL | undefined
         let abortPendingRequest: (() => void) | undefined
+        let pendingRequestController: RequestController | undefined
+
+        // Protocol errors end observation. The client and server still
+        // exchange the original bytes and handle their own protocol errors.
+        const stopObservingConnection = (error: Error) => {
+          httpLogger.verbose('stopping HTTP observation: %o', error)
+          isHttpConnection = false
+
+          if (
+            pendingRequestController?.readyState === RequestController.PENDING
+          ) {
+            void pendingRequestController.passthrough()
+          } else {
+            socketController.decline()
+          }
+
+          requestParser?.free(error)
+        }
 
         /**
          * @note Capture the request context of the connection itself.
@@ -99,6 +117,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
          */
         socket.on('data', (chunk) => {
           if (isHttpConnection === false) {
+            socketController.decline()
             return
           }
 
@@ -164,6 +183,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           const initiator = requestContextValue?.initiator || socket
 
           requestParser = new HttpRequestParser({
+            onError: stopObservingConnection,
             connectionOptions: {
               method: httpMethod,
               url: baseUrl,
@@ -287,8 +307,14 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                   },
                   passthrough: () => {
                     const realSocket = socketController.passthrough(
-                      this.#modifyHttpHeaders(context.request)
+                      isHttpConnection === false
+                        ? undefined
+                        : this.#modifyHttpHeaders(context.request)
                     )
+
+                    if (isHttpConnection === false) {
+                      return
+                    }
 
                     if (this.emitter.listenerCount('response') > 0) {
                       httpLogger.verbose(
@@ -305,6 +331,12 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                       socketController.corkReads()
 
                       const responseParser = new HttpResponseParser({
+                        onError: (error) => {
+                          realSocket.removeListener('data', onResponseData)
+                          responseParser.free(error)
+                          stopObservingConnection(error)
+                          socketController.uncorkReads()
+                        },
                         onResponse: async (response) => {
                           httpLogger.verbose(
                             'HTTP response parser parsed: %d %s',
@@ -345,6 +377,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                              * final response on the "response" event listeners.
                              */
                             if (
+                              isHttpConnection !== false &&
                               response.status < 200 &&
                               response.status !== 101
                             ) {
@@ -354,8 +387,12 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                         },
                       })
 
+                      const onResponseData = (chunk: Buffer) => {
+                        responseParser.execute(chunk)
+                      }
+
                       realSocket
-                        .on('data', (chunk) => responseParser.execute(chunk))
+                        .on('data', onResponseData)
                         .on('close', () => responseParser.free())
                     }
                   },
@@ -403,9 +440,12 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                 }
               }
 
+              pendingRequestController = requestController
+
               try {
                 await handleRequest(context)
               } finally {
+                pendingRequestController = undefined
                 abortPendingRequest = undefined
               }
             },
