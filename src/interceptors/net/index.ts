@@ -51,10 +51,7 @@ declare module 'node:http' {
      * @note An undocumented method backing every agent-driven request
      * (see "#stopReusingUnpatchedSockets").
      */
-    addRequest?: (
-      request: http.ClientRequest,
-      ...args: Array<unknown>
-    ) => void
+    addRequest?: (request: http.ClientRequest, ...args: Array<unknown>) => void
   }
 }
 
@@ -223,7 +220,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                 () => {
                   /**
                    * @note Create the passthrough connection via the original
-                   * "tls.connect()" with the original connection options
+                   * "tls.connect()" with the effective connection options
                    * (the real DNS lookup and the caller's certificate
                    * validation included). The latch exempts the transport
                    * connect of that connection from interception.
@@ -231,10 +228,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                   isCreatingPassthroughConnection = true
 
                   try {
-                    return tls.connect(
-                      (realTlsConnectionOptions ??
-                        tlsConnectionOptions) as tls.ConnectionOptions
-                    )
+                    return tls.connect(tlsConnectionOptions)
                   } finally {
                     isCreatingPassthroughConnection = false
                   }
@@ -288,9 +282,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                * listeners to claim the connection (or once every listener
                * declines it), the controller passes it through as-is.
                */
-              controller.awaitVerdicts(
-                interceptor.listenerCount('connection')
-              )
+              controller.awaitVerdicts(interceptor.listenerCount('connection'))
 
               interceptor.emitter.emit(
                 new SocketConnectionEvent({
