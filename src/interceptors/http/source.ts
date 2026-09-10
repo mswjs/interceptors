@@ -402,11 +402,11 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                         }
                       }
 
-                      const onResponseClose = () => {
+                      const onResponseEnd = () => {
                         disposeResponseParser()
 
-                        // Without a response, no response listener will release
-                        // the buffered EOF/close that rejects the client request.
+                        // Without a final response, release EOF now. A half-open
+                        // socket cannot close until the client consumes it.
                         if (!hasFinalResponse) {
                           socketController.uncorkReads()
                         }
@@ -415,13 +415,15 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                       const disposeResponseParser = (error?: Error) => {
                         responseParserDisposed = true
                         realSocket.removeListener('data', onResponseData)
-                        realSocket.removeListener('close', onResponseClose)
+                        realSocket.removeListener('end', onResponseEnd)
+                        realSocket.removeListener('close', onResponseEnd)
                         responseParser.free(error)
                       }
 
                       realSocket
                         .on('data', onResponseData)
-                        .once('close', onResponseClose)
+                        .once('end', onResponseEnd)
+                        .once('close', onResponseEnd)
                     }
                   },
                 },
