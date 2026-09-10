@@ -1,7 +1,9 @@
 // @vitest-environment node
 import http from 'node:http'
 import net from 'node:net'
+import { once } from 'node:events'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { HttpRequestParser } from '#/src/interceptors/http/http-parser'
 import { FetchResponse } from '#/src/utils/fetch-utils'
 import { toWebResponse } from '#/test/helpers'
 import { getTestServer } from '#/test/setup/vitest'
@@ -131,4 +133,60 @@ it('performs an upgrade request against the actual server', async () => {
   expect(requestListener).toHaveBeenCalledWith('GET', 'websocket')
 
   socket.destroy()
+})
+
+it('stops parsing HTTP requests when switching to another protocol', async () => {
+  const upgradeServer = http.createServer()
+  const connections = new Set<net.Socket>()
+
+  onTestFinished(async () => {
+    for (const connection of connections) {
+      connection.destroy()
+    }
+
+    await new Promise<void>((resolve) => upgradeServer.close(() => resolve()))
+    vi.restoreAllMocks()
+  })
+
+  upgradeServer.on('connection', (socket) => connections.add(socket))
+  upgradeServer.on('upgrade', (_request, socket) => {
+    socket.write(
+      'HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: echo\r\n\r\n'
+    )
+    socket.on('data', (chunk) => socket.write(chunk))
+  })
+  upgradeServer.listen(0, '127.0.0.1')
+  await once(upgradeServer, 'listening')
+
+  const address = upgradeServer.address()
+
+  if (!address || typeof address === 'string') {
+    throw new Error('Expected a TCP server address')
+  }
+
+  const execute = vi.spyOn(HttpRequestParser.prototype, 'execute')
+  const free = vi.spyOn(HttpRequestParser.prototype, 'free')
+  interceptor.on('request', () => {})
+
+  const request = http.request(`http://127.0.0.1:${address.port}`, {
+    headers: { connection: 'Upgrade', upgrade: 'echo' },
+  })
+  request.end()
+
+  const { response, socket } = await waitForUpgrade(request)
+  onTestFinished(() => {
+    socket.destroy()
+  })
+
+  expect(response.statusCode).toBe(101)
+  expect.soft(free).toHaveBeenCalledOnce()
+  expect(execute).toHaveBeenCalledOnce()
+
+  const data = once(socket, 'data')
+  const protocolMessage = Buffer.from([0x81, 0x00])
+  socket.write(protocolMessage)
+
+  await expect(data).resolves.toEqual([protocolMessage])
+  expect(execute).toHaveBeenCalledOnce()
+  expect(free).toHaveBeenCalledOnce()
 })

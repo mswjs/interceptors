@@ -187,7 +187,10 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
 
       // Deliver the final chunk passed to "end(chunk)", if any.
       if (finalEnd.chunk != null) {
-        socket.push(toBuffer(finalEnd.chunk, finalEnd.encoding), finalEnd.encoding)
+        socket.push(
+          toBuffer(finalEnd.chunk, finalEnd.encoding),
+          finalEnd.encoding
+        )
       }
 
       socket.push(null)
@@ -469,6 +472,8 @@ export class TcpSocketController extends SocketController {
 
   protected pendingConnection: PromiseWithResolvers<[TcpWrap, TcpHandle]>
 
+  private removePassthroughSocketListeners?: () => void
+
   #connectionOptions?: NetworkConnectionOptions
   #retargetedConnectionOptions?: NetworkConnectionOptions &
     net.SocketConnectOpts
@@ -538,7 +543,11 @@ export class TcpSocketController extends SocketController {
           typeof args[0] === 'object' &&
           (args[0].localAddress != null || args[0].localPort != null)
         ) {
-          args[0] = { ...args[0], localAddress: undefined, localPort: undefined }
+          args[0] = {
+            ...args[0],
+            localAddress: undefined,
+            localPort: undefined,
+          }
         }
 
         return Reflect.apply(target, thisArg, args)
@@ -611,21 +620,8 @@ export class TcpSocketController extends SocketController {
        * must not close the client socket).
        */
       if (this.#passthroughSocket) {
-        this.#passthroughSocket
-          .removeListener('connect', this.#onRealSocketConnect)
-          .removeListener(
-            'connectionAttemptFailed',
-            this.#onRealSocketConnectionAttemptFailed
-          )
-          .removeListener(
-            'connectionAttemptTimeout',
-            this.#onRealSocketConnectionAttemptTimeout
-          )
-          .removeListener('data', this.#onRealSocketData)
-          .removeListener('error', this.#onRealSocketError)
-          .removeListener('end', this.#onRealSocketEnd)
-          .removeListener('close', this.#onRealSocketClose)
-          .destroy()
+        this.removePassthroughSocketListeners?.()
+        this.#passthroughSocket.destroy()
 
         this.#passthroughSocket = null
 
@@ -868,9 +864,7 @@ export class TcpSocketController extends SocketController {
     }
   }
 
-  #removeBufferedWrite(
-    args: Parameters<net.Socket['_writeGeneric']>
-  ): boolean {
+  #removeBufferedWrite(args: Parameters<net.Socket['_writeGeneric']>): boolean {
     const index = this.#bufferedWrites.indexOf(args)
 
     if (index === -1) {
@@ -1107,6 +1101,10 @@ export class TcpSocketController extends SocketController {
    * the consumer reads the buffered data.
    */
   #emitClientClose(hadError: boolean): void {
+    if (this.#clientCloseEmitted) {
+      return
+    }
+
     if (
       this.#clientEndPushed &&
       !this.socket.readableEnded &&
@@ -1120,9 +1118,7 @@ export class TcpSocketController extends SocketController {
         closeDelivered = true
 
         process.nextTick(() => {
-          if (!this.#clientCloseEmitted) {
-            this.socket.emit('close', hadErrorOverride ?? hadError)
-          }
+          this.#emitClientClose(hadErrorOverride ?? hadError)
         })
       }
 
@@ -1144,7 +1140,13 @@ export class TcpSocketController extends SocketController {
       return
     }
 
-    this.socket.emit('close', hadError)
+    // Agent pools inspect the socket state inside their close listeners.
+    // Match Node.js: a closed socket must already be destroyed and unwritable.
+    this.socket.destroy()
+
+    if (this.#realHandleSwapped) {
+      this.socket.emit('close', hadError)
+    }
   }
 
   #onMockSocketDrain = () => {
@@ -1312,6 +1314,11 @@ export class TcpSocketController extends SocketController {
       // but this skips the detection cost on its every "destroyed" read).
       realSocket[kPatched] = true
 
+      // The client owns half-close semantics. It may not have consumed
+      // the forwarded EOF yet, so keep the real connection writable until
+      // the client ends its writable side.
+      realSocket.allowHalfOpen = true
+
       if (this.socket.timeout != null) {
         realSocket.setTimeout(this.socket.timeout)
       }
@@ -1325,9 +1332,8 @@ export class TcpSocketController extends SocketController {
         ? this.#passthroughSocket
         : createRealSocket()
 
-    if (realSocket !== this.#passthroughSocket) {
-      this.#passthroughSocket = realSocket
-    }
+    const isNewConnection = realSocket !== this.#passthroughSocket
+    this.#passthroughSocket = realSocket
 
     if (this.#bufferedWrites.length === 0) {
       logger.verbose(
@@ -1365,32 +1371,15 @@ export class TcpSocketController extends SocketController {
     this.socket.removeListener('drain', this.#onMockSocketDrain)
     this.socket.on('drain', this.#onMockSocketDrain)
 
-    realSocket
-      .removeListener('connect', this.#onRealSocketConnect)
-      .removeListener(
-        'connectionAttemptFailed',
-        this.#onRealSocketConnectionAttemptFailed
-      )
-      .removeListener(
-        'connectionAttemptTimeout',
-        this.#onRealSocketConnectionAttemptTimeout
-      )
-      .removeListener('data', this.#onRealSocketData)
-      .removeListener('error', this.#onRealSocketError)
-      .removeListener('end', this.#onRealSocketEnd)
-      .removeListener('close', this.#onRealSocketClose)
+    // Let Node register its pending-write "connect" listener first so
+    // buffered writes flush before our listener swaps the socket handle.
+    if (isNewConnection) {
+      this.removePassthroughSocketListeners =
+        this.addPassthroughSocketListeners(realSocket)
 
-    realSocket
-      .once('connect', this.#onRealSocketConnect)
-      .on('connectionAttemptFailed', this.#onRealSocketConnectionAttemptFailed)
-      .on(
-        'connectionAttemptTimeout',
-        this.#onRealSocketConnectionAttemptTimeout
-      )
-      .on('data', this.#onRealSocketData)
-      .on('error', this.#onRealSocketError)
-      .on('end', this.#onRealSocketEnd)
-      .on('close', this.#onRealSocketClose)
+      // The real socket may still emit errors after the client closes.
+      realSocket.once('close', this.removePassthroughSocketListeners)
+    }
 
     /**
      * @note Forward the client's half-close, unless the real handle
@@ -1407,6 +1396,41 @@ export class TcpSocketController extends SocketController {
     }
 
     return realSocket
+  }
+
+  /**
+   * Forward events for the lifetime of the connection, including while
+   * it is idle in an agent pool. Reusing it must not add more listeners.
+   */
+  protected addPassthroughSocketListeners(realSocket: net.Socket): () => void {
+    realSocket
+      .once('connect', this.#onRealSocketConnect)
+      .on('connectionAttemptFailed', this.#onRealSocketConnectionAttemptFailed)
+      .on(
+        'connectionAttemptTimeout',
+        this.#onRealSocketConnectionAttemptTimeout
+      )
+      .on('data', this.#onRealSocketData)
+      .on('error', this.#onRealSocketError)
+      .on('end', this.#onRealSocketEnd)
+      .on('close', this.#onRealSocketClose)
+
+    return () => {
+      realSocket
+        .removeListener('connect', this.#onRealSocketConnect)
+        .removeListener(
+          'connectionAttemptFailed',
+          this.#onRealSocketConnectionAttemptFailed
+        )
+        .removeListener(
+          'connectionAttemptTimeout',
+          this.#onRealSocketConnectionAttemptTimeout
+        )
+        .removeListener('data', this.#onRealSocketData)
+        .removeListener('error', this.#onRealSocketError)
+        .removeListener('end', this.#onRealSocketEnd)
+        .removeListener('close', this.#onRealSocketClose)
+    }
   }
 
   /**
@@ -1462,6 +1486,18 @@ export class TlsSocketController extends TcpSocketController {
   }
 
   protected emulateConnect(): void {
+    /**
+     * @note The client chooses its wire protocol when we emulate the
+     * handshake. A later passthrough handshake must preserve that choice
+     * instead of negotiating a different protocol for buffered writes.
+     */
+    if (this.#tlsConnectionOptions) {
+      const alpnProtocol = this.socket._handle.getALPNNegotiatedProtocol()
+      this.#tlsConnectionOptions.ALPNProtocols = alpnProtocol
+        ? [alpnProtocol]
+        : []
+    }
+
     super.emulateConnect()
 
     // For TLS sockets, also invoke the "secureConnect" callbacks since some consumers,
@@ -1638,20 +1674,44 @@ export class TlsSocketController extends TcpSocketController {
       }
     }
 
-    realSocket
-      .on('secure', () => {
-        this.socket.emit('secure')
-      })
-      .on('session', (...args) => {
-        this.socket.emit('session', ...args)
-      })
-      .on('keylog', (...args) => {
-        this.socket.emit('keylog', ...args)
-      })
-      .on('OCSPResponse', (...args) => {
-        this.socket.emit('OCSPResponse', ...args)
-      })
-
     return realSocket
+  }
+
+  #onRealSocketSecure = () => {
+    this.socket.emit('secure')
+  }
+
+  #onRealSocketSession = (session: Buffer) => {
+    this.socket.emit('session', session)
+  }
+
+  #onRealSocketKeylog = (line: Buffer) => {
+    this.socket.emit('keylog', line)
+  }
+
+  #onRealSocketOCSPResponse = (response: Buffer | null) => {
+    this.socket.emit('OCSPResponse', response)
+  }
+
+  protected addPassthroughSocketListeners(realSocket: net.Socket): () => void {
+    const removeTcpSocketListeners = super.addPassthroughSocketListeners(
+      realSocket
+    )
+
+    realSocket
+      .on('secure', this.#onRealSocketSecure)
+      .on('session', this.#onRealSocketSession)
+      .on('keylog', this.#onRealSocketKeylog)
+      .on('OCSPResponse', this.#onRealSocketOCSPResponse)
+
+    return () => {
+      removeTcpSocketListeners()
+
+      realSocket
+        .removeListener('secure', this.#onRealSocketSecure)
+        .removeListener('session', this.#onRealSocketSession)
+        .removeListener('keylog', this.#onRealSocketKeylog)
+        .removeListener('OCSPResponse', this.#onRealSocketOCSPResponse)
+    }
   }
 }

@@ -1,6 +1,7 @@
 import net from 'node:net'
 import tls from 'node:tls'
 import http from 'node:http'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { TypedEvent } from 'rettime'
 import {
   type NetworkConnectionOptions,
@@ -16,6 +17,33 @@ import { getTlsConnectOptions } from './utils/get-tls-connect-options'
 import { createLogger } from '../../utils/logger'
 import { patchesRegistry } from '../../utils/patches-registry'
 import { Interceptor } from '#/src/interceptor'
+import '../../utils/internal-connection'
+
+/**
+ * @note Initialize once across entry points and package copies. The runner
+ * is inert without the socket patch, so it needs no disposal lifecycle.
+ */
+globalThis.__MSW_INTERNAL_CONNECTION_CONTEXT ??= (() => {
+  const context = new AsyncLocalStorage<{ consumed: boolean }>()
+
+  return {
+    run<T>(callback: () => T): T {
+      return context.run({ consumed: false }, callback)
+    },
+    consume(): boolean {
+      const connection = context.getStore()
+
+      if (!connection || connection.consumed) {
+        return false
+      }
+
+      // Socket events inherit this context. Consume it before connecting
+      // so requests from user event listeners remain intercepted.
+      connection.consumed = true
+      return true
+    },
+  }
+})()
 
 declare module 'node:http' {
   interface Agent {
@@ -23,10 +51,7 @@ declare module 'node:http' {
      * @note An undocumented method backing every agent-driven request
      * (see "#stopReusingUnpatchedSockets").
      */
-    addRequest?: (
-      request: http.ClientRequest,
-      ...args: Array<unknown>
-    ) => void
+    addRequest?: (request: http.ClientRequest, ...args: Array<unknown>) => void
   }
 }
 
@@ -143,6 +168,13 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
               return realSocketConnect.apply(socket, args)
             }
 
+            if (globalThis.__MSW_INTERNAL_CONNECTION_CONTEXT?.consume()) {
+              // Internal connections must bypass every socket consumer,
+              // including HTTP upgrade interception. Mark reconnects too.
+              socket[kPatched] = true
+              return realSocketConnect.apply(socket, args)
+            }
+
             logger.verbose('socket.connect() %o', args)
 
             /**
@@ -188,7 +220,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                 () => {
                   /**
                    * @note Create the passthrough connection via the original
-                   * "tls.connect()" with the original connection options
+                   * "tls.connect()" with the effective connection options
                    * (the real DNS lookup and the caller's certificate
                    * validation included). The latch exempts the transport
                    * connect of that connection from interception.
@@ -196,10 +228,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                   isCreatingPassthroughConnection = true
 
                   try {
-                    return tls.connect(
-                      (realTlsConnectionOptions ??
-                        tlsConnectionOptions) as tls.ConnectionOptions
-                    )
+                    return tls.connect(tlsConnectionOptions)
                   } finally {
                     isCreatingPassthroughConnection = false
                   }
@@ -253,9 +282,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                * listeners to claim the connection (or once every listener
                * declines it), the controller passes it through as-is.
                */
-              controller.awaitVerdicts(
-                interceptor.listenerCount('connection')
-              )
+              controller.awaitVerdicts(interceptor.listenerCount('connection'))
 
               interceptor.emitter.emit(
                 new SocketConnectionEvent({

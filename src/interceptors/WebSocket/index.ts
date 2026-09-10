@@ -23,6 +23,7 @@ import { bindEvent } from './utils/bind-event'
 import { hasConfigurableGlobal } from '../../utils/has-configurable-global'
 import { patchesRegistry } from '../../utils/patches-registry'
 import { createLogger } from '../../utils/logger'
+import { runAsInternalConnection } from '../../utils/internal-connection'
 
 export {
   type WebSocketData,
@@ -73,7 +74,9 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
         })
 
         const createConnection = (): WebSocket => {
-          return Reflect.construct(target, args, newTarget)
+          return runAsInternalConnection(() => {
+            return Reflect.construct(target, args, newTarget)
+          })
         }
 
         // All WebSocket instances are mocked and don't forward
