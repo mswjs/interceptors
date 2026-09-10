@@ -18,7 +18,7 @@ afterAll(() => {
 
 it('cancels a mocked response body', async () => {
   interceptor.on('request', ({ controller }) => {
-    controller.respondWith(Response.json({ a: 1 }, { status: 429 }))
+    controller.respondWith(new Response('hello world', { status: 429 }))
   })
 
   const response = await fetch('https://x.test/y')
@@ -29,7 +29,7 @@ it('cancels a mocked response body', async () => {
 
 it('cancels a mocked response body with a response listener', async () => {
   interceptor.on('request', ({ controller }) => {
-    controller.respondWith(Response.json({ a: 1 }, { status: 429 }))
+    controller.respondWith(new Response('hello world', { status: 429 }))
   })
   interceptor.on('response', () => {})
 
@@ -41,20 +41,20 @@ it('cancels a mocked response body with a response listener', async () => {
 
 it('cancels a mocked response reader with a response listener', async () => {
   interceptor.on('request', ({ controller }) => {
-    controller.respondWith(Response.json({ a: 1 }, { status: 429 }))
+    controller.respondWith(new Response('hello world', { status: 429 }))
   })
   interceptor.on('response', () => {})
 
   const response = await fetch('https://x.test/y')
   const reader = response.body!.getReader()
+  onTestFinished(() => reader.releaseLock())
 
   await expect(reader.cancel()).resolves.toBeUndefined()
-  reader.releaseLock()
 })
 
 it('returns from a mocked response iterator with a response listener', async () => {
   interceptor.on('request', ({ controller }) => {
-    controller.respondWith(Response.json({ a: 1 }, { status: 429 }))
+    controller.respondWith(new Response('hello world', { status: 429 }))
   })
   interceptor.on('response', () => {})
 
@@ -69,17 +69,17 @@ it('returns from a mocked response iterator with a response listener', async () 
 
 it('cancels a mocked response reader after the response listener reads its body', async () => {
   interceptor.on('request', ({ controller }) => {
-    controller.respondWith(Response.json({ a: 1 }, { status: 429 }))
+    controller.respondWith(new Response('hello world', { status: 429 }))
   })
   interceptor.on('response', async ({ response }) => {
-    await expect(response.json()).resolves.toEqual({ a: 1 })
+    await expect(response.text()).resolves.toBe('hello world')
   })
 
   const response = await fetch('https://x.test/y')
   const reader = response.body!.getReader()
+  onTestFinished(() => reader.releaseLock())
 
   await expect(reader.cancel()).resolves.toBeUndefined()
-  reader.releaseLock()
 })
 
 it('cancels an original response reader and reads the next response', async () => {
@@ -90,9 +90,9 @@ it('cancels an original response reader and reads the next response', async () =
     body: 'original',
   })
   const reader = response.body!.getReader()
+  onTestFinished(() => reader.releaseLock())
 
   await expect(reader.cancel()).resolves.toBeUndefined()
-  reader.releaseLock()
 
   const nextResponse = await fetch(server.http.url('/'), {
     method: 'POST',
@@ -101,3 +101,39 @@ it('cancels an original response reader and reads the next response', async () =
 
   await expect(nextResponse.text()).resolves.toBe('next response')
 })
+
+it.skipIf(typeof window === 'undefined')(
+  'cancels both branches while a response listener holds a reader',
+  async () => {
+    const cancel = vi.fn()
+    const observer =
+      Promise.withResolvers<ReadableStreamDefaultReader<Uint8Array>>()
+    interceptor.on('request', ({ controller }) => {
+      controller.respondWith(
+        new Response(
+          new ReadableStream({
+            cancel(reason) {
+              cancel(reason)
+            },
+          })
+        )
+      )
+    })
+    interceptor.on('response', ({ response }) => {
+      const reader = response.body!.getReader()
+      onTestFinished(() => reader.releaseLock())
+      observer.resolve(reader)
+    })
+
+    const response = await fetch('https://x.test/y')
+    const observerReader = await observer.promise
+    const pendingRead = observerReader.read()
+
+    await expect(response.body!.cancel('retry')).resolves.toBeUndefined()
+    expect(cancel).toHaveBeenCalledExactlyOnceWith(['retry', 'retry'])
+    await expect(pendingRead).resolves.toEqual({
+      done: true,
+      value: undefined,
+    })
+  }
+)
