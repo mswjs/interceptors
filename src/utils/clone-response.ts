@@ -1,5 +1,5 @@
-import { FetchResponse } from '../../../utils/fetch-utils'
-import { copyRawHeaders } from '../../ClientRequest/utils/record-raw-headers'
+import { FetchResponse } from './fetch-utils'
+import { copyRawHeaders } from '../interceptors/ClientRequest/utils/record-raw-headers'
 
 /** Clone for observers without letting their unread body block caller cancellation. */
 export function cloneResponse(response: Response): [Response, Response] {
@@ -51,7 +51,7 @@ function wrapResponse(
             await Promise.all([cancellation, onCancel(reason)])
           } else {
             // An observer must not wait for the caller to consume its branch:
-            // fetch() is still waiting for this response listener to finish.
+            // Response delivery is still waiting for this listener to finish.
             void cancellation.catch(() => {})
           }
         } finally {
