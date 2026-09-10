@@ -1314,6 +1314,11 @@ export class TcpSocketController extends SocketController {
       // but this skips the detection cost on its every "destroyed" read).
       realSocket[kPatched] = true
 
+      // The client owns half-close semantics. It may not have consumed
+      // the forwarded EOF yet, so keep the real connection writable until
+      // the client ends its writable side.
+      realSocket.allowHalfOpen = true
+
       if (this.socket.timeout != null) {
         realSocket.setTimeout(this.socket.timeout)
       }
