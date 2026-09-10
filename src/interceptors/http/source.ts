@@ -111,11 +111,23 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           realSocketDestroy(error, callback)
         }
 
+        const executeRequestParser = (parser: HttpRequestParser, chunk: Buffer) => {
+          const remainingData = parser.execute(chunk)
+
+          // llhttp pauses permanently at an upgrade boundary. Release the
+          // parser after execute returns, outside its native callbacks.
+          if (remainingData !== null) {
+            removeRequestDataListener()
+            parser.free()
+            requestParser = undefined
+          }
+        }
+
         /**
-         * @note Only inspect the first sent packet to determine the protocol.
-         * A single socket cannot be used for different protocols.
+         * @note Inspect the first sent packet to determine the protocol,
+         * including when entering a mocked "CONNECT" tunnel.
          */
-        socket.on('data', (chunk) => {
+        const onRequestData = (chunk: Buffer) => {
           if (isHttpConnection === false) {
             socketController.decline()
             return
@@ -124,13 +136,10 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           /**
            * @note A mocked "CONNECT" request has established a tunnel.
            * The data that follows belongs to a new exchange addressed to
-           * the tunnel target. The parser stopped at the tunnel boundary
-           * (HTTP upgrade semantics), so tear it down and detect the
-           * tunneled protocol anew, like on a fresh connection.
+           * the tunnel target. The previous parser was freed at the upgrade
+           * boundary, so detect the tunneled protocol anew.
            */
-          if (tunnelUrl && requestParser) {
-            requestParser.free()
-            requestParser = undefined
+          if (tunnelUrl && !requestParser) {
             isHttpConnection = undefined
 
             /**
@@ -149,7 +158,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           }
 
           if (requestParser) {
-            requestParser.execute(toBuffer(chunk))
+            executeRequestParser(requestParser, toBuffer(chunk))
             return
           }
 
@@ -257,6 +266,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                      */
                     if (request.method === 'CONNECT' && response.ok) {
                       tunnelUrl = new URL(`http://${request.url}`)
+                      removeRequestDataListener = addRequestDataListener()
                     }
 
                     /**
@@ -482,9 +492,19 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           })
 
           // Forward the first frame to the parser.
-          requestParser.execute(toBuffer(chunk))
-        })
+          executeRequestParser(requestParser, toBuffer(chunk))
+        }
 
+        const addRequestDataListener = () => {
+          const listener = (chunk: Buffer) => onRequestData(chunk)
+          socket.on('data', listener)
+
+          return () => {
+            socket.removeListener('data', listener)
+          }
+        }
+
+        let removeRequestDataListener = addRequestDataListener()
         socket.on('close', () => requestParser?.free())
       },
       {
