@@ -27,6 +27,7 @@ import {
 } from '../net/socket-controller'
 import { unwrapPendingData } from '../net/utils/flush-writes'
 import { FetchResponse } from '../../utils/fetch-utils'
+import { cloneResponse } from '../../utils/clone-response'
 import { requestContext } from '../../request-context'
 import { Interceptor } from '#/src/interceptor'
 
@@ -258,9 +259,14 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
                       socketController.claim()
 
-                      const response = FetchResponse.from(rawResponse, {
+                      const originalResponse = FetchResponse.from(rawResponse, {
                         url: request.url,
                       })
+                      const [response, responseClone] =
+                        !isResponseError(originalResponse) &&
+                        this.emitter.listenerCount('response') > 0
+                          ? cloneResponse(originalResponse)
+                          : [originalResponse, null]
 
                       /**
                        * @note A successful mocked response to a "CONNECT"
@@ -272,15 +278,6 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                         tunnelUrl = new URL(`http://${request.url}`)
                         addRequestDataListener()
                       }
-
-                      /**
-                       * @note Clone the response before "respondWith" because it will
-                       * consume its body. This way, we can have a readable response copy
-                       * for the "response" event below.
-                       */
-                      const responseClone = isResponseError(response)
-                        ? null
-                        : response.clone()
 
                       const respond = () => {
                         return this.respondWith({

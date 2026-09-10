@@ -6,6 +6,7 @@ import { createRequestId } from '../../create-request-id'
 import { createNetworkError } from './utils/create-network-error'
 import { followFetchRedirect } from './utils/follow-redirect'
 import { decompressResponse } from './utils/decompression'
+import { cloneResponse } from '../../utils/clone-response'
 import { hasConfigurableGlobal } from '../../utils/has-configurable-global'
 import { FetchResponse } from '../../utils/fetch-utils'
 import { isResponseError } from '../../utils/response-utils'
@@ -79,7 +80,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 if (this.emitter.listenerCount('response') > 0) {
                   logger.verbose('emitting the "response" event')
 
-                  const responseClone = FetchResponse.clone(originalResponse)
+                  const [response, responseClone] = cloneResponse(originalResponse)
                   await this.emitter.emitAsPromise(
                     new HttpResponseEvent({
                       initiator: requestCloneForResponseEvent,
@@ -89,6 +90,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                       responseType: 'original',
                     })
                   )
+
+                  responsePromise.resolve(response)
+                  return
                 }
 
                 // Resolve the response promise with the original response
@@ -151,6 +155,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 if (this.emitter.listenerCount('response') > 0) {
                   logger.verbose('emitting the "response" event')
 
+                  const [callerResponse, responseClone] = cloneResponse(response)
+
                   // Await the response listeners to finish before resolving
                   // the response promise. This ensures all your logic finishes
                   // before the interceptor resolves the pending response.
@@ -160,12 +166,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                       // Clone the mocked response for the "response" event listener.
                       // This way, the listener can read the response and not lock its body
                       // for the actual fetch consumer.
-                      response: FetchResponse.clone(response),
+                      response: responseClone,
                       responseType: 'mock',
                       request,
                       requestId,
                     })
                   )
+
+                  responsePromise.resolve(callerResponse)
+                  return
                 }
 
                 responsePromise.resolve(response)
