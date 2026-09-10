@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
+import { setImmediate } from 'node:timers/promises'
 import { SocketInterceptor } from '#/src/interceptors/net'
 import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
@@ -287,4 +288,44 @@ it('connects with "createConnection()"', async () => {
 
   expect.soft(listeners.connect).toHaveBeenCalledOnce()
   expect(connectionCallback).toHaveBeenCalledOnce()
+})
+
+it('notifies connect again for passthrough decided after the client writes', async () => {
+  const receivedChunks: Array<Buffer> = []
+  await using server = await createRawTestServer(() => {
+    return new net.Server((socket) => {
+      socket.on('data', (chunk) => {
+        receivedChunks.push(chunk)
+        socket.end('original')
+      })
+    })
+  })
+
+  interceptor.on('connection', ({ socket, controller }) => {
+    socket.once('data', async () => {
+      // No real connection can be chosen before the client sends its bytes.
+      await setImmediate()
+      controller.passthrough()
+    })
+  })
+
+  const connectionCallback = vi.fn()
+  const socket = net.connect(server.port, server.hostname, connectionCallback)
+  onTestFinished(() => {
+    socket.destroy()
+  })
+  const { listeners } = spyOnSocket(socket)
+  const response = Promise.withResolvers<string>()
+  socket.on('error', response.reject)
+  socket.on('data', (chunk) => response.resolve(chunk.toString()))
+  socket.once('connect', () => socket.write('request'))
+
+  await expect(response.promise).resolves.toBe('original')
+  await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
+
+  // Synthetic connect obtains the request; real connect completes passthrough.
+  expect(listeners.connect).toHaveBeenCalledTimes(2)
+  // Once wrappers are consumed by synthetic connect, including the callback.
+  expect(connectionCallback).toHaveBeenCalledOnce()
+  expect(Buffer.concat(receivedChunks).toString()).toBe('request')
 })

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import http from 'node:http'
+import type { LookupFunction } from 'node:net'
 import { setTimeout } from 'node:timers/promises'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { toWebResponse } from '#/test/helpers'
@@ -105,15 +106,32 @@ it('forwards ENOTFOUND error for a bypassed request', async () => {
   expect(responseListener).not.toHaveBeenCalled()
 })
 
+function createUnreachableLookup() {
+  const error: ConnectionError = Object.assign(
+    new Error('connect EHOSTUNREACH 2607:f0d0:1002:51::4:80'),
+    { code: 'EHOSTUNREACH', address: '2607:f0d0:1002:51::4', port: 80 }
+  )
+
+  // Supply a deterministic error through the real connection's lookup option.
+  // A public IPv6 address can time out or be reachable depending on host routing.
+  const lookup = vi.fn<LookupFunction>((_hostname, _options, callback) => {
+    process.nextTick(() => callback(error, '', 6))
+  })
+
+  return { error, lookup }
+}
+
 it('suppresses EHOSTUNREACH error given a mocked response', async () => {
   interceptor.once('request', async ({ controller }) => {
     await setTimeout(250)
     controller.respondWith(new Response('mocked'))
   })
 
-  // Connecting to an IPv6 address that's out of the network's
-  // reach will result in the "EHOSTUNREACH" error in Node.js.
-  const request = http.get('http://[2607:f0d0:1002:51::4]')
+  const { lookup } = createUnreachableLookup()
+  const request = http.get('http://unreachable.test', { lookup })
+  onTestFinished(() => {
+    request.destroy()
+  })
   const errorListener = vi.fn()
   request.on('error', errorListener)
 
@@ -121,26 +139,31 @@ it('suppresses EHOSTUNREACH error given a mocked response', async () => {
 
   expect(response.status).toBe(200)
   await expect(response.text()).resolves.toBe('mocked')
+  expect(errorListener).not.toHaveBeenCalled()
+  expect(lookup).not.toHaveBeenCalled()
 })
 
 it('forwards EHOSTUNREACH error for a bypassed request', async () => {
-  // Connecting to an IPv6 address that's out of the network's
-  // reach will result in the "EHOSTUNREACH" error in Node.js.
-  const request = http.get('http://[2607:f0d0:1002:51::4]')
+  const { error, lookup } = createUnreachableLookup()
+  const request = http.get('http://unreachable.test', { lookup })
+  onTestFinished(() => {
+    request.destroy()
+  })
   const errorPromise = Promise.withResolvers<ConnectionError>()
   request.on('error', (error: ConnectionError) => {
     errorPromise.resolve(error)
   })
+  const responseListener = vi.fn()
+  request.on('response', responseListener)
 
   const requestError = await errorPromise.promise
 
-  /**
-   * @note On Ubuntu, requesting an unreachable host
-   * results in the "ENETUNREACH" error instead of "EHOSTUNREACH"
-   */
-  expect(requestError.code).toMatch(/^(EHOSTUNREACH|ENETUNREACH)$/)
+  expect(lookup).toHaveBeenCalledOnce()
+  expect(requestError).toBe(error)
+  expect(requestError.code).toBe('EHOSTUNREACH')
   expect(requestError.address).toBe('2607:f0d0:1002:51::4')
   expect(requestError.port).toBe(80)
+  expect(responseListener).not.toHaveBeenCalled()
 })
 
 it('allows throwing connection errors in the request listener', async () => {

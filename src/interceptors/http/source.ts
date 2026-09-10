@@ -70,6 +70,19 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let abortPendingRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
 
+        // Protocol detection runs inside a client write. Let the write finish
+        // and other data observers run before flushing it to the real socket.
+        const passthroughNonHttp = () => {
+          process.nextTick(() => {
+            if (
+              socketController.readyState === SocketController.PENDING &&
+              !socket.destroyed
+            ) {
+              socketController.passthrough()
+            }
+          })
+        }
+
         // A malformed request loses the boundary for subsequent requests.
         // Preserve the original bytes for the client and server to handle.
         const stopParsingRequests = (error: Error) => {
@@ -81,7 +94,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           ) {
             void pendingRequestController.passthrough()
           } else {
-            socketController.decline()
+            passthroughNonHttp()
           }
 
           requestParser?.free(error)
@@ -132,7 +145,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
            */
           const onRequestData = (chunk: Buffer) => {
             if (isHttpConnection === false) {
-              socketController.decline()
+              passthroughNonHttp()
               return
             }
 
@@ -168,11 +181,10 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
             const httpMessage = chunk.toString()
             const httpMethod = httpMessage.split(' ')[0] || ''
 
-            // Decline non-HTTP connections so the socket controller can
-            // pass them through once every subscriber has declined.
+            // Stop parsing connections that do not carry HTTP traffic.
             if (!METHODS.includes(httpMethod.toUpperCase())) {
               isHttpConnection = false
-              socketController.decline()
+              passthroughNonHttp()
               return
             }
 

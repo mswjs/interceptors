@@ -271,20 +271,17 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
               })
             }
 
-            process.nextTick(() => {
+            process.nextTick(async () => {
               if (socket.destroyed) {
                 return
               }
 
-              /**
-               * @note Expect a verdict on this connection from every
-               * "connection" listener before emitting the event. With no
-               * listeners to claim the connection (or once every listener
-               * declines it), the controller passes it through as-is.
-               */
-              controller.awaitVerdicts(interceptor.listenerCount('connection'))
+              if (interceptor.listenerCount('connection') === 0) {
+                controller.passthrough()
+                return
+              }
 
-              interceptor.emitter.emit(
+              await interceptor.emitter.emitAsPromise(
                 new SocketConnectionEvent({
                   socket: controller.serverSocket,
                   controller,
