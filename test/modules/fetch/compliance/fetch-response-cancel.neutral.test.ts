@@ -39,6 +39,22 @@ it('cancels a mocked response body with a response listener', async () => {
   await expect(response.body!.cancel()).resolves.toBeUndefined()
 })
 
+it.skipIf(typeof window === 'undefined')(
+  'reads the caller response after a listener cancels its response body',
+  async () => {
+    interceptor.on('request', ({ controller }) => {
+      controller.respondWith(new Response('hello world'))
+    })
+    interceptor.on('response', async ({ response }) => {
+      await expect(response.body!.cancel()).resolves.toBeUndefined()
+    })
+
+    const response = await fetch('https://x.test/y')
+
+    await expect(response.text()).resolves.toBe('hello world')
+  }
+)
+
 it('cancels a mocked response reader with a response listener', async () => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('hello world', { status: 429 }))

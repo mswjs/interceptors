@@ -44,8 +44,16 @@ function wrapResponse(
       },
       async cancel(reason) {
         try {
-          // Both tee branches must cancel before either cancellation can settle.
-          await Promise.all([cancel(reason), onCancel?.(reason)])
+          const cancellation = cancel(reason)
+
+          if (onCancel) {
+            // Caller cancellation owns both branches.
+            await Promise.all([cancellation, onCancel(reason)])
+          } else {
+            // An observer must not wait for the caller to consume its branch:
+            // fetch() is still waiting for this response listener to finish.
+            void cancellation.catch(() => {})
+          }
         } finally {
           reader.releaseLock()
         }
