@@ -70,10 +70,11 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let abortPendingRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
 
-        // Protocol detection runs inside a client write. Let the write finish
-        // and other data observers run before flushing it to the real socket.
+        // Protocol detection runs inside a client write. Let the write finish,
+        // other data observers run, and the remaining "connection" listeners
+        // get their chance to claim before flushing it to the real socket.
         const passthroughNonHttp = () => {
-          process.nextTick(() => {
+          setImmediate(() => {
             if (
               socketController.readyState === SocketController.PENDING &&
               !socket.destroyed
