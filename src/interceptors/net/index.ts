@@ -281,13 +281,18 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                 return
               }
 
-              await interceptor.emitter.emitAsPromise(
-                new SocketConnectionEvent({
-                  socket: controller.serverSocket,
-                  controller,
-                  connectionOptions,
-                })
-              )
+              try {
+                await interceptor.emitter.emitAsPromise(
+                  new SocketConnectionEvent({
+                    socket: controller.serverSocket,
+                    controller,
+                    connectionOptions,
+                  })
+                )
+              } catch (error) {
+                socket.destroy(error as Error)
+                return
+              }
 
               logger.verbose('emitted "connection" event!')
             })

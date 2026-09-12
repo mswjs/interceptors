@@ -239,9 +239,10 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
               listener(toBuffer(chunk, encoding))
             }
 
+            // Writable so a removed listener can be added again.
             Object.defineProperty(listener, kListenerWrap, {
               enumerable: false,
-              writable: false,
+              writable: true,
               value: listenerWrap,
             })
 
@@ -421,7 +422,7 @@ export class TcpSocketController extends SocketController {
 
   protected pendingConnection: PromiseWithResolvers<[TcpWrap, TcpHandle]>
 
-  private removePassthroughSocketListeners?: () => void
+  #removePassthroughSocketListeners?: () => void
 
   #connectionOptions?: NetworkConnectionOptions
   #retargetedConnectionOptions?: NetworkConnectionOptions &
@@ -567,7 +568,7 @@ export class TcpSocketController extends SocketController {
        * must not close the client socket).
        */
       if (this.#passthroughSocket) {
-        this.removePassthroughSocketListeners?.()
+        this.#removePassthroughSocketListeners?.()
         this.#passthroughSocket.destroy()
 
         this.#passthroughSocket = null
@@ -1321,11 +1322,11 @@ export class TcpSocketController extends SocketController {
     // Let Node register its pending-write "connect" listener first so
     // buffered writes flush before our listener swaps the socket handle.
     if (isNewConnection) {
-      this.removePassthroughSocketListeners =
+      this.#removePassthroughSocketListeners =
         this.addPassthroughSocketListeners(realSocket)
 
       // The real socket may still emit errors after the client closes.
-      realSocket.once('close', this.removePassthroughSocketListeners)
+      realSocket.once('close', this.#removePassthroughSocketListeners)
     }
 
     /**
