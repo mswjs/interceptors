@@ -18,6 +18,34 @@ afterAll(() => {
   interceptor.dispose()
 })
 
+it.each(['throw', 'reject'] as const)(
+  'destroys the socket when a connection listener fails with %s',
+  async (failure) => {
+    const error = new Error('Connection listener failed')
+    interceptor.on('connection', () => {
+      if (failure === 'throw') {
+        throw error
+      }
+
+      return Promise.reject(error)
+    })
+    const nextListener = vi.fn()
+    interceptor.on('connection', nextListener)
+
+    const socket = net.connect(80, '127.0.0.1')
+    onTestFinished(() => {
+      socket.destroy()
+    })
+    const { listeners } = spyOnSocket(socket)
+
+    await expect.poll(() => listeners.close).toHaveBeenCalledExactlyOnceWith(true)
+    expect(listeners.error).toHaveBeenCalledOnce()
+    expect(listeners.error.mock.calls[0][0]).toBe(error)
+    expect(socket.destroyed).toBe(true)
+    expect(nextListener).not.toHaveBeenCalled()
+  }
+)
+
 it('emits the "ECONNREFUSED" error identical to Node.js', async () => {
   // Open a server to obtain a port, then close it
   // so connecting to that port is guaranteed to be refused.

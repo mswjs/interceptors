@@ -289,7 +289,10 @@ it('responds to the "CONNECT" request with a mocked response', async () => {
  */
 it('closes the connection for a mocked non-2xx response to "CONNECT" like a real proxy', async () => {
   const address = realProxy.address()
-  invariant(address != null && typeof address === 'object')
+  invariant(
+    address != null && typeof address === 'object',
+    'Expected the proxy server to have a TCP address'
+  )
 
   // First, record how the client observes a real proxy refusing the tunnel.
   const realEvents = requestTunnel(address.port)

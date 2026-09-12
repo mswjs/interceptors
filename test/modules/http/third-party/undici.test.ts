@@ -116,6 +116,8 @@ it('starts a subsequent request on a pooled connection as pending', async () => 
     connections: 1,
   })
 
+  // Register after the HTTP source: its parser setup must let later connection
+  // listeners observe bytes, including those of the first request.
   socketInterceptor.once('connection', ({ socket, controller }) => {
     socket.on('data', () => {
       requestSocketStates.push(controller['readyState'])

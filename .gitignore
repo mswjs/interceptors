@@ -9,3 +9,4 @@ package-lock.json
 /tmp
 __screenshots__
 *.tsbuildinfo
+.pnpm-store/
