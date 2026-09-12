@@ -44,22 +44,36 @@ it('passes a non-http socket through to the actual server', async () => {
 })
 
 it('passes a non-http socket through when the server writes first', async () => {
+  const serverDataListener = vi.fn()
   await using server = await createRawTestServer(() => {
     return new net.Server((connection) => {
       connection.write('PING')
+      connection.on('data', (chunk) => {
+        serverDataListener(chunk.toString())
+        connection.write('PONG')
+      })
     })
   })
 
-  const response = await new Promise<string>((resolve, reject) => {
+  const messages: Array<string> = []
+  await new Promise<void>((resolve, reject) => {
     const socket = net.connect(server.port, server.hostname)
     socket.on('data', (chunk) => {
-      resolve(chunk.toString())
+      messages.push(chunk.toString())
+
+      if (messages.length === 1) {
+        socket.write('hello')
+        return
+      }
+
+      resolve()
       socket.destroy()
     })
     socket.on('error', reject)
   })
 
-  expect(response).toBe('PING')
+  expect(messages).toEqual(['PING', 'PONG'])
+  expect(serverDataListener).toHaveBeenCalledExactlyOnceWith('hello')
 })
 
 it('keeps a non-http socket pending for a subsequent "connection" listener', async () => {
