@@ -70,20 +70,22 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let abortPendingRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
 
-        const passthroughIfPending = () => {
-          if (
+        const shouldPassthrough = () => {
+          return (
             socketController.readyState === SocketController.PENDING &&
             !socket.destroyed
-          ) {
-            socketController.passthrough()
-          }
+          )
         }
 
         // Protocol detection runs inside a client write. Let the write finish,
         // other data observers run, and the remaining "connection" listeners
         // get their chance to claim before flushing it to the real socket.
         const passthroughNonHttp = () => {
-          setImmediate(passthroughIfPending)
+          setImmediate(() => {
+            if (shouldPassthrough()) {
+              socketController.passthrough()
+            }
+          })
         }
 
         // A malformed request loses the boundary for subsequent requests.
@@ -527,9 +529,10 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           }
 
           rawSocket.removeListener('newListener', onClientRead)
+
           setImmediate(() => {
-            if (isHttpConnection === undefined) {
-              passthroughIfPending()
+            if (isHttpConnection === undefined && shouldPassthrough()) {
+              socketController.passthrough()
             }
           })
         }
