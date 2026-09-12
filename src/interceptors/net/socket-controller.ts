@@ -239,9 +239,10 @@ function toServerSocket<T extends net.Socket>(socket: T): T {
               listener(toBuffer(chunk, encoding))
             }
 
+            // Writable so a removed listener can be added again.
             Object.defineProperty(listener, kListenerWrap, {
               enumerable: false,
-              writable: false,
+              writable: true,
               value: listenerWrap,
             })
 
@@ -365,8 +366,6 @@ export abstract class SocketController {
     | typeof SocketController.CLAIMED
     | typeof SocketController.PASSTHROUGH
 
-  #awaitedVerdicts = 0
-
   private [kRawSocket]: net.Socket
 
   constructor(socket: net.Socket) {
@@ -405,55 +404,6 @@ export abstract class SocketController {
 
     this.readyState = SocketController.PASSTHROUGH
   }
-
-  /**
-   * Await a verdict on this connection from the given number of
-   * subscribers. A connection nobody awaits to inspect (or one that
-   * every awaited subscriber has declined) is passed through as-is.
-   * This makes "unclaimed after everyone declined" a state owned by
-   * the controller instead of the individual subscribers.
-   */
-  public awaitVerdicts(count: number): void {
-    this.#awaitedVerdicts = count
-
-    if (this.#awaitedVerdicts === 0) {
-      this.passthrough()
-    }
-  }
-
-  /**
-   * Decline this socket connection. Declining means the subscriber
-   * has inspected the connection and will not handle it (e.g. the
-   * traffic is not of the protocol that subscriber implements).
-   * Once every awaited subscriber declines, the connection is
-   * passed through as-is.
-   */
-  public decline(): void {
-    if (this.readyState !== SocketController.PENDING) {
-      return
-    }
-
-    this.#awaitedVerdicts -= 1
-
-    if (this.#awaitedVerdicts <= 0) {
-      /**
-       * @note Defer the passthrough so it never transitions this
-       * controller in the middle of a client write. Declines are
-       * issued while the written data is being pushed to the server
-       * socket, and a synchronous transition would race the write's
-       * own bookkeeping (e.g. re-buffering the write after a reset
-       * at an exchange boundary).
-       */
-      process.nextTick(() => {
-        if (
-          this.readyState === SocketController.PENDING &&
-          !this[kRawSocket].destroyed
-        ) {
-          this.passthrough()
-        }
-      })
-    }
-  }
 }
 
 export type FlushPendingDataFunction = (
@@ -472,7 +422,7 @@ export class TcpSocketController extends SocketController {
 
   protected pendingConnection: PromiseWithResolvers<[TcpWrap, TcpHandle]>
 
-  private removePassthroughSocketListeners?: () => void
+  #removePassthroughSocketListeners?: () => void
 
   #connectionOptions?: NetworkConnectionOptions
   #retargetedConnectionOptions?: NetworkConnectionOptions &
@@ -601,9 +551,7 @@ export class TcpSocketController extends SocketController {
    * authority of an established "CONNECT" tunnel). An unclaimed
    * exchange then passes through to that target instead of the
    * originally dialed one, and a claimed exchange reports it as the
-   * peer. The verdict count is deliberately not re-armed: subscribers
-   * that declined this connection's protocol stay declined across
-   * the exchanges, retargeted or not.
+   * peer.
    */
   public reset(
     connectionOptions?: NetworkConnectionOptions & net.SocketConnectOpts
@@ -620,7 +568,7 @@ export class TcpSocketController extends SocketController {
        * must not close the client socket).
        */
       if (this.#passthroughSocket) {
-        this.removePassthroughSocketListeners?.()
+        this.#removePassthroughSocketListeners?.()
         this.#passthroughSocket.destroy()
 
         this.#passthroughSocket = null
@@ -1374,11 +1322,11 @@ export class TcpSocketController extends SocketController {
     // Let Node register its pending-write "connect" listener first so
     // buffered writes flush before our listener swaps the socket handle.
     if (isNewConnection) {
-      this.removePassthroughSocketListeners =
+      this.#removePassthroughSocketListeners =
         this.addPassthroughSocketListeners(realSocket)
 
       // The real socket may still emit errors after the client closes.
-      realSocket.once('close', this.removePassthroughSocketListeners)
+      realSocket.once('close', this.#removePassthroughSocketListeners)
     }
 
     /**

@@ -4,6 +4,8 @@
  */
 import net from 'node:net'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { SocketInterceptor } from '#/src/interceptors/net'
+import { Interceptor } from '#/src/interceptor'
 import { createRawTestServer } from '#/test/helpers'
 
 const interceptor = new HttpRequestInterceptor()
@@ -39,4 +41,30 @@ it('passes a non-http socket through to the actual server', async () => {
   })
 
   expect(response).toBe('PONG')
+})
+
+it('keeps a non-http socket pending for a subsequent "connection" listener', async () => {
+  const socketInterceptor = Interceptor.singleton(SocketInterceptor)
+  const connectionListener = vi.fn(({ socket, controller }) => {
+    controller.claim()
+    socket.end('PONG')
+  })
+  socketInterceptor.on('connection', connectionListener)
+  onTestFinished(() => {
+    socketInterceptor.removeListener('connection', connectionListener)
+  })
+
+  const response = await new Promise<string>((resolve, reject) => {
+    const socket = net.connect(80, '127.0.0.1')
+    // Write before the "connection" listeners are dispatched.
+    socket.write('PING')
+    socket.on('data', (chunk) => {
+      resolve(chunk.toString())
+      socket.destroy()
+    })
+    socket.on('error', reject)
+  })
+
+  expect(response).toBe('PONG')
+  expect(connectionListener).toHaveBeenCalledOnce()
 })

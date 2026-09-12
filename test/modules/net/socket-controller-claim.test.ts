@@ -1,5 +1,7 @@
 // @vitest-environment node
 import net from 'node:net'
+import { setImmediate } from 'node:timers/promises'
+import { SocketController } from '#/src/interceptors/net/socket-controller'
 import { SocketInterceptor } from '#/src/interceptors/net'
 import { createRawTestServer, spyOnSocket } from '#/test/helpers'
 
@@ -15,6 +17,70 @@ afterEach(() => {
 
 afterAll(() => {
   interceptor.dispose()
+})
+
+it('awaits connection listeners in registration order', async () => {
+  const steps: Array<string> = []
+  interceptor.on('connection', async () => {
+    steps.push('first:start')
+    await setImmediate()
+    steps.push('first:end')
+  })
+  interceptor.on('connection', async ({ socket, controller }) => {
+    steps.push('second:start')
+    await setImmediate()
+    controller.claim()
+    steps.push('second:end')
+    socket.end('mocked')
+  })
+
+  const response = await new Promise<string>((resolve, reject) => {
+    const socket = net.connect(80, '127.0.0.1')
+    socket.on('error', reject)
+    socket.on('data', (chunk) => {
+      resolve(chunk.toString())
+      socket.destroy()
+    })
+  })
+
+  expect(response).toBe('mocked')
+  expect(steps).toEqual([
+    'first:start',
+    'first:end',
+    'second:start',
+    'second:end',
+  ])
+})
+
+it('keeps the connection pending after a listener installs its data handler', async () => {
+  const observedData = vi.fn()
+  interceptor.on('connection', ({ socket, controller }) => {
+    socket.once('data', (chunk) => {
+      observedData(controller.readyState, chunk.toString())
+      controller.claim()
+      socket.end('mocked')
+    })
+  })
+
+  const socket = net.connect(80, 'any.host.com')
+  onTestFinished(() => {
+    socket.destroy()
+  })
+  const response = Promise.withResolvers<string>()
+  socket.on('error', response.reject)
+  socket.on('data', (chunk) => response.resolve(chunk.toString()))
+  socket.once('connect', async () => {
+    // The connection listener has returned, but still needs these bytes
+    // before it can decide to claim the socket.
+    await setImmediate()
+    socket.write('request')
+  })
+
+  await expect(response.promise).resolves.toBe('mocked')
+  expect(observedData).toHaveBeenCalledExactlyOnceWith(
+    SocketController.PENDING,
+    'request'
+  )
 })
 
 it('resolves the connection attempt when the socket is claimed', async () => {
