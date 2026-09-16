@@ -70,15 +70,19 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let abortPendingRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
 
+        const shouldPassthrough = () => {
+          return (
+            socketController.readyState === SocketController.PENDING &&
+            !socket.destroyed
+          )
+        }
+
         // Protocol detection runs inside a client write. Let the write finish,
         // other data observers run, and the remaining "connection" listeners
         // get their chance to claim before flushing it to the real socket.
         const passthroughNonHttp = () => {
           setImmediate(() => {
-            if (
-              socketController.readyState === SocketController.PENDING &&
-              !socket.destroyed
-            ) {
+            if (shouldPassthrough()) {
               socketController.passthrough()
             }
           })
@@ -508,6 +512,40 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
         socket.on('data', onRequestData)
         socket.on('close', () => requestParser?.free())
+
+        /**
+         * @note A client that waits for the server to speak first (e.g. a
+         * SQL handshake) starts reading without writing anything, so
+         * protocol detection never runs. Pass such connections through
+         * once the client reads and still no bytes have arrived. Clients
+         * that write after an async setup (e.g. Undici loading its parser)
+         * attach their readers right before writing; "setImmediate" lets
+         * those writes, including ones from nested ticks of the "connect"
+         * listeners, land first.
+         */
+        const onClientRead = (event: string | symbol) => {
+          if (event !== 'data' && event !== 'readable') {
+            return
+          }
+
+          rawSocket.removeListener('newListener', onClientRead)
+
+          setImmediate(() => {
+            if (isHttpConnection === undefined && shouldPassthrough()) {
+              socketController.passthrough()
+            }
+          })
+        }
+
+        rawSocket.on('newListener', onClientRead)
+
+        if (
+          rawSocket.listenerCount('data') +
+            rawSocket.listenerCount('readable') >
+          0
+        ) {
+          onClientRead('data')
+        }
       },
       {
         signal: controller.signal,

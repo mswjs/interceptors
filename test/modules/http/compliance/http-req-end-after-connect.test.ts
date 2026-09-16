@@ -65,3 +65,25 @@ it('mocks an HTTP request that ends after the socket has connected', async () =>
   expect.soft(response.status).toBe(200)
   await expect.soft(response.text()).resolves.toBe('hello world')
 })
+
+it('mocks an HTTP request that ends in a nested tick of the "connect" listener', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('hello world'))
+  })
+
+  const request = http.request(httpServer.http.url('/mocked').href, {
+    agent: false,
+  })
+  request.on('socket', (socket) => {
+    socket.on('connect', () => {
+      process.nextTick(() => {
+        process.nextTick(() => request.end())
+      })
+    })
+  })
+
+  const [response] = await toWebResponse(request)
+
+  expect.soft(response.status).toBe(200)
+  await expect.soft(response.text()).resolves.toBe('hello world')
+})
