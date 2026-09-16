@@ -2,6 +2,8 @@ import { Interceptor } from '../../interceptor'
 import {
   WebSocketConnectionEvent,
   type WebSocketEventMap,
+  type WebSocketConnectionInfo,
+  type WebSocketConnectionEventData,
 } from '../../events/websocket'
 import {
   WebSocketClientConnectionProtocol,
@@ -30,6 +32,10 @@ export {
   type WebSocketTransport,
 } from './web-socket-transport'
 export {
+  WebSocketEventMap,
+  WebSocketConnectionEvent,
+  WebSocketConnectionInfo,
+  WebSocketConnectionEventData,
   WebSocketClientEventMap,
   WebSocketClientConnectionProtocol,
   WebSocketClientConnection,

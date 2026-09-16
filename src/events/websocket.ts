@@ -7,14 +7,14 @@ import type {
 /**
  * The connection information.
  */
-interface WebSocketConnectionInfo {
+export interface WebSocketConnectionInfo {
   /**
    * The protocols supported by the WebSocket client.
    */
   protocols: string | Array<string> | undefined
 }
 
-interface WebSocketConnectionEventData {
+export interface WebSocketConnectionEventData {
   /**
    * The incoming WebSocket client connection.
    */

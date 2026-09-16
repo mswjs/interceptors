@@ -10,10 +10,6 @@ export type {
   HttpRequestEvent,
   HttpResponseEvent,
 } from './events/http'
-export type {
-  WebSocketEventMap,
-  WebSocketConnectionEvent,
-} from './events/websocket'
 
 /* Utils */
 export { createRequestId } from './create-request-id'
