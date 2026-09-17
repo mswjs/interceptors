@@ -1,5 +1,6 @@
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig, defaultExclude } from 'vitest/config'
+import { browserCommands } from './test/setup/browser-commands'
 
 declare module 'vitest' {
   export interface ProvidedContext {
@@ -64,6 +65,7 @@ export default defineConfig({
             instances: [{ name: 'browser', browser: 'chromium' }],
             headless: true,
             screenshotFailures: false,
+            commands: browserCommands,
           },
           testTimeout: 4000,
         },
