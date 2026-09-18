@@ -790,6 +790,24 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
       visitedHeaders.clear()
 
+      /**
+       * @note Remove the headers deleted from the request (e.g. via
+       * `request.headers.delete()`). The raw headers start as a copy of
+       * the outgoing HTTP message headers and track every mutation, so a
+       * header present in the message but absent from the raw headers has
+       * been deleted. Forbidden headers stripped from `request.headers`
+       * remain in the raw headers and are preserved as-is.
+       */
+      const rawHeaderNames = new Set(
+        requestRawHeaders.map(([headerName]) => headerName.toLowerCase())
+      )
+
+      for (const [headerName] of httpMessageRawHeaders) {
+        if (!rawHeaderNames.has(headerName.toLowerCase())) {
+          httpMessageHeaders.delete(headerName)
+        }
+      }
+
       const httpMessageHeadersString = Array.from(httpMessageHeaders)
         .map(([name, value]) => `${name}: ${value}`)
         .join('\r\n')
