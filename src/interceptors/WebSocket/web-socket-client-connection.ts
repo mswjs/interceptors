@@ -19,6 +19,7 @@ export interface WebSocketClientEventMap {
 export abstract class WebSocketClientConnectionProtocol {
   abstract id: string
   abstract url: URL
+  public codec?: WebSocketCodec
   public abstract send(data: WebSocketData): void
   public abstract close(code?: number, reason?: string): void
 

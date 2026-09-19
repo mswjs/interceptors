@@ -11,7 +11,10 @@ import type { WebSocketServerConnection } from './web-socket-server-connection'
  * or typed arrays, are treated as a single value so array-shaped
  * messages remain unambiguous.
  */
-export type WebSocketCodecResult<Value> = Value | Iterator<Value> | undefined
+export type WebSocketCodecResult<Value> =
+  | Value
+  | Iterator<Value, Value | void>
+  | undefined
 
 /**
  * A codec transforms the data at the boundary between the connection
@@ -94,24 +97,23 @@ export function defineWebSocketCodec<Message = WebSocketData>(
 /**
  * Iterate over the values of the given codec result.
  * A generator's return value, if any, counts as its last value.
+ *
+ * Delegating via `yield*` forwards early termination of this
+ * generator (e.g. a `break` or an error in the consumer's loop)
+ * to the underlying iterator so it can clean up after itself.
  */
 export function* iterateWebSocketCodecResult<Value>(
   result: WebSocketCodecResult<Value>
-): Generator<Value> {
+): Generator<Value, void, undefined> {
   if (result === undefined) {
     return
   }
 
-  if (isIterator(result)) {
-    let next = result.next()
+  if (isIterator<Value>(result)) {
+    const returnValue = yield* { [Symbol.iterator]: () => result }
 
-    while (!next.done) {
-      yield next.value
-      next = result.next()
-    }
-
-    if (next.value !== undefined) {
-      yield next.value
+    if (returnValue !== undefined) {
+      yield returnValue
     }
 
     return
@@ -120,7 +122,14 @@ export function* iterateWebSocketCodecResult<Value>(
   yield result
 }
 
-function isIterator<Value>(value: unknown): value is Iterator<Value> {
+/**
+ * @note Only objects with a `next()` method count as iterators.
+ * Iterables that are not iterators (strings, arrays, typed arrays)
+ * are intentionally excluded so array-shaped messages remain unambiguous.
+ */
+function isIterator<Value>(
+  value: unknown
+): value is Iterator<Value, Value | void> {
   return (
     typeof value === 'object' &&
     value !== null &&

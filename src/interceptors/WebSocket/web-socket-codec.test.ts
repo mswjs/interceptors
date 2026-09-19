@@ -50,3 +50,56 @@ it('yields nothing for an empty generator', () => {
     )
   ).toEqual([])
 })
+
+it('closes the underlying generator when the consumer stops early', () => {
+  const onCleanup = vi.fn()
+  const result = iterateWebSocketCodecResult(
+    (function* () {
+      try {
+        yield 'first'
+        yield 'second'
+      } finally {
+        onCleanup()
+      }
+    })()
+  )
+
+  for (const value of result) {
+    expect(value).toBe('first')
+    break
+  }
+
+  expect(onCleanup).toHaveBeenCalledOnce()
+})
+
+it('closes the underlying generator when the consumer throws', () => {
+  const onCleanup = vi.fn()
+  const result = iterateWebSocketCodecResult(
+    (function* () {
+      try {
+        yield 'first'
+        yield 'second'
+      } finally {
+        onCleanup()
+      }
+    })()
+  )
+
+  expect(() => {
+    for (const value of result) {
+      throw new Error(`Consumer error on "${value}"`)
+    }
+  }).toThrow('Consumer error on "first"')
+  expect(onCleanup).toHaveBeenCalledOnce()
+})
+
+it('does not close the underlying generator once it completes', () => {
+  const onReturn = vi.fn()
+  const generator = (function* () {
+    yield 'first'
+  })()
+  generator.return = onReturn
+
+  expect(Array.from(iterateWebSocketCodecResult(generator))).toEqual(['first'])
+  expect(onReturn).not.toHaveBeenCalled()
+})

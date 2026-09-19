@@ -29,6 +29,7 @@ export interface WebSocketServerEventMap {
 }
 
 export abstract class WebSocketServerConnectionProtocol {
+  public codec?: WebSocketCodec
   public abstract connect(): void
   public abstract send(data: WebSocketData): void
   public abstract close(): void
@@ -270,6 +271,10 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
    * server.send(new TextEncoder().encode('hello'))
    */
   public send(data: WebSocketData): void {
+    // Fail on a missing connection before encoding so the error
+    // surfaces even if the codec drops the message or throws.
+    this.assertConnected()
+
     if (!this.codec) {
       this[kSend](data)
       return
@@ -282,14 +287,22 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
     }
   }
 
-  private [kSend](data: WebSocketData): void {
-    const { realWebSocket } = this
-
+  /**
+   * Return the original WebSocket, throwing if
+   * the connection to the original server was not established.
+   */
+  private assertConnected(): WebSocket {
     invariant(
-      realWebSocket,
+      this.realWebSocket,
       'Failed to call "server.send()" for "%s": the connection is not open. Did you forget to call "server.connect()"?',
       this.client.url
     )
+
+    return this.realWebSocket
+  }
+
+  private [kSend](data: WebSocketData): void {
+    const realWebSocket = this.assertConnected()
 
     // Silently ignore writes on the closed original WebSocket.
     if (

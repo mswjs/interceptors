@@ -1,5 +1,6 @@
 import {
   WebSocketInterceptor,
+  WebSocketServerConnection,
   defineWebSocketCodec,
 } from '@mswjs/interceptors/WebSocket'
 import { getTestServer } from '#/test/setup/vitest'
@@ -76,6 +77,23 @@ it('encodes data sent to the original server', async () => {
   })
 
   ws.close()
+})
+
+it('throws when sending to the unconnected server even if the codec drops the message', async () => {
+  const encode = vi.fn<() => undefined>(() => undefined)
+  const serverPromise = Promise.withResolvers<WebSocketServerConnection>()
+  interceptor.once('connection', ({ server }) => {
+    server.codec = { encode, decode: (data) => data }
+    serverPromise.resolve(server)
+  })
+
+  new WebSocket('wss://example.com')
+  const server = await serverPromise.promise
+
+  expect(() => server.send('hello')).toThrow(
+    'Failed to call "server.send()" for "wss://example.com/": the connection is not open. Did you forget to call "server.connect()"?'
+  )
+  expect(encode).not.toHaveBeenCalled()
 })
 
 it('decodes data received from the original server', async () => {
