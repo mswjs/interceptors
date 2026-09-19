@@ -12,6 +12,10 @@ import {
   CancelableCloseEvent,
   CloseEvent,
 } from './utils/events'
+import {
+  iterateWebSocketCodecResult,
+  type WebSocketCodec,
+} from './web-socket-codec'
 
 const kEmitter = Symbol('kEmitter')
 const kBoundListener = Symbol('kBoundListener')
@@ -59,6 +63,13 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
   private mockCloseController: AbortController
   private realCloseController: AbortController
   private [kEmitter]: EventTarget
+
+  /**
+   * An optional codec applied to the data crossing this connection:
+   * `send()` encodes, incoming server frames are decoded
+   * before being dispatched as `message` events.
+   */
+  public codec?: WebSocketCodec
 
   constructor(
     private readonly client: WebSocketOverride,
@@ -182,6 +193,14 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
       }
     )
 
+    realWebSocket.addEventListener(
+      'close',
+      () => {
+        this.codec?.close?.(this)
+      },
+      { once: true }
+    )
+
     realWebSocket.addEventListener('error', () => {
       const errorEvent = bindEvent(
         realWebSocket,
@@ -251,7 +270,16 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
    * server.send(new TextEncoder().encode('hello'))
    */
   public send(data: WebSocketData): void {
-    this[kSend](data)
+    if (!this.codec) {
+      this[kSend](data)
+      return
+    }
+
+    for (const frame of iterateWebSocketCodecResult(
+      this.codec.encode(data, this)
+    )) {
+      this[kSend](frame)
+    }
   }
 
   private [kSend](data: WebSocketData): void {
@@ -336,33 +364,43 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
   }
 
   private handleIncomingMessage(event: MessageEvent<WebSocketData>): void {
-    // Clone the event to dispatch it on this class
-    // once again and prevent the "already being dispatched"
-    // exception. Clone it here so we can observe this event
-    // being prevented in the "server.on()" listeners.
-    const messageEvent = bindEvent(
-      event.target,
-      new CancelableMessageEvent('message', {
-        data: event.data,
-        origin: event.origin,
-        cancelable: true,
-      })
-    )
+    // A single frame may decode into any number of messages
+    // (e.g. none for protocol control frames).
+    const messages = this.codec
+      ? iterateWebSocketCodecResult(this.codec.decode(event.data, this))
+      : [event.data]
+    let defaultPrevented = false
 
-    /**
-     * @note Emit "message" event on the server connection
-     * instance to let the interceptor know about these
-     * incoming events from the original server. In that listener,
-     * the interceptor can modify or skip the event forwarding
-     * to the mock WebSocket instance.
-     */
-    this[kEmitter].dispatchEvent(messageEvent)
+    for (const data of messages) {
+      // Clone the event to dispatch it on this class
+      // once again and prevent the "already being dispatched"
+      // exception. Clone it here so we can observe this event
+      // being prevented in the "server.on()" listeners.
+      const messageEvent = bindEvent(
+        event.target,
+        new CancelableMessageEvent('message', {
+          data,
+          origin: event.origin,
+          cancelable: true,
+        })
+      )
+
+      /**
+       * @note Emit "message" event on the server connection
+       * instance to let the interceptor know about these
+       * incoming events from the original server. In that listener,
+       * the interceptor can modify or skip the event forwarding
+       * to the mock WebSocket instance.
+       */
+      this[kEmitter].dispatchEvent(messageEvent)
+      defaultPrevented ||= messageEvent.defaultPrevented
+    }
 
     /**
      * @note Forward the incoming server events to the client.
      * Preventing the default on the message event stops this.
      */
-    if (!messageEvent.defaultPrevented) {
+    if (!defaultPrevented) {
       this.client.dispatchEvent(
         bindEvent(
           /**

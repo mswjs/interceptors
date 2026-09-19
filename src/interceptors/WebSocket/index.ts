@@ -50,6 +50,12 @@ export {
   CancelableMessageEvent,
 } from './utils/events'
 
+export {
+  type WebSocketCodec,
+  type WebSocketCodecResult,
+  defineWebSocketCodec,
+} from './web-socket-codec'
+
 const logger = createLogger('websocket')
 
 /**
@@ -102,15 +108,31 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
               createConnection
             )
 
+            const client = new WebSocketClientConnection(socket, transport)
+
             const hasConnectionListeners =
               this.emitter.listenerCount('connection') > 0
+
+            // Let the client codec emit session frames on behalf of the
+            // server (e.g. a protocol handshake) once the mock connection
+            // opens, unless the connection to the original server was
+            // established, in which case the original server does that.
+            socket.addEventListener(
+              'open',
+              () => {
+                if (!server['realWebSocket']) {
+                  client.codec?.open?.(client, (data) => transport.send(data))
+                }
+              },
+              { once: true }
+            )
 
             // The "globalThis.WebSocket" class stands for
             // the client-side connection. Assume it's established
             // as soon as the WebSocket instance is constructed.
             await this.emitter.emitAsPromise(
               new WebSocketConnectionEvent({
-                client: new WebSocketClientConnection(socket, transport),
+                client,
                 server,
                 info: {
                   protocols,
