@@ -3,6 +3,10 @@ import type { WebSocketEventListener } from './web-socket-override'
 import { bindEvent } from './utils/bind-event'
 import { CancelableMessageEvent, CloseEvent } from './utils/events'
 import { createRequestId } from '../../create-request-id'
+import {
+  iterateWebSocketCodecResult,
+  type WebSocketCodec,
+} from './web-socket-codec'
 
 const kEmitter = Symbol('kEmitter')
 const kBoundListener = Symbol('kBoundListener')
@@ -15,6 +19,7 @@ export interface WebSocketClientEventMap {
 export abstract class WebSocketClientConnectionProtocol {
   abstract id: string
   abstract url: URL
+  public codec?: WebSocketCodec
   public abstract send(data: WebSocketData): void
   public abstract close(code?: number, reason?: string): void
 
@@ -44,6 +49,13 @@ export class WebSocketClientConnection implements WebSocketClientConnectionProto
   public readonly id: string
   public readonly url: URL
 
+  /**
+   * An optional codec applied to the data crossing this connection:
+   * `send()` encodes, outgoing client frames are decoded
+   * before being dispatched as `message` events.
+   */
+  public codec?: WebSocketCodec
+
   private [kEmitter]: EventTarget
 
   constructor(
@@ -57,25 +69,43 @@ export class WebSocketClientConnection implements WebSocketClientConnectionProto
     // Emit outgoing client data ("ws.send()") as "message"
     // events on the "client" connection.
     this.transport.addEventListener('outgoing', (event) => {
-      const message = bindEvent(
-        this.socket,
-        new CancelableMessageEvent('message', {
-          data: event.data,
-          origin: event.origin,
-          cancelable: true,
-        })
-      )
+      // A single frame may decode into any number of messages
+      // (e.g. none for protocol control frames).
+      const messages = this.codec
+        ? iterateWebSocketCodecResult(this.codec.decode(event.data, this))
+        : [event.data]
+      let defaultPrevented = false
 
-      this[kEmitter].dispatchEvent(message)
+      for (const data of messages) {
+        const message = bindEvent(
+          this.socket,
+          new CancelableMessageEvent('message', {
+            data,
+            origin: event.origin,
+            cancelable: true,
+          })
+        )
+
+        this[kEmitter].dispatchEvent(message)
+        defaultPrevented ||= message.defaultPrevented
+      }
 
       // This is a bit silly but forward the cancellation state
       // of the "client" message event to the "outgoing" transport event.
       // This way, other agens (like "server" connection) can know
       // whether the client listener has pervented the default.
-      if (message.defaultPrevented) {
+      if (defaultPrevented) {
         event.preventDefault()
       }
     })
+
+    this.transport.addEventListener(
+      'close',
+      () => {
+        this.codec?.close?.(this)
+      },
+      { once: true }
+    )
 
     /**
      * Emit the "close" event on the "client" connection
@@ -138,7 +168,16 @@ export class WebSocketClientConnection implements WebSocketClientConnectionProto
    * Send data to the connected client.
    */
   public send(data: WebSocketData): void {
-    this.transport.send(data)
+    if (!this.codec) {
+      this.transport.send(data)
+      return
+    }
+
+    for (const frame of iterateWebSocketCodecResult(
+      this.codec.encode(data, this)
+    )) {
+      this.transport.send(frame)
+    }
   }
 
   /**
