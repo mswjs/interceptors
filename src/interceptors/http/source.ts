@@ -75,10 +75,14 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
          * (e.g. Undici) and writes its next requests to them. Once this
          * source is disposed, nothing handles those requests: destroy the
          * idle sockets and let the client connect anew. A request in
-         * flight finishes first.
+         * flight finishes first. Passed-through sockets are exchanging
+         * with the real server and keep doing so: leave them intact.
          */
         const destroyIdleSocket = () => {
-          if (pendingRequestController == null) {
+          if (
+            pendingRequestController == null &&
+            socketController.readyState !== SocketController.PASSTHROUGH
+          ) {
             socket.destroy()
           }
         }

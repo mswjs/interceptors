@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { Agent, fetch } from 'undici'
+import { createTestHttpServer } from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
 const interceptor = new HttpRequestInterceptor()
@@ -89,4 +90,34 @@ it('finishes a mocked request in flight when disposed', async () => {
       }
     )
     .toBe(0)
+})
+
+it('finishes a passed-through request in flight when disposed', async () => {
+  const respond = Promise.withResolvers<void>()
+  await using httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', async () => {
+        await respond.promise
+        return new Response('original')
+      })
+    },
+  })
+  interceptor.apply()
+
+  const agent = new Agent()
+  onTestFinished(() => agent.close())
+
+  const url = httpServer.http.url('/resource')
+  const responsePromise = fetch(url, { dispatcher: agent })
+  await expect
+    .poll(() => getConnectionStats(agent, url.origin)?.running, {
+      message: 'the request is in flight',
+    })
+    .toBe(1)
+
+  interceptor.dispose()
+  respond.resolve()
+
+  const response = await responsePromise
+  await expect(response.text()).resolves.toBe('original')
 })
