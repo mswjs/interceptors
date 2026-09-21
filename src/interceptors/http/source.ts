@@ -34,6 +34,18 @@ import { Interceptor } from '#/src/interceptor'
 const httpLogger = createLogger('http-request')
 
 /**
+ * The sockets that received a mocked response. Their `_destroy` is
+ * replaced (see `respondWith`), so the socket's "close" event is
+ * delivered by this source rather than by Node.js.
+ */
+const respondedSockets = new WeakSet<net.Socket>()
+
+/**
+ * The sockets whose "close" event this source has already delivered.
+ */
+const closedSockets = new WeakSet<net.Socket>()
+
+/**
  * Interceptor for HTTP requests in Node.js.
  * Routes socket connections through an HTTP parser.
  */
@@ -61,6 +73,22 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     const controller = new AbortController()
     this.subscriptions.push(() => controller.abort())
 
+    /**
+     * @note The client keeps idle sockets in its keep-alive pool
+     * (e.g. Undici) and writes its next requests to them. Once this
+     * source is disposed, nothing handles those requests: destroy the
+     * idle sockets and let the client connect anew. A request in
+     * flight finishes first. Passed-through sockets are exchanging
+     * with the real server and keep doing so: leave them intact.
+     */
+    const idleSocketDisposals = new Set<() => void>()
+    this.subscriptions.push(() => {
+      for (const destroyIdleSocket of idleSocketDisposals) {
+        destroyIdleSocket()
+      }
+      idleSocketDisposals.clear()
+    })
+
     socketInterceptor.on(
       'connection',
       ({ connectionOptions, socket, controller: socketController }) => {
@@ -70,25 +98,39 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let abortPendingRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
 
-        /**
-         * @note The client keeps idle sockets in its keep-alive pool
-         * (e.g. Undici) and writes its next requests to them. Once this
-         * source is disposed, nothing handles those requests: destroy the
-         * idle sockets and let the client connect anew. A request in
-         * flight finishes first. Passed-through sockets are exchanging
-         * with the real server and keep doing so: leave them intact.
-         */
         const destroyIdleSocket = () => {
           if (
-            pendingRequestController == null &&
-            socketController.readyState !== SocketController.PASSTHROUGH
+            pendingRequestController != null ||
+            socketController.readyState === SocketController.PASSTHROUGH
           ) {
-            socket.destroy()
+            return
           }
+
+          /**
+           * @note The connection's `socket` is a proxy of the raw socket
+           * (see the net interceptor); the registries key the raw socket.
+           */
+          if (!respondedSockets.has(socketController[kRawSocket])) {
+            socket.destroy()
+            return
+          }
+
+          /**
+           * @note Deliver "close" synchronously, not on the next tick.
+           * The client (e.g. Undici) keeps the socket in its pool until
+           * "close", and a request dispatched in between waits for it and
+           * reconnects from the "close" listener, outside the request's
+           * async context, where nothing attributes the request to its
+           * initiator. Closing at once leaves no such window: the next
+           * request connects anew within its own context.
+           */
+          closedSockets.add(socketController[kRawSocket])
+          socket.destroy()
+          socket.emit('close', false)
         }
-        controller.signal.addEventListener('abort', destroyIdleSocket)
+        idleSocketDisposals.add(destroyIdleSocket)
         socket.once('close', () => {
-          controller.signal.removeEventListener('abort', destroyIdleSocket)
+          idleSocketDisposals.delete(destroyIdleSocket)
         })
 
         const shouldPassthrough = () => {
@@ -687,6 +729,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
      * This must happen before `serverResponse.end()` because the HTTP parser may
      * fire the 'response' event synchronously during `socket.push()`.
      */
+    respondedSockets.add(socket)
     socket._destroy = function (
       error: Error | null,
       callback: (error: Error | null) => void
@@ -715,7 +758,10 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
        * mocked socket completes its lifecycle (otherwise consumers waiting
        * on `'close'`, like `http.ClientRequest`, hang).
        */
-      process.nextTick(() => this.emit('close', error != null))
+      if (!closedSockets.has(socket)) {
+        closedSockets.add(socket)
+        process.nextTick(() => this.emit('close', error != null))
+      }
     }
 
     if (response.body) {

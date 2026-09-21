@@ -46,7 +46,7 @@ it('destroys the idle mocked keep-alive connections when disposed', async () => 
   interceptor.dispose()
 
   await expect
-    .poll(() => getConnectionStats(agent, 'http://localhost')?.connected, {
+    .poll(() => getConnectionStats(agent, 'http://localhost')?.connected ?? 0, {
       message: 'the mocked connection is closed',
     })
     .toBe(0)
@@ -83,12 +83,9 @@ it('finishes a mocked request in flight when disposed', async () => {
   await expect(response.text()).resolves.toBe('mocked')
 
   await expect
-    .poll(
-      () => getConnectionStats(agent, 'http://localhost')?.connected ?? 0,
-      {
-        message: 'the mocked connection is closed once the request settles',
-      }
-    )
+    .poll(() => getConnectionStats(agent, 'http://localhost')?.connected ?? 0, {
+      message: 'the mocked connection is closed once the request settles',
+    })
     .toBe(0)
 })
 
