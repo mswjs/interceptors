@@ -87,7 +87,17 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let pendingRequestController: RequestController | undefined
 
         const destroyIdleSocket = () => {
+          /**
+           * @note Writes awaiting the verdict on their exchange stay
+           * pending on the socket (e.g. request headers spanning
+           * multiple packets, parsed only partially so far). That
+           * request is in flight as much as an already parsed one.
+           */
+          const hasPendingWrites =
+            socketController[kRawSocket]._pendingData != null
+
           if (
+            !hasPendingWrites &&
             pendingRequestController == null &&
             socketController.readyState !== SocketController.PASSTHROUGH
           ) {

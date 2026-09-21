@@ -1,4 +1,6 @@
 // @vitest-environment node
+import net from 'node:net'
+import { once } from 'node:events'
 import { Agent, fetch } from 'undici'
 import { createTestHttpServer } from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
@@ -117,4 +119,38 @@ it('finishes a passed-through request in flight when disposed', async () => {
 
   const response = await responsePromise
   await expect(response.text()).resolves.toBe('original')
+})
+
+it('finishes a request whose headers are still arriving when disposed', async () => {
+  await using httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => new Response('original'))
+    },
+  })
+  interceptor.apply()
+
+  const url = httpServer.http.url('/resource')
+  const socket = net.connect({ host: url.hostname, port: Number(url.port) })
+  onTestFinished(() => {
+    socket.destroy()
+  })
+  await once(socket, 'connect')
+
+  const closeListener = vi.fn()
+  socket.on('close', closeListener)
+  const chunks: Array<Buffer> = []
+  socket.on('data', (chunk) => chunks.push(chunk))
+
+  socket.write(`GET /resource HTTP/1.1\r\nHost: ${url.host}\r\n`)
+  await new Promise<void>((resolve) => setImmediate(resolve))
+
+  interceptor.dispose()
+  socket.write('\r\n')
+
+  await expect
+    .poll(() => Buffer.concat(chunks).toString(), {
+      message: 'the request passes through to the server',
+    })
+    .toContain('original')
+  expect(closeListener).not.toHaveBeenCalled()
 })
