@@ -34,18 +34,6 @@ import { Interceptor } from '#/src/interceptor'
 const httpLogger = createLogger('http-request')
 
 /**
- * The sockets that received a mocked response. Their `_destroy` is
- * replaced (see `respondWith`), so the socket's "close" event is
- * delivered by this source rather than by Node.js.
- */
-const respondedSockets = new WeakSet<net.Socket>()
-
-/**
- * The sockets whose "close" event this source has already delivered.
- */
-const closedSockets = new WeakSet<net.Socket>()
-
-/**
  * Interceptor for HTTP requests in Node.js.
  * Routes socket connections through an HTTP parser.
  */
@@ -100,33 +88,11 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
         const destroyIdleSocket = () => {
           if (
-            pendingRequestController != null ||
-            socketController.readyState === SocketController.PASSTHROUGH
+            pendingRequestController == null &&
+            socketController.readyState !== SocketController.PASSTHROUGH
           ) {
-            return
-          }
-
-          /**
-           * @note The connection's `socket` is a proxy of the raw socket
-           * (see the net interceptor); the registries key the raw socket.
-           */
-          if (!respondedSockets.has(socketController[kRawSocket])) {
             socket.destroy()
-            return
           }
-
-          /**
-           * @note Deliver "close" synchronously, not on the next tick.
-           * The client (e.g. Undici) keeps the socket in its pool until
-           * "close", and a request dispatched in between waits for it and
-           * reconnects from the "close" listener, outside the request's
-           * async context, where nothing attributes the request to its
-           * initiator. Closing at once leaves no such window: the next
-           * request connects anew within its own context.
-           */
-          closedSockets.add(socketController[kRawSocket])
-          socket.destroy()
-          socket.emit('close', false)
         }
         idleSocketDisposals.add(destroyIdleSocket)
         socket.once('close', () => {
@@ -361,6 +327,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                         socket: socketController[kRawSocket],
                         request: context.request,
                         response,
+                        connectionRequestContext,
                       })
 
                       /**
@@ -631,8 +598,9 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     socket: net.Socket
     request: Request
     response: Response
+    connectionRequestContext: ReturnType<typeof requestContext.getStore>
   }): Promise<void> {
-    const { socket, request, response } = args
+    const { socket, request, response, connectionRequestContext } = args
 
     if (socket.destroyed) {
       return
@@ -729,7 +697,6 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
      * This must happen before `serverResponse.end()` because the HTTP parser may
      * fire the 'response' event synchronously during `socket.push()`.
      */
-    respondedSockets.add(socket)
     socket._destroy = function (
       error: Error | null,
       callback: (error: Error | null) => void
@@ -758,10 +725,25 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
        * mocked socket completes its lifecycle (otherwise consumers waiting
        * on `'close'`, like `http.ClientRequest`, hang).
        */
-      if (!closedSockets.has(socket)) {
-        closedSockets.add(socket)
-        process.nextTick(() => this.emit('close', error != null))
-      }
+      const emitClose = () => this.emit('close', error != null)
+
+      /**
+       * @note Emit "close" within the request context the socket was
+       * created in, as the "close" of a real socket is. A client keeping
+       * this socket in its pool (e.g. Undici) may reconnect from its
+       * "close" listener for a request dispatched in the meantime; that
+       * connection then captures this context and the request stays
+       * attributed to its initiator (e.g. `fetch`) instead of being
+       * left to nobody. Node.js 24+ scopes callbacks to the context
+       * current when they were scheduled, which is not that context.
+       */
+      process.nextTick(() => {
+        if (connectionRequestContext) {
+          requestContext.run(connectionRequestContext, emitClose)
+        } else {
+          emitClose()
+        }
+      })
     }
 
     if (response.body) {
