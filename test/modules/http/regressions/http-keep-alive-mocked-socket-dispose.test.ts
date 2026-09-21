@@ -80,4 +80,13 @@ it('finishes a mocked request in flight when disposed', async () => {
 
   const response = await responsePromise
   await expect(response.text()).resolves.toBe('mocked')
+
+  await expect
+    .poll(
+      () => getConnectionStats(agent, 'http://localhost')?.connected ?? 0,
+      {
+        message: 'the mocked connection is closed once the request settles',
+      }
+    )
+    .toBe(0)
 })

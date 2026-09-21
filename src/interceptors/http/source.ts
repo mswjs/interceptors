@@ -310,12 +310,23 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                       socket.on('data', onRequestData)
                     }
 
-                    const respond = () => {
-                      return this.respondWith({
+                    const respond = async () => {
+                      await this.respondWith({
                         socket: socketController[kRawSocket],
                         request: context.request,
                         response,
                       })
+
+                      /**
+                       * @note This source got disposed while the request
+                       * was in flight. The response is delivered: end the
+                       * connection, like a server responding with
+                       * "Connection: close", so the client does not reuse
+                       * it for requests nobody handles.
+                       */
+                      if (controller.signal.aborted) {
+                        socket.end()
+                      }
                     }
 
                     if (responseClone) {
