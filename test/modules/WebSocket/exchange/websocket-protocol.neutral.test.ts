@@ -1,6 +1,5 @@
 import {
   WebSocketInterceptor,
-  WebSocketServerConnection,
   WebSocketProtocol,
   type WebSocketData,
   type WebSocketProtocolContext,
@@ -22,7 +21,87 @@ class Uppercase extends WebSocketProtocol<string> {
   }
 }
 
-const protocol = new Uppercase()
+class UppercaseWithHandshake extends Uppercase {
+  public *handshake(): Generator<string> {
+    yield 'HELLO'
+    yield 'WORLD'
+  }
+}
+
+// Encoding is never expected to happen.
+class Unencodable extends WebSocketProtocol {
+  public encode(): never {
+    throw new Error('Must not encode')
+  }
+
+  public decode(data: WebSocketData): WebSocketData {
+    return data
+  }
+}
+
+// Frames starting with "#" are protocol control frames, not messages.
+class ControlFrames extends WebSocketProtocol {
+  public encode(data: WebSocketData): WebSocketData {
+    return data
+  }
+
+  public decode(data: WebSocketData): WebSocketData | undefined {
+    return typeof data === 'string' && !data.startsWith('#') ? data : undefined
+  }
+}
+
+// Every word of a message is sent as a separate frame.
+class Words extends WebSocketProtocol<string> {
+  public *encode(data: string): Generator<string, string> {
+    const [first, second] = data.split(' ')
+    yield first
+    return second
+  }
+
+  public decode(data: WebSocketData): string | undefined {
+    return typeof data === 'string' ? data : undefined
+  }
+}
+
+// Every comma-separated value of a frame is a separate message.
+class CommaSeparated extends WebSocketProtocol<string> {
+  public encode(data: string): string {
+    return data
+  }
+
+  public *decode(data: WebSocketData): Generator<string> {
+    if (typeof data === 'string') {
+      yield* data.split(',')
+    }
+  }
+}
+
+// Records the context every method was called with.
+class Recording extends WebSocketProtocol<string> {
+  public encodeContexts: Array<WebSocketProtocolMessageContext> = []
+  public decodeContexts: Array<WebSocketProtocolMessageContext> = []
+  public handshakeContexts: Array<WebSocketProtocolContext> = []
+
+  public encode(
+    data: string,
+    context: WebSocketProtocolMessageContext
+  ): string {
+    this.encodeContexts.push(context)
+    return data
+  }
+
+  public decode(
+    data: WebSocketData,
+    context: WebSocketProtocolMessageContext
+  ): string | undefined {
+    this.decodeContexts.push(context)
+    return typeof data === 'string' ? data : undefined
+  }
+
+  public handshake(context: WebSocketProtocolContext): undefined {
+    this.handshakeContexts.push(context)
+  }
+}
 
 beforeAll(() => {
   interceptor.apply()
@@ -38,9 +117,9 @@ afterAll(() => {
 
 it('encodes data sent to the client', async () => {
   const onSocketData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', ({ client }) => {
-    client.protocol = protocol
-    client.send('hello')
+  interceptor.once('connection', (connection) => {
+    new Uppercase().apply(connection)
+    connection.client.send('hello')
   })
 
   const ws = new WebSocket('wss://example.com')
@@ -53,9 +132,11 @@ it('encodes data sent to the client', async () => {
 
 it('decodes data received from the client', async () => {
   const onClientData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', ({ client }) => {
-    client.protocol = protocol
-    client.addEventListener('message', (event) => onClientData(event.data))
+  interceptor.once('connection', (connection) => {
+    new Uppercase().apply(connection)
+    connection.client.addEventListener('message', (event) => {
+      onClientData(event.data)
+    })
   })
 
   const ws = new WebSocket('wss://example.com')
@@ -69,11 +150,13 @@ it('decodes data received from the client', async () => {
 it('encodes data sent to the original server', async () => {
   const onServerData = vi.fn<(data: unknown) => void>()
   const onSocketData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', ({ server }) => {
-    server.protocol = protocol
-    server.connect()
-    server.addEventListener('message', (event) => onServerData(event.data))
-    server.send('hello')
+  interceptor.once('connection', (connection) => {
+    new Uppercase().apply(connection)
+    connection.server.connect()
+    connection.server.addEventListener('message', (event) => {
+      onServerData(event.data)
+    })
+    connection.server.send('hello')
   })
 
   const ws = new WebSocket(server.ws.url('/?echo'))
@@ -89,33 +172,35 @@ it('encodes data sent to the original server', async () => {
   ws.close()
 })
 
-it('throws when sending to the unconnected server even if the protocol drops the message', async () => {
-  const encode = vi.fn<() => undefined>(() => undefined)
-  const serverPromise = Promise.withResolvers<WebSocketServerConnection>()
-  interceptor.once('connection', ({ server }) => {
-    server.protocol = { encode, decode: (data) => data }
-    serverPromise.resolve(server)
+it('throws when sending to the unconnected server before encoding', async () => {
+  const connectionPromise = Promise.withResolvers<WebSocketProtocolContext>()
+  interceptor.once('connection', (connection) => {
+    new Unencodable().apply(connection)
+    connectionPromise.resolve(connection)
   })
 
   new WebSocket('wss://example.com')
-  const server = await serverPromise.promise
+  const { server } = await connectionPromise.promise
 
+  // The connection error surfaces, not the encoding one.
   expect(() => server.send('hello')).toThrow(
     'Failed to call "server.send()" for "wss://example.com/": the connection is not open. Did you forget to call "server.connect()"?'
   )
-  expect(encode).not.toHaveBeenCalled()
 })
 
 it('decodes data received from the original server', async () => {
   const onClientData = vi.fn<(data: unknown) => void>()
   const onServerData = vi.fn<(data: unknown) => void>()
   const onSocketData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', ({ client, server }) => {
-    client.protocol = protocol
-    server.protocol = protocol
-    server.connect()
-    client.addEventListener('message', (event) => onClientData(event.data))
-    server.addEventListener('message', (event) => onServerData(event.data))
+  interceptor.once('connection', (connection) => {
+    new Uppercase().apply(connection)
+    connection.server.connect()
+    connection.client.addEventListener('message', (event) => {
+      onClientData(event.data)
+    })
+    connection.server.addEventListener('message', (event) => {
+      onServerData(event.data)
+    })
   })
 
   const ws = new WebSocket(server.ws.url('/?echo'))
@@ -136,15 +221,12 @@ it('decodes data received from the original server', async () => {
 it('forwards frames that decode into nothing', async () => {
   const onClientData = vi.fn<(data: unknown) => void>()
   const onSocketData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', ({ client, server }) => {
-    client.protocol = {
-      encode: (data) => data,
-      // Treat frames starting with "#" as protocol control frames.
-      decode: (data) =>
-        typeof data === 'string' && !data.startsWith('#') ? data : undefined,
-    }
-    server.connect()
-    client.addEventListener('message', (event) => onClientData(event.data))
+  interceptor.once('connection', (connection) => {
+    new ControlFrames().apply(connection)
+    connection.server.connect()
+    connection.client.addEventListener('message', (event) => {
+      onClientData(event.data)
+    })
   })
 
   const ws = new WebSocket(server.ws.url('/?echo'))
@@ -163,10 +245,10 @@ it('forwards frames that decode into nothing', async () => {
 
 it('prevents forwarding a frame when its decoded message is prevented', async () => {
   const onSocketData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', ({ client, server }) => {
-    client.protocol = protocol
-    server.connect()
-    client.addEventListener('message', (event) => {
+  interceptor.once('connection', (connection) => {
+    new Uppercase().apply(connection)
+    connection.server.connect()
+    connection.client.addEventListener('message', (event) => {
       if (event.data === 'secret') {
         event.preventDefault()
       }
@@ -189,20 +271,9 @@ it('prevents forwarding a frame when its decoded message is prevented', async ()
 
 it('encodes a single message into multiple frames', async () => {
   const onSocketData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', ({ client }) => {
-    client.protocol = new (class extends WebSocketProtocol<string> {
-      // Send every word of the message as a separate frame.
-      public *encode(data: string): Generator<string, string> {
-        const [first, second] = data.split(' ')
-        yield first
-        return second
-      }
-
-      public decode(data: WebSocketData): string | undefined {
-        return typeof data === 'string' ? data : undefined
-      }
-    })()
-    client.send('hello world')
+  interceptor.once('connection', (connection) => {
+    new Words().apply(connection)
+    connection.client.send('hello world')
   })
 
   const ws = new WebSocket('wss://example.com')
@@ -217,17 +288,11 @@ it('encodes a single message into multiple frames', async () => {
 
 it('decodes a single frame into multiple messages', async () => {
   const onClientData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', ({ client }) => {
-    client.protocol = {
-      encode: (data) => data,
-      // Treat every comma-separated value as a separate message.
-      *decode(data) {
-        if (typeof data === 'string') {
-          yield* data.split(',')
-        }
-      },
-    }
-    client.addEventListener('message', (event) => onClientData(event.data))
+  interceptor.once('connection', (connection) => {
+    new CommaSeparated().apply(connection)
+    connection.client.addEventListener('message', (event) => {
+      onClientData(event.data)
+    })
   })
 
   const ws = new WebSocket('wss://example.com')
@@ -242,15 +307,12 @@ it('decodes a single frame into multiple messages', async () => {
 
 it('sends the handshake once the mocked connection opens', async () => {
   const onSocketData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', ({ client }) => {
-    client.protocol = new (class extends Uppercase {
-      public *handshake(): Generator<string> {
-        yield 'HELLO'
-        yield 'WORLD'
-      }
-    })()
+  interceptor.once('connection', (connection) => {
+    new UppercaseWithHandshake().apply(connection)
     // Anything sent from the "open" listener must follow the handshake.
-    client.addEventListener('open', () => client.send('ready'))
+    connection.client.addEventListener('open', () => {
+      connection.client.send('ready')
+    })
   })
 
   const ws = new WebSocket('wss://example.com')
@@ -266,46 +328,32 @@ it('sends the handshake once the mocked connection opens', async () => {
 })
 
 it('does not send the handshake when connected to the original server', async () => {
-  const handshake = vi.fn<() => string>(() => 'HANDSHAKE')
   const onSocketData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', ({ client, server }) => {
-    client.protocol = new (class extends Uppercase {
-      public handshake = handshake
-    })()
-    server.connect()
+  interceptor.once('connection', (connection) => {
+    new UppercaseWithHandshake().apply(connection)
+    connection.server.connect()
   })
 
   const ws = new WebSocket(server.ws.url('/?greet'))
   ws.onmessage = (event) => onSocketData(event.data)
 
   await vi.waitFor(() => {
-    // The original server sent its own greeting.
+    // The original server sent its own greeting instead.
     expect(onSocketData).toHaveBeenCalledExactlyOnceWith('hello world')
   })
-  expect(handshake).not.toHaveBeenCalled()
 
   ws.close()
 })
 
 it('exposes the connection context to the protocol methods', async () => {
-  const encode = vi.fn<
-    (data: string, context: WebSocketProtocolMessageContext) => string
-  >((data) => data)
-  const decode = vi.fn<
-    (
-      data: unknown,
-      context: WebSocketProtocolMessageContext
-    ) => string | undefined
-  >((data) => (typeof data === 'string' ? data : undefined))
-  const handshake = vi.fn<(context: WebSocketProtocolContext) => undefined>(
-    () => undefined
-  )
+  const protocol = new Recording()
   const connectionPromise = Promise.withResolvers<WebSocketProtocolContext>()
-
-  interceptor.once('connection', ({ client, server, info }) => {
-    client.protocol = { encode, decode, handshake }
-    client.addEventListener('open', () => client.send('hello'))
-    connectionPromise.resolve({ client, server, info })
+  interceptor.once('connection', (connection) => {
+    protocol.apply(connection)
+    connection.client.addEventListener('open', () => {
+      connection.client.send('hello')
+    })
+    connectionPromise.resolve(connection)
   })
 
   const ws = new WebSocket('wss://example.com', ['chat'])
@@ -314,23 +362,23 @@ it('exposes the connection context to the protocol methods', async () => {
   const { client, server } = await connectionPromise.promise
 
   await vi.waitFor(() => {
-    expect(handshake).toHaveBeenCalledOnce()
-    expect(encode).toHaveBeenCalledOnce()
-    expect(decode).toHaveBeenCalledOnce()
+    expect(protocol.handshakeContexts).toHaveLength(1)
+    expect(protocol.encodeContexts).toHaveLength(1)
+    expect(protocol.decodeContexts).toHaveLength(1)
   })
 
-  const [handshakeContext] = handshake.mock.calls[0]
+  const [handshakeContext] = protocol.handshakeContexts
   expect(handshakeContext.client).toBe(client)
   expect(handshakeContext.server).toBe(server)
   expect(handshakeContext.info).toEqual({ protocols: ['chat'] })
 
-  const [, encodeContext] = encode.mock.calls[0]
+  const [encodeContext] = protocol.encodeContexts
   expect(encodeContext.connection).toBe(client)
   expect(encodeContext.client).toBe(client)
   expect(encodeContext.server).toBe(server)
   expect(encodeContext.info).toEqual({ protocols: ['chat'] })
 
-  const [, decodeContext] = decode.mock.calls[0]
+  const [decodeContext] = protocol.decodeContexts
   expect(decodeContext.connection).toBe(client)
   expect(decodeContext.info).toEqual({ protocols: ['chat'] })
 })

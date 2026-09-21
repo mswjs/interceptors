@@ -164,14 +164,9 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
             client[kProtocolContext] = context
             server[kProtocolContext] = context
 
-            const protocol = this.protocols.find((protocol) => {
-              return protocol.match?.(context)
-            })
-
-            if (protocol) {
-              client.protocol = protocol
-              server.protocol = protocol
-            }
+            this.protocols
+              .find((protocol) => protocol.match?.(context))
+              ?.apply(context)
 
             const hasConnectionListeners =
               this.emitter.listenerCount('connection') > 0

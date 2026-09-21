@@ -1,6 +1,12 @@
 import type { WebSocketData } from './web-socket-transport'
-import type { WebSocketClientConnection } from './web-socket-client-connection'
-import type { WebSocketServerConnection } from './web-socket-server-connection'
+import type {
+  WebSocketClientHandle,
+  WebSocketClientConnection,
+} from './web-socket-client-connection'
+import type {
+  WebSocketServerHandle,
+  WebSocketServerConnection,
+} from './web-socket-server-connection'
 import type { WebSocketConnectionInfo } from '../../events/websocket'
 
 export const kProtocolContext = Symbol('kProtocolContext')
@@ -72,7 +78,9 @@ export interface WebSocketProtocolMessageContext extends WebSocketProtocolContex
  *
  * new WebSocketInterceptor({ protocols: [new SocketIo()] })
  */
-export abstract class WebSocketProtocol<Message = WebSocketData> {
+export abstract class WebSocketProtocol<
+  Message extends WebSocketData = WebSocketData,
+> {
   /**
    * Whether this protocol applies to the given connection.
    * Consulted by the interceptor for every intercepted connection.
@@ -107,6 +115,19 @@ export abstract class WebSocketProtocol<Message = WebSocketData> {
   public handshake?(
     context: WebSocketProtocolContext
   ): WebSocketProtocolResult<WebSocketData>
+
+  /**
+   * Apply this protocol to the given connection.
+   * From then on, both the client and the server of that connection
+   * encode the data they send and decode the data they receive.
+   */
+  public apply(connection: {
+    client: WebSocketClientHandle
+    server: WebSocketServerHandle
+  }): void {
+    connection.client.protocol = this
+    connection.server.protocol = this
+  }
 }
 
 /**
