@@ -45,6 +45,7 @@ it('reflects the state of the original server connection', async () => {
   })
 
   const ws = new WebSocket(server.ws.url('/'))
+  onTestFinished(() => ws.close())
   const serverConnection = await serverPromise.promise
 
   expect(readyStates).toEqual([
@@ -58,6 +59,4 @@ it('reflects the state of the original server connection', async () => {
   await vi.waitFor(() => {
     expect(serverConnection.readyState).toBe(WebSocket.CLOSED)
   })
-
-  ws.close()
 })

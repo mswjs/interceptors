@@ -56,6 +56,7 @@ it('applies the matching protocol to the connection', async () => {
   })
 
   const ws = new WebSocket('wss://example.com/upper')
+  onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
   ws.onopen = () => ws.send('HELLO')
 
@@ -81,6 +82,7 @@ it('leaves connections that match no protocol untouched', async () => {
   })
 
   const ws = new WebSocket('wss://example.com/plain')
+  onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
   ws.onopen = () => ws.send('HELLO')
 

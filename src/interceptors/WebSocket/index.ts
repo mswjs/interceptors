@@ -139,8 +139,14 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
             socket.addEventListener(
               'open',
               () => {
-                // A connection to the original server handshakes itself.
-                if (server.readyState !== WebSocket.CLOSED) {
+                /**
+                 * @note A connection to the original server handshakes itself.
+                 * Check that the original connection was created, not its
+                 * ready state: it may have already closed by now (e.g. when
+                 * the client is kept open past the original server closing),
+                 * and the client must not be handshaked twice.
+                 */
+                if (server['realWebSocket']) {
                   return
                 }
 

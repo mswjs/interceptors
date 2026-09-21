@@ -123,6 +123,7 @@ it('encodes data sent to the client', async () => {
   })
 
   const ws = new WebSocket('wss://example.com')
+  onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
 
   await vi.waitFor(() => {
@@ -140,6 +141,7 @@ it('decodes data received from the client', async () => {
   })
 
   const ws = new WebSocket('wss://example.com')
+  onTestFinished(() => ws.close())
   ws.onopen = () => ws.send('HELLO')
 
   await vi.waitFor(() => {
@@ -160,6 +162,7 @@ it('encodes data sent to the original server', async () => {
   })
 
   const ws = new WebSocket(server.ws.url('/?echo'))
+  onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
 
   await vi.waitFor(() => {
@@ -168,8 +171,6 @@ it('encodes data sent to the original server', async () => {
     // The echoed frame is forwarded to the client as-is.
     expect(onSocketData).toHaveBeenCalledExactlyOnceWith('HELLO')
   })
-
-  ws.close()
 })
 
 it('throws when sending to the unconnected server before encoding', async () => {
@@ -204,6 +205,7 @@ it('decodes data received from the original server', async () => {
   })
 
   const ws = new WebSocket(server.ws.url('/?echo'))
+  onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
   ws.onopen = () => ws.send('HELLO')
 
@@ -214,8 +216,6 @@ it('decodes data received from the original server', async () => {
     expect(onServerData).toHaveBeenCalledExactlyOnceWith('hello')
     expect(onSocketData).toHaveBeenCalledExactlyOnceWith('HELLO')
   })
-
-  ws.close()
 })
 
 it('forwards frames that decode into nothing', async () => {
@@ -230,6 +230,7 @@ it('forwards frames that decode into nothing', async () => {
   })
 
   const ws = new WebSocket(server.ws.url('/?echo'))
+  onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
   ws.onopen = () => ws.send('#ping')
 
@@ -239,8 +240,6 @@ it('forwards frames that decode into nothing', async () => {
   })
   // But it was never dispatched as a message on the client connection.
   expect(onClientData).not.toHaveBeenCalled()
-
-  ws.close()
 })
 
 it('prevents forwarding a frame when its decoded message is prevented', async () => {
@@ -256,6 +255,7 @@ it('prevents forwarding a frame when its decoded message is prevented', async ()
   })
 
   const ws = new WebSocket(server.ws.url('/?echo'))
+  onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
   ws.onopen = () => {
     ws.send('SECRET')
@@ -265,8 +265,6 @@ it('prevents forwarding a frame when its decoded message is prevented', async ()
   await vi.waitFor(() => {
     expect(onSocketData).toHaveBeenCalledExactlyOnceWith('PUBLIC')
   })
-
-  ws.close()
 })
 
 it('encodes a single message into multiple frames', async () => {
@@ -277,6 +275,7 @@ it('encodes a single message into multiple frames', async () => {
   })
 
   const ws = new WebSocket('wss://example.com')
+  onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
 
   await vi.waitFor(() => {
@@ -296,6 +295,7 @@ it('decodes a single frame into multiple messages', async () => {
   })
 
   const ws = new WebSocket('wss://example.com')
+  onTestFinished(() => ws.close())
   ws.onopen = () => ws.send('hello,world')
 
   await vi.waitFor(() => {
@@ -316,6 +316,7 @@ it('sends the handshake once the mocked connection opens', async () => {
   })
 
   const ws = new WebSocket('wss://example.com')
+  onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
 
   await vi.waitFor(() => {
@@ -335,14 +336,13 @@ it('does not send the handshake when connected to the original server', async ()
   })
 
   const ws = new WebSocket(server.ws.url('/?greet'))
+  onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
 
   await vi.waitFor(() => {
     // The original server sent its own greeting instead.
     expect(onSocketData).toHaveBeenCalledExactlyOnceWith('hello world')
   })
-
-  ws.close()
 })
 
 it('exposes the connection context to the protocol methods', async () => {
@@ -357,6 +357,7 @@ it('exposes the connection context to the protocol methods', async () => {
   })
 
   const ws = new WebSocket('wss://example.com', ['chat'])
+  onTestFinished(() => ws.close())
   ws.onopen = () => ws.send('hello')
 
   const { client, server } = await connectionPromise.promise
@@ -381,4 +382,35 @@ it('exposes the connection context to the protocol methods', async () => {
   const [decodeContext] = protocol.decodeContexts
   expect(decodeContext.connection).toBe(client)
   expect(decodeContext.info).toEqual({ protocols: ['chat'] })
+})
+
+it('does not send the handshake when the original server connection has already closed', async () => {
+  const onSocketData = vi.fn<(data: unknown) => void>()
+  interceptor.once('connection', async (connection) => {
+    new UppercaseWithHandshake().apply(connection)
+    connection.server.connect()
+
+    // Keep the client open past the original server closing it,
+    // and only let the mocked connection open after that.
+    connection.server.addEventListener('close', (event) => {
+      event.preventDefault()
+    })
+    await new Promise<void>((resolve) => {
+      connection.server.addEventListener('close', () => resolve(), {
+        once: true,
+      })
+    })
+  })
+
+  const ws = new WebSocket(server.ws.url('/?close'))
+  onTestFinished(() => ws.close())
+  ws.onmessage = (event) => onSocketData(event.data)
+
+  await vi.waitFor(() => {
+    expect(ws.readyState).toBe(WebSocket.OPEN)
+  })
+  // Give any handshake frames a chance to arrive.
+  await new Promise((resolve) => setTimeout(resolve, 50))
+
+  expect(onSocketData).not.toHaveBeenCalled()
 })
