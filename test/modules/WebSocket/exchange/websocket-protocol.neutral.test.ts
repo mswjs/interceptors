@@ -28,7 +28,6 @@ class UppercaseWithHandshake extends Uppercase {
   }
 }
 
-// Encoding is never expected to happen.
 class Unencodable extends WebSocketProtocol {
   public encode(): never {
     throw new Error('Must not encode')
@@ -76,7 +75,6 @@ class CommaSeparated extends WebSocketProtocol<string> {
   }
 }
 
-// Records the context every method was called with.
 class Recording extends WebSocketProtocol<string> {
   public encodeContexts: Array<WebSocketProtocolMessageContext> = []
   public decodeContexts: Array<WebSocketProtocolMessageContext> = []
@@ -126,9 +124,7 @@ it('encodes data sent to the client', async () => {
   onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
 
-  await vi.waitFor(() => {
-    expect(onSocketData).toHaveBeenCalledExactlyOnceWith('HELLO')
-  })
+  await expect.poll(() => onSocketData).toHaveBeenCalledExactlyOnceWith('HELLO')
 })
 
 it('decodes data received from the client', async () => {
@@ -144,9 +140,7 @@ it('decodes data received from the client', async () => {
   onTestFinished(() => ws.close())
   ws.onopen = () => ws.send('HELLO')
 
-  await vi.waitFor(() => {
-    expect(onClientData).toHaveBeenCalledExactlyOnceWith('hello')
-  })
+  await expect.poll(() => onClientData).toHaveBeenCalledExactlyOnceWith('hello')
 })
 
 it('encodes data sent to the original server', async () => {
@@ -165,12 +159,14 @@ it('encodes data sent to the original server', async () => {
   onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
 
-  await vi.waitFor(() => {
-    // The original server received the encoded frame and echoed it back.
-    expect(onServerData).toHaveBeenCalledExactlyOnceWith('hello')
-    // The echoed frame is forwarded to the client as-is.
-    expect(onSocketData).toHaveBeenCalledExactlyOnceWith('HELLO')
-  })
+  await expect
+    .poll(() => onServerData, { message: 'decodes the echoed frame' })
+    .toHaveBeenCalledExactlyOnceWith('hello')
+  await expect
+    .poll(() => onSocketData, {
+      message: 'the original server received the encoded frame',
+    })
+    .toHaveBeenCalledExactlyOnceWith('HELLO')
 })
 
 it('throws when sending to the unconnected server before encoding', async () => {
@@ -183,7 +179,6 @@ it('throws when sending to the unconnected server before encoding', async () => 
   new WebSocket('wss://example.com')
   const { server } = await connectionPromise.promise
 
-  // The connection error surfaces, not the encoding one.
   expect(() => server.send('hello')).toThrow(
     'Failed to call "server.send()" for "wss://example.com/": the connection is not open. Did you forget to call "server.connect()"?'
   )
@@ -209,13 +204,17 @@ it('decodes data received from the original server', async () => {
   ws.onmessage = (event) => onSocketData(event.data)
   ws.onopen = () => ws.send('HELLO')
 
-  await vi.waitFor(() => {
-    expect(onClientData).toHaveBeenCalledExactlyOnceWith('hello')
-    // The raw client frame was forwarded to the original server,
-    // which echoed it back.
-    expect(onServerData).toHaveBeenCalledExactlyOnceWith('hello')
-    expect(onSocketData).toHaveBeenCalledExactlyOnceWith('HELLO')
-  })
+  await expect
+    .poll(() => onClientData, { message: 'decodes the client frame' })
+    .toHaveBeenCalledExactlyOnceWith('hello')
+  await expect
+    .poll(() => onServerData, { message: 'decodes the echoed frame' })
+    .toHaveBeenCalledExactlyOnceWith('hello')
+  await expect
+    .poll(() => onSocketData, {
+      message: 'the original server received the raw client frame',
+    })
+    .toHaveBeenCalledExactlyOnceWith('HELLO')
 })
 
 it('forwards frames that decode into nothing', async () => {
@@ -234,12 +233,15 @@ it('forwards frames that decode into nothing', async () => {
   ws.onmessage = (event) => onSocketData(event.data)
   ws.onopen = () => ws.send('#ping')
 
-  await vi.waitFor(() => {
-    // The control frame still reached the original server (and got echoed).
-    expect(onSocketData).toHaveBeenCalledExactlyOnceWith('#ping')
-  })
-  // But it was never dispatched as a message on the client connection.
-  expect(onClientData).not.toHaveBeenCalled()
+  await expect
+    .poll(() => onSocketData, {
+      message: 'the original server received the control frame',
+    })
+    .toHaveBeenCalledExactlyOnceWith('#ping')
+  expect(
+    onClientData,
+    'the control frame is not a message'
+  ).not.toHaveBeenCalled()
 })
 
 it('prevents forwarding a frame when its decoded message is prevented', async () => {
@@ -262,9 +264,11 @@ it('prevents forwarding a frame when its decoded message is prevented', async ()
     ws.send('PUBLIC')
   }
 
-  await vi.waitFor(() => {
-    expect(onSocketData).toHaveBeenCalledExactlyOnceWith('PUBLIC')
-  })
+  await expect
+    .poll(() => onSocketData, {
+      message: 'the original server received the public frame only',
+    })
+    .toHaveBeenCalledExactlyOnceWith('PUBLIC')
 })
 
 it('encodes a single message into multiple frames', async () => {
@@ -278,11 +282,9 @@ it('encodes a single message into multiple frames', async () => {
   onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
 
-  await vi.waitFor(() => {
-    expect(onSocketData).toHaveBeenCalledTimes(2)
-  })
-  expect(onSocketData).toHaveBeenNthCalledWith(1, 'hello')
-  expect(onSocketData).toHaveBeenNthCalledWith(2, 'world')
+  await expect.poll(() => onSocketData).toHaveBeenCalledTimes(2)
+  expect.soft(onSocketData).toHaveBeenNthCalledWith(1, 'hello')
+  expect.soft(onSocketData).toHaveBeenNthCalledWith(2, 'world')
 })
 
 it('decodes a single frame into multiple messages', async () => {
@@ -298,18 +300,15 @@ it('decodes a single frame into multiple messages', async () => {
   onTestFinished(() => ws.close())
   ws.onopen = () => ws.send('hello,world')
 
-  await vi.waitFor(() => {
-    expect(onClientData).toHaveBeenCalledTimes(2)
-  })
-  expect(onClientData).toHaveBeenNthCalledWith(1, 'hello')
-  expect(onClientData).toHaveBeenNthCalledWith(2, 'world')
+  await expect.poll(() => onClientData).toHaveBeenCalledTimes(2)
+  expect.soft(onClientData).toHaveBeenNthCalledWith(1, 'hello')
+  expect.soft(onClientData).toHaveBeenNthCalledWith(2, 'world')
 })
 
 it('sends the handshake once the mocked connection opens', async () => {
   const onSocketData = vi.fn<(data: unknown) => void>()
   interceptor.once('connection', (connection) => {
     new UppercaseWithHandshake().apply(connection)
-    // Anything sent from the "open" listener must follow the handshake.
     connection.client.addEventListener('open', () => {
       connection.client.send('ready')
     })
@@ -319,13 +318,14 @@ it('sends the handshake once the mocked connection opens', async () => {
   onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
 
-  await vi.waitFor(() => {
-    expect(onSocketData).toHaveBeenCalledTimes(3)
-  })
-  // The handshake frames are raw (not encoded).
-  expect(onSocketData).toHaveBeenNthCalledWith(1, 'HELLO')
-  expect(onSocketData).toHaveBeenNthCalledWith(2, 'WORLD')
-  expect(onSocketData).toHaveBeenNthCalledWith(3, 'READY')
+  await expect.poll(() => onSocketData).toHaveBeenCalledTimes(3)
+  expect
+    .soft(onSocketData, 'the handshake frames are raw')
+    .toHaveBeenNthCalledWith(1, 'HELLO')
+  expect.soft(onSocketData).toHaveBeenNthCalledWith(2, 'WORLD')
+  expect
+    .soft(onSocketData, 'the message sent on open follows the handshake')
+    .toHaveBeenNthCalledWith(3, 'READY')
 })
 
 it('does not send the handshake when connected to the original server', async () => {
@@ -339,13 +339,42 @@ it('does not send the handshake when connected to the original server', async ()
   onTestFinished(() => ws.close())
   ws.onmessage = (event) => onSocketData(event.data)
 
-  await vi.waitFor(() => {
-    // The original server sent its own greeting instead.
-    expect(onSocketData).toHaveBeenCalledExactlyOnceWith('hello world')
-  })
+  await expect
+    .poll(() => onSocketData, {
+      message: 'receives the greeting from the original server only',
+    })
+    .toHaveBeenCalledExactlyOnceWith('hello world')
 })
 
-it('exposes the connection context to the protocol methods', async () => {
+it('does not send the handshake when the original server connection has already closed', async () => {
+  const onSocketData = vi.fn<(data: unknown) => void>()
+  interceptor.once('connection', async (connection) => {
+    new UppercaseWithHandshake().apply(connection)
+    connection.server.connect()
+    connection.server.addEventListener('close', (event) => {
+      event.preventDefault()
+    })
+    await new Promise<void>((resolve) => {
+      connection.server.addEventListener('close', () => resolve(), {
+        once: true,
+      })
+    })
+  })
+
+  const ws = new WebSocket(server.ws.url('/?close'))
+  onTestFinished(() => ws.close())
+  ws.onmessage = (event) => onSocketData(event.data)
+
+  await expect.poll(() => ws.readyState).toBe(WebSocket.OPEN)
+  await new Promise((resolve) => setTimeout(resolve, 50))
+
+  expect(
+    onSocketData,
+    'no handshake frames arrive after the original server closed'
+  ).not.toHaveBeenCalled()
+})
+
+it('exposes the connection to the protocol', async () => {
   const protocol = new Recording()
   const connectionPromise = Promise.withResolvers<WebSocketProtocolContext>()
   interceptor.once('connection', (connection) => {
@@ -362,55 +391,22 @@ it('exposes the connection context to the protocol methods', async () => {
 
   const { client, server } = await connectionPromise.promise
 
-  await vi.waitFor(() => {
-    expect(protocol.handshakeContexts).toHaveLength(1)
-    expect(protocol.encodeContexts).toHaveLength(1)
-    expect(protocol.decodeContexts).toHaveLength(1)
-  })
+  await expect.poll(() => protocol.handshakeContexts).toHaveLength(1)
+  await expect.poll(() => protocol.encodeContexts).toHaveLength(1)
+  await expect.poll(() => protocol.decodeContexts).toHaveLength(1)
 
   const [handshakeContext] = protocol.handshakeContexts
-  expect(handshakeContext.client).toBe(client)
-  expect(handshakeContext.server).toBe(server)
-  expect(handshakeContext.info).toEqual({ protocols: ['chat'] })
+  expect.soft(handshakeContext.client).toBe(client)
+  expect.soft(handshakeContext.server).toBe(server)
+  expect.soft(handshakeContext.info).toEqual({ protocols: ['chat'] })
 
   const [encodeContext] = protocol.encodeContexts
-  expect(encodeContext.connection).toBe(client)
-  expect(encodeContext.client).toBe(client)
-  expect(encodeContext.server).toBe(server)
-  expect(encodeContext.info).toEqual({ protocols: ['chat'] })
+  expect.soft(encodeContext.connection).toBe(client)
+  expect.soft(encodeContext.client).toBe(client)
+  expect.soft(encodeContext.server).toBe(server)
+  expect.soft(encodeContext.info).toEqual({ protocols: ['chat'] })
 
   const [decodeContext] = protocol.decodeContexts
-  expect(decodeContext.connection).toBe(client)
-  expect(decodeContext.info).toEqual({ protocols: ['chat'] })
-})
-
-it('does not send the handshake when the original server connection has already closed', async () => {
-  const onSocketData = vi.fn<(data: unknown) => void>()
-  interceptor.once('connection', async (connection) => {
-    new UppercaseWithHandshake().apply(connection)
-    connection.server.connect()
-
-    // Keep the client open past the original server closing it,
-    // and only let the mocked connection open after that.
-    connection.server.addEventListener('close', (event) => {
-      event.preventDefault()
-    })
-    await new Promise<void>((resolve) => {
-      connection.server.addEventListener('close', () => resolve(), {
-        once: true,
-      })
-    })
-  })
-
-  const ws = new WebSocket(server.ws.url('/?close'))
-  onTestFinished(() => ws.close())
-  ws.onmessage = (event) => onSocketData(event.data)
-
-  await vi.waitFor(() => {
-    expect(ws.readyState).toBe(WebSocket.OPEN)
-  })
-  // Give any handshake frames a chance to arrive.
-  await new Promise((resolve) => setTimeout(resolve, 50))
-
-  expect(onSocketData).not.toHaveBeenCalled()
+  expect.soft(decodeContext.connection).toBe(client)
+  expect.soft(decodeContext.info).toEqual({ protocols: ['chat'] })
 })

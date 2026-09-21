@@ -43,12 +43,11 @@ afterAll(() => {
 })
 
 it('applies the matching protocol to the connection', async () => {
+  const onConnection = vi.fn<(...protocols: Array<unknown>) => void>()
   const onClientData = vi.fn<(data: unknown) => void>()
   const onSocketData = vi.fn<(data: unknown) => void>()
   interceptor.once('connection', ({ client, server }) => {
-    expect(client.protocol).toBe(uppercase)
-    expect(server.protocol).toBe(uppercase)
-
+    onConnection(client.protocol, server.protocol)
     client.addEventListener('message', (event) => {
       onClientData(event.data)
       client.send('hi')
@@ -60,21 +59,21 @@ it('applies the matching protocol to the connection', async () => {
   ws.onmessage = (event) => onSocketData(event.data)
   ws.onopen = () => ws.send('HELLO')
 
-  await vi.waitFor(() => {
-    expect(onClientData).toHaveBeenCalledExactlyOnceWith('hello')
-    expect(onSocketData).toHaveBeenCalledTimes(2)
-  })
-  expect(onSocketData).toHaveBeenNthCalledWith(1, 'WELCOME')
-  expect(onSocketData).toHaveBeenNthCalledWith(2, 'HI')
+  await expect
+    .poll(() => onConnection)
+    .toHaveBeenCalledExactlyOnceWith(uppercase, uppercase)
+  await expect.poll(() => onClientData).toHaveBeenCalledExactlyOnceWith('hello')
+  await expect.poll(() => onSocketData).toHaveBeenCalledTimes(2)
+  expect.soft(onSocketData).toHaveBeenNthCalledWith(1, 'WELCOME')
+  expect.soft(onSocketData).toHaveBeenNthCalledWith(2, 'HI')
 })
 
 it('leaves connections that match no protocol untouched', async () => {
+  const onConnection = vi.fn<(...protocols: Array<unknown>) => void>()
   const onClientData = vi.fn<(data: unknown) => void>()
   const onSocketData = vi.fn<(data: unknown) => void>()
   interceptor.once('connection', ({ client, server }) => {
-    expect(client.protocol).toBeUndefined()
-    expect(server.protocol).toBeUndefined()
-
+    onConnection(client.protocol, server.protocol)
     client.addEventListener('message', (event) => {
       onClientData(event.data)
       client.send('hi')
@@ -86,8 +85,9 @@ it('leaves connections that match no protocol untouched', async () => {
   ws.onmessage = (event) => onSocketData(event.data)
   ws.onopen = () => ws.send('HELLO')
 
-  await vi.waitFor(() => {
-    expect(onClientData).toHaveBeenCalledExactlyOnceWith('HELLO')
-    expect(onSocketData).toHaveBeenCalledExactlyOnceWith('hi')
-  })
+  await expect
+    .poll(() => onConnection)
+    .toHaveBeenCalledExactlyOnceWith(undefined, undefined)
+  await expect.poll(() => onClientData).toHaveBeenCalledExactlyOnceWith('HELLO')
+  await expect.poll(() => onSocketData).toHaveBeenCalledExactlyOnceWith('hi')
 })

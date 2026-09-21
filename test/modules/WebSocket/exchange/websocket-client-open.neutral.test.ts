@@ -27,14 +27,12 @@ it('dispatches the "open" event once the mocked connection is open', async () =>
   const ws = new WebSocket('wss://example.com')
   onTestFinished(() => ws.close())
 
-  await vi.waitFor(() => {
-    expect(openListener).toHaveBeenCalledOnce()
-  })
+  await expect.poll(() => openListener).toHaveBeenCalledOnce()
 
   const [event, readyState] = openListener.mock.calls[0]
-  expect(event.type).toBe('open')
-  expect(event.target).toBe(ws)
-  expect(readyState).toBe(WebSocket.OPEN)
+  expect.soft(event.type).toBe('open')
+  expect.soft(event.target).toBe(ws)
+  expect.soft(readyState).toBe(WebSocket.OPEN)
 })
 
 it('dispatches the "open" event once when connected to the original server', async () => {
@@ -49,10 +47,11 @@ it('dispatches the "open" event once when connected to the original server', asy
   onTestFinished(() => ws.close())
   ws.onmessage = messageListener
 
-  await vi.waitFor(() => {
-    // The original server has greeted the client by now.
-    expect(messageListener).toHaveBeenCalledOnce()
-  })
+  await expect
+    .poll(() => messageListener, {
+      message: 'the original server has greeted the client',
+    })
+    .toHaveBeenCalledOnce()
   expect(openListener).toHaveBeenCalledOnce()
 })
 
@@ -67,7 +66,5 @@ it('dispatches the "open" event before any "message" event', async () => {
   onTestFinished(() => ws.close())
   ws.onopen = () => ws.send('hello')
 
-  await vi.waitFor(() => {
-    expect(eventLog).toEqual(['open', 'message'])
-  })
+  await expect.poll(() => eventLog).toEqual(['open', 'message'])
 })

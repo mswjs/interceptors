@@ -19,7 +19,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('equals CLOSED until connected to the original server', async () => {
+it('reports CLOSED until connected to the original server', async () => {
   const serverPromise = Promise.withResolvers<WebSocketServerConnection>()
   interceptor.once('connection', ({ server }) => {
     serverPromise.resolve(server)
@@ -56,7 +56,5 @@ it('reflects the state of the original server connection', async () => {
 
   serverConnection.close()
 
-  await vi.waitFor(() => {
-    expect(serverConnection.readyState).toBe(WebSocket.CLOSED)
-  })
+  await expect.poll(() => serverConnection.readyState).toBe(WebSocket.CLOSED)
 })
