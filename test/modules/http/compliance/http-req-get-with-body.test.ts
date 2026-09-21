@@ -1,5 +1,6 @@
 // @see https://github.com/nock/nock/issues/2826
 import http from 'node:http'
+import { invariant } from 'outvariant'
 import { toWebResponse } from '#/test/helpers'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 
@@ -18,7 +19,7 @@ const httpServer = new http.Server((req, res) => {
 beforeAll(async () => {
   interceptor.apply()
   const serverListenPromise = Promise.withResolvers<void>()
-  httpServer.listen(52203, '127.0.0.1', () => {
+  httpServer.listen(0, '127.0.0.1', () => {
     serverListenPromise.resolve()
   })
   await serverListenPromise.promise
@@ -47,7 +48,13 @@ it('allows an HTTP GET request with a body', async () => {
     interceptedRequestPromise.resolve(request)
   })
 
-  const request = http.request('http://127.0.0.1:52203/resource', {
+  const address = httpServer.address()
+  invariant(
+    address != null && typeof address !== 'string',
+    'Server is not listening'
+  )
+
+  const request = http.request(`http://127.0.0.1:${address.port}/resource`, {
     method: 'GET',
     headers: {
       'content-type': 'text/plain',
