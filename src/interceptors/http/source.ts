@@ -70,6 +70,23 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let abortPendingRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
 
+        /**
+         * @note The client keeps idle sockets in its keep-alive pool
+         * (e.g. Undici) and writes its next requests to them. Once this
+         * source is disposed, nothing handles those requests: destroy the
+         * idle sockets and let the client connect anew. A request in
+         * flight finishes first.
+         */
+        const destroyIdleSocket = () => {
+          if (pendingRequestController == null) {
+            socket.destroy()
+          }
+        }
+        controller.signal.addEventListener('abort', destroyIdleSocket)
+        socket.once('close', () => {
+          controller.signal.removeEventListener('abort', destroyIdleSocket)
+        })
+
         const shouldPassthrough = () => {
           return (
             socketController.readyState === SocketController.PENDING &&
