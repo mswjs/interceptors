@@ -70,6 +70,27 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let abortPendingRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
 
+        /**
+         * @note The client keeps idle sockets in its keep-alive pool
+         * (e.g. Undici) and writes its next requests to them. Once this
+         * source is disposed, nothing handles those requests: destroy the
+         * idle sockets and let the client connect anew. A request in
+         * flight finishes first. Passed-through sockets are exchanging
+         * with the real server and keep doing so: leave them intact.
+         */
+        const destroyIdleSocket = () => {
+          if (
+            pendingRequestController == null &&
+            socketController.readyState !== SocketController.PASSTHROUGH
+          ) {
+            socket.destroy()
+          }
+        }
+        controller.signal.addEventListener('abort', destroyIdleSocket)
+        socket.once('close', () => {
+          controller.signal.removeEventListener('abort', destroyIdleSocket)
+        })
+
         const shouldPassthrough = () => {
           return (
             socketController.readyState === SocketController.PENDING &&
@@ -293,12 +314,23 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                       socket.on('data', onRequestData)
                     }
 
-                    const respond = () => {
-                      return this.respondWith({
+                    const respond = async () => {
+                      await this.respondWith({
                         socket: socketController[kRawSocket],
                         request: context.request,
                         response,
                       })
+
+                      /**
+                       * @note This source got disposed while the request
+                       * was in flight. The response is delivered: end the
+                       * connection, like a server responding with
+                       * "Connection: close", so the client does not reuse
+                       * it for requests nobody handles.
+                       */
+                      if (controller.signal.aborted) {
+                        socket.end()
+                      }
                     }
 
                     if (responseClone) {
