@@ -4,19 +4,20 @@ import { bindEvent } from './utils/bind-event'
 import { CancelableMessageEvent, CloseEvent } from './utils/events'
 import { createRequestId } from '../../create-request-id'
 import {
-  kProtocolContext,
-  iterateWebSocketProtocolResult,
-  type WebSocketProtocol,
-  type WebSocketProtocolContext,
-  type WebSocketProtocolMessageContext,
-} from './web-socket-protocol'
+  kExtensionContext,
+  iterateWebSocketExtensionResult,
+  toWebSocketData,
+  type WebSocketExtension,
+  type WebSocketExtensionContext,
+  type WebSocketExtensionMessageContext,
+} from './web-socket-extension'
 
 const kEmitter = Symbol('kEmitter')
 const kBoundListener = Symbol('kBoundListener')
 
-export interface WebSocketClientEventMap {
+export interface WebSocketClientEventMap<Message = WebSocketData> {
   open: Event
-  message: MessageEvent<WebSocketData>
+  message: MessageEvent<Message>
   close: CloseEvent
 }
 
@@ -26,27 +27,34 @@ export interface WebSocketClientEventMap {
  * A `WebSocketClientConnection` is a handle bound to a connection in this
  * process; a handle can also be revived from a serialized connection
  * in another process (e.g. a connection stored by a worker).
+ *
+ * `Message` is what crosses this connection: raw WebSocket data, or the
+ * messages of the extension applied to it.
  */
-export abstract class WebSocketClientHandle {
+export abstract class WebSocketClientHandle<Message = WebSocketData> {
   abstract id: string
   abstract url: URL
-  public protocol?: WebSocketProtocol
-  public abstract send(data: WebSocketData): void
+  public extension?: WebSocketExtension<unknown, unknown>
+  public abstract send(data: Message): void
   public abstract close(code?: number, reason?: string): void
 
   public abstract addEventListener<
-    EventType extends keyof WebSocketClientEventMap,
+    EventType extends keyof WebSocketClientEventMap<Message>,
   >(
     type: EventType,
-    listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
+    listener: WebSocketEventListener<
+      WebSocketClientEventMap<Message>[EventType]
+    >,
     options?: AddEventListenerOptions | boolean
   ): void
 
   public abstract removeEventListener<
-    EventType extends keyof WebSocketClientEventMap,
+    EventType extends keyof WebSocketClientEventMap<Message>,
   >(
     event: EventType,
-    listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
+    listener: WebSocketEventListener<
+      WebSocketClientEventMap<Message>[EventType]
+    >,
     options?: EventListenerOptions | boolean
   ): void
 }
@@ -56,22 +64,24 @@ export abstract class WebSocketClientHandle {
  * client connection. The user can control the connection,
  * send and receive events.
  */
-export class WebSocketClientConnection implements WebSocketClientHandle {
+export class WebSocketClientConnection<
+  Message = WebSocketData,
+> implements WebSocketClientHandle<Message> {
   public readonly id: string
   public readonly url: URL
 
   /**
-   * An optional protocol applied to the data crossing this connection:
+   * An optional extension applied to the data crossing this connection:
    * `send()` encodes, outgoing client frames are decoded
    * before being dispatched as `message` events.
    */
-  public protocol?: WebSocketProtocol
+  public extension?: WebSocketExtension<unknown, unknown>
 
   /**
    * The intercepted connection this client belongs to.
    * Provided by the interceptor once both connections exist.
    */
-  public [kProtocolContext]?: WebSocketProtocolContext
+  public [kExtensionContext]?: WebSocketExtensionContext<unknown>
 
   private [kEmitter]: EventTarget
 
@@ -102,9 +112,9 @@ export class WebSocketClientConnection implements WebSocketClientHandle {
     this.transport.addEventListener('outgoing', (event) => {
       // A single frame may decode into any number of messages
       // (e.g. none for protocol control frames).
-      const messages = this.protocol
-        ? iterateWebSocketProtocolResult(
-            this.protocol.decode(event.data, this.#getMessageContext())
+      const messages = this.extension
+        ? iterateWebSocketExtensionResult(
+            this.extension.decode(event.data, this.#getMessageContext())
           )
         : [event.data]
       let defaultPrevented = false
@@ -150,9 +160,13 @@ export class WebSocketClientConnection implements WebSocketClientHandle {
   /**
    * Listen for the outgoing events from the connected WebSocket client.
    */
-  public addEventListener<EventType extends keyof WebSocketClientEventMap>(
+  public addEventListener<
+    EventType extends keyof WebSocketClientEventMap<Message>,
+  >(
     type: EventType,
-    listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
+    listener: WebSocketEventListener<
+      WebSocketClientEventMap<Message>[EventType]
+    >,
     options?: AddEventListenerOptions | boolean
   ): void {
     if (!Reflect.has(listener, kBoundListener)) {
@@ -177,9 +191,13 @@ export class WebSocketClientConnection implements WebSocketClientHandle {
   /**
    * Removes the listener for the given event.
    */
-  public removeEventListener<EventType extends keyof WebSocketClientEventMap>(
+  public removeEventListener<
+    EventType extends keyof WebSocketClientEventMap<Message>,
+  >(
     event: EventType,
-    listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
+    listener: WebSocketEventListener<
+      WebSocketClientEventMap<Message>[EventType]
+    >,
     options?: EventListenerOptions | boolean
   ): void {
     this[kEmitter].removeEventListener(
@@ -192,25 +210,25 @@ export class WebSocketClientConnection implements WebSocketClientHandle {
   /**
    * Send data to the connected client.
    */
-  public send(data: WebSocketData): void {
-    if (!this.protocol) {
-      this.transport.send(data)
+  public send(data: Message): void {
+    if (!this.extension) {
+      this.transport.send(toWebSocketData(data))
       return
     }
 
-    for (const frame of iterateWebSocketProtocolResult(
-      this.protocol.encode(data, this.#getMessageContext())
+    for (const frame of iterateWebSocketExtensionResult(
+      this.extension.encode(data, this.#getMessageContext())
     )) {
       this.transport.send(frame)
     }
   }
 
-  #getMessageContext(): WebSocketProtocolMessageContext {
-    const context = this[kProtocolContext]
+  #getMessageContext(): WebSocketExtensionMessageContext<unknown> {
+    const context = this[kExtensionContext]
 
     if (!context) {
       throw new Error(
-        `Failed to apply the protocol to the client connection "${this.url.href}": the connection context is missing`
+        `Failed to apply the extension to the client connection "${this.url.href}": the connection context is missing`
       )
     }
 

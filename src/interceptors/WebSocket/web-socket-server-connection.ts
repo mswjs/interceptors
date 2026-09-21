@@ -13,20 +13,21 @@ import {
   CloseEvent,
 } from './utils/events'
 import {
-  kProtocolContext,
-  iterateWebSocketProtocolResult,
-  type WebSocketProtocol,
-  type WebSocketProtocolContext,
-  type WebSocketProtocolMessageContext,
-} from './web-socket-protocol'
+  kExtensionContext,
+  iterateWebSocketExtensionResult,
+  toWebSocketData,
+  type WebSocketExtension,
+  type WebSocketExtensionContext,
+  type WebSocketExtensionMessageContext,
+} from './web-socket-extension'
 
 const kEmitter = Symbol('kEmitter')
 const kBoundListener = Symbol('kBoundListener')
 const kSend = Symbol('kSend')
 
-export interface WebSocketServerEventMap {
+export interface WebSocketServerEventMap<Message = WebSocketData> {
   open: Event
-  message: MessageEvent<WebSocketData>
+  message: MessageEvent<Message>
   error: Event
   close: CloseEvent
 }
@@ -36,25 +37,29 @@ export interface WebSocketServerEventMap {
  * A `WebSocketServerConnection` is a handle bound to a connection
  * in this process.
  */
-export abstract class WebSocketServerHandle {
-  public protocol?: WebSocketProtocol
+export abstract class WebSocketServerHandle<Message = WebSocketData> {
+  public extension?: WebSocketExtension<unknown, unknown>
   public abstract connect(): void
-  public abstract send(data: WebSocketData): void
+  public abstract send(data: Message): void
   public abstract close(): void
 
   public abstract addEventListener<
-    EventType extends keyof WebSocketServerEventMap,
+    EventType extends keyof WebSocketServerEventMap<Message>,
   >(
     event: EventType,
-    listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
+    listener: WebSocketEventListener<
+      WebSocketServerEventMap<Message>[EventType]
+    >,
     options?: AddEventListenerOptions | boolean
   ): void
 
   public abstract removeEventListener<
-    EventType extends keyof WebSocketServerEventMap,
+    EventType extends keyof WebSocketServerEventMap<Message>,
   >(
     event: EventType,
-    listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
+    listener: WebSocketEventListener<
+      WebSocketServerEventMap<Message>[EventType]
+    >,
     options?: EventListenerOptions | boolean
   ): void
 }
@@ -64,7 +69,9 @@ export abstract class WebSocketServerHandle {
  * WebSocket server connection. It's idle by default but you can
  * establish it by calling `server.connect()`.
  */
-export class WebSocketServerConnection implements WebSocketServerHandle {
+export class WebSocketServerConnection<
+  Message = WebSocketData,
+> implements WebSocketServerHandle<Message> {
   /**
    * A WebSocket instance connected to the original server.
    */
@@ -74,17 +81,17 @@ export class WebSocketServerConnection implements WebSocketServerHandle {
   private [kEmitter]: EventTarget
 
   /**
-   * An optional protocol applied to the data crossing this connection:
+   * An optional extension applied to the data crossing this connection:
    * `send()` encodes, incoming server frames are decoded
    * before being dispatched as `message` events.
    */
-  public protocol?: WebSocketProtocol
+  public extension?: WebSocketExtension<unknown, unknown>
 
   /**
    * The intercepted connection this server belongs to.
    * Provided by the interceptor once both connections exist.
    */
-  public [kProtocolContext]?: WebSocketProtocolContext
+  public [kExtensionContext]?: WebSocketExtensionContext<unknown>
 
   constructor(
     private readonly client: WebSocketOverride,
@@ -239,9 +246,13 @@ export class WebSocketServerConnection implements WebSocketServerHandle {
   /**
    * Listen for the incoming events from the original WebSocket server.
    */
-  public addEventListener<EventType extends keyof WebSocketServerEventMap>(
+  public addEventListener<
+    EventType extends keyof WebSocketServerEventMap<Message>,
+  >(
     event: EventType,
-    listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
+    listener: WebSocketEventListener<
+      WebSocketServerEventMap<Message>[EventType]
+    >,
     options?: AddEventListenerOptions | boolean
   ): void {
     if (!Reflect.has(listener, kBoundListener)) {
@@ -265,9 +276,13 @@ export class WebSocketServerConnection implements WebSocketServerHandle {
   /**
    * Remove the listener for the given event.
    */
-  public removeEventListener<EventType extends keyof WebSocketServerEventMap>(
+  public removeEventListener<
+    EventType extends keyof WebSocketServerEventMap<Message>,
+  >(
     event: EventType,
-    listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
+    listener: WebSocketEventListener<
+      WebSocketServerEventMap<Message>[EventType]
+    >,
     options?: EventListenerOptions | boolean
   ): void {
     this[kEmitter].removeEventListener(
@@ -284,29 +299,29 @@ export class WebSocketServerConnection implements WebSocketServerHandle {
    * server.send(new Blob(['hello']))
    * server.send(new TextEncoder().encode('hello'))
    */
-  public send(data: WebSocketData): void {
+  public send(data: Message): void {
     // Fail on a missing connection before encoding so the error
-    // surfaces even if the protocol drops the message or throws.
+    // surfaces even if the extension drops the message or throws.
     this.assertConnected()
 
-    if (!this.protocol) {
-      this[kSend](data)
+    if (!this.extension) {
+      this[kSend](toWebSocketData(data))
       return
     }
 
-    for (const frame of iterateWebSocketProtocolResult(
-      this.protocol.encode(data, this.#getMessageContext())
+    for (const frame of iterateWebSocketExtensionResult(
+      this.extension.encode(data, this.#getMessageContext())
     )) {
       this[kSend](frame)
     }
   }
 
-  #getMessageContext(): WebSocketProtocolMessageContext {
-    const context = this[kProtocolContext]
+  #getMessageContext(): WebSocketExtensionMessageContext<unknown> {
+    const context = this[kExtensionContext]
 
     if (!context) {
       throw new Error(
-        `Failed to apply the protocol to the server connection "${this.client.url}": the connection context is missing`
+        `Failed to apply the extension to the server connection "${this.client.url}": the connection context is missing`
       )
     }
 
@@ -405,9 +420,9 @@ export class WebSocketServerConnection implements WebSocketServerHandle {
   private handleIncomingMessage(event: MessageEvent<WebSocketData>): void {
     // A single frame may decode into any number of messages
     // (e.g. none for protocol control frames).
-    const messages = this.protocol
-      ? iterateWebSocketProtocolResult(
-          this.protocol.decode(event.data, this.#getMessageContext())
+    const messages = this.extension
+      ? iterateWebSocketExtensionResult(
+          this.extension.decode(event.data, this.#getMessageContext())
         )
       : [event.data]
     let defaultPrevented = false

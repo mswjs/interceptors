@@ -1,5 +1,6 @@
 import { TypedEvent } from 'rettime'
 import type {
+  WebSocketData,
   WebSocketClientConnection,
   WebSocketServerConnection,
 } from '../interceptors/WebSocket'
@@ -14,27 +15,31 @@ export interface WebSocketConnectionInfo {
   protocols: string | Array<string> | undefined
 }
 
-export interface WebSocketConnectionEventData {
+export interface WebSocketConnectionEventData<Message = WebSocketData> {
   /**
    * The incoming WebSocket client connection.
    */
-  client: WebSocketClientConnection
+  client: WebSocketClientConnection<Message>
   /**
    * The original WebSocket server connection.
    */
-  server: WebSocketServerConnection
+  server: WebSocketServerConnection<Message>
   info: WebSocketConnectionInfo
 }
 
 export class WebSocketConnectionEvent<
-  DataType extends WebSocketConnectionEventData = WebSocketConnectionEventData,
-> extends TypedEvent<DataType, void, 'connection'> {
-  public client: WebSocketClientConnection
-  public server: WebSocketServerConnection
+  Message = WebSocketData,
+> extends TypedEvent<
+  WebSocketConnectionEventData<Message>,
+  void,
+  'connection'
+> {
+  public client: WebSocketClientConnection<Message>
+  public server: WebSocketServerConnection<Message>
   public info: WebSocketConnectionInfo
 
-  constructor(data: DataType) {
-    super(...(['connection', {}] as any))
+  constructor(data: WebSocketConnectionEventData<Message>) {
+    super('connection', { data })
 
     this.client = data.client
     this.server = data.server
@@ -42,6 +47,6 @@ export class WebSocketConnectionEvent<
   }
 }
 
-export type WebSocketEventMap = {
-  connection: WebSocketConnectionEvent
+export type WebSocketEventMap<Message = WebSocketData, Extension = {}> = {
+  connection: WebSocketConnectionEvent<Message> & Extension
 }

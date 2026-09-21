@@ -16,6 +16,7 @@ import {
   type WebSocketServerEventMap,
 } from './web-socket-server-connection'
 import { WebSocketClassTransport } from './web-socket-class-transport'
+import type { WebSocketData } from './web-socket-transport'
 import {
   kClose,
   kPassthroughPromise,
@@ -23,11 +24,13 @@ import {
 } from './web-socket-override'
 import { bindEvent } from './utils/bind-event'
 import {
-  kProtocolContext,
-  iterateWebSocketProtocolResult,
-  WebSocketProtocol,
-  type WebSocketProtocolContext,
-} from './web-socket-protocol'
+  kExtensionContext,
+  iterateWebSocketExtensionResult,
+  WebSocketExtension,
+  type WebSocketExtensionContext,
+  type WebSocketExtensionMessage,
+  type WebSocketExtensionApi,
+} from './web-socket-extension'
 import { hasConfigurableGlobal } from '../../utils/has-configurable-global'
 import { patchesRegistry } from '../../utils/patches-registry'
 import { createLogger } from '../../utils/logger'
@@ -57,19 +60,47 @@ export {
 } from './utils/events'
 
 export {
-  WebSocketProtocol,
-  type WebSocketProtocolContext,
-  type WebSocketProtocolMessageContext,
-  type WebSocketProtocolResult,
-} from './web-socket-protocol'
+  WebSocketExtension,
+  type WebSocketExtensionContext,
+  type WebSocketExtensionMessageContext,
+  type WebSocketExtensionResult,
+  type WebSocketExtensionMessage,
+  type WebSocketExtensionApi,
+} from './web-socket-extension'
 
-export interface WebSocketInterceptorOptions {
+type WebSocketExtensions = ReadonlyArray<WebSocketExtension<unknown, unknown>>
+
+/**
+ * The messages crossing the connections intercepted with the given
+ * extensions: the messages of the extension applied to a connection,
+ * or raw WebSocket data when there are no extensions.
+ *
+ * @note The types assume one of the extensions matches the connection.
+ */
+export type WebSocketInterceptorMessage<
+  Extensions extends WebSocketExtensions,
+> = [Extensions] extends [readonly []]
+  ? WebSocketData
+  : WebSocketExtensionMessage<Extensions[number]>
+
+/**
+ * The API the extension applied to a connection adds to the connection event.
+ */
+export type WebSocketInterceptorApi<Extensions extends WebSocketExtensions> = [
+  Extensions,
+] extends [readonly []]
+  ? {}
+  : WebSocketExtensionApi<Extensions[number]>
+
+export interface WebSocketInterceptorOptions<
+  Extensions extends WebSocketExtensions = [],
+> {
   /**
-   * Protocols to apply to the intercepted connections.
-   * The first protocol whose `match()` accepts a connection
-   * is applied to it.
+   * Extensions to apply to the intercepted connections.
+   * The first extension whose `match()` accepts a connection is applied
+   * to it. An extension without `match()` accepts every connection.
    */
-  protocols?: Array<WebSocketProtocol>
+  extensions?: Extensions
 }
 
 const logger = createLogger('websocket')
@@ -78,14 +109,21 @@ const logger = createLogger('websocket')
  * Intercept the outgoing WebSocket connections created using
  * the global `WebSocket` class.
  */
-export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
+export class WebSocketInterceptor<
+  const Extensions extends WebSocketExtensions = [],
+> extends Interceptor<
+  WebSocketEventMap<
+    WebSocketInterceptorMessage<Extensions>,
+    WebSocketInterceptorApi<Extensions>
+  >
+> {
   static symbol = Symbol.for('websocket-interceptor')
 
-  private readonly protocols: Array<WebSocketProtocol>
+  private readonly extensions: WebSocketExtensions
 
-  constructor(options: WebSocketInterceptorOptions = {}) {
+  constructor(options: WebSocketInterceptorOptions<Extensions> = {}) {
     super()
-    this.protocols = options.protocols ?? []
+    this.extensions = options.extensions ?? []
   }
 
   protected predicate(): boolean {
@@ -132,26 +170,29 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
             )
 
             /**
-             * @note Send the protocol handshake before the client
-             * connection dispatches its "open" event so the handshake
-             * frames precede anything sent from the "open" listeners.
+             * @note The mocked connection plays the server endpoint of the
+             * protocol unless a connection to the original server was
+             * created, in which case the original server speaks for itself.
+             * Check the creation, not the ready state: the original connection
+             * may have already closed by now (e.g. when the client is kept open
+             * past the original server closing), and the client must not be
+             * handshaked twice.
+             */
+            const isServerEndpoint = () => server['realWebSocket'] == null
+
+            /**
+             * @note Register these before the client connection so the
+             * protocol frames precede anything sent from its listeners.
              */
             socket.addEventListener(
               'open',
               () => {
-                /**
-                 * @note A connection to the original server handshakes itself.
-                 * Check that the original connection was created, not its
-                 * ready state: it may have already closed by now (e.g. when
-                 * the client is kept open past the original server closing),
-                 * and the client must not be handshaked twice.
-                 */
-                if (server['realWebSocket']) {
+                if (!isServerEndpoint()) {
                   return
                 }
 
-                for (const frame of iterateWebSocketProtocolResult(
-                  client.protocol?.handshake?.(context)
+                for (const frame of iterateWebSocketExtensionResult(
+                  client.extension?.connect?.(context)
                 )) {
                   transport.send(frame)
                 }
@@ -159,20 +200,33 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
               { once: true }
             )
 
+            transport.addEventListener('outgoing', (event) => {
+              if (!isServerEndpoint()) {
+                return
+              }
+
+              for (const frame of iterateWebSocketExtensionResult(
+                client.extension?.receive?.(event.data, context)
+              )) {
+                transport.send(frame)
+              }
+            })
+
             const client = new WebSocketClientConnection(socket, transport)
-            const context: WebSocketProtocolContext = {
+            const context: WebSocketExtensionContext = {
               client,
               server,
               info: {
                 protocols,
               },
             }
-            client[kProtocolContext] = context
-            server[kProtocolContext] = context
+            client[kExtensionContext] = context
+            server[kExtensionContext] = context
 
-            this.protocols
-              .find((protocol) => protocol.match?.(context))
-              ?.apply(context)
+            const extension = this.extensions.find((extension) => {
+              return extension.match?.(context) ?? true
+            })
+            extension?.apply(context)
 
             const hasConnectionListeners =
               this.emitter.listenerCount('connection') > 0
@@ -180,12 +234,23 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
             // The "globalThis.WebSocket" class stands for
             // the client-side connection. Assume it's established
             // as soon as the WebSocket instance is constructed.
+            /**
+             * @note Expose the extension's own API (e.g. rooms) on the
+             * connection event. The event map is inferred from the extensions
+             * this interceptor was given; `Object.assign` with a spread of
+             * sources is untyped, which is what lets the event take that type.
+             */
+            const extensionApis: Array<unknown> = [extension?.extend?.(context)]
+
             await this.emitter.emitAsPromise(
-              new WebSocketConnectionEvent({
-                client,
-                server,
-                info: context.info,
-              })
+              Object.assign(
+                new WebSocketConnectionEvent({
+                  client,
+                  server,
+                  info: context.info,
+                }),
+                ...extensionApis
+              )
             )
 
             if (hasConnectionListeners) {
