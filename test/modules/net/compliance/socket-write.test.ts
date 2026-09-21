@@ -215,3 +215,34 @@ it('invokes callbacks for nested writes for a passthrough socket', async () => {
   await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
   expect.soft(writeCallback).toHaveBeenCalledOnce()
 })
+
+it('intercepts writes issued in a nested tick of the "connect" listener for a passthrough socket', async () => {
+  const serverDataListener = vi.fn()
+  await using server = await createRawTestServer(() => {
+    return new net.Server((socket) => {
+      socket.on('data', serverDataListener)
+    })
+  })
+
+  const interceptorDataListener = vi.fn()
+  interceptor.on('connection', ({ socket, controller }) => {
+    socket.on('data', interceptorDataListener)
+    // Decide on the first written bytes, like a protocol source would.
+    socket.once('data', () => controller.passthrough())
+  })
+
+  const socket = net.connect(server.port, server.hostname)
+  // Passthrough emits both the synthetic and the real "connect".
+  socket.once('connect', () => {
+    process.nextTick(() => {
+      process.nextTick(() => socket.end('hello'))
+    })
+  })
+
+  await expect
+    .poll(() => serverDataListener)
+    .toHaveBeenCalledExactlyOnceWith(Buffer.from('hello'))
+  expect(interceptorDataListener).toHaveBeenCalledExactlyOnceWith(
+    Buffer.from('hello')
+  )
+})
