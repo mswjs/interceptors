@@ -12,6 +12,13 @@ import {
   CancelableCloseEvent,
   CloseEvent,
 } from './utils/events'
+import {
+  kProtocolContext,
+  iterateWebSocketProtocolResult,
+  type WebSocketProtocol,
+  type WebSocketProtocolContext,
+  type WebSocketProtocolMessageContext,
+} from './web-socket-protocol'
 
 const kEmitter = Symbol('kEmitter')
 const kBoundListener = Symbol('kBoundListener')
@@ -24,7 +31,13 @@ export interface WebSocketServerEventMap {
   close: CloseEvent
 }
 
-export abstract class WebSocketServerConnectionProtocol {
+/**
+ * The handle to the original WebSocket server connection: its controls.
+ * A `WebSocketServerConnection` is a handle bound to a connection
+ * in this process.
+ */
+export abstract class WebSocketServerHandle {
+  public protocol?: WebSocketProtocol
   public abstract connect(): void
   public abstract send(data: WebSocketData): void
   public abstract close(): void
@@ -51,7 +64,7 @@ export abstract class WebSocketServerConnectionProtocol {
  * WebSocket server connection. It's idle by default but you can
  * establish it by calling `server.connect()`.
  */
-export class WebSocketServerConnection implements WebSocketServerConnectionProtocol {
+export class WebSocketServerConnection implements WebSocketServerHandle {
   /**
    * A WebSocket instance connected to the original server.
    */
@@ -59,6 +72,19 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
   private mockCloseController: AbortController
   private realCloseController: AbortController
   private [kEmitter]: EventTarget
+
+  /**
+   * An optional protocol applied to the data crossing this connection:
+   * `send()` encodes, incoming server frames are decoded
+   * before being dispatched as `message` events.
+   */
+  public protocol?: WebSocketProtocol
+
+  /**
+   * The intercepted connection this server belongs to.
+   * Provided by the interceptor once both connections exist.
+   */
+  public [kProtocolContext]?: WebSocketProtocolContext
 
   constructor(
     private readonly client: WebSocketOverride,
@@ -113,6 +139,14 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
     )
 
     return this.realWebSocket
+  }
+
+  /**
+   * The ready state of the connection to the original WebSocket server.
+   * Equals `WebSocket.CLOSED` until `server.connect()` is called.
+   */
+  public get readyState(): number {
+    return this.realWebSocket?.readyState ?? WebSocket.CLOSED
   }
 
   /**
@@ -251,17 +285,50 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
    * server.send(new TextEncoder().encode('hello'))
    */
   public send(data: WebSocketData): void {
-    this[kSend](data)
+    // Fail on a missing connection before encoding so the error
+    // surfaces even if the protocol drops the message or throws.
+    this.assertConnected()
+
+    if (!this.protocol) {
+      this[kSend](data)
+      return
+    }
+
+    for (const frame of iterateWebSocketProtocolResult(
+      this.protocol.encode(data, this.#getMessageContext())
+    )) {
+      this[kSend](frame)
+    }
   }
 
-  private [kSend](data: WebSocketData): void {
-    const { realWebSocket } = this
+  #getMessageContext(): WebSocketProtocolMessageContext {
+    const context = this[kProtocolContext]
 
+    if (!context) {
+      throw new Error(
+        `Failed to apply the protocol to the server connection "${this.client.url}": the connection context is missing`
+      )
+    }
+
+    return { ...context, connection: this }
+  }
+
+  /**
+   * Return the original WebSocket, throwing if
+   * the connection to the original server was not established.
+   */
+  private assertConnected(): WebSocket {
     invariant(
-      realWebSocket,
+      this.realWebSocket,
       'Failed to call "server.send()" for "%s": the connection is not open. Did you forget to call "server.connect()"?',
       this.client.url
     )
+
+    return this.realWebSocket
+  }
+
+  private [kSend](data: WebSocketData): void {
+    const realWebSocket = this.assertConnected()
 
     // Silently ignore writes on the closed original WebSocket.
     if (
@@ -336,33 +403,45 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
   }
 
   private handleIncomingMessage(event: MessageEvent<WebSocketData>): void {
-    // Clone the event to dispatch it on this class
-    // once again and prevent the "already being dispatched"
-    // exception. Clone it here so we can observe this event
-    // being prevented in the "server.on()" listeners.
-    const messageEvent = bindEvent(
-      event.target,
-      new CancelableMessageEvent('message', {
-        data: event.data,
-        origin: event.origin,
-        cancelable: true,
-      })
-    )
+    // A single frame may decode into any number of messages
+    // (e.g. none for protocol control frames).
+    const messages = this.protocol
+      ? iterateWebSocketProtocolResult(
+          this.protocol.decode(event.data, this.#getMessageContext())
+        )
+      : [event.data]
+    let defaultPrevented = false
 
-    /**
-     * @note Emit "message" event on the server connection
-     * instance to let the interceptor know about these
-     * incoming events from the original server. In that listener,
-     * the interceptor can modify or skip the event forwarding
-     * to the mock WebSocket instance.
-     */
-    this[kEmitter].dispatchEvent(messageEvent)
+    for (const data of messages) {
+      // Clone the event to dispatch it on this class
+      // once again and prevent the "already being dispatched"
+      // exception. Clone it here so we can observe this event
+      // being prevented in the "server.on()" listeners.
+      const messageEvent = bindEvent(
+        event.target,
+        new CancelableMessageEvent('message', {
+          data,
+          origin: event.origin,
+          cancelable: true,
+        })
+      )
+
+      /**
+       * @note Emit "message" event on the server connection
+       * instance to let the interceptor know about these
+       * incoming events from the original server. In that listener,
+       * the interceptor can modify or skip the event forwarding
+       * to the mock WebSocket instance.
+       */
+      this[kEmitter].dispatchEvent(messageEvent)
+      defaultPrevented ||= messageEvent.defaultPrevented
+    }
 
     /**
      * @note Forward the incoming server events to the client.
      * Preventing the default on the message event stops this.
      */
-    if (!messageEvent.defaultPrevented) {
+    if (!defaultPrevented) {
       this.client.dispatchEvent(
         bindEvent(
           /**
