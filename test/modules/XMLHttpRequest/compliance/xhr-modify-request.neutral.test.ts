@@ -18,7 +18,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('allows modifying outgoing request headers', async () => {
+it('allows modifying outgoing request headers', async ({ task }) => {
   interceptor.on('request', ({ request }) => {
     if (request.method === 'OPTIONS') {
       return
@@ -39,12 +39,31 @@ it('allows modifying outgoing request headers', async () => {
   await waitForXMLHttpRequest(request)
 
   expect.soft(request.status).toBe(200)
-  expect
-    .soft(
-      request.getResponseHeader('x-delete-header'),
-      'XMLHttpRequest headers cannot be deleted'
-    )
-    .toBe('a')
+
+  if (task.file.projectName === 'browser') {
+    /**
+     * @note XMLHttpRequest has no API to remove a request header.
+     * Deleting a header from the Fetch API representation of the request
+     * cannot be mirrored to the actual XMLHttpRequest in the browser.
+     */
+    expect
+      .soft(
+        request.getResponseHeader('x-delete-header'),
+        'XMLHttpRequest headers cannot be deleted in the browser'
+      )
+      .toBe('a')
+  } else {
+    /**
+     * @note In Node.js, XMLHttpRequest is performed over `http`, so the
+     * outgoing request headers are rewritten to reflect the deletion.
+     */
+    expect
+      .soft(
+        request.getResponseHeader('x-delete-header'),
+        'XMLHttpRequest headers are deleted in Node.js'
+      )
+      .toBeNull()
+  }
   expect
     .soft(
       request.getResponseHeader('x-append-header'),

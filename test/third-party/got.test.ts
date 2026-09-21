@@ -6,8 +6,20 @@ import {
   type TestHttpServer,
 } from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
+import { compressResponse } from '#/test/helpers'
 
 let httpServer: TestHttpServer
+
+/**
+ * A body large enough to be delivered in multiple chunks.
+ */
+const largeJsonBody = JSON.stringify(
+  Object.fromEntries(
+    Array.from({ length: 5_000 }, (_, index) => {
+      return [`field${index}`, `value${index}`]
+    })
+  )
+)
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -17,6 +29,17 @@ beforeAll(async () => {
     defineRoutes(router) {
       router.get('/user', () => {
         return Response.json({ id: 1 })
+      })
+      router.get('/compressed', () => {
+        const compressedBody = compressResponse(['gzip'], largeJsonBody)
+
+        return new Response(compressedBody, {
+          headers: {
+            'content-type': 'application/json; charset=utf-8',
+            'content-encoding': 'gzip',
+            'content-length': String(compressedBody.byteLength),
+          },
+        })
       })
     },
   })
@@ -47,6 +70,17 @@ it('bypasses an unhandled request made with "got"', async () => {
 
   expect.soft(response.statusCode).toBe(200)
   expect.soft(response.body).toBe(`{"id":1}`)
+})
+
+/**
+ * @see https://github.com/mswjs/msw/issues/1468
+ * @see https://github.com/mswjs/msw/issues/2200
+ */
+it('bypasses an unhandled request with a compressed response made with "got"', async () => {
+  const response = await got(httpServer.http.url('/compressed').href)
+
+  expect.soft(response.statusCode).toBe(200)
+  expect.soft(response.body).toBe(largeJsonBody)
 })
 
 it('supports timeout before resolving request as-is', async () => {

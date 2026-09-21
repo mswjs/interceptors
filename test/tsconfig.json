@@ -11,5 +11,5 @@
     "moduleResolution": "bundler",
     "types": ["node", "vitest/globals"],
   },
-  "include": ["setup/vitest.ts", "**/*.test.ts"],
+  "include": ["setup/vitest.ts", "setup/browser-commands.ts", "**/*.test.ts"],
 }

@@ -843,8 +843,11 @@ export class XMLHttpRequestController {
       body: resolvedBody,
     })
 
-    const proxyHeaders = createProxy(fetchRequest.headers, {
+    const headers = fetchRequest.headers
+    const proxyHeaders = createProxy(headers, {
       methodCall: ([methodName, args], invoke) => {
+        const result = invoke()
+
         // Forward the latest state of the internal request headers
         // because the interceptor might have modified them
         // without responding to the request.
@@ -852,7 +855,16 @@ export class XMLHttpRequestController {
           case 'append':
           case 'set': {
             const [headerName, headerValue] = args as [string, string]
-            this.request.setRequestHeader(headerName, headerValue)
+
+            /**
+             * @note Forward only the headers the Fetch API Request accepted.
+             * Forbidden request headers (e.g. "Cookie") are dropped silently
+             * by the request's headers guard, and forwarding them makes
+             * the browser refuse them with an error in the console.
+             */
+            if (headers.has(headerName)) {
+              this.request.setRequestHeader(headerName, headerValue)
+            }
             break
           }
 
@@ -865,7 +877,7 @@ export class XMLHttpRequestController {
           }
         }
 
-        return invoke()
+        return result
       },
     })
     define(fetchRequest, 'headers', proxyHeaders)

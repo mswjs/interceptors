@@ -46,3 +46,16 @@ it('allows modifying the request headers for a request with a body', async () =>
 
   expect(response.headers.get('x-appended-header')).toBe('modified')
 })
+
+it('allows removing the request headers', async () => {
+  interceptor.on('request', ({ request }) => {
+    request.headers.delete('x-custom-header')
+  })
+
+  const request = http.get(server.http.url('/user'), {
+    headers: { 'x-custom-header': 'yes' },
+  })
+  const [response] = await toWebResponse(request)
+
+  expect(response.headers.has('x-custom-header')).toBe(false)
+})
