@@ -1,13 +1,13 @@
 import {
   WebSocketInterceptor,
-  WebSocketProtocol,
+  WebSocketExtension,
   type WebSocketData,
-  type WebSocketProtocolContext,
+  type WebSocketExtensionContext,
 } from '@mswjs/interceptors/WebSocket'
 
 // Applies to connections on the "/upper" path only.
-class Uppercase extends WebSocketProtocol<string> {
-  public match({ client }: WebSocketProtocolContext): boolean {
+class Uppercase extends WebSocketExtension<string, { greeting: string }> {
+  public match({ client }: WebSocketExtensionContext): boolean {
     return client.url.pathname === '/upper'
   }
 
@@ -19,15 +19,19 @@ class Uppercase extends WebSocketProtocol<string> {
     return typeof data === 'string' ? data.toLowerCase() : undefined
   }
 
-  public handshake(): string {
+  public connect(): string {
     return 'WELCOME'
+  }
+
+  public extend({ client }: WebSocketExtensionContext): { greeting: string } {
+    return { greeting: `welcome to ${client.url.pathname}` }
   }
 }
 
 const uppercase = new Uppercase()
 
 const interceptor = new WebSocketInterceptor({
-  protocols: [uppercase],
+  extensions: [uppercase],
 })
 
 beforeAll(() => {
@@ -42,12 +46,12 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-it('applies the matching protocol to the connection', async () => {
+it('applies the matching extension to the connection', async () => {
   const onConnection = vi.fn<(...protocols: Array<unknown>) => void>()
   const onClientData = vi.fn<(data: unknown) => void>()
   const onSocketData = vi.fn<(data: unknown) => void>()
   interceptor.once('connection', ({ client, server }) => {
-    onConnection(client.protocol, server.protocol)
+    onConnection(client.extension, server.extension)
     client.addEventListener('message', (event) => {
       onClientData(event.data)
       client.send('hi')
@@ -68,12 +72,12 @@ it('applies the matching protocol to the connection', async () => {
   expect.soft(onSocketData).toHaveBeenNthCalledWith(2, 'HI')
 })
 
-it('leaves connections that match no protocol untouched', async () => {
+it('leaves connections that match no extension untouched', async () => {
   const onConnection = vi.fn<(...protocols: Array<unknown>) => void>()
   const onClientData = vi.fn<(data: unknown) => void>()
   const onSocketData = vi.fn<(data: unknown) => void>()
   interceptor.once('connection', ({ client, server }) => {
-    onConnection(client.protocol, server.protocol)
+    onConnection(client.extension, server.extension)
     client.addEventListener('message', (event) => {
       onClientData(event.data)
       client.send('hi')
@@ -90,4 +94,18 @@ it('leaves connections that match no protocol untouched', async () => {
     .toHaveBeenCalledExactlyOnceWith(undefined, undefined)
   await expect.poll(() => onClientData).toHaveBeenCalledExactlyOnceWith('HELLO')
   await expect.poll(() => onSocketData).toHaveBeenCalledExactlyOnceWith('hi')
+})
+
+it('exposes the extension API on the connection event', async () => {
+  const onConnection = vi.fn<(extension: unknown) => void>()
+  interceptor.once('connection', (connection) => {
+    onConnection(connection.greeting)
+  })
+
+  const ws = new WebSocket('wss://example.com/upper')
+  onTestFinished(() => ws.close())
+
+  await expect
+    .poll(() => onConnection)
+    .toHaveBeenCalledExactlyOnceWith('welcome to /upper')
 })

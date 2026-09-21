@@ -1,9 +1,9 @@
 import {
   WebSocketInterceptor,
-  WebSocketProtocol,
+  WebSocketExtension,
   type WebSocketData,
-  type WebSocketProtocolContext,
-  type WebSocketProtocolMessageContext,
+  type WebSocketExtensionContext,
+  type WebSocketExtensionMessageContext,
 } from '@mswjs/interceptors/WebSocket'
 import { getTestServer } from '#/test/setup/vitest'
 
@@ -11,7 +11,7 @@ const server = getTestServer()
 const interceptor = new WebSocketInterceptor()
 
 // Data on the wire is uppercase, data in the connection listeners is lowercase.
-class Uppercase extends WebSocketProtocol<string> {
+class Uppercase extends WebSocketExtension<string> {
   public encode(data: string): string {
     return data.toUpperCase()
   }
@@ -21,14 +21,14 @@ class Uppercase extends WebSocketProtocol<string> {
   }
 }
 
-class UppercaseWithHandshake extends Uppercase {
-  public *handshake(): Generator<string> {
+class UppercaseWithConnect extends Uppercase {
+  public *connect(): Generator<string> {
     yield 'HELLO'
     yield 'WORLD'
   }
 }
 
-class Unencodable extends WebSocketProtocol {
+class Unencodable extends WebSocketExtension {
   public encode(): never {
     throw new Error('Must not encode')
   }
@@ -39,7 +39,7 @@ class Unencodable extends WebSocketProtocol {
 }
 
 // Frames starting with "#" are protocol control frames, not messages.
-class ControlFrames extends WebSocketProtocol {
+class ControlFrames extends WebSocketExtension {
   public encode(data: WebSocketData): WebSocketData {
     return data
   }
@@ -50,7 +50,7 @@ class ControlFrames extends WebSocketProtocol {
 }
 
 // Every word of a message is sent as a separate frame.
-class Words extends WebSocketProtocol<string> {
+class Words extends WebSocketExtension<string> {
   public *encode(data: string): Generator<string, string> {
     const [first, second] = data.split(' ')
     yield first
@@ -63,7 +63,7 @@ class Words extends WebSocketProtocol<string> {
 }
 
 // Every comma-separated value of a frame is a separate message.
-class CommaSeparated extends WebSocketProtocol<string> {
+class CommaSeparated extends WebSocketExtension<string> {
   public encode(data: string): string {
     return data
   }
@@ -75,14 +75,14 @@ class CommaSeparated extends WebSocketProtocol<string> {
   }
 }
 
-class Recording extends WebSocketProtocol<string> {
-  public encodeContexts: Array<WebSocketProtocolMessageContext> = []
-  public decodeContexts: Array<WebSocketProtocolMessageContext> = []
-  public handshakeContexts: Array<WebSocketProtocolContext> = []
+class Recording extends WebSocketExtension<string> {
+  public encodeContexts: Array<WebSocketExtensionMessageContext> = []
+  public decodeContexts: Array<WebSocketExtensionMessageContext> = []
+  public connectContexts: Array<WebSocketExtensionContext> = []
 
   public encode(
     data: string,
-    context: WebSocketProtocolMessageContext
+    context: WebSocketExtensionMessageContext
   ): string {
     this.encodeContexts.push(context)
     return data
@@ -90,14 +90,14 @@ class Recording extends WebSocketProtocol<string> {
 
   public decode(
     data: WebSocketData,
-    context: WebSocketProtocolMessageContext
+    context: WebSocketExtensionMessageContext
   ): string | undefined {
     this.decodeContexts.push(context)
     return typeof data === 'string' ? data : undefined
   }
 
-  public handshake(context: WebSocketProtocolContext): undefined {
-    this.handshakeContexts.push(context)
+  public connect(context: WebSocketExtensionContext): undefined {
+    this.connectContexts.push(context)
   }
 }
 
@@ -170,7 +170,7 @@ it('encodes data sent to the original server', async () => {
 })
 
 it('throws when sending to the unconnected server before encoding', async () => {
-  const connectionPromise = Promise.withResolvers<WebSocketProtocolContext>()
+  const connectionPromise = Promise.withResolvers<WebSocketExtensionContext>()
   interceptor.once('connection', (connection) => {
     new Unencodable().apply(connection)
     connectionPromise.resolve(connection)
@@ -308,7 +308,7 @@ it('decodes a single frame into multiple messages', async () => {
 it('sends the handshake once the mocked connection opens', async () => {
   const onSocketData = vi.fn<(data: unknown) => void>()
   interceptor.once('connection', (connection) => {
-    new UppercaseWithHandshake().apply(connection)
+    new UppercaseWithConnect().apply(connection)
     connection.client.addEventListener('open', () => {
       connection.client.send('ready')
     })
@@ -331,7 +331,7 @@ it('sends the handshake once the mocked connection opens', async () => {
 it('does not send the handshake when connected to the original server', async () => {
   const onSocketData = vi.fn<(data: unknown) => void>()
   interceptor.once('connection', (connection) => {
-    new UppercaseWithHandshake().apply(connection)
+    new UppercaseWithConnect().apply(connection)
     connection.server.connect()
   })
 
@@ -349,7 +349,7 @@ it('does not send the handshake when connected to the original server', async ()
 it('does not send the handshake when the original server connection has already closed', async () => {
   const onSocketData = vi.fn<(data: unknown) => void>()
   interceptor.once('connection', async (connection) => {
-    new UppercaseWithHandshake().apply(connection)
+    new UppercaseWithConnect().apply(connection)
     connection.server.connect()
     connection.server.addEventListener('close', (event) => {
       event.preventDefault()
@@ -374,9 +374,9 @@ it('does not send the handshake when the original server connection has already 
   ).not.toHaveBeenCalled()
 })
 
-it('exposes the connection to the protocol', async () => {
+it('exposes the connection to the extension', async () => {
   const protocol = new Recording()
-  const connectionPromise = Promise.withResolvers<WebSocketProtocolContext>()
+  const connectionPromise = Promise.withResolvers<WebSocketExtensionContext>()
   interceptor.once('connection', (connection) => {
     protocol.apply(connection)
     connection.client.addEventListener('open', () => {
@@ -391,14 +391,14 @@ it('exposes the connection to the protocol', async () => {
 
   const { client, server } = await connectionPromise.promise
 
-  await expect.poll(() => protocol.handshakeContexts).toHaveLength(1)
+  await expect.poll(() => protocol.connectContexts).toHaveLength(1)
   await expect.poll(() => protocol.encodeContexts).toHaveLength(1)
   await expect.poll(() => protocol.decodeContexts).toHaveLength(1)
 
-  const [handshakeContext] = protocol.handshakeContexts
-  expect.soft(handshakeContext.client).toBe(client)
-  expect.soft(handshakeContext.server).toBe(server)
-  expect.soft(handshakeContext.info).toEqual({ protocols: ['chat'] })
+  const [connectContext] = protocol.connectContexts
+  expect.soft(connectContext.client).toBe(client)
+  expect.soft(connectContext.server).toBe(server)
+  expect.soft(connectContext.info).toEqual({ protocols: ['chat'] })
 
   const [encodeContext] = protocol.encodeContexts
   expect.soft(encodeContext.connection).toBe(client)
@@ -409,4 +409,44 @@ it('exposes the connection to the protocol', async () => {
   const [decodeContext] = protocol.decodeContexts
   expect.soft(decodeContext.connection).toBe(client)
   expect.soft(decodeContext.info).toEqual({ protocols: ['chat'] })
+})
+
+// Answers "#ping" control frames with "#pong" on behalf of the server.
+class Pingable extends Uppercase {
+  public receive(data: WebSocketData): string | undefined {
+    return data === '#ping' ? '#pong' : undefined
+  }
+}
+
+it('answers a client control frame on a mocked connection', async () => {
+  const onSocketData = vi.fn<(data: unknown) => void>()
+  interceptor.once('connection', (connection) => {
+    new Pingable().apply(connection)
+  })
+
+  const ws = new WebSocket('wss://example.com')
+  onTestFinished(() => ws.close())
+  ws.onmessage = (event) => onSocketData(event.data)
+  ws.onopen = () => ws.send('#ping')
+
+  await expect.poll(() => onSocketData).toHaveBeenCalledExactlyOnceWith('#pong')
+})
+
+it('does not answer a client control frame when connected to the original server', async () => {
+  const onSocketData = vi.fn<(data: unknown) => void>()
+  interceptor.once('connection', (connection) => {
+    new Pingable().apply(connection)
+    connection.server.connect()
+  })
+
+  const ws = new WebSocket(server.ws.url('/?echo'))
+  onTestFinished(() => ws.close())
+  ws.onmessage = (event) => onSocketData(event.data)
+  ws.onopen = () => ws.send('#ping')
+
+  await expect
+    .poll(() => onSocketData, {
+      message: 'the original server answers instead',
+    })
+    .toHaveBeenCalledExactlyOnceWith('#ping')
 })

@@ -4,9 +4,10 @@ import { bindEvent } from './utils/bind-event'
 import { CloseEvent } from './utils/events'
 import { resolveWebSocketUrl } from '../../utils/resolve-web-socket-url'
 
-export type WebSocketEventListener<
-  EventType extends WebSocketEventMap[keyof WebSocketEventMap] = Event,
-> = (this: WebSocket, event: EventType) => void
+export type WebSocketEventListener<EventType extends Event = Event> = (
+  this: WebSocket,
+  event: EventType
+) => void
 
 const WEBSOCKET_CLOSE_CODE_RANGE_ERROR =
   'InvalidAccessError: close code out of user configurable range'
