@@ -6,12 +6,12 @@ import {
   type WebSocketConnectionEventData,
 } from '../../events/websocket'
 import {
-  WebSocketClientConnectionProtocol,
+  WebSocketClientHandle,
   WebSocketClientConnection,
   type WebSocketClientEventMap,
 } from './web-socket-client-connection'
 import {
-  WebSocketServerConnectionProtocol,
+  WebSocketServerHandle,
   WebSocketServerConnection,
   type WebSocketServerEventMap,
 } from './web-socket-server-connection'
@@ -22,6 +22,12 @@ import {
   WebSocketOverride,
 } from './web-socket-override'
 import { bindEvent } from './utils/bind-event'
+import {
+  kProtocolContext,
+  iterateWebSocketProtocolResult,
+  WebSocketProtocol,
+  type WebSocketProtocolContext,
+} from './web-socket-protocol'
 import { hasConfigurableGlobal } from '../../utils/has-configurable-global'
 import { patchesRegistry } from '../../utils/patches-registry'
 import { createLogger } from '../../utils/logger'
@@ -37,10 +43,10 @@ export {
   WebSocketConnectionInfo,
   WebSocketConnectionEventData,
   WebSocketClientEventMap,
-  WebSocketClientConnectionProtocol,
+  WebSocketClientHandle,
   WebSocketClientConnection,
   WebSocketServerEventMap,
-  WebSocketServerConnectionProtocol,
+  WebSocketServerHandle,
   WebSocketServerConnection,
 }
 
@@ -51,10 +57,20 @@ export {
 } from './utils/events'
 
 export {
-  type WebSocketCodec,
-  type WebSocketCodecResult,
-  defineWebSocketCodec,
-} from './web-socket-codec'
+  WebSocketProtocol,
+  type WebSocketProtocolContext,
+  type WebSocketProtocolMessageContext,
+  type WebSocketProtocolResult,
+} from './web-socket-protocol'
+
+export interface WebSocketInterceptorOptions {
+  /**
+   * Protocols to apply to the intercepted connections.
+   * The first protocol whose `match()` accepts a connection
+   * is applied to it.
+   */
+  protocols?: Array<WebSocketProtocol>
+}
 
 const logger = createLogger('websocket')
 
@@ -64,6 +80,13 @@ const logger = createLogger('websocket')
  */
 export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
   static symbol = Symbol.for('websocket-interceptor')
+
+  private readonly protocols: Array<WebSocketProtocol>
+
+  constructor(options: WebSocketInterceptorOptions = {}) {
+    super()
+    this.protocols = options.protocols ?? []
+  }
 
   protected predicate(): boolean {
     return hasConfigurableGlobal('WebSocket')
@@ -108,24 +131,50 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
               createConnection
             )
 
-            const client = new WebSocketClientConnection(socket, transport)
-
-            const hasConnectionListeners =
-              this.emitter.listenerCount('connection') > 0
-
-            // Let the client codec emit session frames on behalf of the
-            // server (e.g. a protocol handshake) once the mock connection
-            // opens, unless the connection to the original server was
-            // established, in which case the original server does that.
+            /**
+             * @note Send the protocol handshake before the client
+             * connection dispatches its "open" event so the handshake
+             * frames precede anything sent from the "open" listeners.
+             */
             socket.addEventListener(
               'open',
               () => {
-                if (!server['realWebSocket']) {
-                  client.codec?.open?.(client, (data) => transport.send(data))
+                // A connection to the original server handshakes itself.
+                if (server.readyState !== WebSocket.CLOSED) {
+                  return
+                }
+
+                for (const frame of iterateWebSocketProtocolResult(
+                  client.protocol?.handshake?.(context)
+                )) {
+                  transport.send(frame)
                 }
               },
               { once: true }
             )
+
+            const client = new WebSocketClientConnection(socket, transport)
+            const context: WebSocketProtocolContext = {
+              client,
+              server,
+              info: {
+                protocols,
+              },
+            }
+            client[kProtocolContext] = context
+            server[kProtocolContext] = context
+
+            const protocol = this.protocols.find((protocol) => {
+              return protocol.match?.(context)
+            })
+
+            if (protocol) {
+              client.protocol = protocol
+              server.protocol = protocol
+            }
+
+            const hasConnectionListeners =
+              this.emitter.listenerCount('connection') > 0
 
             // The "globalThis.WebSocket" class stands for
             // the client-side connection. Assume it's established
@@ -134,9 +183,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
               new WebSocketConnectionEvent({
                 client,
                 server,
-                info: {
-                  protocols,
-                },
+                info: context.info,
               })
             )
 

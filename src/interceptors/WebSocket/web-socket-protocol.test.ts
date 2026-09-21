@@ -1,24 +1,24 @@
-import { iterateWebSocketCodecResult } from './web-socket-codec'
+import { iterateWebSocketProtocolResult } from './web-socket-protocol'
 
 it('yields a single value as-is', () => {
-  expect(Array.from(iterateWebSocketCodecResult('hello'))).toEqual(['hello'])
+  expect(Array.from(iterateWebSocketProtocolResult('hello'))).toEqual(['hello'])
 })
 
 it('yields nothing for an undefined result', () => {
-  expect(Array.from(iterateWebSocketCodecResult(undefined))).toEqual([])
+  expect(Array.from(iterateWebSocketProtocolResult(undefined))).toEqual([])
 })
 
 it('treats iterables that are not iterators as a single value', () => {
   const buffer = new Uint8Array([1, 2, 3])
 
-  expect(Array.from(iterateWebSocketCodecResult(['event', 1]))).toEqual([
+  expect(Array.from(iterateWebSocketProtocolResult(['event', 1]))).toEqual([
     ['event', 1],
   ])
-  expect(Array.from(iterateWebSocketCodecResult(buffer))).toEqual([buffer])
+  expect(Array.from(iterateWebSocketProtocolResult(buffer))).toEqual([buffer])
 })
 
 it('yields every value of an iterator', () => {
-  const result = iterateWebSocketCodecResult(
+  const result = iterateWebSocketProtocolResult(
     (function* () {
       yield 'first'
       yield 'second'
@@ -29,7 +29,7 @@ it('yields every value of an iterator', () => {
 })
 
 it('yields the return value of a generator as its last value', () => {
-  const result = iterateWebSocketCodecResult(
+  const result = iterateWebSocketProtocolResult(
     (function* () {
       yield 'first'
       return 'second'
@@ -42,7 +42,7 @@ it('yields the return value of a generator as its last value', () => {
 it('yields nothing for an empty generator', () => {
   expect(
     Array.from(
-      iterateWebSocketCodecResult(
+      iterateWebSocketProtocolResult(
         (function* () {
           return
         })()
@@ -53,7 +53,7 @@ it('yields nothing for an empty generator', () => {
 
 it('closes the underlying generator when the consumer stops early', () => {
   const onCleanup = vi.fn()
-  const result = iterateWebSocketCodecResult(
+  const result = iterateWebSocketProtocolResult(
     (function* () {
       try {
         yield 'first'
@@ -74,7 +74,7 @@ it('closes the underlying generator when the consumer stops early', () => {
 
 it('closes the underlying generator when the consumer throws', () => {
   const onCleanup = vi.fn()
-  const result = iterateWebSocketCodecResult(
+  const result = iterateWebSocketProtocolResult(
     (function* () {
       try {
         yield 'first'
@@ -100,6 +100,8 @@ it('does not close the underlying generator once it completes', () => {
   })()
   generator.return = onReturn
 
-  expect(Array.from(iterateWebSocketCodecResult(generator))).toEqual(['first'])
+  expect(Array.from(iterateWebSocketProtocolResult(generator))).toEqual([
+    'first',
+  ])
   expect(onReturn).not.toHaveBeenCalled()
 })

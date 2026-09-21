@@ -13,9 +13,12 @@ import {
   CloseEvent,
 } from './utils/events'
 import {
-  iterateWebSocketCodecResult,
-  type WebSocketCodec,
-} from './web-socket-codec'
+  kProtocolContext,
+  iterateWebSocketProtocolResult,
+  type WebSocketProtocol,
+  type WebSocketProtocolContext,
+  type WebSocketProtocolMessageContext,
+} from './web-socket-protocol'
 
 const kEmitter = Symbol('kEmitter')
 const kBoundListener = Symbol('kBoundListener')
@@ -28,8 +31,13 @@ export interface WebSocketServerEventMap {
   close: CloseEvent
 }
 
-export abstract class WebSocketServerConnectionProtocol {
-  public codec?: WebSocketCodec
+/**
+ * The handle to the original WebSocket server connection: its controls.
+ * A `WebSocketServerConnection` is a handle bound to a connection
+ * in this process.
+ */
+export abstract class WebSocketServerHandle {
+  public protocol?: WebSocketProtocol
   public abstract connect(): void
   public abstract send(data: WebSocketData): void
   public abstract close(): void
@@ -56,7 +64,7 @@ export abstract class WebSocketServerConnectionProtocol {
  * WebSocket server connection. It's idle by default but you can
  * establish it by calling `server.connect()`.
  */
-export class WebSocketServerConnection implements WebSocketServerConnectionProtocol {
+export class WebSocketServerConnection implements WebSocketServerHandle {
   /**
    * A WebSocket instance connected to the original server.
    */
@@ -66,11 +74,17 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
   private [kEmitter]: EventTarget
 
   /**
-   * An optional codec applied to the data crossing this connection:
+   * An optional protocol applied to the data crossing this connection:
    * `send()` encodes, incoming server frames are decoded
    * before being dispatched as `message` events.
    */
-  public codec?: WebSocketCodec
+  public protocol?: WebSocketProtocol
+
+  /**
+   * The intercepted connection this server belongs to.
+   * Provided by the interceptor once both connections exist.
+   */
+  public [kProtocolContext]?: WebSocketProtocolContext
 
   constructor(
     private readonly client: WebSocketOverride,
@@ -125,6 +139,14 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
     )
 
     return this.realWebSocket
+  }
+
+  /**
+   * The ready state of the connection to the original WebSocket server.
+   * Equals `WebSocket.CLOSED` until `server.connect()` is called.
+   */
+  public get readyState(): number {
+    return this.realWebSocket?.readyState ?? WebSocket.CLOSED
   }
 
   /**
@@ -192,14 +214,6 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
       {
         signal: this.realCloseController.signal,
       }
-    )
-
-    realWebSocket.addEventListener(
-      'close',
-      () => {
-        this.codec?.close?.(this)
-      },
-      { once: true }
     )
 
     realWebSocket.addEventListener('error', () => {
@@ -272,19 +286,31 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
    */
   public send(data: WebSocketData): void {
     // Fail on a missing connection before encoding so the error
-    // surfaces even if the codec drops the message or throws.
+    // surfaces even if the protocol drops the message or throws.
     this.assertConnected()
 
-    if (!this.codec) {
+    if (!this.protocol) {
       this[kSend](data)
       return
     }
 
-    for (const frame of iterateWebSocketCodecResult(
-      this.codec.encode(data, this)
+    for (const frame of iterateWebSocketProtocolResult(
+      this.protocol.encode(data, this.#getMessageContext())
     )) {
       this[kSend](frame)
     }
+  }
+
+  #getMessageContext(): WebSocketProtocolMessageContext {
+    const context = this[kProtocolContext]
+
+    if (!context) {
+      throw new Error(
+        `Failed to apply the protocol to the server connection "${this.client.url}": the connection context is missing`
+      )
+    }
+
+    return { ...context, connection: this }
   }
 
   /**
@@ -379,8 +405,10 @@ export class WebSocketServerConnection implements WebSocketServerConnectionProto
   private handleIncomingMessage(event: MessageEvent<WebSocketData>): void {
     // A single frame may decode into any number of messages
     // (e.g. none for protocol control frames).
-    const messages = this.codec
-      ? iterateWebSocketCodecResult(this.codec.decode(event.data, this))
+    const messages = this.protocol
+      ? iterateWebSocketProtocolResult(
+          this.protocol.decode(event.data, this.#getMessageContext())
+        )
       : [event.data]
     let defaultPrevented = false
 
