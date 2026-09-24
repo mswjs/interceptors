@@ -85,28 +85,20 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let tunnelUrl: URL | undefined
         let abortPendingRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
-        let isDeliveringMockedResponse = false
+
+        /**
+         * @note An exchange is in flight from the first byte the client
+         * writes (e.g. request headers spanning multiple packets, parsed
+         * only partially so far) until its mocked response is delivered.
+         * The request handling alone settles once the listener returns
+         * its verdict, while the response may still be written to the
+         * socket (e.g. a streaming body).
+         */
+        let hasActiveExchange = false
 
         const destroyIdleSocket = () => {
-          /**
-           * @note Writes awaiting the verdict on their exchange stay
-           * pending on the socket (e.g. request headers spanning
-           * multiple packets, parsed only partially so far). That
-           * request is in flight as much as an already parsed one.
-           */
-          const hasPendingWrites =
-            socketController[kRawSocket]._pendingData != null
-
-          /**
-           * @note The request handling settles once the listener returns
-           * its verdict, while the mocked response is still being written
-           * to the socket (e.g. a streaming body). That exchange is in
-           * flight until the response is delivered.
-           */
           if (
-            !hasPendingWrites &&
-            pendingRequestController == null &&
-            !isDeliveringMockedResponse &&
+            !hasActiveExchange &&
             socketController.readyState !== SocketController.PASSTHROUGH
           ) {
             socket.destroy()
@@ -195,6 +187,8 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
          * including when entering a mocked "CONNECT" tunnel.
          */
         const onRequestData = (chunk: Buffer) => {
+          hasActiveExchange = true
+
           if (isHttpConnection === false) {
             passthroughNonHttp()
             return
@@ -319,7 +313,6 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                     }
 
                     socketController.claim()
-                    isDeliveringMockedResponse = true
 
                     const originalResponse = FetchResponse.from(rawResponse, {
                       url: request.url,
@@ -350,7 +343,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                           connectionRequestContext,
                         })
                       } finally {
-                        isDeliveringMockedResponse = false
+                        hasActiveExchange = false
                       }
 
                       /**
