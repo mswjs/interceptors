@@ -85,6 +85,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let tunnelUrl: URL | undefined
         let abortPendingRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
+        let isDeliveringMockedResponse = false
 
         const destroyIdleSocket = () => {
           /**
@@ -96,9 +97,16 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           const hasPendingWrites =
             socketController[kRawSocket]._pendingData != null
 
+          /**
+           * @note The request handling settles once the listener returns
+           * its verdict, while the mocked response is still being written
+           * to the socket (e.g. a streaming body). That exchange is in
+           * flight until the response is delivered.
+           */
           if (
             !hasPendingWrites &&
             pendingRequestController == null &&
+            !isDeliveringMockedResponse &&
             socketController.readyState !== SocketController.PASSTHROUGH
           ) {
             socket.destroy()
@@ -311,6 +319,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                     }
 
                     socketController.claim()
+                    isDeliveringMockedResponse = true
 
                     const originalResponse = FetchResponse.from(rawResponse, {
                       url: request.url,
@@ -333,12 +342,16 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                     }
 
                     const respond = async () => {
-                      await this.respondWith({
-                        socket: socketController[kRawSocket],
-                        request: context.request,
-                        response,
-                        connectionRequestContext,
-                      })
+                      try {
+                        await this.respondWith({
+                          socket: socketController[kRawSocket],
+                          request: context.request,
+                          response,
+                          connectionRequestContext,
+                        })
+                      } finally {
+                        isDeliveringMockedResponse = false
+                      }
 
                       /**
                        * @note This source got disposed while the request

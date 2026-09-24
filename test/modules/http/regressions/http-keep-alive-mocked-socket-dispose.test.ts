@@ -154,3 +154,45 @@ it('finishes a request whose headers are still arriving when disposed', async ()
     .toContain('original')
   expect(closeListener).not.toHaveBeenCalled()
 })
+
+it('finishes a mocked response being streamed when disposed', async () => {
+  interceptor.apply()
+  const release = Promise.withResolvers<void>()
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(
+        new ReadableStream({
+          async start(stream) {
+            stream.enqueue(new TextEncoder().encode('hel'))
+            await release.promise
+            stream.enqueue(new TextEncoder().encode('lo'))
+            stream.close()
+          },
+        })
+      )
+    )
+  })
+
+  const agent = new Agent()
+  onTestFinished(() => agent.close())
+
+  const response = await fetch('http://localhost/resource', {
+    dispatcher: agent,
+  })
+  const textPromise = response.text()
+  await expect
+    .poll(() => getConnectionStats(agent, 'http://localhost')?.running, {
+      message: 'the response is being streamed',
+    })
+    .toBe(1)
+
+  interceptor.dispose()
+  release.resolve()
+
+  await expect(textPromise).resolves.toBe('hello')
+  await expect
+    .poll(() => getConnectionStats(agent, 'http://localhost')?.connected ?? 0, {
+      message: 'the mocked connection is closed once the response settles',
+    })
+    .toBe(0)
+})
