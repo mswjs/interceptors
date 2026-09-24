@@ -1,4 +1,6 @@
 // @vitest-environment node
+import net from 'node:net'
+import { once } from 'node:events'
 import { Agent, fetch } from 'undici'
 import { createTestHttpServer } from '@epic-web/test-server/http'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
@@ -46,7 +48,7 @@ it('destroys the idle mocked keep-alive connections when disposed', async () => 
   interceptor.dispose()
 
   await expect
-    .poll(() => getConnectionStats(agent, 'http://localhost')?.connected, {
+    .poll(() => getConnectionStats(agent, 'http://localhost')?.connected ?? 0, {
       message: 'the mocked connection is closed',
     })
     .toBe(0)
@@ -83,12 +85,9 @@ it('finishes a mocked request in flight when disposed', async () => {
   await expect(response.text()).resolves.toBe('mocked')
 
   await expect
-    .poll(
-      () => getConnectionStats(agent, 'http://localhost')?.connected ?? 0,
-      {
-        message: 'the mocked connection is closed once the request settles',
-      }
-    )
+    .poll(() => getConnectionStats(agent, 'http://localhost')?.connected ?? 0, {
+      message: 'the mocked connection is closed once the request settles',
+    })
     .toBe(0)
 })
 
@@ -120,4 +119,80 @@ it('finishes a passed-through request in flight when disposed', async () => {
 
   const response = await responsePromise
   await expect(response.text()).resolves.toBe('original')
+})
+
+it('finishes a request whose headers are still arriving when disposed', async () => {
+  await using httpServer = await createTestHttpServer({
+    defineRoutes(router) {
+      router.get('/resource', () => new Response('original'))
+    },
+  })
+  interceptor.apply()
+
+  const url = httpServer.http.url('/resource')
+  const socket = net.connect({ host: url.hostname, port: Number(url.port) })
+  onTestFinished(() => {
+    socket.destroy()
+  })
+  await once(socket, 'connect')
+
+  const closeListener = vi.fn()
+  socket.on('close', closeListener)
+  const chunks: Array<Buffer> = []
+  socket.on('data', (chunk) => chunks.push(chunk))
+
+  socket.write(`GET /resource HTTP/1.1\r\nHost: ${url.host}\r\n`)
+  await new Promise<void>((resolve) => setImmediate(resolve))
+
+  interceptor.dispose()
+  socket.write('\r\n')
+
+  await expect
+    .poll(() => Buffer.concat(chunks).toString(), {
+      message: 'the request passes through to the server',
+    })
+    .toContain('original')
+  expect(closeListener).not.toHaveBeenCalled()
+})
+
+it('finishes a mocked response being streamed when disposed', async () => {
+  interceptor.apply()
+  const release = Promise.withResolvers<void>()
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(
+        new ReadableStream({
+          async start(stream) {
+            stream.enqueue(new TextEncoder().encode('hel'))
+            await release.promise
+            stream.enqueue(new TextEncoder().encode('lo'))
+            stream.close()
+          },
+        })
+      )
+    )
+  })
+
+  const agent = new Agent()
+  onTestFinished(() => agent.close())
+
+  const response = await fetch('http://localhost/resource', {
+    dispatcher: agent,
+  })
+  const textPromise = response.text()
+  await expect
+    .poll(() => getConnectionStats(agent, 'http://localhost')?.running, {
+      message: 'the response is being streamed',
+    })
+    .toBe(1)
+
+  interceptor.dispose()
+  release.resolve()
+
+  await expect(textPromise).resolves.toBe('hello')
+  await expect
+    .poll(() => getConnectionStats(agent, 'http://localhost')?.connected ?? 0, {
+      message: 'the mocked connection is closed once the response settles',
+    })
+    .toBe(0)
 })

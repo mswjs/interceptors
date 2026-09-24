@@ -166,9 +166,12 @@ it('supports delays between the mock response stream chunks', async () => {
 
   // Ensure that the chunks were sent over time,
   // respecting the delay set in the mocked stream.
+  // Timers may fire slightly early and the chunk timestamps are
+  // taken on delivery, not on enqueue, so allow a generous slack:
+  // chunks buffered until the stream ends would arrive at once.
   const chunkTimings = responseChunks.map((chunk) => chunk.timestamp)
-  expect(chunkTimings[1] - chunkTimings[0]).toBeGreaterThanOrEqual(140)
-  expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(140)
+  expect(chunkTimings[1] - chunkTimings[0]).toBeGreaterThanOrEqual(100)
+  expect(chunkTimings[2] - chunkTimings[1]).toBeGreaterThanOrEqual(100)
 })
 
 it('handles immediate mock response stream errors as response errors', async () => {

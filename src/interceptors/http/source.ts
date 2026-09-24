@@ -61,6 +61,22 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     const controller = new AbortController()
     this.subscriptions.push(() => controller.abort())
 
+    /**
+     * @note The client keeps idle sockets in its keep-alive pool
+     * (e.g. Undici) and writes its next requests to them. Once this
+     * source is disposed, nothing handles those requests: destroy the
+     * idle sockets and let the client connect anew. A request in
+     * flight finishes first. Passed-through sockets are exchanging
+     * with the real server and keep doing so: leave them intact.
+     */
+    const idleSocketDisposals = new Set<() => void>()
+    this.subscriptions.push(() => {
+      for (const destroyIdleSocket of idleSocketDisposals) {
+        destroyIdleSocket()
+      }
+      idleSocketDisposals.clear()
+    })
+
     socketInterceptor.on(
       'connection',
       ({ connectionOptions, socket, controller: socketController }) => {
@@ -71,24 +87,26 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let pendingRequestController: RequestController | undefined
 
         /**
-         * @note The client keeps idle sockets in its keep-alive pool
-         * (e.g. Undici) and writes its next requests to them. Once this
-         * source is disposed, nothing handles those requests: destroy the
-         * idle sockets and let the client connect anew. A request in
-         * flight finishes first. Passed-through sockets are exchanging
-         * with the real server and keep doing so: leave them intact.
+         * @note An exchange is in flight from the first byte the client
+         * writes (e.g. request headers spanning multiple packets, parsed
+         * only partially so far) until its mocked response is delivered.
+         * The request handling alone settles once the listener returns
+         * its verdict, while the response may still be written to the
+         * socket (e.g. a streaming body).
          */
+        let hasActiveExchange = false
+
         const destroyIdleSocket = () => {
           if (
-            pendingRequestController == null &&
+            !hasActiveExchange &&
             socketController.readyState !== SocketController.PASSTHROUGH
           ) {
             socket.destroy()
           }
         }
-        controller.signal.addEventListener('abort', destroyIdleSocket)
+        idleSocketDisposals.add(destroyIdleSocket)
         socket.once('close', () => {
-          controller.signal.removeEventListener('abort', destroyIdleSocket)
+          idleSocketDisposals.delete(destroyIdleSocket)
         })
 
         const shouldPassthrough = () => {
@@ -169,6 +187,8 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
          * including when entering a mocked "CONNECT" tunnel.
          */
         const onRequestData = (chunk: Buffer) => {
+          hasActiveExchange = true
+
           if (isHttpConnection === false) {
             passthroughNonHttp()
             return
@@ -315,11 +335,16 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                     }
 
                     const respond = async () => {
-                      await this.respondWith({
-                        socket: socketController[kRawSocket],
-                        request: context.request,
-                        response,
-                      })
+                      try {
+                        await this.respondWith({
+                          socket: socketController[kRawSocket],
+                          request: context.request,
+                          response,
+                          connectionRequestContext,
+                        })
+                      } finally {
+                        hasActiveExchange = false
+                      }
 
                       /**
                        * @note This source got disposed while the request
@@ -589,8 +614,9 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     socket: net.Socket
     request: Request
     response: Response
+    connectionRequestContext: ReturnType<typeof requestContext.getStore>
   }): Promise<void> {
-    const { socket, request, response } = args
+    const { socket, request, response, connectionRequestContext } = args
 
     if (socket.destroyed) {
       return
@@ -715,7 +741,25 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
        * mocked socket completes its lifecycle (otherwise consumers waiting
        * on `'close'`, like `http.ClientRequest`, hang).
        */
-      process.nextTick(() => this.emit('close', error != null))
+      const emitClose = () => this.emit('close', error != null)
+
+      /**
+       * @note Emit "close" within the request context the socket was
+       * created in, as the "close" of a real socket is. A client keeping
+       * this socket in its pool (e.g. Undici) may reconnect from its
+       * "close" listener for a request dispatched in the meantime; that
+       * connection then captures this context and the request stays
+       * attributed to its initiator (e.g. `fetch`) instead of being
+       * left to nobody. Node.js 24+ scopes callbacks to the context
+       * current when they were scheduled, which is not that context.
+       */
+      process.nextTick(() => {
+        if (connectionRequestContext) {
+          requestContext.run(connectionRequestContext, emitClose)
+        } else {
+          emitClose()
+        }
+      })
     }
 
     if (response.body) {
