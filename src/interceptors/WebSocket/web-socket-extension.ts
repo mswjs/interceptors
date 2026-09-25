@@ -1,6 +1,6 @@
 import type { WebSocketData } from './web-socket-transport'
-import type { WebSocketClientConnection } from './web-socket-client-connection'
-import type { WebSocketServerConnection } from './web-socket-server-connection'
+import type { WebSocketClientHandle } from './web-socket-client-connection'
+import type { WebSocketServerHandle } from './web-socket-server-connection'
 import type { WebSocketConnectionInfo } from '../../events/websocket'
 
 export const kExtensionContext = Symbol('kExtensionContext')
@@ -35,16 +35,14 @@ export type WebSocketExtensionApi<Extension> =
  * messages remain unambiguous.
  */
 export type WebSocketExtensionResult<Value> =
-  | Value
-  | Iterator<Value, Value | void>
-  | undefined
+  Value | Iterator<Value, Value | void> | undefined
 
 /**
  * The intercepted connection an extension operates on.
  */
 export interface WebSocketExtensionContext<Message = WebSocketData> {
-  client: WebSocketClientConnection<Message>
-  server: WebSocketServerConnection<Message>
+  client: WebSocketClientHandle<Message>
+  server: WebSocketServerHandle<Message>
   info: WebSocketConnectionInfo
 }
 
@@ -56,9 +54,7 @@ export interface WebSocketExtensionMessageContext<
    * the `client` for data crossing the client connection,
    * the `server` for data crossing the original server connection.
    */
-  connection:
-    | WebSocketClientConnection<Message>
-    | WebSocketServerConnection<Message>
+  connection: WebSocketClientHandle<Message> | WebSocketServerHandle<Message>
 }
 
 /**
@@ -158,15 +154,10 @@ export abstract class WebSocketExtension<
    * Apply this extension to the given connection.
    * From then on, both the client and the server of that connection
    * encode the data they send and decode the data they receive.
-   *
-   * @note Typed against the connection classes, not the handles:
-   * a connection is assignable across `Message` types only when
-   * compared as the same class, which is what lets an extension narrow
-   * the raw `WebSocketData` connections it is applied to.
    */
   public apply(connection: {
-    client: WebSocketClientConnection<Message>
-    server: WebSocketServerConnection<Message>
+    client: WebSocketClientHandle<Message>
+    server: WebSocketServerHandle<Message>
   }): void {
     connection.client.extension = this
     connection.server.extension = this
