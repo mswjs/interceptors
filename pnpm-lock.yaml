@@ -27,8 +27,8 @@ importers:
         specifier: ^1.4.3
         version: 1.4.3
       rettime:
-        specifier: ^0.11.11
-        version: 0.11.11
+        specifier: ^0.11.12
+        version: 0.11.12
     devDependencies:
       '@commitlint/cli':
         specifier: ^21.2.1
@@ -2616,8 +2616,8 @@ packages:
     resolution: {integrity: sha512-l+sSefzHpj5qimhFSE5a8nufZYAM3sBSVMAPtYkmC+4EH2anSGaEMXSD0izRQbu9nfyQ9y5JrVmp7E8oZrUjvA==}
     engines: {node: '>=8'}
 
-  rettime@0.11.11:
-    resolution: {integrity: sha512-ILJRqVWBCTlg9r42fFgwVZx1gnFAcQF8mRoMkbgQfIrjEDf9nbBFDFx00oloOa+Q869FUtaYDXZvEfnecQSCoQ==}
+  rettime@0.11.12:
+    resolution: {integrity: sha512-5ExtR1ppiDBQkVoPw5NAqdbfH4Iq2VOmQKHMtUoaFxA9bo2krzFYBtyq6K40xxbYp+2w/YOr6D+1ToF6tTN53A==}
 
   rfdc@1.4.1:
     resolution: {integrity: sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA==}
@@ -5597,7 +5597,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  rettime@0.11.11: {}
+  rettime@0.11.12: {}
 
   rfdc@1.4.1: {}
 

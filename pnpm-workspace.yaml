@@ -1,5 +1,7 @@
 allowBuilds:
   esbuild: true
   simple-git-hooks: true
+minimumReleaseAgeExclude:
+  - rettime@0.11.12
 overrides:
   '@types/express': ^5.0.6
