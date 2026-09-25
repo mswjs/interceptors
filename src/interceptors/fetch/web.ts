@@ -59,16 +59,21 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 logger.verbose('performing request as-is')
 
                 /**
-                 * @note Clone the request instance right before performing it.
-                 * This preserves any modifications made to the intercepted request
-                 * in the "request" listener. This also allows the user to read the
-                 * request body in the "response" listener (otherwise "unusable").
+                 * @note Perform a clone of the request instance, not the instance itself.
+                 * Performing a request consumes its body, and the "response" listener
+                 * must still be able to read it. The clone is created right before
+                 * the request is performed, so it preserves any modifications made
+                 * to the intercepted request in the "request" listener.
+                 *
+                 * This also keeps the request instance emitted on the "response" event
+                 * referentially equal to the one emitted on the "request" event
+                 * so the consumer can associate the two by identity.
                  */
-                const requestCloneForResponseEvent = request.clone()
+                const requestClone = request.clone()
 
                 // Perform the intercepted request as-is.
                 const [responseError, originalResponse] = await until(() =>
-                  realFetch(request)
+                  realFetch(requestClone)
                 )
 
                 if (responseError) {
@@ -83,8 +88,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                   const [response, responseClone] = cloneResponse(originalResponse)
                   await this.emitter.emitAsPromise(
                     new HttpResponseEvent({
-                      initiator: requestCloneForResponseEvent,
-                      request: requestCloneForResponseEvent,
+                      initiator: request,
+                      request,
                       requestId,
                       response: responseClone,
                       responseType: 'original',
