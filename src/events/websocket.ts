@@ -1,7 +1,9 @@
 import { TypedEvent } from 'rettime'
 import type {
   WebSocketData,
+  WebSocketClientHandle,
   WebSocketClientConnection,
+  WebSocketServerHandle,
   WebSocketServerConnection,
 } from '../interceptors/WebSocket'
 
@@ -15,30 +17,50 @@ export interface WebSocketConnectionInfo {
   protocols: string | Array<string> | undefined
 }
 
+/**
+ * An intercepted WebSocket connection: the client and the server handles.
+ *
+ * @note Typed against the handles, not the connection classes,
+ * so that a connection living anywhere (in this process, in another
+ * runtime, or in a custom implementation) can be given to whoever
+ * consumes intercepted connections (e.g. a handler).
+ */
 export interface WebSocketConnectionEventData<Message = WebSocketData> {
   /**
    * The incoming WebSocket client connection.
    */
-  client: WebSocketClientConnection<Message>
+  client: WebSocketClientHandle<Message>
   /**
    * The original WebSocket server connection.
    */
-  server: WebSocketServerConnection<Message>
+  server: WebSocketServerHandle<Message>
   info: WebSocketConnectionInfo
 }
 
-export class WebSocketConnectionEvent<
+/**
+ * The connection intercepted by the `WebSocketInterceptor`:
+ * both the client and the server live in this process.
+ */
+export interface WebSocketInterceptedConnection<
   Message = WebSocketData,
-> extends TypedEvent<
-  WebSocketConnectionEventData<Message>,
-  void,
-  'connection'
-> {
+> extends WebSocketConnectionEventData<Message> {
+  client: WebSocketClientConnection<Message>
+  server: WebSocketServerConnection<Message>
+}
+
+export class WebSocketConnectionEvent<Message = WebSocketData>
+  extends TypedEvent<
+    WebSocketInterceptedConnection<Message>,
+    void,
+    'connection'
+  >
+  implements WebSocketInterceptedConnection<Message>
+{
   public client: WebSocketClientConnection<Message>
   public server: WebSocketServerConnection<Message>
   public info: WebSocketConnectionInfo
 
-  constructor(data: WebSocketConnectionEventData<Message>) {
+  constructor(data: WebSocketInterceptedConnection<Message>) {
     super('connection', { data })
 
     this.client = data.client

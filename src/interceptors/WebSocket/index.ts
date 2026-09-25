@@ -4,6 +4,7 @@ import {
   type WebSocketEventMap,
   type WebSocketConnectionInfo,
   type WebSocketConnectionEventData,
+  type WebSocketInterceptedConnection,
 } from '../../events/websocket'
 import {
   WebSocketClientHandle,
@@ -27,7 +28,6 @@ import {
   kExtensionContext,
   iterateWebSocketExtensionResult,
   WebSocketExtension,
-  type WebSocketExtensionContext,
   type WebSocketExtensionMessage,
   type WebSocketExtensionApi,
 } from './web-socket-extension'
@@ -45,6 +45,7 @@ export {
   WebSocketConnectionEvent,
   WebSocketConnectionInfo,
   WebSocketConnectionEventData,
+  WebSocketInterceptedConnection,
   WebSocketClientEventMap,
   WebSocketClientHandle,
   WebSocketClientConnection,
@@ -213,7 +214,7 @@ export class WebSocketInterceptor<
             })
 
             const client = new WebSocketClientConnection(socket, transport)
-            const context: WebSocketExtensionContext = {
+            const context: WebSocketInterceptedConnection = {
               client,
               server,
               info: {
