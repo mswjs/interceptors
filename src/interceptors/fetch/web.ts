@@ -5,7 +5,10 @@ import { handleRequest } from '../../utils/handle-request'
 import { createRequestId } from '../../create-request-id'
 import { createNetworkError } from './utils/create-network-error'
 import { followFetchRedirect } from './utils/follow-redirect'
-import { decompressResponse } from './utils/decompression'
+import {
+  decompressResponse,
+  isCompressedResponse,
+} from './utils/decompression'
 import { cloneResponse } from '../../utils/clone-response'
 import { hasConfigurableGlobal } from '../../utils/has-configurable-global'
 import { FetchResponse } from '../../utils/fetch-utils'
@@ -115,19 +118,34 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                   return
                 }
 
-                // Decompress the mocked response body, if applicable.
-                const decompressedStream = decompressResponse(rawResponse)
-                const response = new FetchResponse(
-                  decompressedStream || rawResponse.body,
-                  {
-                    url: request.url,
+                /**
+                 * @note Forward the mocked response instance as-is. Wrapping it
+                 * in a new `Response` drops any runtime-specific state the
+                 * environment attached to it (e.g. the `webSocket` property
+                 * of a "101 Switching Protocols" response in workerd).
+                 * A plain `Response` is already guaranteed to be valid by the
+                 * environment, and a `FetchResponse` manages its own
+                 * non-configurable state (status, URL) across clones.
+                 *
+                 * The only exception is a compressed mocked response body:
+                 * a body cannot be swapped in place, so it must be a new instance.
+                 */
+                let response: Response
+
+                if (isCompressedResponse(rawResponse)) {
+                  response = new FetchResponse(decompressResponse(rawResponse), {
                     status: rawResponse.status,
                     statusText: rawResponse.statusText,
                     headers: rawResponse.headers,
-                  }
-                )
+                  })
+                  copyRawHeaders(rawResponse.headers, response.headers)
+                } else {
+                  response = rawResponse
+                }
 
-                copyRawHeaders(rawResponse.headers, response.headers)
+                // Mocked responses have no URL. Mimic the actual fetch
+                // and set the response URL to the request URL.
+                FetchResponse.setUrl(request.url, response)
 
                 /**
                  * Undici's handling of following redirect responses.

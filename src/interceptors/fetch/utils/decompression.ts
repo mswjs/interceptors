@@ -1,6 +1,7 @@
 // Import from an internal alias that resolves to different modules
 // depending on the environment. This way, we can keep the fetch interceptor
 // intact while using different strategies for Brotli decompression.
+import { invariant } from 'outvariant'
 import { BrotliDecompressionStream } from 'internal:brotli-decompress'
 
 class PipelineStream extends TransformStream {
@@ -31,16 +32,8 @@ export function parseContentEncoding(contentEncoding: string): Array<string> {
 
 function createDecompressionStream(
   contentEncoding: string
-): TransformStream | null {
-  if (contentEncoding === '') {
-    return null
-  }
-
+): TransformStream {
   const codings = parseContentEncoding(contentEncoding)
-
-  if (codings.length === 0) {
-    return null
-  }
 
   const transformers = codings.reduceRight<Array<TransformStream>>(
     (transformers, coding) => {
@@ -62,20 +55,38 @@ function createDecompressionStream(
   return new PipelineStream(transformers)
 }
 
-export function decompressResponse(
+interface CompressedResponse extends Response {
+  body: NonNullable<Response['body']>
+}
+
+/**
+ * Returns a boolean indicating whether the given response
+ * has a body encoded with a non-empty "content-encoding".
+ */
+export function isCompressedResponse(
   response: Response
-): ReadableStream<any> | null {
+): response is CompressedResponse {
   if (response.body === null) {
-    return null
+    return false
   }
 
-  const decompressionStream = createDecompressionStream(
-    response.headers.get('content-encoding') || ''
+  const contentEncoding = response.headers.get('content-encoding')
+
+  return contentEncoding !== null && contentEncoding.trim() !== ''
+}
+
+/**
+ * Decompresses the body of the given compressed response.
+ */
+export function decompressResponse(response: Response): ReadableStream {
+  invariant(
+    isCompressedResponse(response),
+    'Failed to decompress a response: expected a response with a body and a non-empty "content-encoding" header'
   )
 
-  if (!decompressionStream) {
-    return null
-  }
+  // The header is guaranteed to be present by the invariant above.
+  const contentEncoding = response.headers.get('content-encoding')!
+  const decompressionStream = createDecompressionStream(contentEncoding)
 
   // Use `pipeTo` and return the decompression stream's readable
   // instead of `pipeThrough` because that will lock the original

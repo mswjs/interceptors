@@ -256,6 +256,26 @@ export class FetchResponse extends Response {
         configurable: true,
         writable: false,
       })
+
+      /**
+       * @note A redefined `url` is an own property of this instance
+       * and does not carry over to its clones. Forward it manually.
+       * `FetchResponse` already does this in its own `clone()` method.
+       */
+      if (!(response instanceof FetchResponse)) {
+        const originalClone = response.clone
+
+        Object.defineProperty(response, 'clone', {
+          value: function clone(this: Response): Response {
+            const clonedResponse = originalClone.call(this)
+            FetchResponse.setUrl(url, clonedResponse)
+            return clonedResponse
+          },
+          enumerable: false,
+          configurable: true,
+          writable: true,
+        })
+      }
     }
 
     Object.defineProperty(response, kUrl, {
