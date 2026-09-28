@@ -1,6 +1,6 @@
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig, defaultExclude } from 'vitest/config'
-import { browserCommands } from './test/setup/browser-commands'
+import { browserCommands } from './test/setup/browser-commands.ts'
 
 declare module 'vitest' {
   export interface ProvidedContext {

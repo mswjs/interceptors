@@ -10,6 +10,7 @@
     "module": "preserve",
     "moduleResolution": "bundler",
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "types": ["node", "vitest/globals"],
   },
   "include": [
