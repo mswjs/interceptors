@@ -115,7 +115,7 @@ describe('FetchResponse', () => {
   })
 
   it('preserves a custom response URL after cloning Response', () => {
-    const response = new FetchResponse('hello world')
+    const response = new Response('hello world')
     FetchResponse.setUrl('https://example.com/', response)
 
     expect(response.clone().url).toBe('https://example.com/')
