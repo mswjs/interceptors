@@ -154,10 +154,15 @@ export abstract class WebSocketExtension<
    * Apply this extension to the given connection.
    * From then on, both the client and the server of that connection
    * encode the data they send and decode the data they receive.
+   *
+   * @note Accepts a connection carrying any messages: applying an
+   * extension is what makes a connection carry this extension's
+   * messages, so it must not demand them upfront (e.g. a raw
+   * connection from the `connection` event).
    */
   public apply(connection: {
-    client: WebSocketClientHandle<Message>
-    server: WebSocketServerHandle<Message>
+    client: WebSocketClientHandle<unknown>
+    server: WebSocketServerHandle<unknown>
   }): void {
     connection.client.extension = this
     connection.server.extension = this

@@ -152,7 +152,7 @@ it('follows a mocked redirect response (xhr)', async () => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {
       return controller.respondWith(
-        Response.redirect('http://localhost:3000/redirected', 307)
+        Response.redirect('http://localhost/redirected', 307)
       )
     }
 
@@ -161,7 +161,7 @@ it('follows a mocked redirect response (xhr)', async () => {
     }
   })
 
-  const response = await axios.get('http://localhost:3000/original', {
+  const response = await axios.get('http://localhost/original', {
     adapter: 'xhr',
   })
 
