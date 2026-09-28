@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { brotliCompressSync } from 'node:zlib'
+import { setTimeout } from 'node:timers/promises'
 import { decompressResponse, isCompressedResponse } from './decompression'
+import { BrotliDecompressionStream } from './brotli-decompress'
 
 describe('isCompressedResponse', () => {
   it('returns false for a response without a body', () => {
@@ -103,3 +105,23 @@ describe('decompressResponse', () => {
     ).rejects.toThrow()
   })
 })
+
+describe('BrotliDecompressionStream', () => {
+  it('drops pending output once the readable side is cancelled', async () => {
+    const compressedBody = brotliCompressSync(Buffer.alloc(200_000, 'a'))
+    const stream = new BrotliDecompressionStream()
+    const writer = stream.writable.getWriter()
+    const reader = stream.readable.getReader()
+
+    writer.write(new Uint8Array(compressedBody)).catch(() => {})
+    // Read the first decompressed chunk while zlib still has output pending.
+    await expect(reader.read()).resolves.toHaveProperty('done', false)
+
+    await reader.cancel('consumer cancelled')
+
+    // Pending zlib output must not be enqueued into the cancelled stream.
+    // That would throw an uncaught "Invalid state" error, failing this test.
+    await setTimeout(50)
+  })
+})
+

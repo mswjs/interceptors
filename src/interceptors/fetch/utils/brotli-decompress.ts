@@ -1,4 +1,5 @@
 import zlib from 'node:zlib'
+import type { Transformer } from 'node:stream/web'
 
 export class BrotliDecompressionStream extends TransformStream<
   Uint8Array,
@@ -10,7 +11,11 @@ export class BrotliDecompressionStream extends TransformStream<
       finishFlush: zlib.constants.BROTLI_OPERATION_FLUSH,
     })
 
-    super({
+    /**
+     * @note Typed via Node.js as the DOM `Transformer` type
+     * does not declare the `cancel` callback yet.
+     */
+    const transformer: Transformer<Uint8Array, Uint8Array> = {
       start(controller) {
         /**
          * @note Forward every decompressed chunk to the stream.
@@ -19,6 +24,11 @@ export class BrotliDecompressionStream extends TransformStream<
          * @see https://github.com/mswjs/interceptors/issues/798
          */
         decompress.on('data', (chunk: Buffer) => {
+          // Ignore any in-flight output once the consumer cancelled the stream.
+          if (decompress.destroyed) {
+            return
+          }
+
           controller.enqueue(new Uint8Array(chunk))
         })
         decompress.once('error', (error) => {
@@ -47,6 +57,16 @@ export class BrotliDecompressionStream extends TransformStream<
 
         return flushPromise.promise
       },
-    })
+      cancel() {
+        /**
+         * @note Release the zlib handle once the consumer cancels
+         * the readable side. Nothing can be enqueued into a cancelled
+         * stream, so any pending decompression output must be dropped.
+         */
+        decompress.destroy()
+      },
+    }
+
+    super(transformer)
   }
 }
