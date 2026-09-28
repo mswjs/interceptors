@@ -74,7 +74,7 @@
   "repository": {
     "url": "https://github.com/mswjs/interceptors"
   },
-  "packageManager": "pnpm@11.5.2",
+  "packageManager": "pnpm@11.27.1",
   "engines": {
     "node": ">=22"
   },
