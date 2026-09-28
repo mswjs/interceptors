@@ -78,16 +78,14 @@ export function isCompressedResponse(
 /**
  * Decompresses the body of the given compressed response.
  */
-export function decompressResponse(
-  response: CompressedResponse
-): ReadableStream {
-  const contentEncoding = response.headers.get('content-encoding')
-
+export function decompressResponse(response: Response): ReadableStream {
   invariant(
-    contentEncoding,
-    'Failed to decompress a response: expected a non-empty "content-encoding" header'
+    isCompressedResponse(response),
+    'Failed to decompress a response: expected a response with a body and a non-empty "content-encoding" header'
   )
 
+  // The header is guaranteed to be present by the invariant above.
+  const contentEncoding = response.headers.get('content-encoding')!
   const decompressionStream = createDecompressionStream(contentEncoding)
 
   // Use `pipeTo` and return the decompression stream's readable
