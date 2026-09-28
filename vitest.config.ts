@@ -28,6 +28,18 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
+          environmentOptions: {
+            /**
+             * @note Match the origin of the URLs used across the tests
+             * so that "happy-dom" treats them as same-origin. Since 20.11.4,
+             * it compares origins (including the port), and the default
+             * "http://localhost:3000" makes "http://localhost" requests
+             * fail the CORS preflight.
+             */
+            happyDOM: {
+              url: 'http://localhost',
+            },
+          },
           globalSetup: './vitest.setup.ts',
           include: ['test/**/*.test.ts'],
           exclude: [

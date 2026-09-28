@@ -1,6 +1,6 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 /**
- * @note The "jsdom" environment provides the `location` global required
+ * @note The "happy-dom" environment provides the `location` global required
  * to resolve relative request URLs in Node.js. In the browser, this
  * pragma has no effect and the actual page location is used instead.
  */

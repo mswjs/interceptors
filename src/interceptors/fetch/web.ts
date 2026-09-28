@@ -18,7 +18,7 @@ import { createLogger } from '../../utils/logger'
 const logger = createLogger('fetch')
 
 /**
- * Interceptor for `fetch` requests in the browser.
+ * Intercept `fetch` requests in the browser.
  */
 export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
   static symbol = Symbol.for('fetch-interceptor')
@@ -85,7 +85,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 if (this.emitter.listenerCount('response') > 0) {
                   logger.verbose('emitting the "response" event')
 
-                  const [response, responseClone] = cloneResponse(originalResponse)
+                  const [response, responseClone] =
+                    cloneResponse(originalResponse)
                   await this.emitter.emitAsPromise(
                     new HttpResponseEvent({
                       initiator: request,
@@ -160,7 +161,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 if (this.emitter.listenerCount('response') > 0) {
                   logger.verbose('emitting the "response" event')
 
-                  const [callerResponse, responseClone] = cloneResponse(response)
+                  const [callerResponse, responseClone] =
+                    cloneResponse(response)
 
                   // Await the response listeners to finish before resolving
                   // the response promise. This ensures all your logic finishes
