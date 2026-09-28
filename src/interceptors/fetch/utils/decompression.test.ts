@@ -123,5 +123,24 @@ describe('BrotliDecompressionStream', () => {
     // That would throw an uncaught "Invalid state" error, failing this test.
     await setTimeout(50)
   })
+
+  it('settles a cancellation that happens during flush', async () => {
+    const compressedBody = brotliCompressSync(Buffer.alloc(200_000, 'a'))
+    const stream = new BrotliDecompressionStream()
+    const writer = stream.writable.getWriter()
+    const reader = stream.readable.getReader()
+
+    writer.write(new Uint8Array(compressedBody)).catch(() => {})
+    await expect(reader.read()).resolves.toHaveProperty('done', false)
+    // Closing the writable side starts the flush.
+    const closePromise = writer.close()
+
+    // Cancelling during flush does not invoke the "cancel" callback.
+    // The stream must still settle and must not enqueue pending output.
+    await expect(reader.cancel('consumer cancelled')).resolves.toBeUndefined()
+    // Per the Streams spec, the writable side errors with the cancel reason.
+    await expect(closePromise).rejects.toBe('consumer cancelled')
+    await setTimeout(50)
+  })
 })
 

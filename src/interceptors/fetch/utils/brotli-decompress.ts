@@ -29,7 +29,16 @@ export class BrotliDecompressionStream extends TransformStream<
             return
           }
 
-          controller.enqueue(new Uint8Array(chunk))
+          try {
+            controller.enqueue(new Uint8Array(chunk))
+          } catch {
+            /**
+             * @note The readable side has been cancelled. If that happens
+             * after `flush()` has started, the `cancel()` callback is never
+             * invoked (per the Streams spec), so stop decompression here.
+             */
+            decompress.destroy()
+          }
         })
         decompress.once('error', (error) => {
           controller.error(error)
@@ -52,6 +61,8 @@ export class BrotliDecompressionStream extends TransformStream<
         const flushPromise = Promise.withResolvers<void>()
 
         decompress.once('end', flushPromise.resolve)
+        // Settle the flush if decompression is stopped by a cancellation.
+        decompress.once('close', flushPromise.resolve)
         decompress.once('error', flushPromise.reject)
         decompress.end()
 
