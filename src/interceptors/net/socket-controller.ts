@@ -1499,6 +1499,7 @@ export class TlsSocketController extends TcpSocketController {
    * construction, before its transport ever connects.
    */
   #tlsConnectionOptions?: TlsConnectionOptions
+  #secureConnectEmulated = false
 
   constructor(
     protected readonly socket: tls.TLSSocket,
@@ -1547,6 +1548,7 @@ export class TlsSocketController extends TcpSocketController {
     }
 
     super.emulateConnect()
+    this.#secureConnectEmulated = true
 
     // For TLS sockets, also invoke the "secureConnect" callbacks since some consumers,
     // like Undici, listen to those to start writing to the socket.
@@ -1559,10 +1561,13 @@ export class TlsSocketController extends TcpSocketController {
     /**
      * @note A TLS socket over a connected transport is connected from
      * the start: its client awaits the "secureConnect" notification
-     * alone (e.g. Undici).
+     * alone (e.g. Undici). Unlike "connecting", "secureConnecting"
+     * survives the emulation (only a completed handshake flips it),
+     * so the emulation must not be repeated.
      */
     if (!this.socket.connecting) {
       return (
+        !this.#secureConnectEmulated &&
         this.socket.secureConnecting &&
         this.socket.listenerCount('secureConnect') > 0
       )
