@@ -90,9 +90,17 @@ delivery while allowing the parser to receive real data; pausing only public
 
 - Keep-alive supports mock -> real and real -> mock on the same socket. No stale
   request IDs, state, listeners, or bytes may cross exchanges.
-- A successful mocked CONNECT establishes a tunnel. Subsequent bytes target its
-  authority, not the never-contacted proxy. Detect the tunneled protocol anew;
-  support HTTP and non-HTTP traffic and client half-close. Refused tunnels close.
+- A successful CONNECT establishes a tunnel, whether mocked or answered by a real
+  proxy. A tunnel is transport: subsequent bytes target its authority and every
+  exchange inside it is handled anew. An unclaimed exchange relays over the proxy
+  connection of a real tunnel, or dials the target directly for a mocked one
+  (its proxy was never contacted). Detect the tunneled protocol anew; support
+  HTTP, TLS (`tls.connect({ socket })` over the tunnel socket), non-HTTP traffic
+  and client half-close. Refused tunnels close.
+- `tls.connect({ socket })` never calls `connect()` on its TLS socket. Intercept
+  it at construction: give its TLS layer a fresh handle (never the transport's),
+  skip its native handshake start, and derive its passthrough connection from the
+  transport's controller (`createTransport()`).
 - Upgrade ends HTTP parsing. Free llhttp after `execute()` returns, outside its
   native callbacks. Do not feed upgraded protocol bytes back into HTTP parsing.
 - Non-HTTP traffic and malformed HTTP must preserve native passthrough behavior.
@@ -117,7 +125,7 @@ Paths below are relative to `test/` unless prefixed with `src/`.
 | Mirrored directions, pending writes | `modules/net/socket-server-{data,write,end,destroy}.test.ts`; `modules/net/compliance/socket-{write,backpressure,half-open}.test.ts`; `modules/http/compliance/http-req-write.test.ts` |
 | TLS write ordering | `modules/net/regressions/tls-passthrough-buffered-writes.test.ts` and its subprocess fixture |
 | Per-exchange state and isolation | `modules/http/third-party/undici.test.ts`; `modules/http/compliance/http-keep-alive-passthrough-then-mocked.test.ts`; `modules/http/regressions/http-keep-alive-*.test.ts` |
-| Parsing/tunnels/upgrades | `modules/http/regressions/http-parser-error.test.ts`, `http-non-http-socket-passthrough.test.ts`; `modules/http/intercept/http-connect.test.ts`; `modules/http/compliance/http-upgrade-request.test.ts` |
+| Parsing/tunnels/upgrades | `modules/http/regressions/http-parser-error.test.ts`, `http-non-http-socket-passthrough.test.ts`; `modules/http/intercept/http-connect.test.ts`; `modules/http/compliance/http-connect-tunnel.test.ts`, `http-upgrade-request.test.ts`; `modules/net/compliance/tls-provided-socket.test.ts` |
 | Response completion and failures | `modules/http/response/http-await-response-event.test.ts`, `http-response-readable-stream.test.ts`; `modules/fetch/response/fetch-await-response-event.neutral.test.ts`; `modules/fetch/compliance/fetch-response-cancel.neutral.test.ts` |
 | Attribution and composition | `features/request-{initiator,context-leak}.test.ts`; `modules/http/regressions/http-request-initiator-async-context.test.ts`; `src/batch-interceptor.test.ts`; `src/interceptors/http/forward-events.test.ts` |
 | WebSocket recursion/exemption | `modules/WebSocket/compliance/websocket-passthrough-upgrade.test.ts` |

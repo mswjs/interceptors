@@ -51,6 +51,10 @@ declare module 'node:net' {
 
 declare module 'node:tls' {
   interface TLSSocket {
+    /**
+     * Whether the handshake of this socket is still pending.
+     */
+    secureConnecting: boolean
     _handle: TcpHandle & {
       start: () => void
       onhandshakedone: () => void
@@ -425,8 +429,7 @@ export class TcpSocketController extends SocketController {
   #removePassthroughSocketListeners?: () => void
 
   #connectionOptions?: NetworkConnectionOptions
-  #retargetedConnectionOptions?: NetworkConnectionOptions &
-    net.SocketConnectOpts
+  #retargetedConnectionOptions?: NetworkConnectionOptions
   #realWriteGeneric: net.Socket['_writeGeneric']
   #passthroughSocket: net.Socket | null = null
   #bufferedWrites: Array<Parameters<net.Socket['_writeGeneric']>> = []
@@ -545,44 +548,8 @@ export class TcpSocketController extends SocketController {
    * on this socket can be handled anew. This is meant for kept-alive
    * sockets that are reused for multiple exchanges by clients that
    * don't emit the "free" event on the socket (e.g. Undici).
-   *
-   * Providing connection options retargets this connection: the
-   * exchanges that follow belong to the given target (e.g. the
-   * authority of an established "CONNECT" tunnel). An unclaimed
-   * exchange then passes through to that target instead of the
-   * originally dialed one, and a claimed exchange reports it as the
-   * peer.
    */
-  public reset(
-    connectionOptions?: NetworkConnectionOptions & net.SocketConnectOpts
-  ): void {
-    if (connectionOptions != null) {
-      this.#retargetedConnectionOptions = connectionOptions
-      this.#connectionOptions = connectionOptions
-
-      /**
-       * @note The passthrough connection to the original target, if
-       * any, cannot serve the retargeted exchanges. Detach its
-       * forwarding listeners before destroying it so its teardown is
-       * not mistaken for the client connection's own (e.g. its "close"
-       * must not close the client socket).
-       */
-      if (this.#passthroughSocket) {
-        this.#removePassthroughSocketListeners?.()
-        this.#passthroughSocket.destroy()
-
-        this.#passthroughSocket = null
-
-        /**
-         * @note The handle swapped in from the destroyed connection,
-         * if any, no longer carries this socket's traffic. Treat the
-         * socket as not swapped so the retargeted passthrough writes
-         * directly to the new connection until its own handle swap.
-         */
-        this.#realHandleSwapped = false
-      }
-    }
-
+  public reset(): void {
     /**
      * @note Only settled (claimed or passed-through) sockets need a reset.
      * Resetting a pending socket again would discard the writes already
@@ -594,6 +561,76 @@ export class TcpSocketController extends SocketController {
     }
 
     this.#reset()
+  }
+
+  /**
+   * Retarget this connection: the exchanges that follow belong to the
+   * given target (e.g. the authority of an established "CONNECT"
+   * tunnel) and are handled anew. An unclaimed exchange then passes
+   * through to that target instead of the originally dialed one, and
+   * a claimed exchange reports it as the peer.
+   */
+  public retarget(connectionOptions: NetworkConnectionOptions): void {
+    this.#retargetedConnectionOptions = connectionOptions
+    this.#connectionOptions = connectionOptions
+
+    /**
+     * @note A passed-through exchange established the tunnel for real:
+     * its connection carries the retargeted exchanges from now on.
+     * Otherwise, the passthrough connection, if any, served a previous
+     * exchange with the original target and cannot serve the retargeted
+     * ones. Detach its forwarding listeners before destroying it so its
+     * teardown is not mistaken for the client connection's own (e.g.
+     * its "close" must not close the client socket).
+     */
+    if (
+      this.readyState !== SocketController.PASSTHROUGH &&
+      this.#passthroughSocket
+    ) {
+      this.#removePassthroughSocketListeners?.()
+      this.#passthroughSocket.destroy()
+
+      this.#passthroughSocket = null
+
+      /**
+       * @note The handle swapped in from the destroyed connection,
+       * if any, no longer carries this socket's traffic. Treat the
+       * socket as not swapped so the retargeted passthrough writes
+       * directly to the new connection until its own handle swap.
+       */
+      this.#realHandleSwapped = false
+    }
+
+    this.reset()
+  }
+
+  /**
+   * The options of the connection this socket currently represents
+   * (the retargeted ones once retargeted, see `retarget()`).
+   */
+  public get connectionOptions(): NetworkConnectionOptions | undefined {
+    return this.#connectionOptions
+  }
+
+  /**
+   * Create the transport for a protocol layered over this socket
+   * (e.g. "tls.connect({ socket })"). A connection passed through to
+   * its target carries the layered protocol as-is (e.g. a tunnel
+   * established by a real proxy). Otherwise, the target is dialed
+   * directly: no real connection to it exists (e.g. a tunnel this
+   * interceptor established).
+   */
+  public createTransport(): net.Socket {
+    if (this.#passthroughSocket && !this.#passthroughSocket.destroyed) {
+      return this.#passthroughSocket
+    }
+
+    invariant(
+      this.#connectionOptions,
+      'Failed to create a transport for a layered protocol: the socket has no connection options'
+    )
+
+    return this.#createDirectConnection(this.#connectionOptions)
   }
 
   /**
@@ -630,24 +667,7 @@ export class TcpSocketController extends SocketController {
         logger.verbose('connection request resolved!', this.readyState)
 
         process.nextTick(() => {
-          /**
-           * @note If by this point the socket hasn't been handled,
-           * is still connecting, doesn't have any writes buffered,
-           * and has a "connect" listener, assume it's the "write after connect"
-           * scenario (e.g. undici). In that case, auto-claim the socket to
-           * transition to the connected state appropriately to its handle.
-           */
-          if (
-            this.readyState === SocketController.PENDING &&
-            this.socket.connecting &&
-            this.#bufferedWrites.length === 0 &&
-            this.socket.listenerCount('connect') > 0
-          ) {
-            logger.verbose(
-              'assume connect->write socket, calling "connect" listeners...'
-            )
-            this.emulateConnect()
-          }
+          this.emulateConnectIfIdle()
         })
       })
 
@@ -823,8 +843,40 @@ export class TcpSocketController extends SocketController {
     return true
   }
 
+  /**
+   * Emulate the connection notification if the socket is still
+   * pending after its connection request, has no writes buffered,
+   * and its client appears to wait for that notification.
+   */
+  protected emulateConnectIfIdle(): void {
+    if (
+      this.readyState === SocketController.PENDING &&
+      this.#bufferedWrites.length === 0 &&
+      this.isAwaitingConnect()
+    ) {
+      logger.verbose(
+        'assume connect->write socket, calling "connect" listeners...'
+      )
+      this.emulateConnect()
+    }
+  }
+
+  /**
+   * Whether the client appears to wait for the connection
+   * notification before writing (e.g. Undici).
+   */
+  protected isAwaitingConnect(): boolean {
+    return this.socket.connecting && this.socket.listenerCount('connect') > 0
+  }
+
   protected emulateConnect() {
-    this.#connectEmulated = true
+    /**
+     * @note An already connected socket (e.g. a TLS socket over a
+     * connected transport) has no connection left to complete: only
+     * a connecting socket must still complete the mock connection
+     * behind the emulated notification (see "claim()").
+     */
+    this.#connectEmulated = this.socket.connecting
 
     /**
      * @note Reflect the connected state before notifying the listeners,
@@ -841,6 +893,21 @@ export class TcpSocketController extends SocketController {
     for (const listener of this.socket.rawListeners('connect')) {
       listener.apply(this.socket)
     }
+  }
+
+  /**
+   * Invoke the callback once this claimed socket is connected: upon
+   * the mocked connection completing, or right away for a socket
+   * that is already connected (e.g. a kept-alive socket reused for
+   * the next exchange, a TLS socket over a connected transport).
+   */
+  protected whenConnected(callback: () => void): void {
+    if (this.socket.connecting || this.#connectEmulated) {
+      this.socket.once('connect', callback)
+      return
+    }
+
+    callback()
   }
 
   /**
@@ -880,13 +947,24 @@ export class TcpSocketController extends SocketController {
       return
     }
 
+    this.#swapRealHandle(this.#passthroughSocket)
+
+    this.socket.emit('connect')
+    this.socket.emit('ready')
+  }
+
+  /**
+   * Take over the handle of the given real (passthrough) connection
+   * so the client socket carries its traffic natively from now on.
+   */
+  #swapRealHandle(realSocket: net.Socket): void {
     const replacedHandle = this.socket._handle
     const wasUnrefed =
       replacedHandle != null &&
       typeof replacedHandle.hasRef === 'function' &&
       !replacedHandle.hasRef()
 
-    this.socket._handle = this.#passthroughSocket._handle
+    this.socket._handle = realSocket._handle
     this.#realHandleSwapped = true
 
     /**
@@ -921,9 +999,6 @@ export class TcpSocketController extends SocketController {
      * connecting (the info of connecting sockets is never cached).
      */
     void this.socket.remoteAddress
-
-    this.socket.emit('connect')
-    this.socket.emit('ready')
   }
 
   #onRealSocketConnectionAttemptFailed = (
@@ -1254,7 +1329,7 @@ export class TcpSocketController extends SocketController {
 
     const createRealSocket = () => {
       const realSocket = this.#retargetedConnectionOptions
-        ? this.#createRetargetedConnection(this.#retargetedConnectionOptions)
+        ? this.#createDirectConnection(this.#retargetedConnectionOptions)
         : this.createConnection()
 
       // Mark the passthrough socket as patched so it's exempt from
@@ -1327,6 +1402,15 @@ export class TcpSocketController extends SocketController {
 
       // The real socket may still emit errors after the client closes.
       realSocket.once('close', this.#removePassthroughSocketListeners)
+
+      /**
+       * @note A real connection over an already connected transport
+       * (e.g. "tls.connect({ socket })") never emits "connect".
+       * Take its handle over right away.
+       */
+      if (!realSocket.connecting) {
+        this.#swapRealHandle(realSocket)
+      }
     }
 
     /**
@@ -1382,13 +1466,12 @@ export class TcpSocketController extends SocketController {
   }
 
   /**
-   * Create the passthrough connection to the target this controller
-   * was retargeted to (see `reset()`). The original `createConnection`
-   * dials the originally requested target and cannot serve retargeted
-   * exchanges.
+   * Dial the given target directly, bypassing the original
+   * `createConnection`, which dials the originally requested target
+   * (e.g. the proxy of a retargeted connection, see `retarget()`).
    */
-  #createRetargetedConnection(
-    connectionOptions: net.SocketConnectOpts
+  #createDirectConnection(
+    connectionOptions: NetworkConnectionOptions
   ): net.Socket {
     const realSocket = new net.Socket()
 
@@ -1399,7 +1482,12 @@ export class TcpSocketController extends SocketController {
      */
     realSocket[kPatched] = true
 
-    return realSocket.connect(connectionOptions)
+    /**
+     * @note The normalized options are looser than the declared
+     * "SocketConnectOpts" (e.g. the port may be a string when a
+     * URL is passed). Node.js validates them at runtime.
+     */
+    return realSocket.connect(connectionOptions as net.SocketConnectOpts)
   }
 }
 
@@ -1420,6 +1508,18 @@ export class TlsSocketController extends TcpSocketController {
     super(socket, createConnection, tlsConnectionOptions)
 
     this.#tlsConnectionOptions = tlsConnectionOptions
+
+    /**
+     * @note A TLS socket over a connected transport (e.g.
+     * "tls.connect({ socket })") requests no connection of its own,
+     * so nothing triggers the idle check (see "emulateConnectIfIdle").
+     * Run it once the client had a chance to write.
+     */
+    if (!socket.connecting) {
+      setImmediate(() => {
+        this.emulateConnectIfIdle()
+      })
+    }
 
     socket.prependListener('secureConnect', () => {
       /**
@@ -1453,6 +1553,22 @@ export class TlsSocketController extends TcpSocketController {
     for (const listener of this.socket.rawListeners('secureConnect')) {
       listener.apply(this.socket)
     }
+  }
+
+  protected isAwaitingConnect(): boolean {
+    /**
+     * @note A TLS socket over a connected transport is connected from
+     * the start: its client awaits the "secureConnect" notification
+     * alone (e.g. Undici).
+     */
+    if (!this.socket.connecting) {
+      return (
+        this.socket.secureConnecting &&
+        this.socket.listenerCount('secureConnect') > 0
+      )
+    }
+
+    return super.isAwaitingConnect()
   }
 
   public claim(): void {
@@ -1558,7 +1674,7 @@ export class TlsSocketController extends TcpSocketController {
       }
     }
 
-    this.socket.once('connect', () => {
+    const emulateHandshake = () => {
       /**
        * @note A TLS 1.3 handshake derives five secrets, each reported
        * via a separate "keylog" event before the handshake completes.
@@ -1591,9 +1707,17 @@ export class TlsSocketController extends TcpSocketController {
        */
       handle.onnewsession(1, Buffer.from('mocked session'))
       handle.onnewsession(2, Buffer.from('mocked session'))
-    })
+    }
 
     super.claim()
+
+    /**
+     * @note A socket reused for the next exchange (e.g. kept-alive)
+     * has completed its handshake already.
+     */
+    if (this.socket.secureConnecting) {
+      this.whenConnected(emulateHandshake)
+    }
   }
 
   public passthrough(

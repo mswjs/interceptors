@@ -11,6 +11,7 @@ import {
   kPatched,
   TcpSocketController,
   TlsSocketController,
+  type TcpHandle,
 } from './socket-controller'
 import { normalizeTlsConnectArgs } from './utils/normalize-tls-connect-args'
 import { getTlsConnectOptions } from './utils/get-tls-connect-options'
@@ -44,6 +45,20 @@ globalThis.__MSW_INTERNAL_CONNECTION_CONTEXT ??= (() => {
     },
   }
 })()
+
+declare module 'node:tls' {
+  interface TLSSocket {
+    /**
+     * @note Wraps the given transport's handle (or a fresh one, if
+     * none is given) into the TLS handle of this socket.
+     */
+    _wrapHandle: (
+      wrap: net.Socket | null,
+      handle: TcpHandle | undefined,
+      wrapHasActiveWriteFromPrevOwner: boolean
+    ) => TcpHandle
+  }
+}
 
 declare module 'node:http' {
   interface Agent {
@@ -138,6 +153,53 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
      * call must reach Node.js as-is instead of being intercepted again.
      */
     let isCreatingPassthroughConnection = false
+
+    /**
+     * @note The controllers of the intercepted sockets, looked up for
+     * the sockets that serve as the transport of a layered protocol
+     * (e.g. "tls.connect({ socket })").
+     */
+    const socketControllers = new WeakMap<net.Socket, TcpSocketController>()
+
+    /**
+     * @note The transports of the TLS sockets layered over intercepted
+     * sockets, keyed by the TLS socket (see the "_wrapHandle" patch).
+     */
+    const layeredTransports = new WeakMap<tls.TLSSocket, TcpSocketController>()
+
+    const interceptConnection = (
+      socket: net.Socket,
+      controller: TcpSocketController,
+      connectionOptions: NetworkConnectionOptions
+    ): void => {
+      socketControllers.set(socket, controller)
+
+      process.nextTick(async () => {
+        if (socket.destroyed) {
+          return
+        }
+
+        if (interceptor.listenerCount('connection') === 0) {
+          controller.passthrough()
+          return
+        }
+
+        try {
+          await interceptor.emitter.emitAsPromise(
+            new SocketConnectionEvent({
+              socket: controller.serverSocket,
+              controller,
+              connectionOptions,
+            })
+          )
+        } catch (error) {
+          socket.destroy(error as Error)
+          return
+        }
+
+        logger.verbose('emitted "connection" event!')
+      })
+    }
 
     this.subscriptions.push(
       /**
@@ -271,31 +333,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
               })
             }
 
-            process.nextTick(async () => {
-              if (socket.destroyed) {
-                return
-              }
-
-              if (interceptor.listenerCount('connection') === 0) {
-                controller.passthrough()
-                return
-              }
-
-              try {
-                await interceptor.emitter.emitAsPromise(
-                  new SocketConnectionEvent({
-                    socket: controller.serverSocket,
-                    controller,
-                    connectionOptions,
-                  })
-                )
-              } catch (error) {
-                socket.destroy(error as Error)
-                return
-              }
-
-              logger.verbose('emitted "connection" event!')
-            })
+            interceptConnection(socket, controller, connectionOptions)
 
             logger.verbose('connecting the socket...')
 
@@ -334,6 +372,103 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
               socket.destroy()
               throw error
             }
+          }
+        }
+      ),
+      /**
+       * @note "tls.connect({ socket })" layers TLS over a caller-provided
+       * transport instead of connecting a transport of its own, so its
+       * TLS socket never reaches the "connect" patch above. Give the TLS
+       * layer of such a socket a fresh handle, like "tls.connect()" does
+       * for the TLS sockets it creates itself, instead of the transport's:
+       * the handshake must not run natively over an intercepted transport
+       * (e.g. a never-connected mocked tunnel).
+       */
+      patchesRegistry.applyPatch(
+        tls.TLSSocket.prototype,
+        '_wrapHandle',
+        (realWrapHandle) => {
+          return function _wrapHandle(
+            this: tls.TLSSocket,
+            wrap,
+            handle,
+            wrapHasActiveWriteFromPrevOwner
+          ) {
+            const transportController = wrap
+              ? socketControllers.get(wrap)
+              : undefined
+
+            if (!transportController || isCreatingPassthroughConnection) {
+              return realWrapHandle.call(
+                this,
+                wrap,
+                handle,
+                wrapHasActiveWriteFromPrevOwner
+              )
+            }
+
+            layeredTransports.set(this, transportController)
+
+            // A fresh handle has no previous owner with writes in flight.
+            return realWrapHandle.call(this, wrap, undefined, false)
+          }
+        }
+      ),
+      /**
+       * @note "tls.connect({ socket })" starts the handshake right after
+       * constructing the TLS socket with its connection options set.
+       * Intercept the connection at that point. The handshake itself
+       * must not start over the fresh handle: a claimed connection
+       * emulates it, a passed-through one performs it on the real
+       * connection whose handle the socket inherits.
+       */
+      patchesRegistry.applyPatch(
+        tls.TLSSocket.prototype,
+        '_start',
+        (realStart) => {
+          return function _start(this: tls.TLSSocket) {
+            const socket = this
+            const transportController = layeredTransports.get(socket)
+
+            if (!transportController) {
+              return realStart.call(socket)
+            }
+
+            if (socketControllers.has(socket)) {
+              return
+            }
+
+            /**
+             * @note The layered connection targets the transport's peer
+             * (e.g. the authority of a "CONNECT" tunnel), unless the TLS
+             * connection options say otherwise.
+             */
+            const [tlsConnectionOptions] = normalizeTlsConnectArgs([
+              {
+                ...transportController.connectionOptions,
+                ...getTlsConnectOptions(socket),
+              } as tls.ConnectionOptions,
+            ])
+            delete tlsConnectionOptions.socket
+
+            const controller = new TlsSocketController(
+              socket,
+              () => {
+                isCreatingPassthroughConnection = true
+
+                try {
+                  return tls.connect({
+                    ...tlsConnectionOptions,
+                    socket: transportController.createTransport(),
+                  })
+                } finally {
+                  isCreatingPassthroughConnection = false
+                }
+              },
+              tlsConnectionOptions
+            )
+
+            interceptConnection(socket, controller, tlsConnectionOptions)
           }
         }
       ),

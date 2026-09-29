@@ -184,7 +184,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
         /**
          * @note Inspect the first sent packet to determine the protocol,
-         * including when entering a mocked "CONNECT" tunnel.
+         * including when entering a "CONNECT" tunnel.
          */
         const onRequestData = (chunk: Buffer) => {
           hasActiveExchange = true
@@ -192,30 +192,6 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
           if (isHttpConnection === false) {
             passthroughNonHttp()
             return
-          }
-
-          /**
-           * @note A mocked "CONNECT" request has established a tunnel.
-           * The data that follows belongs to a new exchange addressed to
-           * the tunnel target. The previous parser was freed at the upgrade
-           * boundary, so detect the tunneled protocol anew.
-           */
-          if (tunnelUrl && !requestParser) {
-            isHttpConnection = undefined
-
-            /**
-             * @note Retarget the connection to the tunnel authority.
-             * The exchanges that follow belong to the tunnel target,
-             * so an unclaimed exchange (HTTP or not) must pass through
-             * to that target — not to the proxy, which never actually
-             * established this tunnel — like a real established tunnel
-             * relays its traffic.
-             */
-            socketController.reset({
-              host: tunnelUrl.hostname,
-              port: Number(tunnelUrl.port) || 80,
-              path: null,
-            })
           }
 
           if (requestParser) {
@@ -323,18 +299,16 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                         ? cloneResponse(originalResponse)
                         : [originalResponse, null]
 
-                    /**
-                     * @note A successful mocked response to a "CONNECT"
-                     * request establishes a tunnel to the requested authority
-                     * (e.g. "127.0.0.1:80"). The exchange that follows on this
-                     * socket is addressed to that authority, not to the proxy.
-                     */
-                    if (request.method === 'CONNECT' && response.ok) {
-                      tunnelUrl = new URL(`http://${request.url}`)
-                      socket.on('data', onRequestData)
-                    }
-
                     const respond = async () => {
+                      /**
+                       * @note A successful mocked response to a "CONNECT"
+                       * request establishes a tunnel to the requested
+                       * authority (e.g. "127.0.0.1:80").
+                       */
+                      if (request.method === 'CONNECT' && response.ok) {
+                        enterTunnel(request.url)
+                      }
+
                       try {
                         await this.respondWith({
                           socket: socketController[kRawSocket],
@@ -398,7 +372,19 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                       return
                     }
 
-                    if (this.emitter.listenerCount('response') > 0) {
+                    const hasResponseListeners =
+                      this.emitter.listenerCount('response') > 0
+
+                    /**
+                     * @note The proxy answers a "CONNECT" request: parse
+                     * its response to tell whether the tunnel got
+                     * established (see "enterTunnel").
+                     */
+                    if (!hasResponseListeners && request.method !== 'CONNECT') {
+                      return
+                    }
+
+                    if (hasResponseListeners) {
                       httpLogger.verbose(
                         'found "response" listener, corking socket reads'
                       )
@@ -411,102 +397,115 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                        * emitting data for the response parser meanwhile.
                        */
                       socketController.corkReads()
+                    }
 
-                      let responseParserDisposed = false
-                      let responseComplete = false
-                      let hasFinalResponse = false
-                      const responseParser = new HttpResponseParser({
-                        onError: (error) => {
-                          disposeResponseParser(error)
-                          socketController.uncorkReads()
-                        },
-                        onMessageComplete: (status) => {
-                          responseComplete = status >= 200 || status === 101
-                        },
-                        onResponse: async (response) => {
-                          hasFinalResponse =
-                            response.status >= 200 || response.status === 101
+                    let responseParserDisposed = false
+                    let responseComplete = false
+                    let hasFinalResponse = false
+                    const responseParser = new HttpResponseParser({
+                      method: request.method,
+                      onError: (error) => {
+                        disposeResponseParser(error)
+                        socketController.uncorkReads()
+                      },
+                      onMessageComplete: (status) => {
+                        responseComplete = status >= 200 || status === 101
+                      },
+                      onResponse: async (response) => {
+                        hasFinalResponse =
+                          response.status >= 200 || response.status === 101
+                        httpLogger.verbose(
+                          'HTTP response parser parsed: %d %s',
+                          response.status,
+                          response.statusText
+                        )
+
+                        /**
+                         * @note A successful response to a "CONNECT"
+                         * request means the proxy established the tunnel.
+                         */
+                        if (request.method === 'CONNECT' && response.ok) {
+                          enterTunnel(request.url)
+                        }
+
+                        if (!hasResponseListeners) {
+                          return
+                        }
+
+                        if (isResponseError(response)) {
                           httpLogger.verbose(
-                            'HTTP response parser parsed: %d %s',
-                            response.status,
-                            response.statusText
+                            'response is an error response, uncorking socket reads...'
                           )
 
-                          if (isResponseError(response)) {
-                            httpLogger.verbose(
-                              'response is an error response, uncorking socket reads...'
-                            )
-
-                            socketController.uncorkReads()
-                            return
-                          }
-
-                          FetchResponse.setUrl(request.url, response)
-
-                          try {
-                            httpLogger.verbose('emitting "response" event')
-                            await this.emitter.emitAsPromise(
-                              new HttpResponseEvent({
-                                initiator,
-                                requestId,
-                                request: context.request,
-                                response,
-                                responseType: 'original',
-                              })
-                            )
-                          } finally {
-                            httpLogger.verbose('uncorking socket reads')
-                            socketController.uncorkReads()
-
-                            /**
-                             * @note Informational responses other than
-                             * "101 Switching Protocols" are followed by a final
-                             * response on the same connection. Keep gating that
-                             * final response on the "response" event listeners.
-                             */
-                            if (
-                              !responseParserDisposed &&
-                              response.status < 200 &&
-                              response.status !== 101
-                            ) {
-                              socketController.corkReads()
-                            }
-                          }
-                        },
-                      })
-
-                      const onResponseData = (chunk: Buffer) => {
-                        responseParser.execute(chunk)
-
-                        // Free only after llhttp returns from its callbacks.
-                        if (responseComplete) {
-                          disposeResponseParser()
-                        }
-                      }
-
-                      const onResponseEnd = () => {
-                        disposeResponseParser()
-
-                        // Without a final response, release EOF now. A half-open
-                        // socket cannot close until the client consumes it.
-                        if (!hasFinalResponse) {
                           socketController.uncorkReads()
+                          return
                         }
-                      }
 
-                      const disposeResponseParser = (error?: Error) => {
-                        responseParserDisposed = true
-                        realSocket.removeListener('data', onResponseData)
-                        realSocket.removeListener('end', onResponseEnd)
-                        realSocket.removeListener('close', onResponseEnd)
-                        responseParser.free(error)
-                      }
+                        FetchResponse.setUrl(request.url, response)
 
-                      realSocket
-                        .on('data', onResponseData)
-                        .once('end', onResponseEnd)
-                        .once('close', onResponseEnd)
+                        try {
+                          httpLogger.verbose('emitting "response" event')
+                          await this.emitter.emitAsPromise(
+                            new HttpResponseEvent({
+                              initiator,
+                              requestId,
+                              request: context.request,
+                              response,
+                              responseType: 'original',
+                            })
+                          )
+                        } finally {
+                          httpLogger.verbose('uncorking socket reads')
+                          socketController.uncorkReads()
+
+                          /**
+                           * @note Informational responses other than
+                           * "101 Switching Protocols" are followed by a final
+                           * response on the same connection. Keep gating that
+                           * final response on the "response" event listeners.
+                           */
+                          if (
+                            !responseParserDisposed &&
+                            response.status < 200 &&
+                            response.status !== 101
+                          ) {
+                            socketController.corkReads()
+                          }
+                        }
+                      },
+                    })
+
+                    const onResponseData = (chunk: Buffer) => {
+                      responseParser.execute(chunk)
+
+                      // Free only after llhttp returns from its callbacks.
+                      if (responseComplete) {
+                        disposeResponseParser()
+                      }
                     }
+
+                    const onResponseEnd = () => {
+                      disposeResponseParser()
+
+                      // Without a final response, release EOF now. A half-open
+                      // socket cannot close until the client consumes it.
+                      if (!hasFinalResponse) {
+                        socketController.uncorkReads()
+                      }
+                    }
+
+                    const disposeResponseParser = (error?: Error) => {
+                      responseParserDisposed = true
+                      realSocket.removeListener('data', onResponseData)
+                      realSocket.removeListener('end', onResponseEnd)
+                      realSocket.removeListener('close', onResponseEnd)
+                      responseParser.free(error)
+                    }
+
+                    realSocket
+                      .on('data', onResponseData)
+                      .once('end', onResponseEnd)
+                      .once('close', onResponseEnd)
                   },
                 },
                 {
@@ -565,6 +564,29 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
           // Forward the first frame to the parser.
           executeRequestParser(requestParser, toBuffer(chunk))
+        }
+
+        /**
+         * @note An established "CONNECT" tunnel is transport, whether
+         * this interceptor or a real proxy established it. The exchanges
+         * that follow belong to the tunnel target and are each handled
+         * anew: an unclaimed exchange (HTTP or not) passes through to
+         * that target (over the proxy connection of a real tunnel, or
+         * directly for a mocked one, whose proxy was never dialed).
+         * The request parser was freed at the upgrade boundary, so
+         * detect the tunneled protocol anew.
+         */
+        const enterTunnel = (authority: string) => {
+          tunnelUrl = new URL(`http://${authority}`)
+          isHttpConnection = undefined
+
+          socketController.retarget({
+            host: tunnelUrl.hostname,
+            port: Number(tunnelUrl.port) || 80,
+            path: null,
+          })
+
+          socket.on('data', onRequestData)
         }
 
         socket.on('data', onRequestData)

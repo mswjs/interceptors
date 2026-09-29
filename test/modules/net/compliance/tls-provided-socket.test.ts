@@ -17,16 +17,7 @@ afterAll(() => {
   interceptor.dispose()
 })
 
-/**
- * @note This test documents a known limitation. "tls.connect({ socket })"
- * wraps a caller-provided transport socket and never calls "connect()" on
- * the TLS socket itself, so the TLS layer escapes the
- * "net.Socket.prototype.connect" interception: only the transport
- * connection is intercepted, and the TLS handshake then runs for real
- * against the mocked transport, which never completes. Supporting this
- * requires a TLS socket construction-level hook (e.g. "_start").
- */
-it.skip('intercepts a TLS connection over a caller-provided socket', async () => {
+it('intercepts a TLS connection over a caller-provided socket', async () => {
   const connectionListener = vi.fn()
 
   interceptor.on('connection', ({ connectionOptions, controller }) => {
