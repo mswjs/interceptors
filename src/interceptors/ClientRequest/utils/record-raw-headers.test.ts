@@ -56,6 +56,36 @@ it('records raw headers (Headers / Headers as init', () => {
   ])
 })
 
+/**
+ * @see https://github.com/mswjs/interceptors/issues/850
+ */
+it('copies the headers of a Headers subclass that stores them elsewhere', () => {
+  recordRawFetchHeaders()
+
+  // Mirrors the "HeadersAdapter" of Next.js.
+  class HeadersAdapter extends Headers {
+    #values: Record<string, string>
+
+    constructor(values: Record<string, string>) {
+      super()
+      this.#values = values
+    }
+
+    get(name: string): string | null {
+      return this.#values[name.toLowerCase()] ?? null
+    }
+
+    [Symbol.iterator](): HeadersIterator<[string, string]> {
+      return Object.entries(this.#values)[Symbol.iterator]()
+    }
+  }
+
+  const headers = new Headers(new HeadersAdapter({ cookie: 'session=abc' }))
+
+  expect(headers.get('cookie')).toBe('session=abc')
+  expect(getRawFetchHeaders(headers)).toEqual([['cookie', 'session=abc']])
+})
+
 it('records raw headers added via ".set()"', () => {
   recordRawFetchHeaders()
   const headers = new Headers([['X-My-Header', '1']])
