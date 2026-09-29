@@ -34,7 +34,17 @@ export class HttpRequestParser extends HttpParser<1> {
           'GET'
         ).toUpperCase()
 
-        const url = new URL(path || '', options.connectionOptions.url)
+        /**
+         * @note The request target of a "CONNECT" request is the authority
+         * to tunnel to (e.g. "example.com:443"), not a path. Resolved
+         * against the base URL as-is, a hostname authority parses as a
+         * URL scheme ("example.com:"). Keep it as the path instead: that
+         * is where the authority is read from (see "FetchRequest").
+         */
+        const url = new URL(
+          finalMethod === 'CONNECT' ? `/${path}` : path || '',
+          options.connectionOptions.url
+        )
         const headers = FetchResponse.parseRawHeaders([...rawHeaders])
 
         // Translate the basic authorization to request headers.
@@ -110,6 +120,10 @@ export class HttpResponseParser extends HttpParser<2> {
   #status = 0
 
   constructor(options: {
+    /**
+     * The method of the request this response answers.
+     */
+    method?: string
     onResponse: (response: Response) => void
     onError: (error: Error) => void
     onMessageComplete?: (status: number) => void
@@ -124,8 +138,18 @@ export class HttpResponseParser extends HttpParser<2> {
         this.#status = status
         const headers = FetchResponse.parseRawHeaders([...rawHeaders])
 
+        /**
+         * @note A 2xx response to a "CONNECT" request has no body:
+         * it establishes a tunnel, and the bytes that follow belong
+         * to the tunnel. Tell llhttp to skip the body and treat the
+         * message as an upgrade, the same way the Node.js client does.
+         * @see https://github.com/nodejs/node/blob/3178a762d6a2b1a37b74f02266eea0f3d86603f1/lib/_http_client.js#L644
+         */
+        const isTunnelEstablished =
+          options.method === 'CONNECT' && status >= 200 && status < 300
+
         const response = new FetchResponse(
-          FetchResponse.isResponseWithBody(status)
+          FetchResponse.isResponseWithBody(status) && !isTunnelEstablished
             ? (Readable.toWeb(
                 (this.#responseBodyStream = new Readable({ read() {} }))
               ) as any)
@@ -138,6 +162,10 @@ export class HttpResponseParser extends HttpParser<2> {
         )
 
         options.onResponse(response)
+
+        if (isTunnelEstablished) {
+          return 2
+        }
       },
       onBody: (chunk) => {
         invariant(
