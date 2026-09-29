@@ -116,8 +116,17 @@ export function recordRawFetchHeaders(): () => void {
       construct(target, args, newTarget) {
         const headersInit = args[0] || []
 
+        /**
+         * @note The recorded raw headers describe the native header
+         * store, which is what a natively iterated instance reads.
+         * A subclass overriding the iteration stores its headers
+         * elsewhere (e.g. the "HeadersAdapter" of Next.js), and so
+         * does the native copy of it: its raw headers are recorded
+         * from that iteration instead (see below).
+         */
         if (
           headersInit instanceof Headers &&
+          headersInit[Symbol.iterator] === target.prototype[Symbol.iterator] &&
           Reflect.has(headersInit, kRawHeaders)
         ) {
           // Ensure each header tuple has exactly 2 elements (name, value).
@@ -152,9 +161,12 @@ export function recordRawFetchHeaders(): () => void {
         // input as the raw headers. Skip the symbol altogether
         // in those cases because the input to Headers will be normalized.
         if (!Reflect.has(headers, kRawHeaders)) {
+          // A Headers instance is copied through its iteration (see above).
           const rawHeadersInit = Array.isArray(headersInit)
             ? headersInit
-            : Object.entries(headersInit)
+            : headersInit instanceof Headers
+              ? Array.from(headersInit)
+              : Object.entries(headersInit)
           ensureRawHeadersSymbol(headers, rawHeadersInit)
         }
 
