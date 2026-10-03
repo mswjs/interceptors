@@ -28,7 +28,11 @@ it('supports response patching', async () => {
     })
   })
 
+  const requestListener = vi.fn<(url: string) => void>()
+
   interceptor.on('request', async ({ request, controller }) => {
+    requestListener(request.url)
+
     if (!request.url.endsWith('/mocked')) {
       return
     }
@@ -58,4 +62,13 @@ it('supports response patching', async () => {
   expect.soft(response.status).toBe(200)
   expect.soft(response.headers.get('x-custom-header')).toBe('yes')
   await expect(response.text()).resolves.toBe('hello world')
+  expect(requestListener).toHaveBeenCalledTimes(2)
+  expect(requestListener).toHaveBeenNthCalledWith(
+    1,
+    'http://api.example.com/mocked'
+  )
+  expect(requestListener).toHaveBeenNthCalledWith(
+    2,
+    server.http.url('/original').href
+  )
 })

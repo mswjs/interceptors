@@ -60,3 +60,21 @@ it('passes through a connection where the server speaks first', async () => {
 
   await expect(text(socket)).resolves.toBe('greeting')
 })
+
+it('passes through an HTTP/2 connection preface sent after the server speaks first', async () => {
+  await using server = await createRawTestServer(() => {
+    return net.createServer((socket) => {
+      socket.write('greeting')
+      socket.once('data', (chunk) => socket.end(`echo:${chunk}`))
+    })
+  })
+
+  const socket = net.connect(server.port, server.hostname)
+  socket.once('data', () => {
+    socket.write('PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n')
+  })
+
+  await expect(text(socket)).resolves.toBe(
+    'greetingecho:PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
+  )
+})

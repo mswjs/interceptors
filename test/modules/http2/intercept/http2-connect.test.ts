@@ -2,7 +2,17 @@
 import net from 'node:net'
 import http2 from 'node:http2'
 import { Http2RequestInterceptor } from '#/src/interceptors/http2'
-import { connectHttp2Session, toHttp2WebResponse } from '#/test/helpers'
+import {
+  connectHttp2Session,
+  createRawTestServer,
+  toHttp2WebResponse,
+} from '#/test/helpers'
+
+/**
+ * @note Reference "connect" before the interceptor is applied, the
+ * same way an ESM named import of it binds to the unpatched function.
+ */
+const connectBeforeInterception = http2.connect
 
 const interceptor = new Http2RequestInterceptor()
 
@@ -101,4 +111,62 @@ it('invokes the connect listener of an intercepted session', async () => {
   })
 
   await expect.poll(() => connectListener).toHaveBeenCalledOnce()
+})
+
+it('intercepts a request made over a session connected with "connect" referenced before the interception', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    controller.respondWith(new Response(request.url))
+  })
+
+  const session = connectBeforeInterception('http://api.example.com')
+  onTestFinished(() => {
+    session.destroy()
+  })
+  const response = await toHttp2WebResponse(
+    session.request({ ':path': '/resource' })
+  )
+
+  await expect(response.text()).resolves.toBe(
+    'http://api.example.com/resource'
+  )
+})
+
+it('intercepts a request made within a request listener over a session connected with "connect" referenced before the interception', async () => {
+  await using server = await createRawTestServer(() => {
+    return http2.createServer((_request, response) => {
+      response.end('original-response')
+    })
+  })
+
+  const requestListener = vi.fn<(url: string) => void>()
+
+  interceptor.on('request', async ({ request, controller }) => {
+    requestListener(request.url)
+
+    if (!request.url.endsWith('/resource')) {
+      return
+    }
+
+    const nestedSession = connectBeforeInterception(server.http.url('/'))
+    onTestFinished(() => {
+      nestedSession.destroy()
+    })
+    const nestedResponse = await toHttp2WebResponse(
+      nestedSession.request({ ':path': '/nested' })
+    )
+
+    controller.respondWith(new Response(await nestedResponse.text()))
+  })
+
+  await using session = connectHttp2Session('http://api.example.com')
+  const response = await toHttp2WebResponse(
+    session.request({ ':path': '/resource' })
+  )
+
+  await expect(response.text()).resolves.toBe('original-response')
+  expect(requestListener).toHaveBeenCalledTimes(2)
+  expect(requestListener).toHaveBeenNthCalledWith(
+    2,
+    server.http.url('/nested').href
+  )
 })

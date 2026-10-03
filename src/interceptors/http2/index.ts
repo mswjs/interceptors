@@ -1,5 +1,6 @@
 import net from 'node:net'
 import http2 from 'node:http2'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { Duplex, Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { Interceptor } from '#/src/interceptor'
@@ -12,6 +13,7 @@ import {
 } from '#/src/utils/handle-request'
 import { cloneResponse } from '#/src/utils/clone-response'
 import { FetchRequest, FetchResponse } from '#/src/utils/fetch-utils'
+import { patchesRegistry } from '#/src/utils/patches-registry'
 import { isResponseError } from '#/src/utils/response-utils'
 import { SocketInterceptor } from '../net'
 import {
@@ -23,6 +25,11 @@ import { connectionOptionsToUrl } from '../net/utils/connection-options-to-url'
 
 const HTTP2_CONNECTION_PREFACE = Buffer.from('PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n')
 const HTTP2_FRAME_HEADER_LENGTH = 9
+
+/**
+ * The context of the "http2.connect()" calls.
+ */
+const http2ClientContext = new AsyncLocalStorage<boolean>()
 
 /**
  * Header fields specific to an HTTP/1 connection.
@@ -65,6 +72,24 @@ export class Http2RequestInterceptor extends Interceptor<HttpRequestEventMap> {
     const controller = new AbortController()
     this.subscriptions.push(() => controller.abort())
 
+    /**
+     * @note Tell the sockets of the HTTP/2 clients apart. A client
+     * session starts reading from its socket, and its socket connects,
+     * within the "http2.connect()" call. Both are observed from the
+     * context of that call.
+     */
+    this.subscriptions.push(
+      patchesRegistry.applyPatch(http2, 'connect', (realConnect) => {
+        return new Proxy(realConnect, {
+          apply(target, thisArg, args) {
+            return http2ClientContext.run(true, () => {
+              return Reflect.apply(target, thisArg, args)
+            })
+          },
+        })
+      })
+    )
+
     socketInterceptor.on(
       'connection',
       ({ connectionOptions, socket, controller: socketController }) => {
@@ -91,16 +116,18 @@ export class Http2RequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
         const transport = createServerTransport(socket)
 
+        /**
+         * @note Settle the connection as non-HTTP/2 and pass it through
+         * in a single step. Nothing can then observe it half-settled
+         * (e.g. a connection preface arriving in between).
+         */
         const passthroughNonHttp2 = () => {
           isHttp2Connection = false
           transport.destroy()
 
-          // Let the client finish its write before flushing it.
-          setImmediate(() => {
-            if (shouldPassthrough()) {
-              socketController.passthrough()
-            }
-          })
+          if (shouldPassthrough()) {
+            socketController.passthrough()
+          }
         }
 
         const acceptConnection = () => {
@@ -195,7 +222,8 @@ export class Http2RequestInterceptor extends Interceptor<HttpRequestEventMap> {
             return
           }
 
-          passthroughNonHttp2()
+          // Let the client finish its write before flushing it.
+          setImmediate(passthroughNonHttp2)
         })
 
         /**
@@ -212,10 +240,29 @@ export class Http2RequestInterceptor extends Interceptor<HttpRequestEventMap> {
 
           rawSocket.removeListener('newListener', onClientRead)
 
+          /**
+           * @note An HTTP/2 client always speaks first but sends its
+           * connection preface some time after it starts reading.
+           * Await the preface of such a client instead of guessing.
+           */
+          if (http2ClientContext.getStore()) {
+            return
+          }
+
+          /**
+           * @note Clients this interceptor cannot tell apart may still
+           * be HTTP/2 clients (e.g. "connect" imported before the patch
+           * was applied). Node.js sends the connection preface from a
+           * native immediate scheduled as the session starts reading,
+           * which runs within the next two iterations of the event
+           * loop, ahead of the immediates scheduled from JavaScript.
+           */
           setImmediate(() => {
-            if (isHttp2Connection === undefined) {
-              passthroughNonHttp2()
-            }
+            setImmediate(() => {
+              if (isHttp2Connection === undefined) {
+                passthroughNonHttp2()
+              }
+            })
           })
         }
 
