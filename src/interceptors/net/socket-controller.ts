@@ -807,8 +807,18 @@ export class TcpSocketController extends SocketController {
          * directly to the passthrough socket instead. This also prevents
          * the "connecting" write replay of `Socket.prototype._writeGeneric`
          * from pushing the same data to the server socket twice.
+         *
+         * After the swap, both sockets share the same handle. Keep writing
+         * to the passthrough socket while it has writes in flight (a TLS
+         * handle holds them until the handshake completes). Writing to
+         * the handle directly would overlap with those, and "TLSWrap"
+         * aborts the process on overlapping writes.
          */
-        if (!this.#realHandleSwapped && this.#passthroughSocket) {
+        if (
+          this.#passthroughSocket &&
+          (!this.#realHandleSwapped ||
+            this.#passthroughSocket.writableLength > 0)
+        ) {
           writePendingData(this.#passthroughSocket, data, args[2], args[3])
           return
         }
