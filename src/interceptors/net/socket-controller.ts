@@ -444,7 +444,7 @@ export class TcpSocketController extends SocketController {
 
   constructor(
     protected readonly socket: net.Socket,
-    protected readonly createConnection: () => net.Socket,
+    public readonly createConnection: () => net.Socket,
     connectionOptions?: NetworkConnectionOptions
   ) {
     super(socket)
@@ -1529,7 +1529,7 @@ export class TlsSocketController extends TcpSocketController {
 
   constructor(
     protected readonly socket: tls.TLSSocket,
-    protected readonly createConnection: () => tls.TLSSocket,
+    public readonly createConnection: () => tls.TLSSocket,
     tlsConnectionOptions?: TlsConnectionOptions
   ) {
     super(socket, createConnection, tlsConnectionOptions)

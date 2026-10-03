@@ -3,6 +3,8 @@ import net from 'node:net'
 import zlib from 'node:zlib'
 import { Readable } from 'node:stream'
 import http from 'node:http'
+import http2 from 'node:http2'
+import { once } from 'node:events'
 import type { MockedFunction } from 'vitest'
 import { FetchResponse } from '#/src/utils/fetch-utils'
 
@@ -46,6 +48,64 @@ export async function toWebResponse(
     })
     .on('error', (error) => pendingResponse.reject(error))
     .on('abort', () => pendingResponse.reject(new Error('Request aborted')))
+
+  return pendingResponse.promise
+}
+
+/**
+ * Connect an HTTP/2 session that gets destroyed once disposed of.
+ */
+export function connectHttp2Session(
+  authority: string | URL,
+  options?: http2.ClientSessionOptions | http2.SecureClientSessionOptions
+): http2.ClientHttp2Session & AsyncDisposable {
+  const session = http2.connect(authority, options)
+
+  return Object.assign(session, {
+    async [Symbol.asyncDispose]() {
+      if (session.destroyed) {
+        return
+      }
+
+      session.destroy()
+      await once(session, 'close')
+    },
+  })
+}
+
+export async function toHttp2WebResponse(
+  stream: http2.ClientHttp2Stream
+): Promise<Response> {
+  const pendingResponse = Promise.withResolvers<Response>()
+
+  stream
+    .once('response', (headers) => {
+      const status = headers[':status'] ?? 200
+      const responseHeaders = new Headers()
+
+      for (const [name, value] of Object.entries(headers)) {
+        if (name.startsWith(':') || value == null) {
+          continue
+        }
+
+        for (const headerValue of Array.isArray(value) ? value : [value]) {
+          responseHeaders.append(name, headerValue)
+        }
+      }
+
+      const responseBody = FetchResponse.isResponseWithBody(status)
+        ? (Readable.toWeb(stream) as ReadableStream)
+        : null
+
+      if (responseBody == null) {
+        stream.resume()
+      }
+
+      pendingResponse.resolve(
+        new FetchResponse(responseBody, { status, headers: responseHeaders })
+      )
+    })
+    .once('error', (error) => pendingResponse.reject(error))
 
   return pendingResponse.promise
 }
