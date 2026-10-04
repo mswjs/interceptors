@@ -80,6 +80,23 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     socketInterceptor.on(
       'connection',
       ({ connectionOptions, socket, controller: socketController }) => {
+        /**
+         * @note A TLS client that does not offer "http/1.1" during the
+         * protocol negotiation (e.g. "http2.connect()") never sends
+         * HTTP/1 messages. Pass such connections through right away:
+         * those clients exchange data natively, past the socket writes
+         * the protocol detection relies on.
+         */
+        if (
+          'ALPNProtocols' in connectionOptions &&
+          Array.isArray(connectionOptions.ALPNProtocols) &&
+          connectionOptions.ALPNProtocols.length > 0 &&
+          !connectionOptions.ALPNProtocols.includes('http/1.1')
+        ) {
+          socketController.passthrough()
+          return
+        }
+
         let isHttpConnection: boolean | undefined
         let requestParser: HttpRequestParser | undefined
         let tunnelUrl: URL | undefined

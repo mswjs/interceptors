@@ -82,6 +82,7 @@ export interface TcpHandle {
   getsockname?: (
     addressInfo: ReturnType<net.Socket['address']>
   ) => OperationStatus
+  isStreamBase?: boolean
   reading: boolean
   onread: () => void
   readStart: () => void
@@ -443,7 +444,7 @@ export class TcpSocketController extends SocketController {
 
   constructor(
     protected readonly socket: net.Socket,
-    protected readonly createConnection: () => net.Socket,
+    public readonly createConnection: () => net.Socket,
     connectionOptions?: NetworkConnectionOptions
   ) {
     super(socket)
@@ -503,7 +504,22 @@ export class TcpSocketController extends SocketController {
           }
         }
 
-        return Reflect.apply(target, thisArg, args)
+        const connectResult = Reflect.apply(target, thisArg, args)
+
+        /**
+         * @note Clients like "http2.connect()" consume the handle of a
+         * plain socket natively, exchanging data past the socket's
+         * JavaScript stream methods where nothing can observe it (and
+         * over a handle that never actually connects). Present the
+         * handle as a non-native stream so such clients drive this
+         * socket through its stream methods instead.
+         * @see https://github.com/nodejs/node/blob/v22.x/lib/internal/http2/core.js#L1293
+         */
+        if (!(this.socket instanceof tls.TLSSocket) && this.socket._handle) {
+          this.socket._handle.isStreamBase = false
+        }
+
+        return connectResult
       },
     })
 
@@ -1513,7 +1529,7 @@ export class TlsSocketController extends TcpSocketController {
 
   constructor(
     protected readonly socket: tls.TLSSocket,
-    protected readonly createConnection: () => tls.TLSSocket,
+    public readonly createConnection: () => tls.TLSSocket,
     tlsConnectionOptions?: TlsConnectionOptions
   ) {
     super(socket, createConnection, tlsConnectionOptions)

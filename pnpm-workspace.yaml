@@ -1,5 +1,6 @@
 allowBuilds:
   esbuild: true
+  protobufjs: false
   simple-git-hooks: true
 minimumReleaseAgeExclude:
   - rettime@0.11.12

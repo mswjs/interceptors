@@ -1,5 +1,6 @@
 // @vitest-environment node
 import tls from 'node:tls'
+import { text } from 'node:stream/consumers'
 import { SocketInterceptor } from '#/src/interceptors/net'
 import { createRawTestServer } from '#/test/helpers'
 import { TLS_CERTIFICATE, TLS_PRIVATE_KEY } from './fixtures/tls'
@@ -25,15 +26,7 @@ it('writes to a passthrough socket before the tls handshake completes', async ()
     return new tls.Server(
       { cert: TLS_CERTIFICATE, key: TLS_PRIVATE_KEY },
       (socket) => {
-        let data = ''
-
-        socket.on('data', (chunk) => {
-          data += chunk
-
-          if (data.length === 8) {
-            serverData.resolve(data)
-          }
-        })
+        serverData.resolve(text(socket))
       }
     )
   })
@@ -50,7 +43,7 @@ it('writes to a passthrough socket before the tls handshake completes', async ()
 
   socket.write('one;')
   socket.once('connect', () => {
-    socket.write('two;')
+    socket.end('two;')
   })
 
   await expect(serverData.promise).resolves.toBe('one;two;')
