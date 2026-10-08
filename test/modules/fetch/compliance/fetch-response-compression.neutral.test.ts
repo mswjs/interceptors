@@ -218,28 +218,12 @@ it('exposes a compressed bypassed response in the "response" listener', async ()
     headers: { 'x-accept-encoding': 'gzip' },
   })
 
-  const expectedBytes = await new Response(
-    new Blob(['hello world'])
-      .stream()
-      .pipeThrough(new CompressionStream('gzip'))
-  ).bytes()
-
   const responseFromListener = await responseFromListenerPromise.promise
   expect(responseFromListener.headers.get('content-encoding')).toBe('gzip')
 
-  if (IS_BROWSER) {
-    await expect(responseFromListener.bytes()).resolves.toEqual(
-      new TextEncoder().encode('hello world')
-    )
-  } else {
-    await expect(responseFromListener.bytes()).resolves.toEqual(
-      await new Response(
-        new Blob(['hello world'])
-          .stream()
-          .pipeThrough(new CompressionStream('gzip'))
-      ).bytes()
-    )
-  }
+  await expect(responseFromListener.bytes()).resolves.toEqual(
+    new TextEncoder().encode('hello world')
+  )
 
   await expect(response.text()).resolves.toBe('hello world')
 })
@@ -268,19 +252,9 @@ it('exposes a compressed mocked response in the "response" listener', async () =
   const responseFromListener = await responseFromListenerPromise.promise
   expect(responseFromListener.headers.get('content-encoding')).toBe('gzip')
 
-  if (IS_BROWSER) {
-    await expect(responseFromListener.bytes()).resolves.toEqual(
-      new TextEncoder().encode('hello world')
-    )
-  } else {
-    await expect(responseFromListener.bytes()).resolves.toEqual(
-      await new Response(
-        new Blob(['hello world'])
-          .stream()
-          .pipeThrough(new CompressionStream('gzip'))
-      ).bytes()
-    )
-  }
+  await expect(responseFromListener.bytes()).resolves.toEqual(
+    new TextEncoder().encode('hello world')
+  )
 
   await expect(response.text()).resolves.toBe('hello world')
 })

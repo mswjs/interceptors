@@ -43,7 +43,8 @@ it('rejects a fetch upgrade request the same way undici does (upgrade header)', 
    * @note Undici forbids the "upgrade" request header on `fetch()`
    * and rejects locally, before any connection is made. A fetch
    * request cannot upgrade to the WebSocket protocol in Node.js.
-   * The interception must preserve that environment behavior.
+   * The interception must preserve that environment behavior
+   * once the request is performed as-is.
    */
   const error = await fetch(getHttpUrlOfWsServer(), {
     headers: {
@@ -63,9 +64,9 @@ it('rejects a fetch upgrade request the same way undici does (upgrade header)', 
     message: 'invalid upgrade header',
   })
 
-  // The request is rejected by the client before it is sent,
-  // so it must never reach the interceptor.
-  expect(requestListener).not.toHaveBeenCalled()
+  // The request is intercepted as constructed and rejected
+  // by the client once it is performed as-is.
+  expect(requestListener).toHaveBeenCalledOnce()
 })
 
 it('rejects a fetch upgrade request the same way undici does (connection header)', async () => {
@@ -95,7 +96,7 @@ it('rejects a fetch upgrade request the same way undici does (connection header)
       : { name: 'InvalidArgumentError', message: 'invalid connection header' }
   )
 
-  expect(requestListener).not.toHaveBeenCalled()
+  expect(requestListener).toHaveBeenCalledOnce()
 })
 
 it('handles a fetch request with only the "connection" header set to "upgrade"', async () => {
@@ -111,38 +112,15 @@ it('handles a fetch request with only the "connection" header set to "upgrade"',
     },
   })
 
-  if (nodeMajorVersion >= 24) {
-    /**
-     * @note Undici bundled with Node.js 24+ allows the custom
-     * "connection" request header. Without the "upgrade" header,
-     * this is a regular request that dispatches and gets intercepted.
-     */
-    const response = await fetchPromise
-    expect(response.status).toBe(200)
-    await expect(response.text()).resolves.toBe('handled')
+  // A mocked request never reaches the client's header validation.
+  const response = await fetchPromise
+  expect(response.status).toBe(200)
+  await expect(response.text()).resolves.toBe('handled')
 
-    expect(requestListener).toHaveBeenCalledOnce()
+  expect(requestListener).toHaveBeenCalledOnce()
 
-    /**
-     * @note Undici manages the connection lifecycle itself: it accepts
-     * the custom "connection" header but sends "keep-alive" on the wire.
-     * The interceptor exposes the request as it was actually sent.
-     */
-    expect(requestListener).toHaveBeenCalledWith('keep-alive')
-  } else {
-    const error = await fetchPromise.then<null, TypeError & { cause?: unknown }>(
-      () => null,
-      (error) => error
-    )
-
-    expect(error).toBeInstanceOf(TypeError)
-    expect(error!.cause).toMatchObject({
-      name: 'InvalidArgumentError',
-      message: 'invalid connection header',
-    })
-
-    expect(requestListener).not.toHaveBeenCalled()
-  }
+  // The interceptor exposes the request as it was constructed.
+  expect(requestListener).toHaveBeenCalledWith('upgrade')
 })
 
 it('performs the upgrade request of an intercepted "WebSocket" connection', async () => {

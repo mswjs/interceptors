@@ -204,9 +204,7 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
   })
 })
 
-it('sets "credentials" to "include" on the intercepted request', async ({
-  task,
-}) => {
+it('sets "credentials" to "include" on the intercepted request', async () => {
   const requestCredentialsPromise = Promise.withResolvers<string>()
   interceptor.on('request', ({ request, controller }) => {
     requestCredentialsPromise.resolve(request.credentials)
@@ -217,21 +215,10 @@ it('sets "credentials" to "include" on the intercepted request', async ({
     credentials: 'include',
   })
 
-  if (task.file.projectName === 'browser') {
-    await expect(requestCredentialsPromise.promise).resolves.toBe('include')
-  } else {
-    /**
-     * @note The HTTP message has no notion of credentials.
-     * In Node.js, the intercepted request is parsed from the wire
-     * so it always has the default credentials.
-     */
-    await expect(requestCredentialsPromise.promise).resolves.toBe('same-origin')
-  }
+  await expect(requestCredentialsPromise.promise).resolves.toBe('include')
 })
 
-it('sets "credentials" to "omit" on the intercepted request', async ({
-  task,
-}) => {
+it('sets "credentials" to "omit" on the intercepted request', async () => {
   const requestCredentialsPromise = Promise.withResolvers<string>()
   interceptor.on('request', ({ request, controller }) => {
     requestCredentialsPromise.resolve(request.credentials)
@@ -242,9 +229,5 @@ it('sets "credentials" to "omit" on the intercepted request', async ({
     credentials: 'omit',
   })
 
-  if (task.file.projectName === 'browser') {
-    await expect(requestCredentialsPromise.promise).resolves.toBe('omit')
-  } else {
-    await expect(requestCredentialsPromise.promise).resolves.toBe('same-origin')
-  }
+  await expect(requestCredentialsPromise.promise).resolves.toBe('omit')
 })
