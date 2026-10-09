@@ -56,6 +56,27 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           const request = new Request(resolvedInput, init)
 
+          /**
+           * @note Snapshot the request init synchronously, the way `fetch()`
+           * consumes it. The passthrough runs after the "request" listeners,
+           * and the caller may have mutated the init object by then.
+           * The init is forwarded to the original fetch, including the options
+           * the `Request` instance cannot carry (e.g. the Undici-specific
+           * "dispatcher"). The method, headers, and body are omitted: the
+           * request clone already has them, including any modifications
+           * made by the "request" listener.
+           */
+          const fetchInit: RequestInit | undefined =
+            init == null
+              ? undefined
+              : {
+                  ...init,
+                  method: undefined,
+                  headers: undefined,
+                  body: undefined,
+                }
+          const hasStreamingBody = init?.body instanceof ReadableStream
+
           const responsePromise = Promise.withResolvers<Response>()
 
           const controller = new RequestController(
@@ -76,23 +97,6 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                  * so the consumer can associate the two by identity.
                  */
                 const requestClone = request.clone()
-
-                /**
-                 * @note Forward the original request init to the original fetch,
-                 * including the options the `Request` instance cannot carry
-                 * (e.g. the Undici-specific "dispatcher"). The method, headers,
-                 * and body are omitted: the request clone already has them,
-                 * including any modifications made by the "request" listener.
-                 */
-                const fetchInit: RequestInit | undefined =
-                  init == null
-                    ? undefined
-                    : {
-                        ...init,
-                        method: undefined,
-                        headers: undefined,
-                        body: undefined,
-                      }
 
                 /**
                  * @note Perform the intercepted request as-is, attributing the
@@ -246,7 +250,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
                   if (request.redirect === 'follow') {
                     followFetchRedirect(request, callerResponse, {
-                      hasStreamingBody: init?.body instanceof ReadableStream,
+                      hasStreamingBody,
                     }).then(
                       (response) => {
                         responsePromise.resolve(response)
