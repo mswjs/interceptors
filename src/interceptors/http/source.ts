@@ -160,13 +160,17 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
          * "close") are emitted asynchronously, after the consumer has
          * already observed the rejected request promise. Hook into the
          * destroy itself so the pending request is aborted before any
-         * of its listeners can resume.
+         * of its listeners can resume. Hook the public `destroy()`, not
+         * the `_destroy()` implementation: the latter is replaced for
+         * every mocked response written to this socket (see
+         * "respondWith"), which would drop this hook for the requests
+         * that follow on a kept-alive socket.
          */
         const rawSocket = socketController[kRawSocket]
-        const realSocketDestroy = rawSocket._destroy.bind(rawSocket)
-        rawSocket._destroy = (error, callback) => {
+        const realSocketDestroy = rawSocket.destroy.bind(rawSocket)
+        rawSocket.destroy = (error) => {
           abortPendingRequest?.()
-          realSocketDestroy(error, callback)
+          return realSocketDestroy(error)
         }
 
         const executeRequestParser = (
