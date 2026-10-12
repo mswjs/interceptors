@@ -17,12 +17,21 @@ afterAll(() => {
 })
 
 it('aborts a pending request on a kept-alive socket that already served a mocked response', async () => {
+  const warmupRequestInitiator = Promise.withResolvers<unknown>()
   const heldRequestReceived = Promise.withResolvers<Request>()
+  const heldRequestInitiator = Promise.withResolvers<unknown>()
   const heldRequestAborted = Promise.withResolvers<void>()
 
-  interceptor.on('request', async ({ request, controller }) => {
+  /**
+   * @note Without a client interceptor (e.g. fetch), the request
+   * initiator falls back to the socket itself. The same initiator
+   * for both requests proves the second one reused the kept-alive
+   * socket of the first.
+   */
+  interceptor.on('request', async ({ request, controller, initiator }) => {
     if (request.url.endsWith('/held')) {
       heldRequestReceived.resolve(request)
+      heldRequestInitiator.resolve(initiator)
       request.signal.addEventListener('abort', () => {
         heldRequestAborted.resolve()
       })
@@ -42,6 +51,7 @@ it('aborts a pending request on a kept-alive socket that already served a mocked
         },
       })
     )
+    warmupRequestInitiator.resolve(initiator)
   })
 
   await fetch('http://example.test/ok').then((response) => response.text())
@@ -62,6 +72,9 @@ it('aborts a pending request on a kept-alive socket that already served a mocked
   )
 
   const heldRequest = await heldRequestReceived.promise
+  await expect(heldRequestInitiator.promise).resolves.toBe(
+    await warmupRequestInitiator.promise
+  )
   abortController.abort()
 
   const abortError = await abortErrorPromise
