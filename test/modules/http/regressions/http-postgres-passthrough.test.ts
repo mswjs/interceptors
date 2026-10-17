@@ -3,9 +3,14 @@
  * @see https://github.com/mswjs/interceptors/issues/860
  */
 import net from 'node:net'
-import postgres from 'postgres'
+import tls from 'node:tls'
+import postgres, { type Options } from 'postgres'
 import { HttpRequestInterceptor } from '#/src/interceptors/http'
 import { createRawTestServer } from '#/test/helpers'
+import {
+  TLS_CERTIFICATE,
+  TLS_PRIVATE_KEY,
+} from '#/test/modules/net/compliance/fixtures/tls'
 
 const interceptor = new HttpRequestInterceptor()
 
@@ -40,16 +45,23 @@ const backendMessage = (type: string, ...payload: Array<Buffer>): Buffer => {
   return Buffer.concat([Buffer.from(type), int32(body.length + 4), body])
 }
 
+interface ReceivedMessages {
+  sslRequests: number
+  startupMessages: Array<Buffer>
+  queries: Array<string>
+}
+
 /**
  * The smallest PostgreSQL server a real driver connects to and queries.
- * It accepts the startup message, answers "select N as x" with one row,
+ * It accepts the startup message (upgrading the connection to TLS first
+ * if requested and supported), answers "select N as x" with one row,
  * and, like a real server, rejects a re-sent startup message.
  * @see https://www.postgresql.org/docs/current/protocol-message-formats.html
  */
-function createPostgresServer(received: {
-  startupMessages: Array<Buffer>
-  queries: Array<string>
-}): net.Server {
+function createPostgresServer(
+  received: ReceivedMessages,
+  options: { tls: boolean } = { tls: false }
+): net.Server {
   const authenticationOk = backendMessage('R', int32(0))
   const readyForQuery = backendMessage('Z', Buffer.from('I'))
   // One "int4" column named "x" in the text format.
@@ -75,11 +87,11 @@ function createPostgresServer(received: {
     Buffer.from([0])
   )
 
-  return new net.Server((socket) => {
+  const serve = (socket: net.Socket) => {
     let pending = Buffer.alloc(0)
     let startedUp = false
 
-    socket.on('data', (chunk) => {
+    const onData = (chunk: Buffer) => {
       pending = Buffer.concat([pending, chunk])
 
       while (true) {
@@ -98,10 +110,25 @@ function createPostgresServer(received: {
           const message = pending.subarray(0, length)
           pending = pending.subarray(length)
 
-          // "SSLRequest": no TLS support.
           if (message.readInt32BE(4) === 80877103) {
-            socket.write('N')
-            continue
+            received.sslRequests += 1
+
+            if (!options.tls) {
+              socket.write('N')
+              continue
+            }
+
+            // Upgrade the connection to TLS, like a real server does.
+            socket.write('S')
+            socket.removeListener('data', onData)
+            serve(
+              new tls.TLSSocket(socket, {
+                isServer: true,
+                cert: TLS_CERTIFICATE,
+                key: TLS_PRIVATE_KEY,
+              })
+            )
+            return
           }
 
           received.startupMessages.push(message)
@@ -158,14 +185,46 @@ function createPostgresServer(received: {
           }
         }
       }
-    })
+    }
+
+    socket.on('data', onData)
+  }
+
+  return new net.Server(serve)
+}
+
+/**
+ * Connect the driver to the given server.
+ * @note Disposed before the server it connects to (declared after it):
+ * the driver terminates its connection while the server is still up.
+ */
+function connect(
+  options: Pick<Options<Record<string, never>>, 'ssl'> & {
+    host: string
+    port: number
+  }
+) {
+  const sql = postgres({
+    ...options,
+    user: 'tester',
+    database: 'test',
+    max: 1,
+    fetch_types: false,
   })
+
+  return {
+    sql,
+    async [Symbol.asyncDispose]() {
+      await sql.end({ timeout: 1 })
+    },
+  }
 }
 
 it('passes through a PostgreSQL connection, sending its handshake once', async () => {
-  const received = {
-    startupMessages: [] as Array<Buffer>,
-    queries: [] as Array<string>,
+  const received: ReceivedMessages = {
+    sslRequests: 0,
+    startupMessages: [],
+    queries: [],
   }
   await using server = await createRawTestServer(() => {
     return createPostgresServer(received)
@@ -180,18 +239,12 @@ it('passes through a PostgreSQL connection, sending its handshake once', async (
    * ahead of the verdict, inspects that message, and passes the
    * connection through as non-HTTP.
    */
-  const sql = postgres({
+  await using client = connect({
     host: server.hostname,
     port: server.port,
-    user: 'tester',
-    database: 'test',
     ssl: false,
-    max: 1,
-    fetch_types: false,
   })
-  onTestFinished(async () => {
-    await sql.end({ timeout: 1 })
-  })
+  const { sql } = client
 
   const firstRows = await sql.unsafe('select 1 as x')
   expect.soft(firstRows[0]).toEqual({ x: 1 })
@@ -200,6 +253,45 @@ it('passes through a PostgreSQL connection, sending its handshake once', async (
   const secondRows = await sql.unsafe('select 2 as x')
   expect.soft(secondRows[0]).toEqual({ x: 2 })
 
+  expect.soft(received.startupMessages).toHaveLength(1)
+  expect.soft(received.queries).toEqual(['select 1 as x', 'select 2 as x'])
+  expect(requestListener).not.toHaveBeenCalled()
+})
+
+it('passes through a PostgreSQL connection upgraded to TLS, sending its handshake once', async () => {
+  const received: ReceivedMessages = {
+    sslRequests: 0,
+    startupMessages: [],
+    queries: [],
+  }
+  await using server = await createRawTestServer(() => {
+    return createPostgresServer(received, { tls: true })
+  })
+
+  const requestListener = vi.fn()
+  interceptor.on('request', requestListener)
+
+  /**
+   * @note With "ssl", the driver sends an "SSLRequest" from a persistent
+   * "connect" listener, then layers TLS over the same socket once the
+   * server agrees, and sends its startup message from a persistent
+   * "secureConnect" listener.
+   */
+  await using client = connect({
+    host: server.hostname,
+    port: server.port,
+    ssl: { ca: [TLS_CERTIFICATE] },
+  })
+  const { sql } = client
+
+  const firstRows = await sql.unsafe('select 1 as x')
+  expect.soft(firstRows[0]).toEqual({ x: 1 })
+
+  // Writes after the real connection reach the server as well.
+  const secondRows = await sql.unsafe('select 2 as x')
+  expect.soft(secondRows[0]).toEqual({ x: 2 })
+
+  expect.soft(received.sslRequests).toBe(1)
   expect.soft(received.startupMessages).toHaveLength(1)
   expect.soft(received.queries).toEqual(['select 1 as x', 'select 2 as x'])
   expect(requestListener).not.toHaveBeenCalled()
