@@ -958,7 +958,18 @@ export class TcpSocketController extends SocketController {
 
     this.#swapRealHandle(this.#passthroughSocket)
 
-    this.socket.emit('connect')
+    /**
+     * @note The client was notified of the connection already if it
+     * awaited that notification to write (see "emulateConnect"). The
+     * real connection completes that notification, it does not repeat
+     * it: a client sending its protocol handshake from a persistent
+     * "connect" listener must not send it twice. "ready" is never
+     * emulated and reflects the real connection.
+     */
+    if (!this.#connectEmulated) {
+      this.socket.emit('connect')
+    }
+
     this.socket.emit('ready')
   }
 
@@ -1509,6 +1520,7 @@ export class TlsSocketController extends TcpSocketController {
    */
   #tlsConnectionOptions: TlsConnectionOptions
   #secureConnectEmulated = false
+  #suppressSecureConnect = false
 
   constructor(
     protected readonly socket: tls.TLSSocket,
@@ -1531,16 +1543,27 @@ export class TlsSocketController extends TcpSocketController {
       })
     }
 
-    socket.prependListener('secureConnect', () => {
-      /**
-       * @note Reflect the negotiated ALPN protocol from the handle that
-       * completed the handshake. The socket sets "alpnProtocol" only in
-       * its own "_finishInit", which never runs for passthrough
-       * connections (the handshake completes on the passthrough socket
-       * whose handle this socket inherits).
-       */
-      socket.alpnProtocol = socket._handle.getALPNNegotiatedProtocol()
-    })
+    /**
+     * @note Node.js emits "secureConnect" from its "secure" listener,
+     * which also verifies the connection ("authorized", the server
+     * identity). That listener must run for the real handshake, but the
+     * notification it emits is suppressed if the client was notified
+     * already (see "#onRealSocketSecure").
+     */
+    const realEmit: (
+      event: string | symbol,
+      ...args: Array<unknown>
+    ) => boolean = socket.emit
+    socket.emit = (
+      event: string | symbol,
+      ...args: Array<unknown>
+    ): boolean => {
+      if (event === 'secureConnect' && this.#suppressSecureConnect) {
+        return true
+      }
+
+      return realEmit.apply(socket, [event, ...args])
+    }
   }
 
   protected emulateConnect(): void {
@@ -1757,7 +1780,23 @@ export class TlsSocketController extends TcpSocketController {
   }
 
   #onRealSocketSecure = () => {
+    /**
+     * @note Reflect the negotiated ALPN protocol from the handle that
+     * completed the handshake. The socket sets "alpnProtocol" only in
+     * its own "_finishInit", which never runs for passthrough
+     * connections (the handshake completes on the passthrough socket
+     * whose handle this socket inherits).
+     */
+    this.socket.alpnProtocol = this.socket._handle.getALPNNegotiatedProtocol()
+
+    /**
+     * @note The client was notified of the handshake already if it
+     * awaited that notification to write (see "emulateConnect"). The
+     * real handshake completes that notification, it does not repeat it.
+     */
+    this.#suppressSecureConnect = this.#secureConnectEmulated
     this.socket.emit('secure')
+    this.#suppressSecureConnect = false
   }
 
   #onRealSocketSession = (session: Buffer) => {

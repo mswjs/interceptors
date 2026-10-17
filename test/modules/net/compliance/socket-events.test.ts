@@ -334,3 +334,48 @@ it('invokes the connection callback exactly once', async () => {
   expect(connectionCallback).toHaveBeenCalledOnce()
   expect(listeners.connect).toHaveBeenCalledOnce()
 })
+
+it('notifies a persistent "connect" listener once when passing through after the first write', async () => {
+  const serverReceivedData: Array<string> = []
+  await using server = await createRawTestServer(() => {
+    return new net.Server((socket) => {
+      socket.on('data', (chunk) => {
+        serverReceivedData.push(chunk.toString())
+        socket.write(`echo:${chunk}`)
+      })
+    })
+  })
+
+  /**
+   * @note A client that writes from its "connect" listener (e.g. a
+   * protocol handshake) is notified of the connection ahead of the
+   * verdict, which needs those writes. The real connection must then
+   * complete that notification, not repeat it.
+   */
+  interceptor.on('connection', ({ socket, controller }) => {
+    socket.once('data', () => controller.passthrough())
+  })
+
+  const socket = net.connect(server.port, server.hostname)
+  const connectListener = vi.fn(() => {
+    socket.write('handshake')
+  })
+  socket.on('connect', connectListener)
+  const readyListener = vi.fn()
+  socket.on('ready', readyListener)
+
+  // Keep writing once the real connection answers.
+  const secondEchoPromise = new Promise<string>((resolve) => {
+    socket.once('data', () => {
+      socket.write('second')
+      socket.once('data', (chunk) => resolve(chunk.toString()))
+    })
+  })
+
+  await expect(secondEchoPromise).resolves.toBe('echo:second')
+  expect.soft(connectListener).toHaveBeenCalledOnce()
+  expect.soft(readyListener).toHaveBeenCalledOnce()
+  expect(serverReceivedData).toEqual(['handshake', 'second'])
+
+  socket.destroy()
+})
