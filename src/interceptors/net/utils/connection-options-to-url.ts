@@ -27,17 +27,13 @@ export function connectionOptionsToUrl(
     url.port = options.port.toString()
   }
 
-  if (options.auth) {
-    const [username, password] = options.auth.split(':')
-    /**
-     * Authentication options are provided as plain values.
-     * Encode them to form a valid URL.
-     * @see https://github.com/nodejs/node/blob/f3adc11e37b8bfaaa026ea85c1cf22e3a0e29ae9/lib/internal/url.js#L1452
-     */
-    url.username = encodeURIComponent(username)
-    url.password = encodeURIComponent(password)
-  }
-
+  /**
+   * @note The "auth" option is deliberately not written to the URL.
+   * Credentials belong to a request, not to the connection: a kept-alive
+   * socket serves many requests, and only the first one carries "auth".
+   * The client ("http.ClientRequest") already sends it as the
+   * "Authorization" header of that request, which the parser reads.
+   */
   return url
 }
 

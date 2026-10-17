@@ -26,11 +26,7 @@ function resolveRequestUrl(target: string, base: URL): URL {
     return new URL(target, base)
   }
 
-  const url = new URL(`${base.origin}${target}`)
-  // "origin" has no credentials; carry those over from the base.
-  url.username = base.username
-  url.password = base.password
-  return url
+  return new URL(`${base.origin}${target}`)
 }
 
 export class HttpRequestParser extends HttpParser<1> {
@@ -66,19 +62,6 @@ export class HttpRequestParser extends HttpParser<1> {
           options.connectionOptions.url
         )
         const headers = FetchResponse.parseRawHeaders([...rawHeaders])
-
-        // Translate the basic authorization to request headers.
-        // Constructing a Request instance with a URL containing auth is no-op.
-        if (url.username || url.password) {
-          if (!headers.has('authorization')) {
-            const credentials = Buffer.from(
-              `${url.username}:${url.password}`
-            ).toString('base64')
-            headers.set('authorization', `Basic ${credentials}`)
-          }
-          url.username = ''
-          url.password = ''
-        }
 
         this.#requestBodyStream = new Readable({
           /**
