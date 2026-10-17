@@ -191,9 +191,9 @@ it('connects with "connect(path)"', async () => {
   await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
 
   expect.soft(listeners.connect).toHaveBeenCalledOnce()
-  expect.soft(Buffer.concat(receivedChunks).toString()).toBe(
-    'hello from server'
-  )
+  expect
+    .soft(Buffer.concat(receivedChunks).toString())
+    .toBe('hello from server')
   // Unix socket connections expose no remote address info.
   expect.soft(socket.remoteAddress).toBeUndefined()
   expect(socket.localAddress).toBeUndefined()
@@ -261,9 +261,9 @@ it('fails to connect with a URL argument, like Node.js', async () => {
 
   const [connectionError] = listeners.error.mock.calls[0]
   expect.soft(connectionError.code).toBe('ENOTFOUND')
-  expect.soft(connectionError.hostname).toBe(
-    `${server.hostname}:${server.port}`
-  )
+  expect
+    .soft(connectionError.hostname)
+    .toBe(`${server.hostname}:${server.port}`)
   expect(listeners.connect).not.toHaveBeenCalled()
 })
 
@@ -290,7 +290,7 @@ it('connects with "createConnection()"', async () => {
   expect(connectionCallback).toHaveBeenCalledOnce()
 })
 
-it('notifies connect again for passthrough decided after the client writes', async () => {
+it('notifies connect once for passthrough decided after the client writes', async () => {
   const receivedChunks: Array<Buffer> = []
   await using server = await createRawTestServer(() => {
     return new net.Server((socket) => {
@@ -323,9 +323,9 @@ it('notifies connect again for passthrough decided after the client writes', asy
   await expect(response.promise).resolves.toBe('original')
   await expect.poll(() => listeners.close).toHaveBeenCalledOnce()
 
-  // Synthetic connect obtains the request; real connect completes passthrough.
-  expect(listeners.connect).toHaveBeenCalledTimes(2)
-  // Once wrappers are consumed by synthetic connect, including the callback.
+  // The synthetic connect obtains the request; the real connect
+  // completes that notification instead of repeating it.
+  expect(listeners.connect).toHaveBeenCalledOnce()
   expect(connectionCallback).toHaveBeenCalledOnce()
   expect(Buffer.concat(receivedChunks).toString()).toBe('request')
 })

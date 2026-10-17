@@ -229,14 +229,16 @@ it('emits the "keylog" events for a mocked connection', async () => {
   // A TLS 1.3 handshake derives five secrets, each reported
   // via a separate "keylog" event before the handshake completes.
   expect.soft(keylogListener).toHaveBeenCalledTimes(5)
-  expect.soft(events).toEqual([
-    'keylog',
-    'keylog',
-    'keylog',
-    'keylog',
-    'keylog',
-    'secureConnect',
-  ])
+  expect
+    .soft(events)
+    .toEqual([
+      'keylog',
+      'keylog',
+      'keylog',
+      'keylog',
+      'keylog',
+      'secureConnect',
+    ])
 
   for (const [line] of keylogListener.mock.calls) {
     expect.soft(line).toBeInstanceOf(Buffer)
@@ -310,4 +312,127 @@ it('emits the "OCSPResponse" event', async () => {
   )
 
   socket.destroy()
+})
+
+it('notifies persistent "connect" and "secureConnect" listeners once when passing through after the first write', async () => {
+  const serverReceivedData: Array<string> = []
+  await using server = await createRawTestServer(() => {
+    return new tls.Server(
+      { cert: TLS_CERTIFICATE, key: TLS_PRIVATE_KEY },
+      (socket) => {
+        socket.on('data', (chunk) => {
+          serverReceivedData.push(chunk.toString())
+          socket.write(`echo:${chunk}`)
+        })
+      }
+    )
+  })
+
+  /**
+   * @note A client that writes from its "secureConnect" listener (e.g.
+   * a protocol handshake) is notified of the handshake ahead of the
+   * verdict, which needs those writes. The real handshake must then
+   * complete that notification, not repeat it.
+   */
+  interceptor.on('connection', ({ socket, controller }) => {
+    socket.once('data', () => controller.passthrough())
+  })
+
+  const socket = tls.connect({
+    port: server.port,
+    host: server.hostname,
+    servername: 'localhost',
+    ca: [TLS_CERTIFICATE],
+  })
+  onTestFinished(() => {
+    socket.destroy()
+  })
+  const connectListener = vi.fn()
+  socket.on('connect', connectListener)
+  const secureConnectListener = vi.fn(() => {
+    socket.write('handshake')
+  })
+  socket.on('secureConnect', secureConnectListener)
+  const sessionListener = vi.fn()
+  socket.on('session', sessionListener)
+
+  // Keep writing once the real connection answers.
+  const secondEchoPromise = new Promise<string>((resolve) => {
+    socket.once('data', () => {
+      socket.write('second')
+      socket.once('data', (chunk) => resolve(chunk.toString()))
+    })
+  })
+
+  await expect(secondEchoPromise).resolves.toBe('echo:second')
+  expect.soft(connectListener).toHaveBeenCalledOnce()
+  expect.soft(secureConnectListener).toHaveBeenCalledOnce()
+  // The real handshake still verifies the connection.
+  expect.soft(socket.authorized).toBe(true)
+  // Its session tickets are forwarded: they were never emulated.
+  await expect.poll(() => sessionListener.mock.calls.length).toBe(2)
+  expect(serverReceivedData).toEqual(['handshake', 'second'])
+})
+
+it('notifies persistent "connect" and "secureConnect" listeners once when claiming after the first write', async () => {
+  const serverReceivedData: Array<string> = []
+  interceptor.on('connection', ({ socket, controller }) => {
+    socket.on('data', (chunk) => {
+      serverReceivedData.push(chunk.toString())
+    })
+    socket.once('data', () => controller.claim())
+  })
+
+  const socket = tls.connect(443, 'non-existing.example')
+  onTestFinished(() => {
+    socket.destroy()
+  })
+  const connectListener = vi.fn()
+  socket.on('connect', connectListener)
+  const secureConnectListener = vi.fn(() => {
+    socket.write('handshake')
+  })
+  socket.on('secureConnect', secureConnectListener)
+  const sessionListener = vi.fn()
+  socket.on('session', sessionListener)
+  const closeListener = vi.fn()
+  socket.on('close', closeListener)
+
+  // The mocked handshake completes with its session tickets.
+  await expect.poll(() => sessionListener.mock.calls.length).toBe(2)
+  socket.write('second')
+  socket.destroy()
+
+  await expect.poll(() => closeListener).toHaveBeenCalledOnce()
+  expect.soft(connectListener).toHaveBeenCalledOnce()
+  expect.soft(secureConnectListener).toHaveBeenCalledOnce()
+  // Mocked connections are never authorized (no real peer certificate).
+  expect.soft(socket.authorized).toBe(false)
+  expect.soft(socket.authorizationError).toBe('MOCKED_CONNECTION_NOT_VERIFIED')
+  expect(serverReceivedData).toEqual(['handshake', 'second'])
+})
+
+it('notifies "secureConnect" once when passing through immediately', async () => {
+  await using server = await createRawTestServer(() => {
+    return new tls.Server({ cert: TLS_CERTIFICATE, key: TLS_PRIVATE_KEY })
+  })
+
+  interceptor.on('connection', ({ controller }) => {
+    controller.passthrough()
+  })
+
+  const socket = tls.connect({
+    port: server.port,
+    host: server.hostname,
+    servername: 'localhost',
+    ca: [TLS_CERTIFICATE],
+  })
+  onTestFinished(() => {
+    socket.destroy()
+  })
+  const secureConnectListener = vi.fn()
+  socket.on('secureConnect', secureConnectListener)
+
+  await expect.poll(() => secureConnectListener).toHaveBeenCalledOnce()
+  expect(socket.authorized).toBe(true)
 })
