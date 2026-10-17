@@ -13,6 +13,26 @@ interface HttpRequestParserOptions {
   onMessageComplete?: () => void
 }
 
+/**
+ * Resolve the request target against the connection URL.
+ * @note An origin-form target (starting with "/") is always a path.
+ * Resolved relatively, a target starting with "//" is treated as a
+ * network-path reference (e.g. "//v1/a" becomes "https://v1/a"),
+ * dropping the host. Append it to the origin instead. Other targets
+ * (e.g. absolute-form "http://host/path") are resolved as-is.
+ */
+function resolveRequestUrl(target: string, base: URL): URL {
+  if (!target.startsWith('/')) {
+    return new URL(target, base)
+  }
+
+  const url = new URL(`${base.origin}${target}`)
+  // "origin" has no credentials; carry those over from the base.
+  url.username = base.username
+  url.password = base.password
+  return url
+}
+
 export class HttpRequestParser extends HttpParser<1> {
   #requestBodyStream?: Readable
   #upgrade = false
@@ -41,7 +61,7 @@ export class HttpRequestParser extends HttpParser<1> {
          * URL scheme ("example.com:"). Keep it as the path instead: that
          * is where the authority is read from (see "FetchRequest").
          */
-        const url = new URL(
+        const url = resolveRequestUrl(
           finalMethod === 'CONNECT' ? `/${path}` : path || '',
           options.connectionOptions.url
         )
