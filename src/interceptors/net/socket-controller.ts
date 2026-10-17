@@ -851,9 +851,14 @@ export class TcpSocketController extends SocketController {
    * Emulate the connection notification if the socket is still
    * pending after its connection request, has no writes buffered,
    * and its client appears to wait for that notification.
+   * @note A destroyed socket never connects: Node.js ignores the
+   * completed connection request of a destroyed socket, emitting
+   * nothing on it ("afterConnect"). The client may have destroyed
+   * it since its connection request (e.g. an aborted request).
    */
   protected emulateConnectIfIdle(): void {
     if (
+      !this.socket.destroyed &&
       this.readyState === SocketController.PENDING &&
       this.#bufferedWrites.length === 0 &&
       this.isAwaitingConnect()
@@ -1550,6 +1555,17 @@ export class TlsSocketController extends TcpSocketController {
       : []
 
     super.emulateConnect()
+
+    /**
+     * @note A "connect" listener may destroy the socket (e.g. the HTTP
+     * client whose request was aborted meanwhile). A destroyed socket
+     * never completes its handshake, so there is no "secureConnect"
+     * to notify of.
+     */
+    if (this.socket.destroyed) {
+      return
+    }
+
     this.#secureConnectEmulated = true
 
     // For TLS sockets, also invoke the "secureConnect" callbacks since some consumers,
