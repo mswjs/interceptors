@@ -18,7 +18,7 @@ import { getTlsConnectOptions } from './utils/get-tls-connect-options'
 import { createLogger } from '../../utils/logger'
 import { patchesRegistry } from '../../utils/patches-registry'
 import { Interceptor } from '#/src/interceptor'
-import '../../utils/internal-connection'
+import { runAsInternalConnection } from '../../utils/internal-connection'
 
 /**
  * @note Initialize once across entry points and package copies. The runner
@@ -147,14 +147,6 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
     const interceptor = this
 
     /**
-     * @note A synchronous re-entrancy latch for creating passthrough
-     * TLS connections. The original "tls.connect()" constructs a TLS
-     * socket and calls "socket.connect()" on it synchronously, and that
-     * call must reach Node.js as-is instead of being intercepted again.
-     */
-    let isCreatingPassthroughConnection = false
-
-    /**
      * @note The controllers of the intercepted sockets, looked up for
      * the sockets that serve as the transport of a layered protocol
      * (e.g. "tls.connect({ socket })").
@@ -222,11 +214,10 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             /**
              * @note Skip the sockets this interceptor already controls
              * (the mock connect call below, re-connects of an intercepted
-             * socket, passthrough sockets) and the sockets created while
-             * dialing a passthrough TLS connection. Their connects must
-             * reach Node.js as-is.
+             * socket, passthrough sockets). Their connects must reach
+             * Node.js as-is.
              */
-            if (socket[kPatched] || isCreatingPassthroughConnection) {
+            if (socket[kPatched]) {
               return realSocketConnect.apply(socket, args)
             }
 
@@ -284,16 +275,16 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                    * @note Create the passthrough connection via the original
                    * "tls.connect()" with the effective connection options
                    * (the real DNS lookup and the caller's certificate
-                   * validation included). The latch exempts the transport
-                   * connect of that connection from interception.
+                   * validation included). "tls.connect()" connects the
+                   * transport of the TLS socket it constructs, and that
+                   * connect is internal: no socket interceptor must
+                   * intercept it, including another instance active by
+                   * then (e.g. this one disposed while the connection
+                   * was in flight).
                    */
-                  isCreatingPassthroughConnection = true
-
-                  try {
+                  return runAsInternalConnection(() => {
                     return tls.connect(tlsConnectionOptions)
-                  } finally {
-                    isCreatingPassthroughConnection = false
-                  }
+                  })
                 },
                 tlsConnectionOptions
               )
@@ -322,15 +313,19 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                   : {}
 
               connectionOptions = transportConnectionOptions
-              controller = new TcpSocketController(socket, () => {
-                const passthroughSocket = new net.Socket(socketOptions)
-                Reflect.apply(
-                  realSocketConnect,
-                  passthroughSocket,
-                  passthroughArgs
-                )
-                return passthroughSocket
-              })
+              controller = new TcpSocketController(
+                socket,
+                () => {
+                  const passthroughSocket = new net.Socket(socketOptions)
+                  Reflect.apply(
+                    realSocketConnect,
+                    passthroughSocket,
+                    passthroughArgs
+                  )
+                  return passthroughSocket
+                },
+                transportConnectionOptions
+              )
             }
 
             interceptConnection(socket, controller, connectionOptions)
@@ -349,6 +344,20 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             // Patch the lookup option so DNS lookup always succeeds.
             mockConnectionOptions.lookup = mockLookup
 
+            /**
+             * @note "tls.connect()" passes its handshake trigger ("_start")
+             * as the connection callback. The handshake of an intercepted
+             * TLS socket never starts natively: a claimed connection
+             * emulates it, a passed-through one performs it on the real
+             * connection whose handle the socket inherits. Started there
+             * again, "TLSWrap" aborts the process (a single start is
+             * asserted), so the trigger must not listen for "connect".
+             */
+            const mockConnectionCallback =
+              connectionCallback === socket._start
+                ? undefined
+                : connectionCallback
+
             try {
               /**
                * @note The normalized options are looser than the declared
@@ -360,7 +369,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                */
               return socket.connect(
                 mockConnectionOptions as net.SocketConnectOpts,
-                connectionCallback ?? undefined
+                mockConnectionCallback ?? undefined
               )
             } catch (error) {
               /**
@@ -398,7 +407,22 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
               ? socketControllers.get(wrap)
               : undefined
 
-            if (!transportController || isCreatingPassthroughConnection) {
+            /**
+             * @note A TLS socket over a provided transport connects nothing
+             * of its own, so an internal connection context is consumed
+             * here instead of in the "connect" patch (a TLS socket without
+             * a transport connects one, and that connect consumes it).
+             * Consuming it before the transport is examined keeps it from
+             * leaking into the connection's events, where it would exempt
+             * the connections the client makes from its listeners.
+             * A passthrough connection layered over a transport is such an
+             * internal connection, and carries its TLS layer natively.
+             */
+            const isInternalConnection =
+              wrap != null &&
+              globalThis.__MSW_INTERNAL_CONNECTION_CONTEXT?.consume()
+
+            if (!transportController || isInternalConnection) {
               return realWrapHandle.call(
                 this,
                 wrap,
@@ -454,16 +478,12 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             const controller = new TlsSocketController(
               socket,
               () => {
-                isCreatingPassthroughConnection = true
-
-                try {
+                return runAsInternalConnection(() => {
                   return tls.connect({
                     ...tlsConnectionOptions,
                     socket: transportController.createTransport(),
                   })
-                } finally {
-                  isCreatingPassthroughConnection = false
-                }
+                })
               },
               tlsConnectionOptions
             )
