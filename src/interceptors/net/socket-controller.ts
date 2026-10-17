@@ -440,6 +440,8 @@ export class TcpSocketController extends SocketController {
   #clientCloseEmitted = false
   #clientEndPushed = false
   #connectEmulated = false
+  #suppressedNotifications = new Set<string | symbol>()
+  #mockConnectedCallbacks: Array<() => void> = []
 
   constructor(
     protected readonly socket: net.Socket,
@@ -476,6 +478,27 @@ export class TcpSocketController extends SocketController {
 
     this.socket._writeGeneric = (...args) => {
       this.#handleWrite(args)
+    }
+
+    /**
+     * @note A connection notification the client was given ahead of
+     * time (see "emulateConnect") is completed, not repeated, by the
+     * one Node.js emits once the connection is established for real
+     * or mocked (see "withSuppressedNotification").
+     */
+    const realEmit: (
+      event: string | symbol,
+      ...args: Array<unknown>
+    ) => boolean = this.socket.emit
+    this.socket.emit = (
+      event: string | symbol,
+      ...args: Array<unknown>
+    ): boolean => {
+      if (this.#suppressedNotifications.has(event)) {
+        return true
+      }
+
+      return realEmit.apply(this.socket, [event, ...args])
     }
 
     this.socket.connect = new Proxy(this.socket.connect, {
@@ -532,6 +555,7 @@ export class TcpSocketController extends SocketController {
         this.#passthroughSocket = null
 
         this.#bufferedWrites = []
+        this.#mockConnectedCallbacks = []
         this.#readsCorked = false
         this.#corkedReads = []
       })
@@ -649,6 +673,7 @@ export class TcpSocketController extends SocketController {
     this.readyState = SocketController.PENDING
     this.pendingConnection = Promise.withResolvers()
     this.#bufferedWrites = []
+    this.#mockConnectedCallbacks = []
     this.#connectEmulated = false
 
     // Release the pending data of the previous exchange, if any,
@@ -911,12 +936,42 @@ export class TcpSocketController extends SocketController {
    * the next exchange, a TLS socket over a connected transport).
    */
   protected whenConnected(callback: () => void): void {
-    if (this.socket.connecting || this.#connectEmulated) {
+    /**
+     * @note The mock connection of a socket with an emulated "connect"
+     * completes without emitting "connect" again (see "claim()").
+     */
+    if (this.#connectEmulated) {
+      this.#mockConnectedCallbacks.push(callback)
+      return
+    }
+
+    if (this.socket.connecting) {
       this.socket.once('connect', callback)
       return
     }
 
     callback()
+  }
+
+  /**
+   * Run the given callback with the given connection notification
+   * suppressed: the client was notified ahead of time (see
+   * "emulateConnect"), and the notification Node.js emits for the
+   * established connection completes that one instead of repeating it
+   * (e.g. a client sending its protocol handshake from a persistent
+   * listener must not send it twice).
+   */
+  protected withSuppressedNotification(
+    event: 'connect' | 'secureConnect',
+    callback: () => void
+  ): void {
+    this.#suppressedNotifications.add(event)
+
+    try {
+      callback()
+    } finally {
+      this.#suppressedNotifications.delete(event)
+    }
   }
 
   /**
@@ -1338,7 +1393,17 @@ export class TcpSocketController extends SocketController {
       /**
        * @see https://github.com/nodejs/node/blob/9cd6630870b776e96c5cf0ac68c31e2f46df3835/lib/net.js#L1142
        */
-      request.oncomplete(0, handle, request, true, true)
+      if (this.#connectEmulated) {
+        this.withSuppressedNotification('connect', () => {
+          request.oncomplete(0, handle, request, true, true)
+        })
+      } else {
+        request.oncomplete(0, handle, request, true, true)
+      }
+
+      for (const callback of this.#mockConnectedCallbacks.splice(0)) {
+        callback()
+      }
     })
   }
 
@@ -1520,7 +1585,6 @@ export class TlsSocketController extends TcpSocketController {
    */
   #tlsConnectionOptions: TlsConnectionOptions
   #secureConnectEmulated = false
-  #suppressSecureConnect = false
 
   constructor(
     protected readonly socket: tls.TLSSocket,
@@ -1541,28 +1605,6 @@ export class TlsSocketController extends TcpSocketController {
       setImmediate(() => {
         this.emulateConnectIfIdle()
       })
-    }
-
-    /**
-     * @note Node.js emits "secureConnect" from its "secure" listener,
-     * which also verifies the connection ("authorized", the server
-     * identity). That listener must run for the real handshake, but the
-     * notification it emits is suppressed if the client was notified
-     * already (see "#onRealSocketSecure").
-     */
-    const realEmit: (
-      event: string | symbol,
-      ...args: Array<unknown>
-    ) => boolean = socket.emit
-    socket.emit = (
-      event: string | symbol,
-      ...args: Array<unknown>
-    ): boolean => {
-      if (event === 'secureConnect' && this.#suppressSecureConnect) {
-        return true
-      }
-
-      return realEmit.apply(socket, [event, ...args])
     }
   }
 
@@ -1641,14 +1683,14 @@ export class TlsSocketController extends TcpSocketController {
      * itself is skipped for claimed connections (see the
      * "isSessionReused" mock below).
      */
-    this.socket.prependOnceListener('secureConnect', () => {
+    const markUnauthorized = () => {
       Reflect.set(this.socket, 'authorized', false)
       Reflect.set(
         this.socket,
         'authorizationError',
         'MOCKED_CONNECTION_NOT_VERIFIED'
       )
-    })
+    }
 
     // Run this logic before the parent's class method so it executes first.
     // TLSWrap methods have to be patched before TCPWrap fires "oncomplete".
@@ -1752,7 +1794,23 @@ export class TlsSocketController extends TcpSocketController {
         )
       }
 
-      handle.onhandshakedone()
+      /**
+       * @note Node.js completes the handshake ("_finishInit") by
+       * emitting "secure", whose listener verifies the connection and
+       * emits "secureConnect". The client was notified of the handshake
+       * already if it awaited that notification to write: complete that
+       * notification instead of repeating it, and reflect the mocked
+       * (unverified) connection the listeners would have observed.
+       */
+      if (this.#secureConnectEmulated) {
+        this.withSuppressedNotification('secureConnect', () => {
+          handle.onhandshakedone()
+        })
+        markUnauthorized()
+      } else {
+        this.socket.prependOnceListener('secureConnect', markUnauthorized)
+        handle.onhandshakedone()
+      }
 
       /**
        * @note A TLS 1.3 server issues two session tickets by default,
@@ -1790,13 +1848,18 @@ export class TlsSocketController extends TcpSocketController {
     this.socket.alpnProtocol = this.socket._handle.getALPNNegotiatedProtocol()
 
     /**
-     * @note The client was notified of the handshake already if it
-     * awaited that notification to write (see "emulateConnect"). The
+     * @note Node.js verifies the connection and emits "secureConnect"
+     * from its "secure" listener. The client was notified of the
+     * handshake already if it awaited that notification to write: the
      * real handshake completes that notification, it does not repeat it.
      */
-    this.#suppressSecureConnect = this.#secureConnectEmulated
-    this.socket.emit('secure')
-    this.#suppressSecureConnect = false
+    if (this.#secureConnectEmulated) {
+      this.withSuppressedNotification('secureConnect', () => {
+        this.socket.emit('secure')
+      })
+    } else {
+      this.socket.emit('secure')
+    }
   }
 
   #onRealSocketSession = (session: Buffer) => {

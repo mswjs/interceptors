@@ -344,6 +344,9 @@ it('notifies persistent "connect" and "secureConnect" listeners once when passin
     servername: 'localhost',
     ca: [TLS_CERTIFICATE],
   })
+  onTestFinished(() => {
+    socket.destroy()
+  })
   const connectListener = vi.fn()
   socket.on('connect', connectListener)
   const secureConnectListener = vi.fn(() => {
@@ -369,8 +372,44 @@ it('notifies persistent "connect" and "secureConnect" listeners once when passin
   // Its session tickets are forwarded: they were never emulated.
   await expect.poll(() => sessionListener.mock.calls.length).toBe(2)
   expect(serverReceivedData).toEqual(['handshake', 'second'])
+})
 
+it('notifies persistent "connect" and "secureConnect" listeners once when claiming after the first write', async () => {
+  const serverReceivedData: Array<string> = []
+  interceptor.on('connection', ({ socket, controller }) => {
+    socket.on('data', (chunk) => {
+      serverReceivedData.push(chunk.toString())
+    })
+    socket.once('data', () => controller.claim())
+  })
+
+  const socket = tls.connect(443, 'non-existing.example')
+  onTestFinished(() => {
+    socket.destroy()
+  })
+  const connectListener = vi.fn()
+  socket.on('connect', connectListener)
+  const secureConnectListener = vi.fn(() => {
+    socket.write('handshake')
+  })
+  socket.on('secureConnect', secureConnectListener)
+  const sessionListener = vi.fn()
+  socket.on('session', sessionListener)
+  const closeListener = vi.fn()
+  socket.on('close', closeListener)
+
+  // The mocked handshake completes with its session tickets.
+  await expect.poll(() => sessionListener.mock.calls.length).toBe(2)
+  socket.write('second')
   socket.destroy()
+
+  await expect.poll(() => closeListener).toHaveBeenCalledOnce()
+  expect.soft(connectListener).toHaveBeenCalledOnce()
+  expect.soft(secureConnectListener).toHaveBeenCalledOnce()
+  // Mocked connections are never authorized (no real peer certificate).
+  expect.soft(socket.authorized).toBe(false)
+  expect.soft(socket.authorizationError).toBe('MOCKED_CONNECTION_NOT_VERIFIED')
+  expect(serverReceivedData).toEqual(['handshake', 'second'])
 })
 
 it('notifies "secureConnect" once when passing through immediately', async () => {
@@ -388,11 +427,12 @@ it('notifies "secureConnect" once when passing through immediately', async () =>
     servername: 'localhost',
     ca: [TLS_CERTIFICATE],
   })
+  onTestFinished(() => {
+    socket.destroy()
+  })
   const secureConnectListener = vi.fn()
   socket.on('secureConnect', secureConnectListener)
 
   await expect.poll(() => secureConnectListener).toHaveBeenCalledOnce()
   expect(socket.authorized).toBe(true)
-
-  socket.destroy()
 })

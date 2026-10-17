@@ -357,6 +357,9 @@ it('notifies a persistent "connect" listener once when passing through after the
   })
 
   const socket = net.connect(server.port, server.hostname)
+  onTestFinished(() => {
+    socket.destroy()
+  })
   const connectListener = vi.fn(() => {
     socket.write('handshake')
   })
@@ -376,6 +379,36 @@ it('notifies a persistent "connect" listener once when passing through after the
   expect.soft(connectListener).toHaveBeenCalledOnce()
   expect.soft(readyListener).toHaveBeenCalledOnce()
   expect(serverReceivedData).toEqual(['handshake', 'second'])
+})
 
+it('notifies a persistent "connect" listener once when claiming after the first write', async () => {
+  const serverReceivedData: Array<string> = []
+  interceptor.on('connection', ({ socket, controller }) => {
+    socket.on('data', (chunk) => {
+      serverReceivedData.push(chunk.toString())
+    })
+    socket.once('data', () => controller.claim())
+  })
+
+  const socket = net.connect(80, 'non-existing.example')
+  onTestFinished(() => {
+    socket.destroy()
+  })
+  const connectListener = vi.fn(() => {
+    socket.write('handshake')
+  })
+  socket.on('connect', connectListener)
+  const readyListener = vi.fn()
+  socket.on('ready', readyListener)
+  const closeListener = vi.fn()
+  socket.on('close', closeListener)
+
+  // The mocked connection completes once claimed.
+  await expect.poll(() => readyListener).toHaveBeenCalledOnce()
+  socket.write('second')
   socket.destroy()
+
+  await expect.poll(() => closeListener).toHaveBeenCalledOnce()
+  expect.soft(connectListener).toHaveBeenCalledOnce()
+  expect(serverReceivedData).toEqual(['handshake', 'second'])
 })
