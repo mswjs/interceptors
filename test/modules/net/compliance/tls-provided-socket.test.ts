@@ -147,3 +147,65 @@ it('dials the target with the caller\'s "lookup" when passing through TLS layere
 
   socket.destroy()
 })
+
+it('intercepts a connection made from a listener of a passed-through layered TLS socket', async () => {
+  await using server = await createRawTestServer(() => {
+    return new tls.Server(
+      {
+        cert: TLS_CERTIFICATE,
+        key: TLS_PRIVATE_KEY,
+      },
+      (connection) => connection.pipe(connection)
+    )
+  })
+
+  const connectionListener = vi.fn<(host: string | null | undefined) => void>()
+  interceptor.on('connection', ({ connectionOptions, controller }) => {
+    connectionListener(connectionOptions.host)
+
+    // Only a mocked connection to this host can ever connect.
+    if (connectionOptions.host === 'nested.example') {
+      controller.claim()
+      return
+    }
+
+    controller.passthrough()
+  })
+
+  const transportSocket = net.connect(server.port, server.hostname)
+  const socket = tls.connect({
+    socket: transportSocket,
+    servername: 'localhost',
+    ca: [TLS_CERTIFICATE],
+  })
+  const errorListener = vi.fn()
+  socket.on('error', errorListener)
+
+  /**
+   * @note The real connection's events run in the async context it was
+   * established in. A connection the client makes from there is the
+   * client's own and must be intercepted like any other.
+   */
+  const nestedConnectionPromise = new Promise<net.Socket>((resolve, reject) => {
+    socket.once('data', () => {
+      const nestedSocket = net.connect(server.port, 'nested.example')
+      nestedSocket.once('connect', () => resolve(nestedSocket))
+      nestedSocket.once('error', reject)
+    })
+  })
+
+  socket.once('secureConnect', () => {
+    socket.write('hello')
+  })
+
+  const nestedSocket = await nestedConnectionPromise
+  expect.soft(errorListener).not.toHaveBeenCalled()
+  expect(connectionListener.mock.calls).toEqual([
+    [server.hostname],
+    [server.hostname],
+    ['nested.example'],
+  ])
+
+  nestedSocket.destroy()
+  socket.destroy()
+})

@@ -408,14 +408,21 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
               : undefined
 
             /**
-             * @note A passthrough connection layered over an intercepted
-             * transport is internal (see the passthrough connections
-             * below) and carries its TLS layer natively.
+             * @note A TLS socket over a provided transport connects nothing
+             * of its own, so an internal connection context is consumed
+             * here instead of in the "connect" patch (a TLS socket without
+             * a transport connects one, and that connect consumes it).
+             * Consuming it before the transport is examined keeps it from
+             * leaking into the connection's events, where it would exempt
+             * the connections the client makes from its listeners.
+             * A passthrough connection layered over a transport is such an
+             * internal connection, and carries its TLS layer natively.
              */
-            if (
-              !transportController ||
+            const isInternalConnection =
+              wrap != null &&
               globalThis.__MSW_INTERNAL_CONNECTION_CONTEXT?.consume()
-            ) {
+
+            if (!transportController || isInternalConnection) {
               return realWrapHandle.call(
                 this,
                 wrap,
