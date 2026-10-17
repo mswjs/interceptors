@@ -291,3 +291,37 @@ it('deletes sensitive request headers for a cross-origin redirect', async () => 
   expect(response.headers.get('cookie')).toBeNull()
   expect(response.headers.get('x-other-header')).toBe('value')
 })
+
+it('follows a 301 redirect for a POST request with a body as a GET request', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.url.endsWith('/original')) {
+      return controller.respondWith(
+        Response.redirect(server.http.url('/redirect/destination'), 301)
+      )
+    }
+  })
+
+  const response = await fetch(server.http.url('/original'), {
+    method: 'POST',
+    body: 'hello world',
+  })
+
+  expect(response.status).toBe(200)
+  expect(response.redirected).toBe(true)
+  await expect(response.text()).resolves.toBe('destination-body')
+})
+
+it('returns a mocked redirect response without a location as-is', async () => {
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(new Response('moved', { status: 301 }))
+  })
+
+  const response = await fetch(server.http.url('/original'), {
+    method: 'POST',
+    body: 'hello world',
+  })
+
+  expect(response.status).toBe(301)
+  expect(response.redirected).toBe(false)
+  await expect(response.text()).resolves.toBe('moved')
+})

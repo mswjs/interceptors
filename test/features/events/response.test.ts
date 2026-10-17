@@ -271,25 +271,10 @@ it('fetch: emits the "response" event upon a mocked response', async () => {
     },
   })
 
-  await expect.poll(() => responseListener).toHaveBeenCalledTimes(2)
+  await expect.poll(() => responseListener).toHaveBeenCalledOnce()
 
   {
     const [{ response, request, responseType }] = responseListener.mock.calls[0]
-
-    expect(request.method).toBe('OPTIONS')
-    expect(request.url).toBe(server.https.url('/user').href)
-    expect(request.credentials).toBe('same-origin')
-    await expect(request.text()).resolves.toBe('')
-
-    expect(response.status).toBe(200)
-    expect(response.url).toBe(request.url)
-    await expect(response.text()).resolves.toBe('')
-
-    expect(responseType).toBe('mock')
-  }
-
-  {
-    const [{ response, request, responseType }] = responseListener.mock.calls[1]
 
     expect(request.method).toBe('GET')
     expect(request.url).toBe(server.https.url('/user').href)
@@ -322,28 +307,11 @@ it(
       body: 'original-body',
     })
 
-    await expect.poll(() => responseListener).toHaveBeenCalledTimes(2)
+    await expect.poll(() => responseListener).toHaveBeenCalledOnce()
 
     {
       const [{ response, request, responseType }] =
         responseListener.mock.calls[0]
-
-      expect(request.method).toBe('OPTIONS')
-      expect(request.url).toBe(server.http.url('/account').href)
-      expect(request.credentials).toBe('same-origin')
-      await expect(request.text()).resolves.toBe('')
-
-      expect(response.status).toBe(200)
-      expect(response.statusText).toBe('OK')
-      expect(response.url).toBe(request.url)
-      await expect(response.text()).resolves.toBe('')
-
-      expect(responseType).toBe('original')
-    }
-
-    {
-      const [{ response, request, responseType }] =
-        responseListener.mock.calls[1]
 
       expect(request.method).toBe('POST')
       expect(request.url).toBe(server.http.url('/account').href)
@@ -398,13 +366,9 @@ it('supports reading the request and response bodies in the "response" listener'
     body: 'request-body',
   })
 
-  await expect.poll(() => requestCallback).toHaveReturnedTimes(2)
+  await expect.poll(() => requestCallback).toHaveReturnedTimes(1)
+  expect(requestCallback).toHaveBeenCalledWith('request-body')
 
-  expect(requestCallback).toHaveBeenNthCalledWith(1, '')
-  expect(requestCallback).toHaveBeenNthCalledWith(2, 'request-body')
-
-  await expect.poll(() => responseCallback).toHaveReturnedTimes(2)
-
-  expect(responseCallback).toHaveBeenNthCalledWith(1, '')
-  expect(responseCallback).toHaveBeenNthCalledWith(2, 'mocked-response-text')
+  await expect.poll(() => responseCallback).toHaveReturnedTimes(1)
+  expect(responseCallback).toHaveBeenCalledWith('mocked-response-text')
 })

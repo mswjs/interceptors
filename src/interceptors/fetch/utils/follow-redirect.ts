@@ -13,11 +13,47 @@ const kRedirectCount = Symbol('kRedirectCount')
 /**
  * @see https://github.com/nodejs/undici/blob/a6dac3149c505b58d2e6d068b97f4dc993da55f0/lib/web/fetch/index.js#L1210
  */
+interface FollowFetchRedirectOptions {
+  /**
+   * Whether the request body was provided as a stream.
+   * A stream cannot be read again, so only a `Request` created from
+   * a stream fails to follow the redirects that re-send the body.
+   */
+  hasStreamingBody: boolean
+}
+
 export async function followFetchRedirect(
   request: Request,
-  response: Response
+  response: Response,
+  options: FollowFetchRedirectOptions
 ): Promise<Response> {
-  if (response.status !== 303 && request.body != null) {
+  const location = response.headers.get('location')
+
+  // A redirect response without a location is returned as-is.
+  if (location == null) {
+    return response
+  }
+
+  /**
+   * @see https://fetch.spec.whatwg.org/#http-redirect-fetch (step 9)
+   */
+  if (
+    response.status !== 303 &&
+    request.body != null &&
+    options.hasStreamingBody
+  ) {
+    return Promise.reject(createNetworkError())
+  }
+
+  const coercesToGet =
+    ([301, 302].includes(response.status) && request.method === 'POST') ||
+    (response.status === 303 && !['HEAD', 'GET'].includes(request.method))
+
+  /**
+   * @note The request body cannot be sent again once it was read.
+   * Only the redirects that drop the body can be followed.
+   */
+  if (!coercesToGet && request.body != null) {
     return Promise.reject(createNetworkError())
   }
 
@@ -26,14 +62,14 @@ export async function followFetchRedirect(
   let locationUrl: URL
   try {
     // If the location is a relative URL, use the request URL as the base URL.
-    locationUrl = new URL(response.headers.get('location')!, request.url) 
+    locationUrl = new URL(location, request.url)
   } catch (error) {
     return Promise.reject(createNetworkError(error))
   }
 
-  if (
-    !(locationUrl.protocol === 'http:' || locationUrl.protocol === 'https:')
-  ) {
+  if (!(
+    locationUrl.protocol === 'http:' || locationUrl.protocol === 'https:'
+  )) {
     return Promise.reject(
       createNetworkError('URL scheme must be a HTTP(S) scheme')
     )
@@ -59,10 +95,7 @@ export async function followFetchRedirect(
 
   const requestInit: RequestInit = {}
 
-  if (
-    ([301, 302].includes(response.status) && request.method === 'POST') ||
-    (response.status === 303 && !['HEAD', 'GET'].includes(request.method))
-  ) {
+  if (coercesToGet) {
     requestInit.method = 'GET'
     requestInit.body = null
 

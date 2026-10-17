@@ -5,10 +5,7 @@ import { handleRequest } from '../../utils/handle-request'
 import { createRequestId } from '../../create-request-id'
 import { createNetworkError } from './utils/create-network-error'
 import { followFetchRedirect } from './utils/follow-redirect'
-import {
-  decompressResponse,
-  isCompressedResponse,
-} from './utils/decompression'
+import { decompressResponse, isCompressedResponse } from './utils/decompression'
 import { cloneResponse } from '../../utils/clone-response'
 import { hasConfigurableGlobal } from '../../utils/has-configurable-global'
 import { FetchResponse } from '../../utils/fetch-utils'
@@ -133,11 +130,14 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 let response: Response
 
                 if (isCompressedResponse(rawResponse)) {
-                  response = new FetchResponse(decompressResponse(rawResponse), {
-                    status: rawResponse.status,
-                    statusText: rawResponse.statusText,
-                    headers: rawResponse.headers,
-                  })
+                  response = new FetchResponse(
+                    decompressResponse(rawResponse),
+                    {
+                      status: rawResponse.status,
+                      statusText: rawResponse.statusText,
+                      headers: rawResponse.headers,
+                    }
+                  )
                   copyRawHeaders(rawResponse.headers, response.headers)
                 } else {
                   response = rawResponse
@@ -164,7 +164,9 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                   }
 
                   if (request.redirect === 'follow') {
-                    followFetchRedirect(request, response).then(
+                    followFetchRedirect(request, response, {
+                      hasStreamingBody: init?.body instanceof ReadableStream,
+                    }).then(
                       (response) => {
                         responsePromise.resolve(response)
                       },

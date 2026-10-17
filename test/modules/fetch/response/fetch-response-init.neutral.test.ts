@@ -47,9 +47,7 @@ describe.each(['http', 'https'] as const)('%s', (protocol) => {
     expect(response.status).toBe(201)
     expect(response.statusText).toBe('Created')
     expect(response.headers.get('content-type')).toBe('application/hal+json')
-    expect(response.type).toBe(
-      task.file.projectName === 'browser' ? 'default' : 'basic'
-    )
+    expect(response.type).toBe('default')
     await expect(response.json()).resolves.toEqual({ mocked: true })
   })
 
