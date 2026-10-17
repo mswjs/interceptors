@@ -428,7 +428,7 @@ export class TcpSocketController extends SocketController {
 
   #removePassthroughSocketListeners?: () => void
 
-  #connectionOptions?: NetworkConnectionOptions
+  #connectionOptions: NetworkConnectionOptions
   #retargetedConnectionOptions?: NetworkConnectionOptions
   #realWriteGeneric: net.Socket['_writeGeneric']
   #passthroughSocket: net.Socket | null = null
@@ -444,15 +444,16 @@ export class TcpSocketController extends SocketController {
   constructor(
     protected readonly socket: net.Socket,
     protected readonly createConnection: () => net.Socket,
-    connectionOptions?: NetworkConnectionOptions
+    connectionOptions: NetworkConnectionOptions
   ) {
     super(socket)
 
     /**
-     * @note Plain TCP sockets capture the connection options from the
-     * "socket.connect()" proxy below. TLS sockets carry additional
-     * TLS-level options that never pass through "socket.connect()",
-     * so those are provided explicitly (see "TlsSocketController").
+     * @note The options of the connection the consumer requested.
+     * They are not captured from the "socket.connect()" call: the
+     * interceptor connects the socket with its own options (e.g. a
+     * mock "lookup"), which must never describe this connection
+     * (e.g. dial its target, see "createTransport()").
      */
     this.#connectionOptions = connectionOptions
 
@@ -480,8 +481,6 @@ export class TcpSocketController extends SocketController {
     this.socket.connect = new Proxy(this.socket.connect, {
       apply: (target, thisArg, args) => {
         logger.verbose('socket.connect() %o', args)
-
-        this.#connectionOptions = args[0]
 
         /**
          * @note Do not bind the intercepted socket to the requested
@@ -608,7 +607,7 @@ export class TcpSocketController extends SocketController {
    * The options of the connection this socket currently represents
    * (the retargeted ones once retargeted, see `retarget()`).
    */
-  public get connectionOptions(): NetworkConnectionOptions | undefined {
+  public get connectionOptions(): NetworkConnectionOptions {
     return this.#connectionOptions
   }
 
@@ -624,11 +623,6 @@ export class TcpSocketController extends SocketController {
     if (this.#passthroughSocket && !this.#passthroughSocket.destroyed) {
       return this.#passthroughSocket
     }
-
-    invariant(
-      this.#connectionOptions,
-      'Failed to create a transport for a layered protocol: the socket has no connection options'
-    )
 
     return this.#createDirectConnection(this.#connectionOptions)
   }
@@ -1508,13 +1502,13 @@ export class TlsSocketController extends TcpSocketController {
    * TCP sockets because "tls.connect()" fixes them at the TLS socket
    * construction, before its transport ever connects.
    */
-  #tlsConnectionOptions?: TlsConnectionOptions
+  #tlsConnectionOptions: TlsConnectionOptions
   #secureConnectEmulated = false
 
   constructor(
     protected readonly socket: tls.TLSSocket,
     protected readonly createConnection: () => tls.TLSSocket,
-    tlsConnectionOptions?: TlsConnectionOptions
+    tlsConnectionOptions: TlsConnectionOptions
   ) {
     super(socket, createConnection, tlsConnectionOptions)
 
@@ -1550,12 +1544,10 @@ export class TlsSocketController extends TcpSocketController {
      * handshake. A later passthrough handshake must preserve that choice
      * instead of negotiating a different protocol for buffered writes.
      */
-    if (this.#tlsConnectionOptions) {
-      const alpnProtocol = this.socket._handle.getALPNNegotiatedProtocol()
-      this.#tlsConnectionOptions.ALPNProtocols = alpnProtocol
-        ? [alpnProtocol]
-        : []
-    }
+    const alpnProtocol = this.socket._handle.getALPNNegotiatedProtocol()
+    this.#tlsConnectionOptions.ALPNProtocols = alpnProtocol
+      ? [alpnProtocol]
+      : []
 
     super.emulateConnect()
     this.#secureConnectEmulated = true
@@ -1583,7 +1575,14 @@ export class TlsSocketController extends TcpSocketController {
       )
     }
 
-    return super.isAwaitingConnect()
+    /**
+     * @note A connecting TLS socket's client may await the handshake
+     * notification alone (e.g. Undici awaits "secureConnect").
+     */
+    return (
+      super.isAwaitingConnect() ||
+      this.socket.listenerCount('secureConnect') > 0
+    )
   }
 
   public claim(): void {
@@ -1671,7 +1670,7 @@ export class TlsSocketController extends TcpSocketController {
       }
     }
 
-    const requestedAlpnProtocols = this.#tlsConnectionOptions?.ALPNProtocols
+    const requestedAlpnProtocols = this.#tlsConnectionOptions.ALPNProtocols
 
     if (
       Array.isArray(requestedAlpnProtocols) &&
@@ -1738,30 +1737,7 @@ export class TlsSocketController extends TcpSocketController {
   public passthrough(
     flushPendingData?: FlushPendingDataFunction
   ): tls.TLSSocket {
-    const realSocket = super.passthrough(flushPendingData) as tls.TLSSocket
-
-    /**
-     * @note Remove the internal "connect" listener added by the TLS socket.
-     * Normally, that listener manages the SSL handshake. But since we're in passthrough,
-     * we delegate that to the real socket. Leaving the listener on the mock socket while
-     * inheriting the real socket's handle will result in the handshake performed twice, which is a no-op.
-     * @see https://github.com/nodejs/node/blob/abddfc921bf2af02a04a6a5d2bca8e2d91d80958/lib/internal/tls/wrap.js#L1105
-     *
-     * This prevents the following error:
-     *  #  node (vitest 4)[8686]: static void node::crypto::TLSWrap::Start(const FunctionCallbackInfo<Value> &) at ../src/crypto/crypto_tls.cc:589
-     #  Assertion failed: !wrap->started_
-     */
-    for (const connectListener of this.socket.listeners('connect')) {
-      if (
-        connectListener === this.socket._start ||
-        ('listener' in connectListener &&
-          connectListener.listener === this.socket._start)
-      ) {
-        this.socket.removeListener('connect', connectListener as () => void)
-      }
-    }
-
-    return realSocket
+    return super.passthrough(flushPendingData) as tls.TLSSocket
   }
 
   #onRealSocketSecure = () => {

@@ -86,3 +86,64 @@ it('passes through a TLS connection over a caller-provided socket', async () => 
 
   socket.destroy()
 })
+
+it('dials the target with the caller\'s "lookup" when passing through TLS layered over a pending transport', async () => {
+  await using server = await createRawTestServer(() => {
+    return new tls.Server(
+      {
+        cert: TLS_CERTIFICATE,
+        key: TLS_PRIVATE_KEY,
+      },
+      (connection) => connection.pipe(connection)
+    )
+  })
+
+  /**
+   * @note The transport carries no data of its own (the TLS layer
+   * does) and gets no verdict. The passed-through TLS layer then
+   * dials the transport's target directly, which must happen with
+   * the caller's connection options, including their "lookup".
+   */
+  interceptor.on('connection', ({ socket, controller }) => {
+    if (socket instanceof tls.TLSSocket) {
+      controller.passthrough()
+    }
+  })
+
+  const lookup = vi.fn<net.LookupFunction>((hostname, options, callback) => {
+    if (options.all) {
+      callback(null, [{ address: server.hostname, family: 4 }])
+      return
+    }
+
+    callback(null, server.hostname, 4)
+  })
+  const transportSocket = net.connect({
+    host: 'db.internal',
+    port: server.port,
+    lookup,
+  })
+  const socket = tls.connect({
+    socket: transportSocket,
+    servername: 'localhost',
+    ca: [TLS_CERTIFICATE],
+  })
+  const errorListener = vi.fn()
+  socket.on('error', errorListener)
+  const dataListener = vi.fn<(chunk: string) => void>()
+  socket.on('data', (chunk) => dataListener(chunk.toString()))
+
+  socket.once('secureConnect', () => {
+    socket.write('hello')
+  })
+
+  await expect.poll(() => dataListener).toHaveBeenCalledExactlyOnceWith('hello')
+  expect.soft(errorListener).not.toHaveBeenCalled()
+  expect(lookup).toHaveBeenCalledWith(
+    'db.internal',
+    expect.anything(),
+    expect.any(Function)
+  )
+
+  socket.destroy()
+})

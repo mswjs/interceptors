@@ -322,15 +322,19 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                   : {}
 
               connectionOptions = transportConnectionOptions
-              controller = new TcpSocketController(socket, () => {
-                const passthroughSocket = new net.Socket(socketOptions)
-                Reflect.apply(
-                  realSocketConnect,
-                  passthroughSocket,
-                  passthroughArgs
-                )
-                return passthroughSocket
-              })
+              controller = new TcpSocketController(
+                socket,
+                () => {
+                  const passthroughSocket = new net.Socket(socketOptions)
+                  Reflect.apply(
+                    realSocketConnect,
+                    passthroughSocket,
+                    passthroughArgs
+                  )
+                  return passthroughSocket
+                },
+                transportConnectionOptions
+              )
             }
 
             interceptConnection(socket, controller, connectionOptions)
@@ -349,6 +353,20 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
             // Patch the lookup option so DNS lookup always succeeds.
             mockConnectionOptions.lookup = mockLookup
 
+            /**
+             * @note "tls.connect()" passes its handshake trigger ("_start")
+             * as the connection callback. The handshake of an intercepted
+             * TLS socket never starts natively: a claimed connection
+             * emulates it, a passed-through one performs it on the real
+             * connection whose handle the socket inherits. Started there
+             * again, "TLSWrap" aborts the process (a single start is
+             * asserted), so the trigger must not listen for "connect".
+             */
+            const mockConnectionCallback =
+              connectionCallback === socket._start
+                ? undefined
+                : connectionCallback
+
             try {
               /**
                * @note The normalized options are looser than the declared
@@ -360,7 +378,7 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
                */
               return socket.connect(
                 mockConnectionOptions as net.SocketConnectOpts,
-                connectionCallback ?? undefined
+                mockConnectionCallback ?? undefined
               )
             } catch (error) {
               /**
