@@ -252,3 +252,43 @@ it('aborts the pending request via "AbortSignal.timeout"', async ({
   fetchRejected.resolve()
   await requestListenerDone.promise
 })
+
+it('does not crash when the abort races with the request being responded to', async ({
+  task,
+}) => {
+  const abortController = new AbortController()
+  const requestListenerCalled = Promise.withResolvers<void>()
+  const respondGate = Promise.withResolvers<void>()
+
+  interceptor.on('request', async ({ controller }) => {
+    requestListenerCalled.resolve()
+    await respondGate.promise
+    controller.respondWith(new Response('hello world'))
+  })
+
+  const fetchResultPromise = fetch(server.http.url('/resource'), {
+    signal: abortController.signal,
+  }).then<Response | Error>(
+    (response) => response,
+    (error) => error
+  )
+
+  await requestListenerCalled.promise
+  // Release the listener and abort in the same tick so the listener
+  // responds after the abort fires but before the interceptor observes it.
+  respondGate.resolve()
+  abortController.abort()
+
+  const fetchResult = await fetchResultPromise
+
+  // Node.js (Undici) aborts the pending request itself, while the
+  // browser interceptor delivers the mocked response that won the race.
+  // Either way, the late abort must not throw outside of the listener.
+  if (task.file.projectName === 'browser') {
+    expect(fetchResult).toBeInstanceOf(Response)
+    return
+  }
+
+  expect(fetchResult).toBeInstanceOf(Error)
+  expect((fetchResult as Error).name).toBe('AbortError')
+})
