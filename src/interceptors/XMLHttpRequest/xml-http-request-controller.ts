@@ -50,6 +50,7 @@ export class XMLHttpRequestController {
   [kFetchRequest]?: Request
 
   private sync: boolean = false
+  private requestAbortController: AbortController
   private method: string = 'GET'
   private url: URL = null as any
   private requestHeaders: Headers
@@ -73,6 +74,7 @@ export class XMLHttpRequestController {
     this.requestId = createRequestId()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
+    this.requestAbortController = new AbortController()
 
     this.request = createProxy(initialRequest, {
       methodCall: ([methodName, args], invoke) => {
@@ -160,8 +162,18 @@ export class XMLHttpRequestController {
             const requestBody =
               typeof body === 'string' ? encodeBuffer(body) : body
 
+            /**
+             * @note Create a new abort controller per request so that
+             * calling `.abort()` aborts the pending request handling
+             * and the mocked response delivery of this request only.
+             */
+            this.requestAbortController = new AbortController()
+
             // Delegate request handling to the consumer.
-            const fetchRequest = this.toFetchApiRequest(requestBody)
+            const fetchRequest = this.toFetchApiRequest(
+              requestBody,
+              this.requestAbortController.signal
+            )
             this[kFetchRequest] = fetchRequest.clone()
 
             /**
@@ -191,6 +203,16 @@ export class XMLHttpRequestController {
             break
           }
 
+          case 'abort': {
+            this.logger.verbose('abort')
+
+            // Abort the pending request handling or the mocked
+            // response delivery, whichever is in progress.
+            this.requestAbortController.abort()
+
+            return invoke()
+          }
+
           default: {
             return invoke()
           }
@@ -209,7 +231,7 @@ export class XMLHttpRequestController {
           switch (propertyName) {
             case 'onloadstart':
             case 'onprogress':
-            case 'onaboart':
+            case 'onabort':
             case 'onerror':
             case 'onload':
             case 'ontimeout':
@@ -373,50 +395,37 @@ export class XMLHttpRequestController {
     }
 
     let timedOut = false
-    const responseReadController = new AbortController()
-
-    const requestErrorSteps = (
-      event: keyof XMLHttpRequestEventTargetEventMap
-    ) => {
-      this.setReadyState(this.request.DONE)
-
-      if (!uploadComplete) {
-        this.trigger(event, this.request.upload, {
-          loaded: 0,
-          total: 0,
-        })
-        this.trigger('loadend', this.request.upload, {
-          loaded: 0,
-          total: 0,
-        })
-      }
-
-      this.trigger(event, this.request, { loaded: 0, total: 0 })
-      this.trigger('loadend', this.request, { loaded: 0, total: 0 })
-    }
+    const abortSignal = this.requestAbortController.signal
 
     const processResponse = async (response: Response) => {
-      const handleErrors = () => {
+      const handleErrors = (): boolean => {
         if (timedOut) {
-          requestErrorSteps('timeout')
-        } else if (responseReadController.signal.aborted) {
-          requestErrorSteps('abort')
-        } else if (isResponseError(response)) {
-          requestErrorSteps('error')
+          this.requestErrorSteps('timeout', uploadComplete)
+          return true
         }
+
+        if (abortSignal.aborted) {
+          this.requestErrorSteps('abort', uploadComplete)
+          return true
+        }
+
+        if (isResponseError(response)) {
+          this.requestErrorSteps('error', uploadComplete)
+          return true
+        }
+
+        return false
       }
 
-      handleErrors()
+      if (handleErrors()) {
+        return
+      }
 
       define(this.request, 'status', response.status)
       define(this.request, 'statusText', response.statusText)
 
       if (!this.request.responseURL) {
         define(this.request, 'responseURL', response.url)
-      }
-
-      if (isResponseError(response)) {
-        return
       }
 
       /**
@@ -457,13 +466,11 @@ export class XMLHttpRequestController {
       }
 
       const processResponseBodyError = () => {
-        requestErrorSteps('error')
+        this.requestErrorSteps('error', uploadComplete)
       }
 
       const processResponseEndOfBody = async () => {
-        handleErrors()
-
-        if (isResponseError(response)) {
+        if (handleErrors()) {
           return
         }
 
@@ -491,8 +498,9 @@ export class XMLHttpRequestController {
         const reader = response.body.getReader()
 
         while (true) {
-          if (responseReadController.signal.aborted) {
-            break
+          if (abortSignal.aborted) {
+            processResponseEndOfBody()
+            return
           }
 
           try {
@@ -529,7 +537,7 @@ export class XMLHttpRequestController {
       setTimeout(() => {
         if (this.request.readyState !== this.request.DONE) {
           timedOut = true
-          responseReadController.abort()
+          this.requestAbortController.abort()
         }
       }, this.request.timeout)
     }
@@ -740,11 +748,52 @@ export class XMLHttpRequestController {
      * This prevents the controller from trying to perform this request as-is.
      */
     this[kIsRequestHandled] = true
+
+    if (this.requestAbortController.signal.aborted) {
+      this.logger.verbose('aborting the request')
+      this.requestErrorSteps('abort', false)
+      return
+    }
+
     this.logger.verbose('responding with an error')
 
     this.setReadyState(this.request.DONE)
     this.trigger('error', this.request)
     this.trigger('loadend', this.request)
+  }
+
+  /**
+   * Run the request error steps for the given event.
+   * @see https://xhr.spec.whatwg.org/#request-error-steps
+   */
+  private requestErrorSteps(
+    event: keyof XMLHttpRequestEventTargetEventMap,
+    uploadComplete: boolean
+  ): void {
+    this.setReadyState(this.request.DONE)
+
+    if (!uploadComplete) {
+      this.trigger(event, this.request.upload, {
+        loaded: 0,
+        total: 0,
+      })
+      this.trigger('loadend', this.request.upload, {
+        loaded: 0,
+        total: 0,
+      })
+    }
+
+    this.trigger(event, this.request, { loaded: 0, total: 0 })
+    this.trigger('loadend', this.request, { loaded: 0, total: 0 })
+
+    /**
+     * @note An aborted request ends up in the "UNSENT" state
+     * without dispatching another "readystatechange" event.
+     * @see https://xhr.spec.whatwg.org/#the-abort()-method
+     */
+    if (event === 'abort') {
+      this.setReadyState(this.request.UNSENT, false)
+    }
   }
 
   /**
@@ -824,7 +873,8 @@ export class XMLHttpRequestController {
    * Converts this `XMLHttpRequest` instance into a Fetch API `Request` instance.
    */
   private toFetchApiRequest(
-    body: XMLHttpRequestBodyInit | Document | null | undefined
+    body: XMLHttpRequestBodyInit | Document | null | undefined,
+    signal: AbortSignal
   ): Request {
     this.logger.verbose('converting request to a Fetch API Request...')
 
@@ -841,6 +891,7 @@ export class XMLHttpRequestController {
        */
       credentials: this.request.withCredentials ? 'include' : 'same-origin',
       body: resolvedBody,
+      signal,
     })
 
     const headers = fetchRequest.headers
