@@ -144,3 +144,33 @@ it('respects "AbortSignal.timeout()" for a bypassed request', async () => {
   expect(request.destroyed).toBe(true)
   expect(timeoutListener).not.toHaveBeenCalled()
 })
+
+it('does not crash when the abort races with the request being responded to', async () => {
+  const abortController = new AbortController()
+  const requestListenerCalled = Promise.withResolvers<void>()
+  const respondGate = Promise.withResolvers<void>()
+
+  interceptor.on('request', async ({ controller }) => {
+    requestListenerCalled.resolve()
+    await respondGate.promise
+    controller.respondWith(new Response('hello world'))
+  })
+
+  const request = http.get(httpServer.http.url('/resource').href, {
+    signal: abortController.signal,
+  })
+  // The abort is surfaced as the request error. Must listen
+  // to the "close" event to know the request has settled.
+  request.on('error', () => {})
+  const requestClosePromise = Promise.withResolvers<void>()
+  request.on('close', () => requestClosePromise.resolve())
+
+  await requestListenerCalled.promise
+  // Release the listener and abort in the same tick so the listener
+  // responds after the abort fires but before the interceptor observes it.
+  respondGate.resolve()
+  abortController.abort()
+
+  await requestClosePromise.promise
+  expect(request.destroyed).toBe(true)
+})

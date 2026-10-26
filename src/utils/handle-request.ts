@@ -146,7 +146,15 @@ export async function handleRequest(
 
   // Handle the request being aborted while waiting for the request listeners.
   if (isRequestAborted) {
-    await options.controller.errorWith(requestAbortReason)
+    /**
+     * @note The abort can land after a listener has already handled the
+     * request (e.g. responded to it) but before that is observed here.
+     * The controller state is final by then, so the abort is a no-op.
+     */
+    if (options.controller.readyState === RequestController.PENDING) {
+      options.controller.errorWith(requestAbortReason)
+    }
+
     return
   }
 
@@ -209,9 +217,7 @@ export async function handleRequest(
     }
 
     // Otherwise, coerce unhandled exceptions to a 500 Internal Server Error response.
-    await options.controller.respondWith(
-      createServerErrorResponse(resultError)
-    )
+    await options.controller.respondWith(createServerErrorResponse(resultError))
     return
   }
 
