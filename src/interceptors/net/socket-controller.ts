@@ -3,6 +3,7 @@ import tls from 'node:tls'
 import { invariant } from 'outvariant'
 import { toBuffer } from '../../utils/buffer-utils'
 import { createLogger } from '../../utils/logger'
+import { getValueBySymbol } from '../../utils/get-value-by-symbol'
 import { unwrapPendingData, writePendingData } from './utils/flush-writes'
 import { NetworkConnectionOptions } from './utils/normalize-net-connect-args'
 import { TlsConnectionOptions } from './utils/normalize-tls-connect-args'
@@ -1429,6 +1430,25 @@ export class TcpSocketController extends SocketController {
 
       if (this.socket.timeout != null) {
         realSocket.setTimeout(this.socket.timeout)
+      }
+
+      /**
+       * @note Forward the "setNoDelay()" and "setKeepAlive()" state of
+       * the client socket. Node.js keeps that state under internal symbols
+       * and applies it to the client's own handle, which the passthrough
+       * connection does not share. Reading the symbols covers the calls
+       * made before and after the client socket got its handle alike.
+       */
+      if (getValueBySymbol<boolean>('kSetNoDelay', this.socket)) {
+        realSocket.setNoDelay(true)
+      }
+
+      if (getValueBySymbol<boolean>('kSetKeepAlive', this.socket)) {
+        // Node.js stores the initial delay in seconds.
+        const initialDelay =
+          getValueBySymbol<number>('kSetKeepAliveInitialDelay', this.socket) ??
+          0
+        realSocket.setKeepAlive(true, initialDelay * 1000)
       }
 
       return realSocket
