@@ -1034,6 +1034,13 @@ export class TcpSocketController extends SocketController {
    * so the client socket carries its traffic natively from now on.
    */
   #swapRealHandle(realSocket: net.Socket): void {
+    /**
+     * @note The client may have changed its socket options since the
+     * real socket was created (they landed on the handle being replaced).
+     * Reconcile them onto the real socket before taking over its handle.
+     */
+    this.#forwardSocketOptions(realSocket)
+
     const replacedHandle = this.socket._handle
     const wasUnrefed =
       replacedHandle != null &&
@@ -1075,6 +1082,29 @@ export class TcpSocketController extends SocketController {
      * connecting (the info of connecting sockets is never cached).
      */
     void this.socket.remoteAddress
+  }
+
+  /**
+   * Apply the "setNoDelay()" and "setKeepAlive()" state of the client
+   * socket to the given real socket. Node.js keeps that state under
+   * internal symbols (set by the methods and by the "noDelay"/"keepAlive"
+   * connection options alike) and applies it to the client's own handle,
+   * which the real connection does not share.
+   */
+  #forwardSocketOptions(realSocket: net.Socket): void {
+    const noDelay = getValueBySymbol<boolean>('kSetNoDelay', this.socket)
+    const keepAlive = getValueBySymbol<boolean>('kSetKeepAlive', this.socket)
+    // Node.js stores the initial delay in seconds.
+    const keepAliveInitialDelay = getValueBySymbol<number>(
+      'kSetKeepAliveInitialDelay',
+      this.socket
+    )
+
+    realSocket.setNoDelay(noDelay ?? false)
+    realSocket.setKeepAlive(
+      keepAlive ?? false,
+      (keepAliveInitialDelay ?? 0) * 1000
+    )
   }
 
   #onRealSocketConnectionAttemptFailed = (
@@ -1432,24 +1462,7 @@ export class TcpSocketController extends SocketController {
         realSocket.setTimeout(this.socket.timeout)
       }
 
-      /**
-       * @note Forward the "setNoDelay()" and "setKeepAlive()" state of
-       * the client socket. Node.js keeps that state under internal symbols
-       * and applies it to the client's own handle, which the passthrough
-       * connection does not share. Reading the symbols covers the calls
-       * made before and after the client socket got its handle alike.
-       */
-      if (getValueBySymbol<boolean>('kSetNoDelay', this.socket)) {
-        realSocket.setNoDelay(true)
-      }
-
-      if (getValueBySymbol<boolean>('kSetKeepAlive', this.socket)) {
-        // Node.js stores the initial delay in seconds.
-        const initialDelay =
-          getValueBySymbol<number>('kSetKeepAliveInitialDelay', this.socket) ??
-          0
-        realSocket.setKeepAlive(true, initialDelay * 1000)
-      }
+      this.#forwardSocketOptions(realSocket)
 
       return realSocket
     }

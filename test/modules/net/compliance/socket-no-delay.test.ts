@@ -46,15 +46,22 @@ it('respects "setNoDelay()" on a passthrough socket', async () => {
 
   await expect.poll(() => listeners.ready).toHaveBeenCalledOnce()
 
-  const replied = Promise.withResolvers<void>()
-  socket.once('data', () => replied.resolve())
-
+  /**
+   * @note Measure several exchanges so a single slow reply (e.g. a
+   * scheduling hiccup) cannot fail the test. With Nagle's algorithm
+   * on, the stalls add up to ~400ms; with it off, to a few ms.
+   */
   const startedAt = performance.now()
-  socket.write('a')
-  socket.write('b')
-  await replied.promise
 
-  expect(performance.now() - startedAt).toBeLessThan(20)
+  for (let i = 0; i < 10; i++) {
+    const replied = Promise.withResolvers<void>()
+    socket.once('data', () => replied.resolve())
+    socket.write('a')
+    socket.write('b')
+    await replied.promise
+  }
+
+  expect(performance.now() - startedAt).toBeLessThan(100)
 
   socket.destroy()
 })
