@@ -335,3 +335,79 @@ it('aborts the request signal and cancels the mocked body when the client aborts
 
   await expect.poll(() => streamCancelled).toHaveBeenCalledOnce()
 })
+
+it.skipIf(typeof window !== 'undefined')(
+  'aborts the request signal when the client aborts while the "response" listeners are pending',
+  async () => {
+    const requestReceived = Promise.withResolvers<Request>()
+    const responseListenerCalled = Promise.withResolvers<void>()
+    const fetchRejected = Promise.withResolvers<void>()
+
+    interceptor.on('request', ({ request, controller }) => {
+      requestReceived.resolve(request)
+      controller.respondWith(new Response('hello world'))
+    })
+    interceptor.on('response', async () => {
+      responseListenerCalled.resolve()
+      await fetchRejected.promise
+    })
+
+    const abortController = new AbortController()
+    const abortErrorPromise = fetch(server.http.url('/resource'), {
+      signal: abortController.signal,
+    }).then<Error>(
+      () => expect.fail('must not return any response'),
+      (error) => error
+    )
+
+    await responseListenerCalled.promise
+    abortController.abort()
+
+    const abortError = await abortErrorPromise
+    expect(abortError.name).toBe('AbortError')
+    fetchRejected.resolve()
+
+    const request = await requestReceived.promise
+    await expect.poll(() => request.signal.aborted).toBe(true)
+  }
+)
+
+it.skipIf(typeof window !== 'undefined')(
+  'does not crash when the cancelled mocked body fails to clean up',
+  async () => {
+    const requestReceived = Promise.withResolvers<Request>()
+    const streamCancelled = vi.fn()
+
+    interceptor.on('request', ({ request, controller }) => {
+      requestReceived.resolve(request)
+      controller.respondWith(
+        new Response(
+          new ReadableStream({
+            start(streamController) {
+              streamController.enqueue(
+                new TextEncoder().encode('data: hello\n\n')
+              )
+            },
+            cancel(reason) {
+              streamCancelled(reason)
+              throw new Error('Failed to clean up')
+            },
+          }),
+          { headers: { 'content-type': 'text/event-stream' } }
+        )
+      )
+    })
+
+    const abortController = new AbortController()
+    const response = await fetch(server.http.url('/stream'), {
+      signal: abortController.signal,
+    })
+    expect(response.status).toBe(200)
+
+    abortController.abort()
+
+    const request = await requestReceived.promise
+    await expect.poll(() => request.signal.aborted).toBe(true)
+    await expect.poll(() => streamCancelled).toHaveBeenCalledOnce()
+  }
+)

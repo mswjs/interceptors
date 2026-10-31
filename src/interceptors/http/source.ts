@@ -84,6 +84,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let requestParser: HttpRequestParser | undefined
         let tunnelUrl: URL | undefined
         let abortPendingRequest: (() => void) | undefined
+        let abortRespondedRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
 
         /**
@@ -170,6 +171,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         const realSocketDestroy = rawSocket.destroy.bind(rawSocket)
         rawSocket.destroy = (error) => {
           abortPendingRequest?.()
+          abortRespondedRequest?.()
           return realSocketDestroy(error)
         }
 
@@ -294,6 +296,17 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
                     socketController.claim()
 
+                    /**
+                     * @note The connection torn down from now on, until the
+                     * mocked response is delivered, ends the request early:
+                     * the client walked away (e.g. on request abort) while
+                     * awaiting the "response" listeners, the connection, or
+                     * the response body. Abort the request, like a server
+                     * does on client disconnect, so the listener can release
+                     * long-lived response bodies (e.g. SSE).
+                     */
+                    abortRespondedRequest = () => requestAbortController.abort()
+
                     const originalResponse = FetchResponse.from(rawResponse, {
                       url: request.url,
                     })
@@ -313,16 +326,6 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                         enterTunnel(request.url)
                       }
 
-                      /**
-                       * @note The client destroying the socket while the
-                       * response is being written (e.g. on request abort)
-                       * is the only way it can walk away from a mocked
-                       * response. Abort the request so the listener can
-                       * release long-lived response bodies (e.g. SSE).
-                       */
-                      const abortRequest = () => requestAbortController.abort()
-                      rawSocket.once('close', abortRequest)
-
                       try {
                         await this.respondWith({
                           socket: rawSocket,
@@ -331,7 +334,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                           connectionRequestContext,
                         })
                       } finally {
-                        rawSocket.removeListener('close', abortRequest)
+                        abortRespondedRequest = undefined
                         hasActiveExchange = false
                       }
 
@@ -807,7 +810,12 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
        * (e.g. the client went away) and cancel it so its source is
        * released, like a server handler observing the client disconnect.
        */
-      const cancelReader = () => reader.cancel(request.signal.reason)
+      const cancelReader = () => {
+        reader.cancel(request.signal.reason).catch((error) => {
+          // The body's source failing to clean up is not the client's concern.
+          httpLogger.verbose('failed to cancel the response body: %o', error)
+        })
+      }
       request.signal.addEventListener('abort', cancelReader, { once: true })
 
       try {
