@@ -84,6 +84,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         let requestParser: HttpRequestParser | undefined
         let tunnelUrl: URL | undefined
         let abortPendingRequest: (() => void) | undefined
+        let abortRespondedRequest: (() => void) | undefined
         let pendingRequestController: RequestController | undefined
 
         /**
@@ -170,6 +171,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         const realSocketDestroy = rawSocket.destroy.bind(rawSocket)
         rawSocket.destroy = (error) => {
           abortPendingRequest?.()
+          abortRespondedRequest?.()
           return realSocketDestroy(error)
         }
 
@@ -303,6 +305,33 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                         ? cloneResponse(originalResponse)
                         : [originalResponse, null]
 
+                    /**
+                     * @note The connection torn down from now on, until the
+                     * mocked response is delivered, ends the request early:
+                     * the client walked away (e.g. on request abort) while
+                     * awaiting the "response" listeners, the connection, or
+                     * the response body. Abort the request, like a server
+                     * does on client disconnect, so the listener can release
+                     * long-lived response bodies (e.g. SSE), and cancel the
+                     * body nobody will read. The response writer, once
+                     * started, holds the body's reader and cancels it on
+                     * the request abort itself.
+                     */
+                    abortRespondedRequest = () => {
+                      requestAbortController.abort()
+
+                      if (response.body && !response.body.locked) {
+                        response.body
+                          .cancel(requestAbortController.signal.reason)
+                          .catch((error) => {
+                            httpLogger.verbose(
+                              'failed to cancel the response body: %o',
+                              error
+                            )
+                          })
+                      }
+                    }
+
                     const respond = async () => {
                       /**
                        * @note A successful mocked response to a "CONNECT"
@@ -315,12 +344,13 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
                       try {
                         await this.respondWith({
-                          socket: socketController[kRawSocket],
+                          socket: rawSocket,
                           request: context.request,
                           response,
                           connectionRequestContext,
                         })
                       } finally {
+                        abortRespondedRequest = undefined
                         hasActiveExchange = false
                       }
 
@@ -791,6 +821,19 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     if (response.body) {
       const reader = response.body.getReader()
 
+      /**
+       * @note Stop writing the response body once the request is aborted
+       * (e.g. the client went away) and cancel it so its source is
+       * released, like a server handler observing the client disconnect.
+       */
+      const cancelReader = () => {
+        reader.cancel(request.signal.reason).catch((error) => {
+          // The body's source failing to clean up is not the client's concern.
+          httpLogger.verbose('failed to cancel the response body: %o', error)
+        })
+      }
+      request.signal.addEventListener('abort', cancelReader, { once: true })
+
       try {
         while (true) {
           const { done, value } = await reader.read()
@@ -817,6 +860,8 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         await new Promise<void>((resolve) => process.nextTick(resolve))
         socket.destroy()
         return
+      } finally {
+        request.signal.removeEventListener('abort', cancelReader)
       }
     } else {
       serverResponse.end()
