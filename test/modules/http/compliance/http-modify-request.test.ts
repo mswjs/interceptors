@@ -59,3 +59,23 @@ it('allows removing the request headers', async () => {
 
   expect(response.headers.has('x-custom-header')).toBe(false)
 })
+
+it('preserves header values containing a colon separator when modifying headers', async () => {
+  interceptor.on('request', ({ request }) => {
+    request.headers.set('x-appended-header', 'modified')
+  })
+
+  const request = http.get(server.http.url('/user'), {
+    headers: {
+      'x-custom-header': 'a: b',
+      'x-another-header': 'c',
+    },
+  })
+  const [response] = await toWebResponse(request)
+
+  expect(Object.fromEntries(response.headers)).toMatchObject({
+    'x-custom-header': 'a: b',
+    'x-another-header': 'c',
+    'x-appended-header': 'modified',
+  })
+})

@@ -898,7 +898,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
       }
 
       const httpMessageHeaders = FetchResponse.parseRawHeaders(
-        httpMessageHeaderPairs.flatMap((header) => header.split(': '))
+        httpMessageRawHeaders.flat()
       )
 
       const visitedHeaders = new Set<string>()
