@@ -190,9 +190,7 @@ it('forwards custom abort reason to the request if pending', async () => {
   )
 })
 
-it('respects requests aborted before they are dispatched', async ({
-  task,
-}) => {
+it('respects requests aborted before they are dispatched', async ({ task }) => {
   interceptor.on('request', ({ controller }) => {
     controller.respondWith(new Response('hello world'))
   })
@@ -218,9 +216,7 @@ it('respects requests aborted before they are dispatched', async ({
     )
 })
 
-it('aborts the pending request via "AbortSignal.timeout"', async ({
-  task,
-}) => {
+it('aborts the pending request via "AbortSignal.timeout"', async ({ task }) => {
   const fetchRejected = Promise.withResolvers<void>()
   const requestListenerDone = Promise.withResolvers<void>()
 
@@ -291,4 +287,51 @@ it('does not crash when the abort races with the request being responded to', as
 
   expect(fetchResult).toBeInstanceOf(Error)
   expect((fetchResult as Error).name).toBe('AbortError')
+})
+
+it('aborts the request signal and cancels the mocked body when the client aborts a streamed response', async ({
+  task,
+}) => {
+  const requestReceived = Promise.withResolvers<Request>()
+  const streamCancelled = vi.fn()
+
+  interceptor.on('request', ({ request, controller }) => {
+    requestReceived.resolve(request)
+    controller.respondWith(
+      new Response(
+        new ReadableStream({
+          start(streamController) {
+            streamController.enqueue(
+              new TextEncoder().encode('data: hello\n\n')
+            )
+          },
+          cancel(reason) {
+            streamCancelled(reason)
+          },
+        }),
+        { headers: { 'content-type': 'text/event-stream' } }
+      )
+    )
+  })
+
+  const abortController = new AbortController()
+  const response = await fetch(server.http.url('/stream'), {
+    signal: abortController.signal,
+  })
+  expect(response.status).toBe(200)
+
+  abortController.abort()
+
+  const request = await requestReceived.promise
+  await expect.poll(() => request.signal.aborted).toBe(true)
+
+  /**
+   * @note The browser interceptor hands the mocked response to the
+   * caller as-is, so a late abort never reaches its body.
+   */
+  if (task.file.projectName === 'browser') {
+    return
+  }
+
+  await expect.poll(() => streamCancelled).toHaveBeenCalledOnce()
 })
