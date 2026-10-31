@@ -296,17 +296,6 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
 
                     socketController.claim()
 
-                    /**
-                     * @note The connection torn down from now on, until the
-                     * mocked response is delivered, ends the request early:
-                     * the client walked away (e.g. on request abort) while
-                     * awaiting the "response" listeners, the connection, or
-                     * the response body. Abort the request, like a server
-                     * does on client disconnect, so the listener can release
-                     * long-lived response bodies (e.g. SSE).
-                     */
-                    abortRespondedRequest = () => requestAbortController.abort()
-
                     const originalResponse = FetchResponse.from(rawResponse, {
                       url: request.url,
                     })
@@ -315,6 +304,33 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                       this.emitter.listenerCount('response') > 0
                         ? cloneResponse(originalResponse)
                         : [originalResponse, null]
+
+                    /**
+                     * @note The connection torn down from now on, until the
+                     * mocked response is delivered, ends the request early:
+                     * the client walked away (e.g. on request abort) while
+                     * awaiting the "response" listeners, the connection, or
+                     * the response body. Abort the request, like a server
+                     * does on client disconnect, so the listener can release
+                     * long-lived response bodies (e.g. SSE), and cancel the
+                     * body nobody will read. The response writer, once
+                     * started, holds the body's reader and cancels it on
+                     * the request abort itself.
+                     */
+                    abortRespondedRequest = () => {
+                      requestAbortController.abort()
+
+                      if (response.body && !response.body.locked) {
+                        response.body
+                          .cancel(requestAbortController.signal.reason)
+                          .catch((error) => {
+                            httpLogger.verbose(
+                              'failed to cancel the response body: %o',
+                              error
+                            )
+                          })
+                      }
+                    }
 
                     const respond = async () => {
                       /**

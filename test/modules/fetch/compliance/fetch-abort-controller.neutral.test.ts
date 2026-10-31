@@ -411,3 +411,51 @@ it.skipIf(typeof window !== 'undefined')(
     await expect.poll(() => streamCancelled).toHaveBeenCalledOnce()
   }
 )
+
+it.skipIf(typeof window !== 'undefined')(
+  'cancels the mocked body when the client aborts while the "response" listeners are pending',
+  async () => {
+    const streamCancelled = vi.fn()
+    const responseListenerCalled = Promise.withResolvers<void>()
+    const fetchRejected = Promise.withResolvers<void>()
+
+    interceptor.on('request', ({ controller }) => {
+      controller.respondWith(
+        new Response(
+          new ReadableStream({
+            start(streamController) {
+              streamController.enqueue(
+                new TextEncoder().encode('data: hello\n\n')
+              )
+            },
+            cancel(reason) {
+              streamCancelled(reason)
+            },
+          }),
+          { headers: { 'content-type': 'text/event-stream' } }
+        )
+      )
+    })
+    interceptor.on('response', async () => {
+      responseListenerCalled.resolve()
+      await fetchRejected.promise
+    })
+
+    const abortController = new AbortController()
+    const abortErrorPromise = fetch(server.http.url('/stream'), {
+      signal: abortController.signal,
+    }).then<Error>(
+      () => expect.fail('must not return any response'),
+      (error) => error
+    )
+
+    await responseListenerCalled.promise
+    abortController.abort()
+
+    const abortError = await abortErrorPromise
+    expect(abortError.name).toBe('AbortError')
+    fetchRejected.resolve()
+
+    await expect.poll(() => streamCancelled).toHaveBeenCalledOnce()
+  }
+)
