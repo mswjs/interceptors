@@ -632,7 +632,11 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
          * however late the client writes it (a deferred request body, a
          * socket Undici reopens for an aborted request). Keep it pending
          * for that write: only a client outside of any request context
-         * may be waiting for the server to speak first.
+         * may be waiting for the server to speak first. An auxiliary
+         * connection a custom agent opens for the request (e.g. in
+         * "createConnection") shares its context and is kept pending
+         * too: nothing tells it apart from the request's own connection
+         * at this point.
          */
         if (connectionRequestContext !== undefined) {
           return
