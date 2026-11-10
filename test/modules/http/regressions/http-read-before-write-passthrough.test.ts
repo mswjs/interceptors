@@ -2,13 +2,13 @@
 /**
  * @see https://github.com/mswjs/interceptors/issues/862
  */
-import { once } from 'node:events'
 import http from 'node:http'
 import net from 'node:net'
 import { setTimeout } from 'node:timers/promises'
 import { BatchInterceptor } from '#/src/batch-interceptor'
 import { ClientRequestInterceptor } from '#/src/interceptors/ClientRequest'
 import { FetchInterceptor } from '#/src/interceptors/fetch/node'
+import { toWebResponse } from '#/test/helpers'
 
 /**
  * @note The client interceptors provide the request context of the
@@ -92,90 +92,62 @@ it('intercepts a fetch request whose body arrives after the client started readi
   expect(requestListener).toHaveBeenCalledWith('http://example.test/resource')
 })
 
-it('intercepts a request sent over the socket undici reopens for an aborted request', async () => {
+/**
+ * @see https://github.com/mswjs/interceptors/issues/881
+ */
+it('intercepts a request sent over an idle connection the client opened earlier', async () => {
   const requestListener = vi.fn()
-  interceptor.on('request', async ({ request, controller }) => {
+  interceptor.on('request', ({ request, controller }) => {
     requestListener(request.method, request.url)
-
-    if (request.method === 'GET') {
-      await setTimeout(200)
-      controller.respondWith(new Response('slow'))
-      return
-    }
-
-    await setTimeout(20)
     controller.respondWith(new Response('mocked'))
   })
 
   /**
-   * @note Track the connections undici opens to this origin. The
-   * origin is unique to this test so no idle connection from the
-   * previous tests can serve the requests below instead.
+   * @note Model a client that opens a spare connection while
+   * dispatching a request, reads it, and leaves it idle until a later
+   * request is written to it (e.g. undici reconnecting on abort for
+   * the aborted request it has already dropped). The spare connection
+   * belongs to the first request's context, and nothing is written to
+   * it for longer than the read-before-write check waits.
    */
-  const sockets = new Set<net.Socket>()
-  const realSocketConnect = net.Socket.prototype.connect
-  using _ = vi
-    .spyOn(net.Socket.prototype, 'connect')
-    .mockImplementation(function (this: net.Socket, ...args) {
-      sockets.add(this)
-      return Reflect.apply(realSocketConnect, this, args)
-    })
+  class SpareConnectionAgent extends http.Agent {
+    public spareSocket?: net.Socket
 
-  const abortController = new AbortController()
-  const abortedRequestPromise = fetch('http://reopened.example.test/slow', {
-    signal: abortController.signal,
-  }).then<Error>(
-    () => expect.fail('must not return any response'),
-    (error) => error
-  )
+    public createConnection(options: net.NetConnectOpts): net.Socket {
+      if (this.spareSocket) {
+        const socket = this.spareSocket
+        this.spareSocket = undefined
+        return socket
+      }
 
-  await vi.waitFor(() => {
-    expect(requestListener).toHaveBeenCalledWith(
-      'GET',
-      'http://reopened.example.test/slow'
-    )
-  })
-  expect(sockets.size).toBe(1)
+      this.spareSocket = net.connect(options)
+      this.spareSocket.on('data', () => {})
 
-  /**
-   * @note On abort, undici destroys the socket, re-queues the aborted
-   * request, and opens a new connection for it. By the time that
-   * connection is up, the request is gone, so nothing is written to it.
-   * The idle socket is then kept for the next request to this origin.
-   */
-  abortController.abort()
-  await expect(abortedRequestPromise).resolves.toHaveProperty(
-    'name',
-    'AbortError'
-  )
-  await vi.waitFor(() => {
-    expect(sockets.size).toBe(2)
-  })
-
-  const [, reopenedSocket] = Array.from(sockets)
-
-  if (reopenedSocket.connecting) {
-    await once(reopenedSocket, 'connect')
+      return net.connect(options)
+    }
   }
+  const agent = new SpareConnectionAgent()
 
-  const reopenedSocketWrite = vi.spyOn(reopenedSocket, 'write')
-  const response = await fetch('http://reopened.example.test/resource', {
+  const firstRequest = http.get('http://idle.example.test/first', { agent })
+  const [firstResponse] = await toWebResponse(firstRequest)
+  await expect(firstResponse.text()).resolves.toBe('mocked')
+
+  const spareSocket = agent.spareSocket
+  expect(spareSocket).toBeDefined()
+  await setTimeout(50)
+
+  const request = http.request('http://idle.example.test/resource', {
     method: 'POST',
+    agent,
   })
+  request.end('hello')
+  const [response] = await toWebResponse(request)
 
-  expect(await response.text()).toBe('mocked')
+  await expect(response.text()).resolves.toBe('mocked')
   expect(requestListener).toHaveBeenCalledWith(
     'POST',
-    'http://reopened.example.test/resource'
+    'http://idle.example.test/resource'
   )
-
-  // The request was written to the reopened socket, not to a new one.
-  expect.soft(sockets.size).toBe(2)
-  expect
-    .soft(
-      reopenedSocketWrite.mock.calls.some(([chunk]) => {
-        return String(chunk).startsWith('POST /resource HTTP/1.1')
-      })
-    )
-    .toBe(true)
+  // The request was written to the idle connection.
+  expect(request.socket).toBe(spareSocket)
 })
