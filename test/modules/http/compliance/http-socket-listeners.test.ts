@@ -61,6 +61,49 @@ it('reuses an HTTPS connection without leaking event listeners', async () => {
   expect(emitWarning).not.toHaveBeenCalled()
 })
 
+/**
+ * @see https://github.com/mswjs/interceptors/issues/859
+ */
+it('reuses a mocked HTTPS connection without leaking event listeners', async () => {
+  interceptor.on('request', ({ controller }) => {
+    /**
+     * @note An explicit "Content-Length" makes the mocked response
+     * self-delimiting, which allows the connection to stay alive.
+     */
+    controller.respondWith(
+      new Response('mocked', {
+        headers: {
+          'content-length': '6',
+        },
+      })
+    )
+  })
+  onTestFinished(() => {
+    interceptor.removeAllListeners()
+  })
+
+  const agent = new https.Agent({ keepAlive: true, maxSockets: 1 })
+  onTestFinished(() => {
+    agent.destroy()
+  })
+  using emitWarning = vi.spyOn(process, 'emitWarning')
+  const secureConnectListenerCounts: Array<number> = []
+
+  for (let requestIndex = 0; requestIndex < 15; requestIndex++) {
+    const request = https.get('https://localhost/resource', { agent })
+    const [response] = await toWebResponse(request)
+
+    await expect(response.text()).resolves.toBe('mocked')
+    expect(request.reusedSocket).toBe(requestIndex > 0)
+    secureConnectListenerCounts.push(
+      request.socket!.listenerCount('secureConnect')
+    )
+  }
+
+  expect.soft(emitWarning).not.toHaveBeenCalled()
+  expect.soft(new Set(secureConnectListenerCounts).size).toBe(1)
+})
+
 it('removes forwarding listeners from a closed HTTP connection', async () => {
   using passthrough = vi.spyOn(TcpSocketController.prototype, 'passthrough')
   const request = http.get(httpServer.http.url('/resource'))

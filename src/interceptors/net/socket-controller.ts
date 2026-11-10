@@ -85,8 +85,8 @@ export interface TcpHandle {
   ) => OperationStatus
   reading: boolean
   onread: () => void
-  readStart: () => void
-  readStop: () => void
+  readStart: () => OperationStatus
+  readStop: () => OperationStatus
   bytesRead: number
   bytesWritten: number
   ref?: () => void
@@ -705,6 +705,17 @@ export class TcpSocketController extends SocketController {
         logger.verbose('handle.connect()')
         this.pendingConnection.resolve([request, handle])
       }
+
+      /**
+       * @note The mocked data is pushed to the socket directly, bypassing
+       * the handle, and the socket's own reads are patched (see "_read").
+       * Node.js still starts and stops reads on the handle itself (e.g.
+       * guarding an idle socket in the keep-alive pool against unexpected
+       * data), destroying the socket when that fails. The handle never
+       * connected, so reading it fails ("ENOTCONN"): report success.
+       */
+      handle.readStart = () => 0
+      handle.readStop = () => 0
 
       logger.verbose('socket handle wrapped! waiting for connection request...')
     }
