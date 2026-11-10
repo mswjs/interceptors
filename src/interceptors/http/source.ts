@@ -597,6 +597,18 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
         socket.on('close', () => requestParser?.free())
 
         /**
+         * @note A connection opened by an intercepted HTTP client (e.g.
+         * `fetch`, `http.request()`) carries an HTTP request eventually,
+         * however late the client writes it (a deferred request body, a
+         * socket Undici reopens for an aborted request). Keep it pending
+         * for that write: only a client outside of any request context
+         * may be waiting for the server to speak first.
+         */
+        if (connectionRequestContext !== undefined) {
+          return
+        }
+
+        /**
          * @note A client that waits for the server to speak first (e.g. a
          * SQL handshake) starts reading without writing anything, so
          * protocol detection never runs. Pass such connections through
