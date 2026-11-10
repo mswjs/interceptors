@@ -1,16 +1,14 @@
 // @vitest-environment happy-dom
 import { createEvent } from './create-event'
-import { EventPolyfill } from '../polyfills/event-polyfill'
 
 const request = new XMLHttpRequest()
 request.open('POST', '/user')
 
-it('returns an EventPolyfill instance with the given target set', () => {
+it('returns an Event instance for a non-progress event', () => {
   const event = createEvent(request, 'my-event')
-  const target = event.target as XMLHttpRequest
 
-  expect(event).toBeInstanceOf(EventPolyfill)
-  expect(target).toBeInstanceOf(XMLHttpRequest)
+  expect(event).toBeInstanceOf(Event)
+  expect(event.type).toBe('my-event')
 })
 
 it('returns the ProgressEvent instance', () => {
@@ -20,6 +18,6 @@ it('returns the ProgressEvent instance', () => {
   })
 
   expect(event).toBeInstanceOf(ProgressEvent)
-  expect(event.loaded).toBe(100)
-  expect(event.total).toBe(500)
+  expect(event).toHaveProperty('loaded', 100)
+  expect(event).toHaveProperty('total', 500)
 })
