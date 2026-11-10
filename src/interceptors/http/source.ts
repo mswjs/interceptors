@@ -723,8 +723,8 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     const responseSocket = new net.Socket()
 
     responseSocket._writeGeneric = (writev, data, encoding, callback) => {
-      unwrapPendingData(data, (chunk, encoding) => {
-        socket.push(toBuffer(chunk), encoding)
+      unwrapPendingData(data, encoding, (chunk, chunkEncoding) => {
+        socket.push(toBuffer(chunk, chunkEncoding))
       })
       callback?.()
     }
