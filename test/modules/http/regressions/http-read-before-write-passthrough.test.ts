@@ -2,8 +2,10 @@
 /**
  * @see https://github.com/mswjs/interceptors/issues/862
  */
+import { once } from 'node:events'
 import http from 'node:http'
-import { setImmediate, setTimeout } from 'node:timers/promises'
+import net from 'node:net'
+import { setTimeout } from 'node:timers/promises'
 import { BatchInterceptor } from '#/src/batch-interceptor'
 import { ClientRequestInterceptor } from '#/src/interceptors/ClientRequest'
 import { FetchInterceptor } from '#/src/interceptors/fetch/node'
@@ -105,8 +107,22 @@ it('intercepts a request sent over the socket undici reopens for an aborted requ
     controller.respondWith(new Response('mocked'))
   })
 
+  /**
+   * @note Track the connections undici opens to this origin. The
+   * origin is unique to this test so no idle connection from the
+   * previous tests can serve the requests below instead.
+   */
+  const sockets = new Set<net.Socket>()
+  const realSocketConnect = net.Socket.prototype.connect
+  using _ = vi
+    .spyOn(net.Socket.prototype, 'connect')
+    .mockImplementation(function (this: net.Socket, ...args) {
+      sockets.add(this)
+      return Reflect.apply(realSocketConnect, this, args)
+    })
+
   const abortController = new AbortController()
-  const abortedRequestPromise = fetch('http://example.test/slow', {
+  const abortedRequestPromise = fetch('http://reopened.example.test/slow', {
     signal: abortController.signal,
   }).then<Error>(
     () => expect.fail('must not return any response'),
@@ -116,9 +132,10 @@ it('intercepts a request sent over the socket undici reopens for an aborted requ
   await vi.waitFor(() => {
     expect(requestListener).toHaveBeenCalledWith(
       'GET',
-      'http://example.test/slow'
+      'http://reopened.example.test/slow'
     )
   })
+  expect(sockets.size).toBe(1)
 
   /**
    * @note On abort, undici destroys the socket, re-queues the aborted
@@ -131,17 +148,34 @@ it('intercepts a request sent over the socket undici reopens for an aborted requ
     'name',
     'AbortError'
   )
-  await setImmediate()
-  await setImmediate()
-  await setImmediate()
+  await vi.waitFor(() => {
+    expect(sockets.size).toBe(2)
+  })
 
-  const response = await fetch('http://example.test/resource', {
+  const [, reopenedSocket] = Array.from(sockets)
+
+  if (reopenedSocket.connecting) {
+    await once(reopenedSocket, 'connect')
+  }
+
+  const reopenedSocketWrite = vi.spyOn(reopenedSocket, 'write')
+  const response = await fetch('http://reopened.example.test/resource', {
     method: 'POST',
   })
 
   expect(await response.text()).toBe('mocked')
   expect(requestListener).toHaveBeenCalledWith(
     'POST',
-    'http://example.test/resource'
+    'http://reopened.example.test/resource'
   )
+
+  // The request was written to the reopened socket, not to a new one.
+  expect.soft(sockets.size).toBe(2)
+  expect
+    .soft(
+      reopenedSocketWrite.mock.calls.some(([chunk]) => {
+        return String(chunk).startsWith('POST /resource HTTP/1.1')
+      })
+    )
+    .toBe(true)
 })
