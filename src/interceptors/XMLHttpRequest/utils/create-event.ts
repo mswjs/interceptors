@@ -20,7 +20,9 @@ export function createEvent(
   ]
 
   /**
-   * `ProgressEvent` is not supported in React Native.
+   * `ProgressEvent` is not supported in React Native. Its request
+   * (an "event-target-shim" target) dispatches any object with a
+   * "type", so the polyfill is dispatchable there.
    * @see https://github.com/mswjs/interceptors/issues/40
    */
   const ProgressEventClass = SUPPORTS_PROGRESS_EVENT
