@@ -725,6 +725,7 @@ export class TcpSocketController extends SocketController {
    */
   #handleWrite(args: Parameters<net.Socket['_writeGeneric']>): void {
     const data = args[1]
+    const encoding = args[2]
 
     logger.verbose('socket write (state: %d) %o', this.readyState, args)
 
@@ -758,7 +759,7 @@ export class TcpSocketController extends SocketController {
         ? this.socket._pendingData
         : []
 
-      unwrapPendingData(data, (chunk, chunkEncoding) => {
+      unwrapPendingData(data, encoding, (chunk, chunkEncoding) => {
         pendingData.push({ chunk, encoding: chunkEncoding })
       })
 
@@ -773,13 +774,13 @@ export class TcpSocketController extends SocketController {
         )
 
         process.nextTick(() => {
-          this.#push(data)
+          this.#push(data, encoding)
         })
       } else {
-        this.#push(data)
+        this.#push(data, encoding)
       }
     } else {
-      this.#push(data)
+      this.#push(data, encoding)
     }
 
     /**
@@ -981,17 +982,17 @@ export class TcpSocketController extends SocketController {
    * only for the interceptors to subscribe to "socket.on('data')"
    * before the data is actually written anywhere.
    */
-  #push = (data: net.Socket['_pendingData']) => {
+  #push = (data: net.Socket['_pendingData'], encoding?: BufferEncoding) => {
     if (data == null) {
       return
     }
 
     logger.verbose('server push %o', data)
 
-    unwrapPendingData(data, (chunk, encoding) => {
-      logger.verbose('server emitting "data" %o', { chunk, encoding })
+    unwrapPendingData(data, encoding, (chunk, chunkEncoding) => {
+      logger.verbose('server emitting "data" %o', { chunk, chunkEncoding })
 
-      this.socket.emit('internal:write', chunk, encoding)
+      this.socket.emit('internal:write', chunk, chunkEncoding)
     })
   }
 

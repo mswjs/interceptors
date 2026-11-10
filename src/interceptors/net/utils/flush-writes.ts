@@ -41,6 +41,7 @@ export function writePendingData(
 
 export function unwrapPendingData(
   data: NonNullable<net.Socket['_pendingData']>,
+  encoding: BufferEncoding | undefined,
   callback: (
     chunk: string | Buffer,
     encoding?: BufferEncoding,
@@ -52,6 +53,6 @@ export function unwrapPendingData(
       callback(entry.chunk, entry.encoding, entry.callback)
     }
   } else {
-    callback(data)
+    callback(data, encoding)
   }
 }
