@@ -59,18 +59,21 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     this.subscriptions.push(recordRawFetchHeaders())
 
     const controller = new AbortController()
-    this.subscriptions.push(() => controller.abort())
-
-    /**
-     * @note The client keeps idle sockets in its keep-alive pool
-     * (e.g. Undici) and writes its next requests to them. Once this
-     * source is disposed, nothing handles those requests: destroy the
-     * idle sockets and let the client connect anew. A request in
-     * flight finishes first. Passed-through sockets are exchanging
-     * with the real server and keep doing so: leave them intact.
-     */
     const idleSocketDisposals = new Set<() => void>()
+
     this.subscriptions.push(() => {
+      // Abort first: the sockets destroyed below close differently
+      // once this source is disposed (see "respondWith").
+      controller.abort()
+
+      /**
+       * @note The client keeps idle sockets in its keep-alive pool
+       * (e.g. Undici) and writes its next requests to them. Once this
+       * source is disposed, nothing handles those requests: destroy the
+       * idle sockets and let the client connect anew. A request in
+       * flight finishes first. Passed-through sockets are exchanging
+       * with the real server and keep doing so: leave them intact.
+       */
       for (const destroyIdleSocket of idleSocketDisposals) {
         destroyIdleSocket()
       }
@@ -348,6 +351,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
                           request: context.request,
                           response,
                           connectionRequestContext,
+                          signal: controller.signal,
                         })
                       } finally {
                         abortRespondedRequest = undefined
@@ -687,8 +691,10 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     request: Request
     response: Response
     connectionRequestContext: ReturnType<typeof requestContext.getStore>
+    signal: AbortSignal
   }): Promise<void> {
-    const { socket, request, response, connectionRequestContext } = args
+    const { socket, request, response, connectionRequestContext, signal } =
+      args
 
     if (socket.destroyed) {
       return
@@ -776,6 +782,8 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
       rawResponseHeaders
     )
 
+    let hasEndedSocket = false
+
     /**
      * @note Override the socket's `_destroy` before writing the response body.
      * The underlying TCP handle (from `socket.connect()`) makes `_destroy` async
@@ -814,6 +822,22 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
        * on `'close'`, like `http.ClientRequest`, hang).
        */
       const emitClose = () => this.emit('close', error != null)
+
+      /**
+       * @note A disposed source destroys its idle sockets. The client
+       * (e.g. Undici) learns that a pooled socket is gone from its
+       * "close" event alone: until then, it queues the next request
+       * for the dead socket and sends it only once it reconnects from
+       * its "close" listener, outside of the async context of that
+       * request. Emit "close" right away so the client never
+       * dispatches a request to the socket nobody handles. A socket
+       * that has been ended is not pooled, and its client is yet to
+       * observe the "end" that must precede the "close".
+       */
+      if (signal.aborted && error == null && !hasEndedSocket) {
+        emitClose()
+        return
+      }
 
       /**
        * @note Emit "close" within the request context the socket was
@@ -912,6 +936,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
        * as "complete" before the client can interact with it (e.g. `response.destroy()`).
        */
       await new Promise<void>((resolve) => process.nextTick(resolve))
+      hasEndedSocket = true
       socket.push(null)
     }
   }
