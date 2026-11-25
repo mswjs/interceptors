@@ -56,11 +56,6 @@ export class XMLHttpRequestController {
   private requestHeaders: Headers
   private responseBuffer: Uint8Array<ArrayBuffer>
   private redirectCount: number
-  private events: Map<keyof XMLHttpRequestEventTargetEventMap, Array<Function>>
-  private uploadEvents: Map<
-    keyof XMLHttpRequestEventTargetEventMap,
-    Array<Function>
-  >
 
   constructor(
     readonly initialRequest: XMLHttpRequest,
@@ -69,8 +64,6 @@ export class XMLHttpRequestController {
     this[kIsRequestHandled] = false
 
     this.redirectCount = 0
-    this.events = new Map()
-    this.uploadEvents = new Map()
     this.requestId = createRequestId()
     this.requestHeaders = new Headers()
     this.responseBuffer = new Uint8Array()
@@ -97,18 +90,6 @@ export class XMLHttpRequestController {
             }
 
             this.logger.verbose('open %s %s', this.method, this.url.href)
-
-            return invoke()
-          }
-
-          case 'addEventListener': {
-            const [eventName, listener] = args as [
-              keyof XMLHttpRequestEventTargetEventMap,
-              Function,
-            ]
-
-            this.registerEvent(eventName, listener)
-            this.logger.verbose('addEventListener', eventName, listener)
 
             return invoke()
           }
@@ -220,70 +201,6 @@ export class XMLHttpRequestController {
       },
     })
 
-    /**
-     * Proxy the `.upload` property to gather the event listeners/callbacks.
-     */
-    define(
-      this.request,
-      'upload',
-      createProxy(this.request.upload, {
-        setProperty: ([propertyName, nextValue], invoke) => {
-          switch (propertyName) {
-            case 'onloadstart':
-            case 'onprogress':
-            case 'onabort':
-            case 'onerror':
-            case 'onload':
-            case 'ontimeout':
-            case 'onloadend': {
-              const eventName = propertyName.slice(
-                2
-              ) as keyof XMLHttpRequestEventTargetEventMap
-
-              this.registerUploadEvent(eventName, nextValue as Function)
-            }
-          }
-
-          return invoke()
-        },
-        methodCall: ([methodName, args], invoke) => {
-          switch (methodName) {
-            case 'addEventListener': {
-              const [eventName, listener] = args as [
-                keyof XMLHttpRequestEventTargetEventMap,
-                Function,
-              ]
-              this.registerUploadEvent(eventName, listener)
-              this.logger.verbose('upload.addEventListener', eventName, listener)
-
-              return invoke()
-            }
-          }
-        },
-      })
-    )
-  }
-
-  private registerEvent(
-    eventName: keyof XMLHttpRequestEventTargetEventMap,
-    listener: Function
-  ): void {
-    const prevEvents = this.events.get(eventName) || []
-    const nextEvents = prevEvents.concat(listener)
-    this.events.set(eventName, nextEvents)
-
-    this.logger.verbose('registered event "%s"', eventName, listener)
-  }
-
-  private registerUploadEvent(
-    eventName: keyof XMLHttpRequestEventTargetEventMap,
-    listener: Function
-  ): void {
-    const prevEvents = this.uploadEvents.get(eventName) || []
-    const nextEvents = prevEvents.concat(listener)
-    this.uploadEvents.set(eventName, nextEvents)
-
-    this.logger.verbose('registered upload event "%s"', eventName, listener)
   }
 
   /**
@@ -830,7 +747,10 @@ export class XMLHttpRequestController {
   }
 
   /**
-   * Triggers given event on the `XMLHttpRequest` instance.
+   * Dispatches the given event on the `XMLHttpRequest` instance
+   * or its upload. The request is a genuine event target, so it
+   * notifies its own listeners and event handlers, honoring their
+   * registration state (e.g. removed listeners, replaced handlers).
    */
   private trigger<
     EventName extends keyof (XMLHttpRequestEventTargetEventMap & {
@@ -841,32 +761,8 @@ export class XMLHttpRequestController {
     target: XMLHttpRequest | XMLHttpRequestUpload,
     options?: ProgressEventInit
   ): void {
-    const callback = (target as XMLHttpRequest)[`on${eventName}`]
-    const event = createEvent(target, eventName, options)
-
     this.logger.verbose('trigger "%s"', eventName, options || '')
-
-    // Invoke direct callbacks.
-    if (typeof callback === 'function') {
-      this.logger.verbose('found a direct "%s" callback, calling...', eventName)
-      callback.call(target as XMLHttpRequest, event)
-    }
-
-    // Invoke event listeners.
-    const events =
-      target instanceof XMLHttpRequestUpload ? this.uploadEvents : this.events
-
-    for (const [registeredEventName, listeners] of events) {
-      if (registeredEventName === eventName) {
-        this.logger.verbose(
-          'found %d listener(s) for "%s" event, calling...',
-          listeners.length,
-          eventName
-        )
-
-        listeners.forEach((listener) => listener.call(target, event))
-      }
-    }
+    target.dispatchEvent(createEvent(target, eventName, options))
   }
 
   /**

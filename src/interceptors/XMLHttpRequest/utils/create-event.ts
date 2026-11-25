@@ -1,13 +1,14 @@
 import { EventPolyfill } from '../polyfills/event-polyfill'
 import { ProgressEventPolyfill } from '../polyfills/progress-event-polyfill'
 
+const SUPPORTS_EVENT = typeof Event !== 'undefined'
 const SUPPORTS_PROGRESS_EVENT = typeof ProgressEvent !== 'undefined'
 
 export function createEvent(
   target: XMLHttpRequest | XMLHttpRequestUpload,
   type: string,
   init?: ProgressEventInit
-): EventPolyfill | ProgressEvent {
+): Event | EventPolyfill | ProgressEvent {
   const progressEvents = [
     'error',
     'progress',
@@ -19,23 +20,34 @@ export function createEvent(
   ]
 
   /**
-   * `ProgressEvent` is not supported in React Native.
+   * `ProgressEvent` is not supported in React Native. Its request
+   * (an "event-target-shim" target) dispatches any object with a
+   * "type", so the polyfill is dispatchable there.
    * @see https://github.com/mswjs/interceptors/issues/40
    */
   const ProgressEventClass = SUPPORTS_PROGRESS_EVENT
     ? ProgressEvent
     : ProgressEventPolyfill
 
-  const event = progressEvents.includes(type)
-    ? new ProgressEventClass(type, {
-        lengthComputable: true,
-        loaded: init?.loaded || 0,
-        total: init?.total || 0,
-      })
-    : new EventPolyfill(type, {
-        target,
-        currentTarget: target,
-      })
+  if (progressEvents.includes(type)) {
+    return new ProgressEventClass(type, {
+      lengthComputable: true,
+      loaded: init?.loaded || 0,
+      total: init?.total || 0,
+    })
+  }
 
-  return event
+  /**
+   * @note The target dispatches the event itself, and a native
+   * event target (e.g. the browser's `XMLHttpRequest`) accepts
+   * only genuine `Event` instances.
+   */
+  if (SUPPORTS_EVENT) {
+    return new Event(type)
+  }
+
+  return new EventPolyfill(type, {
+    target,
+    currentTarget: target,
+  })
 }

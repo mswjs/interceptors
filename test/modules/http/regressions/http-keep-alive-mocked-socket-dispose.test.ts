@@ -1,5 +1,6 @@
 // @vitest-environment node
 import net from 'node:net'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { once } from 'node:events'
 import { Agent, fetch } from 'undici'
 import { createTestHttpServer } from '@epic-web/test-server/http'
@@ -53,6 +54,63 @@ it('destroys the idle mocked keep-alive connections when disposed', async () => 
     })
     .toBe(0)
 })
+
+it.each(['http', 'https'])(
+  'handles a %s request dispatched right after re-applying in its own async context',
+  async (protocol) => {
+    const asyncContext = new AsyncLocalStorage<string>()
+    const url = `${protocol}://localhost/resource`
+
+    interceptor.apply()
+    interceptor.on('request', ({ controller }) => {
+      controller.respondWith(
+        new Response('mocked', {
+          headers: { 'content-length': '6' },
+        })
+      )
+    })
+
+    const agent = new Agent()
+    onTestFinished(() => agent.close())
+
+    await asyncContext.run('first', async () => {
+      const response = await fetch(url, { dispatcher: agent })
+      await expect(response.text()).resolves.toBe('mocked')
+    })
+    await expect
+      .poll(() => getConnectionStats(agent, new URL(url).origin)?.free, {
+        message: 'the agent keeps the mocked connection alive',
+      })
+      .toBe(1)
+
+    asyncContext.run('dispose', () => {
+      interceptor.dispose()
+      interceptor.apply()
+    })
+
+    const requestListener = vi.fn<(context: string | undefined) => void>()
+    interceptor.on('request', ({ controller }) => {
+      requestListener(asyncContext.getStore())
+      controller.respondWith(
+        new Response('mocked', {
+          headers: { 'content-length': '6' },
+        })
+      )
+    })
+
+    /**
+     * @note Dispatch the request synchronously after the dispose,
+     * before the client had a chance to learn that its idle
+     * connection is gone.
+     */
+    const response = await asyncContext.run('second', () => {
+      return fetch(url, { dispatcher: agent })
+    })
+    await expect(response.text()).resolves.toBe('mocked')
+
+    expect(requestListener).toHaveBeenCalledExactlyOnceWith('second')
+  }
+)
 
 it('finishes a mocked request in flight when disposed', async () => {
   interceptor.apply()
