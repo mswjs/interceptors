@@ -50,7 +50,11 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
     this.subscriptions.push(
       patchesRegistry.applyPatch(globalThis, 'fetch', (realFetch) => {
-        return (input, init) => {
+        /**
+         * @note Keep this function async so that the exceptions thrown
+         * on invalid request arguments reject the returned promise.
+         */
+        return async (input, init) => {
           /**
            * Resolve potentially relative request URL against the present `location`.
            * This is mainly for native `fetch` in browser-like environments.
