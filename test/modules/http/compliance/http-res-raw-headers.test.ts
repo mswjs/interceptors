@@ -195,6 +195,48 @@ it('preserves raw response headers (standalone Headers)', async () => {
   })
 })
 
+/**
+ * @see https://github.com/mswjs/interceptors/issues/907
+ */
+it('writes the mocked response headers as a flat list', async () => {
+  using writeHead = vi.spyOn(http.ServerResponse.prototype, 'writeHead')
+
+  interceptor.on('request', ({ controller }) => {
+    controller.respondWith(
+      new Response(null, {
+        headers: [
+          ['X-CustoM-HeadeR', 'Yes'],
+          ['Set-Cookie', 'a=1'],
+          ['Set-Cookie', 'b=2'],
+        ],
+      })
+    )
+  })
+
+  const request = http.get(httpServer.http.url('/resource').href)
+  const [response, rawResponse] = await toWebResponse(request)
+
+  expect(writeHead).toHaveBeenCalledWith(200, 'OK', [
+    'X-CustoM-HeadeR',
+    'Yes',
+    'Set-Cookie',
+    'a=1',
+    'Set-Cookie',
+    'b=2',
+  ])
+  expect(rawResponse.rawHeaders).toEqual(
+    expect.arrayContaining([
+      'X-CustoM-HeadeR',
+      'Yes',
+      'Set-Cookie',
+      'a=1',
+      'Set-Cookie',
+      'b=2',
+    ])
+  )
+  expect(response.headers.getSetCookie()).toEqual(['a=1', 'b=2'])
+})
+
 it('preserves raw response headers for unmocked request', async () => {
   const request = http.get(httpServer.http.url('/resource').href)
   const [response, rawResponse] = await toWebResponse(request)

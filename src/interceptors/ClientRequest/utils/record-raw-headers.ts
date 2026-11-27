@@ -163,7 +163,7 @@ export function recordRawFetchHeaders(): () => void {
         if (!Reflect.has(headers, kRawHeaders)) {
           // A Headers instance is copied through its iteration (see above).
           const rawHeadersInit = Array.isArray(headersInit)
-            ? headersInit
+            ? [...headersInit]
             : headersInit instanceof Headers
               ? Array.from(headersInit)
               : Object.entries(headersInit)
