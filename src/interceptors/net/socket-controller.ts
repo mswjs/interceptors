@@ -741,6 +741,17 @@ export class TcpSocketController extends SocketController {
     logger.verbose('socket write (state: %d) %o', this.readyState, args)
 
     /**
+     * @note An empty write carries no bytes for any exchange (e.g.
+     * `http.ClientRequest` flushes the socket with an empty write when
+     * ending a request whose body is already written). Complete it
+     * as-is so it never opens the next exchange on a kept-alive socket.
+     */
+    if (data.length === 0) {
+      this.#acknowledgeWrite(args)
+      return
+    }
+
+    /**
      * @note A scheduled reset marks the boundary of the previous
      * exchange (see "scheduleReset"). This write is the first one past
      * the boundary; reset before dispatching so it opens the next
