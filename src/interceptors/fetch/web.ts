@@ -163,7 +163,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                     return
                   }
 
-                  if (request.redirect === 'follow') {
+                  /**
+                   * @note A redirect response without the "location" header
+                   * has nowhere to redirect to and is returned as-is.
+                   * @see https://fetch.spec.whatwg.org/#http-redirect-fetch
+                   */
+                  if (
+                    request.redirect === 'follow' &&
+                    response.headers.has('location')
+                  ) {
                     followFetchRedirect(request, response).then(
                       (response) => {
                         responsePromise.resolve(response)
