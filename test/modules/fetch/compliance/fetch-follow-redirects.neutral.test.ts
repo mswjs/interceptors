@@ -123,6 +123,53 @@ it('returns the redirect response as-is for a request with "manual" redirect mod
   )
 })
 
+/**
+ * @see https://github.com/mswjs/interceptors/issues/906
+ */
+it('returns the redirect response without the "location" header as-is', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.url.endsWith('/original')) {
+      return controller.respondWith(
+        new Response(null, {
+          status: 308,
+          headers: { range: 'bytes=0-3' },
+        })
+      )
+    }
+  })
+
+  const response = await fetch(server.http.url('/original'))
+
+  expect(response.status).toBe(308)
+  expect(response.redirected).toBe(false)
+  expect(response.headers.get('range')).toBe('bytes=0-3')
+})
+
+/**
+ * @see https://github.com/mswjs/interceptors/issues/906
+ */
+it('returns the redirect response without the "location" header as-is for a request with a body', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.url.endsWith('/original')) {
+      return controller.respondWith(
+        new Response(null, {
+          status: 308,
+          headers: { range: 'bytes=0-3' },
+        })
+      )
+    }
+  })
+
+  const response = await fetch(server.http.url('/original'), {
+    method: 'PUT',
+    body: 'abcd',
+  })
+
+  expect(response.status).toBe(308)
+  expect(response.redirected).toBe(false)
+  expect(response.headers.get('range')).toBe('bytes=0-3')
+})
+
 it('throws a network error on a redirect for a request with "error" redirect mode', async ({
   task,
 }) => {
