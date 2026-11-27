@@ -159,14 +159,31 @@ export class SocketInterceptor extends Interceptor<SocketEventMap> {
      */
     const layeredTransports = new WeakMap<tls.TLSSocket, TcpSocketController>()
 
+    /**
+     * @note The connections awaiting their "connection" event (see
+     * "interceptConnection"). Once this interceptor is disposed, nothing
+     * handles them anymore, and the absence of listeners must not pass
+     * them through: the interceptor owned them, so it closes them.
+     */
+    const pendingSockets = new Set<net.Socket>()
+    this.subscriptions.push(() => {
+      for (const socket of pendingSockets) {
+        socket.destroy()
+      }
+      pendingSockets.clear()
+    })
+
     const interceptConnection = (
       socket: net.Socket,
       controller: TcpSocketController,
       connectionOptions: NetworkConnectionOptions
     ): void => {
       socketControllers.set(socket, controller)
+      pendingSockets.add(socket)
 
       process.nextTick(async () => {
+        pendingSockets.delete(socket)
+
         if (socket.destroyed) {
           return
         }
