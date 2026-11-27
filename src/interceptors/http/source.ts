@@ -779,7 +779,7 @@ export class NodeHttpRequestSource extends Interceptor<HttpRequestEventMap> {
     serverResponse.writeHead(
       response.status,
       response.statusText || STATUS_CODES[response.status],
-      rawResponseHeaders
+      rawResponseHeaders.flat()
     )
 
     let hasEndedSocket = false

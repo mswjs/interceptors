@@ -64,8 +64,8 @@ function wrapResponse(
   const wrappedResponse = new FetchResponse(stream, response)
   copyRawHeaders(response.headers, wrappedResponse.headers)
   Object.defineProperties(wrappedResponse, {
-    type: { value: response.type },
-    redirected: { value: response.redirected },
+    type: { value: response.type, configurable: true },
+    redirected: { value: response.redirected, configurable: true },
   })
 
   return { response: wrappedResponse, cancel }

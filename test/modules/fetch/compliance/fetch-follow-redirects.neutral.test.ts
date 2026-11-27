@@ -79,6 +79,30 @@ it('follows a mocked redirect to a mocked response', async () => {
   await expect(response.text()).resolves.toBe('mocked response')
 })
 
+/**
+ * @see https://github.com/mswjs/interceptors/issues/911
+ */
+it('follows a mocked redirect to a mocked response with a response listener', async () => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.url.endsWith('/original')) {
+      return controller.respondWith(
+        Response.redirect(server.http.url('/redirect/destination'), 302)
+      )
+    }
+
+    if (request.url.endsWith('/redirect/destination')) {
+      return controller.respondWith(new Response('mocked response'))
+    }
+  })
+  interceptor.on('response', () => {})
+
+  const response = await fetch(server.http.url('/original'))
+
+  expect(response.status).toBe(200)
+  expect(response.redirected).toBe(true)
+  await expect(response.text()).resolves.toBe('mocked response')
+})
+
 it('returns the redirect response as-is for a request with "manual" redirect mode', async () => {
   interceptor.on('request', ({ request, controller }) => {
     if (request.url.endsWith('/original')) {

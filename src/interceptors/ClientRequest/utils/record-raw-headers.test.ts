@@ -108,6 +108,24 @@ it('records raw headers added via ".append()"', () => {
   ])
 })
 
+/**
+ * @see https://github.com/mswjs/interceptors/issues/909
+ */
+it('does not modify the array used as init when adding headers', () => {
+  recordRawFetchHeaders()
+  const headersInit: Array<[string, string]> = [['X-My-Header', '1']]
+  const headers = new Headers(headersInit)
+  headers.set('X-Another-Header', '2')
+  headers.append('X-My-Header', '3')
+
+  expect(headersInit).toEqual([['X-My-Header', '1']])
+  expect(getRawFetchHeaders(headers)).toEqual([
+    ['X-My-Header', '1'],
+    ['X-Another-Header', '2'],
+    ['X-My-Header', '3'],
+  ])
+})
+
 it('deletes the header when called ".delete()"', () => {
   const headers = new Headers([['X-My-Header', '1']])
   headers.delete('X-My-Header')
