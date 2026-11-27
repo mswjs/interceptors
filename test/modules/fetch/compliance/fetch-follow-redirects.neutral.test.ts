@@ -190,6 +190,24 @@ it('throws a network error on a redirect for a request with "error" redirect mod
   )
 })
 
+it('throws a network error on a redirect without the "location" header for a request with "error" redirect mode', async ({
+  task,
+}) => {
+  interceptor.on('request', ({ request, controller }) => {
+    if (request.url.endsWith('/original')) {
+      return controller.respondWith(new Response(null, { status: 308 }))
+    }
+  })
+
+  await expect(
+    fetch(server.http.url('/original'), {
+      redirect: 'error',
+    })
+  ).rejects.toThrow(
+    task.file.projectName === 'browser' ? 'Failed to fetch' : 'fetch failed'
+  )
+})
+
 /**
  * @note Per the Fetch specification, following a redirect results in
  * a network error only if the request body cannot be re-read

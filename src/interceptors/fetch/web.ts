@@ -152,15 +152,8 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                  * Treat the "manual" redirect mode as a regular mocked response.
                  * This way, the client can manually follow the redirect it receives.
                  * @see https://github.com/nodejs/undici/blob/a6dac3149c505b58d2e6d068b97f4dc993da55f0/lib/web/fetch/index.js#L1173
-                 *
-                 * @note A redirect response without the "location" header
-                 * has nowhere to redirect to and is returned as-is.
-                 * @see https://fetch.spec.whatwg.org/#http-redirect-fetch
                  */
-                if (
-                  FetchResponse.isRedirectResponse(response.status) &&
-                  response.headers.has('location')
-                ) {
+                if (FetchResponse.isRedirectResponse(response.status)) {
                   // Reject the request promise if its `redirect` is set to `error`
                   // and it receives a mocked redirect response.
                   if (request.redirect === 'error') {
@@ -170,7 +163,15 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                     return
                   }
 
-                  if (request.redirect === 'follow') {
+                  /**
+                   * @note A redirect response without the "location" header
+                   * has nowhere to redirect to and is returned as-is.
+                   * @see https://fetch.spec.whatwg.org/#http-redirect-fetch
+                   */
+                  if (
+                    request.redirect === 'follow' &&
+                    response.headers.has('location')
+                  ) {
                     followFetchRedirect(request, response).then(
                       (response) => {
                         responsePromise.resolve(response)
